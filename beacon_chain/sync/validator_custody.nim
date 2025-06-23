@@ -15,7 +15,7 @@ import
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
   ../consensus_object_pools/block_dag,
-  ../consensus_object_pools/data_column_quarantine,
+  ../consensus_object_pools/blob_quarantine,
   "."/[request_manager, sync_manager, sync_protocol]
 
 from std/algorithm import sort
@@ -41,7 +41,7 @@ type
     requested_columns*: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
-    dataColumnQuarantine: ref DataColumnQuarantine
+    dataColumnQuarantine: ref ColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
 
   ValidatorCustodyRef* = ref ValidatorCustody
@@ -53,7 +53,7 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
            older_column_set: HashSet[ColumnIndex],
            getBeaconTime: GetBeaconTimeFn,
            inhibit: InhibitFn,
-           dataColumnQuarantine: ref DataColumnQuarantine): ValidatorCustodyRef =
+           dataColumnQuarantine: ref ColumnQuarantine): ValidatorCustodyRef =
   let localHeadSlot = getLocalHeadSlotCb
   (ValidatorCustodyRef)(
     network: network,
@@ -81,16 +81,17 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
             vcus.network.nodeId,
             max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
             vcustody))
-        newer_column_set = newer_columns.toHashSet()
 
       # update data column quarantine custody requirements
+      var sortedColumns = newer_columns.toSeq()
+      sort(sortedColumns)
       vcus.dataColumnQuarantine[].custody_columns =
-        newer_columns
+        sortedColumns
 
       # check which custody set is larger
-      if newer_column_set.len > vcus.older_column_set.len:
-        diff_set = newer_column_set.difference(vcus.older_column_set)
-      vcus.newer_column_set = newer_column_set
+      if newer_columns.len > vcus.older_column_set.len:
+        diff_set = newer_columns.difference(vcus.older_column_set)
+      vcus.newer_column_set = newer_columns
 
   toSeq(diff_set)
 
@@ -160,23 +161,24 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
-      if not checkColumnResponse(colIdList, ucolumns):
+      let records = checkColumnResponse(colIdList, ucolumns).valueOr:
         debug "Response to columns by root is not a subset",
           peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
         peer.updateScore(PeerScoreBadResponse)
         return
-      for col in ucolumns:
+
+      for col in records:
         let
           block_root =
-            hash_tree_root(col[].signed_block_header.message)
+            hash_tree_root(col.block_root)
           exclude =
             DataColumnIdentifier(block_root: block_root,
-                                 index: col[].index)
+                                 index: col.sidecar.index)
         vcus.global_refill_list.excl(exclude)
         # write new columns to database, no need of BlockVerifier
         # in this scenario as the columns historically did pass DA,
         # and did meet the historical custody requirements
-        vcus.dag.db.putDataColumnSidecar(col[])
+        vcus.dag.db.putDataColumnSidecar(col.sidecar[])
 
     else:
       debug "Data columns by root request not done, peer doesn't have custody column",

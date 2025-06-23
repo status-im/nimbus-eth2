@@ -579,7 +579,7 @@ proc initFullNode(
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, supernode,
-      getLocalHeadSlot, custody_columns_set, getBeaconTime,
+      getLocalHeadSlot, custodyColumns, getBeaconTime,
       (proc(): bool = syncManager.inProgress), dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a

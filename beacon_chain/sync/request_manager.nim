@@ -65,9 +65,9 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
-  DataColumnResponseRecord = object
-    block_root: Eth2Digest
-    sidecar: ref DataColumnSidecar
+  DataColumnResponseRecord* = object
+    block_root*: Eth2Digest
+    sidecar*: ref DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -172,9 +172,9 @@ func checkResponseSanity(
 
   Opt.some(records)
 
-func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
-                    columns: openArray[ref DataColumnSidecar]):
-                    Opt[seq[DataColumnResponseRecord]] =
+func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
+                          columns: openArray[ref DataColumnSidecar]):
+                          Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
