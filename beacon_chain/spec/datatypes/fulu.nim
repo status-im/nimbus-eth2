@@ -137,7 +137,6 @@ type
     attnets*: AttnetBits
     syncnets*: SyncnetBits
     custody_group_count*: uint64
-    next_fork_digest*: ForkDigest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object

@@ -176,7 +176,7 @@ p2pProtocol PeerSync(version = 1,
     altair_metadata
 
   proc getMetadata_v3(peer: Peer): fulu.MetaData
-    {. libp2pProtocol("metadata", 3).} =
+    {.libp2pProtocol("metadata", 3).} =
     peer.network.metadata
 
   proc goodbye(peer: Peer, reason: uint64) {.

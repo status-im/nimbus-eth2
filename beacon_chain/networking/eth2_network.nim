@@ -79,6 +79,7 @@ type
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
     forkDigests*: ref ForkDigests
+    nextForkDigest: ForkDigest
     rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     directPeers*: DirectPeers
@@ -2704,11 +2705,11 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
 
 proc updateNextForkDigest(node: Eth2Node, next_fork_digest: ForkDigest) =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
-  if node.metadata.next_fork_digest == next_fork_digest:
+  if node.nextForkDigest == next_fork_digest:
     return
 
   node.metadata.seq_number += 1
-  node.metadata.next_fork_digest = next_fork_digest
+  node.nextForkDigest = next_fork_digest
 
   let res = node.discovery.updateRecord({
     enrNextForkDigestField: SSZ.encode(next_fork_digest)
