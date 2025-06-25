@@ -425,7 +425,7 @@ proc getPayloadFromSingleEL(
 
       if response.payloadStatus.status != PayloadExecutionStatus.valid or
          response.payloadId.isNone:
-        raise newException(CatchableError, "Head block is not a valid payload")
+        raise newException(CatchableError, "Head block is not a valid payload; " & $response)
 
       # Give the EL some time to assemble the block
       await sleepAsync(chronos.milliseconds 500)
