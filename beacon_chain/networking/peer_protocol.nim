@@ -26,6 +26,7 @@ type
     headRoot*: Eth2Digest
     headSlot*: Slot
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#status-v2
   StatusMsgV2* = object
     forkDigest*: ForkDigest
     finalizedRoot*: Eth2Digest
