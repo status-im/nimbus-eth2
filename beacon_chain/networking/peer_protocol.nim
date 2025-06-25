@@ -300,6 +300,7 @@ proc handleStatusV2(peer: Peer,
 
   return if res.isErr():
     debug "Irrelevant peer", peer, theirStatus, err = res.error()
+    # No disconnection for not supporting statusV2 for now, in devnets
     #await peer.disconnect(IrrelevantNetwork)
     false
   else:
