@@ -34,7 +34,6 @@ type
     headSlot*: Slot
     earliestAvailableSlot*: Slot
 
-
   PeerSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
