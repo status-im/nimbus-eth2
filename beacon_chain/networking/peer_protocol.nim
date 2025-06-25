@@ -172,9 +172,6 @@ proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
                   theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
 
-proc handleStatusV2(peer: Peer,
-                   state: PeerSyncNetworkState,
-                   theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
 
 {.pop.} # TODO fix p2p macro for raises
 
@@ -201,7 +198,6 @@ p2pProtocol PeerSync(version = 1,
       ourStatus = peer.networkState.getCurrentStatus()
       theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
       ourStatusV2 = peer.networkState.getCurrentStatusV2()
-      theirStatusV2 = await peer.statusV2(ourStatusV2, timeout = RESP_TIMEOUT_DUR)
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())
@@ -211,14 +207,6 @@ p2pProtocol PeerSync(version = 1,
             peer, errorKind = theirStatus.error.kind
       await peer.disconnect(FaultOrError)
 
-    if theirStatusV2.isOk:
-      discard await peer.handleStatusV2(peer.networkState, theirStatusV2.get())
-    else:
-      debug "StatusV2 response not received in time",
-            peer, errorKind = theirStatusV2.error.kind
-      # No disconnection for not supporting statusV2 for now, in devnets
-      #await peer.disconnect(FaultOrError)
-
   proc status(peer: Peer,
               theirStatus: StatusMsg,
               response: SingleChunkResponse[StatusMsg])
@@ -227,15 +215,6 @@ p2pProtocol PeerSync(version = 1,
     trace "Sending status message", peer = peer, status = ourStatus
     await response.send(ourStatus)
     discard await peer.handleStatus(peer.networkState, theirStatus)
-
-  proc statusV2(peer: Peer,
-                theirStatusV2: StatusMsgV2,
-                response: SingleChunkResponse[StatusMsgV2])
-    {.async, libp2pProtocol("status", 2).} =
-    let ourStatusV2 = peer.networkState.getCurrentStatusV2()
-    trace "Sending statusV2 message", peer = peer, statusV2 = ourStatusV2
-    await response.send(ourStatusV2)
-    discard await peer.handleStatusV2(peer.networkState, theirStatusV2)
 
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
@@ -284,27 +263,6 @@ proc handleStatus(peer: Peer,
     false
   else:
     peer.setStatusMsg(theirStatus)
-
-    if peer.connectionState == Connecting:
-      # As soon as we get here it means that we passed handshake succesfully. So
-      # we can add this peer to PeerPool.
-      await peer.handlePeer()
-    true
-
-proc handleStatusV2(peer: Peer,
-                    state: PeerSyncNetworkState,
-                    theirStatus: StatusMsgV2): Future[bool]
-                    {.async: (raises: [CancelledError]).} =
-  let
-    res = checkStatusMsg(state, theirStatus)
-
-  return if res.isErr():
-    debug "Irrelevant peer", peer, theirStatus, err = res.error()
-    # No disconnection for not supporting statusV2 for now, in devnets
-    #await peer.disconnect(IrrelevantNetwork)
-    false
-  else:
-    peer.setStatusV2Msg(theirStatus)
 
     if peer.connectionState == Connecting:
       # As soon as we get here it means that we passed handshake succesfully. So
