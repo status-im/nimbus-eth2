@@ -123,7 +123,7 @@ proc getCurrentStatusV2(state: PeerSyncNetworkState): StatusMsgV2 =
       finalizedEpoch: dag.finalizedHead.slot.epoch,
       headRoot: dag.head.root,
       headSlot: dag.head.slot,
-      earliestAvailableSlot: dag.backfill.slot)
+      earliestAvailableSlot: dag.earliestAvailableSlot())
   else:
     StatusMsgV2(
       forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
