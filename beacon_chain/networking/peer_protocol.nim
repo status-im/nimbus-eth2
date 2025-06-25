@@ -173,8 +173,8 @@ proc handleStatus(peer: Peer,
                   theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
 
 proc handleStatusV2(peer: Peer,
-                  state: PeerSyncNetworkState,
-                  theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
+                   state: PeerSyncNetworkState,
+                   theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
 
 {.pop.} # TODO fix p2p macro for raises
 
@@ -292,9 +292,9 @@ proc handleStatus(peer: Peer,
     true
 
 proc handleStatusV2(peer: Peer,
-                   state: PeerSyncNetworkState,
-                   theirStatus: StatusMsgV2): Future[bool]
-                   {.async: (raises: [CancelledError]).} =
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsgV2): Future[bool]
+                    {.async: (raises: [CancelledError]).} =
   let
     res = checkStatusMsg(state, theirStatus)
 
