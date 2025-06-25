@@ -798,6 +798,7 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
+<<<<<<< column-syncer
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
     state: var fulu.BeaconState,
@@ -860,9 +861,12 @@ proc process_sync_aggregate*(
 
   ok(total_proposer_reward)
 
+=======
+>>>>>>> unstable
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+                fulu.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:
