@@ -103,7 +103,7 @@ proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
       headRoot: state.genesisBlockRoot,
       headSlot: GENESIS_SLOT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#status
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#status-v2
 proc getCurrentStatusV2(state: PeerSyncNetworkState): StatusMsgV2 =
   let
     dag = state.dag
