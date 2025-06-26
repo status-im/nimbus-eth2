@@ -1723,7 +1723,7 @@ func compute_fork_digest_fulu*(
   bpo_buf[8 .. 15] = toBytesLE(blob_parameters.MAX_BLOBS_PER_BLOCK)
   let bpo_digest = eth2digest(bpo_buf)
   var res: array[4, byte]
-  for i in 0 ..< 3:
+  for i in 0 ..< static(len(res)):
     res[i] = base_digest.data[i] xor bpo_digest.data[i]
   ForkDigest(res)
 

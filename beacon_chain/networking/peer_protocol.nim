@@ -26,6 +26,15 @@ type
     headRoot*: Eth2Digest
     headSlot*: Slot
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#status-v2
+  StatusMsgV2* = object
+    forkDigest*: ForkDigest
+    finalizedRoot*: Eth2Digest
+    finalizedEpoch*: Epoch
+    headRoot*: Eth2Digest
+    headSlot*: Slot
+    earliestAvailableSlot*: Slot
+
   PeerSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
@@ -36,6 +45,7 @@ type
   PeerSyncPeerState* {.final.} = ref object of RootObj
     statusLastTime: chronos.Moment
     statusMsg: StatusMsg
+    statusMsgV2: StatusMsgV2
 
 declareCounter nbc_disconnects_count,
   "Number disconnected peers", labels = ["agent", "reason"]
@@ -49,6 +59,17 @@ func shortLog*(s: StatusMsg): auto =
     headSlot: shortLog(s.headSlot)
   )
 chronicles.formatIt(StatusMsg): shortLog(it)
+
+func shortLog*(s: StatusMsgV2): auto =
+  (
+    forkDigest: s.forkDigest,
+    finalizedRoot: shortLog(s.finalizedRoot),
+    finalizedEpoch: shortLog(s.finalizedEpoch),
+    headRoot: shortLog(s.headRoot),
+    headSlot: shortLog(s.headSlot),
+    earliestAvailableSlot: shortLog(s.earliestAvailableSlot)
+  )
+chronicles.formatIt(StatusMsgV2): shortLog(it)
 
 func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
@@ -83,7 +104,38 @@ proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
       headRoot: state.genesisBlockRoot,
       headSlot: GENESIS_SLOT)
 
-proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg):
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#status-v2
+proc getCurrentStatusV2(state: PeerSyncNetworkState): StatusMsgV2 =
+  let
+    dag = state.dag
+    wallSlot = state.getBeaconTime().slotOrZero
+
+  if dag != nil:
+    StatusMsgV2(
+      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      finalizedRoot:
+        (if dag.finalizedHead.slot.epoch != GENESIS_EPOCH:
+           dag.finalizedHead.blck.root
+         else:
+           # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
+           # checkpoint
+           ZERO_HASH),
+      finalizedEpoch: dag.finalizedHead.slot.epoch,
+      headRoot: dag.head.root,
+      headSlot: dag.head.slot,
+      earliestAvailableSlot: dag.earliestAvailableSlot())
+  else:
+    StatusMsgV2(
+      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
+      # checkpoint
+      finalizedRoot: ZERO_HASH,
+      finalizedEpoch: GENESIS_EPOCH,
+      headRoot: state.genesisBlockRoot,
+      headSlot: GENESIS_SLOT,
+      earliestAvailableSlot: GENESIS_SLOT)
+
+proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2):
     Result[void, cstring] =
   let
     dag = state.dag
@@ -121,6 +173,7 @@ proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
                   theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
 
+
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol PeerSync(version = 1,
@@ -145,6 +198,7 @@ p2pProtocol PeerSync(version = 1,
     let
       ourStatus = peer.networkState.getCurrentStatus()
       theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
+      ourStatusV2 = peer.networkState.getCurrentStatusV2()
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())
@@ -190,6 +244,11 @@ p2pProtocol PeerSync(version = 1,
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
   peer.state(PeerSync).statusMsg = statusMsg
+  peer.state(PeerSync).statusLastTime = Moment.now()
+
+proc setStatusV2Msg(peer: Peer, statusMsg: StatusMsgV2) =
+  debug "Peer statusV2", peer, statusMsg
+  peer.state(PeerSync).statusMsgV2 = statusMsg
   peer.state(PeerSync).statusLastTime = Moment.now()
 
 proc handleStatus(peer: Peer,

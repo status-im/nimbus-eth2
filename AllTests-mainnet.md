@@ -204,6 +204,12 @@ AllTests-mainnet
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
+## EF - Fulu - BPO forkdigests
+```diff
++ Different fork versions                                                                    OK
++ Different genesis validators roots                                                         OK
++ Different lengths and blob limits                                                          OK
+```
 ## EF - KZG
 ```diff
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_0                  OK
