@@ -1752,7 +1752,8 @@ func init*(T: type ForkDigests,
     electra:
       compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root),
     fulu:
-      compute_fork_digest(cfg.FULU_FORK_VERSION, genesis_validators_root),
+      compute_fork_digest_fulu(
+        cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH),
     bpos: mapIt(
       cfg.BLOB_SCHEDULE,
       (
