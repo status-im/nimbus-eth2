@@ -131,6 +131,10 @@ type
 
     era*: EraDB
 
+    eaSlot*: Slot
+      ## Earliest available slot is the earliest slot at which the BN can
+      ## guarantee serving blocks with sidecars.
+
     validatorMonitor*: ref ValidatorMonitor
 
     forkBlocks*: HashSet[KeyedBlockRef]

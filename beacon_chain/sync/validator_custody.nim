@@ -199,12 +199,14 @@ proc validatorCustodyColumnLoop(
     if diff.len == 0:
       # Validator custody same as previous interval
       continue
+    else:
+      # Report new custody column count to cgc and metadata
+      vcus.network.loadCgcnetMetadataAndEnr(CgcCount vcus.newer_column_set.lenu64)
 
     if vcus.inhibit():
       continue
 
     vcus.makeRefillList(diff)
-
     if vcus.global_refill_list.len != 0:
       debug "Requesting detected missing data columns for refill",
             columns = shortLog(vcus.requested_columns)
@@ -226,7 +228,7 @@ proc validatorCustodyColumnLoop(
       ## in ENR and metadata.
       if vcus.older_column_set.len != vcus.newer_column_set.len:
         # Newer cgc count can also drop from previous if validators detach
-        vcus.network.loadCgcnetMetadataAndEnr(CgcCount vcus.newer_column_set.lenu64)
+
         # Make the newer set older
         vcus.older_column_set = vcus.newer_column_set
         # Clear the newer for future validator custody detection
