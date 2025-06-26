@@ -173,20 +173,17 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
-type GossipState* = set[ConsensusFork]
-func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH, ELECTRA_FORK_EPOCH,  FULU_FORK_EPOCH: Epoch,
-    isBehind: bool):
+type GossipState* = HashSet[Epoch]
+func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     GossipState =
   if isBehind:
-    return {}
+    return HashSet[Epoch]()
 
-  doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
-  doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
-  doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
-  doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
-  doAssert FULU_FORK_EPOCH >= ELECTRA_FORK_EPOCH
+  doAssert cfg.BELLATRIX_FORK_EPOCH >= cfg.ALTAIR_FORK_EPOCH
+  doAssert cfg.CAPELLA_FORK_EPOCH >= cfg.BELLATRIX_FORK_EPOCH
+  doAssert cfg.DENEB_FORK_EPOCH >= cfg.CAPELLA_FORK_EPOCH
+  doAssert cfg.ELECTRA_FORK_EPOCH >= cfg.DENEB_FORK_EPOCH
+  doAssert cfg.FULU_FORK_EPOCH >= cfg.ELECTRA_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -194,32 +191,31 @@ func getTargetGossipState*(
   # theoretically possible networks are ill-defined regardless, and
   # consequently prohibited by checkForkConsistency(). Therefore, a
   # transitional epoch always exists, for every fork.
-  var targetForks: GossipState
+  var targetForkEpochs: GossipState
 
   template maybeIncludeFork(
-      targetFork: ConsensusFork, targetForkEpoch: Epoch,
-      successiveForkEpoch: Epoch) =
+      targetForkEpoch: Epoch, successiveForkEpoch: Epoch) =
     # Subscribe one epoch ahead
     if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
-      targetForks.incl targetFork
+      targetForkEpochs.incl targetForkEpoch
 
-  maybeIncludeFork(
-    ConsensusFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     ELECTRA_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FULU_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Fulu,      FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+  maybeIncludeFork(GENESIS_EPOCH,            cfg.ALTAIR_FORK_EPOCH)
+  maybeIncludeFork(cfg.ALTAIR_FORK_EPOCH,    cfg.BELLATRIX_FORK_EPOCH)
+  maybeIncludeFork(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
+  maybeIncludeFork(cfg.CAPELLA_FORK_EPOCH,   cfg.DENEB_FORK_EPOCH)
+  maybeIncludeFork(cfg.DENEB_FORK_EPOCH,     cfg.ELECTRA_FORK_EPOCH)
+  maybeIncludeFork(cfg.ELECTRA_FORK_EPOCH,   cfg.FULU_FORK_EPOCH)
+  maybeIncludeFork(cfg.FULU_FORK_EPOCH,      FAR_FUTURE_EPOCH)
+  var successorForkEpoch = FAR_FUTURE_EPOCH
+  for bpo in cfg.BLOB_SCHEDULE:
+    # Always in reverse, sorted order from high to low epochs
+    # TODO _should_ be ok to maybeInclude in this reverse order due to the
+    # epoch < successiveForkEpoch guard.
+    maybeIncludeFork(bpo.EPOCH, successorForkEpoch)
+    successorForkEpoch = bpo.EPOCH
 
-  doAssert len(targetForks) <= 2
-  targetForks
+  doAssert len(targetForkEpochs) <= 2
+  targetForkEpochs
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability
