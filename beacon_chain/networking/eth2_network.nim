@@ -2703,7 +2703,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
-proc updateNextForkDigest(node: Eth2Node, next_fork_digest: ForkDigest) =
+proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
