@@ -100,11 +100,9 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     slot = vcus.getLocalHeadSlot()
     dag = vcus.dag
 
-  if slot == dag.earliestAvailableSlot():
-    # Make earliest refilled slot go 18 days worth of slots behind
-    # in time to start refilling the excess custody columns
-    dag.erSlot =
-        dag.erSlot - (vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS * 12) - 1
+  # Make earliest refilled slot go upto head because everything
+  # behind is currently undergoing excess column refilling.
+  dag.erSlot = slot
 
   let dataColumnRefillEpoch = (slot.epoch -
                               vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
@@ -243,7 +241,6 @@ proc validatorCustodyColumnLoop(
         # Reset the earliest refilled slot and make the
         # earliest available slot tail.
         vcus.dag.erSlot = GENESIS_SLOT
-        discard vcus.dag.earliestAvailableSlot()
 
 proc start*(vcus: ValidatorCustodyRef) =
   ## Start Validator Custody detection loop
