@@ -680,6 +680,7 @@ AllTests-mainnet
 + Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
++ nextForkEpochAtEpoch with BPOs                                                             OK
 ```
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff

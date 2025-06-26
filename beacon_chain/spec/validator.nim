@@ -524,27 +524,13 @@ func get_beacon_proposer_indices*(
             shuffled_index, seq_len, epoch_shuffle_seed))
 
     res
-
-<<<<<<< column-syncer
-func get_beacon_proposer_indices*(
-    state: ForkyBeaconState,
-    epoch: Epoch
-): seq[Opt[ValidatorIndex]] =
-  ## Return the proposer indices for the given `epoch`.
-  let indices = get_active_validator_indices(state, epoch)
-  let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
-  return compute_proposer_indices(state, epoch, seed, indices)
-
-=======
   else:
     # Not using shuffled indices here is not a bug,
     # as the method of computing proposer in the below
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
-
->>>>>>> unstable
-proc initialize_proposer_lookahead*(state: electra.BeaconState,
+func initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
                                     HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
   let current_epoch = state.slot.epoch()
