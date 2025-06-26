@@ -1578,8 +1578,15 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   of ConsensusFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
+  ## Used to construct the eth2 field of ENRs
   case cfg.consensusForkAtEpoch(epoch)
-  of ConsensusFork.Fulu:      FAR_FUTURE_EPOCH
+  of ConsensusFork.Fulu:
+    var res = FAR_FUTURE_EPOCH
+    for entry in cfg.BLOB_SCHEDULE:
+      if epoch >= entry.EPOCH:
+        break
+      res = entry.EPOCH
+    res
   of ConsensusFork.Electra:   cfg.FULU_FORK_EPOCH
   of ConsensusFork.Deneb:     cfg.ELECTRA_FORK_EPOCH
   of ConsensusFork.Capella:   cfg.DENEB_FORK_EPOCH
@@ -1723,7 +1730,7 @@ func compute_fork_digest_fulu*(
   bpo_buf[8 .. 15] = toBytesLE(blob_parameters.MAX_BLOBS_PER_BLOCK)
   let bpo_digest = eth2digest(bpo_buf)
   var res: array[4, byte]
-  for i in 0 ..< 3:
+  for i in 0 ..< static(len(res)):
     res[i] = base_digest.data[i] xor bpo_digest.data[i]
   ForkDigest(res)
 
