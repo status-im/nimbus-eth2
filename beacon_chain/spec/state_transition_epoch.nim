@@ -1394,7 +1394,7 @@ func process_pending_consolidations*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
-proc process_proposer_lookahead*(state: var fulu.BeaconState,
+func process_proposer_lookahead*(state: var fulu.BeaconState,
                                  cache: var StateCache):
                                  Result[void, cstring] =
   let

@@ -326,3 +326,34 @@ suite "Honest validator":
           compute_inverted_shuffled_index(
             compute_shuffled_index(
               index, index_count, seed), index_count, seed) == index
+
+  test "nextForkEpochAtEpoch with BPOs":
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = 9.Epoch
+    cfg.FULU_FORK_EPOCH = 100.Epoch
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 300.Epoch, MAX_BLOBS_PER_BLOCK: 300),
+      BlobParameters(EPOCH: 250.Epoch, MAX_BLOBS_PER_BLOCK: 275),
+      BlobParameters(EPOCH: 200.Epoch, MAX_BLOBS_PER_BLOCK: 200),
+      BlobParameters(EPOCH: 150.Epoch, MAX_BLOBS_PER_BLOCK: 175),
+      BlobParameters(EPOCH: 100.Epoch, MAX_BLOBS_PER_BLOCK: 100),
+      BlobParameters(EPOCH: 9.Epoch, MAX_BLOBS_PER_BLOCK: 9)]
+    check:
+      cfg.nextForkEpochAtEpoch(9.Epoch) == 100.Epoch
+      cfg.nextForkEpochAtEpoch(10.Epoch) == 100.Epoch
+      cfg.nextForkEpochAtEpoch(11.Epoch) == 100.Epoch
+      cfg.nextForkEpochAtEpoch(99.Epoch) == 100.Epoch
+      cfg.nextForkEpochAtEpoch(100.Epoch) == 150.Epoch
+      cfg.nextForkEpochAtEpoch(101.Epoch) == 150.Epoch
+      cfg.nextForkEpochAtEpoch(150.Epoch) == 200.Epoch
+      cfg.nextForkEpochAtEpoch(199.Epoch) == 200.Epoch
+      cfg.nextForkEpochAtEpoch(200.Epoch) == 250.Epoch
+      cfg.nextForkEpochAtEpoch(201.Epoch) == 250.Epoch
+      cfg.nextForkEpochAtEpoch(250.Epoch) == 300.Epoch
+      cfg.nextForkEpochAtEpoch(299.Epoch) == 300.Epoch
+      cfg.nextForkEpochAtEpoch(300.Epoch) == FAR_FUTURE_EPOCH
+      cfg.nextForkEpochAtEpoch(301.Epoch) == FAR_FUTURE_EPOCH
