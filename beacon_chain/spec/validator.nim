@@ -532,7 +532,7 @@ func get_beacon_proposer_indices*(
     get_beacon_proposer_indices(state, epoch)
 
 
-proc initialize_proposer_lookahead*(state: electra.BeaconState,
+func initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
                                     HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
   let current_epoch = state.slot.epoch()

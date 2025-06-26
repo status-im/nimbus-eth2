@@ -953,7 +953,7 @@ proc proposeBlockMEV(
 func isExcludedTestnet(cfg: RuntimeConfig): bool =
   ## Ensure that builder API testing can still occur in certain circumstances.
   cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID in [
-    11155111'u64, 17000, 560048]  # Sepolia, Holesky, and Hoodi, respectively
+    17000'u64, 560048]  # Holesky and Hoodi, respectively
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
