@@ -98,14 +98,21 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   let
     slot = vcus.getLocalHeadSlot()
+    dag = vcus.dag
+
+  if slot == dag.earliestAvailableSlot():
+    # Make earliest refilled slot go 18 days worth of slots behind
+    # in time to start refilling the excess custody columns
+    dag.erSlot =
+        dag.erSlot - (vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS * 12) - 1
 
   let dataColumnRefillEpoch = (slot.epoch -
                               vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var blocks = newSeq[BlockId](slot.epoch().int)
     let startIndex = vcus.dag.getBlockRange(
-      dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..<SLOTS_PER_EPOCH:
+      dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, slot.epoch().int - 1))
+    for i in startIndex..<slot.epoch().int:
       let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
         # No need to check for fork version, as this loop is triggered post Fulu
@@ -233,6 +240,10 @@ proc validatorCustodyColumnLoop(
         vcus.older_column_set = vcus.newer_column_set
         # Clear the newer for future validator custody detection
         vcus.newer_column_set.clear()
+        # Reset the earliest refilled slot and make the
+        # earliest available slot tail.
+        vcus.dag.erSlot = GENESIS_SLOT
+        discard vcus.dag.earliestAvailableSlot()
 
 proc start*(vcus: ValidatorCustodyRef) =
   ## Start Validator Custody detection loop

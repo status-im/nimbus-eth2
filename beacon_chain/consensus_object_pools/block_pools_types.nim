@@ -135,6 +135,11 @@ type
       ## Earliest available slot is the earliest slot at which the BN can
       ## guarantee serving blocks with sidecars.
 
+    erSlot*: Slot
+      ## Earliest refilled slot is the earliest slot at which excess
+      ## DataColumnSidecar downloading starts, if erSlot = GENESIS_SLOT
+      ## we can deduce that validator custody is inactive.
+
     validatorMonitor*: ref ValidatorMonitor
 
     forkBlocks*: HashSet[KeyedBlockRef]
@@ -406,9 +411,14 @@ func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
       dag.backfill.slot != GENESIS_SLOT:
     # When the BN is backfilling, backfill slot is the earliest
     # persisted block.
+    dag.eaSlot = dag.backfill.slot
     dag.backfill.slot
+  elif dag.erSlot != GENESIS_SLOT:
+    dag.eaSlot = dag.erSlot
+    dag.erSlot
   else:
     # When the BN has backfilled, tail moves progressively.
+    dag.eaSlot = dag.tail.slot
     dag.tail.slot
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
