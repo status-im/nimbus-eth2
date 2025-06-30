@@ -25,7 +25,9 @@ from ../beacon_clock import GetBeaconTimeFn
 logScope: topics = "validator_custody"
 
 const
-    PARALLEL_REFILL_REQUESTS = 32
+  PARALLEL_REFILL_REQUESTS = 32
+  VALIDATOR_CUSTODY_POLL_INTERVAL = 384.seconds
+
 
 type
   InhibitFn = proc: bool {.gcsafe, raises: [].}
@@ -197,7 +199,7 @@ proc validatorCustodyColumnLoop(
   while true:
     let diff = vcus.detectNewValidatorCustody(cache)
 
-    await sleepAsync(POLL_INTERVAL)
+    await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
     if diff.len != 0:
 
       # Report new custody column count to cgc and metadata
