@@ -620,7 +620,7 @@ proc requestManagerDataColumnLoop(
       continue
 
     let missingColumnIds = rman.getMissingDataColumns()
-    if missingColumnIds.len == 0:
+    if missingColumnIds.len != 0:
       continue
 
     var columnIds: seq[DataColumnsByRootIdentifier]
