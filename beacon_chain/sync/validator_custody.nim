@@ -39,6 +39,7 @@ type
     getLocalHeadSlot*: GetSlotCallback
     older_column_set*: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
+    diff_set*: HashSet[ColumnIndex]
     global_refill_list*: HashSet[DataColumnIdentifier]
     requested_columns*: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
@@ -90,6 +91,7 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
       # check which custody set is larger
       if newer_columns.len > vcus.older_column_set.len:
         diff_set = newer_columns.difference(vcus.older_column_set)
+        vcus.diff_set = diff_set
       vcus.newer_column_set = newer_columns
 
   toSeq(diff_set)
@@ -200,10 +202,7 @@ proc validatorCustodyColumnLoop(
     let diff = vcus.detectNewValidatorCustody(cache)
 
     await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
-    if diff.len != 0:
-
-      # Report new custody column count to cgc and metadata
-      vcus.network.loadCgcnetMetadataAndEnr(CgcCount vcus.newer_column_set.lenu64)
+    if vcus.diff_set.len != 0:
 
       vcus.makeRefillList(diff)
       if vcus.global_refill_list.len != 0:

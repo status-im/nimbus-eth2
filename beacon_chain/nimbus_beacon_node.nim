@@ -1919,6 +1919,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  # Update CGC and metadata with respect to the new
+  node.network.loadCgcnetMetadataAndEnr(
+    CgcCount node.validatorCustody.newer_column_set.lenu64)
+
   # Update nfd field for BPOs
   let
     nextForkEpoch = node.dag.cfg.nextForkEpochAtEpoch(epoch)
