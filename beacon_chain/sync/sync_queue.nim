@@ -689,12 +689,17 @@ iterator blocks(
     for i in countdown(len(blcks) - 1, 0):
       yield (blcks[i], blobs.getOpt(i))
 
+proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
+  ## Push multiple failed requests back to queue.
+  for request in requests:
+    let pos = sq.find(request).valueOr:
+      debug "Request is not relevant anymore", request = request
+      continue
+    sq.del(pos)
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
-  ## Push failed request back to queue.
-  let pos = sq.find(sr).valueOr:
-    debug "Request is not relevant anymore", request = sr
-    return
-  sq.del(pos)
+  ## Push single failed request back to queue.
+  sq.push([sr])
 
 proc process[T](
     sq: SyncQueue[T],
