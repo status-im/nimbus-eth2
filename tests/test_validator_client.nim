@@ -863,7 +863,7 @@ suite "Validator Client test suite":
       response.isErr()
       gotCancellation == true
 
-  asyncTest "bestSuccess() API timeout test":
+  asyncTest "bestSuccess() API hard timeout test":
     let
       uri = parseUri("http://127.0.0.1/")
       beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
@@ -893,6 +893,7 @@ suite "Validator Client test suite":
       RestPlainResponse,
       uint64,
       float64,
+      50.milliseconds,
       100.milliseconds,
       AllBeaconNodeStatuses,
       {BeaconNodeRole.Duties},
