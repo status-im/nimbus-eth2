@@ -225,7 +225,7 @@ type
 
   RestValidatorIdentity* = object
     index*: ValidatorIndex
-    pubkey*: ValidatorPubkey
+    pubkey*: ValidatorPubKey
     activation_epoch*: Epoch
 
   RestBlockHeader* = object
