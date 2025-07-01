@@ -1923,7 +1923,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  elif new_vcus > dag.cfg.SAMPLES_PER_SLOT.uint8:
+  elif new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
     node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
                                           node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
