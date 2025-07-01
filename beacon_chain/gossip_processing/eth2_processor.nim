@@ -387,6 +387,18 @@ proc validateDataColumnSidecarFromEL*(
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   flat_proof)
 
+            # Send notification to event stream
+            for column in recovered_columns:
+              let onDataColumnSidecarCallback =
+                dataColumnQuarantine[].onDataColumnSidecarCallback()
+
+            if not(isNil(onDataColumnSidecarCallback)):
+              onDataColumnSidecarCallback DataColumnSidecarInfoObject(
+                block_root: block_root,
+                index: column.index,
+                slot: column.signed_block_header.message.slot,
+                kzg_commitments: column.kzg_commitments)
+
             # Pop out the column sidecars as we have all columns from the EL
             discard self.dataColumnQuarantine[].popSidecars(block_root,
                                                             forkyBlck)

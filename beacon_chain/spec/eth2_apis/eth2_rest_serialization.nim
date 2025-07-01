@@ -3768,6 +3768,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.AttesterSlashing)
   of "blob_sidecar":
     ok(EventTopic.BlobSidecar)
+  of "data_column_sidecar":
+    ok(EventTopic.BlobSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
