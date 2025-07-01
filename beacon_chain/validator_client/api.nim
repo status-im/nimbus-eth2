@@ -278,23 +278,26 @@ template firstSuccessParallel*(
   retRes
 
 template bestSuccess*(
-           vc: ValidatorClientRef,
-           responseType: typedesc,
-           handlerType: typedesc,
-           scoreType: typedesc,
-           timeout: Duration,
-           statuses: set[RestBeaconNodeStatus],
-           roles: set[BeaconNodeRole],
-           bodyRequest,
-           bodyScore,
-           bodyHandler: untyped): ApiResponse[handlerType] =
+    vc: ValidatorClientRef,
+    responseType: typedesc,
+    handlerType: typedesc,
+    scoreType: typedesc,
+    softTimeout: Duration,
+    hardTimeout: Duration,
+    statuses: set[RestBeaconNodeStatus],
+    roles: set[BeaconNodeRole],
+    bodyRequest,
+    bodyScore,
+    bodyHandler: untyped
+): ApiResponse[handlerType] =
+  let startTime = Moment.now()
   var
     it {.inject.}: RestClientRef
     iterations = 0
 
   var timerFut =
-    if timeout != InfiniteDuration:
-      sleepAsync(timeout)
+    if hardTimeout != InfiniteDuration:
+      sleepAsync(hardTimeout)
     else:
       nil
 
@@ -378,10 +381,16 @@ template bestSuccess*(
 
                     scores.add(ApiScore.init(node, score))
                     if bestResponse.isNone() or
-                      (score > bestResponse.get().score):
+                       (score > bestResponse.get().score):
                       bestResponse = Opt.some(
                         BestNodeResponse.init(node, handlerResponse, score))
                       if perfectScore(score):
+                        perfectScoreFound = true
+                        break
+                      if (Moment.now() - startTime) >= softTimeout:
+                        # When `softTimeout` times out, we will use the first
+                        # successfull response as the best to avoid
+                        # situations where problematic BNs cause VC to be late.
                         perfectScoreFound = true
                         break
                   else:
@@ -1182,6 +1191,7 @@ proc getHeadBlockRoot*(
       RestPlainResponse,
       GetBlockRootResponse,
       float64,
+      SlotDurationSoft,
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
@@ -1417,6 +1427,7 @@ proc produceAttestationData*(
       RestPlainResponse,
       ProduceAttestationDataResponse,
       float64,
+      OneThirdDurationSoft,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AttestationData},
@@ -1762,6 +1773,7 @@ proc getAggregatedAttestation*(
       RestPlainResponse,
       GetAggregatedAttestationResponse,
       float64,
+      OneThirdDurationSoft,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
@@ -1902,6 +1914,7 @@ proc getAggregatedAttestationV2*(
       RestPlainResponse,
       GetAggregatedAttestationV2Response,
       float64,
+      OneThirdDurationSoft,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
@@ -2039,6 +2052,7 @@ proc produceSyncCommitteeContribution*(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
       float64,
+      OneThirdDurationSoft,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
@@ -2337,6 +2351,7 @@ proc produceBlockV3*(
       RestPlainResponse,
       ProduceBlockResponseV3,
       UInt256,
+      SlotDurationSoft,
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
