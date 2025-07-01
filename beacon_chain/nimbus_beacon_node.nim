@@ -1922,10 +1922,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Update CGC and metadata with respect to the new detected validator custody
   let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
   if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
+    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   elif new_vcus > dag.cfg.SAMPLES_PER_SLOT.uint8:
-    node.network.loadCgcnetMetadataAndEnr(max(dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                          dag.cfg.CUSTODY_REQUIREMENT.uint8))
+    node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   # Update nfd field for BPOs
   let
