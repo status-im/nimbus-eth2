@@ -102,7 +102,7 @@ It is recommended that you place the era files in the data directory under `era1
 See the [era file guide](./era-store.md) for more information.
 
 !!! tip ""
-    Future versions of Nimbus will support other methods of syncing
+    Future versions of Nimbus will support other methods of syncing, such as snap sync.
 
 === "Mainnet"
     !!! note ""
@@ -202,4 +202,4 @@ This method of syncing loads blocks from the consensus node and passes them to t
     ```
 
 !!! tip ""
-    Future versions of Nimbus will support snap syncing.
+    Future versions of Nimbus will support snap sync.
