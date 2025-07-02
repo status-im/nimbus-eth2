@@ -66,7 +66,7 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
-  GETBLOBS_TIMEOUT = 200.milliseconds
+  GETBLOBS_TIMEOUT = 100.milliseconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see

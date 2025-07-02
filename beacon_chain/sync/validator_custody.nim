@@ -82,6 +82,9 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
             max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
             vcustody))
 
+      debugEcho "new validator custody count"
+      debugEcho newer_columns
+
       # update data column quarantine custody requirements
       var sortedColumns = newer_columns.toSeq()
       sort(sortedColumns)

@@ -979,7 +979,7 @@ proc storeBlock(
               MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
               cres)
           else:
-            discard self.consensusManager.quarantine[].addBlobless(
+            discard self.consensusManager.quarantine[].addColumnless(
               dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
           typeof(forkyBlck).kind < ConsensusFork.Fulu:
