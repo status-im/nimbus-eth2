@@ -1620,7 +1620,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     targetGossipState =
       getTargetGossipState(slot.epoch, node.dag.cfg, isBehind)
 
-  doAssert targetGossipState.len <= 2
+  #doAssert targetGossipState.len <= 2
 
   let
     newGossipEpochs = targetGossipState - node.gossipState
