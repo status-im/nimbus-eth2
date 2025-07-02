@@ -609,6 +609,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
     let columnless = rman.quarantine[].popColumnless(root).valueOr:
       continue
     discard rman.blockVerifier(columnless, false)
+  fetches = @[]
   fetches
 
 proc requestManagerDataColumnLoop(
