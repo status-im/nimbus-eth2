@@ -70,11 +70,8 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
     diff_set: HashSet[ColumnIndex]
   withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
-      let
-        current_epoch = get_current_epoch(forkyState.data)
-        active_validator_indices = get_active_validator_indices(current_epoch)
       let total_node_balance =
-        get_total_balance(forkyState.data, active_validator_indices)
+        get_total_active_balance(forkyState.data, cache)
       let vcustody =
         vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
