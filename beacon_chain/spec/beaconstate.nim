@@ -914,14 +914,13 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 
   let epoch = state.get_current_epoch()
 
-  when typeof(state).kind < ConsensusFork.Fulu:
-    cache.total_active_balance.withValue(epoch, tab) do:
-      return tab[]
-    do:
-      let tab = get_total_balance(
-        state, cache.get_shuffled_active_validator_indices(state, epoch))
-      cache.total_active_balance[epoch] = tab
-      return tab
+  cache.total_active_balance.withValue(epoch, tab) do:
+    return tab[]
+  do:
+    let tab = get_total_balance(
+      state, cache.get_shuffled_active_validator_indices(state, epoch))
+    cache.total_active_balance[epoch] = tab
+    return tab
 
 func get_total_active_balance*(state: ForkyBeaconState): Gwei =
   let epoch = state.get_current_epoch()
