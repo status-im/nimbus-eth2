@@ -26,7 +26,7 @@ logScope: topics = "validator_custody"
 
 const
   PARALLEL_REFILL_REQUESTS = 32
-  VALIDATOR_CUSTODY_POLL_INTERVAL = 384.seconds
+  VALIDATOR_CUSTODY_POLL_INTERVAL = 3.seconds
 
 
 type
