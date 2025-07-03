@@ -39,7 +39,7 @@ type
     getLocalHeadSlot*: GetSlotCallback
     older_column_set*: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
-    diff_set*: HashSet[ColumnIndex]
+    diff_set*: seq[ColumnIndex]
     global_refill_list*: HashSet[DataColumnIdentifier]
     requested_columns*: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
@@ -65,13 +65,13 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     getBeaconTime: getBeaconTime,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache): seq[ColumnIndex] =
+proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
   withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
       let total_node_balance =
-        get_total_active_balance(forkyState.data, cache)
+        get_total_active_balance(forkyState.data)
       let vcustody =
         vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
@@ -94,10 +94,10 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache)
       # check which custody set is larger
       if newer_columns.len > vcus.older_column_set.len:
         diff_set = newer_columns.difference(vcus.older_column_set)
-        vcus.diff_set = diff_set
+        vcus.diff_set = toSeq(diff_set)
       vcus.newer_column_set = newer_columns
 
-  toSeq(diff_set)
+  vcus.diff_set
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   let
@@ -202,12 +202,11 @@ proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
   while true:
-    let diff = vcus.detectNewValidatorCustody(cache)
 
     await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
     if vcus.diff_set.len != 0:
 
-      vcus.makeRefillList(diff)
+      vcus.makeRefillList(vcus.diff_set)
       if vcus.global_refill_list.len != 0:
         debug "Requesting detected missing data columns for refill",
               columns = shortLog(vcus.requested_columns)
@@ -240,7 +239,6 @@ proc validatorCustodyColumnLoop(
     else:
       # Validator custody same as previous interval
       continue
-
 
 proc start*(vcus: ValidatorCustodyRef) =
   ## Start Validator Custody detection loop
