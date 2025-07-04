@@ -65,17 +65,16 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     getBeaconTime: getBeaconTime,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
+proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
+                                total_node_balance: Gwei): seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
   withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
-      let total_node_balance =
-        get_total_active_balance(forkyState.data)
       debugEcho "Total node balance"
       debugEcho total_node_balance
       let vcustody =
-        vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
+        vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
 
       let
         newer_columns =
