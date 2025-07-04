@@ -69,12 +69,10 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
                                 total_node_balance: Gwei): seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
-  withState(vcus.dag.headState):
-    when consensusFork >= ConsensusFork.Fulu:
-      debugEcho "Total node balance"
-      debugEcho total_node_balance
-      let vcustody =
-        vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
+  debugEcho "Total node balance"
+  debugEcho total_node_balance
+  let vcustody =
+    vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
 
   let
     newer_columns =
