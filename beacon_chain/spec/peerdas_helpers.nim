@@ -554,6 +554,8 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
                                          uint64 =
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+  debugEcho "Vcus count"
+  debugEcho count
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 

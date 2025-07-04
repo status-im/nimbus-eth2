@@ -72,6 +72,8 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
     when consensusFork >= ConsensusFork.Fulu:
       let total_node_balance =
         get_total_active_balance(forkyState.data)
+      debugEcho "Total node balance"
+      debugEcho total_node_balance
       let vcustody =
         vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
