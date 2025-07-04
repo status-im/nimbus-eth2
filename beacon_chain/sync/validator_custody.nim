@@ -66,38 +66,35 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     dataColumnQuarantine: dataColumnQuarantine)
 
 proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
-  var
-    diff_set: HashSet[ColumnIndex]
-  withState(vcus.dag.headState):
-    when consensusFork >= ConsensusFork.Fulu:
-      let total_node_balance =
-        get_total_active_balance(forkyState.data)
-      debugEcho "Total node balance"
-      debugEcho total_node_balance
-      let vcustody =
-        vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
+  var diff_set: HashSet[ColumnIndex]
+  let total_node_balance =
+    get_total_active_balance(forkyState.data)
+  debugEcho "Total node balance"
+  debugEcho total_node_balance
+  let vcustody =
+    vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
-      let
-        newer_columns =
-          vcus.dag.cfg.resolve_columns_from_custody_groups(
-            vcus.network.nodeId,
-            max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
-            vcustody))
+  let
+    newer_columns =
+      vcus.dag.cfg.resolve_columns_from_custody_groups(
+        vcus.network.nodeId,
+        max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
+        vcustody))
 
-      debugEcho "new validator custody count"
-      debugEcho newer_columns
+  debugEcho "new validator custody count"
+  debugEcho newer_columns
 
-      # update data column quarantine custody requirements
-      var sortedColumns = newer_columns.toSeq()
-      sort(sortedColumns)
-      vcus.dataColumnQuarantine[].custody_columns =
-        sortedColumns
+  # update data column quarantine custody requirements
+  var sortedColumns = newer_columns.toSeq()
+  sort(sortedColumns)
+  vcus.dataColumnQuarantine[].custody_columns =
+    sortedColumns
 
-      # check which custody set is larger
-      if newer_columns.len > vcus.older_column_set.len:
-        diff_set = newer_columns.difference(vcus.older_column_set)
-        vcus.diff_set = toSeq(diff_set)
-      vcus.newer_column_set = newer_columns
+  # check which custody set is larger
+  if newer_columns.len > vcus.older_column_set.len:
+    diff_set = newer_columns.difference(vcus.older_column_set)
+    vcus.diff_set = toSeq(diff_set)
+  vcus.newer_column_set = newer_columns
 
   vcus.diff_set
 

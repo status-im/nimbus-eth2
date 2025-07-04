@@ -354,11 +354,10 @@ proc processBlobSidecar*(
 
 proc validateDataColumnSidecarFromEL*(
     self: ref Eth2Processor,
-    block_root: Eth2Digest):
-    Future[ValidationRes]
+    block_root: Eth2Digest)
     {.async: (raises: [CancelledError]).} =
   let elManager = self.blockProcessor[].consensusManager.elManager
-  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
@@ -388,39 +387,11 @@ proc validateDataColumnSidecarFromEL*(
                   flat_proof)
 
             # Send notification to event stream
+            # and add these columns to column quarantine
             for col in recovered_columns:
-              let onDataColumnSidecarCallback =
-                self.dataColumnQuarantine[].onDataColumnSidecarCallback()
 
-              if not(isNil(onDataColumnSidecarCallback)):
-                onDataColumnSidecarCallback DataColumnSidecarInfoObject(
-                  block_root: block_root,
-                  index: col.index,
-                  slot: col.signed_block_header.message.slot,
-                  kzg_commitments: col.kzg_commitments)
-
-            # Pop out the column sidecars as we have all columns from the EL
-            discard self.dataColumnQuarantine[].popSidecars(block_root,
-                                                            forkyBlck)
-
-            let end_time = Moment.now()
-            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
-                  time_taken = end_time - start_time
-            debug "Pulled blobs from EL, bypassing blob gossip validation",
-                  blobs_from_el = blobsEl.len
-            self.blockProcessor[].enqueueBlock(
-              MsgSource.gossip, columnless,
-              Opt.none(BlobSidecars),
-              Opt.some(recovered_columns.mapIt(newClone it)))
-            return ok()
-
-          else:
-            discard self.quarantine[].addColumnless(
-              self.dag.finalizedHead.slot, forkyBlck)
-      else:
-          raiseAssert "Could not have been added as columnless"
-  else:
-    return errIgnore ("Could not pull blobs and proofs from EL")
+              if col.index in self.dataColumnQuarantine[].custodyColumns:
+                self.dataColumnQuarantine[].put(block_root, newClone(col))
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
@@ -429,11 +400,7 @@ proc processDataColumnSidecar*(
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
 
-  let vEL =
-    await self.validateDataColumnSidecarFromEL(block_root)
-
-  if vEL.isOk():
-    return vEL
+  await self.validateDataColumnSidecarFromEL(block_root)
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -458,7 +425,6 @@ proc processDataColumnSidecar*(
 
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
-  self.dag.db.putDataColumnSidecar(dataColumnSidecar)
 
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()

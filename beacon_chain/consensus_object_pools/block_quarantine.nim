@@ -23,7 +23,7 @@ const
     ## Enough for finalization in an alternative fork
   MaxBlobless = SLOTS_PER_EPOCH
     ## Arbitrary
-  MaxColumnless = SLOTS_PER_EPOCH
+  MaxColumnless = SLOTS_PER_EPOCH div 4
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
@@ -395,6 +395,14 @@ func popColumnless*(
   if quarantine.columnless.pop(root, blck):
     Opt.some(blck)
   else:
+    Opt.none(ForkedSignedBeaconBlock)
+
+func getColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  try:
+    Opt.some(quarantine.columnless[root])
+  except KeyError:
     Opt.none(ForkedSignedBeaconBlock)
 
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
