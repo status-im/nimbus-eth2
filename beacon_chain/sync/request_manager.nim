@@ -41,7 +41,6 @@ const
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
   POLL_INTERVAL* = 1.seconds
-  POLL_INTERVAL_COLUMNS* = 100.seconds
 
 type
   BlockVerifierFn = proc(
@@ -617,7 +616,7 @@ proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
 
-    await sleepAsync(POLL_INTERVAL_COLUMNS)
+    await sleepAsync(POLL_INTERVAL)
     if rman.inhibit():
       continue
 

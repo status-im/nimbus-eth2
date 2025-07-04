@@ -23,7 +23,7 @@ const
     ## Enough for finalization in an alternative fork
   MaxBlobless = SLOTS_PER_EPOCH
     ## Arbitrary
-  MaxColumnless = SLOTS_PER_EPOCH div 4
+  MaxColumnless = SLOTS_PER_EPOCH
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
