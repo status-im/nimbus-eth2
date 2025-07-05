@@ -1854,8 +1854,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
-      slot == (slot.epoch()).start_slot() - 1:
-    # Detect new validator custody
+      slot - (slot.epoch() + 1).start_slot() == 1:
+    # Detect new validator custody at the last slot of every epoch
     discard node.validatorCustody.detectNewValidatorCustody(node.attachedValidatorBalanceTotal)
 
   # Update CGC and metadata with respect to the new detected validator custody

@@ -38,7 +38,7 @@ const
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
-    ## How long to wait for blobs to arri ve over gossip before fetching.
+    ## How long to wait for data columns to arrive over gossip before fetching.
 
   POLL_INTERVAL* = 1.seconds
 
@@ -588,10 +588,18 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           missing =
             rman.dataColumnQuarantine[].fetchMissingColumnsByRoot(columnless.root, forkyBlck)
+          # We can pass the minimum DA requirements while fetching missing columns
+          # and can later download the current DA requirements as the BN advances
+          # through slots
+          minDA =
+            rman.cfg.resolve_columns_from_custody_peers(
+              rman.network.nodeId,
+              rman.cfg.CUSTODY_REQUIREMENT.uint64)
 
         if len(missing) > 0:
           for ident in missing:
-            fetches.add(ident)
+            if ident in minDA:
+              fetches.add(ident)
         else:
           if commitmentsCount == 0:
             # this is a programming error should it occur.
@@ -609,7 +617,6 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
     let columnless = rman.quarantine[].popColumnless(root).valueOr:
       continue
     discard rman.blockVerifier(columnless, false)
-  fetches = @[]
   fetches
 
 proc requestManagerDataColumnLoop(
