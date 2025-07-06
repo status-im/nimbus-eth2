@@ -685,7 +685,7 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## Key spliting
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -840,7 +840,7 @@ AllTests-mainnet
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                   OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
