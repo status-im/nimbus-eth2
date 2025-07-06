@@ -120,7 +120,7 @@ During startup, a `jwt.hex` file will be placed in the data directory containing
 
 ## Top up blocks from the consensus node
 
-While era files cover the majority of chain history, Nimbus currenty relies on the consensus node to sync the most recent blocks using the `nrpc` helper.
+While era files cover the majority of chain history, Nimbus currently relies on the consensus node to sync the most recent blocks using the `nrpc` helper.
 
 This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.
 
