@@ -32,7 +32,7 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 2
+  PARALLEL_REQUESTS_DATA_COLUMNS = 32
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
@@ -329,8 +329,7 @@ proc checkPeerCustody(rman: RequestManager,
         NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
-    elif peer.lookupCgcFromPeer() ==
-        CUSTODY_REQUIREMENT.uint64:
+    else:
 
       # Fetch the remote custody count
       let remoteCustodyGroupCount =
@@ -347,12 +346,10 @@ proc checkPeerCustody(rman: RequestManager,
                 remoteCustodyGroupCount))
       for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:
+          peer.updateScore(PeerScoreBadColumnIntersection)
           return false
 
       return true
-
-    else:
-      return false
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
