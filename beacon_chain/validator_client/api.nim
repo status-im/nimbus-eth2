@@ -49,6 +49,17 @@ type
     data*: ApiResponse[T]
     score*: X
 
+  DoubleTimeoutState {.pure.} = enum
+    Soft, Hard
+
+  DoubleTimeout* = object
+    startTime: Moment
+    softTimeout: Duration
+    hardTimeout: Duration
+    betweenTimeout: Duration
+    timeoutFuture*: Future[void].Raising([CancelledError])
+    state: DoubleTimeoutState
+
 const
   ViableNodeStatus* = {
     RestBeaconNodeStatus.Compatible,
@@ -56,6 +67,70 @@ const
     RestBeaconNodeStatus.OptSynced,
     RestBeaconNodeStatus.Synced
   }
+
+proc init(
+    t: typedesc[DoubleTimeout],
+    softTimeout, hardTimeout: Duration
+): DoubleTimeout =
+  let
+    betweenTimeout =
+      if softTimeout == InfiniteDuration:
+        ZeroDuration
+      else:
+        if hardTimeout == InfiniteDuration:
+          ZeroDuration
+        else:
+          doAssert(hardTimeout >= softTimeout,
+            "Hard timeout should be bigger than soft timeout")
+          hardTimeout - softTimeout
+    future =
+      if softTimeout == InfiniteDuration:
+        nil
+      else:
+        sleepAsync(softTimeout)
+
+  DoubleTimeout(
+    startTime: Moment.now(),
+    softTimeout: softTimeout,
+    hardTimeout: hardTimeout,
+    betweenTimeout: betweenTimeout,
+    timeoutFuture: future,
+    state: DoubleTimeoutState.Soft
+  )
+
+func timedOut(dt: DoubleTimeout): bool =
+  if isNil(dt.timeoutFuture):
+    false
+  else:
+    dt.timeoutFuture.finished()
+
+func hardTimedOut(dt: DoubleTimeout): bool =
+  (dt.state == DoubleTimeoutState.Hard) and dt.timedOut()
+
+func softTimedOut(dt: DoubleTimeout): bool =
+  (dt.state == DoubleTimeoutState.Hard) or
+    ((dt.state == DoubleTimeoutState.Soft) and dt.timedOut())
+
+proc switch(dt: var DoubleTimeout) =
+  if dt.state == DoubleTimeoutState.Hard:
+    # Its too late to switch, so doing nothing
+    return
+  if not(dt.timedOut()):
+    # Timeout is not exceeded yet, so doing nothing
+    return
+  dt.state = DoubleTimeoutState.Hard
+  dt.timeoutFuture =
+    if dt.hardTimeout == InfiniteDuration:
+      nil
+    else:
+      sleepAsync(dt.betweenTimeout)
+
+proc timePassed(dt: DoubleTimeout): Duration =
+  Moment.now() - dt.startTime
+
+proc close(dt: DoubleTimeout): Future[void] {.async: (raises: []).} =
+  if not(isNil(dt.timeoutFuture)):
+    await cancelAndWait(dt.timeoutFuture)
 
 proc `$`*[T](s: ApiScore[T]): string =
   var res = Base10.toString(uint64(s.index))
@@ -95,7 +170,7 @@ proc lazyWaiter(
     strategy: ApiStrategyKind
 ) {.async: (raises: []).} =
   try:
-    await allFutures(request)
+    await request.join()
     if request.failed():
       let failure = ApiNodeFailure.init(
         ApiFailure.Communication, requestName, strategy, node,
@@ -129,6 +204,42 @@ proc lazyWait(
       await cancelAndWait(timerFut)
   else:
     await allFutures(futures)
+
+proc lazyWait(
+    nodes: seq[BeaconNodeServerRef],
+    requests: seq[FutureBase],
+    timeout: ref DoubleTimeout,
+    requestName: string,
+    strategy: ApiStrategyKind
+) {.async: (raises: [CancelledError]).} =
+  doAssert(len(nodes) == len(requests))
+  if len(nodes) == 0:
+    return
+
+  var futures: seq[Future[void]]
+  for index in 0 ..< len(requests):
+    futures.add(lazyWaiter(nodes[index], requests[index], requestName,
+                           strategy))
+
+  if isNil(timeout[].timeoutFuture):
+    await allFutures(futures)
+    return
+
+  while true:
+    try:
+      await allFutures(futures).wait(timeout[].timeoutFuture)
+      # All pending jobs finished successfully, exiting
+      break
+    except AsyncTimeoutError:
+      if timeout[].hardTimedOut():
+        # Hard timeout exceeded, terminating all the jobs.
+        let pending =
+          futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
+        break
+      else:
+        # Soft timeout exceeded, switching to hard timeout future.
+        timeout[].switch()
 
 proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
                       message: string): ApiResponse[T] =
@@ -290,18 +401,10 @@ template bestSuccess*(
     bodyScore,
     bodyHandler: untyped
 ): ApiResponse[handlerType] =
-  let startTime = Moment.now()
   var
     it {.inject.}: RestClientRef
     iterations = 0
-
-  var timerFut =
-    if hardTimeout != InfiniteDuration:
-      sleepAsync(hardTimeout)
-    else:
-      nil
-
-  var
+    timeout = newClone(DoubleTimeout.init(softTimeout, hardTimeout))
     retRes: ApiResponse[handlerType]
     scores: seq[ApiScore[scoreType]]
     bestResponse: Opt[BestNodeResponse[handlerType, scoreType]]
@@ -312,26 +415,31 @@ template bestSuccess*(
         try:
           if iterations == 0:
             # We are not going to wait for BNs if there some available.
-            await vc.waitNodes(timerFut, statuses, roles, false)
+            await vc.waitNodes(timeout[].timeoutFuture, statuses, roles, false)
           else:
-            # We get here only, if all the requests are failed. To avoid requests
-            # spam we going to wait for changes in BNs statuses.
-            await vc.waitNodes(timerFut, statuses, roles, true)
+            # We get here only, if all the requests are failed. To avoid
+            # requests spam we going to wait for changes in BNs statuses.
+            await vc.waitNodes(timeout[].timeoutFuture, statuses, roles, true)
           vc.filterNodes(statuses, roles)
         except CancelledError as exc:
-          if not(isNil(timerFut)) and not(timerFut.finished()):
-            await timerFut.cancelAndWait()
+          await timeout[].close()
           raise exc
 
       if len(onlineNodes) == 0:
-        retRes = ApiResponse[handlerType].err("No online beacon node(s)")
-        break mainLoop
+        if timeout[].hardTimedOut():
+          retRes = ApiResponse[handlerType].err("No online beacon node(s)")
+          break mainLoop
+        else:
+          debug "Soft timeout exceeded while waiting for beacon node(s)",
+                time_passed = timeout[].timePassed()
+          timeout[].switch()
       else:
         var
           (pendingRequests, pendingNodes) =
             block:
-              var requests: seq[FutureBase]
-              var nodes: seq[BeaconNodeServerRef]
+              var
+                requests: seq[FutureBase]
+                nodes: seq[BeaconNodeServerRef]
               for node {.inject.} in onlineNodes:
                 it = node.client
                 let fut = FutureBase(bodyRequest)
@@ -345,24 +453,29 @@ template bestSuccess*(
             var
               finishedRequests: seq[FutureBase]
               finishedNodes: seq[BeaconNodeServerRef]
-              raceFut: Future[FutureBase].Raising([ValueError, CancelledError])
             try:
-              raceFut = race(pendingRequests)
-
-              if not(isNil(timerFut)):
-                discard await race(raceFut, timerFut)
+              if not(isNil(timeout.timeoutFuture)):
+                try:
+                  discard await race(pendingRequests).wait(
+                    timeout.timeoutFuture)
+                except ValueError:
+                  raiseAssert "pendingRequests sequence must not be empty!"
+                except AsyncTimeoutError:
+                  discard
               else:
-                await allFutures(raceFut)
+                try:
+                  discard await race(pendingRequests)
+                except ValueError:
+                  raiseAssert "pendingRequests sequence must not be empty!"
 
               for index, future in pendingRequests.pairs():
-                if future.finished() or
-                   (not(isNil(timerFut)) and timerFut.finished()):
+                if future.finished() or timeout[].hardTimedOut():
                   finishedRequests.add(future)
                   finishedNodes.add(pendingNodes[index])
                   let
                     node {.inject.} = pendingNodes[index]
                     apiResponse {.inject.} =
-                      apiResponseOr[responseType](future, timerFut,
+                      apiResponseOr[responseType](future, timeout.timeoutFuture,
                         "Timeout exceeded while awaiting for the response")
                     handlerResponse =
                       try:
@@ -387,22 +500,21 @@ template bestSuccess*(
                       if perfectScore(score):
                         perfectScoreFound = true
                         break
-                      if (Moment.now() - startTime) >= softTimeout:
-                        # When `softTimeout` times out, we will use the first
-                        # successfull response as the best to avoid
-                        # situations where problematic BNs cause VC to be late.
-                        perfectScoreFound = true
-                        break
                   else:
                     scores.add(ApiScore.init(node, scoreType))
 
+              if timeout[].softTimedOut():
+                timeout[].switch()
+                if bestResponse.isSome():
+                  perfectScoreFound = true
+
               if perfectScoreFound:
                 # lazyWait will cancel `pendingRequests` on timeout.
-                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
-                                    RequestName, strategy)
+                asyncSpawn lazyWait(
+                  pendingNodes, pendingRequests, timeout, RequestName, strategy)
                 break innerLoop
 
-              if not(isNil(timerFut)) and timerFut.finished():
+              if timeout[].hardTimedOut():
                 # If timeout is exceeded we need to cancel all the tasks which
                 # are still running.
                 var pendingCancel: seq[Future[void]]
@@ -417,11 +529,9 @@ template bestSuccess*(
 
             except CancelledError as exc:
               var pendingCancel: seq[Future[void]]
-              # `or` operation does not cancelling Futures passed as arguments.
-              if not(isNil(raceFut)) and not(raceFut.finished()):
-                pendingCancel.add(raceFut.cancelAndWait())
-              if not(isNil(timerFut)) and not(timerFut.finished()):
-                pendingCancel.add(timerFut.cancelAndWait())
+              # `race` operation does not cancelling Futures passed as
+              # arguments.
+              pendingCancel.add(timeout[].close())
               # We should cancel all the requests which are still pending.
               for future in pendingRequests.items():
                 if not(future.finished()):
@@ -434,7 +544,7 @@ template bestSuccess*(
           retRes = bestResponse.get().data
           break mainLoop
         else:
-          if timerFut.finished():
+          if timeout[].hardTimedOut():
             retRes = ApiResponse[handlerType].err(
                        "Timeout exceeded while awaiting for responses")
             break mainLoop
@@ -448,8 +558,8 @@ template bestSuccess*(
     debug "Best score result selected",
           request = RequestName, available_scores = scores,
           best_score = shortScore(bestResponse.get().score),
-          best_node = bestResponse.get().node
-
+          best_node = bestResponse.get().node,
+          time_passed = timeout[].timePassed()
   retRes
 
 template onceToAll*(
