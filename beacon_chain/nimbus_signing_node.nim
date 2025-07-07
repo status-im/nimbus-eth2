@@ -341,7 +341,7 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   notice "Launching signing node", version = fullVersionStr,
          cmdParams = commandLineParams(), config = sn.config
 
-  info "Initializaing validators", path = sn.config.validatorsDir()
+  info "Initializing validators", path = sn.config.validatorsDir()
   sn.loadKeystores()
 
   if sn.attachedValidators.count() == 0:
