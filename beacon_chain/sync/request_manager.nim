@@ -592,14 +592,18 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           # and can later download the current DA requirements as the BN advances
           # through slots
           minDA =
-            rman.cfg.resolve_columns_from_custody_peers(
+            rman.cfg.resolve_columns_from_custody_groups(
               rman.network.nodeId,
               rman.cfg.CUSTODY_REQUIREMENT.uint64)
 
         if len(missing) > 0:
           for ident in missing:
-            if ident in minDA:
-              fetches.add(ident)
+            var sortedMinDA = minDA.toSeq()
+            sort(sortedMinDA)
+            rman.dataColumnQuarantine[].custodyColumns = sortedMinDA
+            for index in ident.indices:
+              if index in minDA:
+                fetches.add(ident)
         else:
           if commitmentsCount == 0:
             # this is a programming error should it occur.
