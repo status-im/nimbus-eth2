@@ -113,7 +113,7 @@ func softTimedOut(dt: DoubleTimeout): bool =
 
 proc switch(dt: var DoubleTimeout) =
   if dt.state == DoubleTimeoutState.Hard:
-    # Its too late to switch, so doing nothing
+    # It's too late to switch, so doing nothing
     return
   if not(dt.timedOut()):
     # Timeout is not exceeded yet, so doing nothing
