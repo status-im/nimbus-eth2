@@ -35,7 +35,7 @@ const
     ## Peer's answer to our request is fine.
   PeerScoreBadValues* = -1000
     ## Peer's response contains incorrect data.
-  PeerScoreBadColumnIntersection* = -50
+  PeerScoreBadColumnIntersection* = -2
     ## Peer custodies irrelevant custody columns
   PeerScoreBadResponse* = -1000
     ## Peer's response is not in requested range.

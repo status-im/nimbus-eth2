@@ -32,7 +32,7 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 256
+  PARALLEL_REQUESTS_DATA_COLUMNS = 16
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
@@ -345,11 +345,11 @@ proc checkPeerCustody(rman: RequestManager,
             max(rman.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
       for local_column in rman.custody_columns_set:
-        if local_column notin remoteCustodyColumns:
+        if local_column in remoteCustodyColumns:
+          return true
+        else:
           peer.updateScore(PeerScoreBadColumnIntersection)
           return false
-
-      return true
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
@@ -585,22 +585,10 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           missing =
             rman.dataColumnQuarantine[].fetchMissingColumnsByRoot(columnless.root, forkyBlck)
-          # We can pass the minimum DA requirements while fetching missing columns
-          # and can later download the current DA requirements as the BN advances
-          # through slots
-          minDA =
-            rman.cfg.resolve_columns_from_custody_groups(
-              rman.network.nodeId,
-              rman.cfg.CUSTODY_REQUIREMENT.uint64)
 
         if len(missing) > 0:
           for ident in missing:
-            var sortedMinDA = minDA.toSeq()
-            sort(sortedMinDA)
-            rman.dataColumnQuarantine[].custodyColumns = sortedMinDA
-            for index in ident.indices:
-              if index in minDA:
-                fetches.add(ident)
+            fetches.add(ident)
         else:
           if commitmentsCount == 0:
             # this is a programming error should it occur.
@@ -673,9 +661,14 @@ proc requestManagerDataColumnLoop(
     if columnIds.len > 0:
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
-      var workers:
-        array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
-      for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
+      let workerCount =
+          if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+            PARALLEL_REQUESTS
+          else:
+            PARALLEL_REQUESTS_DATA_COLUMNS
+      var workers =
+        newSeq[Future[void].Raising([CancelledError])](workerCount)
+      for i in 0..<workerCount:
         workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
 
       await allFutures(workers)
