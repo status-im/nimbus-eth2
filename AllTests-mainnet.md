@@ -1004,7 +1004,8 @@ AllTests-mainnet
 ```diff
 + /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
-+ bestSuccess() API timeout test                                                             OK
++ bestSuccess() API hard timeout test                                                        OK
++ bestSuccess() API soft timeout test                                                        OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() default test                                           OK
 + getAggregatedAttestationDataScore() test vectors                                           OK

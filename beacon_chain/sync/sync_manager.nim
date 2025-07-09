@@ -640,7 +640,9 @@ proc syncStep[A, B](
   proc processCallback() =
     man.workers[index].status = SyncWorkerStatus.Processing
 
-  var jobs: seq[Future[void].Raising([CancelledError])]
+  var
+    jobs: seq[Future[void].Raising([CancelledError])]
+    requests: seq[SyncRequest[Peer]]
 
   try:
     for rindex in 0 ..< man.concurrentRequestsCount:
@@ -660,6 +662,7 @@ proc syncStep[A, B](
               peer_score = peer.getScore(),
               peer_speed = peer.netKbps(),
               index = index,
+              request_index = rindex,
               local_head_slot = headSlot,
               remote_head_slot = peerSlot,
               queue_input_slot = man.queue.inpSlot,
@@ -671,18 +674,22 @@ proc syncStep[A, B](
         await sleepAsync(RESP_TIMEOUT_DUR)
         break
 
+      requests.add(request)
       man.workers[index].status = SyncWorkerStatus.Downloading
+
       let data = (await man.getSyncBlockData(index, request)).valueOr:
         debug "Failed to get block data",
               peer = peer,
               peer_score = peer.getScore(),
               peer_speed = peer.netKbps(),
               index = index,
+              request_index = rindex,
               reason = error,
               direction = man.direction,
               sync_ident = man.ident,
               topics = "syncman"
-        man.queue.push(request)
+        # Mark all requests as failed
+        man.queue.push(requests)
         break
 
       # Scoring will happen in `syncUpdate`.
@@ -702,6 +709,9 @@ proc syncStep[A, B](
       await allFutures(jobs)
 
   except CancelledError as exc:
+    # Mark all requests as failed
+    man.queue.push(requests)
+    # Cancelling all verification jobs
     let pending = jobs.filterIt(not(it.finished)).mapIt(cancelAndWait(it))
     await noCancel allFutures(pending)
     raise exc

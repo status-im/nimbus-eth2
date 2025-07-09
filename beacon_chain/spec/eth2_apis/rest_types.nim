@@ -223,6 +223,11 @@ type
     status*: string
     validator*: Validator
 
+  RestValidatorIdentity* = object
+    index*: ValidatorIndex
+    pubkey*: ValidatorPubKey
+    activation_epoch*: Epoch
+
   RestBlockHeader* = object
     slot*: Slot
     proposer_index*: ValidatorIndex
@@ -774,6 +779,12 @@ func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
+
+func init*(t: typedesc[RestValidatorIdentity], index: ValidatorIndex,
+           pubkey: ValidatorPubKey,
+           activation_epoch: Epoch): RestValidatorIdentity =
+  RestValidatorIdentity(index: index, pubkey: pubkey,
+                        activation_epoch: activation_epoch)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
            balance: Gwei): RestValidatorBalance =
