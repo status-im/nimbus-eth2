@@ -27,11 +27,20 @@ import
 from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
 from std/sequtils import mapIt, toSeq
-from std/strutils import contains
+from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
 from ../testbcutil import addHeadBlock
+from ../../beacon_chain/spec/peerdas_helpers import
+  verify_data_column_sidecar_inclusion_proof,
+  verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
+
+block:
+  template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
+  doAssert loadTrustedSetup(
+    sourceDir &
+      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -66,6 +75,7 @@ type
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
+      columnsValid: bool
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnPhase0AttesterSlashing:
@@ -128,7 +138,8 @@ proc loadOps(
         let
           blck = loadBlock(path/filename & ".ssz_snappy", consensusFork)
           blobData =
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+              doAssert not step.hasKey"columns"
               if step.hasKey"blobs":
                 numExtraFields += 2
                 Opt.some BlobData(
@@ -143,9 +154,29 @@ proc loadOps(
               doAssert not step.hasKey"blobs"
               Opt.none(BlobData)
 
+        var columnsValid = true
+        when consensusFork >= ConsensusFork.Fulu:
+          doAssert not step.hasKey"blobs"
+          if step.hasKey"columns":
+            numExtraFields += 1
+            if step["columns"].len < 64:
+              columnsValid = false
+            for column_name in step["columns"]:
+              let column = parseTest(
+                path/(column_name.getStr()) & ".ssz_snappy", SSZ,
+                DataColumnSidecar)
+              columnsValid = columnsValid and
+                verify_data_column_sidecar_inclusion_proof(column).isOk and
+                verify_data_column_sidecar_kzg_proofs(column).isOk
+              if not columnsValid:
+                break
+        else:
+          doAssert not step.hasKey"columns"
+
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck),
-          blobData: blobData)
+          blobData: blobData,
+          columnsValid: columnsValid)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       if fork >= ConsensusFork.Electra:
@@ -184,11 +215,12 @@ proc stepOnBlock(
        stateCache: var StateCache,
        signedBlock: ForkySignedBeaconBlock,
        blobData: Opt[BlobData],
+       columnsValid: bool,
        time: BeaconTime,
        invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
-  # 1. Validate blobs
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  # 1. Validate blobs and columns
+  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if kzgCommits.len > 0 or blobData.isSome:
       if blobData.isNone or kzgCommits.validate_blobs(
@@ -196,6 +228,9 @@ proc stepOnBlock(
         return err(VerifierError.Invalid)
   else:
     doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
+
+  if not columnsValid:
+    return err(VerifierError.Invalid)
 
   # 2. Move state to proper slot
   doAssert dag.updateState(
@@ -345,7 +380,7 @@ proc doRunTest(
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          forkyBlck, step.blobData, time, invalidatedHashes)
+          forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
         doAssert status.isOk == step.valid
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(

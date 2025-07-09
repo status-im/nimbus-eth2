@@ -213,7 +213,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # If the requested validator index was not valid within this old
           # state, it's not possible that it will sit on the sync committee.
           # Since this API must omit results for validators that don't have
-          # duties, we can simply ingnore this requested index.
+          # duties, we can simply ignore this requested index.
           # (we won't bother to validate it against a more recent state).
           continue
 

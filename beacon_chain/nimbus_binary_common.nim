@@ -298,7 +298,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
 
   while true:
     # Start by waiting for the time when the slot starts. Sleeping relinquishes
-    # control to other tasks which may or may not finish within the alotted
+    # control to other tasks which may or may not finish within the allotted
     # time, so below, we need to be wary that the ship might have sailed
     # already.
     await sleepAsync(timeToNextSlot)
