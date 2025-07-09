@@ -16,8 +16,9 @@ import
   ./fixtures_utils, ./os_ops
 
 from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import rsplit
+from std/strutils import rsplit, contains
 from stew/byteutils import fromHex
+from ../../beacon_chain/spec/peerdas_helpers import recover_matrix_parallel
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -305,6 +306,46 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
+proc runRecoverCellsAndKzgProofsParallelTest(suiteName, suitePath: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
+    var
+      matrix = newSeq[MatrixEntry]()
+      expected = newSeq[seq[tuple[
+        cell: array[fulu.BYTES_PER_CELL, uint8],
+        proof: array[48, uint8]]]]()
+      blobCount = 0
+
+    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+      if path.contains("_case_valid_"):
+        let
+          rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+          cells = rowData["input"]["cells"].mapIt(fromHex[2048](it.getStr).get)
+          cellIds = rowData["input"]["cell_indices"].mapIt(toUint64(it.getInt).get)
+        var
+          rowId = 0
+          columnId = 0
+          expectedRow = newSeq[tuple[
+            cell: array[fulu.BYTES_PER_CELL, uint8],
+            proof: array[48, uint8]]]()
+
+        for i in 0..<NUMBER_OF_COLUMNS:
+          # assume cell_indices is always sorted in ascending order
+          if columnId < cellIds.len and cellIds[columnId] == uint64(i):
+            matrix.add(MatrixEntry(
+              cell: KzgCell(bytes: cells[columnId]),
+              row_index: RowIndex(rowId),
+              column_index: ColumnIndex(columnId)))
+            columnId += 1
+          expectedRow.add((
+            fromHex[2048](rowData["output"][0][i].getStr).get,
+            fromHex[48](rowData["output"][1][i].getStr).get))
+
+        rowId += 1
+        expected.add(expectedRow)
+        blobCount = rowId
+
+    let val = recover_matrix_parallel(matrix, blobCount)
+
 from std/algorithm import sorted
 
 var suiteName = "EF - KZG"
@@ -374,6 +415,10 @@ suite suiteName:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
+
+  block:
+    let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
+    runRecoverCellsAndKzgProofsParallelTest(suiteName, testsDir)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"

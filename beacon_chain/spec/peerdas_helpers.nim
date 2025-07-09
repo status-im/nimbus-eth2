@@ -9,6 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
+  taskpools,
   std/[algorithm, sequtils],
   results,
   eth/p2p/discoveryv5/[node],
@@ -145,6 +146,55 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
       ))
 
   ok(extended_matrix)
+
+proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
+                                  cells: seq[Cell]): CellsAndProofs =
+  let res = recoverCellsAndKzgProofs(cell_indices, cells)
+  if not res.isOk:
+    discard
+  res.get
+
+proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
+                              blobCount: int):
+                              Result[seq[MatrixEntry], cstring] =
+  var
+    tp =
+      try:
+        Taskpool.new()
+      except Exception:
+        return err("Failed to initialize Taskpool")
+    pendingFuts = newSeq[Flowvar[CellsAndProofs]](blobCount)
+    res: seq[MatrixEntry]
+
+  for blob_index in 0..<blobCount:
+    var
+      cell_indices: seq[CellIndex]
+      cells: seq[Cell]
+
+    for e in partial_matrix:
+      if e.row_index == uint64(blob_index):
+        cell_indices.add(e.column_index)
+        cells.add(e.cell)
+
+    pendingFuts[blob_index] =
+      tp.spawn recoverCellsAndKzgProofsTask(cell_indices, cells)
+
+  # Retrieve results from each Flowvar
+  for k in 0..<pendingFuts.len:
+    let recoveredCellsAndKzgProofs = sync pendingFuts[k]
+    for i in 0..<recoveredCellsAndKzgProofs.cells.len:
+      let
+        cell = recoveredCellsAndKzgProofs.cells[i]
+        proof = recoveredCellsAndKzgProofs.proofs[i]
+      res.add(MatrixEntry(
+        cell: cell,
+        kzg_proof: proof,
+        row_index: k.uint64,
+        column_index: i.uint64
+      ))
+
+  tp.shutdown()
+  ok(res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
