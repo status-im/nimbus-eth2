@@ -148,11 +148,11 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
   ok(extended_matrix)
 
 proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
-                                  cells: seq[Cell]): CellsAndProofs =
+                                  cells: seq[Cell]): Result[CellsAndProofs, void] =
   let res = recoverCellsAndKzgProofs(cell_indices, cells)
-  if not res.isOk:
-    discard
-  res.get
+  if res.isErr:
+    return err()
+  ok(res.get)
 
 proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
                               blobCount: int):
@@ -163,7 +163,7 @@ proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
         Taskpool.new()
       except Exception:
         return err("Failed to initialize Taskpool")
-    pendingFuts = newSeq[Flowvar[CellsAndProofs]](blobCount)
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
     res: seq[MatrixEntry]
 
   for blob_index in 0..<blobCount:
@@ -182,10 +182,13 @@ proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
   # Retrieve results from each Flowvar
   for k in 0..<pendingFuts.len:
     let recoveredCellsAndKzgProofs = sync pendingFuts[k]
-    for i in 0..<recoveredCellsAndKzgProofs.cells.len:
+    if recoveredCellsAndKzgProofs.isErr:
+      return err("kzg cells and proofs recover failed")
+
+    for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
       let
-        cell = recoveredCellsAndKzgProofs.cells[i]
-        proof = recoveredCellsAndKzgProofs.proofs[i]
+        cell = recoveredCellsAndKzgProofs.get.cells[i]
+        proof = recoveredCellsAndKzgProofs.get.proofs[i]
       res.add(MatrixEntry(
         cell: cell,
         kzg_proof: proof,
