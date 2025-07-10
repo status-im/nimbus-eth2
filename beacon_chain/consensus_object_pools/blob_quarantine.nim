@@ -164,11 +164,11 @@ proc removeRoot[A, B](
         rootRecord.sidecars[index].data = nil
         dec(quarantine.memSidecarsCount)
         blob_quarantine_memory_slots_occupied.set(
-          quarantine.memSidecarsCount)
+          int64(quarantine.memSidecarsCount))
       of SidecarHolderKind.Unloaded:
         dec(quarantine.diskSidecarsCount)
         blob_quarantine_database_slots_occupied.set(
-          quarantine.diskSidecarsCount)
+          int64(quarantine.diskSidecarsCount))
         inc(sidecarsOnDisk)
 
     if sidecarsOnDisk > 0 and quarantine.maxMemSidecarsCount > 0:
@@ -283,9 +283,9 @@ proc unloadRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
         dec(quarantine.memSidecarsCount)
         inc(quarantine.diskSidecarsCount)
         blob_quarantine_memory_slots_occupied.set(
-          quarantine.memSidecarsCount)
+          int64(quarantine.memSidecarsCount))
         blob_quarantine_database_slots_occupied.set(
-          quarantine.diskSidecarsCount)
+          int64(quarantine.diskSidecarsCount))
         inc(record[].unloaded)
 
     if len(res) > 0:
@@ -318,7 +318,7 @@ proc put[A, B](record: var RootTableRecord[A], q: var SidecarQuarantine[A, B],
 
     if isEmpty(record.sidecars[index]):
       inc(q.memSidecarsCount)
-      blob_quarantine_memory_slots_occupied.set(q.memSidecarsCount)
+      blob_quarantine_memory_slots_occupied.set(int64(q.memSidecarsCount))
       inc(record.count)
       record.slot = sidecar[].slot()
 
@@ -736,10 +736,11 @@ proc init*(
 
   let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
-  blob_quarantine_memory_slots_total.set(size)
-  blob_quarantine_database_slots_total.set(size * maxDiskSizeMultipler)
-  blob_quarantine_memory_slots_occupied.set(0)
-  blob_quarantine_database_slots_occupied.set(0)
+  blob_quarantine_memory_slots_total.set(int64(size))
+  blob_quarantine_database_slots_total.set(
+    int64(size) * int64(maxDiskSizeMultipler))
+  blob_quarantine_memory_slots_occupied.set(0'i64)
+  blob_quarantine_database_slots_occupied.set(0'i64)
 
   BlobQuarantine(
     maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
@@ -771,10 +772,11 @@ proc init*(
 
   let size = maxSidecars(NUMBER_OF_COLUMNS)
 
-  blob_quarantine_memory_slots_total.set(size)
-  blob_quarantine_database_slots_total.set(size * maxDiskSizeMultipler)
-  blob_quarantine_memory_slots_occupied.set(0)
-  blob_quarantine_database_slots_occupied.set(0)
+  blob_quarantine_memory_slots_total.set(int64(size))
+  blob_quarantine_database_slots_total.set(
+    int64(size) * int64(maxDiskSizeMultipler))
+  blob_quarantine_memory_slots_occupied.set(0'i64)
+  blob_quarantine_database_slots_occupied.set(0'i64)
 
   ColumnQuarantine(
     maxSidecarsPerBlockCount: len(custodyColumns),
