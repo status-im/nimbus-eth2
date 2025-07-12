@@ -17,7 +17,7 @@
 ## functions.
 
 import
-  ./datatypes/[phase0, altair, bellatrix], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, bellatrix, focil], ./helpers, ./eth2_merkleization
 
 from ./datatypes/capella import BLSToExecutionChange, SignedBLSToExecutionChange
 
@@ -423,4 +423,28 @@ proc verify_bls_to_execution_change_signature*(
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/validator.md#constructing-a-signed-inclusion-list
+func compute_inclusion_list_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    message: InclusionList): Eth2Digest =
+  let domain = get_domain(
+    fork, DOMAIN_INCLUSION_LIST_COMMITTEE, message.slot.epoch(),
+    genesis_validators_root)
+  compute_signing_root(message, domain) 
+
+func get_inclusion_list_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    message: InclusionList, privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, message)
+  blsSign(privkey, signing_root.data)
+
+proc verify_inclusion_list_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    message: InclusionList,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, message)
   blsVerify(pubkey, signing_root.data, signature)
