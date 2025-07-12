@@ -60,8 +60,8 @@ type
   InclusionList* = object
     slot*: Slot
     validator_index*: ValidatorIndex
-    inclusion_list_committee_root: Eth2Digest
-    transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    inclusion_list_committee_root*: Eth2Digest
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
