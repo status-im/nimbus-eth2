@@ -12,7 +12,7 @@ import
   std/[deques, sets],
   # Internal
   ../spec/datatypes/[base, focil],
-  ../spec/[helpers, state_transition_block, focil_helpers],
+  ../spec/[helpers, state_transition_block],
   "."/[blockchain_dag]
 
 export base, deques, blockchain_dag, focil
@@ -63,13 +63,13 @@ func isSeen*(pool: InclusionListPool, msg: SignedInclusionList): bool =
   ## Check if we've already seen an inclusion list from this validator
   msg.message.validator_index.uint64 in pool.prior_seen_inclusion_list_validators
 
-func addMessage*(pool: var InclusionListPool, msg: SignedInclusionList) =
+proc addMessage*(pool: var InclusionListPool, msg: SignedInclusionList) =
   ## Add an inclusion list message to the pool
   pool.prior_seen_inclusion_list_validators.incl(
     msg.message.validator_index.uint64)
   
-  pool.inclusion_lists.addInclusionListMessage(
-    pool.prior_seen_inclusion_list_validators, msg, INCLUSION_LISTS_BOUND)
+  addInclusionListMessage(
+    pool.inclusion_lists, pool.prior_seen_inclusion_list_validators, msg, INCLUSION_LISTS_BOUND)
 
   # Send notification about new inclusion list via callback
   if not(isNil(pool.onInclusionListReceived)):
