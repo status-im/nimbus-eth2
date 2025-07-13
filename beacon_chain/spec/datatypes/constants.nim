@@ -90,5 +90,4 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/p2p-interface.md#configuration
   MAX_REQUEST_INCLUSION_LIST*: uint64 = 16 # 2**4
-  MAX_BYTES_PER_INCLUSION_LIST*: uint64 = 8192 # 2**13
   INCLUSION_LIST_COMMITTEE_SIZE*: uint64 = 128

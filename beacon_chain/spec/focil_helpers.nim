@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  std/[algorithm, sequtils],
+  std/[algorithm],
   results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -74,9 +74,9 @@ func get_inclusion_committee_assignment*(
     next_epoch = Epoch(state.slot.epoch() + 1)
   doAssert epoch <= nextEpoch
 
-  for epochSlot in epoch.slots():
+  for slot in epoch.slots():
     let
-      committee = resolve_inclusion_list_committee(state, epochSlot)
+      committee = resolve_inclusion_list_committee(state, slot)
     if validator_index in committee:
       return Opt.som(slot)
 

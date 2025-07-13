@@ -16,9 +16,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
   "."/[phase0, base, electra],
-  chronicles,
   chronos,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -26,9 +24,6 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
-from std/strutils import join
-from stew/bitops2 import log2trunc
-from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
@@ -59,7 +54,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#inclusionlist
   InclusionList* = object
     slot*: Slot
-    validator_index*: ValidatorIndex
+    validator_index*: uint64
     inclusion_list_committee_root*: Eth2Digest
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
