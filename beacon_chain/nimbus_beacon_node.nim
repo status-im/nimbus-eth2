@@ -397,7 +397,7 @@ proc initFullNode(
 
   let
     quarantine = newClone(
-      Quarantine.init())
+      Quarantine.init(dag.cfg))
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
       onSingleAttestationReceived))
@@ -1650,7 +1650,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
             node.dag.finalizedHead.slot.epoch()
           )
     node.processor.blobQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch())
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+    node.processor.quarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
