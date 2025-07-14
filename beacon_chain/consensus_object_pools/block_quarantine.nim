@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles,
-  ../spec/forks
+  ../spec/[presets, forks]
 
 export tables, forks
 
@@ -83,8 +83,10 @@ type
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
 
-func init*(T: type Quarantine): T =
-  T()
+    cfg*: RuntimeConfig
+
+func init*(T: type Quarantine, cfg: RuntimeConfig): T =
+  T(cfg: cfg)
 
 func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
@@ -268,6 +270,29 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.reset()
   quarantine.orphans.reset()
 
+func pruneAfterFinalization*(
+    quarantine: var Quarantine,
+    epoch: Epoch,
+    needsBackfill: bool
+) =
+  let
+    startEpoch =
+      if needsBackfill:
+        # Because Quarantine could be used as temporary storage for blocks which
+        # do not have sidecars yet, we should not prune blocks which are behind
+        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
+        # be able to backfill this blocks properly.
+        if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
+          Epoch(0)
+        else:
+          epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+      else:
+        epoch
+    slot = (startEpoch + 1).start_slot()
+
+  quarantine.cleanupBlobless(slot)
+  quarantine.cleanupColumnless(slot)
+
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
 # FIFO or LIFO discpline, and since by definition each block gets used
@@ -333,15 +358,33 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
       yield v
 
 proc addBlobless*(
+    quarantine: var Quarantine,
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock
+) =
+  if quarantine.blobless.lenu64 >= MaxBlobless:
+    var oldest_blobless_key: Eth2Digest
+    for k in quarantine.blobless.keys:
+      oldest_blobless_key = k
+      break
+    quarantine.blobless.del oldest_blobless_key
+
+  debug "Block without blob sidecars has been added to the quarantine",
+        block_root = shortLog(signedBlock.root)
+
+  quarantine.blobless[signedBlock.root] =
+    ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.missing.del(signedBlock.root)
+
+proc addBlobless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock): bool =
+                 fulu.SignedBeaconBlock
+): bool =
 
   if not isViable(finalizedSlot, signedBlock.message.slot):
     quarantine.addUnviable(signedBlock.root)
     return false
-
-  quarantine.cleanupBlobless(finalizedSlot)
 
   if quarantine.blobless.lenu64 >= MaxBlobless:
     var oldest_blobless_key: Eth2Digest
@@ -350,7 +393,8 @@ proc addBlobless*(
       break
     quarantine.blobless.del oldest_blobless_key
 
-  debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
+  debug "Block without blob sidecars has been added to the quarantine",
+        block_root = shortLog(signedBlock.root)
   quarantine.blobless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
   quarantine.missing.del(signedBlock.root)
