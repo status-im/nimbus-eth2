@@ -767,7 +767,7 @@ suite "Attestation pool electra processing" & preset():
         makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH, cfg = cfg),
         validatorMonitor, {})
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(defaultRuntimeConfig))
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
