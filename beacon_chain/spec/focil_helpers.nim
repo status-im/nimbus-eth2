@@ -39,7 +39,7 @@ func is_valid_inclusion_list_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#new-get_inclusion_list_committee
 func resolve_inclusion_list_committee*(
     state: ForkyBeaconState,
-    slot: Slot): HashSet[ValidatorIndex] =
+    slot: Slot): HashSet[uint64] =
   ## Return the inclusion list committee for the given slot
   let
     seed = get_seed(state, slot.epoch(), DOMAIN_INCLUSION_LIST_COMMITTEE)
@@ -50,15 +50,15 @@ func resolve_inclusion_list_committee*(
     end_i = start + INCLUSION_LIST_COMMITTEE_SIZE
     seq_len {.inject.} = indices.lenu64
 
-  var res: HashSet[ValidatorIndex]
+  var res: HashSet[uint64]
   for i in 0..<INCLUSION_LIST_COMMITTEE_SIZE:
     let
       shuffledIdx = compute_shuffled_index(
-        ((start + i) mod seq_len).asUInt64,
+        (start + i) mod seq_len,
         seq_len,
         seed)
 
-    res.incl indices[shuffledIdx]
+    res.incl uint64(indices[shuffledIdx])
 
   res
 

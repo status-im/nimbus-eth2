@@ -13,9 +13,10 @@ import
   results,
   kzg4844/[kzg, kzg_abi],
   stew/byteutils,
+  ssz_serialization/types as sszTypes,
   # Internals
   ../spec/[
-    beaconstate, state_transition_block, forks,
+    beaconstate, state_transition_block, forks, datatypes/focil,
     helpers, network, signatures, peerdas_helpers, focil_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
@@ -1919,7 +1920,7 @@ proc validateInclusionList*(
 
   # [IGNORE] The slot message.slot is equal to the current slot, or it is equal to the previous slot and the current time is less than ATTESTATION_DEADLINE seconds into the slot.
   if message.slot == currentSlot - 1:
-    let slotStartTime = message.slot.start_time()
+    let slotStartTime = message.slot.start_beacon_time()
     let currentTime = wallTime
     if currentTime >= slotStartTime + ATTESTATION_DEADLINE:
       return errIgnore("InclusionList: previous slot inclusion list received after deadline")
@@ -1928,10 +1929,11 @@ proc validateInclusionList*(
   withState(dag.headState):
     let committee = resolve_inclusion_list_committee(forkyState.data, message.slot)
     # Note: We need to convert the HashSet to a sequence for hash_tree_root
-    var committeeSeq: seq[ValidatorIndex]
+    var committeeList: List[uint64, Limit INCLUSION_LIST_COMMITTEE_SIZE]
     for validator in committee:
-      committeeSeq.add(validator)
-    let committeeRoot = hash_tree_root(committeeSeq)
+      if not committeeList.add(validator):
+        raiseAssert "Committee list overflowed its maximum size"
+    let committeeRoot = hash_tree_root(committeeList)
     if committeeRoot != message.inclusion_list_committee_root:
       return errIgnore("InclusionList: inclusion list committee root mismatch")
 
@@ -1949,7 +1951,9 @@ proc validateInclusionList*(
   let sig =
     if checkSignature:
       withState(dag.headState):
-        let pubkey = forkyState.data.validators[message.validator_index].pubkeyData
+        let
+          pubkey = dag.validatorKey(message.validator_index).valueOr:
+            return dag.checkedReject("InclusionList: invalid validator index")
         let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
           dag.forkAtEpoch(message.slot.epoch),
           message, pubkey, signed_inclusion_list.signature)
