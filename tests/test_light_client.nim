@@ -83,7 +83,7 @@ suite "Light client" & preset():
         lcDataConfig = LightClientDataConfig(
           serve: true,
           importMode: LightClientDataImportMode.OnlyNew))
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
     var

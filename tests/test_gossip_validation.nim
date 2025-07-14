@@ -46,7 +46,7 @@ suite "Gossip validation " & preset():
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(defaultRuntimeConfig))
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()

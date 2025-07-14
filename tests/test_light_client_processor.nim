@@ -46,7 +46,7 @@ suite "Light client processor" & preset():
       lcDataConfig = LightClientDataConfig(
         serve: true,
         importMode: LightClientDataImportMode.OnlyNew))
-    quarantine = newClone(Quarantine.init())
+    quarantine = newClone(Quarantine.init(defaultRuntimeConfig))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
   var verifier =BatchVerifier.init(rng, taskpool)

@@ -49,7 +49,7 @@ suite "Block pool processing" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
-      quarantine {.used.} = Quarantine.init()
+      quarantine {.used.} = Quarantine.init(defaultRuntimeConfig)
       state = newClone(dag.headState)
       cache = StateCache()
       info {.used.} = ForkedEpochInfo()

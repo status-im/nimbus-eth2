@@ -276,7 +276,7 @@ proc stepOnBlock(
     doAssert status.isOk()
 
     # 5. Update DAG with new head
-    var quarantine = Quarantine.init()
+    var quarantine = Quarantine.init(dag.cfg)
     let newHead = fkChoice[].get_head(dag, time).get()
     dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
     if dag.needStateCachesAndForkChoicePruning():
