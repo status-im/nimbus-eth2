@@ -16,12 +16,14 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
   topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
+  topicInclusionListSuffix = "inclusion_list/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -67,6 +69,10 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/p2p-interface.md#topics-and-messages
+func getInclusionListTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicInclusionListSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(

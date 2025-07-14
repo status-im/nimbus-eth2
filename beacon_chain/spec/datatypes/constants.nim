@@ -87,3 +87,6 @@ const
   DEPOSIT_REQUEST_TYPE* = 0x00'u8
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/p2p-interface.md#configuration
+  MAX_REQUEST_INCLUSION_LIST*: uint64 = 16 # 2**4

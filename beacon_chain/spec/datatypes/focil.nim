@@ -16,9 +16,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
   "."/[phase0, base, electra],
-  chronicles,
   chronos,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -26,9 +24,6 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
-from std/strutils import join
-from stew/bitops2 import log2trunc
-from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
@@ -47,21 +42,21 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#preset
   INCLUSION_LIST_COMMITTEE_SIZE* = 16'u64
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/fork-choice.md#time-parameters
-  VIEW_FREEZE_DEADLINE* = (SECONDS_PER_SLOT * 2 div 3 + 1).seconds
+  VIEW_FREEZE_DEADLINE* = chronos.seconds((SECONDS_PER_SLOT * 2 div 3 + 1).int64)
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/p2p-interface.md#configuration
-  ATTESTATION_DEADLINE* = (SECONDS_PER_SLOT div 3).seconds
+  ATTESTATION_DEADLINE* = chronos.seconds((SECONDS_PER_SLOT div 3).int64)
   MAX_REQUEST_INCLUSION_LIST* = 16'u64
   MAX_BYTES_PER_INCLUSION_LIST* = 8192'u64
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
-  PROPOSER_INCLUSION_LIST_CUT_OFF = (SECONDS_PER_SLOT - 1).seconds
+  PROPOSER_INCLUSION_LIST_CUT_OFF = chronos.seconds((SECONDS_PER_SLOT - 1).int64)
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#inclusionlist
   InclusionList* = object
     slot*: Slot
-    validator_index*: ValidatorIndex
-    inclusion_list_committee_root: Eth2Digest
-    transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    validator_index*: uint64
+    inclusion_list_committee_root*: Eth2Digest
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
