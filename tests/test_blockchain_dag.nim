@@ -1045,7 +1045,7 @@ suite "Starting states":
           {skipBlsValidation}))
       tailState = assignClone(genState[])
       db = BeaconChainDB.new("", inMemory = true)
-      quarantine = newClone(Quarantine.init(dag.cfg))
+      quarantine = newClone(Quarantine.init(defaultRuntimeConfig))
 
   test "Starting state without block":
     var
