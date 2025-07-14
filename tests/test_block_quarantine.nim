@@ -54,20 +54,20 @@ suite "Block quarantine":
       quarantine.addOrphan(Slot 0, b3).isOk
       quarantine.addOrphan(Slot 0, b4).isOk
 
-      quarantine.addBlobless(Slot 0, b5)
-      quarantine.addBlobless(Slot 0, b6)
+      quarantine.addSidecarless(Slot 0, b5)
+      quarantine.addSidecarless(Slot 0, b6)
 
       (b4.root, ValidatorSig()) in quarantine.orphans
-      b5.root in quarantine.blobless
-      b6.root in quarantine.blobless
+      b5.root in quarantine.sidecarless
+      b6.root in quarantine.sidecarless
 
     quarantine.addUnviable(b4.root)
 
     check:
       (b4.root, ValidatorSig()) notin quarantine.orphans
 
-      b5.root in quarantine.blobless
-      b6.root notin quarantine.blobless
+      b5.root in quarantine.sidecarless
+      b6.root notin quarantine.sidecarless
 
     quarantine.addUnviable(b1.root)
 
@@ -76,8 +76,8 @@ suite "Block quarantine":
       (b2.root, ValidatorSig()) notin quarantine.orphans
       (b3.root, ValidatorSig()) notin quarantine.orphans
 
-      b5.root notin quarantine.blobless
-      b6.root notin quarantine.blobless
+      b5.root notin quarantine.sidecarless
+      b6.root notin quarantine.sidecarless
 
   test "Recursive missing parent":
     let
