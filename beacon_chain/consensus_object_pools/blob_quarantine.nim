@@ -727,7 +727,7 @@ proc pruneAfterFinalization*(
   for root in rootsToRemove:
     quarantine.removeRoot(root)
 
-proc pruneAfterFinalization*[A, B](
+proc pruneAfterFinalization*(
     quarantine: var ColumnQuarantine,
     epoch: Epoch,
     backfillNeeded: bool
