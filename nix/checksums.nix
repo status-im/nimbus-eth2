@@ -8,5 +8,5 @@ in pkgs.fetchFromGitHub {
   repo = "checksums";
   rev = tools.findKeyValue "^ +ChecksumsStableCommit = \"([a-f0-9]+)\".*$" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
-  hash = "sha256-Bm5iJoT2kAvcTexiLMFBa9oU5gf7d4rWjo3OiN7obWQ=";
+  hash = "sha256-JZhWqn4SrAgNw/HLzBK0rrj3WzvJ3Tv1nuDMn83KoYY=";
 }
