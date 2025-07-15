@@ -9,6 +9,8 @@
 library 'status-jenkins-lib@v1.9.2'
 
 pipeline {
+  options { disableRestartFromStage() }
+
   /* This way we run the same Jenkinsfile on different platforms. */
   agent { label params.AGENT_LABEL }
 
