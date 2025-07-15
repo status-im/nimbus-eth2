@@ -202,14 +202,13 @@ p2pProtocol PeerSync(version = 1,
       remoteFork = peer.networkState.getBeaconTime().slotOrZero.epoch()
 
     if remoteFork >= peer.networkState.cfg.FULU_FORK_EPOCH:
-
       let
-        ourStatus = peer.networkState.getCurrentStatusV1()
+        ourStatus = peer.networkState.getCurrentStatusV2()
         theirStatus =
-          await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)
+          await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)
 
       if theirStatus.isOk:
-        discard await peer.handleStatusV1(peer.networkState, theirStatus.get())
+        discard await peer.handleStatusV2(peer.networkState, theirStatus.get())
         peer.updateAgent()
       else:
         debug "Status response not received in time",
@@ -218,12 +217,12 @@ p2pProtocol PeerSync(version = 1,
 
     else:
       let
-        ourStatus = peer.networkState.getCurrentStatusV2()
+        ourStatus = peer.networkState.getCurrentStatusV1()
         theirStatus =
-          await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)
+          await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)
 
       if theirStatus.isOk:
-        discard await peer.handleStatusV2(peer.networkState, theirStatus.get())
+        discard await peer.handleStatusV1(peer.networkState, theirStatus.get())
         peer.updateAgent()
       else:
         debug "Status response not received in time",
@@ -329,20 +328,20 @@ proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError])
 
   if nstate.getBeaconTime().slotOrZero.epoch() >= nstate.cfg.FULU_FORK_EPOCH:
     let
-      ourStatus = getCurrentStatusV1(nstate)
-      theirStatus =
-        (await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
-          return false
-
-    await peer.handleStatusV1(nstate, theirStatus)
-  else:
-    let
       ourStatus = getCurrentStatusV2(nstate)
       theirStatus =
         (await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
           return false
 
     await peer.handleStatusV2(nstate, theirStatus)
+  else:
+    let
+      ourStatus = getCurrentStatusV1(nstate)
+      theirStatus =
+        (await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
+          return false
+
+    await peer.handleStatusV1(nstate, theirStatus)
 
 proc getHeadRoot*(peer: Peer): Eth2Digest =
   let
