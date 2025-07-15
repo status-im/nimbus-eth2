@@ -282,9 +282,9 @@ proc setStatusV2Msg(peer: Peer, statusMsg: StatusMsgV2) =
   peer.state(PeerSync).statusLastTime = Moment.now()
 
 proc handleStatusV1(peer: Peer,
-                   state: PeerSyncNetworkState,
-                   theirStatus: StatusMsg): Future[bool]
-                   {.async: (raises: [CancelledError]).} =
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsg): Future[bool]
+                    {.async: (raises: [CancelledError]).} =
   let
     res = checkStatusMsg(state, theirStatus)
 
