@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  std/[os, random, terminal, times, exitprocs, atomics],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -2169,11 +2169,15 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
+var shouldCreatePidFile*: Atomic[bool]
+shouldCreatePidFile.store(true)
+
 var gPidFile: string
 proc createPidFile(filename: string) {.raises: [IOError].} =
-  writeFile filename, $os.getCurrentProcessId()
-  gPidFile = filename
-  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+  if shouldCreatePidFile.load():
+    writeFile filename, $os.getCurrentProcessId()
+    gPidFile = filename
+    addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.installMessageValidators()
@@ -2538,7 +2542,7 @@ proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [CatchableError].} =
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 
-proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
+proc handleStartUpCmd*(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = HmacDrbgContext.new()
