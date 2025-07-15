@@ -9,5 +9,5 @@ in pkgs.fetchFromGitHub {
   fetchSubmodules = true;
   rev = tools.findKeyValue "^ +NimbleStableCommit = \"([a-f0-9]+)\".*$" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
-  hash = "sha256-Rz48sGUKZEAp+UySla+MlsOfsERekuGKw69Tm11fDz8=";
+  hash = "sha256-wgzFhModFkwB8st8F5vSkua7dITGGC2cjoDvgkRVZMs=";
 }
