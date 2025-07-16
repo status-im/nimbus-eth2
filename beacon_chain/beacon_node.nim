@@ -17,7 +17,7 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client],
+  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
@@ -171,4 +171,5 @@ proc getPayloadBuilderClient*(
     socketFlags = {SocketFlags.TcpNoDelay}
 
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
-                    socketFlags = socketFlags)
+                    socketFlags = socketFlags,
+                    userAgent = nimbusAgentStr)
