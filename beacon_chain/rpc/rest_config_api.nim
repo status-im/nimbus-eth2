@@ -25,10 +25,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     cachedForkSchedule =
       RestApiResponse.prepareJsonResponse(getForkSchedule(cfg))
-    # Create a sorted copy of cfg.BLOB_SCHEDULE (does NOT mutate original)
     sortedBlobSchedule = cfg.BLOB_SCHEDULE.sorted(cmp=cmpBPOconfig)
-
-    # Map the sorted copy into JSON nodes with Base10 stringification
     restBlobSchedule = sortedBlobSchedule.mapIt(%*{
       "EPOCH": Base10.toString(uint64(it.EPOCH)),
       "MAX_BLOBS_PER_BLOCK": Base10.toString(uint64(it.MAX_BLOBS_PER_BLOCK))
