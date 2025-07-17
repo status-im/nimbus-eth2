@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/algorithm, sequtils, json
+import std/algorithm, json, sequtils
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/spec/forks,
