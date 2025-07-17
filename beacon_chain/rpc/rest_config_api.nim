@@ -7,6 +7,7 @@
 
 {.push raises: [].}
 
+import std/algorithm, sequtils, json
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/spec/forks,
@@ -16,11 +17,23 @@ export rest_utils
 
 logScope: topics = "rest_config"
 
+func cmpBPOconfig(x, y: BlobParameters): int =
+  cmp(x.EPOCH.distinctBase, y.EPOCH.distinctBase)
+
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   template cfg(): auto = node.dag.cfg
   let
     cachedForkSchedule =
       RestApiResponse.prepareJsonResponse(getForkSchedule(cfg))
+    # Create a sorted copy of cfg.BLOB_SCHEDULE (does NOT mutate original)
+    sortedBlobSchedule = cfg.BLOB_SCHEDULE.sorted(cmp=cmpBPOconfig)
+
+    # Map the sorted copy into JSON nodes with Base10 stringification
+    restBlobSchedule = sortedBlobSchedule.mapIt(%*{
+      "EPOCH": Base10.toString(uint64(it.EPOCH)),
+      "MAX_BLOBS_PER_BLOCK": Base10.toString(uint64(it.MAX_BLOBS_PER_BLOCK))
+    })
+
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
@@ -300,6 +313,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(VALIDATOR_CUSTODY_REQUIREMENT.uint64),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
             Base10.toString(BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
+          BLOB_SCHEDULE:
+            restBlobSchedule,
           # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
           #   Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
 
