@@ -7,6 +7,7 @@
 
 {.push raises: [].}
 
+import std/algorithm, json, sequtils
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/spec/forks,
@@ -16,11 +17,20 @@ export rest_utils
 
 logScope: topics = "rest_config"
 
+func cmpBPOconfig(x, y: BlobParameters): int =
+  cmp(x.EPOCH.distinctBase, y.EPOCH.distinctBase)
+
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   template cfg(): auto = node.dag.cfg
   let
     cachedForkSchedule =
       RestApiResponse.prepareJsonResponse(getForkSchedule(cfg))
+    sortedBlobSchedule = cfg.BLOB_SCHEDULE.sorted(cmp=cmpBPOconfig)
+    restBlobSchedule = sortedBlobSchedule.mapIt(%*{
+      "EPOCH": Base10.toString(uint64(it.EPOCH)),
+      "MAX_BLOBS_PER_BLOCK": Base10.toString(uint64(it.MAX_BLOBS_PER_BLOCK))
+    })
+
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
@@ -300,8 +310,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT.uint64),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
             Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP.uint64),
+          BLOB_SCHEDULE:
+            restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
-            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
+            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS.uint64),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
