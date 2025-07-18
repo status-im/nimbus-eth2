@@ -354,7 +354,7 @@ type
     capella*:   ForkDigest
     deneb*:     ForkDigest
     electra*:   ForkDigest
-    fulu*:      ForkDigest
+    fuluInt:    ForkDigest
     bpos*:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
 template kind*(
@@ -1077,7 +1077,7 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
 {.pop.}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
-func get_blob_parameters(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
+func get_blob_parameters*(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
   ## Return the blob parameters at a given epoch.
   for entry in cfg.BLOB_SCHEDULE:
     if epoch >= entry.EPOCH:
@@ -1127,9 +1127,9 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-  if   forkDigest == forkDigests.fulu:
+  if   forkDigest == forkDigests.fuluInt:
     ok ConsensusFork.Fulu
-  elif   forkDigest == forkDigests.electra:
+  elif forkDigest == forkDigests.electra:
     ok ConsensusFork.Electra
   elif forkDigest == forkDigests.deneb:
     ok ConsensusFork.Deneb
@@ -1151,7 +1151,7 @@ func atConsensusFork*(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest {.deprecated.} =
   case consensusFork
   of ConsensusFork.Fulu:
-    forkDigests.fulu
+    forkDigests.fuluInt
   of ConsensusFork.Electra:
     forkDigests.electra
   of ConsensusFork.Deneb:
@@ -1751,7 +1751,7 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root),
     electra:
       compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root),
-    fulu:
+    fuluInt:
       compute_fork_digest_fulu(
         cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH),
     bpos: mapIt(

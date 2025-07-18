@@ -1,4 +1,4 @@
-# beacon_chain
+  # beacon_chain
 # Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -32,15 +32,15 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 2
+  PARALLEL_REQUESTS_DATA_COLUMNS = 3
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
-    ## How long to wait for blobs to arri ve over gossip before fetching.
+    ## How long to wait for data columns to arrive over gossip before fetching.
 
-  POLL_INTERVAL = 1.seconds
+  POLL_INTERVAL* = 1.seconds
 
 type
   BlockVerifierFn = proc(
@@ -65,9 +65,9 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
-  DataColumnResponseRecord = object
-    block_root: Eth2Digest
-    sidecar: ref DataColumnSidecar
+  DataColumnResponseRecord* = object
+    block_root*: Eth2Digest
+    sidecar*: ref DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -172,9 +172,9 @@ func checkResponseSanity(
 
   Opt.some(records)
 
-proc checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
-                         columns: openArray[ref DataColumnSidecar]):
-                         Opt[seq[DataColumnResponseRecord]] =
+proc checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
+                          columns: openArray[ref DataColumnSidecar]):
+                          Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
@@ -266,7 +266,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
+func cmpSidecarIndexes*(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
   cmp(x[].index, y[].index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
@@ -332,8 +332,7 @@ proc checkPeerCustody(rman: RequestManager,
         NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
-    elif peer.lookupCgcFromPeer() ==
-        CUSTODY_REQUIREMENT.uint64:
+    else:
 
       # Fetch the remote custody count
       let remoteCustodyGroupCount =
@@ -349,13 +348,11 @@ proc checkPeerCustody(rman: RequestManager,
             max(rman.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
       for local_column in rman.custody_columns_set:
-        if local_column notin remoteCustodyColumns:
+        if local_column in remoteCustodyColumns:
+          return true
+        else:
+          peer.updateScore(PeerScoreBadColumnIntersection)
           return false
-
-      return true
-
-    else:
-      return false
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
@@ -667,9 +664,14 @@ proc requestManagerDataColumnLoop(
     if columnIds.len > 0:
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
-      var workers:
-        array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
-      for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
+      let workerCount =
+          if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+            PARALLEL_REQUESTS
+          else:
+            PARALLEL_REQUESTS_DATA_COLUMNS
+      var workers =
+        newSeq[Future[void].Raising([CancelledError])](workerCount)
+      for i in 0..<workerCount:
         workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
 
       await allFutures(workers)
@@ -685,9 +687,9 @@ proc start*(rman: var RequestManager) =
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc switchToColumnLoop*(rman: var RequestManager) =
-  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
+  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.

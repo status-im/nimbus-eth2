@@ -564,7 +564,7 @@ func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
     get_block_root(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
-template get_total_balance(
+template get_total_balance*(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
@@ -921,6 +921,15 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
       state, cache.get_shuffled_active_validator_indices(state, epoch))
     cache.total_active_balance[epoch] = tab
     return tab
+
+func get_total_active_balance*(state: ForkyBeaconState): Gwei =
+  let epoch = state.get_current_epoch()
+  let active_val_indices =
+    get_active_validator_indices(state, epoch)
+  var res = 0.Gwei
+  for vi in active_val_indices:
+    res += state.validators[vi].effective_balance
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt(

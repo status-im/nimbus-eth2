@@ -131,6 +131,15 @@ type
 
     era*: EraDB
 
+    eaSlot*: Slot
+      ## Earliest available slot is the earliest slot at which the BN can
+      ## guarantee serving blocks with sidecars.
+
+    erSlot*: Slot
+      ## Earliest refilled slot is the earliest slot at which excess
+      ## DataColumnSidecar downloading finishes, if erSlot = GENESIS_SLOT
+      ## we can deduce that validator custody is inactive.
+
     validatorMonitor*: ref ValidatorMonitor
 
     forkBlocks*: HashSet[KeyedBlockRef]
@@ -403,6 +412,10 @@ func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
     # When the BN is backfilling, backfill slot is the earliest
     # persisted block.
     dag.backfill.slot
+  elif dag.erSlot != GENESIS_SLOT:
+    # This indicates column filling due to validator custody
+    # is in progress
+    dag.erSlot
   else:
     # When the BN has backfilled, tail moves progressively.
     dag.tail.slot

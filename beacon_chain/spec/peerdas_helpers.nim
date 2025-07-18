@@ -548,14 +548,13 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#validator-custody
-func get_validators_custody_requirement*(cfg: RuntimeConfig, state: fulu.BeaconState,
-                                         validator_indices: openArray[ValidatorIndex]):
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0/specs/fulu/validator.md#validator-custody
+func get_validators_custody_requirement*(cfg: RuntimeConfig,
+                                         total_node_balance: Gwei):
                                          uint64 =
-  var total_node_balance: Gwei
-  for index in validator_indices:
-    total_node_balance += state.balances[index]
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+  debugEcho "Vcus count"
+  debugEcho count
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
