@@ -172,7 +172,7 @@ func checkResponseSanity(
 
   Opt.some(records)
 
-func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
+proc checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
                           columns: openArray[ref DataColumnSidecar]):
                           Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
