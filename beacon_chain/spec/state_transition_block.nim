@@ -27,7 +27,6 @@
 import
   chronicles, metrics,
   ../extras,
-  ./peerdas_helpers,
   ./datatypes/[phase0, altair, bellatrix, deneb],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
   kzg4844/kzg_abi, kzg4844/kzg
@@ -1086,10 +1085,9 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # Verify commitments are under limit
-  let max_blobs_per_block =
-    cfg.get_max_blobs_per_block_bpo(get_current_epoch(state)).valueOr:
-      return err("process_execution_payload: missing blob schedule")
-  if not (lenu64(body.blob_kzg_commitments) <= max_blobs_per_block):
+  let blob_params =
+    cfg.get_blob_parameters(get_current_epoch(state))
+  if not (lenu64(body.blob_kzg_commitments) <= blob_params.MAX_BLOBS_PER_BLOCK):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid

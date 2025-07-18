@@ -397,6 +397,14 @@ func popColumnless*(
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
+func getColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  try:
+    Opt.some(quarantine.columnless[root])
+  except KeyError:
+    Opt.none(ForkedSignedBeaconBlock)
+
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
     yield v

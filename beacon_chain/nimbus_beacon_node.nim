@@ -428,6 +428,10 @@ proc initFullNode(
         node.network.nodeId,
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
+    minDa =
+      dag.cfg.resolve_columns_from_custody_groups(
+        node.network.nodeId,
+        dag.cfg.CUSTODY_REQUIREMENT.uint64)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
@@ -579,8 +583,7 @@ proc initFullNode(
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, supernode,
-      getLocalHeadSlot, custodyColumns, getBeaconTime,
-      (proc(): bool = syncManager.inProgress), dataColumnQuarantine)
+      getLocalHeadSlot, custodyColumns, getBeaconTime, dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -1458,72 +1461,6 @@ proc maybeUpdateActionTrackerNextEpoch(
     when forkyState is phase0.HashedBeaconState:
       # The previous_epoch_participation-based logic requires Altair or newer
       epochRefFallback()
-    elif forkyState is fulu.HashedBeaconState:
-      let
-        shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
-          # epochRefFallback() won't work in this case either
-          return
-          # using the separate method of proposer indices calculation in Fulu
-        nextEpochProposers = get_beacon_proposer_indices(
-          forkyState.data, nextEpoch)
-        nextEpochFirstProposer = nextEpochProposers[0].valueOr:
-          # All proposers except the first can be more straightforwardly and
-          # efficiently (re)computed correctly once in that epoch.
-          epochRefFallback()
-          return
-
-      # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
-      # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
-      # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
-      #
-      # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
-      # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE.Gwei ensures
-      # if even so, then the effective balance cannot change as a result.
-      #
-      # It's not truly necessary to avoid all rewards and penalties, but only
-      # to bound them to ensure they won't unexpected alter effective balance
-      # during the upcoming epoch transition.
-      #
-      # During genesis epoch, the check for epoch participation is against
-      # current, not previous, epoch, and therefore there's a possibility of
-      # checking for if a validator has participated in an epoch before it will
-      # happen.
-      #
-      # Because process_rewards_and_penalties() in epoch processing happens
-      # before the current/previous participation swap, previous is correct
-      # even here, and consistent with what the epoch transition uses.
-      #
-      # Whilst slashing, proposal, and sync committee rewards and penalties do
-      # update the balances as they occur, they don't update effective_balance
-      # until the end of epoch, so detect via effective_balance_might_update.
-      #
-      # On EF mainnet epoch 233906, this matches 99.5% of active validators;
-      # with Holesky epoch 2041, 83% of active validators.
-      let
-        participation_flags =
-          forkyState.data.previous_epoch_participation.item(
-            nextEpochFirstProposer)
-        effective_balance = forkyState.data.validators.item(
-          nextEpochFirstProposer).effective_balance
-
-      # Maximal potential accuracy primarily useful during the last slot of
-      # each epoch to prepare for a possible proposal the first slot of the
-      # next epoch. Otherwise, epochRefFallback is potentially very slow as
-      # it can induce a lengthy state replay.
-      if (not (currentSlot + 1).is_epoch) or
-         (participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
-          participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
-          effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
-          forkyState.data.slot.epoch != GENESIS_EPOCH and
-          forkyState.data.inactivity_scores.item(
-            nextEpochFirstProposer) == 0 and
-          not effective_balance_might_update(
-            forkyState.data.balances.item(nextEpochFirstProposer),
-            effective_balance)):
-        node.consensusManager[].actionTracker.updateActions(
-          shufflingRef, nextEpochProposers)
-      else:
-        epochRefFallback()
     else:
       let
         shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
@@ -1621,7 +1558,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     targetGossipState =
       getTargetGossipState(slot.epoch, node.dag.cfg, isBehind)
 
-  doAssert targetGossipState.len <= 2
+  #doAssert targetGossipState.len <= 2
 
   let
     newGossipEpochs = targetGossipState - node.gossipState
@@ -1919,6 +1856,21 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # the next slot, just before that slot starts - because of the advance cuttoff
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
+
+  if (not node.config.peerdasSupernode) and
+     (slot.epoch() + 1).start_slot() - slot == 1:
+    # Detect new validator custody at the last slot of every epoch
+    discard node.validatorCustody.detectNewValidatorCustody(node.attachedValidatorBalanceTotal)
+
+  # Update CGC and metadata with respect to the new detected validator custody
+  let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+  if node.config.peerdasSupernode:
+    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
+  elif new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+    node.network.loadCgcnetMetadataAndEnr(new_vcus)
+  else:
+    node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   # Update nfd field for BPOs
   let

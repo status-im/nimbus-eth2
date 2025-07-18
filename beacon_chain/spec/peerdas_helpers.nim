@@ -550,10 +550,11 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
-                                         hstate: ForkyHashedBeaconState,
                                          total_node_balance: Gwei):
                                          uint64 =
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+  debugEcho "Vcus count"
+  debugEcho count
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 

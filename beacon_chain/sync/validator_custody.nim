@@ -25,7 +25,9 @@ from ../beacon_clock import GetBeaconTimeFn
 logScope: topics = "validator_custody"
 
 const
-    PARALLEL_REFILL_REQUESTS = 32
+  PARALLEL_REFILL_REQUESTS = 32
+  VALIDATOR_CUSTODY_POLL_INTERVAL = 3.seconds
+
 
 type
   InhibitFn = proc: bool {.gcsafe, raises: [].}
@@ -37,10 +39,10 @@ type
     getLocalHeadSlot*: GetSlotCallback
     older_column_set*: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
+    diff_set*: seq[ColumnIndex]
     global_refill_list*: HashSet[DataColumnIdentifier]
     requested_columns*: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
-    inhibit: InhibitFn
     dataColumnQuarantine: ref ColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
 
@@ -52,7 +54,6 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
            getLocalHeadSlotCb: GetSlotCallback,
            older_column_set: HashSet[ColumnIndex],
            getBeaconTime: GetBeaconTimeFn,
-           inhibit: InhibitFn,
            dataColumnQuarantine: ref ColumnQuarantine): ValidatorCustodyRef =
   let localHeadSlot = getLocalHeadSlotCb
   (ValidatorCustodyRef)(
@@ -62,49 +63,49 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     getLocalHeadSlot: getLocalHeadSlotCb,
     older_column_set: older_column_set,
     getBeaconTime: getBeaconTime,
-    inhibit: inhibit,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache): seq[ColumnIndex] =
+proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
+                                total_node_balance: Gwei): seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
-  withState(vcus.dag.headState):
-    when consensusFork >= ConsensusFork.Fulu:
-      let total_node_balance =
-        get_total_active_balance(forkyState.data, cache)
-      let vcustody =
-        vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
+  debugEcho "Total node balance"
+  debugEcho total_node_balance
+  let vcustody =
+    vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
 
-      let
-        newer_columns =
-          vcus.dag.cfg.resolve_columns_from_custody_groups(
-            vcus.network.nodeId,
-            max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
-            vcustody))
+  let
+    newer_columns =
+      vcus.dag.cfg.resolve_columns_from_custody_groups(
+        vcus.network.nodeId,
+        max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
+        vcustody))
 
-      # update data column quarantine custody requirements
-      var sortedColumns = newer_columns.toSeq()
-      sort(sortedColumns)
-      vcus.dataColumnQuarantine[].custody_columns =
-        sortedColumns
+  debugEcho "new validator custody count"
+  debugEcho newer_columns
 
-      # check which custody set is larger
-      if newer_columns.len > vcus.older_column_set.len:
-        diff_set = newer_columns.difference(vcus.older_column_set)
-      vcus.newer_column_set = newer_columns
+  # update data column quarantine custody requirements
+  var sortedColumns = newer_columns.toSeq()
+  sort(sortedColumns)
+  vcus.dataColumnQuarantine[].custody_columns =
+    sortedColumns
 
-  toSeq(diff_set)
+  # check which custody set is larger
+  if newer_columns.len > vcus.older_column_set.len:
+    diff_set = newer_columns.difference(vcus.older_column_set)
+    vcus.diff_set = toSeq(diff_set)
+  vcus.newer_column_set = newer_columns
+
+  vcus.diff_set
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   let
     slot = vcus.getLocalHeadSlot()
     dag = vcus.dag
 
-  if slot == dag.earliestAvailableSlot():
-    # Make earliest refilled slot go 18 days worth of slots behind
-    # in time to start refilling the excess custody columns
-    dag.erSlot =
-        dag.erSlot - (vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS * 12) - 1
+  # Make earliest refilled slot go upto head because everything
+  # behind is currently undergoing excess column refilling.
+  dag.erSlot = slot
 
   let dataColumnRefillEpoch = (slot.epoch -
                               vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
@@ -200,50 +201,43 @@ proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
   while true:
-    let diff = vcus.detectNewValidatorCustody(cache)
 
-    await sleepAsync(POLL_INTERVAL)
-    if diff.len == 0:
+    await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
+    if vcus.diff_set.len != 0:
+
+      vcus.makeRefillList(vcus.diff_set)
+      if vcus.global_refill_list.len != 0:
+        debug "Requesting detected missing data columns for refill",
+              columns = shortLog(vcus.requested_columns)
+        let start = SyncMoment.now(0)
+        var workers:
+          array[PARALLEL_REFILL_REQUESTS, Future[void].Raising([CancelledError])]
+        for i in 0..<PARALLEL_REFILL_REQUESTS:
+          workers[i] = vcus.refillDataColumnsFromNetwork()
+
+        await allFutures(workers)
+        let finish = SyncMoment.now(uint64(len(vcus.global_refill_list)))
+
+        debug "Validator custody backfill tick",
+              backfill_speed = speed(start, finish)
+
+      else:
+        ## Done with column refilling
+        ## hence now advertise the updated cgc count
+        ## in ENR and metadata.
+        if vcus.older_column_set.len != vcus.newer_column_set.len:
+          # Newer cgc count can also drop from previous if validators detach
+
+          # Make the newer set older
+          vcus.older_column_set = vcus.newer_column_set
+          # Clear the newer for future validator custody detection
+          vcus.newer_column_set.clear()
+          # Reset the earliest refilled slot and make the
+          # earliest available slot tail.
+          vcus.dag.erSlot = GENESIS_SLOT
+    else:
       # Validator custody same as previous interval
       continue
-    else:
-      # Report new custody column count to cgc and metadata
-      vcus.network.loadCgcnetMetadataAndEnr(CgcCount vcus.newer_column_set.lenu64)
-
-    if vcus.inhibit():
-      continue
-
-    vcus.makeRefillList(diff)
-    if vcus.global_refill_list.len != 0:
-      debug "Requesting detected missing data columns for refill",
-            columns = shortLog(vcus.requested_columns)
-      let start = SyncMoment.now(0)
-      var workers:
-        array[PARALLEL_REFILL_REQUESTS, Future[void].Raising([CancelledError])]
-      for i in 0..<PARALLEL_REFILL_REQUESTS:
-        workers[i] = vcus.refillDataColumnsFromNetwork()
-
-      await allFutures(workers)
-      let finish = SyncMoment.now(uint64(len(vcus.global_refill_list)))
-
-      debug "Validator custody backfill tick",
-            backfill_speed = speed(start, finish)
-
-    else:
-      ## Done with column refilling
-      ## hence now advertise the updated cgc count
-      ## in ENR and metadata.
-      if vcus.older_column_set.len != vcus.newer_column_set.len:
-        # Newer cgc count can also drop from previous if validators detach
-
-        # Make the newer set older
-        vcus.older_column_set = vcus.newer_column_set
-        # Clear the newer for future validator custody detection
-        vcus.newer_column_set.clear()
-        # Reset the earliest refilled slot and make the
-        # earliest available slot tail.
-        vcus.dag.erSlot = GENESIS_SLOT
-        discard vcus.dag.earliestAvailableSlot()
 
 proc start*(vcus: ValidatorCustodyRef) =
   ## Start Validator Custody detection loop
