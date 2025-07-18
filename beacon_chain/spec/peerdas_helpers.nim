@@ -293,7 +293,7 @@ func get_extended_sample_count*(samples_per_slot: int,
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
 proc verify_data_column_sidecar*(sidecar: DataColumnSidecar):
                                  Result[void, cstring] =
-  # Verify if the data column sidecar is valid.
+  ## Verify if the data column sidecar is valid.
 
   if sidecar.index >= NUMBER_OF_COLUMNS:
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
