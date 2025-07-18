@@ -188,6 +188,9 @@ func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
         # verify the inclusion proof
         colresp[].verify_data_column_sidecar_inclusion_proof().isOkOr:
           return Opt.none(seq[DataColumnResponseRecord])
+        # verify the column kzg proof
+        colresp[].verify_data_column_sidecar_kzg_proofs().isOkOr:
+          return Opt.none(seq[DataColumnResponseRecord])
         colRec.add(DataColumnResponseRecord(block_root: block_root,
                                             sidecar: colresp))
   Opt.some(colRec)

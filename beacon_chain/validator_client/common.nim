@@ -267,8 +267,14 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  SlotDuration* = int64(SECONDS_PER_SLOT).seconds
-  OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
+  SlotDuration* =
+    int64(SECONDS_PER_SLOT).seconds
+  SlotDurationSoft* =
+    (int64(SECONDS_PER_SLOT) div 2).seconds
+  OneThirdDuration* =
+    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT)).seconds
+  OneThirdDurationSoft* =
+    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT) div 2'i64).seconds
   AllBeaconNodeRoles* = {
     BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,

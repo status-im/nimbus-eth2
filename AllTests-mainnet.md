@@ -209,6 +209,7 @@ AllTests-mainnet
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
++ Fusaka devnet-2                                                                            OK
 ```
 ## EF - KZG
 ```diff
@@ -647,10 +648,6 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
-## Gossip fork transition
-```diff
-+ Gossip fork transition                                                                     OK
-```
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Empty committee when no committee for slot                                                 OK
@@ -1004,7 +1001,8 @@ AllTests-mainnet
 ```diff
 + /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
-+ bestSuccess() API timeout test                                                             OK
++ bestSuccess() API hard timeout test                                                        OK
++ bestSuccess() API soft timeout test                                                        OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() default test                                           OK
 + getAggregatedAttestationDataScore() test vectors                                           OK

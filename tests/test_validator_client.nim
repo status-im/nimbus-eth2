@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 {.used.}
 
 import std/strutils
-import httputils
+import httputils, stew/base10
 import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
 import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
@@ -863,7 +863,7 @@ suite "Validator Client test suite":
       response.isErr()
       gotCancellation == true
 
-  asyncTest "bestSuccess() API timeout test":
+  asyncTest "bestSuccess() API hard timeout test":
     let
       uri = parseUri("http://127.0.0.1/")
       beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
@@ -893,6 +893,7 @@ suite "Validator Client test suite":
       RestPlainResponse,
       uint64,
       float64,
+      50.milliseconds,
       100.milliseconds,
       AllBeaconNodeStatuses,
       {BeaconNodeRole.Duties},
@@ -907,6 +908,237 @@ suite "Validator Client test suite":
     check:
       response.isErr()
       gotCancellation == true
+
+  asyncTest "bestSuccess() API soft timeout test":
+    let
+      strategy = ApiStrategyKind.Best
+      beaconNodes = @[
+        BeaconNodeServerRef.init(parseUri("http://127.0.0.1/"), 0).tryGet(),
+        BeaconNodeServerRef.init(parseUri("http://127.0.0.2/"), 1).tryGet(),
+        BeaconNodeServerRef.init(parseUri("http://127.0.0.3/"), 2).tryGet(),
+        BeaconNodeServerRef.init(parseUri("http://127.0.0.4/"), 3).tryGet()
+      ]
+      vconf = ValidatorClientConf.load(
+        cmdLine = mapIt([
+          "--beacon-node=http://127.0.0.1",
+          "--beacon-node=http://127.0.0.2",
+          "--beacon-node=http://127.0.0.3",
+          "--beacon-node=http://127.0.0.4"
+        ], it))
+      epoch = Epoch(1)
+
+    let
+      vc = newClone(ValidatorClient(config: vconf, beaconNodes: beaconNodes))
+
+    vc.fallbackService = await FallbackServiceRef.init(vc)
+
+    proc getIndex(hostname: string): int =
+      case hostname
+      of "127.0.0.1": 0
+      of "127.0.0.2": 1
+      of "127.0.0.3": 2
+      of "127.0.0.4": 3
+      else: -1
+
+    proc init(t: typedesc[RestPlainResponse], data: string): RestPlainResponse =
+      RestPlainResponse(
+        status: 200,
+        contentType: Opt.some(getContentType("text/plain").get()),
+        data: stringToBytes(data)
+      )
+
+    template generateTestProcedures(
+      tm1, tm2, tm3, tm4: untyped,
+      rsps1, rsps2, rsps3, rsps4: static string,
+      rspu1, rspu2, rspu3, rspu4: static uint64,
+      score1, score2, score3, score4: static float64
+    ) =
+      proc getTestDuties(
+          client: RestClientRef,
+          epoch: Epoch
+      ): Future[RestPlainResponse] {.async: (raises: [CancelledError]).} =
+        let index = getIndex(client.address.hostname)
+        try:
+          case index
+          of 0:
+            await sleepAsync(tm1)
+            events[0].fire()
+            RestPlainResponse.init(rsps1)
+          of 1:
+            await sleepAsync(tm2)
+            events[1].fire()
+            RestPlainResponse.init(rsps2)
+          of 2:
+            await sleepAsync(tm3)
+            events[2].fire()
+            RestPlainResponse.init(rsps3)
+          of 3:
+            await sleepAsync(tm4)
+            events[3].fire()
+            RestPlainResponse.init(rsps4)
+          else:
+            raiseAssert "Should not be here"
+        except CancelledError as exc:
+          cancellations[index] = true
+          events[index].fire()
+          raise exc
+
+      proc getTestScore(data: uint64): float64 =
+        case data
+        of rspu1:
+          score1
+        of rspu2:
+          score2
+        of rspu3:
+          score3
+        of rspu4:
+          score4
+        else:
+          raiseAssert "Should not be here"
+
+    const
+      RequestName = "getTestDuties"
+
+    block:
+      let events = @[
+        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
+      ]
+      var cancellations = @[false, false, false, false]
+
+      generateTestProcedures(
+        1500.milliseconds,
+        900.milliseconds,
+        600.milliseconds,
+        1200.milliseconds,
+        "0", "10", "100", "1000",
+        0'u64, 10'u64, 100'u64, 1000'u64,
+        0'f64, 10'f64, 100'f64, 1000'f64
+      )
+
+      let
+        response =
+          vc.bestSuccess(
+            RestPlainResponse,
+            uint64,
+            float64,
+            500.milliseconds,
+            1000.milliseconds,
+            AllBeaconNodeStatuses,
+            {BeaconNodeRole.Duties},
+            getTestDuties(it, epoch),
+            getTestScore(itresponse)):
+              if apiResponse.isErr():
+                ApiResponse[uint64].err(apiResponse.error)
+              else:
+                let response = apiResponse.get()
+                case response.status
+                of 200:
+                  ApiResponse[uint64].ok(
+                    Base10.decode(uint64, response.data).get())
+                else:
+                  ApiResponse[uint64].ok(0'u64)
+        pendingFutures = events.mapIt(it.wait())
+
+      await allFutures(pendingFutures)
+
+      check:
+        cancellations == @[true, false, false, true]
+        response.isOk()
+        response.get() == 100'u64
+
+    block:
+      let events = @[
+        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
+      ]
+      var cancellations = @[false, false, false, false]
+
+      generateTestProcedures(
+        1500.milliseconds,
+        100.milliseconds,
+        1200.milliseconds,
+        1100.milliseconds,
+        "0", "10", "100", "1000",
+        0'u64, 10'u64, 100'u64, 1000'u64,
+        0'f64, 10'f64, 100'f64, 1000'f64
+      )
+
+      let
+        response =
+          vc.bestSuccess(
+            RestPlainResponse,
+            uint64,
+            float64,
+            500.milliseconds,
+            1000.milliseconds,
+            AllBeaconNodeStatuses,
+            {BeaconNodeRole.Duties},
+            getTestDuties(it, epoch),
+            getTestScore(itresponse)):
+              if apiResponse.isErr():
+                ApiResponse[uint64].err(apiResponse.error)
+              else:
+                let response = apiResponse.get()
+                case response.status
+                of 200:
+                  ApiResponse[uint64].ok(
+                    Base10.decode(uint64, response.data).get())
+                else:
+                  ApiResponse[uint64].ok(0'u64)
+        pendingFutures = events.mapIt(it.wait())
+
+      await allFutures(pendingFutures)
+
+      check:
+        cancellations == @[true, false, true, true]
+        response.isOk()
+        response.get() == 10'u64
+
+    block:
+      let events = @[
+        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
+      ]
+      var cancellations = @[false, false, false, false]
+
+      generateTestProcedures(
+        1500.milliseconds,
+        100.milliseconds,
+        300.milliseconds,
+        1200.milliseconds,
+        "0", "10", "100", "1000",
+        0'u64, 10'u64, 100'u64, 1000'u64,
+        0'f64, 10'f64, 100'f64, 1000'f64
+      )
+
+      let
+        response =
+          vc.bestSuccess(
+            RestPlainResponse,
+            uint64,
+            float64,
+            500.milliseconds,
+            1000.milliseconds,
+            AllBeaconNodeStatuses,
+            {BeaconNodeRole.Duties},
+            getTestDuties(it, epoch),
+            getTestScore(itresponse)):
+              if apiResponse.isErr():
+                ApiResponse[uint64].err(apiResponse.error)
+              else:
+                let response = apiResponse.get()
+                case response.status
+                of 200:
+                  ApiResponse[uint64].ok(
+                    Base10.decode(uint64, response.data).get())
+                else:
+                  ApiResponse[uint64].ok(0'u64)
+        pendingFutures = events.mapIt(it.wait())
+
+      await allFutures(pendingFutures)
+
+      check:
+        cancellations == @[true, false, false, true]
+        response.isOk()
+        response.get() == 100'u64
 
   test "getLiveness() response deserialization test":
     proc generateLivenessResponse(T: typedesc[string],

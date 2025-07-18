@@ -2432,6 +2432,59 @@
     }
   },
   {
+    "topics": ["beacon", "states_validator_identities", "slow", "post"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/states/head/validator_identities",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "pubkey": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_identities", "post"],
+    "comment": "Correct hexadecimal values #1",
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"]"
+      },
+      "url": "/eth/v1/beacon/states/head/validator_identities",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "pubkey": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_identities", "post"],
+    "comment": "Incorrect hexadecimal values #1",
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[\"0x\"]"
+      },
+      "url": "/eth/v1/beacon/states/head/validator_identities",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "states_committees"],
     "request": {
       "url": "/eth/v1/beacon/states/head/committees",
