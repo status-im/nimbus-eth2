@@ -1,3 +1,4 @@
+
 # beacon_chain
 # Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
@@ -41,7 +42,7 @@ export
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri,
-  LightClientDataImportMode
+  LightClientDataImportMode, slashing_protection_common
 
 declareGauge network_name, "network name", ["name"]
 
