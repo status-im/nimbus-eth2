@@ -3268,6 +3268,7 @@ ConsensusSpecPreset-minimal
 ```diff
 + EF - Electra - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Electra - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]      OK
 + EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]             OK
@@ -3455,6 +3456,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
 + Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
 ```
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
@@ -3550,6 +3552,8 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
 + EF - Fulu - Fork - lookahead_consistency_at_fork [Preset: minimal]                         OK
++ EF - Fulu - Fork - lookahead_consistency_with_effective_balance_change_at_fork [Preset: mi OK
++ EF - Fulu - Fork - proposer_lookahead_init_at_fork_only_contains_active_validators [Preset OK
 ```
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -4181,6 +4185,7 @@ ConsensusSpecPreset-minimal
 ```diff
 + EF - Fulu - Slots - balance_change_affects_proposer [Preset: minimal]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
++ EF - Fulu - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]         OK
 + EF - Fulu - Slots - empty_epoch [Preset: minimal]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: minimal]                               OK
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]                OK
@@ -4985,6 +4990,23 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots_ OK
   ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_zero OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__not_availabl OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__ok           OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK

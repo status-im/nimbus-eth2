@@ -135,7 +135,7 @@ func check_slot_exact(msgSlot: Slot, wallTime: BeaconTime):
 
   ok(msgSlot)
 
-func check_beacon_and_target_block(
+proc check_beacon_and_target_block(
     pool: var AttestationPool, data: AttestationData):
     Result[BlockSlot, ValidationError] =
   # The block being voted for (data.beacon_block_root) passes validation - by

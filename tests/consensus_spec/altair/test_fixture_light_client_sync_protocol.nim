@@ -203,7 +203,7 @@ proc runTest(storeDataFork: static LightClientDataFork) =
         store.optimistic_header == update.attested_header
         store.current_max_active_participants > 0
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L64-L96
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L64-L96
     test "test_process_light_client_update_at_period_boundary":
       var forked = assignClone(genesisState[])
       template state(): auto = forked[].altairData.data

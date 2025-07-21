@@ -76,7 +76,7 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#status
-proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
+proc getCurrentStatusV1(state: PeerSyncNetworkState): StatusMsg =
   let
     dag = state.dag
     wallSlot = state.getBeaconTime().slotOrZero
@@ -166,13 +166,15 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2
       # apparently don't use spec ZERO_HASH as of this writing
       if not (status.finalizedRoot in [state.genesisBlockRoot, ZERO_HASH]):
         return err("peer following different finality")
-
   ok()
 
-proc handleStatus(peer: Peer,
-                  state: PeerSyncNetworkState,
-                  theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
+proc handleStatusV1(peer: Peer,
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
 
+proc handleStatusV2(peer: Peer,
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
 
 {.pop.} # TODO fix p2p macro for raises
 
@@ -195,27 +197,55 @@ p2pProtocol PeerSync(version = 1,
     #      need a dedicated flow in libp2p that resolves the race conditions -
     #      this needs more thinking around the ordering of events and the
     #      given incoming flag
+
     let
-      ourStatus = peer.networkState.getCurrentStatus()
-      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
-      ourStatusV2 = peer.networkState.getCurrentStatusV2()
+      remoteFork = peer.networkState.getBeaconTime().slotOrZero.epoch()
 
-    if theirStatus.isOk:
-      discard await peer.handleStatus(peer.networkState, theirStatus.get())
-      peer.updateAgent()
+    if remoteFork >= peer.networkState.cfg.FULU_FORK_EPOCH:
+      let
+        ourStatus = peer.networkState.getCurrentStatusV2()
+        theirStatus =
+          await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)
+
+      if theirStatus.isOk:
+        discard await peer.handleStatusV2(peer.networkState, theirStatus.get())
+        peer.updateAgent()
+      else:
+        debug "Status response not received in time",
+              peer, errorKind = theirStatus.error.kind
+        await peer.disconnect(FaultOrError)
+
     else:
-      debug "Status response not received in time",
-            peer, errorKind = theirStatus.error.kind
-      await peer.disconnect(FaultOrError)
+      let
+        ourStatus = peer.networkState.getCurrentStatusV1()
+        theirStatus =
+          await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)
 
-  proc status(peer: Peer,
-              theirStatus: StatusMsg,
-              response: SingleChunkResponse[StatusMsg])
-    {.async, libp2pProtocol("status", 1).} =
-    let ourStatus = peer.networkState.getCurrentStatus()
-    trace "Sending status message", peer = peer, status = ourStatus
+      if theirStatus.isOk:
+        discard await peer.handleStatusV1(peer.networkState, theirStatus.get())
+        peer.updateAgent()
+      else:
+        debug "Status response not received in time",
+              peer, errorKind = theirStatus.error.kind
+        await peer.disconnect(FaultOrError)
+
+  proc statusV1(peer: Peer,
+                theirStatus: StatusMsg,
+                response: SingleChunkResponse[StatusMsg])
+      {.async, libp2pProtocol("status", 1).} =
+    let ourStatus = peer.networkState.getCurrentStatusV1()
+    trace "Sending status (v1)", peer = peer, status = ourStatus
     await response.send(ourStatus)
-    discard await peer.handleStatus(peer.networkState, theirStatus)
+    discard await peer.handleStatusV1(peer.networkState, theirStatus)
+
+  proc statusV2(peer: Peer,
+                theirStatus: StatusMsgV2,
+                response: SingleChunkResponse[StatusMsgV2])
+      {.async, libp2pProtocol("status", 2).} =
+    let ourStatus = peer.networkState.getCurrentStatusV2()
+    trace "Sending status (v2)", peer = peer, status = ourStatus
+    await response.send(ourStatus)
+    discard await peer.handleStatusV2(peer.networkState, theirStatus)
 
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
@@ -251,10 +281,10 @@ proc setStatusV2Msg(peer: Peer, statusMsg: StatusMsgV2) =
   peer.state(PeerSync).statusMsgV2 = statusMsg
   peer.state(PeerSync).statusLastTime = Moment.now()
 
-proc handleStatus(peer: Peer,
-                  state: PeerSyncNetworkState,
-                  theirStatus: StatusMsg): Future[bool]
-                  {.async: (raises: [CancelledError]).} =
+proc handleStatusV1(peer: Peer,
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsg): Future[bool]
+                    {.async: (raises: [CancelledError]).} =
   let
     res = checkStatusMsg(state, theirStatus)
 
@@ -271,28 +301,77 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
     true
 
+proc handleStatusV2(peer: Peer,
+                    state: PeerSyncNetworkState,
+                    theirStatus: StatusMsgV2): Future[bool]
+                    {.async: (raises: [CancelledError]).} =
+  let
+    res = checkStatusMsg(state, theirStatus)
+
+  return if res.isErr():
+    debug "Irrelevant peer", peer, theirStatus, err = res.error()
+    await peer.disconnect(IrrelevantNetwork)
+    false
+  else:
+    peer.setStatusV2Msg(theirStatus)
+
+    if peer.connectionState == Connecting:
+      # As soon as we get here it means that we passed handshake succesfully. So
+      # we can add this peer to PeerPool.
+      await peer.handlePeer()
+    true
+
 proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Request `status` of remote peer ``peer``.
   let
     nstate = peer.networkState(PeerSync)
-    ourStatus = getCurrentStatus(nstate)
-    theirStatus =
-      (await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
-        return false
 
-  await peer.handleStatus(nstate, theirStatus)
+  if nstate.getBeaconTime().slotOrZero.epoch() >= nstate.cfg.FULU_FORK_EPOCH:
+    let
+      ourStatus = getCurrentStatusV2(nstate)
+      theirStatus =
+        (await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
+          return false
+
+    await peer.handleStatusV2(nstate, theirStatus)
+  else:
+    let
+      ourStatus = getCurrentStatusV1(nstate)
+      theirStatus =
+        (await peer.statusV1(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
+          return false
+
+    await peer.handleStatusV1(nstate, theirStatus)
 
 proc getHeadRoot*(peer: Peer): Eth2Digest =
-  ## Returns head root for specific peer ``peer``.
-  peer.state(PeerSync).statusMsg.headRoot
+  let
+    state = peer.networkState(PeerSync)
+    pstate = peer.state(PeerSync)
+    remoteFork = state.getBeaconTime().slotOrZero.epoch()
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
+    pstate.statusMsgV2.headRoot
+  else:
+    pstate.statusMsg.headRoot
 
 proc getHeadSlot*(peer: Peer): Slot =
-  ## Returns head slot for specific peer ``peer``.
-  peer.state(PeerSync).statusMsg.headSlot
+  let
+    state = peer.networkState(PeerSync)
+    pstate = peer.state(PeerSync)
+    remoteFork = state.getBeaconTime().slotOrZero.epoch()
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
+    pstate.statusMsgV2.headSlot
+  else:
+    pstate.statusMsg.headSlot
 
 proc getFinalizedEpoch*(peer: Peer): Epoch =
-  ## Returns head slot for specific peer ``peer``.
-  peer.state(PeerSync).statusMsg.finalizedEpoch
+  let
+    state = peer.networkState(PeerSync)
+    pstate = peer.state(PeerSync)
+    remoteFork = state.getBeaconTime().slotOrZero.epoch()
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
+    pstate.statusMsgV2.finalizedEpoch
+  else:
+    pstate.statusMsg.finalizedEpoch
 
 proc getStatusLastTime*(peer: Peer): chronos.Moment =
   ## Returns head slot for specific peer ``peer``.

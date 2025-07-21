@@ -26,7 +26,7 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addBlobless, addOrphan, addUnviable, pop, removeOrphan
+  addSidecarless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, popSidecars, put
 from ../validators/validator_monitor import
@@ -856,8 +856,7 @@ proc storeBlock(
           if bres.isSome():
             self[].enqueueBlock(MsgSource.gossip, quarantined, bres)
           else:
-            discard self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck)
+            self.consensusManager.quarantine[].addSidecarless(forkyBlck)
 
   ok blck.value()
 

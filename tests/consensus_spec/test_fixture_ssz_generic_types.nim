@@ -73,6 +73,12 @@ type
     F: HashArray[4, FixedTestStruct]
     G: HashArray[2, VarTestStruct]
 
+  ProgressiveTestStruct = object
+    A: seq[byte]
+    B: seq[uint64]
+    C: seq[SmallTestStruct]
+    D: seq[seq[VarTestStruct]]
+
   BitsStruct = object
     A: BitList[5]
     B: BitArray[2]
@@ -98,6 +104,34 @@ proc checkBasic(
   check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
+
+proc checkProgressiveList(
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+) {.raises: [
+    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+  var typeIdent: string
+  let wasMatched =
+    try:
+      scanf(sszSubType, "proglist_$+", typeIdent)
+    except ValueError:
+      false  # Parsed `size` is out of range
+  doAssert wasMatched
+
+  case typeIdent
+  of "bool":
+    checkBasic(seq[bool], dir, expectedHash)
+  of "uint8":
+    checkBasic(seq[uint8], dir, expectedHash)
+  of "uint16":
+    checkBasic(seq[uint16], dir, expectedHash)
+  of "uint32":
+    checkBasic(seq[uint32], dir, expectedHash)
+  of "uint64":
+    checkBasic(seq[uint64], dir, expectedHash)
+  of "uint128":
+    checkBasic(seq[UInt128], dir, expectedHash)
+  of "uint256":
+    checkBasic(seq[UInt256], dir, expectedHash)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
@@ -237,6 +271,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
                ValueError, YamlConstructionError, YamlParserError].} =
   let dir = baseDir/sszSubType
+  checkpoint dir
 
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
@@ -265,6 +300,8 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
+  of "basic_progressivelist":
+    checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
@@ -280,6 +317,8 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
+    of "ProgressiveTestStruct":
+      checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)

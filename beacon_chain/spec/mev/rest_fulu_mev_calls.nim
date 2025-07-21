@@ -38,7 +38,7 @@ proc getHeaderFulu*(
 proc submitBlindedBlockPlain*(
     body: fulu_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.
-  rest, endpoint: "/eth/v1/builder/blinded_blocks",
+  rest, endpoint: "/eth/v2/builder/blinded_blocks",
   meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
 

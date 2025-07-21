@@ -146,7 +146,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       taskpool = Taskpool.new()
     var
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
 
     let steps = loadSteps(path, dag.forkDigests[])
     for i, step in steps:

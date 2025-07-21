@@ -397,7 +397,7 @@ proc initFullNode(
 
   let
     quarantine = newClone(
-      Quarantine.init())
+      Quarantine.init(dag.cfg))
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
       onSingleAttestationReceived))
@@ -457,9 +457,10 @@ proc initFullNode(
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
                                             maybeFinalized = maybeFinalized)
           else:
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+            # We don't have all the sidecars for this block, so we have
+            # to put it to the quarantine.
+            if not quarantine[].addSidecarless(
+              dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
@@ -1650,7 +1651,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
             node.dag.finalizedHead.slot.epoch()
           )
     node.processor.blobQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch())
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+    node.processor.quarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
