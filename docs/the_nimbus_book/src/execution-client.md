@@ -59,6 +59,8 @@ In addition to the era files themselves, you will need at least 200GB of free sp
         * https://sepolia.era.nimbus.team/
         * https://sepolia.era1.nimbus.team/
 
+    A wider community maintained list of `era` and `era1` files can be found eth-clients github [history-endpoints](https://eth-clients.github.io/history-endpoints/)
+
     Downloading these files can take a long time, specially if you are downloading sequentially.
     For easier and fast download, please use the `era_downloader.sh` script provided in the `nimbus-eth1` repository.
     #### You'll need:
