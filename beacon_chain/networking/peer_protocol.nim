@@ -45,7 +45,7 @@ type
   PeerSyncPeerState* {.final.} = ref object of RootObj
     statusLastTime: chronos.Moment
     statusMsg: StatusMsg
-    statusMsgV2: StatusMsgV2
+    statusMsgV2: Opt[StatusMsgV2]
 
 declareCounter nbc_disconnects_count,
   "Number disconnected peers", labels = ["agent", "reason"]
@@ -176,6 +176,11 @@ proc handleStatusV2(peer: Peer,
                     state: PeerSyncNetworkState,
                     theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
 
+proc setStatusV2Msg(state: PeerSyncPeerState,
+                    statusMsg: Opt[StatusMsgV2]) =
+  state.statusMsgV2 = statusMsg
+  state.statusLastTime = Moment.now()
+
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol PeerSync(version = 1,
@@ -211,9 +216,20 @@ p2pProtocol PeerSync(version = 1,
         discard await peer.handleStatusV2(peer.networkState, theirStatus.get())
         peer.updateAgent()
       else:
-        debug "Status response not received in time",
-              peer, errorKind = theirStatus.error.kind
-        await peer.disconnect(FaultOrError)
+        # Mark status v2 of remote peer as None.
+        peer.state(PeerSync).setStatusV2Msg(Opt.none(StatusMsgV2))
+        let
+          ourStatusV1 =
+              peer.networkState.getCurrentStatusV1()
+          theirStatusV1 =
+              await peer.statusV1(ourStatusV1, timeout = RESP_TIMEOUT_DUR)
+        if theirStatusV1.isOk():
+          discard await peer.handleStatusV1(peer.networkState, theirStatusV1.get())
+          peer.updateAgent()
+        else:
+          debug "Status response not received in time",
+                peer, errorKind = theirStatusV1.error.kind
+          await peer.disconnect(FaultOrError)
 
     else:
       let
@@ -276,7 +292,7 @@ proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   peer.state(PeerSync).statusMsg = statusMsg
   peer.state(PeerSync).statusLastTime = Moment.now()
 
-proc setStatusV2Msg(peer: Peer, statusMsg: StatusMsgV2) =
+proc setStatusV2Msg(peer: Peer, statusMsg: Opt[StatusMsgV2]) =
   debug "Peer statusV2", peer, statusMsg
   peer.state(PeerSync).statusMsgV2 = statusMsg
   peer.state(PeerSync).statusLastTime = Moment.now()
@@ -313,7 +329,7 @@ proc handleStatusV2(peer: Peer,
     await peer.disconnect(IrrelevantNetwork)
     false
   else:
-    peer.setStatusV2Msg(theirStatus)
+    peer.setStatusV2Msg(Opt.some(theirStatus))
 
     if peer.connectionState == Connecting:
       # As soon as we get here it means that we passed handshake succesfully. So
@@ -330,10 +346,14 @@ proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError])
     let
       ourStatus = getCurrentStatusV2(nstate)
       theirStatus =
-        (await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
-          return false
+        (await peer.statusV2(ourStatus, timeout = RESP_TIMEOUT_DUR))
+    if theirStatus.isOk():
+      await peer.handleStatusV2(nstate, theirStatus.get())
+    else:
+      # Mark status v2 of remote peer as None
+      peer.setStatusV2Msg(Opt.none(StatusMsgV2))
+      return false
 
-    await peer.handleStatusV2(nstate, theirStatus)
   else:
     let
       ourStatus = getCurrentStatusV1(nstate)
@@ -348,8 +368,9 @@ proc getHeadRoot*(peer: Peer): Eth2Digest =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
-    pstate.statusMsgV2.headRoot
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
+      pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.headRoot
   else:
     pstate.statusMsg.headRoot
 
@@ -358,8 +379,9 @@ proc getHeadSlot*(peer: Peer): Slot =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
-    pstate.statusMsgV2.headSlot
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
+      pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.headSlot
   else:
     pstate.statusMsg.headSlot
 
@@ -368,8 +390,9 @@ proc getFinalizedEpoch*(peer: Peer): Epoch =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH:
-    pstate.statusMsgV2.finalizedEpoch
+  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
+      pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.finalizedEpoch
   else:
     pstate.statusMsg.finalizedEpoch
 
