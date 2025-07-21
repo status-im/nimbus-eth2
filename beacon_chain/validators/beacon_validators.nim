@@ -1260,7 +1260,7 @@ proc proposeBlock(
         consensusFork.SignedBlindedBeaconBlock,
         consensusFork.ExecutionPayloadForSigning)
     else:
-      # Pre-Deneb MEV is not supported; this signals that, because it triggers
+      # Pre-Electra MEV is not supported; this signals that, because it triggers
       # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
         electra_mev.SignedBlindedBeaconBlock,
