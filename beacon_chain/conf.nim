@@ -1,4 +1,3 @@
-
 # beacon_chain
 # Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
