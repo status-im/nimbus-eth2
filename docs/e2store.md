@@ -181,7 +181,7 @@ Each era is identified by when it ends. Thus, the genesis era is era `0`, follow
 
 ## File name
 
-`.era` file names follow a simple convention: `<config-name>-<era-number>-<era-count>-<short-historical-root>.era`:
+`.era` file names follow a simple convention: `<config-name>-<era-number>-<short-historical-root>.era`:
 
 * `config-name` is the `CONFIG_NAME` field of the runtime configuration (`mainnet`, `sepolia`, `holesky`, `hoodi`, etc)
 * `era-number` is the number of the _first_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
