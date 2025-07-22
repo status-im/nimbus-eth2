@@ -679,7 +679,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == true
 
-    bq.pruneAfterFinalization(Epoch(0))
+    bq.pruneAfterFinalization(Epoch(0), false)
     check:
       len(bq) == len(TestVectors) - 5
 
@@ -694,7 +694,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(1))
+    bq.pruneAfterFinalization(Epoch(1), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6
 
@@ -709,7 +709,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(2))
+    bq.pruneAfterFinalization(Epoch(2), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6 - 12
 
@@ -724,7 +724,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(3))
+    bq.pruneAfterFinalization(Epoch(3), false)
     check:
       len(bq) == 0
 
@@ -1031,14 +1031,14 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     # Pruning memory and database
     for epoch in epochs1:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
     for epoch in epochs2:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
 
     check:
       len(bq) == 1
 
-    bq.pruneAfterFinalization(Slot(100000).epoch())
+    bq.pruneAfterFinalization(Slot(100000).epoch(), false)
 
     check:
       len(bq) == 0
@@ -1925,7 +1925,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == true
 
-    bq.pruneAfterFinalization(Epoch(0))
+    bq.pruneAfterFinalization(Epoch(0), false)
     check:
       len(bq) == len(TestVectors) - 5
 
@@ -1940,7 +1940,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(1))
+    bq.pruneAfterFinalization(Epoch(1), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6
 
@@ -1955,7 +1955,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(2))
+    bq.pruneAfterFinalization(Epoch(2), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6 - 12
 
@@ -1970,7 +1970,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(3))
+    bq.pruneAfterFinalization(Epoch(3), false)
     check:
       len(bq) == 0
 
@@ -2302,14 +2302,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     # Pruning memory and database
     for epoch in epochs1:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
     for epoch in epochs2:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
 
     check:
       len(bq) == 1
 
-    bq.pruneAfterFinalization(Slot(1000000).epoch())
+    bq.pruneAfterFinalization(Slot(1000000).epoch(), false)
 
     check:
       len(bq) == 0

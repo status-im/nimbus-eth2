@@ -79,7 +79,7 @@ suite "Attestation pool processing" & preset():
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -767,7 +767,7 @@ suite "Attestation pool electra processing" & preset():
         makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH, cfg = cfg),
         validatorMonitor, {})
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()

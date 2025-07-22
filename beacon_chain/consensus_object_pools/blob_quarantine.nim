@@ -54,6 +54,7 @@ type
     count: int
 
   SidecarQuarantine[A, B] = object
+    minEpochsForSidecarsRequests: uint64
     maxMemSidecarsCount: int
     memSidecarsCount: int
     maxDiskSidecarsCount: int
@@ -698,13 +699,58 @@ func fetchMissingSidecars*(
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
 
-proc pruneAfterFinalization*[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    epoch: Epoch
+proc pruneAfterFinalization*(
+    quarantine: var BlobQuarantine,
+    epoch: Epoch,
+    backfillNeeded: bool
 ) =
-  let epochSlot = (epoch + 1).start_slot()
-  var rootsToRemove: seq[Eth2Digest]
+  let
+    startEpoch =
+      if backfillNeeded:
+        # Because BlobQuarantine could be used as temporary storage for incoming
+        # blob sidecars, we should not prune blobs which are behind
+        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
+        # be able to backfill blobs.
+        if epoch < quarantine.minEpochsForSidecarsRequests:
+          Epoch(0)
+        else:
+          epoch - quarantine.minEpochsForSidecarsRequests
+      else:
+        epoch
+    epochSlot = (startEpoch + 1).start_slot()
 
+  var rootsToRemove: seq[Eth2Digest]
+  for mkey, mrecord in quarantine.roots.mpairs():
+    if (mrecord.count > 0) and (mrecord.slot < epochSlot):
+      rootsToRemove.add(mkey)
+
+  for root in rootsToRemove:
+    quarantine.removeRoot(root)
+
+proc pruneAfterFinalization*(
+    quarantine: var ColumnQuarantine,
+    epoch: Epoch,
+    backfillNeeded: bool
+) =
+  # TODO: In this procedure `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS`
+  # should be used instead of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`, but it
+  # was unavailable in the moment of this code being written.
+  let
+    startEpoch =
+      if backfillNeeded:
+        # Because ColumnQuarantine could be used as temporary storage for
+        # incoming data column sidecars, we should not prune data columns which
+        # are behind `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` epoch.
+        # Otherwise we will not be able to backfill data columns.
+        if epoch < quarantine.minEpochsForSidecarsRequests:
+          Epoch(0)
+        else:
+          epoch - quarantine.minEpochsForSidecarsRequests
+      else:
+        epoch
+    epochSlot = (startEpoch + 1).start_slot()
+
+  var rootsToRemove: seq[Eth2Digest]
   for mkey, mrecord in quarantine.roots.mpairs():
     if (mrecord.count > 0) and (mrecord.slot < epochSlot):
       rootsToRemove.add(mkey)
@@ -743,7 +789,10 @@ proc init*(
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   BlobQuarantine(
-    maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
+    minEpochsForSidecarsRequests:
+      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+    maxSidecarsPerBlockCount:
+      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
     memSidecarsCount: 0,
@@ -779,6 +828,9 @@ proc init*(
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   ColumnQuarantine(
+    minEpochsForSidecarsRequests:
+      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      # This should be changed to MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,

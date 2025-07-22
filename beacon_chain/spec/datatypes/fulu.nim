@@ -92,8 +92,6 @@ type
   CellIndex* = uint64
   CustodyIndex* = uint64
 
-
-type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
   DataColumnIndices* = List[ColumnIndex, Limit(NUMBER_OF_COLUMNS)]
 

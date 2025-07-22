@@ -46,7 +46,7 @@ suite "Gossip validation " & preset():
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -297,7 +297,7 @@ suite "Gossip validation - Altair":
   setup:
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
     var
