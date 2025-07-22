@@ -218,18 +218,9 @@ p2pProtocol PeerSync(version = 1,
       else:
         # Mark status v2 of remote peer as None.
         peer.state(PeerSync).setStatusV2Msg(Opt.none(StatusMsgV2))
-        let
-          ourStatusV1 =
-              peer.networkState.getCurrentStatusV1()
-          theirStatusV1 =
-              await peer.statusV1(ourStatusV1, timeout = RESP_TIMEOUT_DUR)
-        if theirStatusV1.isOk():
-          discard await peer.handleStatusV1(peer.networkState, theirStatusV1.get())
-          peer.updateAgent()
-        else:
-          debug "Status response not received in time",
-                peer, errorKind = theirStatusV1.error.kind
-          await peer.disconnect(FaultOrError)
+        debug "Status response not received in time",
+              peer, errorKind = theirStatus.error.kind
+        await peer.disconnect(FaultOrError)
 
     else:
       let
