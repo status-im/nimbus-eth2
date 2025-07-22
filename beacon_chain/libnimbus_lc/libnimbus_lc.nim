@@ -1552,10 +1552,7 @@ proc ETHTransactionsCreateFromJson(
         return nil
       if yParity != data.v:
         return nil
-    if data.authorizationList.isSome:
-      for authorization in data.authorizationList.get:
-        if authorization.yParity > uint8.high:
-          return nil
+
     let
       tx = eth_types.EthTransaction(
         txType: txType,
@@ -1656,7 +1653,7 @@ proc ETHTransactionsCreateFromJson(
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        sig = packSignature(auth.r, auth.s, auth.yParity.uint8)
+        sig = packSignature(auth.r, auth.s, auth.yParity)
         authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
       authorizationList.add ETHAuthorization(
