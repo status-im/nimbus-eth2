@@ -9,7 +9,7 @@
 
 import
   # Stdlib
-  std/[typetraits, strutils, algorithm],
+  std/[typetraits, strutils],
   # Status
   stew/byteutils,
   results,
@@ -305,15 +305,7 @@ proc importInterchangeV5Impl*(
         continue
       key.get()
 
-    # TODO: with minification sorting is unnecessary, cleanup
-    # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
-    spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
-      result = cmp(a.slot.int, b.slot.int)
-
-    spdir.data[v].signed_attestations.sort do (a, b: SPDIR_SignedAttestation) -> int:
-      result = cmp(a.source_epoch.int, b.source_epoch.int)
-      if result == 0: # Same epoch
-        result = cmp(a.target_epoch.int, b.target_epoch.int)
+    # --- Replace the original sorting + selection logic ---
 
     const ZeroDigest = Eth2Digest()
 
@@ -321,67 +313,46 @@ proc importInterchangeV5Impl*(
 
     # Blocks
     # ---------------------------------------------------
-    # After import we need to prune the DB from everything
-    # besides the last imported block slot.
-    # This ensures that even if 2 slashing DB are imported in the wrong order
-    # (the last before the earliest) the minSlotViolation check stays consistent.
     var maxValidSlotSeen = -1
     if dbSlot.isSome():
       maxValidSlotSeen = int dbSlot.get()
 
-    if spdir.data[v].signed_blocks.len >= 1:
-      # Minification, to limit SQLite IO we only import the last block after sorting
-      template B: untyped = spdir.data[v].signed_blocks[^1]
+    if spdir.data[v].signed_blocks.len > 0:
+      # Efficient: Find the block with the highest slot without sorting
+      var latestBlock = spdir.data[v].signed_blocks[0]
+      for b in spdir.data[v].signed_blocks:
+        if b.slot.int > latestBlock.slot.int:
+          latestBlock = b
+
       let
         signing_root =
-          if B.signing_root.isSome:
-            B.signing_root.get.Eth2Digest
+          if latestBlock.signing_root.isSome:
+            latestBlock.signing_root.get.Eth2Digest
           else:
-            # https://eips.ethereum.org/EIPS/eip-3076#advice-for-complete-databases
-            # "If your database records the signing roots of messages in
-            # addition to their slot/epochs, you should ensure that imported
-            # messages without signing roots are assigned a suitable dummy
-            # signing root internally. We suggest using a special "null" value
-            # which is distinct from all other signing roots, although a value
-            # like 0x0 may be used instead (as it is extremely unlikely to
-            # collide with any real signing root)."
             ZeroDigest
-        status = db.registerBlock(parsedKey, B.slot.Slot, signing_root)
+        status = db.registerBlock(parsedKey, latestBlock.slot.Slot, signing_root)
+
       if status.isErr():
-        # We might be importing a duplicate which EIP-3076 allows
-        # there is no reason during normal operation to integrate
-        # a duplicate so checkSlashableBlockProposal would have rejected it.
-        # We special-case that for imports.
-        # Note: rule 2 mentions repeat signing in the MinSlotViolation case
-        #       having 2 blocks with the same signing root and different slots
-        #       would break the blockchain so we only check for exact slot.
         if status.error.kind == DoubleProposal and
             signing_root != ZeroDigest and
             status.error.existingBlock == signing_root:
           warn "Block already exists in the DB",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateBlock = B
+            candidateBlock = latestBlock
         else:
           error "Slashable block. Skipping its import.",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateBlock = B,
+            candidateBlock = latestBlock,
             conflict = status.error()
           result = siPartial
 
-      if B.slot.int > maxValidSlotSeen:
-        maxValidSlotSeen = int B.slot
+      if latestBlock.slot.int > maxValidSlotSeen:
+        maxValidSlotSeen = int latestBlock.slot
 
-    # Now prune everything that predates
-    # this DB or interchange file max slot
-    # Even if the block is not imported, pruning will keep the latest one.
     db.pruneBlocks(parsedKey, Slot maxValidSlotSeen)
 
     # Attestations
     # ---------------------------------------------------
-    # After import we need to prune the DB from everything
-    # besides the last imported attestation source and target epochs.
-    # This ensures that even if 2 slashing DB are imported in the wrong order
-    # (the last before the earliest) the minEpochViolation check stays consistent.
     var maxValidSourceEpochSeen = -1
     var maxValidTargetEpochSeen = -1
 
@@ -390,14 +361,11 @@ proc importInterchangeV5Impl*(
     if dbTarget.isSome():
       maxValidTargetEpochSeen = int dbTarget.get()
 
-    # We do a first pass over the data to find the max source/target seen
-    for a in 0 ..< spdir.data[v].signed_attestations.len:
-      template A: untyped = spdir.data[v].signed_attestations[a]
-
-      if A.source_epoch.int > maxValidSourceEpochSeen:
-        maxValidSourceEpochSeen = A.source_epoch.int
-      if A.target_epoch.int > maxValidTargetEpochSeen:
-        maxValidTargetEpochSeen = A.target_epoch.int
+    for a in spdir.data[v].signed_attestations:
+      if a.source_epoch.int > maxValidSourceEpochSeen:
+        maxValidSourceEpochSeen = a.source_epoch.int
+      if a.target_epoch.int > maxValidTargetEpochSeen:
+        maxValidTargetEpochSeen = a.target_epoch.int
 
     if maxValidSourceEpochSeen < 0 or maxValidTargetEpochSeen < 0:
       doAssert maxValidSourceEpochSeen == -1 and maxValidTargetEpochSeen == -1
@@ -405,11 +373,8 @@ proc importInterchangeV5Impl*(
         pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex()
       continue
 
-    # See formal proof https://github.com/michaelsproul/slashing-proofs
-    # of synthetic attestation
     if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
        not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
-      # Special-case genesis (Slashing prot is deactivated anyway)
       warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
         pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
         maxValidSourceEpochSeen = maxValidSourceEpochSeen,
