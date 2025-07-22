@@ -2169,9 +2169,6 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-var shouldCreatePidFile*: Atomic[bool]
-shouldCreatePidFile.store(true)
-
 var gPidFile: string
 proc createPidFile(filename: string) {.raises: [IOError].} =
   if shouldCreatePidFile.load():

@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[tables, strutils, terminal, typetraits],
+  std/[atomics, tables, strutils, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
@@ -40,6 +40,10 @@ type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe,
   raises: [].}
+
+# controls if beacon node db file lock should be created (default: true)
+var shouldCreatePidFile*: Atomic[bool]
+shouldCreatePidFile.store(true)
 
 # silly chronicles, colors is a compile-time property
 when defaultChroniclesStream.outputs.type.arity == 2:
