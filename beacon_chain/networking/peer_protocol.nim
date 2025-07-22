@@ -359,8 +359,7 @@ proc getHeadRoot*(peer: Peer): Eth2Digest =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
-      pstate.statusMsgV2.isSome():
+  if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.headRoot
   else:
     pstate.statusMsg.headRoot
@@ -370,8 +369,7 @@ proc getHeadSlot*(peer: Peer): Slot =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
-      pstate.statusMsgV2.isSome():
+  if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.headSlot
   else:
     pstate.statusMsg.headSlot
@@ -381,8 +379,7 @@ proc getFinalizedEpoch*(peer: Peer): Epoch =
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
     remoteFork = state.getBeaconTime().slotOrZero.epoch()
-  if remoteFork >= state.cfg.FULU_FORK_EPOCH and
-      pstate.statusMsgV2.isSome():
+  if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.finalizedEpoch
   else:
     pstate.statusMsg.finalizedEpoch
