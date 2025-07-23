@@ -92,6 +92,7 @@ proc setupLogging*(
   when defaultChroniclesStream.outputs.type.arity != 2:
     warn "Logging configuration options not enabled in the current build"
   else:
+    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
         f.write(msg)
@@ -99,7 +100,6 @@ proc setupLogging*(
       except IOError as err:
         logLoggingFailure(cstring(msg), err)
 
-    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
       writeAndFlush(stdout, msg)
 
