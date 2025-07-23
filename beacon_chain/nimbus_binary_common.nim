@@ -14,7 +14,6 @@ import
   std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  stew/staticfor,
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2, metrics/chronos_httpserver,
@@ -70,6 +69,8 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
   from "."/filepath import secureCreatePath
+
+  import stew/staticfor
 
 proc setupFileLimits*() =
   when not defined(windows):
