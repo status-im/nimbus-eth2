@@ -48,12 +48,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   let directives = logLevel.split(";")
   try:
     let level = parseEnum[LogLevel](directives[0].capitalizeAscii())
-    when defaultChroniclesStream.outputs.type.arity == 2:
-      staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
-        if defaultChroniclesStream.outputs[i].writer != noOutput:
-          setLogLevel(level, i)
-    else:
-      setLogLevel(level)
+    setLogLevel(level)
   except ValueError:
     raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
