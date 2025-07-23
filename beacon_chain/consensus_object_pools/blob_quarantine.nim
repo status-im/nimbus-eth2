@@ -861,3 +861,39 @@ proc init*(
     db: database,
     onSidecarCallback: onDataColumnSidecarCallback
   )
+
+proc reinitOnVcusDetection*(
+    T: typedesc[ColumnQuarantine],
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex],
+    database: QuarantineDB,
+    maxDiskSizeMultipler: int
+): ColumnQuarantine =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
+  for index, item in custodyColumns.pairs():
+    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+    indexMap[int(item)] = index
+
+  let size = maxSidecars(NUMBER_OF_COLUMNS)
+
+  blob_quarantine_memory_slots_total.set(size)
+  blob_quarantine_database_slots_total.set(size * maxDiskSizeMultipler)
+  blob_quarantine_memory_slots_occupied.set(0)
+  blob_quarantine_database_slots_occupied.set(0)
+
+  ColumnQuarantine(
+    maxSidecarsPerBlockCount: len(custodyColumns),
+    maxMemSidecarsCount: size,
+    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
+    memSidecarsCount: 0,
+    diskSidecarsCount: 0,
+    indexMap: indexMap,
+    custodyColumns: @custodyColumns,
+    custodyMap: ColumnMap.init(custodyColumns),
+    db: database
+  )
+

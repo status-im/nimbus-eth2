@@ -1860,7 +1860,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
-    discard node.validatorCustody.detectNewValidatorCustody(node.attachedValidatorBalanceTotal)
+    discard node.validatorCustody.detectNewValidatorCustody(
+      node.attachedValidatorBalanceTotal)
+    var custodyColumns =
+      node.validatorCustody.newer_column_set.toSeq()
+    sort(custodyColumns)
+    let dataColumnQuarantine = newClone(ColumnQuarantine.reinitOnVcusDetection(
+      node.dag.cfg,
+      custodyColumns,
+      node.dag.db.getQuarantineDB(),
+      10))
+    node.dataColumnQuarantine = dataColumnQuarantine
 
   # Update CGC and metadata with respect to the new detected validator custody
   let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64

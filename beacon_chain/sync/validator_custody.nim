@@ -66,7 +66,8 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     dataColumnQuarantine: dataColumnQuarantine)
 
 proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
-                                total_node_balance: Gwei): seq[ColumnIndex] =
+                                total_node_balance: Gwei):
+                                seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
   debugEcho "Total node balance"
@@ -83,12 +84,6 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
 
   debugEcho "new validator custody count"
   debugEcho newer_columns
-
-  # update data column quarantine custody requirements
-  var sortedColumns = newer_columns.toSeq()
-  sort(sortedColumns)
-  vcus.dataColumnQuarantine[].custody_columns =
-    sortedColumns
 
   # check which custody set is larger
   if newer_columns.len > vcus.older_column_set.len:
