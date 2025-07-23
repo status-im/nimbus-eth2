@@ -47,8 +47,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
-    let level = parseEnum[LogLevel](directives[0].capitalizeAscii())
-    setLogLevel(level)
+    setLogLevel(parseEnum[LogLevel](directives[0].capitalizeAscii()))
   except ValueError:
     raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
