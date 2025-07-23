@@ -79,6 +79,8 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
+  ColumnQuarantineRef* = ref ColumnQuarantine
+
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
 
@@ -862,13 +864,12 @@ proc init*(
     onSidecarCallback: onDataColumnSidecarCallback
   )
 
-proc reinitOnVcusDetection*(
-    T: typedesc[ColumnQuarantine],
+proc reinitColumnQuarantineOnVcusDetection*(
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int
-): ColumnQuarantine =
+): ColumnQuarantineRef =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyColumns) < NUMBER_OF_COLUMNS:
@@ -885,7 +886,7 @@ proc reinitOnVcusDetection*(
   blob_quarantine_memory_slots_occupied.set(0)
   blob_quarantine_database_slots_occupied.set(0)
 
-  ColumnQuarantine(
+  ColumnQuarantineRef(
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
