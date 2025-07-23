@@ -648,6 +648,10 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gossip fork transition
+```diff
++ Gossip fork transition                                                                     OK
+```
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Empty committee when no committee for slot                                                 OK
