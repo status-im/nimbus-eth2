@@ -11,9 +11,10 @@
 
 import
   # Standard library
-  std/[tables, strutils, terminal, typetraits],
+  std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
+  stew/staticfor,
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2, metrics/chronos_httpserver,
@@ -38,51 +39,18 @@ export
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [].}
+                           lastSlot: Slot): Future[bool] {.gcsafe, raises: [].}
 
-# silly chronicles, colors is a compile-time property
-when defaultChroniclesStream.outputs.type.arity == 2:
-  func stripAnsi(v: string): string =
-    var
-      res = newStringOfCap(v.len)
-      i: int
-
-    while i < v.len:
-      let c = v[i]
-      if c == '\x1b':
-        var
-          x = i + 1
-          found = false
-
-        while x < v.len: # look for [..m
-          let c2 = v[x]
-          if x == i + 1:
-            if c2 != '[':
-              break
-          else:
-            if c2 in {'0'..'9'} + {';'}:
-              discard # keep looking
-            elif c2 == 'm':
-              i = x + 1
-              found = true
-              break
-            else:
-              break
-          inc x
-
-        if found: # skip adding c
-          continue
-      res.add c
-      inc i
-
-    res
+proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
-    setLogLevel(parseEnum[LogLevel](directives[0].capitalizeAscii()))
+    let level = parseEnum[LogLevel](directives[0].capitalizeAscii())
+    staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
+      if defaultChroniclesStream.outputs[i].writer != noOutput:
+        setLogLevel(level, i)
   except ValueError:
     raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
@@ -93,7 +61,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
 
 proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
   if stdoutKind == StdoutLogKind.Auto:
-    if isatty(stdout):
+    if getEnv("NO_COLOR").len == 0 and isatty(stdout):
       # On a TTY, let's be fancy
       StdoutLogKind.Colors
     else:
@@ -129,10 +97,6 @@ proc setupLogging*(
   when defaultChroniclesStream.outputs.type.arity != 2:
     warn "Logging configuration options not enabled in the current build"
   else:
-    # Naive approach where chronicles will form a string and we will discard
-    # it, even if it could have skipped the formatting phase
-
-    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
         f.write(msg)
@@ -142,9 +106,6 @@ proc setupLogging*(
 
     proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
       writeAndFlush(stdout, msg)
-
-    proc noColorsFlush(logLevel: LogLevel, msg: LogOutputStr) =
-      writeAndFlush(stdout, stripAnsi(msg))
 
     let fileWriter =
       if logFile.isSome():
@@ -171,14 +132,15 @@ proc setupLogging*(
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
-    let tmp = detectTTY(stdoutKind)
-
-    case tmp
-    of StdoutLogKind.Auto: raiseAssert "checked above"
+    case detectTTY(stdoutKind)
+    of StdoutLogKind.Auto:
+      raiseAssert "Auto-detection done in detectTTY"
     of StdoutLogKind.Colors:
       defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = true
     of StdoutLogKind.NoColors:
-      defaultChroniclesStream.outputs[0].writer = noColorsFlush
+      defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = false
     of StdoutLogKind.Json:
       defaultChroniclesStream.outputs[0].writer = noOutput
 
@@ -189,6 +151,9 @@ proc setupLogging*(
           prevWriter(logLevel, msg)
     of StdoutLogKind.None:
      defaultChroniclesStream.outputs[0].writer = noOutput
+
+    staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
+      setLogEnabled(defaultChroniclesStream.outputs[i].writer != noOutput, i)
 
     if logFile.isSome():
       warn "The --log-file option is deprecated. Consider redirecting the standard output to a file instead"
