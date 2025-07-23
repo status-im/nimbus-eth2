@@ -18,7 +18,7 @@ import
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
 from stew/byteutils import fromHex
-from ../../beacon_chain/spec/peerdas_helpers import recover_matrix_parallel
+from ../../beacon_chain/spec/peerdas_helpers import recover_matrix_parallel, recover_matrix
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -340,15 +340,29 @@ proc runRecoverCellsAndKzgProofsParallelTest(suiteName, testFile: string) =
 
       expected.add(expectedRow)
 
-    let v = recover_matrix_parallel(matrix, blobCount)
-    check v.isOk
-    let val = v.get
-    for k in 0..<val.len:
-      let
-        i = val[k].row_index
-        j = val[k].column_index
-      check val[k].cell.bytes == expected[i][j][0]
-      check val[k].kzg_proof.bytes == expected[i][j][1]
+    block singleThread:
+      # ensure the output is consistent with that of the multi-thread
+      let v = recover_matrix(matrix, blobCount)
+      check v.isOk
+      let val = v.get
+      for k in 0..<val.len:
+        let
+          i = val[k].row_index
+          j = val[k].column_index
+        check val[k].cell.bytes == expected[i][j][0]
+        check val[k].kzg_proof.bytes == expected[i][j][1]
+
+    block multiThread:
+      # verify the output from multi-thread version
+      let v = recover_matrix_parallel(matrix, blobCount)
+      check v.isOk
+      let val = v.get
+      for k in 0..<val.len:
+        let
+          i = val[k].row_index
+          j = val[k].column_index
+        check val[k].cell.bytes == expected[i][j][0]
+        check val[k].kzg_proof.bytes == expected[i][j][1]
 
 from std/algorithm import sorted
 
