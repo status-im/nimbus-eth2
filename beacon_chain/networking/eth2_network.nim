@@ -923,7 +923,15 @@ proc readResponseChunk(
   var responseCodeByte: byte
   try:
     await conn.readExactly(addr responseCodeByte, 1)
-  except LPStreamEOFError, LPStreamIncompleteError:
+  except LPStreamIncompleteError:
+    # `LPStreamIncompleteError` is raised by `nim-libp2p` when remote peer
+    # dropped connection and stream, so it can't be used anymore.
+    return neterr UnexpectedEOF
+  except LPStreamEOFError:
+    # `LPStreamEOFError` is raised by `nim-libp2p` when remote peer sent
+    # EOF frame, which indicates that remote peer wants to gracefully finish
+    # the stream. It also means that our connection with remote peer is not
+    # broken and new streams could be initiated.
     return neterr PotentiallyExpectedEOF
   except CancelledError as exc:
     raise exc
