@@ -41,8 +41,6 @@ type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe, raises: [].}
 
-proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
-
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
@@ -101,6 +99,7 @@ proc setupLogging*(
       except IOError as err:
         logLoggingFailure(cstring(msg), err)
 
+    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
       writeAndFlush(stdout, msg)
 
