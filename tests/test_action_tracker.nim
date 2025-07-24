@@ -17,7 +17,7 @@ suite "subnet tracker":
     var tracker = ActionTracker.init(default(UInt256), false)
 
     check:
-      tracker.stabilitySubnets(Slot(0)).countOnes() == 0
+      tracker.stabilitySubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
     tracker.registerDuty(Slot(0), SubnetId(0), ValidatorIndex(0), true)
@@ -53,7 +53,7 @@ suite "subnet tracker":
       SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + KNOWN_VALIDATOR_DECAY + 1))
 
     check:
-      tracker.stabilitySubnets(Slot(0)).countOnes() == 0
+      tracker.stabilitySubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
   test "should register sync committee duties":
@@ -91,3 +91,10 @@ suite "subnet tracker":
 
     check: # should not add old duties
       not tracker.hasSyncDuty(pk0, Epoch(1024))
+
+  test "should subscribe to all subnets when flag is enabled":
+    var tracker = ActionTracker.init(default(UInt256), true)  # subscribeAllAttnets = true
+
+    check:
+      tracker.stabilitySubnets(Slot(0)).countOnes() == 64  # All 64 subnets
+      tracker.aggregateSubnets(Slot(0)).countOnes() == 0
