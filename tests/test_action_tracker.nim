@@ -93,7 +93,7 @@ suite "subnet tracker":
       not tracker.hasSyncDuty(pk0, Epoch(1024))
 
   test "should subscribe to all subnets when flag is enabled":
-    var tracker = ActionTracker.init(default(UInt256), true)  # subscribeAllAttnets = true
+    var tracker = ActionTracker.init(default(UInt256), subscribeAllAttnets = true)
 
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 64  # All 64 subnets
