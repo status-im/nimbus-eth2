@@ -154,15 +154,11 @@ proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
     return err()
   ok(res.get)
 
-proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
-                              blobCount: int):
-                              Result[seq[MatrixEntry], cstring] =
+proc recover_matrix_parallel*(
+    tp: Taskpool,
+    partial_matrix: seq[MatrixEntry],
+    blobCount: int): Result[seq[MatrixEntry], cstring] =
   var
-    tp =
-      try:
-        Taskpool.new()
-      except Exception:
-        return err("Failed to initialize Taskpool")
     pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
     res: seq[MatrixEntry]
 
@@ -196,7 +192,6 @@ proc recover_matrix_parallel*(partial_matrix: seq[MatrixEntry],
         column_index: i.uint64
       ))
 
-  tp.shutdown()
   ok(res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars

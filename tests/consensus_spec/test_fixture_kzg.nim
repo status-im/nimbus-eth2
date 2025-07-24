@@ -12,6 +12,7 @@ import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
+  taskpools,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
@@ -354,7 +355,8 @@ proc runRecoverCellsAndKzgProofsParallelTest(suiteName, testFile: string) =
 
     block multiThread:
       # verify the output from multi-thread version
-      let v = recover_matrix_parallel(matrix, blobCount)
+      var tp = Taskpool.new()
+      let v = tp.recover_matrix_parallel(matrix, blobCount)
       check v.isOk
       let val = v.get
       for k in 0..<val.len:
