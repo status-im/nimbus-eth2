@@ -43,7 +43,7 @@ type
     global_refill_list*: HashSet[DataColumnIdentifier]
     requested_columns*: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
 
   ValidatorCustodyRef* = ref ValidatorCustody

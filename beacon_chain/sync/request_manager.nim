@@ -78,7 +78,7 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     blobLoader: BlobLoaderFn

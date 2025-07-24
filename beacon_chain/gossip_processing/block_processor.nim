@@ -106,7 +106,7 @@ type
     getBeaconTime: GetBeaconTimeFn
 
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
