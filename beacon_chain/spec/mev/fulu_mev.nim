@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, fulu]
+import ".."/datatypes/[altair, bellatrix, fulu]
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
-from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
 from ".."/datatypes/electra import
@@ -20,7 +19,7 @@ from ".."/eth2_merkleization import hash_tree_root
 
 type
   BuilderBid* = object
-    header*: ExecutionPayloadHeader
+    header*: fulu.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests # [New in Electra]
     value*: UInt256
@@ -42,7 +41,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    execution_payload_header*: ExecutionPayloadHeader
+    execution_payload_header*: fulu.ExecutionPayloadHeader
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
@@ -72,7 +71,7 @@ type
 
   # Not spec, but suggested by spec
   BlindedExecutionPayloadAndBlobsBundle* = object
-    execution_payload_header*: ExecutionPayloadHeader
+    execution_payload_header*: fulu.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
 func shortLog*(v: BlindedBeaconBlock): auto =
@@ -122,7 +121,7 @@ func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
-        execution_payload_header: ExecutionPayloadHeader(
+        execution_payload_header: fulu.ExecutionPayloadHeader(
           parent_hash: blck.message.body.execution_payload.parent_hash,
           fee_recipient: blck.message.body.execution_payload.fee_recipient,
           state_root: blck.message.body.execution_payload.state_root,
