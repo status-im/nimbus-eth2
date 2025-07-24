@@ -30,7 +30,7 @@ type
 static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Electra, ConsensusFork.Fulu}
+  OptionalForks* = {ConsensusFork.Fulu}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
