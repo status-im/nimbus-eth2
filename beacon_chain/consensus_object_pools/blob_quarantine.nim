@@ -869,7 +869,7 @@ proc reinitColumnQuarantineOnVcusDetection*(
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int
-): ColumnQuarantineRef =
+): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyColumns) < NUMBER_OF_COLUMNS:
@@ -886,7 +886,7 @@ proc reinitColumnQuarantineOnVcusDetection*(
   blob_quarantine_memory_slots_occupied.set(0)
   blob_quarantine_database_slots_occupied.set(0)
 
-  ColumnQuarantineRef(
+  ColumnQuarantine(
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,

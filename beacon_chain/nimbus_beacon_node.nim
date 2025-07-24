@@ -1862,22 +1862,22 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # Detect new validator custody at the last slot of every epoch
     discard node.validatorCustody.detectNewValidatorCustody(
       node.attachedValidatorBalanceTotal)
-    var custodyColumns =
-      node.validatorCustody.newer_column_set.toSeq()
-    sort(custodyColumns)
-    # reinit custody columns and disk limit for every reference
-    # of ColumnQuarantine
-    let updatedColumnQuarantine =
-      node.dag.cfg.reinitColumnQuarantineOnVcusDetection(
-        custodyColumns,
-        node.dag.db.getQuarantineDB(),
-        10)
-    node.dataColumnQuarantine = updatedColumnQuarantine
-    node.processor.dataColumnQuarantine = updatedColumnQuarantine
-    node.blockProcessor.dataColumnQuarantine = updatedColumnQuarantine
-    node.validatorCustody.dataColumnQuarantine = updatedColumnQuarantine
-    node.requestManager.dataColumnQuarantine = updatedColumnQuarantine
-
+    if node.validatorCustody.diff_set.len > 0:
+      var custodyColumns =
+        node.validatorCustody.newer_column_set.toSeq()
+      sort(custodyColumns)
+      # reinit custody columns and disk limit for every reference
+      # of ColumnQuarantine
+      let updatedColumnQuarantine =
+        newClone node.dag.cfg.reinitColumnQuarantineOnVcusDetection(
+          custodyColumns,
+          node.dag.db.getQuarantineDB(),
+          10)
+      node.dataColumnQuarantine = updatedColumnQuarantine
+      node.processor.dataColumnQuarantine = updatedColumnQuarantine
+      node.blockProcessor.dataColumnQuarantine = updatedColumnQuarantine
+      node.validatorCustody.dataColumnQuarantine = updatedColumnQuarantine
+      node.requestManager.dataColumnQuarantine = updatedColumnQuarantine
 
   # Update CGC and metadata with respect to the new detected validator custody
   let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
