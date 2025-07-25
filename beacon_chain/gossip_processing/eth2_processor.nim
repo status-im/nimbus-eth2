@@ -262,8 +262,7 @@ proc processSignedBeaconBlock*(
         if bres.isSome():
           bres
         else:
-          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                                signedBlock)
+          self.quarantine[].addSidecarless(signedBlock)
           return v
       else:
         Opt.none(BlobSidecars)
@@ -332,7 +331,7 @@ proc processBlobSidecar*(
   debug "Blob validated, putting in blob quarantine"
   self.blobQuarantine[].put(block_root, newClone(blobSidecar))
 
-  if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
+  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Deneb and
@@ -342,8 +341,7 @@ proc processBlobSidecar*(
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
                                              Opt.none(DataColumnSidecars))
         else:
-          discard self.quarantine[].addBlobless(
-            self.dag.finalizedHead.slot, forkyBlck)
+          self.quarantine[].addSidecarless(forkyBlck)
       else:
         raiseAssert "Could not have been added as blobless"
 

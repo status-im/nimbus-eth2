@@ -6,7 +6,7 @@ let
 in pkgs.fetchFromGitHub {
   owner = "nim-lang";
   repo = "sat";
-  rev = tools.findKeyValue "^ +SatStableCommit = \"([a-f0-9]+)\"$" sourceFile;
+  rev = tools.findKeyValue "^ +SatStableCommit = \"([a-f0-9]+)\".*$" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
   hash = "sha256-JFrrSV+mehG0gP7NiQ8hYthL0cjh44HNbXfuxQNhq7c=";
 }

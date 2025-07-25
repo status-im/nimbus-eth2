@@ -735,7 +735,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -755,7 +755,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(

@@ -648,6 +648,10 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gossip fork transition
+```diff
++ Gossip fork transition                                                                     OK
+```
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Empty committee when no committee for slot                                                 OK
@@ -973,6 +977,7 @@ AllTests-mainnet
 + [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
++ [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
 + [SyncQueue# & Backward] Failure request push test                                          OK
 + [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
 + [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
@@ -980,6 +985,7 @@ AllTests-mainnet
 + [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
 + [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
 + [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
++ [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
 + [SyncQueue# & Forward] Failure request push test                                           OK
 + [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
 + [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
