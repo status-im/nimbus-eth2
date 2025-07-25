@@ -170,7 +170,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
-      next_fork_epoch: FAR_FUTURE_EPOCH)
+      next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = HashSet[Epoch]

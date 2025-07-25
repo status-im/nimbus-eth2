@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -234,7 +234,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
         for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId
@@ -264,7 +264,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
         for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId
