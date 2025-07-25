@@ -34,7 +34,7 @@
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
 	ignore = untracked
-	branch = master
+	branch = dev/etan/ci-winlfs
 [submodule "vendor/NimYAML"]
 	path = vendor/NimYAML
 	url = https://github.com/flyx/NimYAML.git
