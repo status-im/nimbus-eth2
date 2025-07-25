@@ -1857,6 +1857,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  debugEcho "Custody column count before"
+  debugEcho node.dataColumnQuarantine.custodyColumns.len
+
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
@@ -1869,6 +1872,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # update custody columns
       node.dataColumnQuarantine.updateColumnQuarantine(
         node.dag.cfg, custodyColumns)
+
+  debugEcho "Custody column count after"
+  debugEcho node.dataColumnQuarantine.custodyColumns.len
 
   # Update CGC and metadata with respect to the new detected validator custody
   let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
