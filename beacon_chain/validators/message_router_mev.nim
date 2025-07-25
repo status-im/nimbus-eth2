@@ -11,7 +11,6 @@ import std/macros
 import metrics
 import stew/assign2
 import ../beacon_node
-import ../spec/peerdas_helpers
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_electra_mev_calls import submitBlindedBlock
