@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  testutils/unittests,
+  chronos/unittest2/asynctests,
   chronos, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/[forks, network],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
@@ -38,13 +38,14 @@ proc generateNode(rng: ref HmacDrbgContext, port: Port,
 const noSyncnetsPreference = SyncnetBits()
 const noCgcnetsPreference = CgcBits()
 
-procSuite "Eth2 specific discovery tests":
-  let
-    rng = HmacDrbgContext.new()
-    enrForkId = ENRForkID(
-      fork_digest: ForkDigest([byte 0, 1, 2, 3]),
-      next_fork_version: Version([byte 0, 0, 0, 0]),
-      next_fork_epoch: Epoch(0))
+suite "Eth2 specific discovery tests":
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      enrForkId = ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0))
 
   asyncTest "Subnet query":
     var attnets: AttnetBits

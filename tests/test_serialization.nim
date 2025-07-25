@@ -10,7 +10,7 @@
 
 import
   presto/client,
-  testutils/unittests, chronicles,
+  unittest2, chronicles,
   ../beacon_chain/spec/eth2_apis/[eth2_rest_serialization, rest_types],
   ./testutil
 
