@@ -2579,13 +2579,14 @@ programMain:
     stderr.write error
     quit QuitFailure
 
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
+  setupFileLimits()
+
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
     quit QuitFailure
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
-  setupFileLimits()
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such
