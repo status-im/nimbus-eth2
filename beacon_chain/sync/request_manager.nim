@@ -172,7 +172,7 @@ func checkResponseSanity(
 
   Opt.some(records)
 
-proc checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
+func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
                           columns: openArray[ref DataColumnSidecar]):
                           Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
@@ -187,9 +187,6 @@ proc checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
           return Opt.none(seq[DataColumnResponseRecord])
         # verify the inclusion proof
         colresp[].verify_data_column_sidecar_inclusion_proof().isOkOr:
-          return Opt.none(seq[DataColumnResponseRecord])
-        # verify the column kzg proof
-        colresp[].verify_data_column_sidecar_kzg_proofs().isOkOr:
           return Opt.none(seq[DataColumnResponseRecord])
         colRec.add(DataColumnResponseRecord(block_root: block_root,
                                             sidecar: colresp))
