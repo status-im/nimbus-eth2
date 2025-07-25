@@ -576,4 +576,5 @@ proc main() {.noinline, raises: [CatchableError].} =
   setupFileLimits()
   waitFor runValidatorClient(config, rng)
 
-main()
+when isMainModule:
+  main()

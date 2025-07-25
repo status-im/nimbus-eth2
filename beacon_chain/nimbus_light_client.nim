@@ -355,4 +355,5 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   notice "Exiting light client"
 
-main()
+when isMainModule:
+  main()

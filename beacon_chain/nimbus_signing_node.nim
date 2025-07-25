@@ -486,4 +486,5 @@ proc main() {.noinline, raises: [CatchableError].} =
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runSigningNode(config)
 
-main()
+when isMainModule:
+  main()

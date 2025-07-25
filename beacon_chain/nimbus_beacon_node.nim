@@ -2618,4 +2618,5 @@ proc main() {.noinline, raises: [CatchableError].} =
   else:
     handleStartUpCmd(config)
 
-main()
+when isMainModule:
+  main()
