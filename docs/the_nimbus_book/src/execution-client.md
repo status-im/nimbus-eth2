@@ -25,20 +25,20 @@ cd nimbus-eth1
 To build the Nimbus execution client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
-make -j4 nimbus_execution_client nrpc
+make -j4 nimbus_execution_client
 ```
 
 This may take a few minutes.
 
-When the process finishes, the `nimbus_execution_client` and `nrpc` executables can be found in the `build` subdirectory.
+When the process finishes, the `nimbus_execution_client` executables can be found in the `build` subdirectory.
 
-## Import era files
+## Syncing using era files
 
 Syncing Nimbus requires a set of `era1` and `era` files. These can be generated from a `geth` and `nimbus` consensus client respectively or downloaded from a third-party repository.
 
 In addition to the era files themselves, you will need at least 200GB of free space on a fast SSD in your data directory, as set by the `--data-dir` command line option.
 
-!!! info "`era` file download locations"
+!!! info "`era` file downloading"
     `era` and `era1` files for testing purposes could at the time of writing be found here - these sources may or may not be available:
 
     === "Mainnet"
@@ -59,12 +59,52 @@ In addition to the era files themselves, you will need at least 200GB of free sp
         * https://sepolia.era.nimbus.team/
         * https://sepolia.era1.nimbus.team/
 
+    A wider community maintained list of `era` and `era1` files can be found eth-clients github [history-endpoints](https://eth-clients.github.io/history-endpoints/)
+
+    Downloading these files can take a long time, specially if you are downloading sequentially.
+    For easier and fast download, please use the `era_downloader.sh` script provided in the `nimbus-eth1` repository.
+    #### You'll need:
+    - [`aria2`](https://aria2.github.io/) installed:
+        - **macOS**: `brew install aria2`
+        - **Ubuntu/Debian**: `sudo apt install aria2`
+    - Standard Unix tools: `bash`, `awk`, `find`, `grep`, `curl`
+
+    === "Mainnet"
+        ```sh
+        cd nimbus-eth1
+        chmod +x scripts/era_downloader.sh
+        ./scripts/era_downloader.sh https://mainnet.era1.nimbus.team/ ../build/era1
+        ./scripts/era_downloader.sh https://mainnet.era.nimbus.team/ ../build/era
+        ```
+
+    === "Hoodi"
+        ```sh
+        cd nimbus-eth1
+        chmod +x scripts/era_downloader.sh
+        ./scripts/era_downloader.sh https://hoodi.era.nimbus.team/ ../build/era
+        ```
+
+    === "Holesky"
+        ```sh
+        cd nimbus-eth1
+        chmod +x scripts/era_downloader.sh
+        ./scripts/era_downloader.sh https://holesky.era.nimbus.team/ ../build/era
+        ```
+
+    === "Sepolia"
+        ```sh
+        cd nimbus-eth1
+        chmod +x scripts/era_downloader.sh
+        ./scripts/era_downloader.sh https://sepolia.era1.nimbus.team/ ../build/era1
+        ./scripts/era_downloader.sh https://sepolia.era.nimbus.team/ ../build/era
+        ```
+
 It is recommended that you place the era files in the data directory under `era1` and `era` respectively. Era files can be shared between multiple nodes and can reside on a slow drive - use the `--era1-dir` and `--era-dir` options if they are located outside of the data directory.
 
 See the [era file guide](./era-store.md) for more information.
 
 !!! tip ""
-    Future versions of Nimbus will support other methods of syncing
+    Future versions of Nimbus will support other methods of syncing, such as snap sync.
 
 === "Mainnet"
     !!! note ""
@@ -118,35 +158,50 @@ During startup, a `jwt.hex` file will be placed in the data directory containing
     build/nimbus_execution_client --network=sepolia --data-dir=build/sepolia --engine-api
     ```
 
-## Top up blocks from the consensus node
+## Optionally quickstart with a pre-synced database
 
-While era files cover the majority of chain history, Nimbus currenty relies on the consensus node to sync the most recent blocks using the `nrpc` helper.
+!!! warning "Unverified pre-synced database"
+    The pre-synced database is provided by the Nimbus team which contained the state, but using this database is trusting the team to have provided a valid database. This gives you a headstart on syncing, but if you don't trust the provider, you should do a full sync instead, either from era files or from the p2p network.
+    The pre-synced database is not available for all networks, and is only available for mainnet
+
+If you want to skip the era file import and start with a pre-synced database, you can download a pre-synced database from the Nimbus team. This database is for now only available for the mainnet.
+
+```sh
+# Download the pre-synced database
+wget https://eth1-db.nimbus.team/mainnet-static-vid-keyed.tar.gz
+
+# Extract the database into the data directory
+tar -xzf mainnet-static-vid-keyed.tar.gz
+```
+
+This will extract the pre-synced database into the current directory, which you can then use as your data directory.
+
+## Using the consensus node to sync
+
+While era files cover the majority of chain history. In most cases, Nimbus will automatically sync recent blocks via peer-to-peer networking.
+However, if your node is stuck, has no peers, or you're on a weak network connection, you can optionally use nrpc to sync recent blocks directly from a connected consensus node using the Engine API.
 
 This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.
 
 === "Mainnet"
     ```sh
-    # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
-    while true; do build/nrpc sync --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/mainnet/jwt.hex; sleep 2; done
+    ./build/nrpc sync --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/mainnet/jwt.hex
     ```
 
 === "Hoodi"
     ```sh
-    # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
-    while true; do build/nrpc sync --network=hoodi --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/hoodi/jwt.hex; sleep 2; done
+    ./build/nrpc sync --network=hoodi --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/hoodi/jwt.hex
     ```
 
 === "Holesky"
     ```sh
-    # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
-    while true; do build/nrpc sync --network=holesky --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/holesky/jwt.hex; sleep 2; done
+    ./build/nrpc sync --network=holesky --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/holesky/jwt.hex
     ```
 
 === "Sepolia"
     ```sh
-    # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
-    while true; do build/nrpc sync --network=sepolia --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/sepolia/jwt.hex; sleep 2; done
+    ./build/nrpc sync --network=sepolia --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/sepolia/jwt.hex
     ```
 
 !!! tip ""
-    Future versions of Nimbus will support other methods of syncing
+    Future versions of Nimbus will support snap sync.

@@ -297,7 +297,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
       for record in records:
         if record.block_root != curRoot:
           curRoot = record.block_root
-          if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):
+          if (let o = self.quarantine[].popSidecarless(curRoot); o.isSome):
             let blck = o.unsafeGet()
             discard await self.blockVerifier(blck, false)
             # TODO:
@@ -462,7 +462,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   var
     idents: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
-  for blobless in rman.quarantine[].peekBlobless():
+  for blobless in rman.quarantine[].peekSidecarless():
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Deneb:
         # give blobs a chance to arrive over gossip
@@ -492,7 +492,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 
   for root in ready:
-    let blobless = rman.quarantine[].popBlobless(root).valueOr:
+    let blobless = rman.quarantine[].popSidecarless(root).valueOr:
       continue
     discard rman.blockVerifier(blobless, false)
   idents
@@ -537,7 +537,7 @@ proc requestManagerBlobLoop(
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
       for blockRoot in blockRoots:
-        let blck = rman.quarantine[].popBlobless(blockRoot).valueOr:
+        let blck = rman.quarantine[].popSidecarless(blockRoot).valueOr:
           continue
         verifiers.add rman.blockVerifier(blck, maybeFinalized = false)
       try:
@@ -576,7 +576,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
     fetches: seq[DataColumnsByRootIdentifier]
     ready: seq[Eth2Digest]
 
-  for columnless in rman.quarantine[].peekColumnless():
+  for columnless in rman.quarantine[].peekSidecarless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         # granting data columns a chance to arrive over gossip
@@ -606,7 +606,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 
   for root in ready:
-    let columnless = rman.quarantine[].popColumnless(root).valueOr:
+    let columnless = rman.quarantine[].popSidecarless(root).valueOr:
       continue
     discard rman.blockVerifier(columnless, false)
   fetches
@@ -650,7 +650,7 @@ proc requestManagerDataColumnLoop(
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
       for blockRoot in blockRoots:
-        let blck = rman.quarantine[].popColumnless(blockRoot).valueOr:
+        let blck = rman.quarantine[].popSidecarless(blockRoot).valueOr:
           continue
         verifiers.add rman.blockVerifier(blck, maybeFinalized = false)
       try:

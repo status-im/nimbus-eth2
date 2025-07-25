@@ -25,6 +25,14 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     cachedForkSchedule =
       RestApiResponse.prepareJsonResponse(getForkSchedule(cfg))
+
+    # This has been intentionally copied and sorted in ascending order
+    # as the spec demands the endpoint to be sorted in this fashion.
+    # The spec says:
+    # There MUST NOT exist multiple blob schedule entries with the same epoch value.
+    # The maximum blobs per block limit for blob schedules entries MUST be less than
+    # or equal to `MAX_BLOB_COMMITMENTS_PER_BLOCK`. The blob schedule entries SHOULD
+    # be sorted by epoch in ascending order. The blob schedule MAY be empty.
     sortedBlobSchedule = cfg.BLOB_SCHEDULE.sorted(cmp=cmpBPOconfig)
     restBlobSchedule = sortedBlobSchedule.mapIt(%*{
       "EPOCH": Base10.toString(uint64(it.EPOCH)),
@@ -314,7 +322,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS.uint64),
-
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH

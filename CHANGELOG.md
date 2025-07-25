@@ -1,3 +1,33 @@
+2025-07-10 v25.7.0
+==================
+
+Nimbus `v25.7.0` is a `low-urgency` release, except for usage of the validator client with non-Nimbus beacon nodes for which it's a `medium-urgency` release.
+
+### Improvements
+
+- Increase default builder API gas limit to 45M:
+  https://github.com/status-im/nimbus-eth2/pull/7234
+
+- Ensure that validator client attests in a timely way even with partially unresponsive beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/7276
+
+- Implement postStateValidatorIdentities beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7223
+
+- Implement getDebugDataColumnSidecars beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7237
+
+### Fixes
+
+- Fix sync-related crash regression in v25.6.0:
+  https://github.com/status-im/nimbus-eth2/pull/7275
+
+- Restore validator client compatibility with beacon nodes providing BPO schedules:
+  https://github.com/status-im/nimbus-eth2/pull/7219
+
+- Add missing `finalized` field to getStateV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7248
+
 2025-06-16 v25.6.0
 ==================
 

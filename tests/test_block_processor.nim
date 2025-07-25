@@ -48,7 +48,7 @@ suite "Block processor" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     var
       taskpool = Taskpool.new()
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))

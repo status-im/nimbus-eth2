@@ -157,7 +157,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       except Exception as exc:
         raiseAssert "Failed to initialize Taskpool: " & exc.msg
     verifier = BatchVerifier.init(rng, taskpool)
-    quarantine = newClone(Quarantine.init())
+    quarantine = newClone(Quarantine.init(cfg))
     attPool = AttestationPool.init(dag, quarantine)
     batchCrypto = BatchCrypto.new(
       rng, eager = func(): bool = true,
