@@ -700,7 +700,6 @@ func fetchMissingSidecars*(
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
 
-<<<<<<< HEAD
 func fetchMissingColumnsByRoot*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
