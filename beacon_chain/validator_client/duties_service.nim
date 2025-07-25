@@ -718,7 +718,7 @@ proc syncCommitteeDutiesLoop(
     if not(isNil(service.pollingSyncDutiesTask)) and
        not(service.pollingSyncDutiesTask.finished()):
       await cancelAndWait(service.pollingSyncDutiesTask)
-    # Spawning new attestation duties task.
+    # Spawning new sync committee duties task.
     service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
