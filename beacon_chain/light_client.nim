@@ -357,7 +357,8 @@ proc installMessageValidators*(
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
           lightClient.network.addValidator(
             getLightClientFinalityUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientFinalityUpdate
+              msg: lcDataFork.LightClientFinalityUpdate,
+              src: PeerId
             ): ValidationResult =
               validate(msg, contextFork, processLightClientFinalityUpdate))
 
@@ -365,7 +366,8 @@ proc installMessageValidators*(
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
           lightClient.network.addValidator(
             getLightClientOptimisticUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientOptimisticUpdate
+              msg: lcDataFork.LightClientOptimisticUpdate,
+              src: PeerId
             ): ValidationResult =
               validate(msg, contextFork, processLightClientOptimisticUpdate))
 

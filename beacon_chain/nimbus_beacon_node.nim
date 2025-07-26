@@ -1949,7 +1949,8 @@ proc installMessageValidators(node: BeaconNode) =
       # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock
+          signedBlock: consensusFork.SignedBeaconBlock,
+          src: PeerId
         ): ValidationResult =
           if node.shouldSyncOptimistically(node.currentSlot):
             toValidationResult(
@@ -1968,7 +1969,7 @@ proc installMessageValidators(node: BeaconNode) =
             let subnet_id = it
             node.network.addAsyncValidator(
               getAttestationTopic(digest, subnet_id), proc (
-                attestation: SingleAttestation
+                attestation: SingleAttestation, src: PeerId
               ): Future[ValidationResult] {.
                   async: (raises: [CancelledError]).} =
                 return toValidationResult(
@@ -1981,7 +1982,7 @@ proc installMessageValidators(node: BeaconNode) =
             let subnet_id = it
             node.network.addAsyncValidator(
               getAttestationTopic(digest, subnet_id), proc (
-                attestation: phase0.Attestation
+                attestation: phase0.Attestation, src: PeerId
               ): Future[ValidationResult] {.
                   async: (raises: [CancelledError]).} =
                 return toValidationResult(
@@ -1994,7 +1995,8 @@ proc installMessageValidators(node: BeaconNode) =
       when consensusFork >= ConsensusFork.Electra:
         node.network.addAsyncValidator(
           getAggregateAndProofsTopic(digest), proc (
-            signedAggregateAndProof: electra.SignedAggregateAndProof
+            signedAggregateAndProof: electra.SignedAggregateAndProof,
+            src: PeerId
           ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processSignedAggregateAndProof(
@@ -2002,7 +2004,8 @@ proc installMessageValidators(node: BeaconNode) =
       else:
         node.network.addAsyncValidator(
           getAggregateAndProofsTopic(digest), proc (
-            signedAggregateAndProof: phase0.SignedAggregateAndProof
+            signedAggregateAndProof: phase0.SignedAggregateAndProof,
+            src: PeerId
           ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processSignedAggregateAndProof(
@@ -2014,7 +2017,8 @@ proc installMessageValidators(node: BeaconNode) =
       when consensusFork >= ConsensusFork.Electra:
         node.network.addValidator(
           getAttesterSlashingsTopic(digest), proc (
-            attesterSlashing: electra.AttesterSlashing
+            attesterSlashing: electra.AttesterSlashing,
+            src: PeerId
           ): ValidationResult =
             toValidationResult(
               node.processor[].processAttesterSlashing(
@@ -2022,7 +2026,8 @@ proc installMessageValidators(node: BeaconNode) =
       else:
         node.network.addValidator(
           getAttesterSlashingsTopic(digest), proc (
-            attesterSlashing: phase0.AttesterSlashing
+            attesterSlashing: phase0.AttesterSlashing,
+            src: PeerId
           ): ValidationResult =
             toValidationResult(
               node.processor[].processAttesterSlashing(
@@ -2032,7 +2037,8 @@ proc installMessageValidators(node: BeaconNode) =
       # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
-          proposerSlashing: ProposerSlashing
+          proposerSlashing: ProposerSlashing,
+          src: PeerId
         ): ValidationResult =
           toValidationResult(
             node.processor[].processProposerSlashing(
@@ -2042,7 +2048,8 @@ proc installMessageValidators(node: BeaconNode) =
       # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
-          signedVoluntaryExit: SignedVoluntaryExit
+          signedVoluntaryExit: SignedVoluntaryExit,
+          src: PeerId
         ): ValidationResult =
           toValidationResult(
             node.processor[].processSignedVoluntaryExit(
@@ -2056,7 +2063,8 @@ proc installMessageValidators(node: BeaconNode) =
             let idx = subcommitteeIdx
             node.network.addAsyncValidator(
               getSyncCommitteeTopic(digest, idx), proc (
-                msg: SyncCommitteeMessage
+                msg: SyncCommitteeMessage,
+                src: PeerId
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processSyncCommitteeMessage(
@@ -2066,7 +2074,8 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
-            msg: SignedContributionAndProof
+            msg: SignedContributionAndProof,
+            src: PeerId
           ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processSignedContributionAndProof(
@@ -2076,7 +2085,8 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
-            msg: SignedBLSToExecutionChange
+            msg: SignedBLSToExecutionChange,
+            src: PeerId
           ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processBlsToExecutionChange(
@@ -2095,7 +2105,8 @@ proc installMessageValidators(node: BeaconNode) =
             let subnet_id = it
             node.network.addValidator(
               getBlobSidecarTopic(digest, subnet_id), proc (
-                blobSidecar: deneb.BlobSidecar
+                blobSidecar: deneb.BlobSidecar,
+                src: PeerId
               ): ValidationResult =
                 toValidationResult(
                   node.processor[].processBlobSidecar(
