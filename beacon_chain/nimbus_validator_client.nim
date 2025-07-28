@@ -562,7 +562,8 @@ proc runValidatorClient*(
   if not vc.runWithSignals(asyncRun vc):
     return
 
-programMain:
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
   let
     config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
                                  ValidatorClientConf)
@@ -574,3 +575,6 @@ programMain:
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
   waitFor runValidatorClient(config, rng)
+
+when isMainModule:
+  main()

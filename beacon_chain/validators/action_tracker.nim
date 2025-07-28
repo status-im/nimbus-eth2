@@ -137,9 +137,8 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
     allSubnetBits
   else:
     var res: AttnetBits
-    if tracker.knownValidators.len > 0:
-      for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
-        res[subnetId.int] = true
+    for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
+      res[subnetId.int] = true
     res
 
 proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
