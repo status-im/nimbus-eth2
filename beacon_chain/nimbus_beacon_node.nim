@@ -2102,6 +2102,18 @@ proc installMessageValidators(node: BeaconNode) =
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
 
+      when consensusFork >= ConsensusFork.Fulu:
+        # data_column_sidecar_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+        for subnet_id in 0.uint64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+          node.network.addValidator(
+            getDataColumnSidecarTopic(digest, subnet_id), proc(
+              dataColumnSidecar: fulu.DataColumnSidecar
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processDataColumnSidecar(
+                  MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =

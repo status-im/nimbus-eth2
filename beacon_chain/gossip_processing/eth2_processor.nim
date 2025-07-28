@@ -321,6 +321,18 @@ proc processBlobSidecar*(
 
   v
 
+proc processDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    v = self.dag.validateDataColumnSidecar(
+      self.quarantine, self.dataColumnQuarantine,
+      dataColumnSidecar, wallTime, subnet_id)
+
+  v
+
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect
   # potential duplicate validators, which can trigger slashing.
