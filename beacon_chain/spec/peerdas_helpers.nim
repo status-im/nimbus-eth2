@@ -290,7 +290,24 @@ func get_extended_sample_count*(samples_per_slot: int,
 
   NUMBER_OF_COLUMNS
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
+proc verify_data_column_sidecar*(sidecar: DataColumnSidecar):
+                                 Result[void, cstring] =
+  ## Verify if the data column sidecar is valid.
+
+  if sidecar.index >= NUMBER_OF_COLUMNS:
+    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+
+  if sidecar.kzg_commitments.len == 0:
+    return err("Data column contains zero blob")
+
+  if sidecar.column.len != sidecar.kzg_commitments.len or
+      sidecar.column.len != sidecar.kzg_proofs.len:
+    return err("Data column length must be equal to the number of commitments/proofs")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
@@ -307,22 +324,10 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
-
-  # Check if the data column sidecar index < NUMBER_OF_COLUMNS
-  if not (sidecar.index < NUMBER_OF_COLUMNS):
-    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
-
-  # Check is the sidecar column length = sidecar.kzg_commitments length
-  # and sidecar.kzg_commitments length = sidecar.kzg_proofs length
-  if not (sidecar.column.len == sidecar.kzg_commitments.len):
-    return err("Data column sidecar length is not equal to the kzg_commitments length")
-
-  if not (sidecar.kzg_commitments.len == sidecar.kzg_proofs.len):
-    return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
   var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)

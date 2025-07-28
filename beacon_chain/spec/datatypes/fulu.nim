@@ -17,7 +17,7 @@
 
 import
   std/[sequtils, typetraits],
-  "."/[phase0, base, electra],
+  "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -31,7 +31,6 @@ from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
-from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX

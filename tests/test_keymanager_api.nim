@@ -12,19 +12,21 @@
 
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
-  testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
+  unittest2,
+  chronicles,
+  chronos,
+  chronos/unittest2/asynctests,
+  confutils,
+  json_serialization,
   stew/[byteutils, io2],
-
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/[rest_keymanager_calls, rest_keymanager_types],
-  ../beacon_chain/validators/[keystore_management, slashing_protection_common,
-                              validator_pool],
+  ../beacon_chain/validators/
+    [keystore_management, slashing_protection_common, validator_pool],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
-  ../beacon_chain/[conf, filepath, beacon_node,
-                   nimbus_beacon_node, beacon_node_status],
+  ../beacon_chain/[conf, filepath, beacon_node, nimbus_beacon_node, beacon_node_status],
   ../beacon_chain/validator_client/common,
   ../ncli/ncli_testnet,
   ./testutil

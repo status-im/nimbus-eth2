@@ -300,7 +300,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
-  of "basic_progressivelist":
+  of "basic_progressive_list":
     checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)

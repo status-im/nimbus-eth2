@@ -479,9 +479,12 @@ proc runSigningNode(config: SigningNodeConf) {.async: (raises: []).} =
   if not sn.runWithSignals(asyncRun sn):
     return
 
-programMain:
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
   let config =
-    makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
-                        SigningNodeConf)
+    makeBannerAndConfig("Nimbus signing node " & fullVersionStr, SigningNodeConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runSigningNode(config)
+
+when isMainModule:
+  main()

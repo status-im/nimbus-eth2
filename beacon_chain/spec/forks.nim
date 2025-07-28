@@ -489,8 +489,7 @@ template kind*(
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
       fulu_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBuilderBid |
-      fulu_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      fulu_mev.SignedBuilderBid]): ConsensusFork =
   ConsensusFork.Fulu
 
 template BeaconState*(kind: static ConsensusFork): auto =
