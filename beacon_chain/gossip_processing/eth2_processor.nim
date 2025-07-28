@@ -15,7 +15,7 @@ import
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    validator_change_pool, data_column_quarantine],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -144,6 +144,8 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
+    dataColumnQuarantine*: ref DataColumnQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -167,6 +169,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -185,6 +188,7 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
