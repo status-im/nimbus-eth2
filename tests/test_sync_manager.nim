@@ -855,6 +855,88 @@ suite "SyncManager test suite":
         sq.inpSlot == finishSlot
         sq.outSlot == finishSlot
 
+    asyncTest "[SyncQueue# & " & $kind & "] Empty responses should not " &
+              "be accounted [3 peers] test":
+      var emptyResponse: seq[ref ForkedSignedBeaconBlock]
+      let
+        scenario =
+          case kind
+          of SyncQueueKind.Forward:
+            [
+              (Slot(0) .. Slot(31), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(128) .. Slot(159), Opt.none(VerifierError))
+            ]
+          of SyncQueueKind.Backward:
+            [
+              (Slot(128) .. Slot(159), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(31), Opt.none(VerifierError))
+            ]
+        verifier = setupVerifier(kind, scenario)
+        sq =
+          case kind
+          of SyncQueueKind.Forward:
+            SyncQueue.init(SomeTPeer, kind, Slot(0), Slot(159),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(0)),
+                           verifier.collector)
+          of SyncQueueKind.Backward:
+            SyncQueue.init(SomeTPeer, kind, Slot(159), Slot(0),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(159)),
+                           verifier.collector)
+        slots =
+          case kind
+          of SyncQueueKind.Forward:
+            @[Slot(0), Slot(32), Slot(64), Slot(96), Slot(128)]
+          of SyncQueueKind.Backward:
+            @[Slot(128), Slot(96), Slot(64), Slot(32), Slot(0)]
+        peer1 = SomeTPeer.init("1")
+        peer2 = SomeTPeer.init("2")
+        peer3 = SomeTPeer.init("3")
+
+      let
+        r11 = sq.pop(Slot(159), peer1)
+        r21 = sq.pop(Slot(159), peer2)
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
+      let
+        r12 = sq.pop(Slot(159), peer1)
+        r13 = sq.pop(Slot(159), peer1)
+        # This should not raise an assertion, as the previously sent empty
+        # response should not be taken into account.
+        r14 = sq.pop(Slot(159), peer1)
+
+      expect AssertionError:
+        let r1e {.used.} = sq.pop(Slot(159), peer1)
+
+      check:
+        r11.data.slot == slots[0]
+        r12.data.slot == slots[1]
+        r13.data.slot == slots[2]
+        r14.data.slot == slots[3]
+
+      # Scenario requires some finish steps
+      await sq.push(r21, createChain(r21.data), Opt.none(seq[BlobSidecars]))
+      let r22 = sq.pop(Slot(159), peer2)
+      await sq.push(r22, createChain(r22.data), Opt.none(seq[BlobSidecars]))
+      let r23 = sq.pop(Slot(159), peer2)
+      await sq.push(r23, createChain(r23.data), Opt.none(seq[BlobSidecars]))
+      let r24 = sq.pop(Slot(159), peer2)
+      await sq.push(r24, createChain(r24.data), Opt.none(seq[BlobSidecars]))
+      let r35 = sq.pop(Slot(159), peer3)
+      await sq.push(r35, createChain(r35.data), Opt.none(seq[BlobSidecars]))
+
+      await noCancel wait(verifier.verifier, 2.seconds)
+
     asyncTest "[SyncQueue# & " & $kind & "] Combination of missing parent " &
               "and good blocks [3 peers] test":
       let

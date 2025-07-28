@@ -150,7 +150,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 

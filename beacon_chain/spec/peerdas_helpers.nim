@@ -293,8 +293,7 @@ func get_extended_sample_count*(samples_per_slot: int,
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
-  ## Verify if the given KZG Commitments are in included
-  ## in the beacon block or not
+  ## Verify if the given KZG commitments included in the given beacon block.
   let gindex =
     KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
   if not is_valid_merkle_branch(
@@ -311,8 +310,7 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
                                             Result[void, cstring] =
-  ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`
-  ## is valid or not.
+  ## Verify if the KZG proofs are correct.
 
   # Check if the data column sidecar index < NUMBER_OF_COLUMNS
   if not (sidecar.index < NUMBER_OF_COLUMNS):
@@ -327,18 +325,16 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
     return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
-  var cellIndices =
-    newSeq[CellIndex](MAX_BLOB_COMMITMENTS_PER_BLOCK)
+  var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
   for _ in 0..<sidecar.column.len:
-    cellIndices.add(sidecar.index * sidecar.column.lenu64)
+    cellIndices.add(CellIndex(sidecar.index))
 
-  let res =
-    verifyCellKzgProofBatch(sidecar.kzg_commitments.asSeq,
-                            cellIndices,
-                            sidecar.column.asSeq,
-                            sidecar.kzg_proofs.asSeq)
+  let res = verifyCellKzgProofBatch(
+      sidecar.kzg_commitments.asSeq, cellIndices, sidecar.column.asSeq,
+      sidecar.kzg_proofs.asSeq).valueOr:
+    return err("DataColumnSidecar: validation error")
 
-  if res.isErr():
+  if not res:
     return err("DataColumnSidecar: validation failed")
 
   ok()

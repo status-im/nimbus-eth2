@@ -489,8 +489,7 @@ template kind*(
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
       fulu_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBuilderBid |
-      fulu_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      fulu_mev.SignedBuilderBid]): ConsensusFork =
   ConsensusFork.Fulu
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -1077,7 +1076,7 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
 {.pop.}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
-func get_blob_parameters(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
+func get_blob_parameters*(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
   ## Return the blob parameters at a given epoch.
   for entry in cfg.BLOB_SCHEDULE:
     if epoch >= entry.EPOCH:

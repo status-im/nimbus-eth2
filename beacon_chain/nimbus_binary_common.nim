@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[tables, strutils, terminal, typetraits],
+  std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
@@ -38,45 +38,7 @@ export
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [].}
-
-# silly chronicles, colors is a compile-time property
-when defaultChroniclesStream.outputs.type.arity == 2:
-  func stripAnsi(v: string): string =
-    var
-      res = newStringOfCap(v.len)
-      i: int
-
-    while i < v.len:
-      let c = v[i]
-      if c == '\x1b':
-        var
-          x = i + 1
-          found = false
-
-        while x < v.len: # look for [..m
-          let c2 = v[x]
-          if x == i + 1:
-            if c2 != '[':
-              break
-          else:
-            if c2 in {'0'..'9'} + {';'}:
-              discard # keep looking
-            elif c2 == 'm':
-              i = x + 1
-              found = true
-              break
-            else:
-              break
-          inc x
-
-        if found: # skip adding c
-          continue
-      res.add c
-      inc i
-
-    res
+                           lastSlot: Slot): Future[bool] {.gcsafe, raises: [].}
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -93,7 +55,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
 
 proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
   if stdoutKind == StdoutLogKind.Auto:
-    if isatty(stdout):
+    if getEnv("NO_COLOR").len == 0 and isatty(stdout):
       # On a TTY, let's be fancy
       StdoutLogKind.Colors
     else:
@@ -107,6 +69,8 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
   from "."/filepath import secureCreatePath
+
+  import stew/staticfor
 
 proc setupFileLimits*() =
   when not defined(windows):
@@ -129,9 +93,6 @@ proc setupLogging*(
   when defaultChroniclesStream.outputs.type.arity != 2:
     warn "Logging configuration options not enabled in the current build"
   else:
-    # Naive approach where chronicles will form a string and we will discard
-    # it, even if it could have skipped the formatting phase
-
     proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
@@ -142,9 +103,6 @@ proc setupLogging*(
 
     proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
       writeAndFlush(stdout, msg)
-
-    proc noColorsFlush(logLevel: LogLevel, msg: LogOutputStr) =
-      writeAndFlush(stdout, stripAnsi(msg))
 
     let fileWriter =
       if logFile.isSome():
@@ -171,14 +129,15 @@ proc setupLogging*(
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
-    let tmp = detectTTY(stdoutKind)
-
-    case tmp
-    of StdoutLogKind.Auto: raiseAssert "checked above"
+    case detectTTY(stdoutKind)
+    of StdoutLogKind.Auto:
+      raiseAssert "Auto-detection done in detectTTY"
     of StdoutLogKind.Colors:
       defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = true
     of StdoutLogKind.NoColors:
-      defaultChroniclesStream.outputs[0].writer = noColorsFlush
+      defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = false
     of StdoutLogKind.Json:
       defaultChroniclesStream.outputs[0].writer = noOutput
 
@@ -189,6 +148,9 @@ proc setupLogging*(
           prevWriter(logLevel, msg)
     of StdoutLogKind.None:
      defaultChroniclesStream.outputs[0].writer = noOutput
+
+    staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
+      setLogEnabled(defaultChroniclesStream.outputs[i].writer != noOutput, i)
 
     if logFile.isSome():
       warn "The --log-file option is deprecated. Consider redirecting the standard output to a file instead"
@@ -298,7 +260,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
 
   while true:
     # Start by waiting for the time when the slot starts. Sleeping relinquishes
-    # control to other tasks which may or may not finish within the alotted
+    # control to other tasks which may or may not finish within the allotted
     # time, so below, we need to be wary that the ship might have sailed
     # already.
     await sleepAsync(timeToNextSlot)

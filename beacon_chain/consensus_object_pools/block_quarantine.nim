@@ -9,8 +9,8 @@
 
 import
   std/tables,
-  chronicles,
-  ../spec/forks
+  chronicles, chronos,
+  ../spec/[presets, forks]
 
 export tables, forks
 
@@ -21,9 +21,7 @@ const
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
     ## Enough for finalization in an alternative fork
-  MaxBlobless = SLOTS_PER_EPOCH
-    ## Arbitrary
-  MaxColumnless = SLOTS_PER_EPOCH
+  MaxSidecarless = SLOTS_PER_EPOCH * 128
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
@@ -52,18 +50,18 @@ type
       ## to be dropped. An orphan block may also be "blobless" (see
       ## below) - if so, upon resolving the parent, it should be
       ## added to the blobless table, after verifying its signature.
+    orphansEvent*: AsyncEvent
+      ## Asynchronous event which will be set, when new block appears in
+      ## orphans table.
 
-    blobless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
-      ## Blocks that we don't have blobs for. When we have received
-      ## all blobs for this block, we can proceed to resolving the
-      ## block as well. A blobless block inserted into this table must
+    sidecarless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
+      ## Blocks that we don't have sidecars (BlobSidecar/DataColumnSidecar) for.
+      ## When we have received all sidecars for this block, we can proceed to
+      ## resolving the block as well. Block inserted into this table must
       ## have a resolved parent (i.e., it is not an orphan).
-
-    columnless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
-      ## Blocks that we don't have columns for. When we have received
-      ## all columns for this block, we can proceed to resolving the
-      ## block as well. A columnless block inserted into this table must
-      ## have a resolved parent (i.e., it is not an orphan)
+    sidecarlessEvent*: AsyncEvent
+      ## Asynchronous event which will be set, when new block appears in
+      ## sidecarless table.
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
       ## Unviable blocks are those that come from a history that does not
@@ -82,9 +80,19 @@ type
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
+    missingEvent*: AsyncEvent
+      ## Asynchronous event which will be set, when new block appears in
+      ## missing table.
 
-func init*(T: type Quarantine): T =
-  T()
+    cfg*: RuntimeConfig
+
+func init*(T: type Quarantine, cfg: RuntimeConfig): T =
+  T(
+    cfg: cfg,
+    sidecarlessEvent: newAsyncEvent(),
+    missingEvent: newAsyncEvent(),
+    orphansEvent: newAsyncEvent()
+  )
 
 func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
@@ -106,7 +114,7 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
       if result.len >= max:
         break
 
-func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
+proc addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
   ## Schedule the download a the given block
   if quarantine.missing.len >= MaxMissingItems:
     return
@@ -129,6 +137,7 @@ func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
     # Add if it's not there, but don't update missing counter
     if not found:
       discard quarantine.missing.hasKeyOrPut(r, MissingBlock())
+      quarantine.missingEvent.fire()
       return
 
 func removeOrphan*(
@@ -189,7 +198,7 @@ func removeUnviableOrphanTree(
 
   checked
 
-func removeUnviableBloblessTree(
+func removeUnviableSidecarlessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
@@ -223,7 +232,7 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
   quarantine.cleanupUnviable()
   var toCheck = @[root]
   var checked = quarantine.removeUnviableOrphanTree(toCheck, quarantine.orphans)
-  quarantine.removeUnviableBloblessTree(checked, quarantine.blobless)
+  quarantine.removeUnviableSidecarlessTree(checked, quarantine.sidecarless)
 
   quarantine.unviable[root] = ()
 
@@ -238,35 +247,45 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
 
-func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
+func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
-  for k, v in quarantine.blobless:
+  for k, v in quarantine.sidecarless:
     withBlck(v):
       if not isViable(finalizedSlot, forkyBlck.message.slot):
         toDel.add k
 
   for k in toDel:
     quarantine.addUnviable k
-    quarantine.blobless.del k
-
-func cleanupColumnless(quarantine: var Quarantine, finalizedSlot: Slot) =
-  var toDel: seq[Eth2Digest]
-
-  for k, v in quarantine.columnless:
-    withBlck(v):
-      if not isViable(finalizedSlot, forkyBlck.message.slot):
-        toDel.add k
-
-  for k in toDel:
-    quarantine.addUnviable k
-    quarantine.columnless.del k
+    quarantine.sidecarless.del k
 
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
   quarantine.missing.reset()
   quarantine.orphans.reset()
+
+func pruneAfterFinalization*(
+    quarantine: var Quarantine,
+    epoch: Epoch,
+    needsBackfill: bool
+) =
+  let
+    startEpoch =
+      if needsBackfill:
+        # Because Quarantine could be used as temporary storage for blocks which
+        # do not have sidecars yet, we should not prune blocks which are behind
+        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
+        # be able to backfill this blocks properly.
+        if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
+          Epoch(0)
+        else:
+          epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+      else:
+        epoch
+    slot = (startEpoch + 1).start_slot()
+
+  quarantine.cleanupSidecarless(slot)
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
@@ -279,9 +298,11 @@ func clearAfterReorg*(quarantine: var Quarantine) =
 # for future slots are rejected before reaching quarantine, this usually
 # will be a block for the last couple of slots for which the parent is a
 # likely imminent arrival.
-func addOrphan*(
-    quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: ForkedSignedBeaconBlock): Result[void, cstring] =
+proc addOrphan*(
+    quarantine: var Quarantine,
+    finalizedSlot: Slot,
+    signedBlock: ForkedSignedBeaconBlock
+): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
 
   if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
@@ -312,9 +333,10 @@ func addOrphan*(
       oldest_orphan_key = k
       break
     quarantine.orphans.del oldest_orphan_key
-    quarantine.blobless.del oldest_orphan_key[0]
+    quarantine.sidecarless.del oldest_orphan_key[0]
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
+  quarantine.orphansEvent.fire()
 
   ok()
 
@@ -332,75 +354,94 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
       toRemove.add(k)
       yield v
 
-proc addBlobless*(
-    quarantine: var Quarantine, finalizedSlot: Slot,
+proc addSidecarless(
+    quarantine: var Quarantine, finalizedSlot: Opt[Slot],
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock): bool =
+                 fulu.SignedBeaconBlock
+): bool =
+  if finalizedSlot.isSome():
+    if not isViable(finalizedSlot.get(), signedBlock.message.slot):
+      quarantine.addUnviable(signedBlock.root)
+      return false
 
-  if not isViable(finalizedSlot, signedBlock.message.slot):
-    quarantine.addUnviable(signedBlock.root)
-    return false
-
-  quarantine.cleanupBlobless(finalizedSlot)
-
-  if quarantine.blobless.lenu64 >= MaxBlobless:
-    var oldest_blobless_key: Eth2Digest
-    for k in quarantine.blobless.keys:
-      oldest_blobless_key = k
+  if quarantine.sidecarless.lenu64 >= MaxSidecarless:
+    var oldestKey: Eth2Digest
+    for k in quarantine.sidecarless.keys:
+      oldestKey = k
       break
-    quarantine.blobless.del oldest_blobless_key
+    quarantine.sidecarless.del(oldestKey)
 
-  debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
-  quarantine.blobless[signedBlock.root] =
+  debug "Block without sidecars has been added to the quarantine",
+        block_root = shortLog(signedBlock.root)
+  quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
   quarantine.missing.del(signedBlock.root)
+  quarantine.sidecarlessEvent.fire()
   true
+
+proc addSidecarless*(
+  quarantine: var Quarantine, finalizedSlot: Slot,
+  signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+               fulu.SignedBeaconBlock
+): bool =
+  quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
+
+proc addSidecarless*(
+  quarantine: var Quarantine,
+  signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+               fulu.SignedBeaconBlock
+) =
+  discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 
 proc addColumnless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: fulu.SignedBeaconBlock): bool =
+    signedBlock: fulu.SignedBeaconBlock
+): bool {.deprecated.} =
+  quarantine.addSidecarless(finalizedSlot, signedBlock)
 
-  if not isViable(finalizedSlot, signedBlock.message.slot):
-    quarantine.addUnviable(signedBlock.root)
-    return false
+proc addBlobless*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock
+): bool {.deprecated.} =
+  quarantine.addSidecarless(finalizedSlot, signedBlock)
 
-  quarantine.cleanupColumnless(finalizedSlot)
-
-  if quarantine.columnless.lenu64 >= MaxColumnless:
-    var oldest_columnless_key: Eth2Digest
-    for k in quarantine.columnless.keys:
-      oldest_columnless_key = k
-      break
-    quarantine.blobless.del oldest_columnless_key
-
-  debug "block quarantine: Adding columnless", blck = shortLog(signedBlock)
-  quarantine.columnless[signedBlock.root] =
-    ForkedSignedBeaconBlock.init(signedBlock)
-  quarantine.missing.del(signedBlock.root)
-  true
-
-func popBlobless*(
+func popSidecarless*(
     quarantine: var Quarantine,
-    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+    root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] =
   var blck: ForkedSignedBeaconBlock
-  if quarantine.blobless.pop(root, blck):
+  if quarantine.sidecarless.pop(root, blck):
     Opt.some(blck)
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
 func popColumnless*(
     quarantine: var Quarantine,
-    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
-  var blck: ForkedSignedBeaconBlock
-  if quarantine.columnless.pop(root, blck):
-    Opt.some(blck)
-  else:
-    Opt.none(ForkedSignedBeaconBlock)
+    root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
+  quarantine.popSidecarless(root)
 
-iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
-  for k, v in quarantine.blobless.mpairs():
+func popBlobless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
+  quarantine.popSidecarless(root)
+
+iterator peekSidecarless*(
+    quarantine: var Quarantine
+): ForkedSignedBeaconBlock =
+  for k, v in quarantine.sidecarless.mpairs():
     yield v
 
-iterator peekColumnless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
-  for k, v in quarantine.columnless.mpairs():
+iterator peekBlobless*(
+    quarantine: var Quarantine
+): ForkedSignedBeaconBlock {.deprecated.} =
+  for k, v in quarantine.sidecarless.mpairs():
+    yield v
+
+iterator peekColumnless*(
+    quarantine: var Quarantine
+): ForkedSignedBeaconBlock {.deprecated.} =
+  for k, v in quarantine.sidecarless.mpairs():
     yield v

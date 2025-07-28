@@ -125,8 +125,7 @@ proc jsonResponseSignedBuilderBid(
 
 proc jsonResponseExecutionPayloadAndBlobsBundle(
     t: typedesc[RestApiResponse],
-    payload: electra_mev.ExecutionPayloadAndBlobsBundle |
-             fulu_mev.ExecutionPayloadAndBlobsBundle
+    payload: electra_mev.ExecutionPayloadAndBlobsBundle
 ): RestApiResponse =
   let
     consensusFork = typeof(payload).kind()
@@ -165,8 +164,7 @@ proc sszResponseSignedBuilderBid*(
 
 proc sszResponseExecutionPayloadAndBlobsBundle*(
     t: typedesc[RestApiResponse],
-    payload: electra_mev.ExecutionPayloadAndBlobsBundle |
-             fulu_mev.ExecutionPayloadAndBlobsBundle,
+    payload: electra_mev.ExecutionPayloadAndBlobsBundle
 ): RestApiResponse =
   mixin kind
   let
@@ -278,27 +276,36 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
           blobs_bundle: BlobsBundle()
         )
       respondSszOrJson(contentType, payload)
-    elif consensusFork == ConsensusFork.Fulu:
-      let
-        blck =
-          decodeBodyJsonOrSsz(fulu_mev.SignedBlindedBeaconBlock,
-                              contentBody.get()).valueOr:
-            return RestApiResponse.jsonError(error)
-        payload = fulu_mev.ExecutionPayloadAndBlobsBundle(
-          execution_payload: fulu.ExecutionPayload(
-            parent_hash: blck.message.body.execution_payload_header.parent_hash
-          ),
-          blobs_bundle: BlobsBundle()
-        )
-      respondSszOrJson(contentType, payload)
     else:
       raiseAssert "Unsupported fork version"
+
+  router.api2(MethodPost, "/eth/v2/builder/blinded_blocks") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    if contentBody.isNone:
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let
+      rawVersion = request.headers.getString("eth-consensus-version")
+      consensusFork = ConsensusFork.decodeString(rawVersion).valueOr:
+        return RestApiResponse.jsonError(Http400, "Invalid consensus version")
+      contentType = preferredContentType(jsonMediaType,
+                                         sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, "Content type not acceptable")
+
+    if consensusFork < ConsensusFork.Fulu:
+      return RestApiResponse.jsonError(Http400, "Unsupported fork version")
+
+    if contentType in [sszMediaType, jsonMediaType]:
+      RestApiResponse.response(
+        Http202, headers=[("eth-consensus-version", consensusFork.toString)])
+    else:
+      RestApiResponse.jsonError(Http415, "Invalid Accept")
 
   router.api2(MethodGet, "/eth/v1/builder/status") do () -> RestApiResponse:
     RestApiResponse.response(Http200)
 
 proc testSuite() =
-
   suite "MEV calls serialization/deserialization and behavior test suite":
     let
       rng = HmacDrbgContext.new()
@@ -470,7 +477,7 @@ proc testSuite() =
           else:
             ("application/json,application/octet-stream;q=0.9",
              ApplicationJsonMediaType)
-        (restAcceptType3, responseMediaType3) =
+        (restAcceptType3, _) =
           if responseKind == TestKind.Ssz:
             ("application/json;q=0.5,application/octet-stream;q=1.0",
              OctetStreamMediaType)
@@ -502,7 +509,7 @@ proc testSuite() =
       check:
         response1.status == 200
         response2.status == 200
-        response3.status == 200
+        response3.status == 202
 
       let
         version1 = response1.headers.getString("eth-consensus-version")
@@ -512,10 +519,8 @@ proc testSuite() =
       check:
         response1.contentType.isSome()
         response2.contentType.isSome()
-        response3.contentType.isSome()
         response1.contentType.get().mediaType == responseMediaType1
         response2.contentType.get().mediaType == responseMediaType2
-        response3.contentType.get().mediaType == responseMediaType3
         version1 == ConsensusFork.Electra.toString()
         version2 == ConsensusFork.Electra.toString()
         version3 == ConsensusFork.Fulu.toString()
@@ -527,17 +532,12 @@ proc testSuite() =
         payload2res =
           decodeBytesJsonOrSsz(SubmitBlindedBlockResponseElectra,
             response2.data, response2.contentType, version2)
-        payload3res =
-          decodeBytesJsonOrSsz(SubmitBlindedBlockResponseFulu,
-            response3.data, response3.contentType, version3)
 
       check:
         payload1res.isOk()
         payload2res.isOk()
-        payload3res.isOk()
         payload1res.get().data.execution_payload.parent_hash == parent_hash1
         payload2res.get().data.execution_payload.parent_hash == parent_hash2
-        payload3res.get().data.execution_payload.parent_hash == parent_hash3
 
     asyncTest "/eth/v1/builder/status test":
       let response = await client.getStatus()

@@ -976,6 +976,7 @@ AllTests-mainnet
 + [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
++ [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
 + [SyncQueue# & Backward] Failure request push test                                          OK
 + [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
 + [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
@@ -983,6 +984,7 @@ AllTests-mainnet
 + [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
 + [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
 + [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
++ [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
 + [SyncQueue# & Forward] Failure request push test                                           OK
 + [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
 + [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
@@ -1004,7 +1006,8 @@ AllTests-mainnet
 ```diff
 + /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
-+ bestSuccess() API timeout test                                                             OK
++ bestSuccess() API hard timeout test                                                        OK
++ bestSuccess() API soft timeout test                                                        OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() default test                                           OK
 + getAggregatedAttestationDataScore() test vectors                                           OK
@@ -1108,6 +1111,7 @@ AllTests-mainnet
 ```diff
 + should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
++ should subscribe to all subnets when flag is enabled                                       OK
 ```
 ## weak-subjectivity-checkpoint
 ```diff

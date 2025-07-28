@@ -22,7 +22,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0]
+  "."/[base, phase0, bellatrix]
 
 from kzg4844 import KzgCommitment, KzgProof
 from stew/bitops2 import log2trunc
@@ -30,7 +30,6 @@ from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, num_active_participants
-from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX

@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, electra]
+import ".."/datatypes/[altair, bellatrix, electra]
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
-from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
 from ".."/eth2_merkleization import hash_tree_root
@@ -149,7 +148,7 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
-        execution_payload_header: ExecutionPayloadHeader(
+        execution_payload_header: electra.ExecutionPayloadHeader(
           parent_hash: blck.message.body.execution_payload.parent_hash,
           fee_recipient: blck.message.body.execution_payload.fee_recipient,
           state_root: blck.message.body.execution_payload.state_root,
