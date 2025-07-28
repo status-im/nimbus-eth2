@@ -114,7 +114,7 @@ endif
 # We don't need these `vendor/holesky` and `vendor/hoodi` files but
 # fetching them may trigger 'This repository is over its data quota' from GitHub
 #
-# /!\ Keep in sync with ci/Jenkinsfile.benchmarks
+# MSYS_NO_PATHCONV=1: On Windows MSYS2, 1st path gets mangled without this flag!
 GIT_SUBMODULE_ENV := MSYS_NO_PATHCONV=1
 GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz,/parsed/parsedConsensusGenesis.json
 
