@@ -576,7 +576,7 @@ proc validateBlobSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref DataColumnQuarantine,
@@ -586,10 +586,11 @@ proc validateDataColumnSidecar*(
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
 
-  # [REJECT] The sidecar's index is consistent with `NUMBER_OF_COLUMNS`
-  # -- i.e. `data_column_sidecar.index < NUMBER_OF_COLUMNS`
-  if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
-    return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
+  # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
+  block:
+    let v = verify_data_column_sidecar(data_column_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
