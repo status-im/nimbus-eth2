@@ -148,6 +148,10 @@ jobs:
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
           echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
+      - name: Configure Global LFS fetchexclude
+        run: |
+          echo "GIT_CONFIG_PARAMETERS='lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz,/parsed/parsedConsensusGenesis.json'" >> $GITHUB_ENV
+
       - name: Build Nim and Nimbus dependencies
         run: |
           ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
