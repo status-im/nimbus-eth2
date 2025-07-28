@@ -148,9 +148,6 @@ jobs:
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
           echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
-          # hoodi/holesky smudge filter doesn't seem to work on windows at the time of writing
-          export GIT_LFS_SKIP_SMUDGE=1
-
       - name: Build Nim and Nimbus dependencies
         run: |
           ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
