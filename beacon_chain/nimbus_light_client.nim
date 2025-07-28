@@ -24,7 +24,8 @@ from ./gossip_processing/eth2_processor import toValidationResult
 # this needs to be global, so it can be set in the Ctrl+C signal handler
 var globalRunning = true
 
-programMain:
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
     when defined(windows):
@@ -353,3 +354,6 @@ programMain:
     poll()
 
   notice "Exiting light client"
+
+when isMainModule:
+  main()
