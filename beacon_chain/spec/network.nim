@@ -118,7 +118,7 @@ func compute_subnet_for_blob_sidecar*(
       cfg.BLOB_SIDECAR_SUBNET_COUNT
   BlobId(blob_index mod subnetCount)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
