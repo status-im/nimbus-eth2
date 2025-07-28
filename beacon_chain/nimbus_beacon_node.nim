@@ -2571,13 +2571,9 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       genesisState)
     db.close()
 
-{.pop.} # TODO moduletests exceptions
-
-programMain:
-  var config = makeBannerAndConfig(clientId, copyrights, nimBanner,
-                                   SPEC_VERSION, [], BeaconNodeConf).valueOr:
-    stderr.write error
-    quit QuitFailure
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
+  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
@@ -2622,3 +2618,6 @@ programMain:
       handleStartUpCmd(config)
   else:
     handleStartUpCmd(config)
+
+when isMainModule:
+  main()

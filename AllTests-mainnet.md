@@ -1111,6 +1111,7 @@ AllTests-mainnet
 ```diff
 + should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
++ should subscribe to all subnets when flag is enabled                                       OK
 ```
 ## weak-subjectivity-checkpoint
 ```diff
