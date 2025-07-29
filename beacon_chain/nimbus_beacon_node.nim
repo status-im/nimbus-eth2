@@ -1876,18 +1876,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.dataColumnQuarantine.updateColumnQuarantine(
         node.dag.cfg, custodyColumns)
 
+      # Update CGC and metadata with respect to the new detected validator custody
+      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+
+      if new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+        node.network.loadCgcnetMetadataAndEnr(new_vcus)
+      else:
+        node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                              node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+
   debugEcho "Custody column count after"
   debugEcho node.dataColumnQuarantine.custodyColumns.len
-
-  # Update CGC and metadata with respect to the new detected validator custody
-  let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
-  if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  elif new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
-    node.network.loadCgcnetMetadataAndEnr(new_vcus)
-  else:
-    node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                          node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   # Update nfd field for BPOs
   let
