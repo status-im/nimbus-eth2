@@ -921,14 +921,45 @@ proc getBuilderBid[
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
     blindedBlock:
-      electra_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock):
-    Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
+      electra_mev.SignedBlindedBeaconBlock):
+    Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
-  return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
+  if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
     beacon_blocks_proposed.inc()
-    ok(unblindedBlockRef.get.get)
+    return ok(unblindedBlockRef.get)
+  else:
+    # unblindedBlockRef.isOk and unblindedBlockRef.get.isNone indicates that
+    # the block failed to validate and integrate into the DAG, which for the
+    # purpose of this return value, is equivalent. It's used to drive Beacon
+    # REST API output.
+    #
+    # https://collective.flashbots.net/t/post-mortem-april-3rd-2023-mev-boost-relay-incident-and-related-timing-issue/1540
+    # has caused false positives, because
+    # "A potential mitigation to this attack is to introduce a cutoff timing
+    # into the proposer's slot whereafter this time (e.g. 3 seconds) the relay
+    # will no longer return a block to the proposer. Relays began to roll out
+    # this mitigation in the evening of April 3rd UTC time with a 2 second
+    # cutoff, and notified other relays to do the same. After receiving
+    # credible reports of honest validators missing their slots the suggested
+    # timing cutoff was increased to 3 seconds."
+    let errMsg =
+      if unblindedBlockRef.isErr:
+        unblindedBlockRef.error
+      else:
+        "Unblinded block not returned to proposer"
+    err errMsg
+
+proc proposeBlockMEV(
+    node: BeaconNode, payloadBuilderClient: RestClientRef,
+    blindedBlock:
+      fulu_mev.SignedBlindedBeaconBlock):
+    Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
+  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
+    payloadBuilderClient, blindedBlock)
+  if unblindedBlockRef.isOk:
+    beacon_blocks_proposed.inc()
+    return ok(Opt.none(BlockRef))
   else:
     # unblindedBlockRef.isOk and unblindedBlockRef.get.isNone indicates that
     # the block failed to validate and integrate into the DAG, which for the
@@ -1157,7 +1188,12 @@ proc proposeBlockAux(
       maybeUnblindedBlock = await proposeBlockMEV(
         node, payloadBuilderClient, blindedBlock)
 
-    return maybeUnblindedBlock.valueOr:
+    if maybeUnblindedBlock.isOk():
+      if maybeUnblindedBlock.get.isSome():
+        return maybeUnblindedBlock.get.get
+      else:
+        return head
+    else:
       warn "Blinded block proposal incomplete",
         head = shortLog(head), slot, validator_index,
         validator = shortLog(validator),
