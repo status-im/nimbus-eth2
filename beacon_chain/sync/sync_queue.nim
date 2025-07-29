@@ -37,9 +37,13 @@ type
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
 
+  SyncRequestFlag* {.pure.} = enum
+    Void
+
   SyncRequest*[T] = object
     kind*: SyncQueueKind
     data*: SyncRange
+    flags*: set[SyncRequestFlag]
     item*: T
 
   SyncQueueItem[T] = object
@@ -472,11 +476,11 @@ func init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     ident: ident
   )
 
-func contains[T](requests: openArray[SyncRequest[T]], source: T): bool =
-  for req in requests:
-    if req.item == source:
-      return true
-  false
+func searchPeer[T](requests: openArray[SyncRequest[T]], source: T): int =
+  for index, request in requests.pairs():
+    if request.item == source:
+      return index
+  -1
 
 func find[T](sq: SyncQueue[T], req: SyncRequest[T]): Opt[SyncPosition] =
   if len(sq.requests) == 0:
@@ -539,7 +543,8 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
   var count = 0
   for qitem in sq.requests.mitems():
     if len(qitem.requests) < sq.requestsCount:
-      if item notin qitem.requests:
+      let sindex = qitem.requests.searchPeer(item)
+      if sindex < 0:
         return
           if qitem.data.slot > peerMaxSlot:
             # Peer could not satisfy our request, returning empty one.
@@ -551,7 +556,9 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
             qitem.requests.add(request)
             request
       else:
-        inc(count)
+        if SyncRequestFlag.Void notin qitem.requests[sindex].flags:
+          # We only count non-empty requests.
+          inc(count)
 
   doAssert(count < sq.requestsCount,
            "You should not pop so many requests for single peer")
@@ -835,6 +842,10 @@ proc push*[T](
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
       inc(sq.requests[position.qindex].voidsCount)
+      # Mark empty request in queue, so this range will not be requested by
+      # the same peer.
+      sq.requests[position.qindex].requests[position.sindex].flags.incl(
+        SyncRequestFlag.Void)
       sq.gapList.add(GapItem.init(sr))
       # With empty response - advance only when `requestsCount` of different
       # peers returns empty response for the same range.
