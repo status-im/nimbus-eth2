@@ -1045,7 +1045,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
           when consensusFork >= ConsensusFork.Deneb and
-              consensusFork < ConsensusFork.Fulu:
+               consensusFork < ConsensusFork.Fulu:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),

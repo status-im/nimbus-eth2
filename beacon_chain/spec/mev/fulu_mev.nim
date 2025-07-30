@@ -13,6 +13,7 @@ from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
+from ".."/datatypes/fulu import BlobsBundleV2
 from ".."/datatypes/electra import
   Attestation, AttesterSlashing, ExecutionRequests
 from ".."/eth2_merkleization import hash_tree_root
@@ -68,6 +69,11 @@ type
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
+
+  # https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/specs/fulu/builder.md#executionpayloadandblobsbundle
+  ExecutionPayloadAndBlobsBundle* = object
+    execution_payload*: electra.ExecutionPayload
+    blobs_bundle*: BlobsBundleV2
 
   # Not spec, but suggested by spec
   BlindedExecutionPayloadAndBlobsBundle* = object

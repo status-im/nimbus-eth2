@@ -82,6 +82,7 @@ type
     executionPayloadValue*: Wei
     consensusBlockValue*: UInt256
     blobsBundle*: deneb.BlobsBundle
+    blobsBundleV2*: fulu.BlobsBundleV2
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
@@ -586,15 +587,24 @@ proc makeBeaconBlockForHeadAndSlot*(
     $error
 
   if res.isOk:
+    let val = res.get()
     ok(EngineBid(
-      blck: res.get().blck,
+      blck: val.blck,
       executionPayloadValue: payload.blockValue,
-      consensusBlockValue: res.get().rewards.blockConsensusValue(),
-      blobsBundle:
-        when typeof(payload).kind >= ConsensusFork.Deneb:
+      consensusBlockValue: val.rewards.blockConsensusValue(),
+      blobsBundle: (
+        when typeof(payload).kind >= ConsensusFork.Deneb and
+             typeof(payload).kind < ConsensusFork.Fulu:
           payload.blobsBundle
         else:
           default(deneb.BlobsBundle)
+      ),
+      blobsBundleV2: (
+        when typeof(payload).kind >= ConsensusFork.Fulu:
+          payload.blobsBundle
+        else:
+          default(fulu.BlobsBundleV2)
+      )
     ))
   else:
     err(res.error)
@@ -1239,14 +1249,14 @@ proc proposeBlockAux(
         when consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
           Opt.some(signedBlock.create_blob_sidecars(
-            engineBid.blobsBundle.proofs, engineBid.blobsBundle.blobs))
+            KzgProofs(engineBid.blobsBundle.proofs), engineBid.blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
       columnsOpt =
         when consensusFork >= ConsensusFork.Fulu:
           Opt.some(signedBlock.assemble_data_column_sidecars(
-            engineBid.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-            @(engineBid.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+            engineBid.blobsBundleV2.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+            @(engineBid.blobsBundleV2.proofs.mapIt(kzg.KzgProof(it)))))
         else:
           Opt.none(seq[DataColumnSidecar])
 
@@ -2054,7 +2064,19 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
   doAssert engineBid.blck.kind == consensusFork
   template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Fulu:
+    doAssert engineBid.blobsBundleV2.commitments ==
+      forkyBlck.body.blob_kzg_commitments
+    ResultType.ok((
+      blck: consensusFork.MaybeBlindedBeaconBlock(
+        isBlinded: false,
+        data: consensusFork.BlockContents(
+          `block`: forkyBlck,
+          kzg_proofs: KzgProofsV2(engineBid.blobsBundleV2.proofs),
+          blobs: engineBid.blobsBundleV2.blobs)),
+      executionValue: Opt.some(engineBid.executionPayloadValue),
+      consensusValue: Opt.some(engineBid.consensusBlockValue)))
+  elif consensusFork >= ConsensusFork.Deneb:
     doAssert engineBid.blobsBundle.commitments ==
       forkyBlck.body.blob_kzg_commitments
     ResultType.ok((
@@ -2062,7 +2084,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
         isBlinded: false,
         data: consensusFork.BlockContents(
           `block`: forkyBlck,
-          kzg_proofs: engineBid.blobsBundle.proofs,
+          kzg_proofs: KzgProofs(engineBid.blobsBundle.proofs),
           blobs: engineBid.blobsBundle.blobs)),
       executionValue: Opt.some(engineBid.executionPayloadValue),
       consensusValue: Opt.some(engineBid.consensusBlockValue)))
