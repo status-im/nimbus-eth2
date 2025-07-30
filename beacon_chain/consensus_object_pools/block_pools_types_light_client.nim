@@ -25,6 +25,9 @@ type
     OnDemand = "on-demand"
       ## Like `full`, but import on demand instead of on start.
 
+  LightClientVerifierError* {.pure.} = enum
+    Invalid, MissingParent, UnviableFork, Duplicate
+
   OnLightClientFinalityUpdateCallback* =
     proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [].}
   OnLightClientOptimisticUpdateCallback* =
