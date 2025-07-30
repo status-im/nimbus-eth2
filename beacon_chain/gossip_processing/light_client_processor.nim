@@ -539,7 +539,7 @@ func toValidationError(
     of VerifierError.Invalid:
       # [REJECT] The `finality_update` is valid.
       # [REJECT] The `optimistic_update` is valid.
-      errReject($r.error)
+      errReject(typeof(obj).name & ": invalid")
     of VerifierError.MissingParent,
         VerifierError.UnviableFork,
         VerifierError.Duplicate:
@@ -547,7 +547,7 @@ func toValidationError(
       # all previously forwarded `finality_update`s
       # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
       # previously forwarded `optimistic_update`s
-      errIgnore($r.error)
+      errIgnore(typeof(obj).name & ": duplicate")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
