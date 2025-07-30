@@ -108,6 +108,7 @@ type
     excess_blob_gas*: uint64 # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/validator.md#blobsbundle
+  # https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/specs/fulu/builder.md#blobsbundle
   KzgProofs* = List[KzgProof, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
   Blobs* = List[Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
   BlobRoots* = List[Eth2Digest, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
