@@ -394,7 +394,8 @@ type
   MevDecodeTypes* =
     GetHeaderResponseElectra |
     GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseElectra
+    SubmitBlindedBlockResponseElectra |
+    SubmitBlindedBlockResponseFulu
 
   DecodeTypes* =
     DataEnclosedObject |
