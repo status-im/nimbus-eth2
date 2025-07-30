@@ -316,7 +316,7 @@ type
 
   FuluSignedBlockContents* = object
     signed_block*: fulu.SignedBeaconBlock
-    kzg_proofs*: deneb.KzgProofs
+    kzg_proofs*: fulu.KzgProofsV2
     blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
