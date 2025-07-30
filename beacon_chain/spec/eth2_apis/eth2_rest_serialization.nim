@@ -270,6 +270,7 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BlindedBeaconBlock,
   fulu_mev.BlindedBeaconBlockBody,
   fulu_mev.BuilderBid,
+  fulu_mev.ExecutionPayloadAndBlobsBundle,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
   phase0.AggregateAndProof,

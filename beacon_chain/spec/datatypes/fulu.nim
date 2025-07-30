@@ -123,6 +123,15 @@ type
     column_index*: ColumnIndex
     row_index*: RowIndex
 
+  # https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/specs/fulu/builder.md#blobsbundle
+  KzgProofsV2* = List[KzgProof, Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  # https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/specs/fulu/builder.md#blobsbundle
+  BlobsBundleV2* = object
+    commitments*: KzgCommitments
+    proofs*: KzgProofsV2
+    blobs*: Blobs
+
   # Not in spec, defined in order to compute custody subnets
   CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
@@ -164,7 +173,7 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    blobsBundle*: BlobsBundle
+    blobsBundle*: BlobsBundleV2 # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
@@ -606,7 +615,7 @@ type
 
   BlockContents* = object
     `block`*: BeaconBlock
-    kzg_proofs*: KzgProofs
+    kzg_proofs*: KzgProofsV2
     blobs*: Blobs
 
 func shortLog*(v: DataColumnSidecar): auto =
