@@ -1121,7 +1121,7 @@ proc proposeBlockAux(
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8
-): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+): Future[Opt[BlockRef]] {.async: (raises: [CancelledError]).} =
   let
     boostFactor = BoostFactor.init(localBlockValueBoost)
     graffitiBytes = node.getGraffitiBytes(validator)
@@ -1140,7 +1140,7 @@ proc proposeBlockAux(
           collectedBids.engineBid.value().executionPayloadValue)
       else:
         if not collectedBids.engineBid.isSome():
-          return head   # errors logged in router
+          return Opt.some(head) # errors logged in router
         false
 
   # There should always be an engine bid, and if payloadBuilderClient exists,
@@ -1181,7 +1181,7 @@ proc proposeBlockAux(
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
         node, slot, validator, validator_index,
         collectedBids.builderBid.value().blindedBlckPart)).valueOr:
-          return head
+          return Opt.some(head)
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
       maybeUnblindedBlock = await proposeBlockMEV(
@@ -1189,9 +1189,9 @@ proc proposeBlockAux(
 
     if maybeUnblindedBlock.isOk():
       if maybeUnblindedBlock.get.isSome():
-        return maybeUnblindedBlock.get.get
+        return maybeUnblindedBlock.get
       else:
-        return head
+        return Opt.none(BlockRef)
     else:
       warn "Blinded block proposal incomplete",
         head = shortLog(head), slot, validator_index,
@@ -1199,7 +1199,7 @@ proc proposeBlockAux(
         err = maybeUnblindedBlock.error,
         blindedBlck = shortLog(blindedBlock)
       beacon_block_builder_missed_without_fallback.inc()
-      return head
+      return Opt.some(head)
 
   let engineBid = collectedBids.engineBid.value()
 
@@ -1220,8 +1220,7 @@ proc proposeBlockAux(
         validator = validator.pubkey,
         slot = slot,
         existingProposal = notSlashable.error
-      return head
-
+      return Opt.some(head)
     let
       signature =
         block:
@@ -1230,7 +1229,7 @@ proc proposeBlockAux(
           if res.isErr():
             warn "Unable to sign block",
                  validator = shortLog(validator), error_msg = res.error()
-            return head
+            return Opt.some(head)
           res.get()
       signedBlock = consensusFork.SignedBeaconBlock(
         message: forkyBlck, signature: signature, root: blockRoot)
@@ -1244,10 +1243,10 @@ proc proposeBlockAux(
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
           checkValidator = false)
       ).valueOr:
-        return head # Errors logged in router
+        return Opt.some(head) # Errors logged in router
 
     if newBlockRef.isNone():
-      return head # Validation errors logged in router
+      return Opt.some(head) # Validation errors logged in router
 
     notice "Block proposed",
       blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
@@ -1255,7 +1254,7 @@ proc proposeBlockAux(
 
     beacon_blocks_proposed.inc()
 
-    return newBlockRef.get()
+    return newBlockRef
 
 proc proposeBlock(
     node: BeaconNode,
@@ -1263,7 +1262,7 @@ proc proposeBlock(
     validator_index: ValidatorIndex,
     head: BlockRef,
     slot: Slot
-): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+): Future[Opt[BlockRef]] {.async: (raises: [CancelledError]).} =
   if head.slot >= slot:
     # We should normally not have a head newer than the slot we're proposing for
     # but this can happen if block proposal is delayed
@@ -1271,7 +1270,7 @@ proc proposeBlock(
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
       slot = shortLog(slot)
-    return head
+    return Opt.some(head)
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -1282,7 +1281,7 @@ proc proposeBlock(
       if res.isErr():
         warn "Unable to generate randao reveal",
              validator = shortLog(validator), error_msg = res.error()
-        return head
+        return Opt.some(head)
       res.get()
 
   template proposeBlockContinuation(type1, type2: untyped): auto =
@@ -1508,21 +1507,21 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
-    Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    Future[Opt[BlockRef]] {.async: (raises: [CancelledError]).} =
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling at that slot for the given
   ## head - to compute the proposer, we need to advance a state to the given
   ## slot
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
-      return head
+      return Opt.some(head)
     proposerKey = node.dag.validatorKey(proposer).get().toPubKey
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
                                         proposer_index = proposer,
                                         proposer = shortLog(proposerKey)
-      return head
+      return Opt.some(head)
 
   return await proposeBlock(node, validator, proposer, head, slot)
 
@@ -1907,7 +1906,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.updateValidators(forkyState.data.validators.asSeq())
 
   let newHead = await handleProposal(node, head, slot)
-  head = newHead
+  if newHead.isSome():
+    head = newHead.get
 
   let
     # The latest point in time when we'll be sending out attestations
