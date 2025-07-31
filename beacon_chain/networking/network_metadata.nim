@@ -252,12 +252,18 @@ elif const_preset == "mainnet":
     # use this trick instead which saves significant amounts of compile time
     {.push hint[GlobalVar]:off.}
     let
-      mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
-      mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
+      mainnetGenesisVar {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+      mainnetGenesisSizeVar {.importc: "eth2_mainnet_genesis_size".}: int
 
-      sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
-      sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
+      sepoliaGenesisVar {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+      sepoliaGenesisSizeVar {.importc: "eth2_sepolia_genesis_size".}: int
     {.pop.}
+
+    template mainnetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: mainnetGenesisVar
+    template mainnetGenesisSize*: int = {.noSideEffect.}: mainnetGenesisSizeVar
+
+    template  sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
+    template  sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
