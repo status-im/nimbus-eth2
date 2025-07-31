@@ -209,11 +209,17 @@ proc loadCompileTimeNetworkMetadata(
 when const_preset == "gnosis":
   when incbinEnabled:
     let
-      gnosisGenesis* {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
-      gnosisGenesisSize* {.importc: "gnosis_mainnet_genesis_size".}: int
+      gnosisGenesisVar {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+      gnosisGenesisSizeVar {.importc: "gnosis_mainnet_genesis_size".}: int
 
-      chiadoGenesis* {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
-      chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
+      chiadoGenesisVar {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
+      chiadoGenesisSizeVar {.importc: "gnosis_chiado_genesis_size".}: int
+
+    template gnosisGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: gnosisGenesisVar
+    template gnosisGenesisSize*(): int = {.noSideEffect.}: gnosisGenesisSizeVar
+
+    template chiadoGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: chiadoGenesisVar
+    template chiadoGenesisSize*(): int = {.noSideEffect.}: chiadoGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
@@ -262,8 +268,8 @@ elif const_preset == "mainnet":
     template mainnetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: mainnetGenesisVar
     template mainnetGenesisSize*: int = {.noSideEffect.}: mainnetGenesisSizeVar
 
-    template  sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
-    template  sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
+    template sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
+    template sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
