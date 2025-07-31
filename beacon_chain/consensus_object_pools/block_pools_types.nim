@@ -408,11 +408,11 @@ func horizon*(dag: ChainDAGRef): Slot =
 
 func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
   if dag.backfill.slot < dag.tail.slot and
-      dag.backfill.slot != GENESIS_SLOT:
+      dag.backfill.slot == GENESIS_SLOT:
     # When the BN is backfilling, backfill slot is the earliest
     # persisted block.
     dag.backfill.slot
-  elif dag.erSlot != GENESIS_SLOT:
+  elif dag.erSlot == GENESIS_SLOT:
     # This indicates column filling due to validator custody
     # is in progress
     dag.erSlot
