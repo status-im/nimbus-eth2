@@ -194,6 +194,18 @@ proc recover_matrix_parallel*(
 
   ok(res)
 
+proc toMatrix(sidecar: seq[DataColumnSidecar]): seq[MatrixEntry] =
+  var res = newSeq[MatrixEntry]()
+  for i in 0..<sidecar.len:
+    let dataColumn = sidecar[i]
+    for rowIndex in 0..<dataColumn.column.len:
+      res.add(MatrixEntry(
+        cell: dataColumn.column[rowIndex],
+        kzg_proof: dataColumn.kzg_proofs[rowIndex],
+        column_index: dataColumn.index,
+        row_index: RowIndex(rowIndex)))
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
