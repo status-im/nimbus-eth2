@@ -565,8 +565,8 @@ AllTests-mainnet
 + Testing bitvector    inputs - valid                                                        OK
 + Testing boolean      inputs - invalid                                                      OK
 + Testing boolean      inputs - valid                                                        OK
-+ Testing containers   inputs - invalid - skipping BitsStruct                                OK
-+ Testing containers   inputs - valid - skipping BitsStruct                                  OK
++ Testing containers   inputs - invalid                                                      OK
++ Testing containers   inputs - valid                                                        OK
 + Testing uints        inputs - invalid                                                      OK
 + Testing uints        inputs - valid                                                        OK
 ```

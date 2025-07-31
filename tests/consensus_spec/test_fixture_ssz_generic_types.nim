@@ -86,6 +86,20 @@ type
     D: BitList[6]
     E: BitArray[8]
 
+  ProgressiveBitsStruct = object
+    A: BitArray[256]
+    B: BitList[256]
+    C: BitSeq
+    D: BitArray[257]
+    E: BitList[257]
+    F: BitSeq
+    G: BitArray[1280]
+    H: BitList[1280]
+    I: BitSeq
+    J: BitArray[1281]
+    K: BitList[1281]
+    L: BitSeq
+
 # Type specific checks
 # ------------------------------------------------------------------------
 
@@ -320,8 +334,12 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of "ProgressiveTestStruct":
       checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
+    of "ProgressiveBitsStruct":
+      checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
+  of "progressive_bitlist":
+    checkBasic(BitSeq, dir, expectedHash)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -338,19 +356,14 @@ suite "EF - SSZ generic types":
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
-    var skipped: string
-    case sszType
-    of "containers":
-      skipped = " - skipping BitsStruct"
-
-    test &"Testing {sszType:12} inputs - valid" & skipped:
+    test &"Testing {sszType:12} inputs - valid":
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
         sszCheck(path, sszType, sszSubType)
 
-    test &"Testing {sszType:12} inputs - invalid" & skipped:
+    test &"Testing {sszType:12} inputs - invalid":
       let path = SSZDir/sszType/"invalid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
