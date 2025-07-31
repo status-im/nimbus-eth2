@@ -553,7 +553,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
                                          uint64 =
-  let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+  let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   debugEcho "Vcus count"
   debugEcho count
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
