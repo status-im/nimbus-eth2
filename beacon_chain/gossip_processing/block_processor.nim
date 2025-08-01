@@ -622,8 +622,7 @@ proc storeBlock(
         var blobsOk = true
         let blobs =
           withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb and
-                consensusFork < ConsensusFork.Fulu:
+            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
               var blob_sidecars: BlobSidecars
               for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
                 let blob = BlobSidecar.new()

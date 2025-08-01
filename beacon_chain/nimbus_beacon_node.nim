@@ -481,8 +481,7 @@ proc initFullNode(
             else:
               err(VerifierError.MissingParent)
 
-        elif consensusFork >= ConsensusFork.Deneb and
-            consensusFork < ConsensusFork.Fulu:
+        elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if bres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,

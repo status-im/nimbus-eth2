@@ -334,8 +334,7 @@ proc processBlobSidecar*(
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb and
-          consensusFork < ConsensusFork.Fulu:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
