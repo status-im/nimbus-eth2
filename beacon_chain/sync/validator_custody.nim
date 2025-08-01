@@ -101,12 +101,9 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   else:
     let
       slot = vcus.getLocalHeadSlot()
-      dag = vcus.dag
-
     # Make earliest refilled slot go upto head because everythingprefer
     # behind is currently undergoing excess column refilling.
-    dag.erSlot = slot
-
+    vcus.dag.erSlot = slot
     let dataColumnRefillEpoch = (slot.epoch -
                                 vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
     var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int - 1
