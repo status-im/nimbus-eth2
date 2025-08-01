@@ -588,7 +588,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
 
         if len(missing) > 0:
           for ident in missing:
-            fetches.add(ident)
+            if ident notin fetches:
+              fetches.add(ident)
         else:
           if commitmentsCount == 0:
             # this is a programming error should it occur.
