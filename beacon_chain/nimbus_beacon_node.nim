@@ -31,15 +31,10 @@ import
 when defined(posix):
   import system/ansi_c
 
-from ./spec/datatypes/deneb import SignedBeaconBlock
-
 from std/sequtils import filterIt, mapIt, toSeq
-
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
+from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
+from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
@@ -1559,7 +1554,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     targetGossipState =
       getTargetGossipState(slot.epoch, node.dag.cfg, isBehind)
 
-  #doAssert targetGossipState.len <= 2
+  doAssert targetGossipState.len <= 2
 
   let
     newGossipEpochs = targetGossipState - node.gossipState
@@ -1661,6 +1656,7 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
         else:
+          node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
               count = count + 1

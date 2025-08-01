@@ -186,8 +186,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 proc recover_cells_and_proofs*(
     data_columns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
-
-  # This helper recovers blobs from the data column sidecars
+  ## This helper recovers blobs from the data column sidecars
   if not (data_columns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
@@ -287,7 +286,7 @@ proc reconstruct_data_column_sidecars*(
   sidecars
 
 # Additional overload to perform reconstruction at the time of gossip
-#  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
