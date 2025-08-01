@@ -228,7 +228,7 @@ proc recover_cells_and_proofs*(
     recovered_cps[bIdx] =
       recovered_cells_and_proofs.get
   let finish = Moment.now()
-  debug "Time take to reconstruct sequentially", time = finish-start
+  debug "Time taken to reconstruct sequentially", time = finish-start
   ok(recovered_cps)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
