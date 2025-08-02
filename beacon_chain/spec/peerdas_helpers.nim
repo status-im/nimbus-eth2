@@ -12,6 +12,7 @@ import
   std/[algorithm, sequtils],
   chronicles,
   results,
+  taskpools,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
   ssz_serialization/[
@@ -182,6 +183,52 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
       ))
 
   ok(extended_matrix)
+
+proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
+                                  cells: seq[Cell]): Result[CellsAndProofs, void] =
+  let res = recoverCellsAndKzgProofs(cell_indices, cells)
+  if res.isErr:
+    return err()
+  ok(res.get)
+
+proc recover_cells_and_proofs_parallel*(
+    tp: Taskpool,
+    dataColumns: seq[ref DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring] =
+
+  # This helper recovers blobs from the data column sidecars
+  if not (dataColumns.len != 0):
+    return err("DataColumnSidecar: Length should not be 0")
+
+  let
+    columnCount = dataColumns.len
+    blobCount = dataColumns[0].column.len
+
+  for data_column in dataColumns:
+    if not (blobCount == data_column.column.len):
+      return err ("DataColumns do not have the same length")
+
+  # spawn threads for recovery
+  var
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
+    res = newSeq[CellsAndProofs](blobCount)
+  for blobIdx in 0..<blobCount:
+    var
+      cellIndices: seq[CellIndex]
+      cells: seq[Cell]
+    for column in dataColumns:
+      cellIndices.add(column[].index)
+      cells.add(column[].column[blobIdx])
+    pendingFuts[blobIdx] =
+      tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells)
+
+  # sync threads
+  for i in 0..<blobCount:
+    let futRes = sync pendingFuts[i]
+    if futRes.isErr:
+      return err("kzg cells and proofs recover failed")
+    res[i] = futRes.get
+  ok(res)
 
 proc recover_cells_and_proofs*(
     data_columns: seq[ref DataColumnSidecar]):

@@ -12,12 +12,15 @@ import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
+  taskpools,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
 from stew/byteutils import fromHex
+from ../../beacon_chain/spec/peerdas_helpers import
+  recover_matrix, recover_cells_and_proofs_parallel
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -305,6 +308,110 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
+proc runRecoverCellsAndKzgProofsParallelTest(suiteName, testFile: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
+    # helper functions
+    proc toDataColumnSidecar(v: seq[MatrixEntry]): seq[ref DataColumnSidecar] =
+      var
+        res = newSeq[ref DataColumnSidecar]()
+        colEntries = initTable[uint64, seq[MatrixEntry]]()
+        maxRowIdx = 0.uint64
+
+      for entry in v:
+        let
+          cIdx = entry.column_index
+          rIdx = entry.row_index
+        colEntries.mgetOrPut(cIdx, @[]).add(entry)
+        if maxRowIdx < rIdx:
+          maxRowIdx = rIdx
+
+      for cIdx, entries in colEntries:
+        var cells = newSeq[Cell](maxRowIdx + 1)
+        for entry in entries:
+          cells[entry.row_index] = entry.cell
+        let sidecar = DataColumnSidecar(
+          index: ColumnIndex(cIdx),
+          column: DataColumn(cells))
+        res.add(newClone(sidecar))
+
+      res
+
+    proc toMatrix(cps: seq[CellsAndProofs]): seq[MatrixEntry] =
+      var res = newSeq[MatrixEntry]()
+      for k in 0..<cps.len:
+        let cp = cps[k]
+        for i in 0..<cp.cells.len:
+          let
+            cell = cp.cells[i]
+            proof = cp.proofs[i]
+          res.add(MatrixEntry(
+            cell: cell,
+            kzg_proof: proof,
+            row_index: RowIndex(k),
+            column_index: ColumnIndex(i)
+          ))
+      res
+
+    # parse test data
+    let data = loadToJson(os_ops.readFile(testFile))[0]
+    var
+      matrix = newSeq[MatrixEntry]()
+      expected = newSeq[seq[tuple[
+        cell: array[fulu.BYTES_PER_CELL, uint8],
+        proof: array[48, uint8]]]]()
+      blobCount = data["input"].len
+
+    for i in 0..<blobCount:
+      let
+        cells = data["input"][i]["cells"].mapIt(fromHex[2048](it.getStr).get)
+        cellIds = data["input"][i]["cell_indices"].mapIt(toUint64(it.getInt).get)
+      var
+        columnId = 0
+        expectedRow = newSeq[tuple[
+          cell: array[fulu.BYTES_PER_CELL, uint8],
+          proof: array[48, uint8]]]()
+
+      for j in 0..<NUMBER_OF_COLUMNS:
+        # assume cell_indices is always sorted in ascending order
+        if columnId < cellIds.len and cellIds[columnId] == uint64(j):
+          matrix.add(MatrixEntry(
+            cell: KzgCell(bytes: cells[columnId]),
+            row_index: RowIndex(i),
+            column_index: ColumnIndex(j)))
+          columnId += 1
+        expectedRow.add((
+          fromHex[2048](data["output"][i]["cells"][j].getStr).get,
+          fromHex[48](data["output"][i]["proofs"][j].getStr).get))
+
+      expected.add(expectedRow)
+
+    block singleThread:
+      # ensure the output is consistent with that of the multi-thread
+      let v = recover_matrix(matrix, blobCount)
+      check v.isOk
+      let val = v.get
+      for k in 0..<val.len:
+        let
+          i = val[k].row_index
+          j = val[k].column_index
+        check val[k].cell.bytes == expected[i][j][0]
+        check val[k].kzg_proof.bytes == expected[i][j][1]
+
+    block multiThread:
+      # verify the output from multi-thread version
+      var tp = Taskpool.new()
+      let
+        columns = toDataColumnSidecar(matrix)
+        v = tp.recover_cells_and_proofs_parallel(columns)
+      check v.isOk
+      let val = toMatrix(v.get)
+      for k in 0..<val.len:
+        let
+          i = val[k].row_index
+          j = val[k].column_index
+        check val[k].cell.bytes == expected[i][j][0]
+        check val[k].kzg_proof.bytes == expected[i][j][1]
+
 from std/algorithm import sorted
 
 var suiteName = "EF - KZG"
@@ -374,6 +481,12 @@ suite suiteName:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
+
+  block:
+    let
+      testDataDir = currentSourcePath.rsplit(DirSep, 1)[0]/".."/"test_files"
+      testDataFile = testDataDir/"fulu_recover_cells_and_kzg_proofs_valid_case_parallel.yaml"
+    runRecoverCellsAndKzgProofsParallelTest(suiteName, testDataFile)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
