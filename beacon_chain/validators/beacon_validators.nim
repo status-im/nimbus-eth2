@@ -41,7 +41,7 @@ import
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/[rest_electra_mev_calls, rest_fulu_mev_calls]
+  ".."/spec/mev/rest_mev_calls
 
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
@@ -626,7 +626,7 @@ proc getBlindedExecutionPayload[
   when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
     let
       response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderElectra(
+        payloadBuilderClient.getHeader(
           slot, executionBlockHash, pubkey),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Electra blinded header from builder"
@@ -644,7 +644,7 @@ proc getBlindedExecutionPayload[
     debugFuluComment "Because fulu MEV isn't working yet, this is a placeholder copy"
     let
       response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderFulu(
+        payloadBuilderClient.getHeader(
           slot, executionBlockHash, pubkey),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Fulu blinded header from builder"
@@ -740,7 +740,7 @@ proc blindedBlockCheckSlashingAndSign[
   var blindedBlock = nonsignedBlindedBlock
   blindedBlock.signature = block:
     let res = await validator.getBlockSignature(
-      fork, genesis_validators_root, slot, blockRoot, blindedBlock.message)
+      fork, genesis_validators_root, blockRoot, blindedBlock.message)
     if res.isErr():
       return err("Unable to sign block: " & res.error())
     res.get()
@@ -1190,7 +1190,7 @@ proc proposeBlockAux(
       signature =
         block:
           let res = await validator.getBlockSignature(
-            fork, genesis_validators_root, slot, blockRoot, engineBid.blck)
+            fork, genesis_validators_root, blockRoot, engineBid.blck)
           if res.isErr():
             warn "Unable to sign block",
                  validator = shortLog(validator), error_msg = res.error()

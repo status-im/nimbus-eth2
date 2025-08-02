@@ -160,8 +160,7 @@ proc publishBlockV3(
       let signature =
         try:
           let res = await validator.getBlockSignature(fork, genesisRoot,
-                                                      slot, blockRoot,
-                                                      maybeBlock)
+                                                      blockRoot, maybeBlock)
           if res.isErr():
             warn "Unable to sign blinded block proposal using remote signer",
                  reason = res.error()
@@ -241,7 +240,7 @@ proc publishBlockV3(
         signature =
           try:
             let res = await validator.getBlockSignature(
-              fork, genesisRoot, slot, blockRoot, maybeBlock)
+              fork, genesisRoot, blockRoot, maybeBlock)
             if res.isErr():
               warn "Unable to sign block proposal using remote signer",
                    reason = res.error()
