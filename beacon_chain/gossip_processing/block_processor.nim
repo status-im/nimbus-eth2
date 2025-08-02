@@ -9,6 +9,7 @@
 
 import
   chronicles, chronos, metrics,
+  taskpools,
   ../spec/[forks, helpers_el, signatures, signatures_batch,
   peerdas_helpers],
   ../sszdump
@@ -104,6 +105,10 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    # Pool
+    # ----------------------------------------------------------------
+    taskpool: Taskpool
+
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     verifier: BatchVerifier
@@ -131,6 +136,7 @@ proc new*(T: type BlockProcessor,
           batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
+          taskpool: Taskpool,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           getBeaconTime: GetBeaconTimeFn,
@@ -147,6 +153,7 @@ proc new*(T: type BlockProcessor,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
+    taskpool: taskpool,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getBeaconTime: getBeaconTime,
@@ -247,44 +254,44 @@ proc storeBackfillBlock(
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
-  var
-    columnsOk = true
-    malformed_cols: seq[int]
-  if dataColumnsOpt.isSome:
-    let columns = dataColumnsOpt.get()
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      for i in 0..<columns.len:
-        let r =
-          verify_data_column_sidecar_kzg_proofs(columns[i][])
-        if r.isErr:
-          malformed_cols.add(i)
-          debug "backfill data column validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            column_sidecar = shortLog(columns[i][]),
-            blck = shortLog(signedBlock.message),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        columnsOk = r.isOk()
+  var columnsOk = true
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    var malformed_cols: seq[int]
+    if dataColumnsOpt.isSome:
+      let columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr:
+            malformed_cols.add(i)
+            debug "backfill data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          columnsOk = r.isOk()
 
-    # DataColumnSidecar repairing strategy attempt in case of
-    # malformed columns where 50%+ columns are legit. Note that
-    # this repairing will almost never happen unless these malformed
-    # columns coming via req/resp.
-    if dataColumnsOpt.get.lenu64 >
-        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-         not columnsOk:
-      let
-        recovered_cps =
-          recover_cells_and_proofs(columns)
-        recovered_columns =
-          signedBlock.get_data_column_sidecars(recovered_cps.get)
+      # DataColumnSidecar repairing strategy attempt in case of
+      # malformed columns where 50%+ columns are legit. Note that
+      # this repairing will almost never happen unless these malformed
+      # columns coming via req/resp.
+      if not columnsOk:
+        if dataColumnsOpt.get.lenu64 >
+            (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
+          let
+            recovered_cps =
+              self.taskpool.recover_cells_and_proofs_parallel(columns)
+            recovered_columns =
+              signedBlock.get_data_column_sidecars(recovered_cps.get)
 
-      for mc in malformed_cols:
-        # copy the healed columns only into the
-        # sidecar spaces
-        columns[mc][] = recovered_columns[mc]
-      columnsOk = true
+          for mc in malformed_cols:
+            # copy the healed columns only into the
+            # sidecar spaces
+            columns[mc][] = recovered_columns[mc]
+          columnsOk = true
 
   if not columnsOk:
     return err(VerifierError.Invalid)
