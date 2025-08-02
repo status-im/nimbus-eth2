@@ -9,6 +9,7 @@
 
 import
   chronicles, chronos, metrics,
+  taskpools,
   ../spec/[
     forks, helpers_el, signatures, signatures_batch,
     peerdas_helpers],
@@ -106,6 +107,10 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    # Pool
+    # ----------------------------------------------------------------
+    taskpool: Taskpool
+
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine: ref ColumnQuarantine
     verifier: BatchVerifier
@@ -133,6 +138,7 @@ proc new*(T: type BlockProcessor,
           batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
+          taskpool: Taskpool,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           getBeaconTime: GetBeaconTimeFn,
@@ -148,6 +154,7 @@ proc new*(T: type BlockProcessor,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
+    taskpool: taskpool,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getBeaconTime: getBeaconTime,
@@ -223,7 +230,7 @@ proc storeBackfillBlock(
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
             recovered_cps =
-              recover_cells_and_proofs(columns)
+              self.taskpool.recover_cells_and_proofs_parallel(columns)
             recovered_columns =
               signedBlock.get_data_column_sidecars(recovered_cps.get)
 
