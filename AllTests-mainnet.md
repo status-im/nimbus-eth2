@@ -506,6 +506,7 @@ AllTests-mainnet
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_no_missing    OK
++ KZG - Recover Cells And Kzg Proofs Parallel - valid                                        OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_cell        OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_commitment  OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_proof       OK
