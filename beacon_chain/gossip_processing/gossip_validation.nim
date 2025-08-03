@@ -387,8 +387,10 @@ template validateBeaconBlockDeneb(
   # [REJECT] The length of KZG commitments is less than or equal to the
   # limitation defined in Consensus Layer -- i.e. validate that
   # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
+  let blob_params =
+    dag.cfg.get_blob_parameters(signed_beacon_block.message.slot.epoch())
   if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
-      dag.cfg.getMaxBlobsPerBlock(signed_beacon_block.message.slot)):
+      blob_params.MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
@@ -859,7 +861,7 @@ proc validateBeaconBlock*(
   # validation.
   validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
-  # dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
+  dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
