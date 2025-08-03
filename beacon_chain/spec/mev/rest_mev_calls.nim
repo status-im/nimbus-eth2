@@ -52,7 +52,7 @@ proc submitBlindedBlockPlain*(
 ): RestPlainResponse {.
   rest, endpoint: "/eth/v1/builder/blinded_blocks",
   meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.5.0/apis/builder/blinded_blocks.yaml
 
 proc submitBlindedBlockV2Plain*(
     body: fulu_mev.SignedBlindedBeaconBlock
@@ -79,7 +79,7 @@ proc submitBlindedBlock*(
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
-  # TODO will everyone have upgraded by the time of v2?
+  # Everyone should have upgraded by the time of fulu
   client.submitBlindedBlockV2Plain(
     body,
     restAcceptType = "application/octet-stream,application/json;q=0.5",

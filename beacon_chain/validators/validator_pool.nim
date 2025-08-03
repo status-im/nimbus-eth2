@@ -548,7 +548,7 @@ proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedInd
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
   else:
-    static: raiseAssert "Unkown fork " & $fork
+    static: raiseAssert "Unknown fork " & $fork
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
