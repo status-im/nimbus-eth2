@@ -178,6 +178,11 @@ type
     electra_mev.SignedBuilderBid |
     fulu_mev.SignedBuilderBid
 
+  ForkyBlockContents* =
+    deneb.BlockContents |
+    electra.BlockContents |
+    fulu.BlockContents
+
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
     electra.AggregateAndProof

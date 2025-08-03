@@ -604,6 +604,23 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
   withBlck(blck):
     getBlockSignature(v, fork, genesis_validators_root, block_root, forkyBlck)
 
+proc getBlockSignature*(v: AttachedValidator, fork: Fork,
+                        genesis_validators_root: Eth2Digest,
+                        block_root: Eth2Digest,
+                        blck: ForkyBlockContents
+                       ): Future[SignatureResult]
+                       {.async: (raises: [CancelledError], raw: true).} =
+  v.getBlockSignature(fork, genesis_validators_root, block_root, blck.`block`)
+
+proc getBlockSignature*(v: AttachedValidator, fork: Fork,
+                        genesis_validators_root: Eth2Digest,
+                        block_root: Eth2Digest,
+                        blck: ForkedMaybeBlindedBeaconBlock
+                       ): Future[SignatureResult]
+                       {.async: (raises: [CancelledError], raw: true).} =
+  withForkyMaybeBlindedBlck(blck):
+    v.getBlockSignature(fork, genesis_validators_root, block_root, forkyMaybeBlindedBlck)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
