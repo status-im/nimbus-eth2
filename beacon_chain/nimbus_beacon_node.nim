@@ -563,6 +563,8 @@ proc initFullNode(
         clist.tail.get().blck.slot()
       else:
         getLocalWallSlot()
+    eaSlot = dag.head.slot
+    erSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -633,6 +635,8 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.dag.erSlot = erSlot
+  node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
