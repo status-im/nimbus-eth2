@@ -145,7 +145,7 @@ proc makeEngineBlock*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    execution_payload: ForkyExecutionPayloadForSigning,
+    execution_payload: Opt[ForkyExecutionPayloadForSigning],
 
     # These parameters are for the builder API
     transactions_root = Opt.none(Eth2Digest),
@@ -158,13 +158,17 @@ proc makeEngineBlock*(
 
   let
     payload =
-      if withdrawals_root.isSome:
+      if execution_payload.isNone():
+        if state.is_merge_transition_complete():
+          return err("Execution payload required post merge")
+        default(typeof(execution_payload[]))
+      elif withdrawals_root.isSome:
         # Builder API
 
         # In Capella, only get withdrawals root from relay.
         # The execution payload will be small enough to be safe to copy because
         # it won't have transactions (it's blinded)
-        var modified_execution_payload = execution_payload
+        var modified_execution_payload = execution_payload[]
         when consensusFork >= ConsensusFork.Capella:
           let withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
             get_expected_withdrawals(state.forky(consensusFork).data)
@@ -178,7 +182,7 @@ proc makeEngineBlock*(
 
         modified_execution_payload
       else:
-        execution_payload
+        execution_payload[]
     attestations =
       when consensusFork >= ConsensusFork.Electra:
         node.attestationPool[].getElectraAttestationsForBlock(state, cache)
@@ -322,12 +326,13 @@ proc getExecutionPayload*(
   )
 
   if payload.isSome():
+    # TODO errors are logged in elmanager but unlike most other things, we want
+    #      success log here for getting the payload since they are so rare - it
+    #      would be nice to have a more structured approach to the logging here
     info "Received engine payload",
       slot,
       value = shortLog(payload[].blockValue),
       payload = shortLog(payload[].executionPayload)
-  else:
-    notice "Timeout while waiting for engine payload", slot
 
   payload
 
@@ -477,7 +482,7 @@ proc makeBuilderBlock*(
       graffiti,
       head,
       slot,
-      execution_payload = shimExecutionPayload,
+      execution_payload = Opt.some shimExecutionPayload,
       transactions_root = Opt.some builderBid.header.transactions_root,
       execution_payload_root = Opt.some hash_tree_root(builderBid.header),
       withdrawals_root = Opt.some builderBid.header.withdrawals_root,
@@ -630,9 +635,6 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
       )
     )
 
-  if not bids.engineBid.isSome():
-    return ResultType.err("Engine bid is not available")
-
   let engineBlock =
     ?node.makeEngineBlock(
       consensusFork,
@@ -643,7 +645,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
       graffiti,
       head,
       slot,
-      bids.engineBid.value(),
+      bids.engineBid,
     )
 
   ResultType.ok(
@@ -697,10 +699,8 @@ proc makeBeaconBlockForHeadAndSlotImpl[ResultType](
     # TODO move the creation of this proposal state away from the hot path
     state = node.dag.getProposalState(head, slot, cache[]).valueOr:
       return ResultType.err("Proposal state is not available")
-    enginePayload = (
+    enginePayload =
       await node.getExecutionPayload(EPS, head, state, validator_index, proposerKey)
-    ).valueOr:
-      return ResultType.err("Engine payload is not available")
 
     engineBlock =
       ?node.makeEngineBlock(

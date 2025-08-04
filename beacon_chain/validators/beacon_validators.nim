@@ -504,7 +504,8 @@ proc proposeBlockAux(
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get.get
 
-          if bids.engineBid.isNone(): # No engine bid to fall back to
+          if bids.engineBid.isNone() and state[].is_merge_transition_complete():
+            # Cannot fall back to engine without a payload, post merge
             beacon_block_production_errors.inc()
             return head
 
@@ -518,18 +519,13 @@ proc proposeBlockAux(
           state = node.dag.getProposalState(head, slot, cache[]).valueOr:
             beacon_block_production_errors.inc()
             return head
-        elif bids.engineBid.isNone():
-          beacon_block_production_errors.inc()
-          return head
 
-        bids.engineBid.value()
+        bids.engineBid
       else:
         type EPS = consensusFork.ExecutionPayloadForSigning
-        await(
-          node.getExecutionPayload(EPS, head, state, validator_index, validator.pubkey)
-        ).valueOr:
-          beacon_block_production_errors.inc()
-          return head
+        await node.getExecutionPayload(
+          EPS, head, state, validator_index, validator.pubkey
+        )
 
     engineBlock = node.makeEngineBlock(
       consensusFork,
