@@ -1447,7 +1447,7 @@ proc readValue*(
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(
-      reader, "Expected a valid hex string with " & $value.len() & " bytes")
+      reader, "Expected a valid hex string with " & $distinctBase(value).len() & " bytes")
 
 template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
   # TODO: There should be a different notification mechanism for informing the
