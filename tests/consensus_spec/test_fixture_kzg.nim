@@ -342,12 +342,12 @@ proc runRecoverCellsAndKzgProofsParallelTest(suiteName, suitePath: string) =
 
     block singleThread:
       ## ensure the output is consistent with that of the multi-thread
-      let v = recover_matrix(input, rowCount)
-      check v.isOk
-      let val = v.get
 
       # check recovered cells and proofs
       # assuming columns are sorted
+      let v = recover_matrix(input, rowCount)
+      check v.isOk
+      let val = v.get
       for i in 0..<val.len:
         check data[i].cell.bytes == val[i].cell.bytes
         check data[i].kzg_proof.bytes == val[i].kzg_proof.bytes
