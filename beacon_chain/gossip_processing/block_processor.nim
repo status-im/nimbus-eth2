@@ -225,20 +225,20 @@ proc storeBackfillBlock(
       # malformed columns where 50%+ columns are legit. Note that
       # this repairing will almost never happen unless these malformed
       # columns coming via req/resp.
-      if not columnsOk:
-        if dataColumnsOpt.get.lenu64 >
-            (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
-          let
-            recovered_cps =
-              self.taskpool.recover_cells_and_proofs_parallel(columns)
-            recovered_columns =
-              signedBlock.get_data_column_sidecars(recovered_cps.get)
+      if dataColumnsOpt.get.lenu64 >
+          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
+           not columnsOk:
+        let
+          recovered_cps =
+            self.taskpool.recover_cells_and_proofs_parallel(columns)
+          recovered_columns =
+            signedBlock.get_data_column_sidecars(recovered_cps.get)
 
-          for mc in malformed_cols:
-            # copy the healed columns only into the
-            # sidecar spaces
-            columns[mc][] = recovered_columns[mc]
-          columnsOk = true
+        for mc in malformed_cols:
+          # copy the healed columns only into the
+          # sidecar spaces
+          columns[mc][] = recovered_columns[mc]
+        columnsOk = true
 
   if not columnsOk:
     return err(VerifierError.Invalid)
@@ -629,8 +629,7 @@ proc storeBlock(
         var blobsOk = true
         let blobs =
           withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb and
-                consensusFork < ConsensusFork.Fulu:
+            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
               var blob_sidecars: BlobSidecars
               for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
                 let blob = BlobSidecar.new()

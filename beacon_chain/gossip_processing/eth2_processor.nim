@@ -334,8 +334,7 @@ proc processBlobSidecar*(
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb and
-          consensusFork < ConsensusFork.Fulu:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
@@ -361,22 +360,19 @@ proc validateDataColumnSidecarFromEL*(
       when consensusFork >= ConsensusFork.Fulu:
         let
           start_time = Moment.now()
-        let blobsFromElOpt =
-          await elManager.sendGetBlobsV2(forkyBlck)
+          blobsFromElOpt =
+            await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
-
           # check lengths of array[BlobAndProofV2 with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
             var flat_proof: seq[kzg.KzgProof] = @[]
             for item in blobsEl:
               for proof in item.proofs:
                 flat_proof.add(kzg.KzgProof(bytes: proof.data))
-
             let
               recovered_columns =
                 assemble_data_column_sidecars(
@@ -387,7 +383,6 @@ proc validateDataColumnSidecarFromEL*(
             # Send notification to event stream
             # and add these columns to column quarantine
             for col in recovered_columns:
-
               if col.index in self.dataColumnQuarantine[].custodyColumns:
                 self.dataColumnQuarantine[].put(block_root, newClone(col))
 

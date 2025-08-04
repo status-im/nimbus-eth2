@@ -1200,8 +1200,7 @@ proc proposeBlockAux(
       signedBlock = consensusFork.SignedBeaconBlock(
         message: forkyBlck, signature: signature, root: blockRoot)
       blobsOpt =
-        when consensusFork >= ConsensusFork.Deneb and
-            consensusFork < ConsensusFork.Fulu:
+        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           Opt.some(signedBlock.create_blob_sidecars(
             engineBid.blobsBundle.proofs, engineBid.blobsBundle.blobs))
         else:

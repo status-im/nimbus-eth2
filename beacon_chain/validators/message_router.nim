@@ -91,8 +91,7 @@ proc routeSignedBeaconBlock*(
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
-  let
-    wallTime = router[].getCurrentBeaconTime()
+  let wallTime = router[].getCurrentBeaconTime()
 
   block:
     let vindex = ValidatorIndex(blck.message.proposer_index)
