@@ -45,7 +45,7 @@ type
   # basically to0xHex, then fix BlobSidecarInfoObject to use VersionedHash, not
   # string, and rely on REST serialization, rather than serialize VersionedHash
   # field manually
-  VersionedHash* = array[32, byte]
+  # VersionedHash* = array[32, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64

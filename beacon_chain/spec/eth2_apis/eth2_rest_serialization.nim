@@ -981,9 +981,6 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
-template hexOriginal(data: openArray[byte]): string =
-  to0xHex(data)
-
 proc decodeJsonString*[T](t: typedesc[T],
                           data: JsonString): Result[T, cstring] =
   try:
@@ -1068,7 +1065,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     w: var JsonWriter[RestJson], value: JustificationBits
 ) {.raises: [IOError].} =
-  w.writeValue hexOriginal([uint8(value)])
+  w.writeValue to0xHex([uint8(value)])
 
 proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
     raises: [IOError, SerializationError].} =
@@ -1234,7 +1231,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ValidatorSig
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorSig) {.
      raises: [IOError, SerializationError].} =
@@ -1249,7 +1246,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorSig) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: TrustedSig
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var TrustedSig) {.
      raises: [IOError, SerializationError].} =
@@ -1264,7 +1261,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var TrustedSig) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ValidatorPubKey
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorPubKey) {.
      raises: [IOError, SerializationError].} =
@@ -1296,7 +1293,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitSeq) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitSeq) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.bytes()))
+  writeValue(writer, to0xHex(value.bytes()))
 
 ## BitList
 proc readValue*(reader: var JsonReader[RestJson], value: var BitList) {.
@@ -1319,7 +1316,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitArray) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitArray) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.bytes))
+  writeValue(writer, to0xHex(value.bytes))
 
 ## BlockHash/Hash32
 proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
@@ -1332,7 +1329,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Hash32) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## Eth2Digest
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
@@ -1345,7 +1342,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Eth2Digest) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.data))
+  writeValue(writer, to0xHex(value.data))
 
 ## BloomLogs
 proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
@@ -1358,7 +1355,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BloomLogs) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.data))
+  writeValue(writer, to0xHex(value.data))
 
 ## HashArray
 proc readValue*(reader: var JsonReader[RestJson], value: var HashArray) {.
@@ -1391,7 +1388,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Eth1Address) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Eth1Address
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## Blob
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L129-L133
@@ -1406,7 +1403,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Blob) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Blob
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## KzgCommitment, KzgProof, and KzgCell
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
@@ -1422,13 +1419,13 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof | KzgCell
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value.bytes)))
+  writeValue(writer, to0xHex(distinctBase(value.bytes)))
 
 ## GraffitiBytes
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: GraffitiBytes
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
                {.raises: [IOError, SerializationError].} =
@@ -3638,30 +3635,30 @@ func encodeString*(
   ok(Base10.toString(uint64(value)))
 
 func encodeString*(value: ValidatorSig): RestResult[string] =
-  ok(hexOriginal(toRaw(value)))
+  ok(to0xHex(toRaw(value)))
 
 func encodeString*(value: GraffitiBytes): RestResult[string] =
-  ok(hexOriginal(distinctBase(value)))
+  ok(to0xHex(distinctBase(value)))
 
 func encodeString*(value: Eth2Digest): RestResult[string] =
-  ok(hexOriginal(value.data))
+  ok(to0xHex(value.data))
 
 func encodeString*(value: ValidatorIdent): RestResult[string] =
   case value.kind
   of ValidatorQueryKind.Index:
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
-    ok(hexOriginal(toRaw(value.key)))
+    ok(to0xHex(toRaw(value.key)))
 
 func encodeString*(value: ValidatorPubKey): RestResult[string] =
-  ok(hexOriginal(toRaw(value)))
+  ok(to0xHex(toRaw(value)))
 
 func encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
   of StateQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
   of StateQueryKind.Root:
-    ok(hexOriginal(value.root.data))
+    ok(to0xHex(value.root.data))
   of StateQueryKind.Named:
     case value.value
     of StateIdentType.Head:
@@ -3687,7 +3684,7 @@ func encodeString*(value: BlockIdent): RestResult[string] =
   of BlockQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
   of BlockQueryKind.Root:
-    ok(hexOriginal(value.root.data))
+    ok(to0xHex(value.root.data))
   of BlockQueryKind.Named:
     case value.value
     of BlockIdentType.Head:

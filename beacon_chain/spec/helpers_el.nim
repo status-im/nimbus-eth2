@@ -33,7 +33,7 @@ func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
     for vHash in tx.versionedHashes:
       if commitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")
-      if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
+      if vHash != kzg_commitment_to_versioned_hash(commitments[i]):
         return err("Invalid `blob_versioned_hash` at index " & $i)
       inc i
   if i != commitments.len:

@@ -10,14 +10,14 @@
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/primitives as web3types,
+  stew/[byteutils], stint, eth/common/addresses as eth,
   ./datatypes/constants
 
 from std/algorithm import sort
 
 export constants
 
-export stint, web3types.toHex, web3types.`==`
+export stint, eth
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -39,7 +39,9 @@ const
 
 type
   Version* = distinct array[4, byte]
-  Eth1Address* = web3types.Address
+
+  Eth1Address* = eth.Address
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/beacon-chain.md#new-blobparameters
   BlobParameters* = object
     EPOCH*: Epoch
