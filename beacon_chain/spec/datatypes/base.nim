@@ -70,6 +70,8 @@ import
   ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
+from std/algorithm import isSorted
+
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
@@ -965,6 +967,8 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
+
+  doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
