@@ -2812,45 +2812,10 @@ proc broadcastAggregateAndProof*(
   node.broadcast(topic, proof)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: phase0.SignedBeaconBlock):
+    node: Eth2Node, blck: SomeForkySignedBeaconBlock):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: altair.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: bellatrix.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: capella.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.capella)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: deneb.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: electra.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.electra)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: fulu.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.fulu)
+  let topic = getBeaconBlocksTopic(
+    node.forkDigestAtEpoch(blck.message.slot.epoch))
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
