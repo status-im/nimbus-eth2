@@ -209,6 +209,7 @@ AllTests-mainnet
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
++ Fusaka devnet-2                                                                            OK
 ```
 ## EF - KZG
 ```diff
