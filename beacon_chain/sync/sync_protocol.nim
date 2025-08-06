@@ -399,16 +399,27 @@ p2pProtocol BeaconSync(version = 1,
       bytes: seq[byte]
 
     for i in 0..<count:
-      let blockRef =
-        dag.getBlockRef(colIds[i].block_root).valueOr:
+      var requiredBid: BlockId
+      let blockRefOpt =
+        dag.getBlockRef(colIds[i].block_root)
+      if blockRefOpt.isSome():
+        requiredBid = blockRefOpt.get.bid
+      else:
+        # If we cannot retrieve the block id from getBlockRef
+        # the block is probably of a finalized slot, we can now
+        # try using `blockSlotId`.
+        requiredBid = dag.getBlockId(colIds[i].block_root).valueOr:
           continue
+        let bsid = dag.getBlockIdAtSlot(requiredBid.slot).valueOr:
+          continue
+        requiredBid = bsid.bid
       let indices =
         colIds[i].indices
       for id in indices:
-        if dag.db.getDataColumnSidecarSZ(blockRef.bid.root, id, bytes):
+        if dag.db.getDataColumnSidecarSZ(requiredBid.root, id, bytes):
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column size, database corrupt?",
-              bytes = bytes.len, blck = shortLog(blockRef), columnIndex = id
+              bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
             continue
 
           peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
@@ -416,12 +427,12 @@ p2pProtocol BeaconSync(version = 1,
 
           await response.writeBytesSZ(
             uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
+            peer.network.forkDigestAtEpoch(requiredBid.slot.epoch).data)
           inc found
 
           # additional logging for devnets
           debug "responsded to data column sidecar by root request",
-            peer, blck = shortLog(blockRef), columnIndex = id
+            peer, blck = shortLog(requiredBid), columnIndex = id
 
     debug "Data column root request done",
       peer, roots = colIds.len, count, found

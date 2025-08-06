@@ -24,7 +24,7 @@ from std/sequtils import mapIt
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
   fulu, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, electra_mev, fulu_mev
+  presets, deneb_mev, electra_mev, fulu_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -170,6 +170,19 @@ type
     electra_mev.BlindedBeaconBlock |
     fulu_mev.BlindedBeaconBlock
 
+  ForkyBuilderBid* =
+    electra_mev.BuilderBid |
+    fulu_mev.BuilderBid
+
+  ForkySignedBuilderBid* =
+    electra_mev.SignedBuilderBid |
+    fulu_mev.SignedBuilderBid
+
+  ForkyBlockContents* =
+    deneb.BlockContents |
+    electra.BlockContents |
+    fulu.BlockContents
+
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
     electra.AggregateAndProof
@@ -234,6 +247,7 @@ type
   Web3SignerForkedBeaconBlock* = object
     kind*: ConsensusFork
     data*: BeaconBlockHeader
+      ## From Bellatrix onwards, a header is all that's needed
 
   ForkedBlindedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -406,6 +420,7 @@ template kind*(
       bellatrix.SigVerifiedSignedBeaconBlock |
       bellatrix.MsgTrustedSignedBeaconBlock |
       bellatrix.TrustedSignedBeaconBlock] |
+      bellatrix_mev.BlindedBeaconBlock |
       bellatrix_mev.SignedBlindedBeaconBlock): ConsensusFork =
   ConsensusFork.Bellatrix
 
@@ -444,6 +459,7 @@ template kind*(
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
       deneb.TrustedSignedBeaconBlock |
+      deneb_mev.BlindedBeaconBlock |
       deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
@@ -467,9 +483,11 @@ template kind*(
       electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
+      electra_mev.BlindedBeaconBlock |
       electra_mev.SignedBlindedBeaconBlock |
       electra_mev.SignedBuilderBid |
-      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      electra_mev.ExecutionPayloadAndBlobsBundle|
+      electra_mev.BlindedExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(
@@ -488,146 +506,166 @@ template kind*(
       fulu.SigVerifiedSignedBeaconBlock |
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
+      fulu_mev.BlindedBeaconBlock |
       fulu_mev.SignedBlindedBeaconBlock |
       fulu_mev.SignedBuilderBid]): ConsensusFork =
   ConsensusFork.Fulu
 
-template BeaconState*(kind: static ConsensusFork): auto =
+template BeaconState*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.BeaconState]
+    fulu.BeaconState
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.BeaconState]
+    electra.BeaconState
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.BeaconState]
+    deneb.BeaconState
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.BeaconState]
+    capella.BeaconState
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.BeaconState]
+    bellatrix.BeaconState
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.BeaconState]
+    altair.BeaconState
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.BeaconState]
+    phase0.BeaconState
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BeaconState unsupported in " & $kind.}
 
-template BeaconBlock*(kind: static ConsensusFork): auto =
+template BeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.BeaconBlock]
+    fulu.BeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.BeaconBlock]
+    electra.BeaconBlock
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.BeaconBlock]
+    deneb.BeaconBlock
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.BeaconBlock]
+    capella.BeaconBlock
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.BeaconBlock]
+    bellatrix.BeaconBlock
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.BeaconBlock]
+    altair.BeaconBlock
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.BeaconBlock]
+    phase0.BeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BeaconBlock unsupported in " & $kind.}
 
-template BeaconBlockBody*(kind: static ConsensusFork): auto =
+template BeaconBlockBody*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.BeaconBlockBody]
+    fulu.BeaconBlockBody
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.BeaconBlockBody]
+    electra.BeaconBlockBody
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.BeaconBlockBody]
+    deneb.BeaconBlockBody
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.BeaconBlockBody]
+    capella.BeaconBlockBody
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.BeaconBlockBody]
+    bellatrix.BeaconBlockBody
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.BeaconBlockBody]
+    altair.BeaconBlockBody
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.BeaconBlockBody]
+    phase0.BeaconBlockBody
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BeaconBlockBody unsupported in " & $kind.}
 
-template SignedBeaconBlock*(kind: static ConsensusFork): auto =
+template SignedBeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.SignedBeaconBlock]
+    fulu.SignedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.SignedBeaconBlock]
+    electra.SignedBeaconBlock
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.SignedBeaconBlock]
+    deneb.SignedBeaconBlock
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.SignedBeaconBlock]
+    capella.SignedBeaconBlock
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.SignedBeaconBlock]
+    bellatrix.SignedBeaconBlock
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.SignedBeaconBlock]
+    altair.SignedBeaconBlock
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.SignedBeaconBlock]
+    phase0.SignedBeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "SignedBeaconBlock unsupported in " & $kind.}
 
-template TrustedSignedBeaconBlock*(kind: static ConsensusFork): auto =
+template TrustedSignedBeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.TrustedSignedBeaconBlock]
+    fulu.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.TrustedSignedBeaconBlock]
+    electra.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.TrustedSignedBeaconBlock]
+    deneb.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.TrustedSignedBeaconBlock]
+    capella.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.TrustedSignedBeaconBlock]
+    bellatrix.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.TrustedSignedBeaconBlock]
+    altair.TrustedSignedBeaconBlock
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.TrustedSignedBeaconBlock]
+    phase0.TrustedSignedBeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "TrustedSignedBeaconBlock unsupported in " & $kind.}
 
-template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
+template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.ExecutionPayloadForSigning]
+    fulu.ExecutionPayloadForSigning
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.ExecutionPayloadForSigning]
+    electra.ExecutionPayloadForSigning
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.ExecutionPayloadForSigning]
+    deneb.ExecutionPayloadForSigning
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.ExecutionPayloadForSigning]
+    capella.ExecutionPayloadForSigning
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.ExecutionPayloadForSigning]
+    bellatrix.ExecutionPayloadForSigning
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "ExecutionPayloadForSigning unsupported in " & $kind.}
 
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu_mev.BlindedBeaconBlock]
+    fulu_mev.BlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra_mev.BlindedBeaconBlock]
-  elif kind in [
-      ConsensusFork.Deneb, ConsensusFork.Capella, ConsensusFork.Bellatrix]:
-    static: raiseAssert "Unsupported"
+    electra_mev.BlindedBeaconBlock
+  elif kind == ConsensusFork.Deneb:
+    deneb_mev.BlindedBeaconBlock
+  elif kind == ConsensusFork.Capella:
+    capella_mev.BlindedBeaconBlock
+  elif kind == ConsensusFork.Bellatrix:
+    bellatrix_mev.BlindedBeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BlindedBeaconBlock unsupported in " & $kind.}
 
 template MaybeBlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu_mev.MaybeBlindedBeaconBlock]
+    fulu_mev.MaybeBlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra_mev.MaybeBlindedBeaconBlock]
-  elif kind in [
-      ConsensusFork.Deneb, ConsensusFork.Capella, ConsensusFork.Bellatrix]:
-    static: raiseAssert "Unsupported"
+    electra_mev.MaybeBlindedBeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "MaybeBlindedBeaconBlock unsupported in " & $kind.}
 
-template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
+template SignedBlindedBeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu_mev.SignedBlindedBeaconBlock]
+    fulu_mev.SignedBlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra_mev.SignedBlindedBeaconBlock]
-  elif kind in [
-      ConsensusFork.Deneb, ConsensusFork.Capella, ConsensusFork.Bellatrix]:
-    static: raiseAssert "Unsupported"
+    electra_mev.SignedBlindedBeaconBlock
+  elif kind == ConsensusFork.Deneb:
+    deneb_mev.SignedBlindedBeaconBlock
+  elif kind == ConsensusFork.Capella:
+    capella_mev.SignedBlindedBeaconBlock
+  elif kind == ConsensusFork.Bellatrix:
+    bellatrix_mev.SignedBlindedBeaconBlock
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "SignedBlindedBeaconBlock unsupported in " & $kind.}
+
+template BuilderBid*(kind: static ConsensusFork): typedesc =
+  when kind == ConsensusFork.Fulu:
+    fulu_mev.BuilderBid
+  elif kind == ConsensusFork.Electra:
+    electra_mev.BuilderBid
+  else:
+    {.error: "BuilderBid unsupported in " & $kind.}
+
+template SignedBuilderBid*(kind: static ConsensusFork): typedesc =
+  when kind == ConsensusFork.Fulu:
+    fulu_mev.SignedBuilderBid
+  elif kind == ConsensusFork.Electra:
+    electra_mev.SignedBuilderBid
+  else:
+    {.error: "SignedBuilderBid unsupported in " & $kind.}
 
 template Forky*(
     x: typedesc[ForkedSignedBeaconBlock],
@@ -684,24 +722,23 @@ template withConsensusFork*(
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
     body
 
-template BlockContents*(
-    kind: static ConsensusFork): auto =
+template BlockContents*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu.BlockContents]
+    fulu.BlockContents
   elif kind == ConsensusFork.Electra:
-    typedesc[electra.BlockContents]
+    electra.BlockContents
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.BlockContents]
+    deneb.BlockContents
   elif kind == ConsensusFork.Capella:
-    typedesc[capella.BeaconBlock]
+    capella.BeaconBlock
   elif kind == ConsensusFork.Bellatrix:
-    typedesc[bellatrix.BeaconBlock]
+    bellatrix.BeaconBlock
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.BeaconBlock]
+    altair.BeaconBlock
   elif kind == ConsensusFork.Phase0:
-    typedesc[phase0.BeaconBlock]
+    phase0.BeaconBlock
   else:
-    {.error: "BlockContents does not support " & $kind.}
+    {.error: "BlockContents unsupported in " & $kind.}
 
 template BlindedBlockContents*(
     kind: static ConsensusFork): auto =
@@ -710,10 +747,10 @@ template BlindedBlockContents*(
   elif kind == ConsensusFork.Electra:
     typedesc[electra_mev.BlindedBeaconBlock]
   else:
-    {.error: "BlindedBlockContents does not support " & $kind.}
+    {.error: "BlindedBlockContents unsupported in " & $kind.}
 
 template PayloadAttributes*(
-    kind: static ConsensusFork): auto =
+    kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
   when kind >= ConsensusFork.Deneb:
     typedesc[PayloadAttributesV3]
@@ -723,11 +760,11 @@ template PayloadAttributes*(
     # `engine_forkchoiceUpdatedV1` under any of the following conditions:
     # `headBlockHash` references a block which `timestamp` is greater or
     # equal to the Shanghai timestamp
-    typedesc[PayloadAttributesV2]
+    PayloadAttributesV2
   elif kind >= ConsensusFork.Bellatrix:
-    typedesc[PayloadAttributesV1]
+    PayloadAttributesV1
   else:
-    {.error: "PayloadAttributes does not support " & $kind.}
+    {.error: "PayloadAttributes unsupported in " & $kind.}
 
 # `eth2_merkleization` cannot import `forks` (circular), so the check is here
 static: doAssert ConsensusFork.high == ConsensusFork.Fulu,
@@ -1017,7 +1054,7 @@ template forky*(
   elif kind == ConsensusFork.Phase0:
     x.phase0Data
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "Unreachable".}
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind
@@ -1484,8 +1521,7 @@ template withAggregateAndProof*(a: ForkedAggregateAndProof,
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | electra_mev.BlindedBeaconBlock |
-          fulu_mev.BlindedBeaconBlock):
+    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock):
     BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(

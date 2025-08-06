@@ -12,8 +12,8 @@ import
   datatypes/altair,
   ./helpers
 
-from ../consensus_object_pools/block_pools_types import VerifierError
-export block_pools_types.VerifierError
+from ../consensus_object_pools/block_pools_types_light_client import LightClientVerifierError
+export LightClientVerifierError
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
 func is_valid_normalized_merkle_branch[N](
@@ -37,12 +37,12 @@ func initialize_light_client_store*(
     cfg: RuntimeConfig
 ): auto =
   type ResultType =
-    Result[typeof(bootstrap).kind.LightClientStore, VerifierError]
+    Result[typeof(bootstrap).kind.LightClientStore, LightClientVerifierError]
 
   if not is_valid_light_client_header(bootstrap.header, cfg):
-    return ResultType.err(VerifierError.Invalid)
+    return ResultType.err(LightClientVerifierError.Invalid)
   if hash_tree_root(bootstrap.header.beacon) != trusted_block_root:
-    return ResultType.err(VerifierError.Invalid)
+    return ResultType.err(LightClientVerifierError.Invalid)
 
   withLcDataFork(lcDataForkAtConsensusFork(
       cfg.consensusForkAtEpoch(bootstrap.header.beacon.slot.epoch))):
@@ -52,7 +52,7 @@ func initialize_light_client_store*(
           bootstrap.current_sync_committee_branch,
           lcDataFork.current_sync_committee_gindex,
           bootstrap.header.beacon.state_root):
-        return ResultType.err(VerifierError.Invalid)
+        return ResultType.err(LightClientVerifierError.Invalid)
 
   return ResultType.ok(typeof(bootstrap).kind.LightClientStore(
     finalized_header: bootstrap.header,
@@ -65,34 +65,34 @@ proc validate_light_client_update*(
     update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
+    genesis_validators_root: Eth2Digest): Result[void, LightClientVerifierError] =
   # Verify sync committee has sufficient participants
   template sync_aggregate(): auto = update.sync_aggregate
   template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
   let num_active_participants = countOnes(sync_committee_bits).uint64
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-    return err(VerifierError.Invalid)
+    return err(LightClientVerifierError.Invalid)
 
   # Verify update does not skip a sync committee period
   if not is_valid_light_client_header(update.attested_header, cfg):
-    return err(VerifierError.Invalid)
+    return err(LightClientVerifierError.Invalid)
   when update is SomeForkyLightClientUpdateWithFinality:
     if update.attested_header.beacon.slot < update.finalized_header.beacon.slot:
-      return err(VerifierError.Invalid)
+      return err(LightClientVerifierError.Invalid)
   if update.signature_slot <= update.attested_header.beacon.slot:
-    return err(VerifierError.Invalid)
+    return err(LightClientVerifierError.Invalid)
   if current_slot < update.signature_slot:
-    return err(VerifierError.UnviableFork)
+    return err(LightClientVerifierError.UnviableFork)
   let
     store_period = store.finalized_header.beacon.slot.sync_committee_period
     signature_period = update.signature_slot.sync_committee_period
     is_next_sync_committee_known = store.is_next_sync_committee_known
   if is_next_sync_committee_known:
     if signature_period notin [store_period, store_period + 1]:
-      return err(VerifierError.MissingParent)
+      return err(LightClientVerifierError.MissingParent)
   else:
     if signature_period != store_period:
-      return err(VerifierError.MissingParent)
+      return err(LightClientVerifierError.MissingParent)
 
   # Verify update is relevant
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
@@ -102,11 +102,11 @@ proc validate_light_client_update*(
   if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot:
     when update is SomeForkyLightClientUpdateWithSyncCommittee:
       if is_next_sync_committee_known:
-        return err(VerifierError.Duplicate)
+        return err(LightClientVerifierError.Duplicate)
       if attested_period != store_period or not is_sync_committee_update:
-        return err(VerifierError.Duplicate)
+        return err(LightClientVerifierError.Duplicate)
     else:
-      return err(VerifierError.Duplicate)
+      return err(LightClientVerifierError.Duplicate)
 
   # Verify that the `finality_branch`, if present, confirms `finalized_header`
   # to match the finalized checkpoint root saved in the state of
@@ -115,17 +115,17 @@ proc validate_light_client_update*(
   when update is SomeForkyLightClientUpdateWithFinality:
     if not update.is_finality_update:
       if update.finalized_header != default(typeof(update.finalized_header)):
-        return err(VerifierError.Invalid)
+        return err(LightClientVerifierError.Invalid)
     else:
       var finalized_root {.noinit.}: Eth2Digest
       if update.finalized_header.beacon.slot != GENESIS_SLOT:
         if not is_valid_light_client_header(update.finalized_header, cfg):
-          return err(VerifierError.Invalid)
+          return err(LightClientVerifierError.Invalid)
         finalized_root = hash_tree_root(update.finalized_header.beacon)
       elif update.finalized_header == default(typeof(update.finalized_header)):
         finalized_root.reset()
       else:
-        return err(VerifierError.Invalid)
+        return err(LightClientVerifierError.Invalid)
       withLcDataFork(lcDataForkAtConsensusFork(
           cfg.consensusForkAtEpoch(update.attested_header.beacon.slot.epoch))):
         when lcDataFork > LightClientDataFork.None:
@@ -134,7 +134,7 @@ proc validate_light_client_update*(
               update.finality_branch,
               lcDataFork.finalized_root_gindex,
               update.attested_header.beacon.state_root):
-            return err(VerifierError.Invalid)
+            return err(LightClientVerifierError.Invalid)
 
   # Verify that the `next_sync_committee`, if present, actually is the
   # next sync committee saved in the state of the `attested_header`
@@ -142,11 +142,11 @@ proc validate_light_client_update*(
     if not is_sync_committee_update:
       if update.next_sync_committee !=
           default(typeof(update.next_sync_committee)):
-        return err(VerifierError.Invalid)
+        return err(LightClientVerifierError.Invalid)
     else:
       if attested_period == store_period and is_next_sync_committee_known:
         if update.next_sync_committee != store.next_sync_committee:
-          return err(VerifierError.UnviableFork)
+          return err(LightClientVerifierError.UnviableFork)
       withLcDataFork(lcDataForkAtConsensusFork(
           cfg.consensusForkAtEpoch(update.attested_header.beacon.slot.epoch))):
         when lcDataFork > LightClientDataFork.None:
@@ -155,7 +155,7 @@ proc validate_light_client_update*(
               update.next_sync_committee_branch,
               lcDataFork.next_sync_committee_gindex,
               update.attested_header.beacon.state_root):
-            return err(VerifierError.Invalid)
+            return err(LightClientVerifierError.Invalid)
 
   # Verify sync committee aggregate signature
   let sync_committee =
@@ -176,7 +176,7 @@ proc validate_light_client_update*(
       bitseqs.BitArray[maxParticipants](
         bytes: sync_aggregate.sync_committee_bits.bytes),
       signing_root.data, sync_aggregate.sync_committee_signature):
-    return err(VerifierError.UnviableFork)
+    return err(LightClientVerifierError.UnviableFork)
 
   ok()
 
@@ -250,7 +250,7 @@ proc process_light_client_update*(
     update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
+    genesis_validators_root: Eth2Digest): Result[void, LightClientVerifierError] =
   ? validate_light_client_update(
     store, update, current_slot, cfg, genesis_validators_root)
 
@@ -294,5 +294,5 @@ proc process_light_client_update*(
         store.best_valid_update.reset()
 
   if not didProgress:
-    return err(VerifierError.Duplicate)
+    return err(LightClientVerifierError.Duplicate)
   ok()
