@@ -178,12 +178,12 @@ proc dumpInvalidObject(
 proc dumpObject[T](
     self: LightClientProcessor,
     obj: SomeForkyLightClientObject,
-    res: Result[T, VerifierError]) =
+    res: Result[T, LightClientVerifierError]) =
   if self.dumpEnabled and res.isErr:
     case res.error
-    of VerifierError.Invalid:
+    of LightClientVerifierError.Invalid:
       self.dumpInvalidObject(obj)
-    of VerifierError.MissingParent:
+    of LightClientVerifierError.MissingParent:
       dump(self.dumpDirIncoming, obj)
     else:
       discard
@@ -212,15 +212,15 @@ proc tryForceUpdate(
 proc doProcessObject(
     self: var LightClientProcessor,
     bootstrap: ForkedLightClientBootstrap,
-    wallTime: BeaconTime): Result[void, VerifierError] =
+    wallTime: BeaconTime): Result[void, LightClientVerifierError] =
   if bootstrap.kind == LightClientDataFork.None:
-    err(VerifierError.Invalid)
+    err(LightClientVerifierError.Invalid)
   elif self.store[].kind > LightClientDataFork.None:
-    err(VerifierError.Duplicate)
+    err(LightClientVerifierError.Duplicate)
   else:
     let trustedBlockRoot = self.getTrustedBlockRoot()
     if trustedBlockRoot.isNone:
-      err(VerifierError.MissingParent)
+      err(LightClientVerifierError.MissingParent)
     else:
       withForkyBootstrap(bootstrap):
         when lcDataFork > LightClientDataFork.None:
@@ -237,11 +237,11 @@ proc doProcessObject(
 proc doProcessObject(
     self: var LightClientProcessor,
     update: SomeForkedLightClientUpdate,
-    wallTime: BeaconTime): Result[void, VerifierError] =
+    wallTime: BeaconTime): Result[void, LightClientVerifierError] =
   if update.kind == LightClientDataFork.None:
-    err(VerifierError.Invalid)
+    err(LightClientVerifierError.Invalid)
   elif self.store[].kind == LightClientDataFork.None:
-    err(VerifierError.MissingParent)
+    err(LightClientVerifierError.MissingParent)
   else:
     withForkyObject(update):
       when lcDataFork > LightClientDataFork.None:
@@ -263,7 +263,7 @@ proc doProcessObject(
 proc processObject(
     self: var LightClientProcessor,
     obj: SomeForkedLightClientObject,
-    wallTime: BeaconTime): Result[void, VerifierError] =
+    wallTime: BeaconTime): Result[void, LightClientVerifierError] =
   let res = self.doProcessObject(obj, wallTime)
 
   withForkyObject(obj):
@@ -282,7 +282,7 @@ proc processObject(
               # If none is made available within reasonable time, light client
               # is force-updated with best known data to ensure sync progress.
               case res.error
-              of VerifierError.Duplicate:
+              of LightClientVerifierError.Duplicate:
                 if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
                   if self.numDupsSinceProgress < minForceUpdateDuplicates:
                     let upgradedObj = obj.migratingToDataFork(lcDataFork)
@@ -391,7 +391,7 @@ template withReportedProgress(body: untyped): bool =
 proc storeObject*(
     self: var LightClientProcessor,
     src: MsgSource, wallTime: BeaconTime,
-    obj: SomeForkedLightClientObject): Result[bool, VerifierError] =
+    obj: SomeForkedLightClientObject): Result[bool, LightClientVerifierError] =
   ## storeObject is the main entry point for unvalidated light client objects -
   ## all untrusted objects pass through here. When storing an object, we will
   ## update the `LightClientStore` accordingly
@@ -454,7 +454,7 @@ proc addObject*(
     self: var LightClientProcessor,
     src: MsgSource,
     obj: SomeForkedLightClientObject,
-    resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil) =
+    resfut: Future[Result[void, LightClientVerifierError]].Raising([CancelledError]) = nil) =
   ## Enqueue a Gossip-validated light client object for verification
   # Backpressure:
   #   Only one object is validated at any time -
@@ -492,16 +492,16 @@ proc addObject*(
 
   if resfut != nil:
     if res.isOk:
-      resfut.complete(Result[void, VerifierError].ok())
+      resfut.complete(Result[void, LightClientVerifierError].ok())
     else:
-      resfut.complete(Result[void, VerifierError].err(res.error))
+      resfut.complete(Result[void, LightClientVerifierError].err(res.error))
 
 # Message validators
 # ------------------------------------------------------------------------------
 
 func toValidationError(
     self: var LightClientProcessor,
-    r: Result[bool, VerifierError],
+    r: Result[bool, LightClientVerifierError],
     wallTime: BeaconTime,
     obj: SomeForkedLightClientObject): Result[void, ValidationError] =
   if r.isOk:
@@ -536,13 +536,13 @@ func toValidationError(
       errIgnore(typeof(obj).name & ": no significant progress")
   else:
     case r.error
-    of VerifierError.Invalid:
+    of LightClientVerifierError.Invalid:
       # [REJECT] The `finality_update` is valid.
       # [REJECT] The `optimistic_update` is valid.
       errReject(typeof(obj).name & ": invalid")
-    of VerifierError.MissingParent,
-        VerifierError.UnviableFork,
-        VerifierError.Duplicate:
+    of LightClientVerifierError.MissingParent,
+        LightClientVerifierError.UnviableFork,
+        LightClientVerifierError.Duplicate:
       # [IGNORE] The `finalized_header.beacon.slot` is greater than that of
       # all previously forwarded `finality_update`s
       # [IGNORE] The `attested_header.beacon.slot` is greater than that of all

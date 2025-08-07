@@ -19,8 +19,6 @@ import
 from std/os import getEnv, osErrorMsg
 from stew/byteutils import hexToByteArray
 from ../beacon_chain/filepath import secureCreatePath, secureWriteFile
-from ../beacon_chain/spec/signatures import
-  get_aggregate_and_proof_signature, get_block_signature
 
 const
   TestDirectoryName = "test-signing-node"
@@ -834,22 +832,22 @@ block:
 
         sres1 =
           await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
         sres2 =
           await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
         sres3 =
           await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
         rres1 =
           await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
         rres2 =
           await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
         rres3 =
           await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+            blockRoot, forked)
 
       check:
         sres1.isOk()
@@ -1019,31 +1017,31 @@ block:
         client = rclient.get()
         sres1 =
           await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         sres2 =
           await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         sres3 =
           await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         rres1 =
           await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         rres2 =
           await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         rres3 =
           await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot1, forked1)
+            blockRoot1, forked1)
         bres1 =
           await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot2, forked2)
+            blockRoot2, forked2)
         bres2 =
           await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot2, forked2)
+            blockRoot2, forked2)
         bres3 =
           await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot2, forked2)
+            blockRoot2, forked2)
 
       check:
         # Local requests

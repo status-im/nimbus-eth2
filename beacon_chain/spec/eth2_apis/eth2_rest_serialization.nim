@@ -1448,7 +1448,7 @@ proc readValue*(
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(
-      reader, "Expected a valid hex string with " & $value.len() & " bytes")
+      reader, "Expected a valid hex string with " & $distinctBase(value).len() & " bytes")
 
 template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
   # TODO: There should be a different notification mechanism for informing the
@@ -1621,7 +1621,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
 
   if version.get() <= ConsensusFork.Altair:
     reader.raiseUnexpectedValue(
-      "Web3Signer implementation supports Capella and newer")
+      "Web3Signer implementation supports Bellatrix and newer")
 
   let res =
     try:

@@ -430,6 +430,23 @@ func shortLog*(v: ExecutionPayload): auto =
     num_transactions: len(v.transactions)
   )
 
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock |

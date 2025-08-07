@@ -537,13 +537,13 @@ proc ETHLightClientStoreProcessUpdatesByRange(
       didProgress = true
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         break
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         discard
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         break
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         return 1
   if not didProgress:
     return 2
@@ -625,13 +625,13 @@ proc ETHLightClientStoreProcessFinalityUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 proc ETHLightClientStoreProcessOptimisticUpdate(
@@ -710,13 +710,13 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 func ETHLightClientStoreGetFinalizedHeader(
@@ -1552,10 +1552,7 @@ proc ETHTransactionsCreateFromJson(
         return nil
       if yParity != data.v:
         return nil
-    if data.authorizationList.isSome:
-      for authorization in data.authorizationList.get:
-        if authorization.v > uint8.high:
-          return nil
+
     let
       tx = eth_types.EthTransaction(
         txType: txType,
@@ -1656,7 +1653,7 @@ proc ETHTransactionsCreateFromJson(
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        sig = packSignature(auth.r, auth.s, auth.yParity)
         authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
       authorizationList.add ETHAuthorization(
