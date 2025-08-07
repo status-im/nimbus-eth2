@@ -858,7 +858,7 @@ template gossipMaxSize(T: untyped): uint32 =
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock:
+         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2722,8 +2722,8 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
-proc updateNextForkDigest(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
+proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 
@@ -2826,6 +2826,15 @@ proc broadcastBlobSidecar*(
     topic = getBlobSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, blob)
+
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64, data_column: DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, data_column)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

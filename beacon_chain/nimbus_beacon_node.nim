@@ -1780,6 +1780,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  # Update nfd field for BPOs
+  let
+    nextForkEpoch = node.dag.cfg.nextForkEpochAtEpoch(epoch)
+    nextForkDigest = if nextForkEpoch == FAR_FUTURE_EPOCH:
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+      # "If no next fork is scheduled, the nfd entry contains the default value
+      # for the type (i.e., the SSZ representation of a zero-filled array)."
+      default(ForkDigest)
+    else:
+      node.dag.forkDigests[].atEpoch(nextForkEpoch, node.dag.cfg)
+  node.network.updateNextForkDigest(nextForkDigest)
+
   await node.updateGossipStatus(slot + 1)
 
 func formatNextConsensusFork(
