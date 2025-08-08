@@ -341,7 +341,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
-# Similar to:  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
+# Similar to: https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
                                Result[seq[DataColumnSidecar], string] =
