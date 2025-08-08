@@ -30,8 +30,6 @@ const
   VALIDATOR_CUSTODY_POLL_INTERVAL = 384.seconds
 
 type
-  InhibitFn = proc: bool {.gcsafe, raises: [].}
-
   ValidatorCustody* = object
     network*: Eth2Node
     dag*: ChainDAGRef
@@ -55,7 +53,6 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
            older_column_set: HashSet[ColumnIndex],
            getBeaconTime: GetBeaconTimeFn,
            dataColumnQuarantine: ref ColumnQuarantine): ValidatorCustodyRef =
-  let localHeadSlot = getLocalHeadSlotCb
   (ValidatorCustodyRef)(
     network: network,
     dag: dag,
