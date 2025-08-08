@@ -316,7 +316,7 @@ type
 
   FuluSignedBlockContents* = object
     signed_block*: fulu.SignedBeaconBlock
-    kzg_proofs*: deneb.KzgProofs
+    kzg_proofs*: fulu.KzgProofsV2
     blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
@@ -550,6 +550,7 @@ type
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
   SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",

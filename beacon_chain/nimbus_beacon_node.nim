@@ -557,6 +557,8 @@ proc initFullNode(
         clist.tail.get().blck.slot()
       else:
         getLocalWallSlot()
+    eaSlot = dag.head.slot
+    erSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -627,6 +629,8 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.dag.erSlot = erSlot
+  node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
@@ -1674,6 +1678,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
+          node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
@@ -1855,20 +1860,33 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  debugEcho "Custody column count before"
+  debugEcho node.dataColumnQuarantine.custodyColumns.len
+
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
-    discard node.validatorCustody.detectNewValidatorCustody(node.attachedValidatorBalanceTotal)
+    discard node.validatorCustody.detectNewValidatorCustody(
+      node.attachedValidatorBalanceTotal)
+    if node.validatorCustody.diff_set.len > 0:
+      var custodyColumns =
+        node.validatorCustody.newer_column_set.toSeq()
+      sort(custodyColumns)
+      # update custody columns
+      node.dataColumnQuarantine.updateColumnQuarantine(
+        node.dag.cfg, custodyColumns)
 
-  # Update CGC and metadata with respect to the new detected validator custody
-  let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
-  if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  elif new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
-    node.network.loadCgcnetMetadataAndEnr(new_vcus)
-  else:
-    node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                          node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+      # Update CGC and metadata with respect to the new detected validator custody
+      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+
+      if new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+        node.network.loadCgcnetMetadataAndEnr(new_vcus)
+      else:
+        node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                              node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+
+  debugEcho "Custody column count after"
+  debugEcho node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let

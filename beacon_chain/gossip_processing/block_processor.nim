@@ -107,7 +107,7 @@ type
     getBeaconTime: GetBeaconTimeFn
 
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -727,15 +727,28 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  # No need to verify data column sidecar kzg proofs, as
-  # there are verification processes ar every point of entry
-  # for column sidecars, more so as this verification process
-  # is expensive and latent for nodes with higher column custody.
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    if dataColumnsOpt.isSome:
+      let
+        columns0 = dataColumnsOpt.get()
+        kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns0.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns0.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns0[i][])
+          if r.isErr:
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns0[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+            return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq

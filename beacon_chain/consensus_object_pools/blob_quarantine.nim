@@ -80,6 +80,8 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
+  ColumnQuarantineRef* = ref ColumnQuarantine
+
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
 
@@ -915,3 +917,23 @@ proc init*(
     db: database,
     onSidecarCallback: onDataColumnSidecarCallback
   )
+
+proc updateColumnQuarantine*(
+    quarantine: ColumnQuarantineRef,
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex]) =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
+  for index, item in custodyColumns.pairs():
+    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+    indexMap[int(item)] = index
+
+  quarantine.maxSidecarsPerBlockCount = len(custodyColumns)
+  quarantine.indexMap = indexMap
+  quarantine.custodyColumns = @custodyColumns
+  quarantine.custodyMap = ColumnMap.init(custodyColumns)
+
+
