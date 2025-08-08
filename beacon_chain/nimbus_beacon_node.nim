@@ -423,10 +423,6 @@ proc initFullNode(
         node.network.nodeId,
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
-    minDa =
-      dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId,
-        dag.cfg.CUSTODY_REQUIREMENT.uint64)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
