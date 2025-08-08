@@ -1278,7 +1278,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let vcus_count = node.dataColumnQuarantine.custody_columns.lenu64
+  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
   if node.config.peerdasSupernode:
     node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT.uint64:

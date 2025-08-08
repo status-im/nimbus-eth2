@@ -80,9 +80,9 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
   debug "New validator custody count detected",
     new_vcus_columns = newer_columns
   # update data column quarantine custody requirements
-  vcus.dataColumnQuarantine[].custody_columns =
+  vcus.dataColumnQuarantine[].custodyColumns =
     newer_columns.toSeq()
-  sort(vcus.dataColumnQuarantine[].custody_columns)
+  sort(vcus.dataColumnQuarantine[].custodyColumns)
   # check which custody set is larger
   if newer_columns.len > vcus.older_column_set.len:
     diff_set = newer_columns.difference(vcus.older_column_set)
