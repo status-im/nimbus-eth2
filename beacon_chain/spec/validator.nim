@@ -445,7 +445,6 @@ func compute_proposer_indices*(
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
-  let startSlot = epoch.start_slot()
   var proposerIndices: seq[Opt[ValidatorIndex]]
 
   for epochSlot in epoch.slots():
