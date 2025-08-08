@@ -662,10 +662,10 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-          if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
-            PARALLEL_REQUESTS
-          else:
-            PARALLEL_REQUESTS_DATA_COLUMNS
+        if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+          PARALLEL_REQUESTS
+        else:
+          PARALLEL_REQUESTS_DATA_COLUMNS
       var workers =
         newSeq[Future[void].Raising([CancelledError])](workerCount)
       for i in 0..<workerCount:
