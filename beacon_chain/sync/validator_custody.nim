@@ -192,7 +192,6 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
 
 proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
-  var cache = StateCache()
   while true:
     await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
     if vcus.diff_set.len != 0:

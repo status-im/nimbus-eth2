@@ -40,7 +40,6 @@ iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
 func handle_custody_groups(node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
-
   # Decouples the custody group computation from
   # `get_custody_groups`, in order to later use this custody
   # group list across various types of output types
@@ -468,7 +467,6 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   sidecars
 
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
@@ -553,8 +551,6 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
                                          uint64 =
   let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
-  debugEcho "Vcus count"
-  debugEcho count
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 

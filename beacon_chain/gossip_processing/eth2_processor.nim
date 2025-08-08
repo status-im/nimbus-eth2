@@ -342,7 +342,7 @@ proc processBlobSidecar*(
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
-        raiseAssert "Could not have been added as blobless"
+        raiseAssert "Could not be added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -433,7 +433,7 @@ proc processDataColumnSidecar*(
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)
       else:
-        raiseAssert "Could not have been added as columnless"
+        raiseAssert "Could not be added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())

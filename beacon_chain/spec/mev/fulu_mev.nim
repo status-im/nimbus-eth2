@@ -70,11 +70,6 @@ type
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/specs/fulu/builder.md#executionpayloadandblobsbundle
-  ExecutionPayloadAndBlobsBundle* = object
-    execution_payload*: electra.ExecutionPayload
-    blobs_bundle*: BlobsBundleV2
-
   # Not spec, but suggested by spec
   BlindedExecutionPayloadAndBlobsBundle* = object
     execution_payload_header*: fulu.ExecutionPayloadHeader

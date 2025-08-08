@@ -40,7 +40,7 @@ const
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for data columns to arrive over gossip before fetching.
 
-  POLL_INTERVAL* = 1.seconds
+  POLL_INTERVAL = 1.seconds
 
 type
   BlockVerifierFn = proc(
@@ -330,7 +330,6 @@ proc checkPeerCustody(rman: RequestManager,
       return true
 
     else:
-
       # Fetch the remote custody count
       let remoteCustodyGroupCount =
         peer.lookupCgcFromPeer()

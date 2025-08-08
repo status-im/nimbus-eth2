@@ -935,5 +935,3 @@ proc updateColumnQuarantine*(
   quarantine.indexMap = indexMap
   quarantine.custodyColumns = @custodyColumns
   quarantine.custodyMap = ColumnMap.init(custodyColumns)
-
-
