@@ -310,6 +310,8 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
+  proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
+    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -748,6 +750,7 @@ proc init*(T: type BeaconNode,
       phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
       electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+      columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),

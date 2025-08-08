@@ -56,6 +56,7 @@ type
     phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
     electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
+    columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]

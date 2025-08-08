@@ -106,6 +106,12 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  DataColumnSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    slot*: Slot
+    kzg_commitments*: KzgCommitments
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
