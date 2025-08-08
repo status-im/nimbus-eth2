@@ -529,11 +529,7 @@ func toValidationError(
         # [IGNORE] The `optimistic_update` either matches corresponding fields
         # of the most recently forwarded `LightClientFinalityUpdate` (if any),
         # or it advances the `optimistic_header` of the local `LightClientStore`
-        if obj.matches(self.latestFinalityUpdate):Use the web editor or the command line to resolve conflicts before continuing.
-
-beacon_chain/gossip_processing/light_client_processor.nim
-beacon_chain/rpc/rest_beacon_api.nim
-beacon_chain/sync/validator_custody.nim
+        if obj.matches(self.latestFinalityUpdate):
           return ok()
       # [IGNORE] The `finality_update` advances the `finalized_header` of the
       # local `LightClientStore`.
