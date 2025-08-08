@@ -359,7 +359,6 @@ proc validateDataColumnSidecarFromEL*(
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         let
-          start_time = Moment.now()
           blobsFromElOpt =
             await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
