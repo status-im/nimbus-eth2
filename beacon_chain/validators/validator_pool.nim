@@ -21,8 +21,7 @@ import
   ./slashing_protection
 
 export
-  streams, keystore, phase0, altair, tables, uri, crypto,
-  signatures.voluntary_exit_signature_fork,
+  streams, keystore, phase0, altair, tables, uri, crypto, signatures,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
   slashing_protection
 
@@ -535,192 +534,92 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
+
+proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock): Web3SignerForkedBeaconBlock =
+  Web3SignerForkedBeaconBlock(kind: typeof(blck).kind, data: blck.toBeaconBlockHeader())
+
+proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedIndex =
+  when fork < ConsensusFork.Deneb:
+    static: raiseAssert "Unsupported fork " & $fork
+  elif fork == ConsensusFork.Deneb:
+    prop.denebIndex
+  elif fork == ConsensusFork.Electra:
+    prop.electraIndex
+  elif fork == ConsensusFork.Fulu:
+    prop.fuluIndex
+  else:
+    static: raiseAssert "Unknown fork " & $fork
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
-                        genesis_validators_root: Eth2Digest, slot: Slot,
+                        genesis_validators_root: Eth2Digest,
                         block_root: Eth2Digest,
-                        blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
-                              ForkedMaybeBlindedBeaconBlock |
-                              electra_mev.BlindedBeaconBlock |
-                              fulu_mev.BlindedBeaconBlock
+                        blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock
                        ): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
-  type SomeBlockBody =
-    deneb.BeaconBlockBody |
-    electra.BeaconBlockBody |
-    electra_mev.BlindedBeaconBlockBody |
-    fulu.BeaconBlockBody |
-    fulu_mev.BlindedBeaconBlockBody
-
-  template blockPropertiesProofs(blockBody: SomeBlockBody,
-                                 forkIndexField: untyped): seq[Web3SignerMerkleProof] =
-    var proofs: seq[Web3SignerMerkleProof]
-    for prop in v.data.provenBlockProperties:
-      let
-        idx = prop.forkIndexField
-        proofRes = build_proof(blockBody, idx)
-      if proofRes.isErr:
-        return err proofRes.error
-      proofs.add Web3SignerMerkleProof(
-        index: idx,
-        proof: proofRes.get)
-    proofs
-
   case v.kind
   of ValidatorKind.Local:
     SignatureResult.ok(
       get_block_signature(
-        fork, genesis_validators_root, slot, block_root,
+        fork, genesis_validators_root, blck.slot, block_root,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    let web3signerRequest =
-      when blck is ForkedBlindedBeaconBlock:
-        case blck.kind
-        of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-          return SignatureResult.err("Invalid blinded beacon block fork")
-        of ConsensusFork.Electra:
+    const consensusFork = typeof(blck).kind
+    when consensusFork >= ConsensusFork.Bellatrix:
+      let
+        fbb = Web3SignerForkedBeaconBlock.init(blck)
+        web3signerRequest =
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                data: blck.electraData.toBeaconBlockHeader))
+            Web3SignerRequest.init(fork, genesis_validators_root, fbb)
           of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.electraData.body, electraIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                data: blck.electraData.toBeaconBlockHeader),
-              proofs)
-        of ConsensusFork.Fulu:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                data: blck.fuluData.toBeaconBlockHeader))
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.fuluData.body, fuluIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                data: blck.fuluData.toBeaconBlockHeader),
-              proofs)
-      elif blck is electra_mev.BlindedBeaconBlock:
-        case v.data.remoteType
-        of RemoteSignerType.Web3Signer:
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-              data: blck.toBeaconBlockHeader))
-        of RemoteSignerType.VerifyingWeb3Signer:
-          let proofs = blockPropertiesProofs(
-            blck.body, electraIndex)
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-              data: blck.toBeaconBlockHeader),
-            proofs)
-      elif blck is fulu_mev.BlindedBeaconBlock:
-        case v.data.remoteType
-        of RemoteSignerType.Web3Signer:
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-              data: blck.toBeaconBlockHeader))
-        of RemoteSignerType.VerifyingWeb3Signer:
-          let proofs = blockPropertiesProofs(
-            blck.body, fuluIndex)
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-              data: blck.toBeaconBlockHeader),
-            proofs)
-      elif blck is ForkedMaybeBlindedBeaconBlock:
-        withForkyMaybeBlindedBlck(blck):
-          when consensusFork < ConsensusFork.Electra:
-            return SignatureResult.err("Invalid beacon block fork")
-          elif consensusFork == ConsensusFork.Electra:
-            when isBlinded:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs =
-                  blockPropertiesProofs(forkyMaybeBlindedBlck.body,
-                                        electraIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader), proofs)
+            when typeof(blck).kind >= ConsensusFork.Deneb:
+              template blockPropertiesProofs(): seq[Web3SignerMerkleProof] =
+                var proofs: seq[Web3SignerMerkleProof]
+
+                for prop in v.data.provenBlockProperties:
+                  let idx = prop.forkIndex(typeof(blck).kind)
+                  proofs.add Web3SignerMerkleProof(
+                    index: idx,
+                    proof: ?build_proof(blck.body, idx)
+                  )
+
+                proofs
+
+              Web3SignerRequest.init(
+                fork, genesis_validators_root, fbb, blockPropertiesProofs())
             else:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs =
-                  blockPropertiesProofs(forkyMaybeBlindedBlck.`block`.body,
-                                        electraIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
-                      proofs)
-          elif consensusFork == ConsensusFork.Fulu:
-            when isBlinded:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs =
-                  blockPropertiesProofs(forkyMaybeBlindedBlck.body,
-                                        fuluIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader), proofs)
-            else:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs =
-                  blockPropertiesProofs(forkyMaybeBlindedBlck.`block`.body,
-                                        fuluIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
-                      proofs)
-      else:
-        case blck.kind
-        of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-          return SignatureResult.err("Invalid beacon block fork")
-        of ConsensusFork.Electra:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                data: blck.electraData.toBeaconBlockHeader))
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.electraData.body, electraIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
-                data: blck.electraData.toBeaconBlockHeader),
-              proofs)
-        of ConsensusFork.Fulu:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                data: blck.fuluData.toBeaconBlockHeader))
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.fuluData.body, fuluIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Fulu,
-                data: blck.fuluData.toBeaconBlockHeader),
-              proofs)
-    await v.signData(web3signerRequest)
+              return err("Unsupported fork for verifying Web3Signer: " & $typeof(blck).kind)
+
+      await v.signData(web3signerRequest)
+    else:
+      return err("Unsupported fork for Web3Signer: " & $consensusFork)
+
+proc getBlockSignature*(v: AttachedValidator, fork: Fork,
+                        genesis_validators_root: Eth2Digest,
+                        block_root: Eth2Digest,
+                        blck: ForkedBeaconBlock
+                       ): Future[SignatureResult]
+                       {.async: (raises: [CancelledError], raw: true).} =
+  withBlck(blck):
+    getBlockSignature(v, fork, genesis_validators_root, block_root, forkyBlck)
+
+proc getBlockSignature*(v: AttachedValidator, fork: Fork,
+                        genesis_validators_root: Eth2Digest,
+                        block_root: Eth2Digest,
+                        blck: ForkyBlockContents
+                       ): Future[SignatureResult]
+                       {.async: (raises: [CancelledError], raw: true).} =
+  v.getBlockSignature(fork, genesis_validators_root, block_root, blck.`block`)
+
+proc getBlockSignature*(v: AttachedValidator, fork: Fork,
+                        genesis_validators_root: Eth2Digest,
+                        block_root: Eth2Digest,
+                        blck: ForkedMaybeBlindedBeaconBlock
+                       ): Future[SignatureResult]
+                       {.async: (raises: [CancelledError], raw: true).} =
+  withForkyMaybeBlindedBlck(blck):
+    v.getBlockSignature(fork, genesis_validators_root, block_root, forkyMaybeBlindedBlck)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,

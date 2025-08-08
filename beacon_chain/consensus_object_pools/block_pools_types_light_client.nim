@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,6 +24,9 @@ type
       ## Import historic light client data (slow startup).
     OnDemand = "on-demand"
       ## Like `full`, but import on demand instead of on start.
+
+  LightClientVerifierError* {.pure.} = enum
+    Invalid, MissingParent, UnviableFork, Duplicate
 
   OnLightClientFinalityUpdateCallback* =
     proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [].}

@@ -54,7 +54,6 @@ type
     GetPayloadV4Response |
     GetPayloadV5Response
 
-
 const
   noTimeout = WithoutTimeout(0)
 
@@ -412,6 +411,7 @@ proc getPayloadFromSingleEL(
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
             GetPayloadResponseType is engine_api.GetPayloadV4Response or
             GetPayloadResponseType is engine_api.GetPayloadV5Response:
+
         # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
@@ -589,12 +589,8 @@ proc getPayload*(
       requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
 
-    when PayloadType.kind == ConsensusFork.Fulu:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeFulu)
-    else:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    if bestPayloadIdx.isSome():
+      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
@@ -778,8 +774,7 @@ proc sendGetBlobsV2*(
     return err()
 
   let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-
-  var bestIdx: Opt[int] = Opt.none(int)
+  var bestIdx: Opt[int]
 
   while true:
     let requests = m.elConnections.mapIt(

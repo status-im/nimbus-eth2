@@ -35,7 +35,7 @@ type
     Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+    proc(v: V): Future[Result[void, LightClientVerifierError]] {.async: (raises: [CancelledError]).}
   BootstrapVerifier* =
     ValueVerifier[ForkedLightClientBootstrap]
   UpdateVerifier* =
@@ -196,16 +196,16 @@ proc workerTask[E](
         let res = await self.valueVerifier(E)(val)
         if res.isErr:
           case res.error
-          of VerifierError.MissingParent:
+          of LightClientVerifierError.MissingParent:
             # Stop, requires different request to progress
             return didProgress
-          of VerifierError.Duplicate:
+          of LightClientVerifierError.Duplicate:
             # Ignore, a concurrent request may have already fulfilled this
             when E.V is ForkedLightClientBootstrap:
               didProgress = true
             else:
               discard
-          of VerifierError.UnviableFork:
+          of LightClientVerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
             withForkyObject(val):
               when lcDataFork > LightClientDataFork.None:
@@ -217,7 +217,7 @@ proc workerTask[E](
                   endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreUnviableFork)
             return didProgress
-          of VerifierError.Invalid:
+          of LightClientVerifierError.Invalid:
             # Descore, received data is malformed
             withForkyObject(val):
               when lcDataFork > LightClientDataFork.None:

@@ -214,7 +214,7 @@ func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     maybeIncludeFork(bpo.EPOCH, successorForkEpoch)
     successorForkEpoch = bpo.EPOCH
 
-  #doAssert len(targetForkEpochs) <= 2
+  doAssert len(targetForkEpochs) <= 2
   targetForkEpochs
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =

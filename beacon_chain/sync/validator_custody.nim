@@ -41,7 +41,7 @@ type
     newer_column_set*: HashSet[ColumnIndex]
     diff_set*: seq[ColumnIndex]
     global_refill_list: HashSet[DataColumnIdentifier]
-    requested_columns*: seq[DataColumnsByRootIdentifier]
+    requested_columns: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
     dataColumnQuarantine: ref ColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
