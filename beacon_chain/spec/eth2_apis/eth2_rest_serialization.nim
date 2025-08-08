@@ -3768,7 +3768,7 @@ func decodeString*(t: typedesc[EventTopic],
   of "blob_sidecar":
     ok(EventTopic.BlobSidecar)
   of "data_column_sidecar":
-    ok(EventTopic.BlobSidecar)
+    ok(EventTopic.DataColumnSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -3804,6 +3804,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("attester_slashing,")
   if EventTopic.BlobSidecar in value:
     res.add("blob_sidecar,")
+  if EventTopic.DataColumnSidecar in value:
+    res.add("data_column_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:
