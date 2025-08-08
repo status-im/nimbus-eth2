@@ -297,8 +297,8 @@ template checkedReject(
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   if slot >= cfg.FULU_FORK_EPOCH.start_slot:
     let
-      maxBlobs = get_blob_parameters(cfg, slot.epoch())
-    maxBlobs.MAX_BLOBS_PER_BLOCK
+      blobParams = get_blob_parameters(cfg, slot.epoch())
+    blobParams.MAX_BLOBS_PER_BLOCK
   elif slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
     cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
   else:
