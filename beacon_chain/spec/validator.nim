@@ -450,7 +450,7 @@ func compute_proposer_indices*(
   for epochSlot in epoch.slots():
     var buffer: array[32 + 8, byte]
     buffer[0..31] = seed.data
-    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+    buffer[32..39] = uint_to_bytes(epochSlot.asUInt64)
 
     let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
     let proposerIndex = compute_proposer_index(state, indices, slotSeed)
