@@ -239,8 +239,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb and
-      typeof(signedBlock).kind < ConsensusFork.Fulu:
+  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -982,8 +981,7 @@ proc storeBlock(
           else:
             discard self.consensusManager.quarantine[].addColumnless(
               dag.finalizedHead.slot, forkyBlck)
-      elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
-          typeof(forkyBlck).kind < ConsensusFork.Fulu:
+      elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),

@@ -593,8 +593,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       executionPayloadValue: payload.blockValue,
       consensusBlockValue: val.rewards.blockConsensusValue(),
       blobsBundle: (
-        when typeof(payload).kind >= ConsensusFork.Deneb and
-             typeof(payload).kind < ConsensusFork.Fulu:
+        when typeof(payload).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           payload.blobsBundle
         else:
           default(deneb.BlobsBundle)
