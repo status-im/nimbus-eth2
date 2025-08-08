@@ -597,7 +597,6 @@ proc validateDataColumnSidecar*(
     Result[void, ValidationError] =
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
-  
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
   block:
     let v = verify_data_column_sidecar(data_column_sidecar)
