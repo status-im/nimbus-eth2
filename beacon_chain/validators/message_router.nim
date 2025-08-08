@@ -184,7 +184,7 @@ proc routeSignedBeaconBlock*(
         metadata = router[].network.metadata.custody_group_count
         custody_columns =
           router[].network.cfg.resolve_columns_from_custody_groups(
-            router[].network.node_id,
+            router[].network.nodeId,
             max(SAMPLES_PER_SLOT.uint64,
             metadata))
 
