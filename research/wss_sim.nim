@@ -305,8 +305,7 @@ cli do(validatorsDir: string, secretsDir: string,
               proposerPrivkey).toValidatorSig())
 
         dump(".", signedBlock)
-        when consensusFork >= ConsensusFork.Deneb and
-             consensusFork < ConsensusFork.Fulu:
+        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let blobs = signedBlock.create_blob_sidecars(
             payload.blobsBundle.proofs, payload.blobsBundle.blobs)
           for blob in blobs:
