@@ -411,8 +411,7 @@ proc getPayloadFromSingleEL(
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
             GetPayloadResponseType is engine_api.GetPayloadV4Response or
             GetPayloadResponseType is engine_api.GetPayloadV5Response:
-
-        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
         let response = await rpcClient.forkchoiceUpdated(
@@ -769,7 +768,6 @@ proc sendGetBlobsV2*(
     m: ELManager,
     blck: fulu.SignedBeaconBlock,
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
-
   if m.elConnections.len == 0:
     return err()
 
