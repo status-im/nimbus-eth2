@@ -14,7 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/[
-    blob_quarantine, data_column_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -30,12 +30,11 @@ import
 when defined(posix):
   import system/ansi_c
 
-from ./spec/datatypes/deneb import SignedBeaconBlock
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
+from std/algorithm import sort
+from std/sequtils import filterIt, mapIt, toSeq
+from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
+from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
@@ -413,17 +412,25 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
-        NUMBER_OF_CUSTODY_GROUPS.uint64
+        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
-        CUSTODY_REQUIREMENT.uint64
-    custody_columns_set =
-      node.network.nodeId.resolve_column_sets_from_custody_groups(
-          max(SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
+        dag.cfg.CUSTODY_REQUIREMENT
+    custodyColumns =
+      dag.cfg.resolve_columns_from_custody_groups(
+        node.network.nodeId,
+        max(dag.cfg.SAMPLES_PER_SLOT.uint64,
+            localCustodyGroups))
+
+  var sortedColumns = custodyColumns.toSeq()
+  sort(sortedColumns)
+
+  let
+    dataColumnQuarantine = newClone(ColumnQuarantine.init(
+      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -543,8 +550,8 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH,
-      getBeaconTime, (proc(): bool = syncManager.inProgress),
+      node.network, supernode, custodyColumns,
+      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
@@ -567,16 +574,11 @@ proc initFullNode(
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
-  dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.resolve_columns_from_custody_groups(
-      max(SAMPLES_PER_SLOT.uint64,
-      localCustodyGroups))
-
   if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(max(dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -602,6 +604,7 @@ proc initFullNode(
   node.dag = dag
   node.list = clist
   node.blobQuarantine = blobQuarantine
+  node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -1078,8 +1081,6 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # and then state.slot gets incremented, to increase the maximum offset, if
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
-
-from std/sequtils import toSeq
 
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
