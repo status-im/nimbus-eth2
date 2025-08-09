@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs, algorithm],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -31,6 +31,7 @@ import
 when defined(posix):
   import system/ansi_c
 
+from std/algorithm import sort
 from std/sequtils import filterIt, mapIt, toSeq
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
@@ -571,7 +572,7 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, dag.cfg, custodyColumns,
+      node.network, supernode, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)

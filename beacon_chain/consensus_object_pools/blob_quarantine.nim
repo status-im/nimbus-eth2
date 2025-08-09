@@ -710,8 +710,9 @@ func fetchMissingColumnsByRoot*(
 ): seq[DataColumnsByRootIdentifier] =
   ## Function returns a sequence of DataColumnsByRootIdentifier for data columns
   ## which are missing for the block associated with root ``blockRoot`` and block ``blck``.
-  var res: seq[DataColumnsByRootIdentifier]
-  var missingIndices: DataColumnIndices
+  var
+    res: seq[DataColumnsByRootIdentifier]
+    missingIndices: DataColumnIndices
   let record = quarantine.roots.getOrDefault(blockRoot)
 
   if len(blck.message.body.blob_kzg_commitments) == 0:
@@ -918,8 +919,8 @@ proc init*(
     onSidecarCallback: onDataColumnSidecarCallback
   )
 
-proc updateColumnQuarantine*(
-    quarantine: ColumnQuarantineRef,
+func updateColumnQuarantine*(
+    quarantine: ref ColumnQuarantine,
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex]) =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)

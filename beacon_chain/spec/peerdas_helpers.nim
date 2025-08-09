@@ -68,7 +68,6 @@ func handle_custody_groups(node_id: NodeId,
 func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
-
   # Decouples the custody group computation from
   # `get_custody_groups`, in order to later use this custody
   # group list across various types of output types

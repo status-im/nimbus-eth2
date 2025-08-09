@@ -65,14 +65,13 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
-  DataColumnResponseRecord* = object
+  DataColumnResponseRecord = object
     block_root*: Eth2Digest
     sidecar*: ref DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
-    cfg*: RuntimeConfig
     custody_columns_set: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
@@ -95,7 +94,6 @@ func shortLog*(x: seq[FetchRecord]): string =
 
 proc init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
-              cfg: RuntimeConfig,
               custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
@@ -110,7 +108,6 @@ proc init*(T: type RequestManager, network: Eth2Node,
   RequestManager(
     network: network,
     supernode: supernode,
-    cfg: cfg,
     custody_columns_set: custody_columns_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
@@ -339,9 +336,9 @@ proc checkPeerCustody(rman: RequestManager,
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          rman.cfg.resolve_columns_from_custody_groups(
+          rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
-            max(rman.cfg.SAMPLES_PER_SLOT.uint64,
+            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
