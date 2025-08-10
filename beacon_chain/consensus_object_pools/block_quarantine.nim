@@ -222,7 +222,10 @@ func removeUnviableSidecarlessTree(
 
     toRemove.setLen(0)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+# TODO revert to func when addUnviable logging gone
+proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  info "FOO8 in addUnviable", blockRoot = shortLog(root), st = getStackTrace()
+
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -236,7 +239,8 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 
   quarantine.unviable[root] = ()
 
-func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
@@ -247,7 +251,8 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
 
-func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.sidecarless:
@@ -265,7 +270,8 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.reset()
   quarantine.orphans.reset()
 
-func pruneAfterFinalization*(
+# TODO revert to func when addUnviable logging gone
+proc pruneAfterFinalization*(
     quarantine: var Quarantine,
     epoch: Epoch,
     needsBackfill: bool
