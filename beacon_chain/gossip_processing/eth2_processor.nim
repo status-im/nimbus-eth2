@@ -281,6 +281,11 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(DataColumnSidecars)
 
+    info "FOO6 enqueuing block",
+      blockRoot = shortLog(signedBlock),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
+
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
@@ -288,6 +293,11 @@ proc processSignedBeaconBlock*(
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
+    info "FOO7 enqueued block",
+      blockRoot = shortLog(signedBlock),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
 
     # Validator monitor registration for blocks is done by the processor
     beacon_blocks_received.inc()

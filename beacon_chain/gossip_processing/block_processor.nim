@@ -257,6 +257,9 @@ proc storeBackfillBlock(
         blobsOk = r.isOk()
 
   if not blobsOk:
+    info "FOO3 invalid because invalid blobs, shouldn't be triggering here",
+      blockRoot = shortLog(signedBlock.root),
+      slot = signedBlock.message.slot
     return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -268,11 +271,19 @@ proc storeBackfillBlock(
           self.consensusManager.quarantine[].unviable:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
+        info "FOO1 marking unviable because addBackfillBlock + parent",
+          blockRoot = shortLog(signedBlock.root),
+          slot = signedBlock.message.slot,
+          parentBlockRoot = shortLog(signedBlock.message.parent_root)
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
         return err(VerifierError.UnviableFork)
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
+      info "FOO2 marking unviable because addBackFillblockt",
+        blockRoot = shortLog(signedBlock.root),
+        slot = signedBlock.message.slot,
+        parentBlockRoot = shortLog(signedBlock.message.parent_root)
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else: discard
     return res
@@ -541,6 +552,10 @@ proc storeBlock(
   if signedBlock.message.parent_root in
       self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
+    info "FOO5 marking unviable because of parent root aleady being in quarantine",
+      blockRoot = shortLog(signedBlock.root),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
@@ -570,6 +585,10 @@ proc storeBlock(
 
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
+      info "FOO4 marking unviable",
+        blockRoot = shortLog(signedBlock.root),
+        slot = signedBlock.message.slot,
+        parentBlockRoot = shortLog(signedBlock.message.parent_root)
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else:
       discard
