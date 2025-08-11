@@ -1612,7 +1612,7 @@ proc ETHTransactionsCreateFromJson(
         hashForSigning: Hash32): SkResult[ExecutionAddress] =
       let
         signature = ?Signature.fromRaw(rawSig)
-        pubkey = ?signature.recover(SkMessage(hash.data()))
+        pubkey = ?signature.recover(SkMessage(hashForSigning.data()))
 
       ok pubkey.toCanonicalAddress()
 
