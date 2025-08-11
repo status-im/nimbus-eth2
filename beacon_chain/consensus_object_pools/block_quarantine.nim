@@ -166,7 +166,7 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func removeUnviableOrphanTree(
+proc removeUnviableOrphanTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
@@ -192,13 +192,15 @@ func removeUnviableOrphanTree(
 
     for k in toRemove:
       tbl.del k
+      info "FOO9 in removeUnviableOrphans",
+        blockRoot = shortLog(k[0])
       quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
 
   checked
 
-func removeUnviableSidecarlessTree(
+proc removeUnviableSidecarlessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
@@ -218,6 +220,8 @@ func removeUnviableSidecarlessTree(
 
     for k in toRemove:
       tbl.del k
+      info "FOOA in removeUnviableSidecarlessTree",
+        blockRoot = shortLog(k)
       quarantine.unviable[k] = ()
 
     toRemove.setLen(0)

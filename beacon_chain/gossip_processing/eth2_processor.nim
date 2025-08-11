@@ -281,7 +281,7 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(DataColumnSidecars)
 
-    info "FOO6 enqueuing block",
+    info "BAR6 enqueuing block",
       blockRoot = shortLog(signedBlock),
       slot = signedBlock.message.slot,
       parentBlockRoot = shortLog(signedBlock.message.parent_root)
@@ -294,7 +294,7 @@ proc processSignedBeaconBlock*(
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
-    info "FOO7 enqueued block",
+    info "BAR7 enqueued block",
       blockRoot = shortLog(signedBlock),
       slot = signedBlock.message.slot,
       parentBlockRoot = shortLog(signedBlock.message.parent_root)
