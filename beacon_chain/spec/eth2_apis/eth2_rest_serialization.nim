@@ -1320,7 +1320,7 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitArray) {.raises: [IOError].} =
   writeValue(writer, to0xHex(value.bytes))
 
-## BlockHash/Hash32
+## Hash32
 proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
      raises: [IOError, SerializationError].} =
   try:
