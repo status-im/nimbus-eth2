@@ -67,7 +67,7 @@ jobs:
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Restore llvm-mingw (Windows) from cache
         if: runner.os == 'Windows'
@@ -203,7 +203,7 @@ jobs:
     runs-on: ['self-hosted','ubuntu-22.04']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -229,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           submodules: 'recursive'
