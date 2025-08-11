@@ -60,7 +60,7 @@ type
     maxDiskSidecarsCount: int
     diskSidecarsCount: int
     maxSidecarsPerBlockCount: int
-    custodyColumns: seq[ColumnIndex]
+    custodyColumns*: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     memUsage: OrderedSet[Eth2Digest]
@@ -72,7 +72,7 @@ type
   OnBlobSidecarCallback* = proc(
     data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
   OnDataColumnSidecarCallback* = proc(
-    data: DataColumnSidecar) {.gcsafe, raises: [].}
+    data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
@@ -699,6 +699,79 @@ func fetchMissingSidecars*(
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
 
+func fetchMissingColumnsByRoot*(
+    quarantine: ColumnQuarantine,
+    blockRoot: Eth2Digest,
+    blck: fulu.SignedBeaconBlock,
+    peerCustodyColumns: openArray[ColumnIndex] = []
+): seq[DataColumnsByRootIdentifier] =
+  ## Function returns a sequence of DataColumnsByRootIdentifier for data columns
+  ## which are missing for the block associated with root ``blockRoot`` and block ``blck``.
+  var
+    res: seq[DataColumnsByRootIdentifier]
+    missingIndices: DataColumnIndices
+  let record = quarantine.roots.getOrDefault(blockRoot)
+
+  if len(blck.message.body.blob_kzg_commitments) == 0:
+    # Fast-path if block does not have any columns
+    return res
+
+  let
+    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
+    columnsCount =
+      if supernode:
+        (NUMBER_OF_COLUMNS div 2 + 1)
+      else:
+        len(quarantine.custodyColumns)
+
+  if supernode:
+    let
+      columns =
+        if len(peerCustodyColumns) > 0:
+          @peerCustodyColumns
+        else:
+          quarantine.custodyColumns
+    if len(record.sidecars) == 0:
+      var columnsRequested = 0
+      for column in columns:
+        if columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
+          break
+        discard missingIndices.add(column)
+        inc(columnsRequested)
+    else:
+      if record.count >= columnsCount:
+        return res
+      var columnsRequested = 0
+      for column in columns:
+        if record.count + columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
+          break
+        let index = quarantine.getIndex(column)
+        if (index == -1) or record.sidecars[index].isEmpty():
+          discard missingIndices.add(column)
+          inc(columnsRequested)
+  else:
+    let peerMap =
+      if len(peerCustodyColumns) > 0:
+        ColumnMap.init(peerCustodyColumns)
+      else:
+        ColumnMap.init(quarantine.custodyColumns)
+    if len(record.sidecars) == 0:
+      for column in (peerMap and quarantine.custodyMap).items():
+        discard missingIndices.add(column)
+    else:
+      for column in (peerMap and quarantine.custodyMap).items():
+        let index = quarantine.getIndex(column)
+        if (index == -1) or (record.sidecars[index].isEmpty()):
+          discard missingIndices.add(column)
+
+  if missingIndices.len > 0:
+    res.add(DataColumnsByRootIdentifier(block_root: blockRoot, indices: missingIndices))
+  res
+
 proc pruneAfterFinalization*(
     quarantine: var BlobQuarantine,
     epoch: Epoch,
@@ -808,7 +881,7 @@ proc init*(
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onBlobSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
@@ -840,5 +913,23 @@ proc init*(
     custodyColumns: @custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
     db: database,
-    onSidecarCallback: onBlobSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback
   )
+
+func updateColumnQuarantine*(
+    quarantine: ref ColumnQuarantine,
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex]) =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
+  for index, item in custodyColumns.pairs():
+    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+    indexMap[int(item)] = index
+
+  quarantine.maxSidecarsPerBlockCount = len(custodyColumns)
+  quarantine.indexMap = indexMap
+  quarantine.custodyColumns = @custodyColumns
+  quarantine.custodyMap = ColumnMap.init(custodyColumns)

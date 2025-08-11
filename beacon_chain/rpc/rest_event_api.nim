@@ -163,6 +163,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
                                               "blob_sidecar")
           res.add(handler)
+        if EventTopic.DataColumnSidecar in eventTopics:
+          let handler = response.eventHandler(node.eventBus.columnSidecarQueue,
+                                              "data_column_sidecar")
+          res.add(handler)
         if EventTopic.FinalizedCheckpoint in eventTopics:
           let handler = response.eventHandler(node.eventBus.finalQueue,
                                               "finalized_checkpoint")

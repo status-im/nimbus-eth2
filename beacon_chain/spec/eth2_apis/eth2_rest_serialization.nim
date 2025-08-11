@@ -50,6 +50,7 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecarInfoObject,
   DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
@@ -341,6 +342,7 @@ const
 type
   EncodeTypes* =
     BlobSidecarInfoObject |
+    DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -3762,6 +3764,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.AttesterSlashing)
   of "blob_sidecar":
     ok(EventTopic.BlobSidecar)
+  of "data_column_sidecar":
+    ok(EventTopic.DataColumnSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -3797,6 +3801,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("attester_slashing,")
   if EventTopic.BlobSidecar in value:
     res.add("blob_sidecar,")
+  if EventTopic.DataColumnSidecar in value:
+    res.add("data_column_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:

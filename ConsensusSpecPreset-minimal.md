@@ -97,8 +97,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -614,8 +614,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1164,8 +1164,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1817,8 +1817,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -2568,8 +2568,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -3499,8 +3499,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -4366,8 +4366,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK

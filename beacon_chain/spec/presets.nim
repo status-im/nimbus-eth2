@@ -334,6 +334,7 @@ when const_preset == "mainnet":
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/beacon-chain.md#new-get_blob_parameters
     # provides sorting rules.
     BLOB_SCHEDULE: @[

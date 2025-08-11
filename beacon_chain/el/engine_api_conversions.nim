@@ -218,9 +218,8 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeFulu*(
-    payload: GetPayloadV4Response):
-    fulu.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asFuluConsensusPayload,
     blockValue: payload.blockValue,
