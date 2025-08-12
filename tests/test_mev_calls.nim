@@ -15,8 +15,7 @@ import
   chronos/unittest2/asynctests,
   ../beacon_chain/spec/[presets, crypto, signatures, eth2_ssz_serialization,
                         helpers, forks],
-  ../beacon_chain/spec/mev/[electra_mev, fulu_mev, rest_electra_mev_calls,
-                            rest_fulu_mev_calls],
+  ../beacon_chain/spec/mev/[electra_mev, fulu_mev, rest_mev_calls],
   ../beacon_chain/rpc/rest_utils
 
 from std/times import Time, toUnix, fromUnix, getTime
@@ -367,13 +366,13 @@ proc testSuite() =
 
       let
         response1 =
-          await client.getHeaderElectraPlain(ElectraSlot, parent_hash,
+          await client.getHeaderPlain(ElectraSlot, parent_hash,
             publicKey, restAcceptType = restAcceptType1)
         response2 =
-          await client.getHeaderElectraPlain(ElectraSlot, parent_hash,
+          await client.getHeaderPlain(ElectraSlot, parent_hash,
             publicKey, restAcceptType = restAcceptType2)
         response3 =
-          await client.getHeaderFuluPlain(FuluSlot, parent_hash,
+          await client.getHeaderPlain(FuluSlot, parent_hash,
             publicKey, restAcceptType = restAcceptType3)
 
       check:
@@ -500,7 +499,7 @@ proc testSuite() =
             extraHeaders = @[("eth-consensus-version",
                               toString(ConsensusFork.Electra))])
         response3 =
-          await client.submitBlindedBlockPlain(
+          await client.submitBlindedBlockV2Plain(
             blck3,
             restContentType = restContentType3,
             restAcceptType = restAcceptType3,

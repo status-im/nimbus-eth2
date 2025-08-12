@@ -146,8 +146,6 @@ switch("passL", "-fno-omit-frame-pointer")
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
-switch("import", "testutils/moduletests")
-
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
@@ -180,6 +178,7 @@ if canEnableDebuggingSymbols:
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
 switch("warningAsError", "BareExcept:on")
+switch("warningAsError", "CStringConv:on")
 switch("warningAsError", "UnusedImport:on")
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"

@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, deneb]
+import ".."/datatypes/[altair, bellatrix, deneb]
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import Attestation, AttesterSlashing
-from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/eth2_merkleization import hash_tree_root
 
@@ -95,7 +94,7 @@ func toSignedBlindedBeaconBlock*(blck: deneb.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
-        execution_payload_header: ExecutionPayloadHeader(
+        execution_payload_header: deneb.ExecutionPayloadHeader(
           parent_hash: blck.message.body.execution_payload.parent_hash,
           fee_recipient: blck.message.body.execution_payload.fee_recipient,
           state_root: blck.message.body.execution_payload.state_root,

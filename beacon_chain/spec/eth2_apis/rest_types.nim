@@ -56,7 +56,7 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, SingleAttestation,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate
 

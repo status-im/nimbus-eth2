@@ -13,8 +13,7 @@ import stew/assign2
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_electra_mev_calls import submitBlindedBlock
-from ../spec/mev/rest_fulu_mev_calls import submitBlindedBlock
+from ../spec/mev/rest_mev_calls import submitBlindedBlock
 
 const
   BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
@@ -45,9 +44,7 @@ macro copyFields*(
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
-    blindedBlock:
-      electra_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock):
+    blindedBlock: ForkySignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
   info "Proposing blinded Builder API block",
     blindedBlock = shortLog(blindedBlock)

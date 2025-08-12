@@ -30,10 +30,43 @@ iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
     yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
 
+iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
+                                            custody_group: CustodyIndex):
+                                            ColumnIndex =
+  for i in 0'u64 ..< COLUMNS_PER_GROUP:
+    yield ColumnIndex(cfg.NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
+
 func handle_custody_groups(node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
+  # Decouples the custody group computation from
+  # `get_custody_groups`, in order to later use this custody
+  # group list across various types of output types
 
+  var
+    custody_groups: HashSet[CustodyIndex]
+    current_id = node_id
+
+  while custody_groups.lenu64 < custody_group_count:
+    var hashed_bytes: array[8, byte]
+
+    let
+      current_id_bytes = current_id.toBytesLE()
+      hashed_current_id = eth2digest(current_id_bytes)
+
+    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
+    let custody_group = bytes_to_uint64(hashed_bytes) mod
+      NUMBER_OF_CUSTODY_GROUPS
+
+    custody_groups.incl custody_group
+
+    inc current_id
+
+  custody_groups
+
+func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
+                           custody_group_count: CustodyIndex):
+                           HashSet[CustodyIndex] =
   # Decouples the custody group computation from
   # `get_custody_groups`, in order to later use this custody
   # group list across various types of output types
@@ -61,8 +94,8 @@ func handle_custody_groups(node_id: NodeId,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_custody_groups
 func get_custody_groups*(node_id: NodeId,
-                        custody_group_count: CustodyIndex):
-                        seq[CustodyIndex] =
+                         custody_group_count: CustodyIndex):
+                         seq[CustodyIndex] =
   let custody_groups =
     node_id.handle_custody_groups(custody_group_count)
 
@@ -70,25 +103,26 @@ func get_custody_groups*(node_id: NodeId,
   groups.sort()
   groups
 
-func resolve_columns_from_custody_groups*(node_id: NodeId,
+func get_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
+                         custody_group_count: CustodyIndex):
+                         seq[CustodyIndex] =
+  let custody_groups =
+    cfg.handle_custody_groups(node_id, custody_group_count)
+
+  var groups = custody_groups.toSeq()
+  groups.sort()
+  groups
+
+func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
-                                          seq[ColumnIndex] =
-
-  let
-    custody_groups = node_id.get_custody_groups(custody_group_count)
-
-  var flattened =
-    newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
+                                          HashSet[ColumnIndex] =
+  ## Returns a set of unique columns for the custody groups of a node.
+  let custody_groups = node_id.get_custody_groups(custody_group_count)
+  var columns: HashSet[ColumnIndex]
   for group in custody_groups:
-    for index in compute_columns_for_custody_group(group):
-       flattened.add index
-  flattened
-
-func resolve_column_sets_from_custody_groups*(node_id: NodeId,
-                                    custody_group_count: CustodyIndex):
-                                    HashSet[ColumnIndex] =
-
-  node_id.resolve_columns_from_custody_groups(custody_group_count).toHashSet()
+    for index in compute_columns_for_custody_group(cfg, group):
+      columns.incl index
+  columns
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
@@ -290,7 +324,24 @@ func get_extended_sample_count*(samples_per_slot: int,
 
   NUMBER_OF_COLUMNS
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
+proc verify_data_column_sidecar*(sidecar: DataColumnSidecar):
+                                 Result[void, cstring] =
+  ## Verify if the data column sidecar is valid.
+
+  if sidecar.index >= NUMBER_OF_COLUMNS:
+    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+
+  if sidecar.kzg_commitments.len == 0:
+    return err("Data column contains zero blob")
+
+  if sidecar.column.len != sidecar.kzg_commitments.len or
+      sidecar.column.len != sidecar.kzg_proofs.len:
+    return err("Data column length must be equal to the number of commitments/proofs")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
@@ -307,22 +358,10 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
-
-  # Check if the data column sidecar index < NUMBER_OF_COLUMNS
-  if not (sidecar.index < NUMBER_OF_COLUMNS):
-    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
-
-  # Check is the sidecar column length = sidecar.kzg_commitments length
-  # and sidecar.kzg_commitments length = sidecar.kzg_proofs length
-  if not (sidecar.column.len == sidecar.kzg_commitments.len):
-    return err("Data column sidecar length is not equal to the kzg_commitments length")
-
-  if not (sidecar.kzg_commitments.len == sidecar.kzg_proofs.len):
-    return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
   var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
