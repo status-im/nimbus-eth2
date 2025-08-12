@@ -102,12 +102,12 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     # behind is currently undergoing excess column refilling.
     vcus.dag.erSlot = slot
     let dataColumnRefillEpoch = (slot.epoch -
-                                vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-    var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int - 1
+                                 vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+    var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
     if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-      var blocks = newSeq[BlockId](vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int)
+      var blocks = newSeq[BlockId](numberOfColumnEpochs)
       let startIndex = vcus.dag.getBlockRange(
-        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs))
+        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs - 1))
       for i in startIndex..<numberOfColumnEpochs.int:
         let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
         withBlck(blck):
