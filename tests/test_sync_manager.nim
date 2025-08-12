@@ -45,6 +45,9 @@ func getStaticSlotCb(slot: Slot): GetSlotCallback =
     slot
   getSlot
 
+proc testforkAtEpoch(epoch: Epoch): ConsensusFork =
+  ConsensusFork.Phase0
+
 type
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
@@ -60,6 +63,10 @@ func createChain(slots: Slice[Slot]): seq[ref ForkedSignedBeaconBlock] =
 
 proc createChain(srange: SyncRange): seq[ref ForkedSignedBeaconBlock] =
   createChain(srange.slot .. (srange.slot + srange.count - 1))
+
+func cmp(request: SyncRequest[SomeTPeer], srange: Slice[Slot]): bool =
+  (request.data.start_slot() == srange.a) and
+  (request.data.last_slot() == srange.b)
 
 func createBlobs(
     blocks: var seq[ref ForkedSignedBeaconBlock],
@@ -167,14 +174,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(127), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(127)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer = SomeTPeer.init("1")
         r1 = sq.pop(Slot(127), peer)
         r2 = sq.pop(Slot(127), peer)
@@ -245,14 +254,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(127), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(127)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -366,14 +377,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(63), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(63)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -466,14 +479,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(63), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(63)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -614,14 +629,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(63), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(63)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -748,14 +765,16 @@ suite "SyncManager test suite":
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
-                           verifier.collector)
+                           verifier.collector,
+                           testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(95), Slot(0),
                            32'u64, # 32 slots per request
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(127)),
-                           verifier.collector)
+                           verifier.collector,
+                           testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -886,14 +905,16 @@ suite "SyncManager test suite":
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
-                           verifier.collector)
+                           verifier.collector,
+                           testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(159), Slot(0),
                            32'u64, # 32 slots per request
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(159)),
-                           verifier.collector)
+                           verifier.collector,
+                           testforkAtEpoch)
         slots =
           case kind
           of SyncQueueKind.Forward:
@@ -987,14 +1008,16 @@ suite "SyncManager test suite":
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(0)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, kind, Slot(63), Slot(0),
                             32'u64, # 32 slots per request
                             3, # 3 concurrent requests
                             2, # 2 failures allowed
                             getStaticSlotCb(Slot(63)),
-                            verifier.collector)
+                            verifier.collector,
+                            testforkAtEpoch)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -1078,6 +1101,139 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
+    test "[SyncQueue# & " & $kind & "] epochFilter() test":
+      let
+        aq = newAsyncQueue[BlockEntry]()
+        scenario =
+          case kind
+          of SyncQueueKind.Forward:
+            @[
+              (
+                Slot(0), 128, 13,
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix],
+                @[Slot(0)..Slot(12), Slot(13)..Slot(25), Slot(26)..Slot(31),
+                  Slot(32)..Slot(44), Slot(45)..Slot(57), Slot(58)..Slot(63),
+                  Slot(64)..Slot(76)]
+              ),
+              (
+                Slot(0), 128, 31,
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(0)..Slot(30), Slot(31)..Slot(31), Slot(32)..Slot(62),
+                  Slot(63)..Slot(63), Slot(64)..Slot(94), Slot(95)..Slot(95),
+                  Slot(96)..Slot(126)]
+              ),
+              (
+                Slot(0), 128, 32, # Size of chunk equal to SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(0)..Slot(31), Slot(32)..Slot(63), Slot(64)..Slot(95),
+                  Slot(96)..Slot(127)]
+              ),
+              (
+                Slot(0), 192, 33, # Size of chunk bigger than SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(0)..Slot(31), Slot(32)..Slot(63), Slot(64)..Slot(95),
+                  Slot(96)..Slot(128), Slot(129)..Slot(161)]
+              ),
+              (
+                Slot(0), 192, 192, # Size of chunk bigger than SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella,
+                  ConsensusFork.Deneb, ConsensusFork.Electra],
+                @[Slot(0)..Slot(31), Slot(32)..Slot(63), Slot(64)..Slot(95),
+                  Slot(96)..Slot(127)]
+              )
+            ]
+          of SyncQueueKind.Backward:
+            @[
+              (
+                Slot(95), 96, 13,
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix],
+                @[Slot(83)..Slot(95), Slot(70)..Slot(82), Slot(64)..Slot(69),
+                  Slot(51)..Slot(63), Slot(38)..Slot(50), Slot(32)..Slot(37),
+                  Slot(19)..Slot(31), Slot(6)..Slot(18), Slot(0)..Slot(5)]
+              ),
+              (
+                Slot(127), 128, 31,
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(97)..Slot(127), Slot(96)..Slot(96), Slot(65)..Slot(95),
+                  Slot(64)..Slot(64), Slot(33)..Slot(63), Slot(32)..Slot(32),
+                  Slot(1)..Slot(31), Slot(0)..Slot(0)]
+              ),
+              (
+                Slot(127), 128, 32, # Size of chunk equal to SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(96)..Slot(127), Slot(64)..Slot(95), Slot(32)..Slot(63),
+                  Slot(0)..Slot(31)]
+              ),
+              (
+                Slot(127), 128, 33, # Size of chunk bigger than SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(96)..Slot(127), Slot(64)..Slot(95), Slot(32)..Slot(63),
+                  Slot(0)..Slot(31)]
+              ),
+              (
+                Slot(127), 128, 128, # Size of chunk bigger than SLOTS_PER_EPOCH
+                @[ConsensusFork.Phase0, ConsensusFork.Altair,
+                  ConsensusFork.Bellatrix, ConsensusFork.Capella],
+                @[Slot(96)..Slot(127), Slot(64)..Slot(95), Slot(32)..Slot(63),
+                  Slot(0)..Slot(31)]
+              )
+            ]
+
+      func epochManager(epochs: openArray[ConsensusFork]): ForkAtEpochCallback =
+        var epochsSeq = @epochs
+        proc forkAtEpoch(epoch: Epoch): ConsensusFork =
+          let index = int(epoch)
+          if index >= len(epochsSeq):
+            epochsSeq[^1]
+          elif index < 0:
+            epochsSeq[0]
+          else:
+            epochsSeq[index]
+        forkAtEpoch
+
+      for vector in scenario:
+        case kind
+        of SyncQueueKind.Forward:
+          let
+            maxSlot = vector[0] + uint64(vector[1]) - 1'u64
+            sq =
+              SyncQueue.init(SomeTPeer, kind, vector[0], maxSlot,
+                             uint64(vector[2]),
+                             9, # 8 concurrent requests
+                             2, # 2 failures allowed
+                             getStaticSlotCb(Slot(0)),
+                             collector(aq),
+                             epochManager(vector[3]))
+            peer = SomeTPeer.init("1")
+          for srange in vector[4]:
+            let request = sq.pop(maxSlot, peer)
+            check cmp(request, srange)
+        of SyncQueueKind.Backward:
+          let
+            minSlot = vector[0] + 1'u64 - uint64(vector[1])
+            maxSlot = vector[0]
+            sq =
+              SyncQueue.init(SomeTPeer, kind, vector[0], minSlot,
+                             uint64(vector[2]),
+                             9, # 8 concurrent requests
+                             2, # 2 failures allowed
+                             getStaticSlotCb(Slot(0)),
+                             collector(aq),
+                             epochManager(vector[3]))
+            peer = SomeTPeer.init("1")
+          for srange in vector[4]:
+            let request = sq.pop(maxSlot, peer)
+            check cmp(request, srange)
+
   asyncTest "[SyncQueue#Forward] Missing parent and exponential rewind " &
             "[3 peers] test":
     let
@@ -1107,7 +1263,8 @@ suite "SyncManager test suite":
                           3, # 3 concurrent requests
                           2, # 2 failures allowed
                           getStaticSlotCb(Slot(0)),
-                          verifier.collector)
+                          verifier.collector,
+                          testforkAtEpoch)
       peer1 = SomeTPeer.init("1")
       peer2 = SomeTPeer.init("2")
       peer3 = SomeTPeer.init("3")
@@ -1269,7 +1426,8 @@ suite "SyncManager test suite":
                           3, # 3 concurrent requests
                           2, # 2 failures allowed
                           getStaticSlotCb(Slot(159)),
-                          verifier.collector)
+                          verifier.collector,
+                          testforkAtEpoch)
       peer1 = SomeTPeer.init("1")
       peer2 = SomeTPeer.init("2")
       peer3 = SomeTPeer.init("3")
@@ -1437,7 +1595,7 @@ suite "SyncManager test suite":
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq))
+                               collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(0'u64))
         epochStartSlot = start_slot(Epoch(0'u64)) + 1'u64
         finishSlot = start_slot(Epoch(2'u64))
@@ -1450,7 +1608,7 @@ suite "SyncManager test suite":
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq))
+                               collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(1'u64))
         epochStartSlot = start_slot(Epoch(1'u64)) + 1'u64
         finishSlot = start_slot(Epoch(3'u64))
@@ -1463,7 +1621,7 @@ suite "SyncManager test suite":
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq))
+                               collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(0'u64))
         failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
         failEpoch = epoch(failSlot)
@@ -1482,7 +1640,7 @@ suite "SyncManager test suite":
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq))
+                               collector(aq), testforkAtEpoch)
       let
         finalizedSlot = start_slot(Epoch(1'u64))
         failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
@@ -1505,7 +1663,8 @@ suite "SyncManager test suite":
         getSafeSlot = getStaticSlotCb(Slot(1024))
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                                Slot(1024), Slot(0),
-                               1'u64, 3, 2, getSafeSlot, collector(aq))
+                               1'u64, 3, 2, getSafeSlot, collector(aq),
+                               testforkAtEpoch)
         safeSlot = getSafeSlot()
 
       for i in countdown(1023, 0):
