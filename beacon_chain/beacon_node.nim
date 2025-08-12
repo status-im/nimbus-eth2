@@ -31,7 +31,7 @@ import
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
-  ./sync/[sync_manager, request_manager, sync_types, validator_custody],
+  ./sync/[sync_overseer2, sync_manager, request_manager, sync_types, validator_custody],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -44,7 +44,7 @@ export
   eth2_network, el_manager, request_manager, sync_manager, eth2_processor,
   block_processor_light_client, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
-  consensus_manager, dynamic_fee_recipients, sync_types
+  consensus_manager, dynamic_fee_recipients, sync_types, sync_overseer2
 
 type
   EventBus* = object
@@ -113,7 +113,7 @@ type
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     untrustedManager*: SyncManager[Peer, PeerId]
-    syncOverseer*: SyncOverseerRef
+    syncOverseer*: SyncOverseerRef2
     processor*: ref Eth2Processor
     batchVerifier*: ref BatchVerifier
     blockProcessor*: ref BlockProcessor

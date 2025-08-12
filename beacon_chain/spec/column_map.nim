@@ -106,9 +106,9 @@ func len*(a: ColumnMap): int =
   countOnes(a.data[0]) + countOnes(a.data[1])
 
 func `$`*(a: ColumnMap): string =
-  "[" & a.mapIt($it).join(", ") & "]"
+  "[" & a.items().toSeq().mapIt($it).join(",") & "]"
 
 func shortLog*(a: ColumnMap): string =
-  if len(a) > NUMBER_OF_COLUMNS div 2:
+  if len(a) == NUMBER_OF_COLUMNS:
     return "[supernode]"
   $a
