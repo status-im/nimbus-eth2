@@ -14,7 +14,7 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
-  ./[sync_protocol, sync_queue]
+  "."/[sync_protocol, sync_queue, response_utils]
 
 from std/sequtils import filterIt, mapIt
 from std/strutils import ffDecimal
