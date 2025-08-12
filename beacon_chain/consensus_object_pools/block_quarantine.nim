@@ -222,7 +222,7 @@ proc removeUnviableSidecarlessTree(
       tbl.del k
       info "FOOA in removeUnviableSidecarlessTree",
         blockRoot = shortLog(k)
-      quarantine.unviable[k] = ()
+      #quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 
@@ -265,7 +265,7 @@ proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
         toDel.add k
 
   for k in toDel:
-    quarantine.addUnviable k
+    quarantine.addUnviable k    # why?
     quarantine.sidecarless.del k
 
 func clearAfterReorg*(quarantine: var Quarantine) =
