@@ -18,8 +18,9 @@ import
   ./rest_utils,
   ../el/el_manager,
   ../spec/[forks, beacon_time, peerdas_helpers, column_map],
-  ../sync/validator_custody,
-  ../beacon_node, ../nimbus_binary_common
+  ../sync/[validator_custody, sync_queue],
+  ../beacon_node, ../nimbus_binary_common,
+  ../consensus_object_pools/[column_quarantine, envelope_quarantine]
 
 export rest_utils
 
@@ -171,10 +172,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         justified_block_root: justified.root.data.toHex()
       )
     )
-
-  router.api2(MethodGet, "/nimbus/v1/syncmanager/status") do (
-    ) -> RestApiResponse:
-    RestApiResponse.jsonResponse(node.syncManager.inProgress)
 
   router.api2(MethodGet, "/nimbus/v1/node/peerid") do (
     ) -> RestApiResponse:
@@ -654,3 +651,47 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res =
         "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/sync/queues") do (
+    ) -> RestApiResponse:
+    let res = "{\"data\": {" &
+      "\"forward_blocks_queue\":" &
+        node.syncOverseer.fqueue.debugJsonDump() & "," &
+      "\"forward_sidecars_queue\":" &
+        node.syncOverseer.fsqueue.debugJsonDump() & "," &
+      "\"backward_blocks_queue\":" &
+        node.syncOverseer.bqueue.debugJsonDump() & "," &
+      "\"backward_sidecars_queue\":" &
+        node.syncOverseer.bsqueue.debugJsonDump() &
+    "}}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/sync/roots") do (
+    ) -> RestApiResponse:
+    let res = "{\"data\":" & node.syncOverseer.debugRootSyncJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/{structure}") do (
+    structure: string) -> RestApiResponse:
+    let res =
+      case toLowerAscii(structure.get())
+      of "sidecarless":
+        node.quarantine[].debugSidecarlessJsonDump()
+      of "missing":
+        node.quarantine[].debugMissingJsonDump()
+      of "orphans":
+        node.quarantine[].debugOrphansJsonDump()
+      of "unviables":
+        node.quarantine[].debugUnviablesJsonDump()
+      of "fulu_column_quarantine":
+        node.fuluColumnQuarantine[].debugJsonDump()
+      of "gloas_column_quarantine":
+        node.gloasColumnQuarantine[].debugJsonDump()
+      of "sync_dag":
+        node.syncOverseer.sdag.debugJsonDump(node.dag)
+      of "envelope_quarantine":
+        node.syncOverseer.gloasEnvelopeQuarantine[].debugJsonDump()
+      else:
+        return RestApiResponse.response("Page not found", Http404, "text/plain")
+    RestApiResponse.response(
+      "{\"data\":" & res & "}\n", Http200, "application/json")

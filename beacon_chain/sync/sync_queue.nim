@@ -7,50 +7,79 @@
 
 {.push raises: [].}
 
-import std/[deques, heapqueue, tables, strutils, sequtils, math, typetraits]
+import std/[
+  deques, heapqueue, sets, tables, strutils, sequtils, math, typetraits]
 import stew/base10, chronos, chronicles, results
 import
-  ../spec/[helpers, forks],
+  ../spec/[helpers, forks, column_map],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,
-  ../consensus_object_pools/block_pools_types
+  ../consensus_object_pools/block_pools_types,
+  ./[sync_range, sync_response]
 
 export base, phase0, altair, merge, chronos, chronicles, results,
-       block_pools_types, helpers
+       block_pools_types, helpers, sync_response, sync_range
 
 type
+  SyncVerifierError* {.pure.} = enum
+    Invalid, InvalidSidecars, MissingParent, UnviableFork, Duplicate,
+    MissingSidecars, MissingEnvelope
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
-  BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+  PeerMapCallback*[T] = proc(peer: T): ColumnMap {.gcsafe, raises: [].}
+  LocalColumnMapCallback* = proc(): ColumnMap {.gcsafe, raises: [].}
+  MissingMapCallback* = proc(bid: BlockId): ColumnMap {.gcsafe, raises: [].}
+  BlockVerifier* =
+    proc(signedBlock: SyncResponseItem, maybeFinalized: bool):
+      Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =
     proc(epoch: Epoch): ConsensusFork {.gcsafe, raises: [].}
 
-  SyncRange* = object
-    slot*: Slot
-    count*: uint64
+  UniqueId* = distinct uint64
 
   SyncPosition* = object
     qindex*: int
     sindex*: int
 
-  SyncQueueKind* {.pure.} = enum
-    Forward, Backward
-
   SyncRequestFlag* {.pure.} = enum
     Void
 
+  SyncRequestReason* {.pure.} = enum
+    NoMoreSpace, PeerSlotKnowledge, TooBigDistance
+
+  BlockCompleteness* = object
+    count: int
+    done: bool
+
+  ColumnItem = object
+    map: ColumnMap
+    count: int
+    agent: string
+
+  ColumnCompleteness* = object
+    count: int
+    done: bool
+    missingMap: ColumnMap
+    keys: Table[string, ColumnItem]
+
+  SyncRequestState {.pure.} = enum
+    Download, Queue, Process, Done
+
   SyncRequest*[T] = object
     kind*: SyncQueueKind
+    id*: UniqueId
     data*: SyncRange
     flags*: set[SyncRequestFlag]
+    reason*: SyncRequestReason
+    state: SyncRequestState
+    createMoment*: chronos.Moment
     item*: T
 
-  SyncQueueItem[T] = object
-    requests: seq[SyncRequest[T]]
+  SyncQueueItem[M, N] = object
+    requests: seq[SyncRequest[M]]
     data: SyncRange
+    completeness: N
     failuresCount: Natural
     voidsCount: Natural
 
@@ -59,22 +88,26 @@ type
     request: SyncRequest[T]
     resetFlag: bool
 
-  SyncProcessError {.pure.} = enum
+  SyncProcessError* {.pure.} = enum
     Invalid,
     MissingParent,
-    GoodAndMissingParent,
     UnviableFork,
     Duplicate,
     Empty,
+    MissingSidecars,
+    MissingEnvelope,
+    InvalidSidecars,
+    NoRelevant,
     NoError
-
-  SyncBlock = object
-    slot: Slot
-    root: Eth2Digest
 
   SyncProcessingResult = object
     code: SyncProcessError
-    blck: Opt[SyncBlock]
+    blck: Opt[BlockId]
+
+  SyncPushResponse* = object
+    code*: SyncProcessError
+    count*: int64
+    blck*: Opt[BlockId]
 
   GapItem[T] = object
     data: SyncRange
@@ -84,7 +117,7 @@ type
     failSlot: Slot
     epochCount: uint64
 
-  SyncQueue*[T] = ref object
+  SyncQueue*[M, N] = ref object
     kind*: SyncQueueKind
     inpSlot*: Slot
     outSlot*: Slot
@@ -94,38 +127,78 @@ type
     chunkSize: uint64
     requestsCount: Natural
     failureResetThreshold: Natural
-    requests: Deque[SyncQueueItem[T]]
+    maxSlotDistance: Natural
+    requests: Deque[SyncQueueItem[M, N]]
     getSafeSlot: GetSlotCallback
     blockVerifier: BlockVerifier
     forkAtEpoch: ForkAtEpochCallback
-    waiters: seq[SyncWaiterItem[T]]
-    gapList: seq[GapItem[T]]
+    cbGetColumnMap: PeerMapCallback[M]
+    cbGetMissingMap: MissingMapCallback
+    cbGetLocalColumnMap: LocalColumnMapCallback
+    waiters: seq[SyncWaiterItem[M]]
+    gapList: seq[GapItem[M]]
     lock: AsyncLock
+    uniqId: uint64
+    skipId: uint64
     ident: string
 
+template shortLog*[T](req: SyncRequest[T]): string =
+  if (req.data.slot == FAR_FUTURE_SLOT) and (req.data.count == 0):
+    "[empty]"
+  else:
+    $req.data & "@" & Base10.toString(req.data.count)
+
+template shortLog(s: SyncRequestState): string =
+  case s
+  of SyncRequestState.Download: "downloading"
+  of SyncRequestState.Queue: "waiting"
+  of SyncRequestState.Process: "processing"
+  of SyncRequestState.Done: "finished"
+
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
-
-proc `$`*(srange: SyncRange): string =
-  "[" & Base10.toString(uint64(srange.slot)) & ":" &
-  Base10.toString(uint64(srange.slot + srange.count - 1)) & "]"
-
-template shortLog[T](req: SyncRequest[T]): string =
-  $req.data & "@" & Base10.toString(req.data.count)
-
 chronicles.expandIt SyncRequest:
   `it` = shortLog(it)
   peer = shortLog(it.item)
   direction = toLowerAscii($it.kind)
 
-chronicles.formatIt Opt[SyncBlock]:
-  if it.isSome():
-    Base10.toString(uint64(it.get().slot)) & "@" & shortLog(it.get().root)
+func shortLog(s: set[SyncRequestFlag]): string =
+  var res = "["
+  if SyncRequestFlag.Void in s:
+    res.add("void")
+  res.add("]")
+  res
+
+func shortLog(data: BlockCompleteness): string =
+  if data.done:
+    "complete"
   else:
-    "<n/a>"
+    $data.count
+
+func shortLog(data: ColumnCompleteness): string =
+  if data.done:
+    "complete"
+  else:
+    $len(data.missingMap)
+
+func getId[M, N](sq: SyncQueue[M, N]): UniqueId =
+  inc(sq.uniqId)
+  UniqueId(sq.uniqId)
+
+proc shortLog*[M, N](sq: SyncQueue[M, N]): string =
+  if isNil(sq):
+    "[empty]"
+  else:
+    let start =
+      case sq.kind
+      of SyncQueueKind.Forward:
+        "[F:"
+      of SyncQueueKind.Backward:
+        "[B:"
+    start & $sq.startSlot & ":" & $sq.finalSlot & "@" & $sq.inpSlot & "]"
 
 func getShortMap*[T](
     req: SyncRequest[T],
-    data: openArray[ref ForkedSignedBeaconBlock]
+    data: openArray[ref SignedExecutionPayloadEnvelope]
 ): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var
@@ -148,8 +221,73 @@ func getShortMap*[T](
     slider = slider + 1
   res
 
-proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ref BlobSidecar]): string =
+func getShortMap*[T](
+    req: SyncRequest[T],
+    data: openArray[ref ForkedSignedBeaconBlock]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        let blockSlot = data[k][].slot
+        if slider == blockSlot:
+          res.add('x')
+          last = k + 1
+        elif slider < blockSlot:
+          res.add('.')
+        break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
+func getShortMap*[T](
+    req: SyncRequest[T],
+    data: openArray[SyncResponseItem]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k].slot:
+          let ch = if isNil(data[k].signedEnvelope): 'x' else: 'X'
+          res.add(ch)
+          last = k + 1
+          break
+        elif slider < data[k].slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
+func getShortMap*[T](
+    req: SyncRequest[T],
+    map: ColumnMap,
+    data: openArray[ref fulu.DataColumnSidecar]
+): string =
+  # Provides short map of columns where
+  # `+` means that all requested columns for the block was received
+  # `O` means that excessive amount of columns for the block was received
+  # `1-f` means (number of requested columns) - ord(`1-f`) being received
+  # `-` some amount of requested columns being received but it was
+  # less than (number of requested columns) - 15.
+  let
+    alphabet =
+      "0123456789abcdef"
+    maplen = len(map)
+
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
@@ -162,117 +300,284 @@ proc getShortMap*[T](req: SyncRequest[T],
         if slider < data[k][].signed_block_header.message.slot:
           break
         elif slider == data[k][].signed_block_header.message.slot:
-          inc(counter)
+          if data[k][].index in map:
+            inc(counter)
       last = last + counter
       if counter == 0:
         res.add('.')
       else:
-        res.add($counter)
+        if counter == maplen:
+          res.add('+')
+        elif counter > maplen:
+          res.add('O')
+        elif (maplen - counter) < 16:
+          res.add(alphabet[maplen - counter])
+        else:
+          res.add('-')
     else:
       res.add('.')
     slider = slider + 1
   res
 
-proc getShortMap*[T](
+func getShortMap*[T](
     req: SyncRequest[T],
-    blobs: openArray[BlobSidecars]
+    map: ColumnMap,
+    data: openArray[ref gloas.DataColumnSidecar]
 ): string =
+  # Provides short map of columns where
+  # `+` means that all requested columns for the block was received
+  # `O` means that excessive amount of columns for the block was received
+  # `1-f` means (number of requested columns) - ord(`1-f`) being received
+  # `-` some amount of requested columns being received but it was
+  # less than (number of requested columns) - 15.
+  let
+    alphabet =
+      "0123456789abcdef"
+    maplen = len(map)
+
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
-    notFirst = false
+    last = 0
 
-  for i in 0 ..< int(req.data.count):
-    if i >= len(blobs):
-      res.add('.'.repeat(int(req.data.count) - len(res)))
-      return res
-
-    if len(blobs[i]) > 0:
-      let slot = blobs[i][0][].signed_block_header.message.slot
-      if not(notFirst):
-        doAssert(slot >= slider, "Incorrect slot number in blobs list")
-        let firstCount = int(slot - slider)
-        res.add('.'.repeat(firstCount))
-        res.add(Base10.toString(lenu64(blobs[i])))
-        slider = slot
-        notFirst = true
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      var counter = 0
+      for k in last ..< len(data):
+        if slider < data[k][].slot:
+          break
+        elif slider == data[k][].slot:
+          if data[k][].index in map:
+            inc(counter)
+      last = last + counter
+      if counter == 0:
+        res.add('.')
       else:
-        if slot == slider:
-          res.add(Base10.toString(lenu64(blobs[i])))
+        if counter == maplen:
+          res.add('+')
+        elif counter > maplen:
+          res.add('O')
+        elif (maplen - counter) < 16:
+          res.add(alphabet[maplen - counter])
         else:
-          res.add('.')
+          res.add('-')
     else:
-      if notFirst: res.add('.')
-    if notFirst: inc(slider)
+      res.add('.')
+    slider = slider + 1
   res
 
-proc getShortMap*[T](
-    req: SyncRequest[T],
-    data: Opt[seq[BlobSidecars]]
-): string =
-  if data.isNone():
-    return '.'.repeat(req.data.count)
-  getShortMap(req, data.get())
+func init(
+    t: typedesc[ColumnItem],
+    map: ColumnMap,
+    count: int,
+    agent: string
+): ColumnItem =
+  ColumnItem(map: map, count: count, agent: agent)
 
-func init*(t: typedesc[SyncRange], slot: Slot, count: uint64): SyncRange =
-  SyncRange(slot: slot, count: count)
+func isComplete[M, N](
+    sq: SyncQueue[M, N],
+    srange: SyncRange,
+    peer: M,
+    criteria: var N
+): bool =
+  mixin getKey
+  if criteria.done:
+    return true
+  when N is BlockCompleteness:
+    criteria.count >= sq.requestsCount
+  elif N is ColumnCompleteness:
+    # If the peer has columns that we are still missing, we should return
+    # `false`, so that peer get requests for that range, but if the peer
+    # does not have the columns we need, we should return `true`.
+    let res = criteria.missingMap and sq.cbGetColumnMap(peer)
+    if res.empty():
+      return true
+
+    let
+      key = peer.getKey()
+      item = criteria.keys.getOrDefault($key)
+
+    # If peer is still useful (may provide some columns we are missing), but we
+    # have already performed `sq.requestsCount` requests to it, we can assume
+    # that the peer is lying and does not actually have the declared columns.
+    # So we return `true` and SyncQueue will select another range for this peer.
+    if item.count > sq.requestsCount:
+      return true
+
+    false
+
+proc drainCompleteness[M, N](
+    sq: SyncQueue[M, N],
+    srange: SyncRange,
+    peer: M,
+    criteria: var N
+) =
+  inc(criteria.count)
+
+proc fillCompleteness[M](
+    sq: SyncQueue[M, BlockCompleteness],
+    srange: SyncRange,
+    peer: M,
+    done: bool,
+    criteria: var BlockCompleteness
+) =
+  if done:
+    criteria.done = true
+  dec(criteria.count)
+
+func countIt(item: var ColumnItem, value: int) =
+  item.count = item.count + value
+
+proc fillCompleteness[M](
+    sq: SyncQueue[M, ColumnCompleteness],
+    srange: SyncRange,
+    peer: M,
+    missingMap: Opt[ColumnMap],
+    done: bool,
+    storePeer: bool,
+    criteria: var ColumnCompleteness
+) =
+  mixin getKey, getRemoteAgent
+
+  if done:
+    criteria.done = true
+    return
+
+  if storePeer:
+    let
+      key = peer.getKey()
+      map = sq.cbGetColumnMap(peer)
+      agent = $peer.getRemoteAgent()
+    criteria.keys.mgetOrPut($key, ColumnItem.init(map, 0, agent)).countIt(1)
+
+  if missingMap.isSome():
+    criteria.missingMap = missingMap.get()
 
 func init(t: typedesc[SyncProcessError],
-          kind: VerifierError): SyncProcessError =
+          kind: SyncVerifierError): SyncProcessError =
   case kind
-  of VerifierError.Invalid:
+  of SyncVerifierError.Invalid:
     SyncProcessError.Invalid
-  of VerifierError.MissingParent:
+  of SyncVerifierError.MissingParent:
     SyncProcessError.MissingParent
-  of VerifierError.UnviableFork:
+  of SyncVerifierError.UnviableFork:
     SyncProcessError.UnviableFork
-  of VerifierError.Duplicate:
+  of SyncVerifierError.Duplicate:
     SyncProcessError.Duplicate
-
-func init(t: typedesc[SyncBlock], slot: Slot, root: Eth2Digest): SyncBlock =
-  SyncBlock(slot: slot, root: root)
+  of SyncVerifierError.MissingSidecars:
+    SyncProcessError.MissingSidecars
+  of SyncVerifierError.MissingEnvelope:
+    SyncProcessError.MissingEnvelope
+  of SyncVerifierError.InvalidSidecars:
+    SyncProcessError.InvalidSidecars
 
 func init(t: typedesc[SyncProcessError]): SyncProcessError =
   SyncProcessError.NoError
 
 func init(t: typedesc[SyncProcessingResult], se: SyncProcessError,
           slot: Slot, root: Eth2Digest): SyncProcessingResult =
-  SyncProcessingResult(blck: Opt.some(SyncBlock.init(slot, root)), code: se)
+  SyncProcessingResult(blck: Opt.some(BlockId(slot: slot, root: root)),
+    code: se)
 
 func init(t: typedesc[SyncProcessingResult],
           se: SyncProcessError): SyncProcessingResult =
   SyncProcessingResult(code: se)
 
 func init(t: typedesc[SyncProcessingResult], se: SyncProcessError,
-          sblck: SyncBlock): SyncProcessingResult =
+          sblck: BlockId): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(sblck), code: se)
 
-func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
+func init(t: typedesc[SyncProcessingResult], ve: SyncVerifierError,
           slot: Slot, root: Eth2Digest): SyncProcessingResult =
-  SyncProcessingResult(blck: Opt.some(SyncBlock.init(slot, root)),
-                       code: SyncProcessError.init(ve))
+  SyncProcessingResult(blck: Opt.some(BlockId(slot: slot, root: root)),
+    code: SyncProcessError.init(ve))
 
-func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
-          sblck: SyncBlock): SyncProcessingResult =
+func init(t: typedesc[SyncProcessingResult], ve: SyncVerifierError,
+          sblck: BlockId): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(sblck), code: SyncProcessError.init(ve))
 
-func init*[T](t: typedesc[SyncRequest], kind: SyncQueueKind,
-              item: T): SyncRequest[T] =
+func toSyncVerifierError*(a: VerifierError): SyncVerifierError =
+  case a
+  of VerifierError.Invalid:
+    SyncVerifierError.Invalid
+  of VerifierError.MissingParent:
+    SyncVerifierError.MissingParent
+  of VerifierError.UnviableFork:
+    SyncVerifierError.UnviableFork
+  of VerifierError.Duplicate:
+    SyncVerifierError.Duplicate
+
+func toSyncVerifierError*(a: PayloadVerifierError): SyncVerifierError =
+  case a
+  of PayloadVerifierError.Invalid:
+    SyncVerifierError.Invalid
+  of PayloadVerifierError.MissingParent:
+    SyncVerifierError.MissingParent
+  of PayloadVerifierError.UnviableFork:
+    SyncVerifierError.UnviableFork
+  of PayloadVerifierError.Duplicate:
+    SyncVerifierError.Duplicate
+  of PayloadVerifierError.InvalidSidecars:
+    SyncVerifierError.InvalidSidecars
+
+proc init*[T](
+    t: typedesc[SyncRequest],
+    kind: SyncQueueKind,
+    item: T,
+    reason: SyncRequestReason
+): SyncRequest[T] =
   SyncRequest[T](
     kind: kind,
-    data: SyncRange(slot: FAR_FUTURE_SLOT, count: 0'u64),
-    item: item
+    data: SyncRange.init(FAR_FUTURE_SLOT, 0'u64),
+    item: item,
+    reason: reason,
+    state: SyncRequestState.Done,
+    createMoment: Moment.now()
   )
 
-func init*[T](t: typedesc[SyncRequest], kind: SyncQueueKind,
-              data: SyncRange, item: T): SyncRequest[T] =
-  SyncRequest[T](kind: kind, data: data, item: item)
+proc init*[M, N](
+    t: typedesc[SyncRequest],
+    sq: SyncQueue[M, N],
+    kind: SyncQueueKind,
+    data: SyncRange,
+    item: M
+): SyncRequest[M] =
+  SyncRequest[M](
+    kind: kind,
+    data: data,
+    item: item,
+    id: sq.getId(),
+    state: SyncRequestState.Download,
+    createMoment: Moment.now()
+  )
 
-func init[T](t: typedesc[SyncQueueItem],
-             req: SyncRequest[T]): SyncQueueItem[T] =
-  SyncQueueItem[T](data: req.data, requests: @[req])
+func init[M, BlockCompleteness](
+    t1: typedesc[SyncQueueItem],
+    t2: typedesc[BlockCompleteness],
+    req: SyncRequest[M]
+): SyncQueueItem[M, BlockCompleteness] =
+  SyncQueueItem[M, BlockCompleteness](
+    data: req.data,
+    requests: @[req],
+    completeness: BlockCompleteness()
+  )
 
-func init[T](t: typedesc[GapItem], req: SyncRequest[T]): GapItem[T] =
+func init[M, ColumnCompleteness](
+    t1: typedesc[SyncQueueItem],
+    t2: typedesc[ColumnCompleteness],
+    req: SyncRequest[M],
+    localMap: ColumnMap
+): SyncQueueItem[M, ColumnCompleteness] =
+  SyncQueueItem[M, ColumnCompleteness](
+    data: req.data,
+    requests: @[req],
+    completeness: ColumnCompleteness(missingMap: localMap)
+  )
+
+func init[T](
+    t: typedesc[GapItem],
+    req: SyncRequest[T]
+): GapItem[T] =
   GapItem[T](data: req.data, item: req.item)
 
 func last_slot*(epoch: Epoch): Slot =
@@ -281,16 +586,9 @@ func last_slot*(epoch: Epoch): Slot =
   if epoch >= maxEpoch: FAR_FUTURE_SLOT
   else: Slot(epoch * SLOTS_PER_EPOCH + (SLOTS_PER_EPOCH - 1'u64))
 
-func start_slot*(sr: SyncRange): Slot =
-  sr.slot
-
-func last_slot*(sr: SyncRange): Slot =
-  if sr.slot + (uint64(sr.count) - 1'u64) < sr.slot:
-    FAR_FUTURE_SLOT
-  else:
-    sr.slot + (uint64(sr.count) - 1'u64)
-
-proc epochFilter*[T](squeue: SyncQueue[T], srange: SyncRange): SyncRange =
+proc epochFilter[M, N](
+    squeue: SyncQueue[M, N], srange: SyncRange
+): SyncRange =
   case squeue.kind
   of SyncQueueKind.Forward:
     let
@@ -305,9 +603,8 @@ proc epochFilter*[T](squeue: SyncQueue[T], srange: SyncRange): SyncRange =
 
     if (currentEpoch.start_slot() <= srange.last_slot()) and
        (squeue.forkAtEpoch(currentEpoch) != startFork):
-      SyncRange(
-        slot: srange.start_slot(),
-        count: currentEpoch.start_slot() - srange.slot)
+      SyncRange.init(
+        srange.start_slot(), currentEpoch.start_slot() - srange.slot)
     else:
       srange
   of SyncQueueKind.Backward:
@@ -324,70 +621,85 @@ proc epochFilter*[T](squeue: SyncQueue[T], srange: SyncRange): SyncRange =
     if (currentEpoch.last_slot() >= srange.start_slot()) and
        (squeue.forkAtEpoch(currentEpoch) != startFork):
       let ncount = srange.last_slot() - (currentEpoch + 1).start_slot() + 1'u64
-      SyncRange(slot: (currentEpoch + 1).start_slot(), count: ncount)
+      SyncRange.init((currentEpoch + 1).start_slot(), ncount)
     else:
       srange
 
-func next[T](sq: SyncQueue[T], srange: SyncRange): SyncRange {.inline.} =
-  let slot = srange.slot + srange.count
-  if slot == FAR_FUTURE_SLOT:
+func next*[M, N](
+    sq: SyncQueue[M, N],
+    currentSlot: Slot
+): Opt[SyncRange] {.inline.} =
+  if currentSlot == FAR_FUTURE_SLOT:
     # Finish range
-    srange
-  elif slot < srange.slot:
+    return Opt.none(SyncRange)
+
+  let slot = currentSlot + sq.chunkSize
+  if slot < currentSlot:
     # Range that causes uint64 overflow, fixing.
-    SyncRange.init(slot, uint64(FAR_FUTURE_SLOT - srange.count))
-  else:
-    if slot + sq.chunkSize < slot:
-      SyncRange.init(slot, uint64(FAR_FUTURE_SLOT - sq.chunkSize))
+    if currentSlot < sq.finalSlot:
+      Opt.some(SyncRange.init(currentSlot, sq.finalSlot - currentSlot + 1))
     else:
-      SyncRange.init(slot, sq.chunkSize)
+      Opt.some(SyncRange.init(currentSlot, FAR_FUTURE_SLOT - currentSlot))
+  else:
+    if slot > sq.finalSlot:
+      Opt.some(SyncRange.init(currentSlot, sq.finalSlot - currentSlot + 1))
+    else:
+      Opt.some(SyncRange.init(currentSlot, sq.chunkSize))
 
-func prev[T](sq: SyncQueue[T], srange: SyncRange): SyncRange {.inline.} =
-  if srange.slot == GENESIS_SLOT:
+func prev*[M, N](
+    sq: SyncQueue[M, N],
+    currentSlot: Slot
+): Opt[SyncRange] {.inline.} =
+  if currentSlot == GENESIS_SLOT:
     # Start range
-    srange
-  else:
-    let slot = srange.slot - sq.chunkSize
-    if slot > srange.slot:
-      # Range that causes uint64 underflow, fixing.
-      SyncRange.init(GENESIS_SLOT, uint64(srange.slot))
+    return Opt.none(SyncRange)
+
+  let slot = currentSlot - sq.chunkSize
+  if slot > currentSlot:
+    # Range that causes uint64 underflow, fixing.
+    if currentSlot > sq.finalSlot:
+      Opt.some(SyncRange.init(sq.finalSlot, currentSlot - sq.finalSlot))
     else:
-      SyncRange.init(slot, sq.chunkSize)
-
-func contains(srange: SyncRange, slot: Slot): bool {.inline.} =
-  ## Returns `true` if `slot` is in range of `srange`.
-  if (srange.slot + srange.count) < srange.slot:
-    (slot >= srange.slot) and (slot <= FAR_FUTURE_SLOT)
+      Opt.some(SyncRange.init(GENESIS_SLOT, uint64(currentSlot)))
   else:
-    (slot >= srange.slot) and (slot < (srange.slot + srange.count))
+    if slot < sq.finalSlot:
+      Opt.some(SyncRange.init(sq.finalSlot, currentSlot - sq.finalSlot))
+    else:
+      Opt.some(SyncRange.init(slot, sq.chunkSize))
 
-func `<`*(a, b: SyncRange): bool {.inline.} =
-  ## Returns `true` if range `a` is below of range `b`.
-  (a.slot < b.slot) and (a.slot + a.count - 1 < b.slot)
-
-func `==`*(a, b: SyncRange): bool {.inline.} =
-  (a.slot == b.slot) and (a.count == b.count)
-
-func `==`[T](a, b: SyncRequest[T]): bool {.inline.} =
+func `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
   (a.kind == b.kind) and (a.item == b.item) and (a.data == b.data)
 
 proc hasEndGap*[T](
     sr: SyncRequest[T],
-    data: openArray[ref ForkedSignedBeaconBlock]
+    data: openArray[SyncResponseItem]
 ): bool {.inline.} =
   ## Returns ``true`` if response chain of blocks has gap at the end.
   if len(data) == 0:
     return true
-  if data[^1][].slot != (sr.data.slot + sr.data.count - 1'u64):
+  if data[^1].slot != (sr.data.slot + sr.data.count - 1'u64):
     return true
   false
 
-proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) {.inline.} =
+proc updateLastSlot*[M, N](
+    sq: SyncQueue[M, N],
+    last: Slot
+) {.inline.} =
   ## Update last slot stored in queue ``sq`` with value ``last``.
   sq.finalSlot = last
 
-proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
-                        safeSlot: Slot): Slot =
+func contains*[M, N](
+    sq: SyncQueue[M, N],
+    slot: Slot
+): bool =
+  ## Returns ``true`` if ``slot`` is in queue's range [startSlot, finalSlot].
+  (slot >= sq.startSlot) and (slot <= sq.finalSlot)
+
+proc getRewindPoint*[M, N](
+    sq: SyncQueue[M, N],
+    failSlot: Slot,
+    safeSlot: Slot
+): Slot =
   case sq.kind
   of SyncQueueKind.Forward:
     # Calculate the latest finalized epoch.
@@ -427,13 +739,13 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                  finalized_epoch = finalizedEpoch,
                  sync_ident = sq.ident,
                  direction = sq.kind,
-                 topics = "syncman"
+                 topics = "sync"
             0'u64
         else:
           # `MissingParent` happened at different slot so we going to rewind for
           # 1 epoch only.
           if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
-            warn "Сould not rewind further than the last finalized epoch",
+            warn "Could not rewind further than the last finalized epoch",
                  finalized_slot = safeSlot,
                  fail_slot = failSlot,
                  finalized_epoch = finalizedEpoch,
@@ -442,14 +754,14 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                  finalized_epoch = finalizedEpoch,
                  sync_ident = sq.ident,
                  direction = sq.kind,
-                 topics = "syncman"
+                 topics = "sync"
             0'u64
           else:
             1'u64
       else:
         # `MissingParent` happened first time.
         if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
-          warn "Сould not rewind further than the last finalized epoch",
+          warn "Could not rewind further than the last finalized epoch",
                finalized_slot = safeSlot,
                fail_slot = failSlot,
                finalized_epoch = finalizedEpoch,
@@ -457,7 +769,7 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                finalized_epoch = finalizedEpoch,
                sync_ident = sq.ident,
                direction = sq.kind,
-               topics = "syncman"
+               topics = "sync"
           0'u64
         else:
           1'u64
@@ -471,15 +783,9 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
            finalized_epoch = finalizedEpoch,
            sync_ident = sq.ident,
            direction = sq.kind,
-           topics = "syncman"
-      # Calculate the rewind epoch, which will be equal to last rewind point or
-      # finalizedEpoch
-      let rewindEpoch =
-        if sq.rewind.isNone():
-          finalizedEpoch
-        else:
-          epoch(sq.rewind.get().failSlot) - sq.rewind.get().epochCount
-      rewindEpoch.start_slot()
+           topics = "sync"
+      # We should never return slot which is behind finalized epoch.
+      finalizedEpoch.start_slot()
     else:
       # Calculate the rewind epoch, which should not be less than the latest
       # finalized epoch.
@@ -497,38 +803,20 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
            fail_slot = failSlot,
            sync_ident = sq.ident,
            direction = sq.kind,
-           topics = "syncman"
+           topics = "sync"
     safeSlot
 
-func init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
-              queueKind: SyncQueueKind,
-              start, final: Slot,
-              chunkSize: uint64,
-              requestsCount: Natural,
-              failureResetThreshold: Natural,
-              getSafeSlotCb: GetSlotCallback,
-              blockVerifier: BlockVerifier,
-              forkAtEpoch: ForkAtEpochCallback,
-              ident: string = "main"): SyncQueue[T] =
-  doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
-  doAssert(requestsCount > 0, "Number of requests should not be zero")
-
-  SyncQueue[T](
-    kind: queueKind,
-    startSlot: start,
-    finalSlot: final,
-    chunkSize: chunkSize,
-    requestsCount: requestsCount,
-    failureResetThreshold: failureResetThreshold,
-    getSafeSlot: getSafeSlotCb,
-    inpSlot: start,
-    outSlot: start,
-    blockVerifier: blockVerifier,
-    forkAtEpoch: forkAtEpoch,
-    requests: initDeque[SyncQueueItem[T]](),
-    lock: newAsyncLock(),
-    ident: ident
-  )
+func reset*[M, N](
+    sq: SyncQueue[M, N],
+    start, final: Slot
+) =
+  sq.startSlot = start
+  sq.finalSlot = final
+  sq.inpSlot = start
+  sq.outSlot = start
+  sq.skipId = 0'u64
+  sq.uniqId = 0'u64
+  sq.requests.reset()
 
 func searchPeer[T](requests: openArray[SyncRequest[T]], source: T): int =
   for index, request in requests.pairs():
@@ -536,7 +824,7 @@ func searchPeer[T](requests: openArray[SyncRequest[T]], source: T): int =
       return index
   -1
 
-func find[T](sq: SyncQueue[T], req: SyncRequest[T]): Opt[SyncPosition] =
+func find[M, N](sq: SyncQueue[M, N], req: SyncRequest[M]): Opt[SyncPosition] =
   if len(sq.requests) == 0:
     return Opt.none(SyncPosition)
 
@@ -555,17 +843,17 @@ func find[T](sq: SyncQueue[T], req: SyncRequest[T]): Opt[SyncPosition] =
 
   Opt.none(SyncPosition)
 
-proc del[T](sq: SyncQueue[T], position: SyncPosition) =
+proc del[M, N](sq: SyncQueue[M, N], position: SyncPosition) =
   doAssert(len(sq.requests) > position.qindex)
   doAssert(len(sq.requests[position.qindex].requests) > position.sindex)
   del(sq.requests[position.qindex].requests, position.sindex)
 
-proc del[T](sq: SyncQueue[T], request: SyncRequest[T]) =
+proc del[M, N](sq: SyncQueue[M, N], request: SyncRequest[M]) =
   let pos = sq.find(request).valueOr:
     return
   sq.del(pos)
 
-proc rewardForGaps[T](sq: SyncQueue[T], score: int) =
+proc rewardForGaps[M, N](sq: SyncQueue[M, N], score: int) =
   mixin updateScore, getStats
 
   for gap in sq.gapList:
@@ -587,81 +875,157 @@ proc rewardForGaps[T](sq: SyncQueue[T], score: int) =
               penalty = newScore,
               sync_ident = sq.ident,
               direction = sq.kind,
-              topics = "syncman"
+              topics = "sync"
 
     else:
       gap.item.updateScore(score)
 
-proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
+func getCurrentRange[M, N](sq: SyncQueue[M, N]): Opt[SyncRange] =
+  ## Returns current working range.
+  case sq.kind
+  of SyncQueueKind.Forward:
+    if len(sq.requests) > 0:
+      return Opt.some(sq.requests[0].data)
+    let startSlot = sq.inpSlot
+    if startSlot >= sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.next(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+  of SyncQueueKind.Backward:
+    if len(sq.requests) > 0:
+      return Opt.some(sq.requests[0].data)
+    let startSlot = sq.inpSlot + 1
+    if startSlot < sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.prev(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+
+func getNextRange[M, N](sq: SyncQueue[M, N]): Opt[SyncRange] =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    let startSlot =
+      if len(sq.requests) > 0:
+        let lastRange = sq.requests[^1].data
+        if lastRange.slot + lastRange.count < lastRange.slot:
+          return Opt.none(SyncRange)
+        lastRange.slot + lastRange.count
+      else:
+        sq.inpSlot
+    if startSlot > sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.next(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+  of SyncQueueKind.Backward:
+    let startSlot =
+      if len(sq.requests) > 0:
+        let lastRange = sq.requests[^1].data
+        if lastRange.slot <= sq.finalSlot:
+          return Opt.none(SyncRange)
+        lastRange.slot
+      else:
+        if (sq.inpSlot < sq.finalSlot) or (sq.inpSlot == GENESIS_SLOT):
+          return Opt.none(SyncRange)
+        sq.inpSlot + 1
+    if startSlot < sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.prev(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+
+proc getNextRequest[M, N](sq: SyncQueue[M, N], item: M): SyncRequest[M] =
+  let newRange = sq.getNextRange().valueOr:
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.NoMoreSpace)
+  SyncRequest.init(sq, sq.kind, sq.epochFilter(newRange), item)
+
+proc getDistance[M, N](sq: SyncQueue[M, N], srange: SyncRange): int =
+  let currentRange = sq.getCurrentRange().valueOr:
+    return 0
+  case sq.kind
+  of SyncQueueKind.Forward:
+    if srange.slot < currentRange.slot:
+      return 0
+    int((srange.slot - currentRange.slot))
+  of SyncQueueKind.Backward:
+    if srange.slot > currentRange.slot:
+      return 0
+    int((currentRange.slot - srange.slot))
+
+proc pop*[M, N](
+    sq: SyncQueue[M, N],
+    peerMaxSlot: Slot,
+    item: M
+): SyncRequest[M] =
   # Searching requests queue for an empty space.
-  var count = 0
+  var peerCount = 0
   for qitem in sq.requests.mitems():
-    if len(qitem.requests) < sq.requestsCount:
+    if not(sq.isComplete(qitem.data, item, qitem.completeness)):
       let sindex = qitem.requests.searchPeer(item)
       if sindex < 0:
         return
           if qitem.data.slot > peerMaxSlot:
             # Peer could not satisfy our request, returning empty one.
-            SyncRequest.init(sq.kind, item)
+            SyncRequest.init(
+              sq.kind, item, SyncRequestReason.PeerSlotKnowledge)
           else:
-            doAssert(count < sq.requestsCount,
-                     "You should not pop so many requests for single peer")
-            let request = SyncRequest.init(sq.kind, qitem.data, item)
+            let request = SyncRequest.init(sq, sq.kind, qitem.data, item)
             qitem.requests.add(request)
+            sq.drainCompleteness(qitem.data, item, qitem.completeness)
             request
       else:
         if SyncRequestFlag.Void notin qitem.requests[sindex].flags:
           # We only count non-empty requests.
-          inc(count)
-
-  doAssert(count < sq.requestsCount,
-           "You should not pop so many requests for single peer")
-
-  # No empty spaces has been found in queue, so we adding new request.
-  let newrange =
-    if len(sq.requests) > 0:
-      # All requests are filled, adding one more request.
-      let lastrange = sq.requests[^1].data
-      if sq.finalSlot in lastrange:
-        # Requests queue is already at finish position, we are not going to add
-        # one more request range.
-        return SyncRequest.init(sq.kind, item)
-
-      case sq.kind
-      of SyncQueueKind.Forward:
-        sq.next(lastrange)
-      of SyncQueueKind.Backward:
-        sq.prev(lastrange)
+          inc(peerCount)
     else:
-      case sq.kind
-      of SyncQueueKind.Forward:
-        SyncRange.init(sq.inpSlot, sq.chunkSize)
-      of SyncQueueKind.Backward:
-        SyncRange.init(sq.inpSlot - (sq.chunkSize - 1), sq.chunkSize)
+      let sindex = qitem.requests.searchPeer(item)
+      if sindex >= 0:
+        if SyncRequestFlag.Void notin qitem.requests[sindex].flags:
+          # We only count non-empty requests.
+          inc(peerCount)
 
-  if newrange.slot > peerMaxSlot:
-    # Peer could not satisfy our request, returning empty one.
-    SyncRequest.init(sq.kind, item)
-  else:
-    let request = SyncRequest.init(sq.kind, sq.epochFilter(newrange), item)
-    sq.requests.addLast(SyncQueueItem.init(request))
-    request
+  when N is BlockCompleteness:
+    doAssert(peerCount < sq.requestsCount,
+             "You should not pop so many requests for single peer")
 
-proc wakeupWaiters[T](sq: SyncQueue[T], resetFlag = false) =
+  let request = sq.getNextRequest(item)
+  if request.isEmpty():
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.NoMoreSpace)
+  elif request.data.slot > peerMaxSlot:
+    # Peer could not satisfy our request - returning empty request.
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.PeerSlotKnowledge)
+  var qitem =
+    when N is BlockCompleteness:
+      SyncQueueItem.init(N, request)
+    elif N is ColumnCompleteness:
+      let distance = sq.getDistance(request.data)
+      if distance >= sq.maxSlotDistance:
+        return SyncRequest.init(
+          sq.kind, item, SyncRequestReason.TooBigDistance)
+      SyncQueueItem.init(N, request, sq.cbGetLocalColumnMap())
+  sq.drainCompleteness(qitem.data, item, qitem.completeness)
+  sq.requests.addLast(qitem)
+  request
+
+proc wakeupWaiters[M, N](sq: SyncQueue[M, N], resetFlag = false) =
   ## Wakeup one or all blocked waiters.
   for item in sq.waiters:
     item.resetFlag = resetFlag
     if not(item.future.finished()):
       item.future.complete()
 
-proc waitForChanges[T](
-    sq: SyncQueue[T]
+proc waitForChanges[M, N](
+    sq: SyncQueue[M, N]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Create new waiter and wait for completion from `wakeupWaiters()`.
   let
     future =
       Future[void].Raising([CancelledError]).init("SyncQueue.waitForChanges")
-    item = SyncWaiterItem[T](future: future, resetFlag: false)
+    item = SyncWaiterItem[M](future: future, resetFlag: false)
 
   sq.waiters.add(item)
 
@@ -671,8 +1035,8 @@ proc waitForChanges[T](
   finally:
     sq.waiters.delete(sq.waiters.find(item))
 
-proc wakeupAndWaitWaiters[T](
-    sq: SyncQueue[T]
+proc wakeupAndWaitWaiters[M, N](
+    sq: SyncQueue[M, N]
 ) {.async: (raises: [CancelledError]).} =
   ## This procedure will perform wakeupWaiters(true) and blocks until last
   ## waiter will be awakened.
@@ -693,36 +1057,50 @@ template advanceImpl(kind, slot: untyped, number: uint64) =
     else:
       slot = slot - number
 
-proc advanceOutput[T](sq: SyncQueue[T], number: uint64) =
+proc advanceOutput[M, N](sq: SyncQueue[M, N], number: uint64) =
   advanceImpl(sq.kind, sq.outSlot, number)
 
-proc advanceInput[T](sq: SyncQueue[T], number: uint64) =
+proc advanceInput[M, N](sq: SyncQueue[M, N], number: uint64) =
   advanceImpl(sq.kind, sq.inpSlot, number)
 
-proc advanceQueue[T](sq: SyncQueue[T]) =
+proc advanceQueue[M, N](sq: SyncQueue[M, N], count: var int64) =
   if len(sq.requests) > 0:
     let item = sq.requests.popFirst()
     sq.advanceInput(item.data.count)
     sq.advanceOutput(item.data.count)
+    # It is usually safe conversion, because value is limited by `sq.chunkSize`.
+    count = int64(item.data.count)
   else:
     sq.advanceInput(sq.chunkSize)
     sq.advanceOutput(sq.chunkSize)
+    # It is usually safe conversion, because value is limited by `sq.chunkSize`.
+    count = int64(sq.chunkSize)
   sq.wakeupWaiters()
 
-proc resetQueue[T](sq: SyncQueue[T]) =
-  sq.requests.reset()
+proc getRetreatCount(requestSlot, rewindSlot: Slot): int64 =
+  let res =
+    if requestSlot >= rewindSlot:
+      # In some case this value could exceed int64 bounds, but it would be fully
+      # unfunctional network.
+      -int64(requestSlot - rewindSlot)
+    else:
+      # In some case this value could exceed int64 bounds, but it would be fully
+      # unfunctional network.
+      -int64(rewindSlot - requestSlot)
+  res
 
-proc clearAndWakeup*[T](sq: SyncQueue[T]) =
-  # Reset queue and wakeup all the waiters.
-  sq.resetQueue()
-  sq.wakeupWaiters(true)
+proc resetQueue[M, N](sq: SyncQueue[M, N]) =
+  sq.requests.reset()
+  # We are making all requests that have been issued up to this moment of time -
+  # non-relevant.
+  sq.skipId = sq.uniqId
 
 proc isEmpty*[T](sr: SyncRequest[T]): bool =
   # Returns `true` if request `sr` is empty.
   sr.data.count == 0'u64
 
-proc resetWait[T](
-    sq: SyncQueue[T],
+proc resetWait*[M, N](
+    sq: SyncQueue[M, N],
     toSlot: Slot
 ) {.async: (raises: [CancelledError], raw: true).} =
   sq.inpSlot = toSlot
@@ -731,83 +1109,86 @@ proc resetWait[T](
   sq.resetQueue()
   sq.wakeupAndWaitWaiters()
 
-func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
-  if blobs.isSome:
-    Opt.some(blobs.get()[i])
-  else:
-    Opt.none(BlobSidecars)
-
-iterator blocks(
+iterator items(
     kind: SyncQueueKind,
-    blcks: seq[ref ForkedSignedBeaconBlock],
-    blobs: Opt[seq[BlobSidecars]]
-): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
+    items: openArray[SyncResponseItem],
+): SyncResponseItem =
   case kind
   of SyncQueueKind.Forward:
-    for i in countup(0, len(blcks) - 1):
-      yield (blcks[i], blobs.getOpt(i))
+    for i in countup(0, len(items) - 1):
+      yield items[i]
   of SyncQueueKind.Backward:
-    for i in countdown(len(blcks) - 1, 0):
-      yield (blcks[i], blobs.getOpt(i))
+    for i in countdown(len(items) - 1, 0):
+      yield items[i]
 
-proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
+proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
   ## Push multiple failed requests back to queue.
-  for request in requests:
+  for request in requests.items():
     let pos = sq.find(request).valueOr:
       debug "Request is not relevant anymore", request = request
       continue
+    when N is BlockCompleteness:
+      sq.fillCompleteness(
+        sq.requests[pos.qindex].data, request.item,
+        done = false, sq.requests[pos.qindex].completeness)
+    elif N is ColumnCompleteness:
+      sq.fillCompleteness(
+        sq.requests[pos.qindex].data, request.item, Opt.none(ColumnMap),
+        done = false, storePeer = false, sq.requests[pos.qindex].completeness)
+    sq.requests[pos.qindex].requests[pos.sindex].state = SyncRequestState.Done
     sq.del(pos)
 
-proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
+proc push*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]) =
   ## Push single failed request back to queue.
   sq.push([sr])
 
-proc process[T](
-    sq: SyncQueue[T],
-    sr: SyncRequest[T],
-    blcks: seq[ref ForkedSignedBeaconBlock],
-    blobs: Opt[seq[BlobSidecars]],
+proc process[M, N](
+    sq: SyncQueue[M, N],
+    sr: SyncRequest[M],
+    ritems: seq[SyncResponseItem],
     maybeFinalized: bool
 ): Future[SyncProcessingResult] {.
   async: (raises: [CancelledError]).} =
   var
-    slot: Opt[SyncBlock]
-    unviableBlock: Opt[SyncBlock]
-    dupBlock: Opt[SyncBlock]
+    slot: Opt[BlockId]
+    unviableBlock: Opt[BlockId]
+    dupBlock: Opt[BlockId]
 
-  if len(blcks) == 0:
+  if len(ritems) == 0:
     return SyncProcessingResult.init(SyncProcessError.Empty)
 
-  for blk, blb in blocks(sq.kind, blcks, blobs):
-    let res = await sq.blockVerifier(blk[], blb, maybeFinalized)
+  for ritem in items(sq.kind, ritems):
+    let res = await sq.blockVerifier(ritem, maybeFinalized)
     if res.isOk():
-      slot = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
+      slot = Opt.some(ritem.toBlockId())
     else:
       case res.error()
-      of VerifierError.MissingParent:
-        if slot.isSome() or dupBlock.isSome():
-          return SyncProcessingResult.init(
-            SyncProcessError.GoodAndMissingParent, blk[].slot, blk[].root)
-        else:
-          return SyncProcessingResult.init(res.error(), blk[].slot, blk[].root)
-      of VerifierError.Duplicate:
+      of SyncVerifierError.MissingParent:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
+      of SyncVerifierError.Duplicate:
         # Keep going, happens naturally
         if dupBlock.isNone():
-          dupBlock = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
-      of VerifierError.UnviableFork:
+          dupBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
+      of SyncVerifierError.MissingSidecars:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
+      of SyncVerifierError.MissingEnvelope:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
+      of SyncVerifierError.InvalidSidecars:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
+      of SyncVerifierError.UnviableFork:
         # Keep going so as to register other unviable blocks with the
         # quarantine
         if unviableBlock.isNone():
           # Remember the first unviable block, so we can log it
-          unviableBlock = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
-      of VerifierError.Invalid:
-        return SyncProcessingResult.init(res.error(), blk[].slot, blk[].root)
+          unviableBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
+      of SyncVerifierError.Invalid:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
 
   if unviableBlock.isSome():
-    return SyncProcessingResult.init(VerifierError.UnviableFork,
+    return SyncProcessingResult.init(SyncVerifierError.UnviableFork,
                                      unviableBlock.get())
   if dupBlock.isSome():
-    return SyncProcessingResult.init(VerifierError.Duplicate,
+    return SyncProcessingResult.init(SyncVerifierError.Duplicate,
                                      dupBlock.get())
 
   SyncProcessingResult.init(SyncProcessError.NoError, slot.get())
@@ -815,29 +1196,74 @@ proc process[T](
 func isError(e: SyncProcessError): bool =
   case e
   of SyncProcessError.Empty, SyncProcessError.NoError,
-     SyncProcessError.Duplicate, SyncProcessError.GoodAndMissingParent:
+     SyncProcessError.Duplicate, SyncProcessError.NoRelevant,
+     SyncProcessError.MissingSidecars:
     false
   of SyncProcessError.Invalid, SyncProcessError.UnviableFork,
-     SyncProcessError.MissingParent:
+     SyncProcessError.MissingParent, SyncProcessError.MissingEnvelope,
+     SyncProcessError.InvalidSidecars:
     true
 
-proc push*[T](
-    sq: SyncQueue[T],
-    sr: SyncRequest[T],
-    data: seq[ref ForkedSignedBeaconBlock],
-    blobs: Opt[seq[BlobSidecars]],
+proc getAccumulatedMissingMap*[M](
+    sq: SyncQueue[M, ColumnCompleteness],
+    data: openArray[SyncResponseItem],
+    startBid: Opt[BlockId]
+): ColumnMap =
+  var
+    res: ColumnMap
+    started =
+      if startBid.isSome():
+        false
+      else:
+        true
+  for item in data:
+    if started or (startBid.isSome() and (item.root == startBid.get().root)):
+      started = true
+      let map = sq.cbGetMissingMap(item.toBlockId())
+      res = res or map
+  res
+
+func isRelevant[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]): bool =
+  uint64(sr.id) > uint64(sq.skipId)
+
+proc push*[M, N](
+    sq: SyncQueue[M, N],
+    sr: SyncRequest[M],
+    data: seq[SyncResponseItem],
     maybeFinalized: bool = false,
     processingCb: ProcessingCallback = nil
-) {.async: (raises: [CancelledError]).} =
+): Future[SyncPushResponse] {.async: (raises: [CancelledError]).} =
   ## Push successful result to queue ``sq``.
   mixin updateScore, updateStats, getStats
 
   template findPosition(sq, sr: untyped): SyncPosition =
     sq.find(sr).valueOr:
       debug "Request is not relevant anymore",
-            request = sr, sync_ident = sq.ident, topics = "syncman"
+            request = sr, queue = shortLog(sq), sync_ident = sq.ident,
+            topics = "sync"
       # Request is not in queue anymore, probably reset happened.
-      return
+      return SyncPushResponse(
+        code: SyncProcessError.NoRelevant, count: 0'i64)
+
+  template checkRelevance(sq, sr: untyped) =
+    if not(sq.isRelevant(sr)):
+      debug "Request is not relevant anymore",
+        request = sr, queue = shortLog(sq), sync_ident = sq.ident,
+        topics = "sync"
+      return SyncPushResponse(
+        code: SyncProcessError.NoRelevant, count: 0'i64)
+
+  template fillCompleteness(ppos, pdone, pblck, pstore: untyped) =
+    when N is BlockCompleteness:
+      sq.fillCompleteness(
+        sq.requests[ppos.qindex].data, sr.item, done = pdone,
+        sq.requests[ppos.qindex].completeness)
+    elif N is ColumnCompleteness:
+      let map = sq.getAccumulatedMissingMap(data, pblck)
+      sq.fillCompleteness(
+        sq.requests[ppos.qindex].data, sr.item, Opt.some(map),
+        done = pdone, storePeer = pstore,
+        sq.requests[ppos.qindex].completeness)
 
   # This is backpressure handling algorithm, this algorithm is blocking
   # all pending `push` requests if `request` is not in range.
@@ -846,7 +1272,11 @@ proc push*[T](
       block:
         var pos: SyncPosition
         while true:
+          sq.checkRelevance(sr)
           pos = sq.findPosition(sr)
+
+          sq.requests[pos.qindex].requests[pos.sindex].state =
+            SyncRequestState.Queue
 
           if pos.qindex == 0:
             # Exiting loop when request is first in queue.
@@ -857,47 +1287,64 @@ proc push*[T](
             if res:
               # SyncQueue reset happen
               debug "Request is not relevant anymore, reset has happened",
-                    request = sr,
-                    sync_ident = sq.ident,
-                    topics = "syncman"
-              return
+                request = sr, queue = shortLog(sq), sync_ident = sq.ident,
+                topics = "sync"
+              return SyncPushResponse(
+                code: SyncProcessError.NoRelevant, count: 0'i64)
           except CancelledError as exc:
             # Removing request from queue.
-            sq.del(sr)
+            let pos = sq.find(sr).valueOr:
+              raise exc
+            fillCompleteness(pos, false, Opt.none(BlockId), false)
+            sq.del(pos)
             raise exc
         pos
 
   try:
     await sq.lock.acquire()
   except CancelledError as exc:
-    sq.del(sr)
+    # Removing request from queue
+    let pos = sq.find(sr).valueOr:
+      raise exc
+    fillCompleteness(pos, false, Opt.none(BlockId), false)
+    sq.del(pos)
     raise exc
 
+  var res = 0'i64
   try:
+    sq.checkRelevance(sr)
+
     position = sq.findPosition(sr)
 
     if not(isNil(processingCb)):
       processingCb()
 
-    let pres = await sq.process(sr, data, blobs, maybeFinalized)
+    sq.requests[position.qindex].requests[position.sindex].state =
+      SyncRequestState.Process
+
+    let pres = await sq.process(sr, data, maybeFinalized)
 
     # We need to update position, because while we waiting for `process()` to
     # complete - clearAndWakeup() could be invoked which could clean whole the
     # queue (invalidating all the positions).
     position = sq.findPosition(sr)
 
+    sq.requests[position.qindex].requests[position.sindex].state =
+      SyncRequestState.Done
+
     case pres.code
     of SyncProcessError.Empty:
       # Empty responses does not affect failures count
       debug "Received empty response",
             request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            topics = "syncman"
+            topics = "sync"
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
       inc(sq.requests[position.qindex].voidsCount)
@@ -909,89 +1356,144 @@ proc push*[T](
       # With empty response - advance only when `requestsCount` of different
       # peers returns empty response for the same range.
       if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
-        sq.advanceQueue()
+        when N is BlockCompleteness:
+          fillCompleteness(position, true, Opt.none(BlockId), false)
+          sq.advanceQueue(res)
+        elif N is ColumnCompleteness:
+          let localMap = sq.cbGetLocalColumnMap()
+          # If completeness map was changed it proves that specific range is
+          # not actually empty and we should not move forward.
+          if sq.requests[position.qindex].completeness.missingMap != localMap:
+            fillCompleteness(position, false, Opt.none(BlockId), false)
+          else:
+            fillCompleteness(position, true, Opt.none(BlockId), false)
+            sq.advanceQueue(res)
+      else:
+        fillCompleteness(position, false, Opt.none(BlockId), false)
 
     of SyncProcessError.Duplicate:
       # Duplicate responses does not affect failures count
       debug "Received duplicate response",
             request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            topics = "syncman"
+            topics = "sync"
+
       sq.gapList.reset()
-      sq.advanceQueue()
+      fillCompleteness(position, true, Opt.none(BlockId), false)
+      sq.advanceQueue(res)
+
+    of SyncProcessError.MissingSidecars:
+      debug "Received blocks without sidecars",
+            request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
+            blocks_count = len(data),
+            blocks_map = getShortMap(sr, data),
+            sync_ident = sq.ident,
+            topics = "sync"
+
+      fillCompleteness(position, false, pres.blck, true)
+      sq.del(position)
+      res = 0'i64
+
+    of SyncProcessError.InvalidSidecars:
+      debug "Received sidecars do not pass verification",
+            request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
+            blocks_count = len(data),
+            blocks_map = getShortMap(sr, data),
+            sync_ident = sq.ident,
+            topics = "sync"
+
+      fillCompleteness(position, false, pres.blck, true)
+      sq.del(position)
+      res = 0'i64
+
+    of SyncProcessError.MissingEnvelope:
+      debug "Received blocks without envelope",
+            request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
+            blocks_count = len(data),
+            blocks_map = getShortMap(sr, data),
+            sync_ident = sq.ident,
+            topics = "sync"
+
+      fillCompleteness(position, false, pres.blck, true)
+      sq.del(position)
+      res = 0'i64
 
     of SyncProcessError.Invalid:
       debug "Block pool rejected peer's response",
             request = sr,
+            queue = shortLog(sq),
             invalid_block = pres.blck,
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            topics = "syncman"
+            topics = "sync"
 
       inc(sq.requests[position.qindex].failuresCount)
+      fillCompleteness(position, false, pres.blck, false)
       sq.del(position)
+      res = 0'i64
 
     of SyncProcessError.UnviableFork:
       notice "Received blocks from an unviable fork",
              request = sr,
+             queue = shortLog(sq),
              unviable_block = pres.blck,
+             completeness = shortLog(sq.requests[position.qindex].completeness),
              voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
-             blobs_map = getShortMap(sr, blobs),
              sync_ident = sq.ident,
-             topics = "syncman"
+             topics = "sync"
 
       sr.item.updateScore(PeerScoreUnviableFork)
       inc(sq.requests[position.qindex].failuresCount)
+      fillCompleteness(position, false, pres.blck, false)
       sq.del(position)
+      res = 0'i64
 
     of SyncProcessError.MissingParent:
       debug "Unexpected missing parent",
              request = sr,
+             queue = shortLog(sq),
              missing_parent_block = pres.blck,
+             completeness = shortLog(sq.requests[position.qindex].completeness),
              voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
-             blobs_map = getShortMap(sr, blobs),
              sync_ident = sq.ident,
              direction = sq.kind,
-             topics = "syncman"
+             topics = "sync"
 
       sr.item.updateScore(PeerScoreMissingValues)
       sq.rewardForGaps(PeerScoreMissingValues)
       sq.gapList.reset()
       inc(sq.requests[position.qindex].failuresCount)
+      fillCompleteness(position, false, pres.blck, false)
       sq.del(position)
-
-    of SyncProcessError.GoodAndMissingParent:
-      # Responses which has at least one good block and a gap does not affect
-      # failures count
-      debug "Unexpected missing parent, but no rewind needed",
-            request = sr,
-            finalized_slot = sq.getSafeSlot(),
-            missing_parent_block = pres.blck,
-            voids_count = sq.requests[position.qindex].voidsCount,
-            failures_count = sq.requests[position.qindex].failuresCount,
-            blocks_count = len(data),
-            blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs),
-            sync_ident = sq.ident,
-            topics = "syncman"
-
-      sr.item.updateScore(PeerScoreMissingValues)
-      sq.del(position)
+      res = 0'i64
 
     of SyncProcessError.NoError:
       sr.item.updateScore(PeerScoreGoodValues)
@@ -1002,7 +1504,11 @@ proc push*[T](
       if sr.hasEndGap(data):
         sq.gapList.add(GapItem.init(sr))
 
-      sq.advanceQueue()
+      fillCompleteness(position, true, Opt.none(BlockId), false)
+      sq.advanceQueue(res)
+
+    of SyncProcessError.NoRelevant:
+      raiseAssert "Processor should not return this error code"
 
     if pres.code.isError():
       if sq.requests[position.qindex].failuresCount >= sq.failureResetThreshold:
@@ -1012,12 +1518,20 @@ proc push*[T](
               failures_count = sq.requests[position.qindex].failuresCount,
               rewind_slot = point,
               sync_ident = sq.ident,
-              direction = sq.kind,
-              topics = "syncman"
+              topics = "sync"
         await sq.resetWait(point)
-
+        res =
+          case sq.kind
+          of SyncQueueKind.Forward:
+            getRetreatCount(sr.data.start_slot(), point)
+          of SyncQueueKind.Backward:
+            getRetreatCount(sr.data.last_slot(), point)
+    SyncPushResponse(code: pres.code, count: res, blck: pres.blck)
   except CancelledError as exc:
-    sq.del(sr)
+    let pos = sq.find(sr).valueOr:
+      raise exc
+    fillCompleteness(pos, false, Opt.none(BlockId), false)
+    sq.del(pos)
     raise exc
   finally:
     try:
@@ -1025,73 +1539,7 @@ proc push*[T](
     except AsyncLockError:
       raiseAssert "Lock is not acquired"
 
-proc checkResponse*[T](req: SyncRequest[T],
-                       data: openArray[Slot]): Result[void, cstring] =
-  if len(data) == 0:
-    # Impossible to verify empty response.
-    return ok()
-
-  if lenu64(data) > req.data.count:
-    # Number of blocks in response should be less or equal to number of
-    # requested blocks.
-    return err("Too many blocks received")
-
-  var
-    slot = req.data.slot
-    rindex = 0'u64
-    dindex = 0
-
-  while (rindex < req.data.count) and (dindex < len(data)):
-    if slot < data[dindex]:
-      discard
-    elif slot == data[dindex]:
-      inc(dindex)
-    else:
-      return err("Incorrect order or duplicate blocks found")
-    slot += 1'u64
-    rindex += 1'u64
-
-  if dindex != len(data):
-    return err("Some of the blocks are outside the requested range")
-
-  ok()
-
-proc checkBlobsResponse*[T](
-    req: SyncRequest[T],
-    data: openArray[Slot],
-    maxBlobsPerBlockElectra: uint64): Result[void, cstring] =
-  if len(data) == 0:
-    # Impossible to verify empty response.
-    return ok()
-
-  if lenu64(data) > (req.data.count * maxBlobsPerBlockElectra):
-    # Number of blobs in response should be less or equal to number of
-    # requested (blocks * MAX_BLOBS_PER_BLOCK_ELECTRA).
-    # NOTE: This is not strict check, proper check will be done in blobs
-    # validation.
-    return err("Too many blobs received")
-
-  var
-    pslot = data[0]
-    counter = 0'u64
-  for slot in data:
-    if slot notin req.data:
-      return err("Some of the blobs are not in requested range")
-    if slot < pslot:
-      return err("Incorrect order")
-    if slot == pslot:
-      inc(counter)
-      if counter > maxBlobsPerBlockElectra:
-        # NOTE: This is not strict check, proper check will be done in blobs
-        # validation.
-        return err("Number of blobs in the block exceeds the limit")
-    else:
-      counter = 1'u64
-    pslot = slot
-
-  ok()
-
-proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
+proc len*[M, N](sq: SyncQueue[M, N]): uint64 {.inline.} =
   ## Returns number of slots left in queue ``sq``.
   case sq.kind
   of SyncQueueKind.Forward:
@@ -1105,7 +1553,7 @@ proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
     else:
       0'u64
 
-proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
+proc total*[M, N](sq: SyncQueue[M, N]): uint64 {.inline.} =
   ## Returns total number of slots in queue ``sq``.
   case sq.kind
   of SyncQueueKind.Forward:
@@ -1119,7 +1567,179 @@ proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
     else:
       0'u64
 
-proc progress*[T](sq: SyncQueue[T]): uint64 =
-  ## How many useful slots we've synced so far, adjusting for how much has
-  ## become obsolete by time movements
-  sq.total() - len(sq)
+func running*[M, N](sq: SyncQueue[M, N]): bool =
+  ## Returns `true` when SyncQueue is in process.
+  if isNil(sq):
+    return false
+
+  case sq.kind
+  of SyncQueueKind.Forward:
+    (sq.startSlot < sq.inpSlot) and (sq.finalSlot > sq.inpSlot)
+  of SyncQueueKind.Backward:
+    (sq.startSlot > sq.inpSlot) and (sq.finalSlot < sq.inpSlot)
+
+proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
+  ## Provides SyncQueue's debug information in JSON string format.
+  mixin getKey
+  var res: seq[string]
+
+  if isNil(sq):
+    return "\"unavailable\""
+
+  proc getMap[M, N](sq: SyncQueue[M, N], peer: M): string =
+    when N is BlockCompleteness:
+      "unavailable"
+    elif N is ColumnCompleteness:
+      $sq.cbGetColumnMap(peer)
+
+  let moment = Moment.now()
+
+  for item in sq.requests:
+    let
+      srange = "\"" & $item.data & "\""
+      requests =
+        item.requests.mapIt(
+          "{" &
+            "\"id\":" & $uint64(it.id) &
+            ",\"flags\":\"" & shortLog(it.flags) & "\"" &
+            ",\"created\":\"" & $(moment - it.createMoment) & "\"" &
+            ",\"peer\":\"" & shortLog(getKey(it.item)) & "\"" &
+            ",\"state\":\"" & shortLog(it.state) & "\"" &
+            ",\"peer_map\":\"" & $(sq.getMap(it.item)) & "\"" &
+          "}"
+        ).join(",")
+      completeness =
+        when N is BlockCompleteness:
+          "{" &
+            "\"count\":" & $item.completeness.count & "," &
+            "\"done\":" & $item.completeness.done &
+          "}"
+        elif N is ColumnCompleteness:
+          func peerLog(pid: string): string =
+            var spid = pid
+            if len(spid) > 10:
+              spid[3] = '*'
+            spid.delete(4 .. spid.high - 6)
+            spid
+          let
+            localMap = sq.cbGetLocalColumnMap()
+            missingMap = item.completeness.missingMap
+            presentMap = localMap and not(localMap and missingMap)
+            (keys, summaryMap) =
+              block:
+                var
+                  res: seq[string]
+                  map: ColumnMap
+                for k, v in item.completeness.keys.pairs():
+                  res.add("\"" & peerLog(k) & "\":{" &
+                    "\"map\":\"" & $v.map & "\",\"count\":" & $v.count &
+                    ",\"agent\":\"" & v.agent & "\"}")
+                  map = map or v.map
+                (res.join(","), map)
+          "{" &
+            "\"missing_map\":\"" & $item.completeness.missingMap & "\"" &
+            ",\"present_map\":\"" & $presentMap & "\"" &
+            ",\"done\": " & $item.completeness.done &
+            ",\"summary_map\":\"" & $summaryMap & "\"" &
+            ",\"keys\":{" & keys & "}" &
+          "}"
+
+    res.add(
+      srange & ": {" &
+        "\"requests\":[" & requests & "]" &
+        ",\"completeness\":" & completeness &
+        ",\"failures\":" & $item.failuresCount &
+        ",\"voids\":" & $item.voidsCount & "}"
+    )
+
+  "{" &
+    "\"kind\":\"" & $sq.kind & "\"" &
+    ",\"startSlot\":\"" & $sq.startSlot & "\"" &
+    ",\"finalSlot\":\"" & $sq.finalSlot & "\"" &
+    ",\"inpSlot\":\"" & $sq.inpSlot & "\"" &
+    ",\"outSlot\":\"" & $sq.outSlot & "\"" &
+    ",\"waiters_count\":" & $len(sq.waiters) &
+    ",\"uniq_id\":\"" & $sq.uniqId & "\"" &
+    ",\"skip_id\":\"" & $sq.skipId & "\"" &
+    ",\"queue\":{" & res.join(",") & "}" &
+  "}"
+
+func init*[M](
+    t1: typedesc[SyncQueue],
+    t2: typedesc[M],
+    t3: typedesc[BlockCompleteness],
+    queueKind: SyncQueueKind,
+    start, final: Slot,
+    chunkSize: uint64,
+    requestsCount: Natural,
+    failureResetThreshold: Natural,
+    getSafeSlotCb: GetSlotCallback,
+    blockVerifier: BlockVerifier,
+    forkAtEpoch: ForkAtEpochCallback,
+    ident: string = "main"
+): SyncQueue[M, BlockCompleteness] =
+  doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
+  doAssert(requestsCount > 0, "Number of requests should not be zero")
+
+  SyncQueue[M, BlockCompleteness](
+    kind: queueKind,
+    startSlot: start,
+    finalSlot: final,
+    chunkSize: chunkSize,
+    requestsCount: requestsCount,
+    failureResetThreshold: failureResetThreshold,
+    getSafeSlot: getSafeSlotCb,
+    inpSlot: start,
+    outSlot: start,
+    blockVerifier: blockVerifier,
+    forkAtEpoch: forkAtEpoch,
+    requests: initDeque[SyncQueueItem[M, BlockCompleteness]](),
+    lock: newAsyncLock(),
+    uniqId: 0'u64,
+    skipId: 0'u64,
+    ident: ident
+  )
+
+func init*[M](
+    t1: typedesc[SyncQueue],
+    t2: typedesc[M],
+    t3: typedesc[ColumnCompleteness],
+    queueKind: SyncQueueKind,
+    start, final: Slot,
+    chunkSize: uint64,
+    requestsCount: Natural,
+    failureResetThreshold: Natural,
+    maxSlotDistance: Natural,
+    getSafeSlotCb: GetSlotCallback,
+    blockVerifier: BlockVerifier,
+    forkAtEpoch: ForkAtEpochCallback,
+    localMapCb: LocalColumnMapCallback,
+    peerMapCb: PeerMapCallback[M],
+    missingMapCb: MissingMapCallback,
+    ident: string = "main"
+): SyncQueue[M, ColumnCompleteness] =
+  doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
+  doAssert(requestsCount > 0, "Number of requests should not be zero")
+
+  SyncQueue[M, ColumnCompleteness](
+    kind: queueKind,
+    startSlot: start,
+    finalSlot: final,
+    chunkSize: chunkSize,
+    requestsCount: requestsCount,
+    failureResetThreshold: failureResetThreshold,
+    maxSlotDistance: maxSlotDistance,
+    getSafeSlot: getSafeSlotCb,
+    inpSlot: start,
+    outSlot: start,
+    blockVerifier: blockVerifier,
+    forkAtEpoch: forkAtEpoch,
+    requests: initDeque[SyncQueueItem[M, ColumnCompleteness]](),
+    lock: newAsyncLock(),
+    cbGetColumnMap: peerMapCb,
+    cbGetMissingMap: missingMapCb,
+    cbGetLocalColumnMap: localMapCb,
+    uniqId: 0'u64,
+    skipId: 0'u64,
+    ident: ident
+  )

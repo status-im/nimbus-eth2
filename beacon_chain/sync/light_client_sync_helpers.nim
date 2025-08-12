@@ -15,6 +15,8 @@ import
   ../spec/[forks_light_client, network],
   ../beacon_clock
 
+export forks_light_client
+
 func checkLightClientUpdates*(
     updates: openArray[ForkedLightClientUpdate],
     startPeriod: SyncCommitteePeriod,

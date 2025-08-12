@@ -534,6 +534,18 @@ proc addHeadExecutionPayload*(
       return err(PayloadVerifierError.UnviableFork)
     return err(PayloadVerifierError.MissingParent)
 
+  # Check execution parent's envelope
+  let epRes = dag.executionParent(
+    blck.parent, signedEnvelope.message.payload.parent_hash)
+  if epRes.isSome():
+    if epRes.get().slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH and
+        epRes.get().slot > GENESIS_SLOT and
+        not dag.db.containsExecutionPayloadEnvelope(epRes.get().root):
+      return err(PayloadVerifierError.MissingParent)
+  elif not dag.hasExecutionCheckpoint(
+      blck.parent, signedEnvelope.message.payload.parent_hash):
+    return err(PayloadVerifierError.MissingParent)
+
   # Load state cache for updateState() and state transition.
   var cache: StateCache
   loadStateCache(dag, cache, blck.bid, blck.slot().epoch())

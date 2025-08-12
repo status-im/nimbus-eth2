@@ -56,10 +56,14 @@ const
 proc init*(t: typedesc[RootQueue]): RootQueue =
   RootQueue(queue: initDeque[Eth2Digest](16))
 
+proc add*(rq: var RootQueue, roots: openArray[Eth2Digest]) =
+  for root in roots:
+    if root notin rq.roots:
+      rq.queue.addLast(root)
+      rq.roots.incl(root)
+
 proc add*(rq: var RootQueue, root: Eth2Digest) =
-  if root notin rq.roots:
-    rq.queue.addLast(root)
-    rq.roots.incl(root)
+  add(rq, [root])
 
 proc len*(rq: RootQueue): int =
   len(rq.queue)

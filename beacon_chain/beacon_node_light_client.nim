@@ -58,7 +58,7 @@ proc initLightClient*(
     lightBlockProcessor = initLightBlockProcessor(
       cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
-    shouldInhibitSync = func(): bool =
+    shouldInhibitSync = proc(): bool =
       if isNil(node.syncOverseer):
         false
       else:

@@ -154,6 +154,14 @@ proc popSidecarsForImport*(
       res.trusted.add(sidecar)
   Opt.some(res)
 
+proc putSidecarsForImport*(
+    quarantine: var FuluColumnQuarantine,
+    blockRoot: Eth2Digest,
+    data: fulu.DataColumnSidecarsForImport
+) =
+  quarantine.put(blockRoot, fulu.DataColumnSidecars(data.trusted), true)
+  quarantine.put(blockRoot, data.untrusted, false)
+
 proc popSidecarsForImport*(
     quarantine: var GloasColumnQuarantine,
     blockRoot: Eth2Digest
