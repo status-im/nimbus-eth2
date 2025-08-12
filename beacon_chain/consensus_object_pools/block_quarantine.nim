@@ -265,7 +265,7 @@ proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
         toDel.add k
 
   for k in toDel:
-    quarantine.addUnviable k    # why?
+    quarantine.addUnviable k
     quarantine.sidecarless.del k
 
 func clearAfterReorg*(quarantine: var Quarantine) =
