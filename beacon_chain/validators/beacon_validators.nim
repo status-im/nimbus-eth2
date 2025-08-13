@@ -666,7 +666,7 @@ proc getBlindedExecutionPayload[
     return err "getBlindedExecutionPayload: non-200 HTTP response"
   else:
     if not verify_builder_signature(
-        node.dag.cfg.genesisFork, blindedHeader.data.message,
+        blindedHeader.data.message,
         blindedHeader.data.message.pubkey, blindedHeader.data.signature):
       return err "getBlindedExecutionPayload: signature verification failed"
 
@@ -1635,9 +1635,7 @@ proc getValidatorRegistration(
   debug "getValidatorRegistration: registering", validatorRegistration
 
   validatorRegistration.signature =
-    ?await validator.getBuilderSignature(
-      node.dag.cfg.genesisFork, validatorRegistration.message
-    )
+    ?await validator.getBuilderSignature(validatorRegistration.message)
 
   ok validatorRegistration
 

@@ -324,8 +324,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
         let
-          forkInfo = request.forkInfo.get()
-          signature = get_builder_signature(forkInfo.fork,
+          signature = get_builder_signature(
             ValidatorRegistrationV1(
               fee_recipient: Eth1Address.fromHex(
                   request.validatorRegistration.feeRecipient),

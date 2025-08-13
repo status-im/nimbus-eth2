@@ -961,16 +961,13 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 from stew/byteutils import to0xHex
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+func init*(t: typedesc[Web3SignerRequest],
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
     signingRoot: signingRoot,
     validatorRegistration: Web3SignerValidatorRegistration(
       feeRecipient: data.fee_recipient.data.to0xHex,

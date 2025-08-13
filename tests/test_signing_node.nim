@@ -741,12 +741,12 @@ block:
     asyncTest "Signing validator registration (getBuilderSignature())":
       let
         vdata = default(ValidatorRegistrationV1)
-        sres1 = await validator1.getBuilderSignature(SigningFork, vdata)
-        sres2 = await validator2.getBuilderSignature(SigningFork, vdata)
-        sres3 = await validator3.getBuilderSignature(SigningFork, vdata)
-        rres1 = await validator4.getBuilderSignature(SigningFork, vdata)
-        rres2 = await validator5.getBuilderSignature(SigningFork, vdata)
-        rres3 = await validator6.getBuilderSignature(SigningFork, vdata)
+        sres1 = await validator1.getBuilderSignature(vdata)
+        sres2 = await validator2.getBuilderSignature(vdata)
+        sres3 = await validator3.getBuilderSignature(vdata)
+        rres1 = await validator4.getBuilderSignature(vdata)
+        rres2 = await validator5.getBuilderSignature(vdata)
+        rres3 = await validator6.getBuilderSignature(vdata)
 
       check:
         sres1.isOk()
