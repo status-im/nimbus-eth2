@@ -29,8 +29,6 @@ from ../tests/mocking/mock_genesis import mockEth1BlockHash
 func init(T: type IpAddress, ip: IpAddress): T = ip
 
 type
-  Eth1Address = web3.Address
-
   StartUpCommand {.pure.} = enum
     generateDeposits
     createTestnet
@@ -236,9 +234,6 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: web3.FixedBytes[32])
 
-template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
-  T(data: distinctBase(address))
-
 template `as`(address: Hash32, T: type Eth2Digest): T =
   asEth2Digest(address)
 
@@ -250,7 +245,7 @@ func getOrDefault[T](x: Opt[T]): T =
 
 func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -266,7 +261,7 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -283,7 +278,7 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -302,7 +297,7 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -321,7 +316,7 @@ func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type fulu.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),

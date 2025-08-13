@@ -22,10 +22,10 @@ import
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
-  ../digest,
+  ../[digest, ssz_codec],
   "."/[base, phase0, altair, bellatrix]
 
-export json_serialization, base
+export json_serialization, base, ssz_codec
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/light-client/sync-protocol.md#constants

@@ -1614,32 +1614,32 @@ from std/times import epochTime
 proc getValidatorRegistration(
     node: BeaconNode, validator: AttachedValidator, epoch: Epoch):
     Future[Result[SignedValidatorRegistrationV1, string]] {.async: (raises: [CancelledError]).} =
-  let validatorIdx = validator.index.valueOr:
-    # The validator index will be missing when the validator was not
-    # activated for duties yet. We can safely skip the registration then.
-    return
+  let
+    validatorIdx = validator.index.valueOr:
+      # The validator index will be missing when the validator was not
+      # activated for duties yet. We can safely skip the registration then.
+      return
 
-  let feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
-  let gasLimit = node.getGasLimit(validator.pubkey)
+    feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
+    gasLimit = node.getGasLimit(validator.pubkey)
+
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
-      fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+      fee_recipient: feeRecipient,
       gas_limit: gasLimit,
       timestamp: epochTime().uint64,
-      pubkey: validator.pubkey))
+      pubkey: validator.pubkey,
+    )
+  )
 
-  let signature = await validator.getBuilderSignature(
-    node.dag.cfg.genesisFork, validatorRegistration.message)
+  debug "getValidatorRegistration: registering", validatorRegistration
 
-  debug "getValidatorRegistration: registering",
-    validatorRegistration
+  validatorRegistration.signature =
+    ?await validator.getBuilderSignature(
+      node.dag.cfg.genesisFork, validatorRegistration.message
+    )
 
-  if signature.isErr:
-    return err signature.error
-
-  validatorRegistration.signature = signature.get
-
-  return ok validatorRegistration
+  ok validatorRegistration
 
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,

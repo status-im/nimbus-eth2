@@ -327,9 +327,8 @@ proc installApiHandlers*(node: SigningNodeRef) =
           forkInfo = request.forkInfo.get()
           signature = get_builder_signature(forkInfo.fork,
             ValidatorRegistrationV1(
-              fee_recipient:
-                ExecutionAddress(data: distinctBase(Eth1Address.fromHex(
-                  request.validatorRegistration.feeRecipient))),
+              fee_recipient: Eth1Address.fromHex(
+                  request.validatorRegistration.feeRecipient),
               gas_limit: request.validatorRegistration.gasLimit,
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
