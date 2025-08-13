@@ -988,6 +988,7 @@ AllTests-mainnet
 + [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
 + [SyncQueue# & Backward] Smoke [single peer] test                                           OK
 + [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
++ [SyncQueue# & Backward] epochFilter() test                                                 OK
 + [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
 + [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
 + [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
@@ -996,6 +997,7 @@ AllTests-mainnet
 + [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
 + [SyncQueue# & Forward] Smoke [single peer] test                                            OK
 + [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
++ [SyncQueue# & Forward] epochFilter() test                                                  OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK

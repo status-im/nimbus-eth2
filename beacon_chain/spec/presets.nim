@@ -10,14 +10,14 @@
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/primitives as web3types,
+  stew/[byteutils], stint, eth/common/addresses as eth,
   ./datatypes/constants
 
 from std/algorithm import sort
 
 export constants
 
-export stint, web3types.toHex, web3types.`==`
+export stint, eth
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -39,7 +39,8 @@ const
 
 type
   Version* = distinct array[4, byte]
-  Eth1Address* = web3types.Address
+
+  Eth1Address* = eth.Address
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/beacon-chain.md#new-blobparameters
   BlobParameters* = object
@@ -196,8 +197,8 @@ when const_preset == "mainnet":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: Hash32.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
     # Genesis
     # ---------------------------------------------------------------
@@ -370,8 +371,8 @@ elif const_preset == "gnosis":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
     # Genesis
     # ---------------------------------------------------------------
@@ -534,8 +535,8 @@ elif const_preset == "minimal":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: Hash32.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
 
     # Genesis

@@ -68,13 +68,16 @@ import
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../../version,
-  ".."/[beacon_time, crypto, digest, presets]
+  ../[beacon_time, crypto, digest, presets]
+
+from eth/common/eth_types_json_serialization import readValue, writeValue
 
 from std/algorithm import isSorted
 
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
-  digest, presets
+  digest, presets, eth, eth_types_json_serialization.readValue,
+  eth_types_json_serialization.writeValue
 
 const SPEC_VERSION* = "1.6.0-alpha.4"
 ## Spec version we're aiming to be compatible with, right now

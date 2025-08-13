@@ -390,6 +390,9 @@ proc initFullNode(
     isSlotWithinWeakSubjectivityPeriod(node.dag,
       node.beaconClock.now().slotOrZero())
 
+  proc forkAtEpoch(epoch: Epoch): ConsensusFork =
+    consensusForkAtEpoch(dag.cfg, epoch)
+
   proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
     await node.shutdownEvent.wait()
     bnStatus = BeaconNodeStatus.Stopping
@@ -514,7 +517,7 @@ proc initFullNode(
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.tail.slot, blockVerifier,
+      dag.tail.slot, blockVerifier, forkAtEpoch,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
@@ -526,7 +529,7 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     clistPivotSlot =
@@ -543,7 +546,7 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
+      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(

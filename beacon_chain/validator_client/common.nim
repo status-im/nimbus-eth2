@@ -1097,7 +1097,7 @@ proc getValidatorRegistration(
   var registration =
     SignedValidatorRegistrationV1(
       message: ValidatorRegistrationV1(
-        fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+        fee_recipient: feeRecipient,
         gas_limit: gasLimit,
         timestamp: uint64(timestamp.toUnix()),
         pubkey: validator.pubkey
