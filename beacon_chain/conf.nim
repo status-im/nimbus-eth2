@@ -18,9 +18,9 @@ import
   confutils/toml/std/uri as confTomlUri,
   serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
-  eth/common/eth_types as commonEthTypes, eth/net/nat,
+  eth/net/nat,
   eth/p2p/discoveryv5/enr,
-  json_serialization, web3/[primitives, confutils_defs],
+  json_serialization, json_serialization/std/net as jsnet, web3/confutils_defs,
   chronos/transports/common,
   kzg4844/kzg,
   ./spec/[engine_authentication, keystore, network, crypto],
@@ -40,7 +40,7 @@ export
   defaultEth2TcpPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
-  confTomlDefs, confTomlNet, confTomlUri,
+  confTomlDefs, confTomlNet, confTomlUri, jsnet,
   LightClientDataImportMode, slashing_protection_common
 
 declareGauge network_name, "network name", ["name"]
@@ -1164,8 +1164,6 @@ type
       name: "tls-key" .}: Option[InputFile]
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
-
-  Address = primitives.Address
 
 proc defaultDataDir*[Conf](config: Conf): string =
   let dataDir = when defined(windows):

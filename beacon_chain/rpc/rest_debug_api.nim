@@ -112,14 +112,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         unrealized = item.unrealized.get(item.checkpoints)
         u_justified_checkpoint =
           if unrealized.justified != item.checkpoints.justified:
-            some unrealized.justified
+            Opt.some unrealized.justified
           else:
-            none(Checkpoint)
+            Opt.none(Checkpoint)
         u_finalized_checkpoint =
           if unrealized.finalized != item.checkpoints.finalized:
-            some unrealized.finalized
+            Opt.some unrealized.finalized
           else:
-            none(Checkpoint)
+            Opt.none(Checkpoint)
 
       response.fork_choice_nodes.add RestNode(
         slot: item.bid.slot,
@@ -144,7 +144,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestNodeValidity.valid,
         execution_block_hash:
           node.dag.loadExecutionBlockHash(item.bid).get(ZERO_HASH),
-        extra_data: some RestNodeExtraData(
+        extra_data: Opt.some RestNodeExtraData(
           justified_root: item.checkpoints.justified.root,
           finalized_root: item.checkpoints.finalized.root,
           u_justified_checkpoint: u_justified_checkpoint,

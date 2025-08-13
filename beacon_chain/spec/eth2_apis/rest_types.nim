@@ -15,10 +15,11 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/primitives, httputils, stew/bitops2,
-  ".."/forks
+  results,
+  stew/base10, httputils, stew/bitops2,
+  ../forks
 
-export forks, tables, httputils
+export forks, tables, httputils, results
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -260,8 +261,8 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
-    is_optimistic*: Option[bool]
-    el_offline*: Option[bool]
+    is_optimistic*: Opt[bool]
+    el_offline*: Opt[bool]
 
   RestPeerCount* = object
     disconnected*: uint64
@@ -358,16 +359,16 @@ type
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
     data*: T
-    execution_optimistic*: Option[bool]
+    execution_optimistic*: Opt[bool]
 
   DataOptimisticObject*[T] = object
     data*: T
-    execution_optimistic*: Option[bool]
+    execution_optimistic*: Opt[bool]
 
   DataOptimisticAndFinalizedObject*[T] = object
     data*: T
-    execution_optimistic*: Option[bool]
-    finalized*: Option[bool]
+    execution_optimistic*: Opt[bool]
+    finalized*: Opt[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
@@ -419,11 +420,20 @@ type
     index*: GeneralizedIndex
     proof*: seq[Eth2Digest]
 
+  # https://github.com/ethereum/remote-signing-api/blob/87a392deb4e43209ca896dde6b4ec40bef7ee02c/signing/paths/sign.yaml#L37
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, AggregateAndProofV2, Attestation,
-    BlockV2, Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
-    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
-    ValidatorRegistration
+    AggregationSlot = "AGGREGATION_SLOT"
+    AggregateAndProof = "AGGREGATE_AND_PROOF"
+    AggregateAndProofV2 = "AGGREGATE_AND_PROOF_V2"
+    Attestation = "ATTESTATION"
+    BlockV2 = "BLOCK_V2"
+    Deposit = "DEPOSIT"
+    RandaoReveal = "RANDAO_REVEAL"
+    VoluntaryExit = "VOLUNTARY_EXIT"
+    SyncCommitteeMessage = "SYNC_COMMITTEE_MESSAGE",
+    SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
+    SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
+    ValidatorRegistration = "VALIDATOR_REGISTRATION"
 
   Web3SignerRequest* = object
     signingRoot*: Opt[Eth2Digest]
@@ -557,8 +567,8 @@ type
   RestNodeExtraData* = object
     justified_root*: Eth2Digest
     finalized_root*: Eth2Digest
-    u_justified_checkpoint*: Option[Checkpoint]
-    u_finalized_checkpoint*: Option[Checkpoint]
+    u_justified_checkpoint*: Opt[Checkpoint]
+    u_finalized_checkpoint*: Opt[Checkpoint]
     best_child*: Eth2Digest
     best_descendant*: Eth2Digest
 
@@ -571,7 +581,7 @@ type
     weight*: uint64
     validity*: RestNodeValidity
     execution_block_hash*: Eth2Digest
-    extra_data*: Option[RestNodeExtraData]
+    extra_data*: Opt[RestNodeExtraData]
 
   RestExtraData* = object
     discard
@@ -581,6 +591,8 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+  EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == GENESIS_SLOT) and
@@ -602,36 +614,43 @@ template withForkyBlck*(
   case x.kind
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
+    template forkyData: untyped {.inject, used.} = x.fuluData
     template forkyBlck: untyped {.inject, used.} = x.fuluData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.fuluData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.fuluData.blobs
     body
   of ConsensusFork.Electra:
     const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template forkyData: untyped {.inject, used.} = x.electraData
     template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.electraData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.electraData.blobs
     body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkyData: untyped {.inject, used.} = x.capellaData
     template forkyBlck: untyped {.inject, used.} = x.capellaData
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template forkyData: untyped {.inject, used.} = x.bellatrixData
     template forkyBlck: untyped {.inject, used.} = x.bellatrixData
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkyData: untyped {.inject, used.} = x.altairData
     template forkyBlck: untyped {.inject, used.} = x.altairData
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkyData: untyped {.inject, used.} = x.phase0Data
     template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
 
@@ -1162,3 +1181,95 @@ func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[
     Opt.some HistoricalSummariesFork.Capella
   else:
     Opt.none HistoricalSummariesFork
+
+func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
+  # Either key or index depending on prefix
+  if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
+    let res = ? ValidatorPubKey.fromHex(value)
+    ok(ValidatorIdent(kind: ValidatorQueryKind.Key, key: res))
+  else:
+    let res = RestValidatorIndex(? Base10.decode(uint64, value))
+    ok(ValidatorIdent(kind: ValidatorQueryKind.Index, index: res))
+
+func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
+  case value
+  of "pending_initialized":
+    ok({ValidatorFilterKind.PendingInitialized})
+  of "pending_queued":
+    ok({ValidatorFilterKind.PendingQueued})
+  of "active_ongoing":
+    ok({ValidatorFilterKind.ActiveOngoing})
+  of "active_exiting":
+    ok({ValidatorFilterKind.ActiveExiting})
+  of "active_slashed":
+    ok({ValidatorFilterKind.ActiveSlashed})
+  of "exited_unslashed":
+    ok({ValidatorFilterKind.ExitedUnslashed})
+  of "exited_slashed":
+    ok({ValidatorFilterKind.ExitedSlashed})
+  of "withdrawal_possible":
+    ok({ValidatorFilterKind.WithdrawalPossible})
+  of "withdrawal_done":
+    ok({ValidatorFilterKind.WithdrawalDone})
+  of "pending":
+    ok({
+      ValidatorFilterKind.PendingInitialized,
+      ValidatorFilterKind.PendingQueued
+    })
+  of "active":
+    ok({
+      ValidatorFilterKind.ActiveOngoing,
+      ValidatorFilterKind.ActiveExiting,
+      ValidatorFilterKind.ActiveSlashed
+    })
+  of "exited":
+    ok({
+      ValidatorFilterKind.ExitedUnslashed,
+      ValidatorFilterKind.ExitedSlashed
+    })
+  of "withdrawal":
+    ok({
+      ValidatorFilterKind.WithdrawalPossible,
+      ValidatorFilterKind.WithdrawalDone
+    })
+  else:
+    err("Incorrect validator state identifier value")
+
+func toList*(value: set[ValidatorFilterKind]): seq[string] =
+  const
+    pendingSet = {ValidatorFilterKind.PendingInitialized,
+                  ValidatorFilterKind.PendingQueued}
+    activeSet = {ValidatorFilterKind.ActiveOngoing,
+                 ValidatorFilterKind.ActiveExiting,
+                 ValidatorFilterKind.ActiveSlashed}
+    exitedSet = {ValidatorFilterKind.ExitedUnslashed,
+                 ValidatorFilterKind.ExitedSlashed}
+    withdrawSet = {ValidatorFilterKind.WithdrawalPossible,
+                   ValidatorFilterKind.WithdrawalDone}
+  var
+    res: seq[string]
+    v = value
+
+  template processSet(argSet, argName: untyped): untyped =
+    if argSet * v == argSet:
+      res.add(argName)
+      v.excl(argSet)
+
+  template processSingle(argSingle, argName): untyped =
+    if argSingle in v:
+      res.add(argName)
+
+  processSet(pendingSet, "pending")
+  processSet(activeSet, "active")
+  processSet(exitedSet, "exited")
+  processSet(withdrawSet, "withdrawal")
+  processSingle(ValidatorFilterKind.PendingInitialized, "pending_initialized")
+  processSingle(ValidatorFilterKind.PendingQueued, "pending_queued")
+  processSingle(ValidatorFilterKind.ActiveOngoing, "active_ongoing")
+  processSingle(ValidatorFilterKind.ActiveExiting, "active_exiting")
+  processSingle(ValidatorFilterKind.ActiveSlashed, "active_slashed")
+  processSingle(ValidatorFilterKind.ExitedUnslashed, "exited_unslashed")
+  processSingle(ValidatorFilterKind.ExitedSlashed, "exited_slashed")
+  processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
+  processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
+  res

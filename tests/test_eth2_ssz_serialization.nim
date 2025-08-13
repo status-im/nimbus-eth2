@@ -11,8 +11,7 @@
 import
   std/strutils,
   unittest2,
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
-  ../beacon_chain/spec/eth2_ssz_serialization,
+  ../beacon_chain/spec/[eth2_ssz_serialization, forks],
   ./consensus_spec/os_ops
 
 static:
@@ -47,10 +46,9 @@ suite "Specific field types":
       check:
         t.root.isZero
 
-    testit(phase0.SignedBeaconBlock)
-    testit(phase0.TrustedSignedBeaconBlock)
-    testit(altair.SignedBeaconBlock)
-    testit(altair.TrustedSignedBeaconBlock)
+    ConsensusFork.withAll:
+      testit(consensusFork.SignedBeaconBlock)
+      testit(consensusFork.TrustedSignedBeaconBlock)
 
 suite "Size bounds":
   test "SignedBeaconBlockDeneb":

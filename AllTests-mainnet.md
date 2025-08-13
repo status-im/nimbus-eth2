@@ -101,11 +101,11 @@ AllTests-mainnet
 ```
 ## Blinded block conversions
 ```diff
-+ Bellatrix toSignedBlindedBeaconBlock                                                       OK
-+ Capella toSignedBlindedBeaconBlock                                                         OK
-+ Deneb toSignedBlindedBeaconBlock                                                           OK
-+ Electra toSignedBlindedBeaconBlock                                                         OK
-+ Fulu toSignedBlindedBeaconBlock                                                            OK
++ bellatrix toSignedBlindedBeaconBlock                                                       OK
++ capella toSignedBlindedBeaconBlock                                                         OK
++ deneb toSignedBlindedBeaconBlock                                                           OK
++ electra toSignedBlindedBeaconBlock                                                         OK
++ fulu toSignedBlindedBeaconBlock                                                            OK
 ```
 ## BlobQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -848,13 +848,36 @@ AllTests-mainnet
 + put/iterate/remove test [BlobSidecars]                                                     OK
 + put/iterate/remove test [DataColumnSidecar]                                                OK
 ```
-## REST JSON encoding and decoding
+## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
 + DenebSignedBlockContents decoding                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ RestErrorMessage parser tests                                                              OK
++ RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
++ remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
++ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
++ remote signing example AGGREGATION_SLOT                                                    OK
++ remote signing example ATTESTATION                                                         OK
++ remote signing example BLOCK_V2 (BELLATRIX)                                                OK
++ remote signing example BLOCK_V2 (CAPELLA)                                                  OK
++ remote signing example BLOCK_V2 (DENEB)                                                    OK
++ remote signing example BLOCK_V2 (ELECTRA)                                                  OK
++ remote signing example DEPOSIT                                                             OK
++ remote signing example RANDAO_REVEAL                                                       OK
++ remote signing example SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF                               OK
++ remote signing example SYNC_COMMITTEE_MESSAGE                                              OK
++ remote signing example SYNC_COMMITTEE_SELECTION_PROOF                                      OK
++ remote signing example VALIDATOR_REGISTRATION                                              OK
++ remote signing example VOLUNTARY_EXIT                                                      OK
++ strictParse(Stuint) tests                                                                  OK
 ```
 ## Remove keystore testing suite
 ```diff
@@ -867,12 +890,6 @@ AllTests-mainnet
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
-```
-## Serialization/deserialization test suite
-```diff
-+ RestErrorMessage parser tests                                                              OK
-+ RestErrorMessage writer tests                                                              OK
-+ strictParse(Stuint) tests                                                                  OK
 ```
 ## Shufflings
 ```diff
