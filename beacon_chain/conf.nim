@@ -686,7 +686,7 @@ type
       builderProposalDelayTolerance* {.
         desc: "Timeout for builder proposal delay tolerance in milliseconds"
         defaultValue: 1500
-        name: "builder-proposal-delay-tolerance" .}: int
+        name: "builder-proposal-delay-tolerance" .}: uint16
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"

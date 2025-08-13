@@ -996,9 +996,7 @@ proc collectBids(
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
       EPS, node, randao, validator_index, graffitiBytes, head, slot)
 
-  # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
-  # second for remote validators. makeBeaconBlockForHeadAndSlot times out after
-  # 1 second.
+
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
 
