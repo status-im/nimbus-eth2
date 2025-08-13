@@ -100,7 +100,8 @@ const
 
   # Spec is 1 second, but mev-boost indirection can induce delay when the relay
   # itself has already consumed the entire second.
-  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
+  import ../conf
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = builderProposalDelayTolerance.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (

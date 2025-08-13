@@ -665,6 +665,7 @@ type
         defaultValue: defaultGasLimit
         name: "suggested-gas-limit" .}: uint64
 
+
       payloadBuilderEnable* {.
         desc: "Enable external payload builder"
         defaultValue: false
@@ -682,6 +683,11 @@ type
               "comparison by a percentage"
         defaultValue: 10
         name: "local-block-value-boost" .}: uint8
+
+      builderProposalDelayTolerance* {.
+        desc: "Timeout for builder proposal delay tolerance in milliseconds"
+        defaultValue: 1500
+        name: "builder-proposal-delay-tolerance" .}: int
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
