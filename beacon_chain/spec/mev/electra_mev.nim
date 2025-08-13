@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import ".."/datatypes/[altair, bellatrix, electra]
-import ../conf
+import ../../conf
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
