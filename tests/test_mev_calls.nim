@@ -23,6 +23,7 @@ from std/times import Time, toUnix, fromUnix, getTime
 const
   ElectraSlot = Slot(64000)
   FuluSlot = Slot(96000)
+  emptyFork = Fork()
   emptyRoot = Eth2Digest()
 
 type
@@ -97,7 +98,7 @@ proc prepare(
     )))
     block_root = hash_tree_root(blindedBlock)
   T(message: blindedBlock,
-    signature: get_block_signature(emptyRoot, slot, block_root,
+    signature: get_block_signature(emptyFork, emptyRoot, slot, block_root,
                                    privateKey).toValidatorSig())
 
 proc jsonResponseSignedBuilderBid(
