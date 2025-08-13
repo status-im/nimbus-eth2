@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import ".."/datatypes/[altair, bellatrix, electra]
+import ../conf
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
@@ -99,7 +100,6 @@ const
 
   # Spec is 1 second, but mev-boost indirection can induce delay when the relay
   # itself has already consumed the entire second.
-  import ../conf
   BUILDER_PROPOSAL_DELAY_TOLERANCE* = builderProposalDelayTolerance.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
