@@ -618,9 +618,9 @@ proc makeBeaconBlockForHeadAndSlot*(
 proc getBlindedExecutionPayload[
     EPH: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
          fulu_mev.BlindedExecutionPayloadAndBlobsBundle](
-    node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
-    executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey):
-    Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
+  node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
+  executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey, builderTimeout: Duration):
+  Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
   # Not ideal to use `when` where instead of splitting into separate functions,
   # but Nim doesn't overload on generic EPH type parameter.
   when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
@@ -628,7 +628,7 @@ proc getBlindedExecutionPayload[
       response = awaitWithTimeout(
         payloadBuilderClient.getHeader(
           slot, executionBlockHash, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        builderTimeout):
           return err "Timeout obtaining Electra blinded header from builder"
 
       res = decodeBytesJsonOrSsz(
@@ -646,7 +646,7 @@ proc getBlindedExecutionPayload[
       response = awaitWithTimeout(
         payloadBuilderClient.getHeader(
           slot, executionBlockHash, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        builderTimeout):
           return err "Timeout obtaining Fulu blinded header from builder"
 
       res = decodeBytesJsonOrSsz(
@@ -772,11 +772,11 @@ func getUnsignedBlindedBeaconBlock[
 proc getBlindedBlockParts[
     EPH: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
          fulu_mev.BlindedExecutionPayloadAndBlobsBundle](
-    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
-    pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes):
-    Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock, ExecutionRequests), string]]
-    {.async: (raises: [CancelledError]).} =
+  node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
+  pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
+  validator_index: ValidatorIndex, graffiti: GraffitiBytes, builderTimeout: Duration):
+  Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock, ExecutionRequests), string]]
+  {.async: (raises: [CancelledError]).} =
   let
     executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
       # With checkpoint sync, the checkpoint block may be unavailable,
@@ -790,8 +790,8 @@ proc getBlindedBlockParts[
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
-              node, payloadBuilderClient, slot, executionBlockHash, pubkey),
-            BUILDER_PROPOSAL_DELAY_TOLERANCE):
+              node, payloadBuilderClient, slot, executionBlockHash, pubkey, builderTimeout),
+            builderTimeout):
           BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
         BlindedBlockResult[EPH].err(
@@ -886,9 +886,10 @@ proc getBuilderBid[
   else:
     static: doAssert false
 
+  let builderTimeout = node.config.builderProposalDelayTolerance.milliseconds
   let blindedBlockParts = await getBlindedBlockParts[EPH](
     node, payloadBuilderClient, head, validator_pubkey, slot, randao,
-    validator_index, graffitiBytes)
+    validator_index, graffitiBytes, builderTimeout)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
