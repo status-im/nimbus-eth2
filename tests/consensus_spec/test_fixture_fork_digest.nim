@@ -30,7 +30,7 @@ cfg.BLOB_SCHEDULE = @[
   BlobParameters(EPOCH: 9.Epoch, MAX_BLOBS_PER_BLOCK: 9)]
 
 proc cfd(
-    epoch: uint64, genesis_validators_root: Eth2Digest,
+    cfg: RuntimeConfig, epoch: uint64, genesis_validators_root: Eth2Digest,
     fork_version: array[4, byte], expected: array[4, byte]) =
   var cfg = cfg
   cfg.FULU_FORK_VERSION = Version(fork_version)
@@ -48,23 +48,40 @@ func getGvr(filling: uint8): Eth2Digest =
 
 suite "EF - Fulu - BPO forkdigests":
   test "Different lengths and blob limits":
-    cfd(100, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
-    cfd(101, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
-    cfd(150, getGvr(0), [6'u8, 0, 0, 0], [0x8a'u8, 0xb3, 0x8b, 0x59])
-    cfd(199, getGvr(0), [6'u8, 0, 0, 0], [0x8a'u8, 0xb3, 0x8b, 0x59])
-    cfd(200, getGvr(0), [6'u8, 0, 0, 0], [0xd9'u8, 0xb8, 0x14, 0x38])
-    cfd(201, getGvr(0), [6'u8, 0, 0, 0], [0xd9'u8, 0xb8, 0x14, 0x38])
-    cfd(250, getGvr(0), [6'u8, 0, 0, 0], [0x4e'u8, 0xf3, 0x2a, 0x62])
-    cfd(299, getGvr(0), [6'u8, 0, 0, 0], [0x4e'u8, 0xf3, 0x2a, 0x62])
-    cfd(300, getGvr(0), [6'u8, 0, 0, 0], [0xca'u8, 0x10, 0x0d, 0x64])
-    cfd(301, getGvr(0), [6'u8, 0, 0, 0], [0xca'u8, 0x10, 0x0d, 0x64])
+    cfg.cfd(100, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
+    cfg.cfd(101, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
+    cfg.cfd(150, getGvr(0), [6'u8, 0, 0, 0], [0x8a'u8, 0xb3, 0x8b, 0x59])
+    cfg.cfd(199, getGvr(0), [6'u8, 0, 0, 0], [0x8a'u8, 0xb3, 0x8b, 0x59])
+    cfg.cfd(200, getGvr(0), [6'u8, 0, 0, 0], [0xd9'u8, 0xb8, 0x14, 0x38])
+    cfg.cfd(201, getGvr(0), [6'u8, 0, 0, 0], [0xd9'u8, 0xb8, 0x14, 0x38])
+    cfg.cfd(250, getGvr(0), [6'u8, 0, 0, 0], [0x4e'u8, 0xf3, 0x2a, 0x62])
+    cfg.cfd(299, getGvr(0), [6'u8, 0, 0, 0], [0x4e'u8, 0xf3, 0x2a, 0x62])
+    cfg.cfd(300, getGvr(0), [6'u8, 0, 0, 0], [0xca'u8, 0x10, 0x0d, 0x64])
+    cfg.cfd(301, getGvr(0), [6'u8, 0, 0, 0], [0xca'u8, 0x10, 0x0d, 0x64])
 
   test "Different genesis validators roots":
-    cfd(100, getGvr(1), [6'u8, 0, 0, 0], [0xfd'u8, 0x3a, 0xa2, 0xa2])
-    cfd(100, getGvr(2), [6'u8, 0, 0, 0], [0x80'u8, 0xc6, 0xbd, 0x97])
-    cfd(100, getGvr(3), [6'u8, 0, 0, 0], [0xf2'u8, 0x09, 0xfd, 0xfc])
+    cfg.cfd(100, getGvr(1), [6'u8, 0, 0, 0], [0xfd'u8, 0x3a, 0xa2, 0xa2])
+    cfg.cfd(100, getGvr(2), [6'u8, 0, 0, 0], [0x80'u8, 0xc6, 0xbd, 0x97])
+    cfg.cfd(100, getGvr(3), [6'u8, 0, 0, 0], [0xf2'u8, 0x09, 0xfd, 0xfc])
 
   test "Different fork versions":
-    cfd(100, getGvr(0), [6'u8, 0, 0, 1], [0x44'u8, 0xa5, 0x71, 0xe8])
-    cfd(100, getGvr(0), [7'u8, 0, 0, 0], [0x70'u8, 0x6f, 0x46, 0x1a])
-    cfd(100, getGvr(0), [7'u8, 0, 0, 1], [0x1a'u8, 0x34, 0x15, 0xc2])
+    cfg.cfd(100, getGvr(0), [6'u8, 0, 0, 1], [0x44'u8, 0xa5, 0x71, 0xe8])
+    cfg.cfd(100, getGvr(0), [7'u8, 0, 0, 0], [0x70'u8, 0x6f, 0x46, 0x1a])
+    cfg.cfd(100, getGvr(0), [7'u8, 0, 0, 1], [0x1a'u8, 0x34, 0x15, 0xc2])
+
+  test "Fusaka devnet-2":
+    var cfg = cfg
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_VERSION = Version([0x60'u8, 0x93, 0x75, 0x44])
+    cfg.FULU_FORK_EPOCH = 256.Epoch
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 1584.Epoch, MAX_BLOBS_PER_BLOCK: 20),
+      BlobParameters(EPOCH: 1280.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BlobParameters(EPOCH: 1024.Epoch, MAX_BLOBS_PER_BLOCK: 18),
+      BlobParameters(EPOCH: 768.Epoch, MAX_BLOBS_PER_BLOCK: 15),
+      BlobParameters(EPOCH: 512.Epoch, MAX_BLOBS_PER_BLOCK: 12)]
+
+    cfg.cfd(
+      256,
+      Eth2Digest.fromHex("0xd9d36cce7e1e5b021676d15cbc674ec2e02183a98373ca191a3cbcefca479f9b"),
+      [0x70'u8, 0x93, 0x75, 0x44], [0x36'u8, 0x9f, 0x89, 0xf7])

@@ -209,6 +209,7 @@ AllTests-mainnet
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
++ Fusaka devnet-2                                                                            OK
 ```
 ## EF - KZG
 ```diff
@@ -533,6 +534,7 @@ AllTests-mainnet
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_5               OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_6               OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_multiple_blobs  OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_not_sorted      OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_same_cell_multi OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells      OK
 ```
@@ -557,6 +559,8 @@ AllTests-mainnet
 ```
 ## EF - SSZ generic types
 ```diff
++ Testing basic_progressive_list inputs - invalid                                            OK
++ Testing basic_progressive_list inputs - valid                                              OK
   Testing basic_vector inputs - invalid                                                      Skip
 + Testing basic_vector inputs - valid                                                        OK
 + Testing bitlist      inputs - invalid                                                      OK
@@ -567,6 +571,8 @@ AllTests-mainnet
 + Testing boolean      inputs - valid                                                        OK
 + Testing containers   inputs - invalid                                                      OK
 + Testing containers   inputs - valid                                                        OK
++ Testing progressive_bitlist inputs - invalid                                               OK
++ Testing progressive_bitlist inputs - valid                                                 OK
 + Testing uints        inputs - invalid                                                      OK
 + Testing uints        inputs - valid                                                        OK
 ```
@@ -982,6 +988,7 @@ AllTests-mainnet
 + [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
 + [SyncQueue# & Backward] Smoke [single peer] test                                           OK
 + [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
++ [SyncQueue# & Backward] epochFilter() test                                                 OK
 + [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
 + [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
 + [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
@@ -990,6 +997,7 @@ AllTests-mainnet
 + [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
 + [SyncQueue# & Forward] Smoke [single peer] test                                            OK
 + [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
++ [SyncQueue# & Forward] epochFilter() test                                                  OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK

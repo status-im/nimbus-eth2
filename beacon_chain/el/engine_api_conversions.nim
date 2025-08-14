@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -29,14 +29,14 @@ func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
   capella.Withdrawal(
     index: w.index.uint64,
     validator_index: w.validatorIndex.uint64,
-    address: ExecutionAddress(data: w.address.distinctBase),
+    address: w.address,
     amount: Gwei w.amount)
 
 func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
-    address: Address(w.address.data),
+    address: w.address,
     amount: Quantity(w.amount))
 
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
@@ -46,8 +46,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
 
   bellatrix.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -78,8 +77,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
 
   capella.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -109,8 +107,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
 
   deneb.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -136,8 +133,7 @@ func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
 
   electra.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -163,8 +159,7 @@ func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
 
   fulu.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -223,9 +218,8 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeFulu*(
-    payload: GetPayloadV4Response):
-    fulu.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asFuluConsensusPayload,
     blockValue: payload.blockValue,
@@ -253,7 +247,7 @@ func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
 
   engine_api.ExecutionPayloadV1(
     parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
+    feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
@@ -272,7 +266,7 @@ template toEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
-    address: Address(w.address.data),
+    address: w.address,
     amount: Quantity(w.amount))
 
 func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
@@ -283,7 +277,7 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     TypedTransaction(tt.distinctBase)
   engine_api.ExecutionPayloadV2(
     parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
+    feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
@@ -310,7 +304,7 @@ func asEngineExecutionPayload*(
 
   engine_api.ExecutionPayloadV3(
     parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
+    feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:

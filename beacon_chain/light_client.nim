@@ -181,7 +181,7 @@ proc createLightClient(
     getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
     shouldInhibitSync = shouldInhibitSync)
 
-  lightClient.gossipState = {}
+  reset(lightClient.gossipState)
 
   lightClient
 
@@ -389,10 +389,7 @@ proc updateGossipStatus*(
       dagIsBehind.get(true)
     isBehind = lcBehind and dagBehind
 
-    currentEpochTargetGossipState = getTargetGossipState(
-      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-      cfg.FULU_FORK_EPOCH, isBehind)
+    currentEpochTargetGossipState = getTargetGossipState(epoch, cfg, isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
         currentEpochTargetGossipState
@@ -401,9 +398,7 @@ proc updateGossipStatus*(
         # which is in the past relative to the signature slot (current slot).
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
-          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-          cfg.FULU_FORK_EPOCH, isBehind)
+          epoch - 1, cfg, isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
   template currentGossipState(): auto = lightClient.gossipState
@@ -421,20 +416,20 @@ proc updateGossipStatus*(
     discard
 
   let
-    newGossipForks = targetGossipState - currentGossipState
-    oldGossipForks = currentGossipState - targetGossipState
+    newGossipEpochs = targetGossipState - currentGossipState
+    oldGossipEpochs = currentGossipState - targetGossipState
 
-  for gossipFork in oldGossipForks:
-    if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in oldGossipEpochs:
+    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+      let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
       lightClient.network.unsubscribe(
         getLightClientOptimisticUpdateTopic(forkDigest))
 
-  for gossipFork in newGossipForks:
-    if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in newGossipEpochs:
+    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+      let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest), basicParams())
       lightClient.network.subscribe(

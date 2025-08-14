@@ -14,7 +14,6 @@ import
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   ../consensus_object_pools/blob_quarantine,
-  ../consensus_object_pools/data_column_quarantine,
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
@@ -66,6 +65,10 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
+  DataColumnResponseRecord = object
+    block_root: Eth2Digest
+    sidecar: ref DataColumnSidecar
+
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
@@ -74,7 +77,7 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref DataColumnQuarantine
+    dataColumnQuarantine: ref ColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     blobLoader: BlobLoaderFn
@@ -97,7 +100,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               blobQuarantine: ref BlobQuarantine,
-              dataColumnQuarantine: ref DataColumnQuarantine,
+              dataColumnQuarantine: ref ColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
               blobLoader: BlobLoaderFn = nil,
@@ -166,25 +169,25 @@ func checkResponseSanity(
 
   Opt.some(records)
 
-func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
-                    columns: openArray[ref DataColumnSidecar]): bool =
+func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
+                          columns: openArray[ref DataColumnSidecar]):
+                          Opt[seq[DataColumnResponseRecord]] =
+  var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
       hash_tree_root(colresp[].signed_block_header.message)
-    if block_root notin idList.mapIt(it.block_root):
-      # received a response that does not match the
-      # block root of any of the items that were requested
-      return false
     for id in idList:
       if id.block_root == block_root:
         if binarySearch(id.indices.asSeq, colresp, cmpColumnIndex) == -1:
           # at the common block root level, the response
           # is NOT a subset of the request ids
-          return false
+          return Opt.none(seq[DataColumnResponseRecord])
         # verify the inclusion proof
         colresp[].verify_data_column_sidecar_inclusion_proof().isOkOr:
-          return false
-  true
+          return Opt.none(seq[DataColumnResponseRecord])
+        colRec.add(DataColumnResponseRecord(block_root: block_root,
+                                            sidecar: colresp))
+  Opt.some(colRec)
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
   var peer: Peer
@@ -335,8 +338,9 @@ proc checkPeerCustody(rman: RequestManager,
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          remoteNodeId.resolve_column_sets_from_custody_groups(
-            max(SAMPLES_PER_SLOT.uint64,
+          rman.network.cfg.resolve_columns_from_custody_groups(
+            remoteNodeId,
+            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
 
       for local_column in rman.custody_columns_set:
@@ -361,20 +365,20 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       if columns.isOk:
         var ucolumns = columns.get().asSeq()
         ucolumns.sort(cmpSidecarIndexes)
-        if not checkColumnResponse(colIdList, ucolumns):
+        let records = checkColumnResponse(colIdList, ucolumns).valueOr:
           debug "Response to columns by root is not a subset",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
 
-        for col in ucolumns:
-          rman.dataColumnQuarantine[].put(col)
+        for col in records:
+          rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
+
         var curRoot: Eth2Digest
-        for col in ucolumns:
-          let block_root = hash_tree_root(col.signed_block_header.message)
-          if block_root != curRoot:
-            curRoot = block_root
-            if (let o = rman.quarantine[].popSidecarless(curRoot); o.isSome):
+        for col in records:
+          if col.block_root != curRoot:
+            curRoot = col.block_root
+            if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
               let col = o.unsafeGet()
               discard await rman.blockVerifier(col, false)
       else:
@@ -578,29 +582,27 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           debug "Not handling missing data columns early in slot"
           continue
 
-        if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
-          let missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
-          if len(missing.indices) == 0:
-            warn "quarantine is missing data columns, but missing indices are empty",
-             blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+        let
+          commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
+          missing =
+            rman.dataColumnQuarantine[].fetchMissingColumnsByRoot(columnless.root, forkyBlck)
 
-          let id = DataColumnsByRootIdentifier(
-            block_root: columnless.root,
-            indices:  DataColumnIndices.init(missing.indices))
-          for index in id.indices.asSeq:
-            if not(index in rman.custody_columns_set and id notin fetches and
-                len(forkyBlck.message.body.blob_kzg_commitments) != 0):
-              # do not include to fetches
-              discard
-            else:
-              fetches.add(id)
+        if len(missing) > 0:
+          for ident in missing:
+            if ident notin fetches:
+              fetches.add(ident)
         else:
-          # this is a programming error and it not should occur
-          warn "missing column handler found columnless block with all data columns",
-             blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
-          ready.add(columnless.root)
+          if commitmentsCount == 0:
+            # this is a programming error should it occur.
+            warn "missing column handler found columnless block with all data columns",
+                 blk = columnless.root,
+                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+            ready.add(columnless.root)
+          else:
+            # This should not happen either...
+            warn "quarantine missing data columns, but missing indices is empty",
+                 blk = columnless.root,
+                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 
   for root in ready:
     let columnless = rman.quarantine[].popSidecarless(root).valueOr:
@@ -642,7 +644,7 @@ proc requestManagerDataColumnLoop(
               discard blockRoots.pop()
             continue
           debug "Loaded orphaned data columns from storage", columnId
-          rman.dataColumnQuarantine[].put(data_column_sidecar)
+          rman.dataColumnQuarantine[].put(curRoot, data_column_sidecar)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
@@ -661,9 +663,14 @@ proc requestManagerDataColumnLoop(
     if columnIds.len > 0:
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
-      var workers:
-        array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
-      for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
+      let workerCount =
+        if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+          PARALLEL_REQUESTS
+        else:
+          PARALLEL_REQUESTS_DATA_COLUMNS
+      var workers =
+        newSeq[Future[void].Raising([CancelledError])](workerCount)
+      for i in 0..<workerCount:
         workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
 
       await allFutures(workers)

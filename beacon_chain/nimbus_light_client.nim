@@ -231,40 +231,32 @@ proc main() {.noinline, raises: [CatchableError].} =
 
     isSynced(wallSlot)
 
-  var blocksGossipState: GossipState = {}
+  var blocksGossipState: GossipState
   proc updateBlocksGossipStatus(slot: Slot) =
     let
       isBehind = not shouldSyncOptimistically(slot)
-
-      targetGossipState = getTargetGossipState(
-        slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-        cfg.FULU_FORK_EPOCH, isBehind)
+      targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
 
     template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:
       return
 
-    if currentGossipState.card == 0 and targetGossipState.card > 0:
+    if currentGossipState.len == 0 and targetGossipState.len > 0:
       debug "Enabling blocks topic subscriptions",
         wallSlot = slot, targetGossipState
-    elif currentGossipState.card > 0 and targetGossipState.card == 0:
+    elif currentGossipState.len > 0 and targetGossipState.len == 0:
       debug "Disabling blocks topic subscriptions",
         wallSlot = slot
     else:
       # Individual forks added / removed
       discard
 
-    let
-      newGossipForks = targetGossipState - currentGossipState
-      oldGossipForks = currentGossipState - targetGossipState
-
-    for gossipFork in oldGossipForks:
-      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
+    for gossipEpoch in currentGossipState - targetGossipState:
+      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
-    for gossipFork in newGossipForks:
-      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
+    for gossipEpoch in targetGossipState - currentGossipState:
+      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.subscribe(
         getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
         enableTopicMetrics = true)

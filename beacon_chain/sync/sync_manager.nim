@@ -76,6 +76,7 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
+    forkAtEpoch: ForkAtEpochCallback
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -122,7 +123,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
                                man.getSafeSlot, man.blockVerifier,
-                               man.ident)
+                               man.forkAtEpoch, man.ident)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -137,8 +138,8 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.chunkSize,
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
-                               man.getSafeSlot,
-                               man.blockVerifier, man.ident)
+                               man.getSafeSlot, man.blockVerifier,
+                               man.forkAtEpoch, man.ident)
 
 proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
@@ -155,6 +156,7 @@ proc newSyncManager*[A, B](
     weakSubjectivityPeriodCb: GetBoolCallback,
     progressPivot: Slot,
     blockVerifier: BlockVerifier,
+    forkAtEpochCb: ForkAtEpochCallback,
     shutdownEvent: AsyncEvent,
     maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
     chunkSize = uint64(SLOTS_PER_EPOCH),
@@ -186,6 +188,7 @@ proc newSyncManager*[A, B](
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
+    forkAtEpoch: forkAtEpochCb,
     notInSyncEvent: newAsyncEvent(),
     resumeSyncEvent: newAsyncEvent(),
     direction: direction,

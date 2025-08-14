@@ -133,7 +133,7 @@ func build_empty_execution_payload(
   var payload = bellatrix.ExecutionPayloadForSigning(
     executionPayload: bellatrix.ExecutionPayload(
       parent_hash: latest.block_hash,
-      fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+      fee_recipient: feeRecipient,
       state_root: latest.state_root, # no changes to the state
       receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
       block_number: latest.block_number + 1,
