@@ -996,7 +996,6 @@ proc collectBids(
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
       EPS, node, randao, validator_index, graffitiBytes, head, slot)
 
-
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
 

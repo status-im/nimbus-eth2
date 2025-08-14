@@ -49,6 +49,17 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
     build/nimbus_validator_client \
         --payload-builder=true
     ```
+### Builder Proposal Delay Tolerance
+
+You can configure the builder proposal delay tolerance (MEV block builder timeout) via the following flag:
+
+```
+--builder-proposal-delay-tolerance=<milliseconds>
+```
+
+- **Default value:** 1500 (milliseconds)
+- **Description:** Timeout for builder proposal delay tolerance. Increasing this value may allow the builder extra time to gather more transactions or MEV value, potentially improving block value and network efficiency. Lower values may reduce block proposal latency.
+
 
 ## Useful resources
 
