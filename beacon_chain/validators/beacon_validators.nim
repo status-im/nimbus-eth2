@@ -81,6 +81,7 @@ type
     executionPayloadValue*: Wei
     consensusBlockValue*: UInt256
     blobsBundle*: deneb.BlobsBundle
+    blobsBundleFulu*: fulu.BlobsBundle
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
@@ -590,10 +591,16 @@ proc makeBeaconBlockForHeadAndSlot*(
       executionPayloadValue: payload.blockValue,
       consensusBlockValue: res.get().rewards.blockConsensusValue(),
       blobsBundle:
-        when typeof(payload).kind >= ConsensusFork.Deneb:
+        when typeof(payload).kind in
+            [ConsensusFork.Deneb, ConsensusFork.Electra]:
           payload.blobsBundle
         else:
-          default(deneb.BlobsBundle)
+          default(deneb.BlobsBundle),
+      blobsBundleFulu:
+        when typeof(payload).kind >= ConsensusFork.Fulu:
+          payload.blobsBundle
+        else:
+          default(fulu.BlobsBundle)
     ))
   else:
     err(res.error)
@@ -2007,7 +2014,19 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
   doAssert engineBid.blck.kind == consensusFork
   template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Fulu:
+    doAssert engineBid.blobsBundle.commitments ==
+      forkyBlck.body.blob_kzg_commitments
+    ResultType.ok((
+      blck: consensusFork.MaybeBlindedBeaconBlock(
+        isBlinded: false,
+        data: consensusFork.BlockContents(
+          `block`: forkyBlck,
+          kzg_proofs: engineBid.blobsBundleFulu.proofs,
+          blobs: engineBid.blobsBundle.blobs)),
+      executionValue: Opt.some(engineBid.executionPayloadValue),
+      consensusValue: Opt.some(engineBid.consensusBlockValue)))
+  elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     doAssert engineBid.blobsBundle.commitments ==
       forkyBlck.body.blob_kzg_commitments
     ResultType.ok((

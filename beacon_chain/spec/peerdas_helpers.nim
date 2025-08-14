@@ -224,7 +224,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
       index: ColumnIndex(column_index),
       column: DataColumn.init(column_cells),
       kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: KzgProofs.init(column_proofs),
+      kzg_proofs: deneb.KzgProofs.init(column_proofs),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
@@ -289,7 +289,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: KzgProofs.init(kzgProofOfColumn),
+      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,

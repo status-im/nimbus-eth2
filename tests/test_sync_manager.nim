@@ -83,7 +83,7 @@ func createBlobs(
         if kzgs.len > 0:
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           var
-            kzg_proofs: KzgProofs
+            kzg_proofs: deneb.KzgProofs
             blobs: Blobs
           for _ in kzgs:
             doAssert kzg_proofs.add default(KzgProof)
@@ -1739,7 +1739,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] checkBlobsResponse() test":
     const maxBlobsPerBlockElectra = 9
-    
+
     proc checkBlobsResponse[T](
         req: SyncRequest[T],
         data: openArray[Slot]): Result[void, cstring] =

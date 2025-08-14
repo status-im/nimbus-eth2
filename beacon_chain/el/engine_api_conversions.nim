@@ -191,7 +191,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: deneb.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
@@ -211,7 +211,7 @@ func asConsensusType*(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: deneb.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
@@ -227,11 +227,11 @@ func asConsensusType*(
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    blobsBundle: deneb.BlobsBundle(
+    blobsBundle: fulu.BlobsBundle(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: fulu.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(

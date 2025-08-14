@@ -16,7 +16,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
+  std/typetraits,
   "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
@@ -25,6 +25,7 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
+from std/sequtils import mapIt
 from std/strutils import join
 from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
@@ -34,7 +35,7 @@ from ./altair import
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
@@ -94,12 +95,12 @@ type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
   DataColumnIndices* = List[ColumnIndex, Limit(NUMBER_OF_COLUMNS)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
     kzg_commitments*: KzgCommitments
-    kzg_proofs*: KzgProofs
+    kzg_proofs*: deneb.KzgProofs
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
@@ -128,6 +129,15 @@ type
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#blobsbundle
+  KzgProofs* = List[KzgProof, Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#blobsbundle
+  BlobsBundle* = object
+    commitments*: KzgCommitments
+    proofs*: KzgProofs
+    blobs*: Blobs
 
   # Not in spec, defined in order to compute custody subnets
   CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
@@ -170,7 +180,7 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    blobsBundle*: BlobsBundle
+    blobsBundle*: BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader

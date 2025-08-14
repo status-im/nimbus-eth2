@@ -272,7 +272,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
           execution_payload: electra.ExecutionPayload(
             parent_hash: blck.message.body.execution_payload_header.parent_hash
           ),
-          blobs_bundle: BlobsBundle()
+          blobs_bundle: deneb.BlobsBundle()
         )
       respondSszOrJson(contentType, payload)
     else:

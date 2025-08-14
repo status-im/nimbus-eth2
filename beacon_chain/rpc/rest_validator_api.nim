@@ -481,7 +481,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.sszResponse(forkyBlck, headers)
         elif contentType == jsonMediaType:
           let forked =
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork >= ConsensusFork.Fulu:
+              ForkedMaybeBlindedBeaconBlock.init(
+                consensusFork.BlockContents(
+                  `block`: forkyBlck,
+                  kzg_proofs: message.blobsBundleFulu.proofs,
+                  blobs: message.blobsBundle.blobs),
+                cvalue = consensusValue,
+                evalue = executionValue)
+            elif consensusFork >= ConsensusFork.Deneb:
               ForkedMaybeBlindedBeaconBlock.init(
                 consensusFork.BlockContents(
                   `block`: forkyBlck,

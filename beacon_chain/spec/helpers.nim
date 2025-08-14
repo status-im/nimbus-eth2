@@ -229,7 +229,7 @@ func verify_blob_sidecar_inclusion_proof*(
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
     fulu.SignedBeaconBlock,
-    kzg_proofs: KzgProofs,
+    kzg_proofs: deneb.KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments
