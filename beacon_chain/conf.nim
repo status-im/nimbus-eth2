@@ -1099,6 +1099,11 @@ type
       desc: "Specifies a path for the written JSON log file"
       name: "log-file" .}: Option[OutFile]
 
+    eth2Network* {.
+      desc: "The Eth2 network to join"
+      defaultValueDesc: "mainnet"
+      name: "network" .}: Option[string]
+
     nonInteractive* {.
       desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool

@@ -42,6 +42,7 @@ type
     runKeystoreCachePruningLoopFut: Future[void]
     sigintHandleFut: Future[void]
     sigtermHandleFut: Future[void]
+    genesis_fork_version: Version
 
   SigningNodeRef* = ref SigningNode
 
@@ -114,19 +115,24 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
   ok(key)
 
 proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
+  let
+    genesis_fork_version = loadEth2Network(config.eth2Network).cfg.GENESIS_FORK_VERSION
+
   when declared(waitSignal):
     SigningNodeRef(
       config: config,
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
   else:
     SigningNodeRef(
       config: config,
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
 
 template errorResponse(code: HttpCode, message: string): RestApiResponse =
@@ -325,6 +331,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
       of Web3SignerRequestKind.ValidatorRegistration:
         let
           signature = get_builder_signature(
+            node.genesis_fork_version,
             ValidatorRegistrationV1(
               fee_recipient: Eth1Address.fromHex(
                   request.validatorRegistration.feeRecipient),

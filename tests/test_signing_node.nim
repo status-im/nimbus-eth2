@@ -54,6 +54,7 @@ const
     current_version: Version(hexToByteArray[4]("00001020")),
     epoch: Epoch(0'u64)
   )
+  SigningVersion = SigningFork.current_version
   SomeSignature =
     "0xb3baa751d0a9132cfe93e4e3d5ff9075111100e3789dca219ade5a24d27e19d16b3353149da1833e9b691bb38634e8dc04469be7032132906c927d7e1a49b414730612877bc6b2810c8f202daf793d1ab0d6b5cb21d52f9e52e883859887a5d9"
 
@@ -741,12 +742,12 @@ block:
     asyncTest "Signing validator registration (getBuilderSignature())":
       let
         vdata = default(ValidatorRegistrationV1)
-        sres1 = await validator1.getBuilderSignature(vdata)
-        sres2 = await validator2.getBuilderSignature(vdata)
-        sres3 = await validator3.getBuilderSignature(vdata)
-        rres1 = await validator4.getBuilderSignature(vdata)
-        rres2 = await validator5.getBuilderSignature(vdata)
-        rres3 = await validator6.getBuilderSignature(vdata)
+        sres1 = await validator1.getBuilderSignature(SigningVersion, vdata)
+        sres2 = await validator2.getBuilderSignature(SigningVersion, vdata)
+        sres3 = await validator3.getBuilderSignature(SigningVersion, vdata)
+        rres1 = await validator4.getBuilderSignature(SigningVersion, vdata)
+        rres2 = await validator5.getBuilderSignature(SigningVersion, vdata)
+        rres3 = await validator6.getBuilderSignature(SigningVersion, vdata)
 
       check:
         sres1.isOk()

@@ -561,9 +561,10 @@ proc registerValidators*(
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
+    genesis_fork_version = vc.forks[0].current_version
     registrations =
       try:
-        await vc.prepareRegistrationList(getTime())
+        await vc.prepareRegistrationList(getTime(), genesis_fork_version)
       except CancelledError as exc:
         debug "Validator registration preparation was interrupted",
               slot = currentSlot
@@ -575,11 +576,12 @@ proc registerValidators*(
           await registerValidator(vc, registrations)
         except ValidatorApiError as exc:
           warn "Unable to register validators", slot = currentSlot,
-                err_name = exc.name,
+                version = genesis_fork_version, err_name = exc.name,
                 err_msg = exc.msg, reason = exc.getFailureReason()
           0
         except CancelledError as exc:
-          debug "Validator registration was interrupted", slot = currentSlot
+          debug "Validator registration was interrupted", slot = currentSlot,
+                version = genesis_fork_version
           raise exc
       else:
         0
