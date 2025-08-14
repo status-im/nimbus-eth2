@@ -49,6 +49,7 @@ suite "Block processor" & preset():
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
+      dataColumnQuarantine = newClone(DataColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker

@@ -184,7 +184,7 @@ proc recover_cells_and_proofs*(
     data_columns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## This helper recovers blobs from the data column sidecars
-  if not (data_columns.len != 0):
+  if data_columns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
 
   let start = Moment.now()
@@ -282,7 +282,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
   sidecars
 
 # Additional overload to perform reconstruction at the time of gossip
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/das-core.md#get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
