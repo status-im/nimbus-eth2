@@ -2121,10 +2121,7 @@ proc writeValue*(
                       value.syncCommitteeContributionAndProof)
   of Web3SignerRequestKind.ValidatorRegistration:
     # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
-    doAssert(value.forkInfo.isSome(),
-             "forkInfo should be set for this type of request")
     writer.writeField("type", "VALIDATOR_REGISTRATION")
-    writer.writeField("fork_info", value.forkInfo.get())
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("validator_registration", value.validatorRegistration)
