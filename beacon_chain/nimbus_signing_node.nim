@@ -333,9 +333,8 @@ proc installApiHandlers*(node: SigningNodeRef) =
           signature = get_builder_signature(
             node.genesis_fork_version,
             ValidatorRegistrationV1(
-              fee_recipient: Eth1Address.fromHex(
-                  request.validatorRegistration.feeRecipient),
-              gas_limit: request.validatorRegistration.gasLimit,
+              fee_recipient: request.validatorRegistration.fee_recipient,
+              gas_limit: request.validatorRegistration.gas_limit,
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),

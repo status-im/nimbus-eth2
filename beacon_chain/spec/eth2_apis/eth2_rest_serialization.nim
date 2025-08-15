@@ -2354,15 +2354,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       if dataName != "validator_registration":
         reader.raiseUnexpectedValue(
           "Field `validator_registration` is missing")
-      if forkInfo.isNone():
-        reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data = decodeJsonString(Web3SignerValidatorRegistration,
                                   data.get()).valueOr:
         reader.raiseUnexpectedValue(
           "Incorrect field `validator_registration` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.ValidatorRegistration,
-        forkInfo: forkInfo, signingRoot: signingRoot,
+        signingRoot: signingRoot,
         validatorRegistration: data
       )
 
