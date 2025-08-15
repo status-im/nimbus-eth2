@@ -238,7 +238,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml|config.nims|beacon_chain.nimble"
-          excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc"
+          excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc|sh"
 
           current_year=$(date +"%Y")
           problematic_files=()
