@@ -21,7 +21,7 @@ const
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
     ## Enough for finalization in an alternative fork
-  MaxSidecarless = SLOTS_PER_EPOCH * 3
+  MaxSidecarless = SLOTS_PER_EPOCH * 128
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
