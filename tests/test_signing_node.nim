@@ -12,7 +12,7 @@ import
   unittest2, chronicles, results,
   chronos/asyncproc,
   chronos/unittest2/asynctests,
-  ../beacon_chain/spec/crypto,
+  ../beacon_chain/spec/[crypto, presets],
   ../beacon_chain/spec/eth2_apis/rest_remote_signer_calls,
   ../beacon_chain/validators/validator_pool
 
@@ -739,7 +739,8 @@ block:
         sres3.get() == rres3.get()
 
     asyncTest "Signing validator registration (getBuilderSignature())":
-      const genesis_fork_version = Version() # mainnet version used by default
+      # mainnet version used by default in nimbus_signing_node
+      const genesis_fork_version = defaultRuntimeConfig.GENESIS_FORK_VERSION
       let
         vdata = default(ValidatorRegistrationV1)
         sres1 = await validator1.getBuilderSignature(genesis_fork_version, vdata)
