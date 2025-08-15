@@ -134,8 +134,8 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
       processorFut = processor.runQueueProcessingLoop()
     defer: await processorFut.cancelAndWait()
 
