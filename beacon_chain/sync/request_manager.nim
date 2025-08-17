@@ -318,12 +318,12 @@ proc checkPeerCustody(rman: RequestManager,
     # too many full nodes that have a subset of the custody
     # columns
     if peer.lookupCgcFromPeer() ==
-        NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
   else:
     if peer.lookupCgcFromPeer() ==
-        NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
     elif peer.lookupCgcFromPeer() ==
@@ -337,10 +337,11 @@ proc checkPeerCustody(rman: RequestManager,
       # Fetch custody columns from remote peer
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
-        remoteCustodyColumns = resolve_columns_from_custody_groups(
-          remoteNodeId,
-          max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
-              remoteCustodyGroupCount))
+        remoteCustodyColumns =
+          rman.network.cfg.resolve_columns_from_custody_groups(
+            remoteNodeId,
+            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
+                remoteCustodyGroupCount))
 
       for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:
@@ -663,7 +664,8 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-        if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+        if rman.custody_columns_set.lenu64 >
+            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
           PARALLEL_REQUESTS
         else:
           PARALLEL_REQUESTS_DATA_COLUMNS
