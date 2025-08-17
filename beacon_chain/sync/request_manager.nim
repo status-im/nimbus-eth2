@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[sets, sequtils], chronos, chronicles
 import ssz_serialization/types
@@ -337,11 +337,10 @@ proc checkPeerCustody(rman: RequestManager,
       # Fetch custody columns from remote peer
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
-        remoteCustodyColumns =
-          rman.network.cfg.resolve_columns_from_custody_groups(
-            remoteNodeId,
-            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
-                remoteCustodyGroupCount))
+        remoteCustodyColumns = resolve_columns_from_custody_groups(
+          remoteNodeId,
+          max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
+              remoteCustodyGroupCount))
 
       for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:

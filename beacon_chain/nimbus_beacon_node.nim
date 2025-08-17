@@ -421,11 +421,10 @@ proc initFullNode(
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
         dag.cfg.CUSTODY_REQUIREMENT
-    custodyColumns =
-      dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId,
-        max(dag.cfg.SAMPLES_PER_SLOT.uint64,
-            localCustodyGroups))
+    custodyColumns = resolve_columns_from_custody_groups(
+      node.network.nodeId,
+      max(dag.cfg.SAMPLES_PER_SLOT.uint64,
+          localCustodyGroups))
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)

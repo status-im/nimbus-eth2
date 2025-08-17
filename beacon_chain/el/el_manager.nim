@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/json,
@@ -779,7 +779,7 @@ proc sendGetBlobsV2*(
     let requests = m.elConnections.mapIt(
       sendGetBlobsV2toSingleEl(it,
         mapIt(blck.message.body.blob_kzg_commitments,
-              engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+              kzg_commitment_to_versioned_hash(it))
       )
     )
 
@@ -853,7 +853,7 @@ proc sendNewPayload*(
               let
                 versioned_hashes = mapIt(
                   blck.body.blob_kzg_commitments,
-                  engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                  kzg_commitment_to_versioned_hash(it))
                 # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
                 # "Each list element is a `requests` byte array as defined by
                 # EIP-7685. The first byte of each element is the `request_type`
@@ -880,7 +880,7 @@ proc sendNewPayload*(
               # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
               let versioned_hashes = mapIt(
                 blck.body.blob_kzg_commitments,
-                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                kzg_commitment_to_versioned_hash(it))
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
                 FixedBytes[32] blck.parent_root.data)
