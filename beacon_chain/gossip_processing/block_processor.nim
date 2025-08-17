@@ -237,7 +237,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
