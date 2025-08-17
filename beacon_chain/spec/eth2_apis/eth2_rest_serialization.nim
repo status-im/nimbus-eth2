@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[typetraits, strutils]
 import results, stew/[assign2, base10, byteutils, endians2], presto/common,
@@ -1477,8 +1477,7 @@ template prepareForkedBlockReading(blockType: typedesc,
       if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
-      when (blockType is ForkedBlindedBeaconBlock) or
-           (blockType is ProduceBlockResponseV3):
+      when blockType is ProduceBlockResponseV3:
         if data.isSome():
           reader.raiseUnexpectedField(
             "Multiple '" & fieldName & "' fields found", blockType.name)
@@ -1524,85 +1523,6 @@ template prepareForkedBlockReading(blockType: typedesc,
     reader.raiseUnexpectedValue("Field `version` is missing")
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
-
-proc readValue*[BlockType: ForkedBlindedBeaconBlock](
-       reader: var JsonReader[RestJson],
-       value: var BlockType
-     ) {.raises: [IOError, SerializationError].} =
-  var
-    version: Opt[ConsensusFork]
-    data: Opt[JsonString]
-    blinded: Opt[bool]
-    payloadValue: Opt[UInt256]
-    blockValue: Opt[UInt256]
-
-  prepareForkedBlockReading(BlockType, reader, version, data, blinded,
-                            payloadValue, blockValue)
-
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        phase0.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Phase0,
-                                     phase0Data: res)
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        altair.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect altair block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
-                                     altairData: res)
-  of ConsensusFork.Bellatrix .. ConsensusFork.Capella:
-    reader.raiseUnexpectedValue("pre-Deneb blinded block formats unsupported")
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        deneb_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect deneb block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
-                                     denebData: res)
-  of ConsensusFork.Electra:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        electra_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect electra block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Electra,
-                                     electraData: res)
-  of ConsensusFork.Fulu:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        fulu_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect electra block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Fulu,
-                                     fuluData: res)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],

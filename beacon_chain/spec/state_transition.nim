@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # State transition, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
@@ -504,33 +504,9 @@ proc makeBeaconBlockWithRewards*(
     # Override for Builder API
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when consensusFork < ConsensusFork.Deneb:
-          # Nimbus doesn't support pre-Deneb builder API
+        when consensusFork < ConsensusFork.Electra:
+          # Nimbus doesn't support pre-Electra builder API
           discard
-        elif consensusFork == ConsensusFork.Deneb:
-          forkyState.data.latest_execution_payload_header.transactions_root =
-            transactions_root.get
-
-          when executionPayload is deneb.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/beacon-chain.md#beaconblockbody
-            forkyState.data.latest_block_header.body_root = hash_tree_root(
-              [hash_tree_root(randao_reveal),
-               hash_tree_root(eth1_data),
-               hash_tree_root(graffiti),
-               hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.phase0_attester_slashings),
-               hash_tree_root(
-                 List[phase0.Attestation, Limit MAX_ATTESTATIONS](
-                   attestations)),
-               hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-               hash_tree_root(validator_changes.voluntary_exits),
-               hash_tree_root(sync_aggregate),
-               execution_payload_root.get,
-               hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
-            ])
-          else:
-            raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
         elif consensusFork == ConsensusFork.Electra:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
