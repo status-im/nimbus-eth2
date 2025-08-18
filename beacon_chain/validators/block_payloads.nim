@@ -245,11 +245,11 @@ proc makeEngineBlock*(
 
   ok EngineBlock[consensusFork.BeaconBlock](
     blck: blockAndRewards.blck,
-    executionValue: payload.blockValue,
+    executionValue: eps.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
     blobsBundle:
       when consensusFork >= ConsensusFork.Deneb:
-        payload.blobsBundle
+        eps.blobsBundle
       else:
         default(deneb.BlobsBundle),
   )
