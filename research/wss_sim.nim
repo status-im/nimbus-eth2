@@ -274,12 +274,14 @@ cli do(validatorsDir: string, secretsDir: string,
               default(bellatrix.ExecutionPayloadForSigning)
           message = makeBeaconBlock(
             cfg,
-            state[],
+            consensusFork,
+            forkyState,
+            cache,
             proposer,
             randao_reveal,
             forkyState.data.eth1_data,
             graffitiValue,
-            when typeof(payload).kind >= ConsensusFork.Electra:
+            when consensusFork >= ConsensusFork.Electra:
               default(seq[electra.Attestation])
             else:
               blockAggregates,
@@ -287,10 +289,9 @@ cli do(validatorsDir: string, secretsDir: string,
             BeaconBlockValidatorChanges(),
             syncAggregate,
             payload,
-            noRollback,
-            cache).get()
+            {}).expect("block")
 
-        blockRoot = message.forky(consensusFork).hash_tree_root()
+        blockRoot = message.hash_tree_root()
         let
           proposerPrivkey =
             try:
@@ -298,7 +299,7 @@ cli do(validatorsDir: string, secretsDir: string,
             except KeyError as exc:
               raiseAssert "Proposer key not available: " & exc.msg
           signedBlock = consensusFork.SignedBeaconBlock(
-            message: message.forky(consensusFork),
+            message: message,
             root: blockRoot,
             signature: get_block_signature(
               fork, genesis_validators_root, slot, blockRoot,

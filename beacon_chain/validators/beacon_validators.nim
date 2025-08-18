@@ -404,7 +404,7 @@ proc proposeBlockAux(
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
 
-    enginePayload =
+    engineBid =
       when consensusFork >= ConsensusFork.Electra:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
@@ -435,7 +435,7 @@ proc proposeBlockAux(
           doAssert bids.builderBid.isSome(), "Checked in useBuilderPayload"
           let builderBlockRes = node.makeBuilderBlock(
             consensusFork,
-            state[],
+            state[].forky(consensusFork),
             cache[],
             validator_index,
             randao_reveal,
@@ -522,21 +522,26 @@ proc proposeBlockAux(
 
         bids.engineBid
       else:
-        type EPS = consensusFork.ExecutionPayloadForSigning
         await node.getExecutionPayload(
-          EPS, head, state, validator_index, validator.pubkey
+          consensusFork, head, state, validator_index, validator.pubkey
         )
 
+  if engineBid.isNone():
+    beacon_block_production_errors.inc()
+    return head
+
+  let
     engineBlock = node.makeEngineBlock(
       consensusFork,
-      state[],
+      state[].forky(consensusFork),
       cache[],
       validator_index,
       randao_reveal,
       graffiti,
       head,
       slot,
-      enginePayload,
+      engineBid[].eps,
+      engineBid[].execution_requests,
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
