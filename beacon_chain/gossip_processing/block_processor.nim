@@ -1036,7 +1036,7 @@ proc storeBlock(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars], maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -1048,7 +1048,7 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, Opt.none(DataColumnSidecars), resfut, maybeFinalized, validationDur)
+  enqueueBlock(self, src, blck, blobs, data_columns, resfut, maybeFinalized, validationDur)
   resfut
 
 # Event Loop

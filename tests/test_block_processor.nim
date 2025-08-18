@@ -15,7 +15,7 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/deneb,
+  ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
@@ -76,7 +76,7 @@ suite "Block processor" & preset():
     let
       missing = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
 
     check: missing.error == VerifierError.MissingParent
 
@@ -88,7 +88,7 @@ suite "Block processor" & preset():
     let
       status = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -142,7 +142,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
@@ -151,7 +151,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -165,7 +165,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)

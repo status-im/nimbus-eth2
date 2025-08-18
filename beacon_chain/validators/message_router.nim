@@ -16,7 +16,7 @@ import
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
-  ../spec/datatypes/deneb
+  ../spec/datatypes/[deneb, fulu]
 from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
@@ -173,7 +173,8 @@ proc routeSignedBeaconBlock*(
     blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
   let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs,
+    Opt.none(DataColumnSidecars))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
