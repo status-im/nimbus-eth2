@@ -74,12 +74,6 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
   else:
     stdoutKind
 
-when defaultChroniclesStream.outputs.type.arity == 2:
-  from std/os import splitFile
-  from "."/filepath import secureCreatePath
-
-  import stew/staticfor
-
 proc setupFileLimits*() =
   when not defined(windows):
     # In addition to databases and sockets, we need a file descriptor for every
