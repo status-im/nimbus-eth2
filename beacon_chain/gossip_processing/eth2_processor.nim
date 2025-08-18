@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[sequtils, tables],
@@ -338,7 +338,7 @@ proc processBlobSidecar*(
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
-           Opt.none(DataColumnSidecars))
+            Opt.none(DataColumnSidecars))
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
