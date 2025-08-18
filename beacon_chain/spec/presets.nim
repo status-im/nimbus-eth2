@@ -333,12 +333,6 @@ when const_preset == "mainnet":
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/beacon-chain.md#new-get_blob_parameters
-    # provides sorting rules.
-    BLOB_SCHEDULE: @[
-      BlobParameters(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BlobParameters(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
   )
 
 elif const_preset == "gnosis":
@@ -674,11 +668,6 @@ elif const_preset == "minimal":
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
-    # provides sorting rules.
-    BLOB_SCHEDULE: @[
-      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
-      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
   )
 
 else:
