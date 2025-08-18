@@ -536,7 +536,6 @@ proc makeBeaconBlockWithRewards*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          debugFuluComment "verify (again) that this is what builder API needs"
           when executionPayload is fulu.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(

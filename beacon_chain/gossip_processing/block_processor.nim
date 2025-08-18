@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, chronos, metrics,
@@ -185,54 +185,12 @@ from ../consensus_object_pools/block_clearance import
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
-
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
-
-  var columnsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-    var malformed_cols: seq[int]
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            malformed_cols.add(i)
-            debug "backfill data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-          columnsOk = r.isOk()
-
-      # DataColumnSidecar repairing strategy attempt in case of
-      # malformed columns where 50%+ columns are legit. Note that
-      # this repairing will almost never happen unless these malformed
-      # columns coming via req/resp.
-      if dataColumnsOpt.get.lenu64 >
-          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-           not columnsOk:
-        let
-          recovered_cps =
-            recover_cells_and_proofs(columns)
-          recovered_columns =
-            signedBlock.get_data_column_sidecars(recovered_cps.get)
-
-        for mc in malformed_cols:
-          # copy the healed columns only into the
-          # sidecar spaces
-          columns[mc][] = recovered_columns[mc]
-        columnsOk = true
-
-  if not columnsOk:
-    return err(VerifierError.Invalid)
 
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
@@ -280,9 +238,77 @@ proc storeBackfillBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
+  res
+
+proc storeBackfillBlock(
+    self: var BlockProcessor,
+    signedBlock: fulu.SignedBeaconBlock,
+    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
+  # The block is certainly not missing any more
+  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  var
+    columnsOk = true
+    malformed_cols: seq[int]
+  if dataColumnsOpt.isSome:
+    let columns = dataColumnsOpt.get()
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if columns.len > 0 and kzgCommits.len > 0:
+      for i in 0..<columns.len:
+        let r =
+          verify_data_column_sidecar_kzg_proofs(columns[i][])
+        if r.isErr:
+          malformed_cols.add(i)
+          debug "backfill data column validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            column_sidecar = shortLog(columns[i][]),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+        columnsOk = r.isOk()
+
+    # DataColumnSidecar repairing strategy attempt in case of
+    # malformed columns where 50%+ columns are legit. Note that
+    # this repairing will almost never happen unless these malformed
+    # columns coming via req/resp.
+    if dataColumnsOpt.get.lenu64 >
+        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
+         not columnsOk:
+      let
+        recovered_cps =
+          recover_cells_and_proofs(columns)
+        recovered_columns =
+          signedBlock.get_data_column_sidecars(recovered_cps.get)
+
+      for mc in malformed_cols:
+        # copy the healed columns only into the
+        # sidecar spaces
+        columns[mc][] = recovered_columns[mc]
+      columnsOk = true
+
+  if not columnsOk:
+    return err(VerifierError.Invalid)
+
+  let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
+
+  if res.isErr():
+    case res.error
+    of VerifierError.MissingParent:
+      if signedBlock.message.parent_root in
+          self.consensusManager.quarantine[].unviable:
+        # DAG doesn't know about unviable ancestor blocks - we do! Translate
+        # this to the appropriate error so that sync etc doesn't retry the block
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+
+        return err(VerifierError.UnviableFork)
+    of VerifierError.UnviableFork:
+      # Track unviables so that descendants can be discarded properly
+      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    else: discard
+    return res
+
   # Only store data columns after successfully establishing block viability.
-  let
-    columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
@@ -465,8 +491,12 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(forkyBlck, blobs, Opt.none(DataColumnSidecars))
-      resfut.complete(res)
+      when consensusFork >= ConsensusFork.Fulu:
+        debugFuluComment "hook up data_columns to storeBackfillBlock"
+        resfut.complete(
+          self.storeBackfillBlock(forkyBlck, Opt.none(DataColumnSidecars)))
+      else:
+        resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
 
   try:
@@ -897,7 +927,6 @@ proc storeBlock(
             deadlineObj = deadlineObj,
             maxRetriesCount = getRetriesCount())
 
-        debugFuluComment "We don't know yet if there'd be new PayloadAttributes version in Fulu."
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)

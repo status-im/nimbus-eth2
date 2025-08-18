@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -729,7 +729,6 @@ template writeValue*(w: var JsonWriter,
 
 func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
   if propertyPath == ".execution_payload.fee_recipient":
-    debugFuluComment "We don't know yet if `GeneralizedIndex` will stay same in Fulu yet."
     ok ProvenProperty(
       path: propertyPath,
       denebIndex: GeneralizedIndex(801),

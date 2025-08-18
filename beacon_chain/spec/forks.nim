@@ -623,12 +623,6 @@ template SignedBlindedBeaconBlock*(kind: static ConsensusFork): typedesc =
     fulu_mev.SignedBlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
     electra_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Deneb:
-    deneb_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Capella:
-    capella_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Bellatrix:
-    bellatrix_mev.SignedBlindedBeaconBlock
   else:
     {.error: "SignedBlindedBeaconBlock unsupported in " & $kind.}
 
