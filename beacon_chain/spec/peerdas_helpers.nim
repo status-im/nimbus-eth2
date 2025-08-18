@@ -17,9 +17,12 @@ import
   ssz_serialization/[
     proofs,
     types],
+  stew/assign2,
   ./crypto,
   ./[helpers, digest],
   ./datatypes/[fulu]
+
+from stew/staticfor import staticfor
 
 type
   CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -433,17 +436,11 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
-  for i in 0..<blobs.len:
-    let kzgcells = computeCells(blobs[i])
-
-    cells[i] = kzgcells.get
-    var tmp: ProofBytes
-    for j in 0..<CELLS_PER_EXT_BLOB:
-      tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
-    proofs[i] = tmp
-
-  # TODO can we not refactor the above 4 lines to something like:
-  # proofs[i] = cell_proofs[i * CELLS_PER_EXT_BLOB .. (i+1) * CELLS_PER_EXT_BLOB - 1]
+  for i in 0 ..< blobs.len:
+    cells[i] = computeCells(blobs[i]).get
+    let proofElem = addr proofs[i]
+    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
