@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[tables, sequtils],
+  std/[sequtils, tables],
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
@@ -338,7 +338,7 @@ proc processBlobSidecar*(
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
-                                             Opt.none(DataColumnSidecars))
+           Opt.none(DataColumnSidecars))
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
@@ -350,8 +350,7 @@ proc processBlobSidecar*(
   v
 
 proc validateDataColumnSidecarFromEL*(
-    self: ref Eth2Processor,
-    block_root: Eth2Digest)
+    self: ref Eth2Processor, block_root: Eth2Digest)
     {.async: (raises: [CancelledError]).} =
   let elManager = self.blockProcessor[].consensusManager.elManager
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):

@@ -2107,7 +2107,6 @@ proc installMessageValidators(node: BeaconNode) =
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
-      # data_column_sidecar_{subnet_id}
       when consensusFork >= ConsensusFork.Fulu:
         # data_column_sidecar_{subnet_id}
         for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
