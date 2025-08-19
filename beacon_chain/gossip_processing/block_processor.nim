@@ -1052,7 +1052,7 @@ proc addBlock*(
     resfut, maybeFinalized, validationDur)
   resfut
 
-# Post Deneb and pre Fulu block which MAY have blobs.
+# Post-Deneb and pre-Fulu block which MAY have blobs.
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource,
     blck: ForkedSignedBeaconBlock,
@@ -1072,7 +1072,7 @@ proc addBlock*(
     resfut, maybeFinalized, validationDur)
   resfut
 
-# Post Fulu block which MAY have data columns.
+# Post-Fulu block which MAY have data columns.
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource,
     blck: ForkedSignedBeaconBlock,
