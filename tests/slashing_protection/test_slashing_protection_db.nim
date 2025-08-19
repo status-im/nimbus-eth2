@@ -18,7 +18,7 @@ import
   ../../beacon_chain/validators/slashing_protection,
   ../../beacon_chain/spec/[helpers],
   ../../beacon_chain/spec/datatypes/base,
-  # Test utilies
+  # Test utilities
   ../testutil
 
 func fakeRoot(index: SomeInteger): Eth2Digest =

@@ -277,7 +277,7 @@ suite "Honest validator":
     for i in
         FAULT_INSPECTION_WINDOW * 7 ..
         FAULT_INSPECTION_WINDOW * 9 + MAX_MISSING_WINDOW * 2 - 1:
-      # i.e. two fullly covered epochs then get into MAX_MISSING_WINDOW * 2 - 1
+      # i.e. two fully covered epochs then get into MAX_MISSING_WINDOW * 2 - 1
       # of the every-other-block is present. Because only MAX_MISSING_WINDOW of
       # these can exist, it's the ones at (FIW*9 base of 0): 1, 3, 5, 7, 9 that
       # are missing. Can get up to 9 here, i.e. by 2 * MAX_MISSING_WINDOW, as a

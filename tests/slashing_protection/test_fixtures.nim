@@ -14,7 +14,7 @@ import
   # Internal
   ../../beacon_chain/validators/[slashing_protection, slashing_protection_v2],
   ../../beacon_chain/spec/datatypes/base,
-  # Test utilies
+  # Test utilities
   ../testutil, ../testdbutil,
   ../consensus_spec/fixtures_utils
 
@@ -198,7 +198,7 @@ proc runTest(identifier: string) =
           "    for " & $toHexLogs(blck)
 
         # https://github.com/eth-clients/slashing-protection-interchange-tests/pull/14
-        # Successful blocks are to be incoporated in the DB
+        # Successful blocks are to be incorporated in the DB
         if status.isOk(): # Skip duplicates
           let status = db.db_v2.registerBlock(
             Opt.none(ValidatorIndex),
@@ -229,7 +229,7 @@ proc runTest(identifier: string) =
           "    for " & $toHexLogs(att)
 
         # https://github.com/eth-clients/slashing-protection-interchange-tests/pull/14
-        # Successful attestations are to be incoporated in the DB
+        # Successful attestations are to be incorporated in the DB
         if status.isOk(): # Skip duplicates
           let status = db.db_v2.registerAttestation(
             Opt.none(ValidatorIndex),
