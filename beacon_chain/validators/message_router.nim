@@ -16,7 +16,7 @@ import
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
-  ../spec/datatypes/[deneb, fulu]
+  ../spec/datatypes/deneb
 from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
