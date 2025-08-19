@@ -467,8 +467,8 @@ proc initFullNode(
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      cres,
-                                      maybeFinalized = maybeFinalized)
+                                            cres,
+                                            maybeFinalized = maybeFinalized)
           else:
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -481,7 +481,8 @@ proc initFullNode(
         elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if bres.isSome():
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                            bres,
                                             maybeFinalized = maybeFinalized)
           else:
             # We don't have all the sidecars for this block, so we have
@@ -493,7 +494,7 @@ proc initFullNode(
               err(VerifierError.MissingParent)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    maybeFinalized = maybeFinalized)
+                                          maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
