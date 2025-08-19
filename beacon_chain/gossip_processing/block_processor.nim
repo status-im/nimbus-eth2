@@ -492,13 +492,11 @@ proc enqueueBlock*(
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
       when consensusFork >= ConsensusFork.Fulu:
-        debugFuluComment "hook up data_columns to storeBackfillBlock"
         resfut.complete(
-          self.storeBackfillBlock(forkyBlck, Opt.none(DataColumnSidecars)))
+          self.storeBackfillBlock(forkyBlck, data_columns))
       else:
         resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
-
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
@@ -1034,9 +1032,11 @@ proc storeBlock(
 # Enqueue
 # ------------------------------------------------------------------------------
 
+# Beacon block with no blobs and no data columns.
 proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars], maybeFinalized = false,
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -1048,7 +1048,48 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, data_columns, resfut, maybeFinalized, validationDur)
+  enqueueBlock(self, src, blck, Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+    resfut, maybeFinalized, validationDur)
+  resfut
+
+# Post Deneb and pre Fulu block which MAY have blobs.
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+  ## Enqueue a Gossip-validated block for consensus verification
+  # Backpressure:
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
+  # Producers:
+  # - Gossip (when synced)
+  # - SyncManager (during sync)
+  # - RequestManager (missing ancestor blocks)
+  # - API
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, blobs, Opt.none(DataColumnSidecars),
+    resfut, maybeFinalized, validationDur)
+  resfut
+
+# Post Fulu block which MAY have data columns.
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    data_columns: Opt[DataColumnSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+  ## Enqueue a Gossip-validated block for consensus verification
+  # Backpressure:
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
+  # Producers:
+  # - Gossip (when synced)
+  # - SyncManager (during sync)
+  # - RequestManager (missing ancestor blocks)
+  # - API
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, Opt.none(BlobSidecars), data_columns,
+    resfut, maybeFinalized, validationDur)
   resfut
 
 # Event Loop

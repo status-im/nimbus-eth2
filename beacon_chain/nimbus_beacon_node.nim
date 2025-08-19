@@ -453,8 +453,7 @@ proc initFullNode(
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, Opt.none(DataColumnSidecars),
-        maybeFinalized = maybeFinalized)
+        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
@@ -469,7 +468,6 @@ proc initFullNode(
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars),
                                       cres,
                                       maybeFinalized = maybeFinalized)
           else:
@@ -485,7 +483,6 @@ proc initFullNode(
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if bres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
-                                            Opt.none(DataColumnSidecars),
                                             maybeFinalized = maybeFinalized)
           else:
             # We don't have all the sidecars for this block, so we have
@@ -497,7 +494,6 @@ proc initFullNode(
               err(VerifierError.MissingParent)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
