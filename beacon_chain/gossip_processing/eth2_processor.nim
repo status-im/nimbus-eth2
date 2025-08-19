@@ -5,17 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/tables,
+  std/[sequtils, tables],
   chronicles, chronos, metrics,
   taskpools,
-  ../spec/[helpers, forks],
+  kzg4844/kzg,
+  ssz_serialization/types,
+  ../el/el_manager,
+  ../spec/[helpers, forks, peerdas_helpers],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -46,6 +49,10 @@ declareCounter blob_sidecars_received,
   "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
   "Number of invalid blobs dropped by this node", labels = ["reason"]
+declareCounter data_column_sidecars_received,
+  "Number of valid data columns processed by this node"
+declareCounter data_column_sidecars_dropped,
+  "Number of invalid data columns dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -88,6 +95,10 @@ declareHistogram beacon_block_delay,
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
+
+declareHistogram data_column_sidecar_delay,
+  "Time(s) betweeen slot start and data column sidecar reception",
+  buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -144,6 +155,8 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
+    dataColumnQuarantine*: ref ColumnQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -167,6 +180,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref ColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -185,6 +199,7 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -240,7 +255,8 @@ proc processSignedBeaconBlock*(
       self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
     let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+      when typeof(signedBlock).kind in
+          [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres =
           self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
         if bres.isSome():
@@ -251,10 +267,24 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(BlobSidecars)
 
+    let columns =
+      when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(signedBlock.root,
+                                                  signedBlock)
+        if cres.isSome():
+          cres
+        else:
+          discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                  signedBlock)
+          return v
+      else:
+        Opt.none(DataColumnSidecars)
+
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
-      Opt.none(DataColumnSidecars),
+      columns,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -304,7 +334,7 @@ proc processBlobSidecar*(
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
@@ -312,10 +342,92 @@ proc processBlobSidecar*(
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
-        raiseAssert "Could not have been added as blobless"
+        raiseAssert "Could not be added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
+
+  v
+
+proc validateDataColumnSidecarFromEL*(
+    self: ref Eth2Processor, block_root: Eth2Digest)
+    {.async: (raises: [CancelledError]).} =
+  let elManager = self.blockProcessor[].consensusManager.elManager
+  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let
+          blobsFromElOpt =
+            await elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+            let
+              recovered_columns =
+                assemble_data_column_sidecars(
+                  forkyBlck,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+                  flat_proof)
+            # Send notification to event stream
+            # and add these columns to column quarantine
+            for col in recovered_columns:
+              if col.index in self.dataColumnQuarantine[].custodyColumns:
+                self.dataColumnQuarantine[].put(block_root, newClone(col))
+
+proc processDataColumnSidecar*(
+    self: ref Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+  await self.validateDataColumnSidecarFromEL(block_root)
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (_, wallSlot) = wallTime.toSlot()
+  logScope:
+    dcs = shortLog(dataColumnSidecar)
+    wallSlot
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - block_header.slot.start_beacon_time
+  debug "Data column received", delay
+
+  let v =
+    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
+                                       dataColumnSidecar, wallTime, subnet_id)
+  if v.isErr():
+    debug "Dropping data column", error = v.error()
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+  debug "Data column validated, putting data column in quarantine"
+  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+        if cres.isSome():
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, columnless,
+            Opt.none(BlobSidecars),
+            cres)
+        else:
+          discard self.quarantine[].addSidecarless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not be added as columnless"
+
+  data_column_sidecars_received.inc()
+  data_column_sidecar_delay.observe(delay.toFloatSeconds())
 
   v
 

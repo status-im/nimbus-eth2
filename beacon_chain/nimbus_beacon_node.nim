@@ -502,7 +502,8 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
+      rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -2106,7 +2107,21 @@ proc installMessageValidators(node: BeaconNode) =
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Fulu:
+        # data_column_sidecar_{subnet_id}
+        for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+          closureScope:
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: fulu.DataColumnSidecar,
+                src: PeerId
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                toValidationResult(
+                  await node.processor.processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         let subnetCount =

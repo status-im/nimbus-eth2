@@ -1311,4 +1311,3 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
-
