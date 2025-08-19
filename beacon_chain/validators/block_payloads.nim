@@ -41,7 +41,7 @@ import
 from eth/async_utils import awaitWithTimeout
 from ../spec/beaconstate import get_expected_withdrawals
 
-export results, forks, get_expected_withdrawals
+export results
 
 type
   BuilderBidResult[BB: ForkyBuilderBid] = Result[BB, string]
