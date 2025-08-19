@@ -6,9 +6,9 @@ AllTests-mainnet
 ```
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pres OK
 + Aggregating across committees [Preset: mainnet]                                            OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [Pr OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
@@ -464,7 +464,7 @@ AllTests-mainnet
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_1       OK
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_2       OK
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_3       OK
-+ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_different OK
 ```
 ## EF - KZG - PeerDAS
 ```diff
@@ -696,7 +696,7 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## Key spliting
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -856,7 +856,7 @@ AllTests-mainnet
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                  OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff

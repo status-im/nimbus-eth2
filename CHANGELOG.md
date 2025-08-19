@@ -1825,7 +1825,7 @@ A shout out to our great community for reporting and helping diagnose the issues
 * Improve Bellatrix block processing performance
   [#4085](https://github.com/status-im/nimbus-eth2/pull/4085) and [#4082](https://github.com/status-im/nimbus-eth2/pull/4082)
 
-* Optimize execution layer calls when not producing blocks, improving Besu performance and compatiblity
+* Optimize execution layer calls when not producing blocks, improving Besu performance and compatibility
   [#4055](https://github.com/status-im/nimbus-eth2/pull/4055)
 
 * Revise timing of execution layer configuration call, resolving warnings that no consensus client is present on Geth and Besu
@@ -2389,7 +2389,7 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 ### We've fixed:
 
 * Unnecessary CPU and bandwidth usage: https://github.com/status-im/nimbus-eth2/pull/3308
-  * The result of staying subsribed to sync committee topics even when there were no validators in the committee.
+  * The result of staying subscribed to sync committee topics even when there were no validators in the committee.
 * Excessive logging on beacon nodes with large numbers of validators (in particular, those with `--validator-monitor-totals` enabled): https://github.com/status-im/nimbus-eth2/pull/3332
 * Deviations from the spec in the REST API; this led to sub-optimal performance when Nimbus was paired with Vouch.
 * Naming inconsistencies in the "totals" metrics (this was produced by the [validator monitor](https://nimbus.guide/validator-monitor.html)).
@@ -2598,7 +2598,7 @@ It's a rare occurrence, since it requires a validator to be scheduled to attest 
 
 As a fix, we are using a larger send delay: [#2705](https://github.com/status-im/nimbus-eth2/pull/2705).
 
-Fo those Nimbus `v1.4.0` users who are concerned about reaching optimal attestation effectiveness, we encourage you to upgrade as soon as possible.
+For those Nimbus `v1.4.0` users who are concerned about reaching optimal attestation effectiveness, we encourage you to upgrade as soon as possible.
 
 Other changes include log flushing and metrics fixes.
 
@@ -2961,7 +2961,7 @@ and further performance improvements across the board.
 
 * A bug that had the potential to completely halt all syncing activity.
 
-* Inefficient processing of blocks with Eth1 deposits which occassionally
+* Inefficient processing of blocks with Eth1 deposits which occasionally
   led to increased latencies when delivering attestations.
 
 * Outdated records in our bootstrap nodes list.
@@ -3097,7 +3097,7 @@ So it's important you update at your earliest convenience.
 * A deposit merkle proofs generation issue occasionally resulting in missed
   block proposals shortly after a new Eth1 head was selected.
 
-* Slow status bar updates in the absense of logging messages.
+* Slow status bar updates in the absence of logging messages.
 
 
 2020-12-02 v1.0.1
@@ -3301,7 +3301,7 @@ A bugfix release addressing issues discovered in the Toledo network.
 * Incorrectly set message-ids in gossip message causing other clients
   to penalise and potentially disconnect our nodes from the network.
 
-* An issue occuring when Nimbus is paired with a Geth node
+* An issue occurring when Nimbus is paired with a Geth node
   that is not fully synced.
 
 

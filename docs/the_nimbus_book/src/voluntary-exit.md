@@ -3,7 +3,7 @@
 Voluntary exits allow validators to permanently stop performing their duties, and eventually recover the deposit.
 
 Exits are subject to a wait period that depends on the length of the exit queue.
-While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalities.
+While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalties.
 
 !!! warning
     Voluntary exits are **irreversible**.
