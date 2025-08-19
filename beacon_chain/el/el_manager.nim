@@ -489,7 +489,8 @@ proc getPayload*(
     withdrawals: seq[capella.Withdrawal]
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
-    return err()
+    notice "No engine configured, using empty payload"
+    return Opt.none(PayloadType)
 
   let
     engineApiWithdrawals = toEngineWithdrawals withdrawals

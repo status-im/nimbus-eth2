@@ -301,11 +301,17 @@ proc getExecutionPayload*(
 
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
-    eps =
-      ?await node.elManager.getPayload(
+    eps = (
+      await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
         latestFinalized, timestamp, random, feeRecipient, withdrawals,
       )
+    ).valueOr:
+      if not proposalState[].is_merge_transition_complete():
+        # Per-merge, an all-zeroes execution payload is used and there are no
+        # requests, so default is fine here
+        return Opt.some(static(default(EngineBid[PayloadType])))
+      return Opt.none(EngineBid[PayloadType])
 
     requests = decodePayloadRequests(eps).valueOr:
       warn "Cannot decode payload requests from engine", slot, err = error
