@@ -5,7 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-
 ## Process state helper using a global variable to coordinate multithreaded
 ## shutdown in the presence of C signals
 ##
@@ -31,11 +30,10 @@
 
 import std/atomics, chronos, chronos/threadsync, chronicles
 
-type
-  ProcessState* {.pure.} = enum
-    Starting
-    Running
-    Stopping
+type ProcessState* {.pure.} = enum
+  Starting
+  Running
+  Stopping
 
 var processState: Atomic[ProcessState]
 var shutdownSource: Atomic[pointer]
@@ -106,13 +104,11 @@ proc setupStopHandlers*(_: type ProcessState) =
   proc controlCHandler(a: cint) {.noconv.} =
     # Cannot log in here because that would imply memory allocations and system
     # calls
-    let sourceName =  case a
-        of ansi_c.SIGINT:
-          cstring("SIGINT")
-        of ansi_c.SIGTERM:
-          cstring("SIGTERM")
-        else:
-          cstring("SIGNAL")
+    let sourceName =
+      if a == ansi_c.SIGINT:
+        cstring("SIGINT")
+      else:
+        cstring("SIGTERM")
 
     var nilptr: pointer
     discard shutdownSource.compareExchange(nilptr, sourceName)
@@ -133,7 +129,11 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   ## unlike `setupStopHandlers` which merely sets a flag that must be polled.
   let
     sigint = waitSignal(chronos.SIGINT)
-    sigterm = waitSignal(chronos.SIGTERM)
+    sigterm =
+      when defined(windows):
+        default(array[0, FutureBase])
+      else:
+        [waitSignal(chronos.SIGTERM)]
 
   debug "Waiting for signal", chroniclesThreadIds = true
 
@@ -143,7 +143,8 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   finally:
     # Might be finished already, which is fine..
     await noCancel sigint.cancelAndWait()
-    await noCancel sigterm.cancelAndWait()
+    for f in sigterm:
+      await noCancel f.cancelAndWait()
 
 proc stopping*(_: type ProcessState): bool =
   processState.load(moRelaxed) == ProcessState.Stopping
@@ -212,7 +213,7 @@ when isMainModule: # Test case
     ProcessState.scheduleStop("done")
 
     # poll for 10s, this should be enough
-    for i in 0..<100:
+    for i in 0 ..< 100:
       if ProcessState.stopping():
         break
       os.sleep(100)
