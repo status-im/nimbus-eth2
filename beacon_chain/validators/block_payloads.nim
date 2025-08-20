@@ -308,7 +308,7 @@ proc getExecutionPayload*(
       )
     ).valueOr:
       if not proposalState[].is_merge_transition_complete():
-        # Per-merge, an all-zeroes execution payload is used and there are no
+        # Pre-merge, an all-zeroes execution payload is used and there are no
         # requests, so default is fine here
         return Opt.some(static(default(EngineBid[PayloadType])))
       return Opt.none(EngineBid[PayloadType])
