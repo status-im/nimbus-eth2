@@ -14,5 +14,5 @@ const
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
   # `uint64(4096)`
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 4096
-  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 5 = 17
+  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 12 = 17
   KZG_COMMITMENT_INCLUSION_PROOF_DEPTH* = 17
