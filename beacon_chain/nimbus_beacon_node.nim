@@ -23,9 +23,9 @@ import
     engine_authentication, weak_subjectivity, peerdas_helpers],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
-  "."/[
+  ./[
     beacon_node, beacon_node_light_client, deposits,
-    nimbus_binary_common, statusbar, trusted_node_sync, wallets]
+    nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
 when defined(posix):
   import system/ansi_c
@@ -395,7 +395,7 @@ proc initFullNode(
 
   proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
     await node.shutdownEvent.wait()
-    bnStatus = BeaconNodeStatus.Stopping
+    ProcessState.scheduleStop("shutdownEvent")
 
   asyncSpawn eventWaiter()
 
@@ -741,14 +741,14 @@ proc init*(T: type BeaconNode,
     try:
       if config.numThreads < 0:
         fatal "The number of threads --num-threads cannot be negative."
-        quit 1
+        quit QuitFailure
       elif config.numThreads == 0:
         Taskpool.new(numThreads = min(countProcessors(), 16))
       else:
         Taskpool.new(numThreads = config.numThreads)
     except CatchableError as e:
       fatal "Cannot start taskpool", err = e.msg
-      quit 1
+      quit QuitFailure
 
   info "Threadpool started", numThreads = taskpool.numThreads
 
@@ -1931,7 +1931,7 @@ proc onSecond(node: BeaconNode, time: Moment) =
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
-    bnStatus = BeaconNodeStatus.Stopping
+    ProcessState.scheduleStop("stopAtSyncedEpoch")
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const
@@ -2159,8 +2159,6 @@ proc installMessageValidators(node: BeaconNode) =
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  bnStatus = BeaconNodeStatus.Stopping
-  notice "Graceful shutdown"
   if not node.config.inProcessValidators:
     try:
       node.vcProcess.close()
@@ -2179,7 +2177,7 @@ proc stop(node: BeaconNode) =
   notice "Databases closed"
 
 proc run(node: BeaconNode) {.raises: [CatchableError].} =
-  bnStatus = BeaconNodeStatus.Running
+  ProcessState.notifyRunning()
 
   if not isNil(node.restServer):
     node.restServer.installRestHandlers(node)
@@ -2216,10 +2214,10 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
+  asyncSpawn ProcessState.waitStopSignals()
 
   # main event loop
-  while bnStatus == BeaconNodeStatus.Running:
-    poll() # if poll fails, the network is broken
+  ProcessState.pollUntilStopped()
 
   # time to say goodbye
   node.stop()
@@ -2437,8 +2435,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption web3ForcePolling
   ignoreDeprecatedOption finalizedDepositTreeSnapshot
 
-  createPidFile(config.dataDir.string / "beacon_node.pid")
-
   config.createDumpDirs()
 
   # There are no managed event loops in here, to do a graceful shutdown, but
@@ -2451,27 +2447,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
 
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    bnStatus = BeaconNodeStatus.Stopping
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
-
-  # equivalent SIGTERM handler
-  when defined(posix):
-    proc SIGTERMHandler(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      bnStatus = BeaconNodeStatus.Stopping
-    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
-
   block:
     let res =
       if config.trustedSetupFile.isNone:
@@ -2480,6 +2455,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
         conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
     if res.isErr():
       raiseAssert res.error()
+
+  if ProcessState.stopping():
+    return
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
 
@@ -2492,7 +2470,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   node.metricsServer = metricsServer
 
-  if bnStatus == BeaconNodeStatus.Stopping:
+  if ProcessState.stopping():
     return
 
   when not defined(windows):
@@ -2599,7 +2577,11 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
+  of BNStartUpCmd.noCommand:
+    createPidFile(config.dataDir.string / "beacon_node.pid")
+    ProcessState.setupStopHandlers()
+
+    doRunBeaconNode(config, rng)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
@@ -2665,7 +2647,7 @@ proc main() {.noinline, raises: [CatchableError].} =
   when defined(windows):
     if config.runAsService:
       proc exitService() =
-        bnStatus = BeaconNodeStatus.Stopping
+        ProcessState.scheduleStop("exitService")
       establishWindowsService(clientId, copyrights, nimBanner, SPEC_VERSION,
                               "nimbus_beacon_node", BeaconNodeConf,
                               handleStartUpCmd, exitService)

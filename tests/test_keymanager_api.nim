@@ -26,7 +26,7 @@ import
     [keystore_management, slashing_protection_common, validator_pool],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
-  ../beacon_chain/[conf, filepath, beacon_node, nimbus_beacon_node, beacon_node_status],
+  ../beacon_chain/[conf, filepath, beacon_node, nimbus_beacon_node, process_state],
   ../beacon_chain/validator_client/common,
   ../ncli/ncli_testnet,
   ./testutil
@@ -2031,8 +2031,7 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
     #   validatorPool: pool,
     #   keymanagerHost: host)
 
-  while bnStatus != BeaconNodeStatus.Running:
-    await sleepAsync(1.seconds)
+  ProcessState.pollUntilStopped()
 
   # asyncSpawn startValidatorClient(basePort)
 
@@ -2046,7 +2045,7 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
   # Re-enable it in a follow-up PR
   # await runTests(validatorClientKeymanager)
 
-  bnStatus = BeaconNodeStatus.Stopping
+  ProcessState.scheduleStop("stop")
 
 proc main(basePort: int) {.async.} =
   if dirExists(dataDir):

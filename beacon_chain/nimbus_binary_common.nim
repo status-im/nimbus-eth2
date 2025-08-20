@@ -21,7 +21,7 @@ import
   # Local modules
   ./spec/[helpers, keystore],
   ./spec/datatypes/base,
-  ./[beacon_clock, beacon_node_status, conf, version]
+  ./[beacon_clock, conf, process_state, version]
 
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import commandLineParams, getEnv, splitFile
@@ -41,7 +41,7 @@ declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], nam
 nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 export
-  confutils, toml_serialization, beacon_clock, beacon_node_status, conf
+  confutils, toml_serialization, beacon_clock, conf
 
 
 type
@@ -296,7 +296,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
         fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
           nextSlot = shortLog(nextSlot),
           wallSlot = shortLog(wallSlot)
-        bnStatus = BeaconNodeStatus.Stopping
+        ProcessState.scheduleStop("clock skew")
         return
 
       # Time moved back by a single slot - this could be a minor adjustment,
