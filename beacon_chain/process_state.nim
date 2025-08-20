@@ -127,24 +127,33 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   ##
   ## This approach ensures that the event loop wakes up on signal delivery
   ## unlike `setupStopHandlers` which merely sets a flag that must be polled.
-  let
-    sigint = waitSignal(chronos.SIGINT)
-    sigterm =
-      when defined(windows):
-        default(array[0, FutureBase])
-      else:
-        [waitSignal(chronos.SIGTERM)]
 
-  debug "Waiting for signal", chroniclesThreadIds = true
+  when defined(posix):
+    let
+      sigint = waitSignal(chronos.SIGINT)
+      sigterm = waitSignal(chronos.SIGTERM)
 
-  try:
-    discard await race(sigint, sigterm)
-    processState.store(ProcessState.Stopping, moRelaxed)
-  finally:
-    # Might be finished already, which is fine..
-    await noCancel sigint.cancelAndWait()
-    for f in sigterm:
-      await noCancel f.cancelAndWait()
+    debug "Waiting for signal", chroniclesThreadIds = true
+
+    try:
+      discard await race(sigint, sigterm)
+      processState.store(ProcessState.Stopping, moRelaxed)
+    finally:
+      # Might be finished already, which is fine..
+      await noCancel sigint.cancelAndWait()
+      await noCancel sigterm.cancelAndWait()
+
+  else:
+    let sigint = waitSignal(chronos.SIGINT)
+
+    debug "Waiting for signal", chroniclesThreadIds = true
+
+    try:
+      discard await race(sigint)
+      processState.store(ProcessState.Stopping, moRelaxed)
+    finally:
+      # Might be finished already, which is fine..
+      await noCancel sigint.cancelAndWait()
 
 proc stopping*(_: type ProcessState): bool =
   processState.load(moRelaxed) == ProcessState.Stopping
@@ -169,6 +178,7 @@ when isMainModule: # Test case
       await sleepAsync(1.seconds)
       todo -= 1
 
+    # Sends signal from non-main thread
     ProcessState.scheduleStop("thread")
 
     echo "Waiting for the end... "
