@@ -319,9 +319,6 @@ proc initFullNode(
         none[bool]()
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
-  proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
-    node.eventBus.blockGossipQueue.emit(
-      EventBeaconBlockGossipObject.init(data))
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -616,7 +613,6 @@ proc initFullNode(
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.elManager)
   dag.setBlockCb(onBlockAdded)
-  dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
 
@@ -1982,14 +1978,21 @@ proc installMessageValidators(node: BeaconNode) =
           signedBlock: consensusFork.SignedBeaconBlock,
           src: PeerId
         ): ValidationResult =
-          if node.shouldSyncOptimistically(node.currentSlot):
-            toValidationResult(
-              node.optimisticProcessor.processSignedBeaconBlock(
-                signedBlock))
-          else:
-            toValidationResult(
-              node.processor[].processSignedBeaconBlock(
-                MsgSource.gossip, signedBlock)))
+          let res =
+            if node.shouldSyncOptimistically(node.currentSlot):
+              toValidationResult(
+                node.optimisticProcessor.processSignedBeaconBlock(
+                  signedBlock))
+            else:
+              toValidationResult(
+                node.processor[].processSignedBeaconBlock(
+                  MsgSource.gossip, signedBlock))
+          if res == ValidationResult.Accept:
+            node.eventBus.blockGossipQueue.emit(
+              EventBeaconBlockGossipObject.init(
+                ForkedSignedBeaconBlock.init(signedBlock)))
+          res
+      )
 
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id

@@ -251,9 +251,6 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
-    if not(isNil(self.dag.onBlockGossipAdded)):
-      self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
-
     let blobs =
       when typeof(signedBlock).kind in
           [ConsensusFork.Deneb, ConsensusFork.Electra]:
