@@ -1173,13 +1173,14 @@ func process_withdrawals*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
-    kzg_commitment: KzgCommitment): VersionedHash =
+    kzg_commitment: KzgCommitment): VersionedHash {.noinit.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
-  var res: VersionedHash
-  res[0] = VERSIONED_HASH_VERSION_KZG
-  res[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
+  var res {.noinit.}: VersionedHash
+  static: assert res.data.len == 32
+  res.data[0] = VERSIONED_HASH_VERSION_KZG
+  res.data[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
   res
 
 proc validate_blobs*(

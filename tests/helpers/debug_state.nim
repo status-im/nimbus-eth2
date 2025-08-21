@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -47,15 +47,15 @@ proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   let isEqual = bindSym("==") # Bind all expose equality, in particular for BlsValue
   stmts.add quote do:
     doAssert(
-      `isEqual`(`xSubField`.len, `ySubField`.len),
-        "\nDiff: " & `xStr` & ".len = " & $`xSubField`.len & "\n" &
-        "and   " & `yStr` & ".len = " & $`ySubField`.len & "\n"
+      `isEqual`(distinctBase(`xSubField`).len, distinctBase(`ySubField`).len),
+        "\nDiff: " & `xStr` & ".len = " & $distinctBase(`xSubField`).len & "\n" &
+        "and   " & `yStr` & ".len = " & $distinctBase(`ySubField`).len & "\n"
     )
-    for idx in `xSubField`.low .. `xSubField`.high:
+    for idx in distinctBase(`xSubField`).low .. distinctBase(`xSubField`).high:
       doAssert(
-        `isEqual`(`xSubField`[idx], `ySubField`[idx]),
-        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $`xSubField`[idx] & "\n" &
-        "and   " & `yStr` & "[" & $idx & "] = " & $`ySubField`[idx] & "\n"
+        `isEqual`(distinctBase(`xSubField`)[idx], distinctBase(`ySubField`)[idx]),
+        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $distinctBase(`xSubField`)[idx] & "\n" &
+        "and   " & `yStr` & "[" & $idx & "] = " & $distinctBase(`ySubField`)[idx] & "\n"
       )
 
 func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =

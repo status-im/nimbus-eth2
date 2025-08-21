@@ -58,7 +58,7 @@ proc prepareRegistration(
   var msg =
     SignedValidatorRegistrationV1(
       message: ValidatorRegistrationV1(
-        fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+        fee_recipient:feeRecipient,
         gas_limit: gas_limit,
         timestamp: uint64(timestamp.toUnix()),
         pubkey: key.toPubKey().toPubKey()

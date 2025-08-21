@@ -39,14 +39,6 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
-  # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
-  # current spec doesn't ever SSZ-serialize it or hash_tree_root it
-  # TODO make `distinct` then add a REST serialization for it specifically, via
-  # basically to0xHex, then fix BlobSidecarInfoObject to use VersionedHash, not
-  # string, and rely on REST serialization, rather than serialize VersionedHash
-  # field manually
-  VersionedHash* = array[32, byte]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
