@@ -268,7 +268,7 @@ func groupBlobs*(
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
@@ -347,7 +347,7 @@ proc getSyncBlockData*[T](
 
   let (shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let res = len(forkyBlck.message.body.blob_kzg_commitments)
         if res > 0:
           (true, res)
@@ -438,7 +438,7 @@ proc getSyncBlockData[A, B](
         var hasBlobs = false
         for blck in blocks:
           withBlck(blck[]):
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
               if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
                 hasBlobs = true
                 break

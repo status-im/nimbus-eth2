@@ -443,8 +443,8 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getBeaconTime, config.invalidBlockRoots)
-
+      blobQuarantine, dataColumnQuarantine, getBeaconTime,
+      config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -463,10 +463,26 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Fulu:
+          let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome():
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                            cres,
+                                            maybeFinalized = maybeFinalized)
+          else:
+            # We don't have all the columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addSidecarless(
+              dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VerifierError.MissingParent)
+
+        elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if bres.isSome():
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                            bres,
                                             maybeFinalized = maybeFinalized)
           else:
             # We don't have all the sidecars for this block, so we have
@@ -478,8 +494,7 @@ proc initFullNode(
               err(VerifierError.MissingParent)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
-                                    maybeFinalized = maybeFinalized)
+                                          maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
@@ -502,7 +517,8 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
+      rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -2106,7 +2122,21 @@ proc installMessageValidators(node: BeaconNode) =
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Fulu:
+        # data_column_sidecar_{subnet_id}
+        for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+          closureScope:
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: fulu.DataColumnSidecar,
+                src: PeerId
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                toValidationResult(
+                  await node.processor.processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         let subnetCount =

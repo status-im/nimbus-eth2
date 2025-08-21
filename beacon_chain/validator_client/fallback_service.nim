@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,23 +11,6 @@ import ./common
 
 const
   ServiceName = "fallback_service"
-
-  FAIL_TIME_OFFSETS = [
-    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds)),
-    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds * 4)
-  ]
-  WARN_TIME_OFFSETS = [
-    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds div 2)),
-    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds * 2),
-  ]
-  NOTE_TIME_OFFSETS = [
-    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds div 4)),
-    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds),
-  ]
-
-declareGauge validator_client_time_offset,
-  "Wall clock offset(s) between validator client and beacon node(s)",
-  labels = ["node"]
 
 logScope: service = ServiceName
 
@@ -317,138 +300,15 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.
     raise exc
   res
 
-proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
-  logScope:
-    node = node
-
-  node.timeOffset = Opt.some(offset)
-  validator_client_time_offset.set(float64(offset.milliseconds()), @[$node])
-
-  debug "Beacon node time offset", time_offset = offset
-
-  let updateStatus =
-    if (offset <= WARN_TIME_OFFSETS[0]) or (offset >= WARN_TIME_OFFSETS[1]):
-      warn "Beacon node has significant time offset",
-           time_offset = offset
-      if (offset <= FAIL_TIME_OFFSETS[0]) or (offset >= FAIL_TIME_OFFSETS[1]):
-        # Beacon node's clock is out of acceptable offsets, we marking this
-        # beacon node and remote it from the list of working nodes.
-        warn "Beacon node has enormous time offset",
-             time_offset = offset
-        let failure = ApiNodeFailure.init(ApiFailure.NoError,
-          "checkTimeOffsetStatus()", node, 200,
-          "Beacon node has enormous time offset")
-        node.updateStatus(RestBeaconNodeStatus.BrokenClock, failure)
-        false
-      else:
-        true
-    elif (offset <= NOTE_TIME_OFFSETS[0]) or (offset >= NOTE_TIME_OFFSETS[1]):
-      info "Beacon node has notable time offset",
-           time_offset = offset
-      true
-    else:
-      true
-
-  if updateStatus:
-    if node.status == RestBeaconNodeStatus.BrokenClock:
-      # Beacon node's clock has been recovered to some acceptable offset, so we
-      # could restore beacon node.
-      let failure = ApiNodeFailure.init(ApiFailure.NoError,
-          "checkTimeOffsetStatus()", node, 200,
-          "Beacon node has acceptable time offset")
-      node.updateStatus(RestBeaconNodeStatus.Offline, failure)
-
-proc disableNimbusExtensions(node: BeaconNodeServerRef) =
-  node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
-  if node.status == RestBeaconNodeStatus.BrokenClock:
-    let failure = ApiNodeFailure.init(ApiFailure.NoError,
-        "disableNimbusExtensions()", node, 200,
-        "Nimbus extensions no longer available")
-    node.updateStatus(RestBeaconNodeStatus.Offline, failure)
-
-proc runTimeMonitor(
-    service: FallbackServiceRef,
-    node: BeaconNodeServerRef
-) {.async: (raises: [CancelledError]).} =
-  const NimbusExtensionsLog = "Beacon node does not support Nimbus extensions"
-  let
-    vc = service.client
-    roles = AllBeaconNodeRoles
-    statuses = AllBeaconNodeStatuses - {RestBeaconNodeStatus.Offline}
-
-  logScope:
-    node = node
-
-  if BeaconNodeRole.NoTimeCheck in node.roles:
-    debug "Beacon node time offset checks disabled"
-    return
-
-  while true:
-    while node.status notin statuses:
-      await vc.waitNodes(nil, statuses, roles, true)
-
-    if RestBeaconNodeFeature.NoNimbusExtensions in node.features:
-      return
-
-    let tres =
-      try:
-        let delay = vc.processingDelay.valueOr: ZeroDuration
-        await node.client.getTimeOffset(delay)
-      except RestResponseError as exc:
-        case exc.status
-        of 400:
-          debug "Beacon node returns invalid response",
-                status = $exc.status, reason = $exc.msg,
-                error_message = $exc.message
-        else:
-          notice NimbusExtensionsLog, status = $exc.status
-          # Exiting loop
-        node.disableNimbusExtensions()
-        return
-      except RestError as exc:
-        debug "Unable to obtain beacon node's time offset", reason = $exc.msg
-        notice NimbusExtensionsLog
-        node.disableNimbusExtensions()
-        return
-      except CancelledError as exc:
-        raise exc
-
-    checkOffsetStatus(node, TimeOffset.init(tres))
-
-    await service.waitForNextSlot()
-
-proc processTimeMonitoring(
-    service: FallbackServiceRef
-) {.async: (raises: [CancelledError]).} =
-  let
-    vc = service.client
-    blockNodes = vc.filterNodes(
-      ResolvedBeaconNodeStatuses, AllBeaconNodeRoles)
-
-  var pendingChecks: seq[Future[void]]
-
-  try:
-    for node in blockNodes:
-      pendingChecks.add(service.runTimeMonitor(node))
-    await allFutures(pendingChecks)
-  except CancelledError as exc:
-    let pending = pendingChecks
-      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
-
 proc mainLoop(service: FallbackServiceRef) {.async: (raises: []).} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
 
-  let timeMonitorFut = processTimeMonitoring(service)
-
   try:
     await vc.preGenesisEvent.wait()
   except CancelledError:
     debug "Service interrupted"
-    if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
     return
 
   while true:
@@ -462,7 +322,6 @@ proc mainLoop(service: FallbackServiceRef) {.async: (raises: []).} =
         false
       except CancelledError:
         debug "Service interrupted"
-        if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
         true
 
     if breakLoop:

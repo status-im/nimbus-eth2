@@ -96,6 +96,9 @@ type
     electra.ExecutionPayloadHeader |
     fulu.ExecutionPayloadHeader
 
+  ForkyExecutionPayloadOrHeader* =
+    ForkyExecutionPayload | ForkyExecutionPayloadHeader
+
   ForkyBeaconBlockBody* =
     phase0.BeaconBlockBody |
     altair.BeaconBlockBody |
@@ -170,6 +173,17 @@ type
   ForkyBlindedBeaconBlock* =
     electra_mev.BlindedBeaconBlock |
     fulu_mev.BlindedBeaconBlock
+
+  SomeForkyBlindedBeaconBlock* =
+    ForkyBlindedBeaconBlock |
+    electra_mev.SigVerifiedBlindedBeaconBlock |
+    fulu_mev.SigVerifiedBlindedBeaconBlock
+
+  SomeForkyBlindedBeaconBlockBody* =
+    electra_mev.BlindedBeaconBlockBody |
+    fulu_mev.BlindedBeaconBlockBody |
+    electra_mev.SigVerifiedBlindedBeaconBlockBody |
+    fulu_mev.SigVerifiedBlindedBeaconBlockBody
 
   ForkyBuilderBid* =
     electra_mev.BuilderBid |
@@ -625,12 +639,6 @@ template SignedBlindedBeaconBlock*(kind: static ConsensusFork): typedesc =
     fulu_mev.SignedBlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
     electra_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Deneb:
-    deneb_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Capella:
-    capella_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Bellatrix:
-    bellatrix_mev.SignedBlindedBeaconBlock
   else:
     {.error: "SignedBlindedBeaconBlock unsupported in " & $kind.}
 
@@ -1909,3 +1917,9 @@ template init*(T: type ForkedAggregateAndProof,
     ForkedAggregateAndProof(kind: ConsensusFork.Electra, electraData: proof)
   of ConsensusFork.Fulu:
     ForkedAggregateAndProof(kind: ConsensusFork.Fulu, fuluData: proof)
+
+proc kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
+  when typeof(eps).kind >= ConsensusFork.Deneb:
+    eps.blobsBundle.commitments
+  else:
+    default(KzgCommitments)

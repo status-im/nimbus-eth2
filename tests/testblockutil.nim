@@ -72,18 +72,18 @@ proc makeInitialDeposits*(
     result.add makeDeposit(i, flags, cfg = cfg)
 
 func signBlock(
-    fork: Fork, genesis_validators_root: Eth2Digest, forked: ForkedBeaconBlock,
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: ForkyBeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): ForkedSignedBeaconBlock =
   let
-    slot = withBlck(forked): forkyBlck.slot
-    root = hash_tree_root(forked)
+    slot = blck.slot
+    root = hash_tree_root(blck)
     signature =
       if skipBlsValidation notin flags:
         get_block_signature(
           fork, genesis_validators_root, slot, root, privKey).toValidatorSig()
       else:
         ValidatorSig()
-  ForkedSignedBeaconBlock.init(forked, root, signature)
+  ForkedSignedBeaconBlock.init(ForkedBeaconBlock.init(blck), root, signature)
 
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
@@ -186,7 +186,7 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let message = withState(state):
+  withState(state):
     let execution_payload =
       when consensusFork > ConsensusFork.Bellatrix:
         default(consensusFork.ExecutionPayloadForSigning)
@@ -207,9 +207,11 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    makeBeaconBlock(
+    let message = makeBeaconBlock(
       cfg,
-      state,
+      consensusFork,
+      forkyState,
+      cache,
       proposer_index,
       randao_reveal,
       # Keep deposit counts internally consistent.
@@ -218,9 +220,7 @@ proc addTestBlock*(
         deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
-      when consensusFork == ConsensusFork.Electra:
-        electraAttestations
-      elif consensusFork == ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Electra:
         electraAttestations
       else:
         attestations,
@@ -228,20 +228,11 @@ proc addTestBlock*(
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
-      noRollback,
-      cache,
-      verificationFlags = {skipBlsValidation})
+      verificationFlags = {skipBlsValidation}).expect("block")
 
-  if message.isErr:
-    raiseAssert "Failed to create a block: " & $message.error
 
-  let
-    new_block = signBlock(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root), message.get(), privKey,
-      flags)
-
-  new_block
+    signBlock(
+        forkyState.data.fork, forkyState.data.genesis_validators_root, message, privKey, flags)
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,

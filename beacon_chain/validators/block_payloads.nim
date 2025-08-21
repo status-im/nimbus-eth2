@@ -20,10 +20,17 @@
 ## and then pass it back.
 ##
 ## Either way, signing is out of scope for this module.
+##
+
+# Implementation notes
+#
+# * Even though they are in theory redundant, we sometimes pass both
+#   `consensusFork` and fork-specific `Forky*` types - this makes spelling the
+#   return type slightly easier
+
 {.push raises: [], gcsafe.}
 
 import
-  stew/assign2,
   chronicles,
   results,
   ../consensus_object_pools/[attestation_pool, consensus_manager],
@@ -33,7 +40,6 @@ import
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/beaconstate import get_expected_withdrawals
-from ./message_router_mev import copyFields, getFieldNames
 
 export results
 
@@ -54,8 +60,12 @@ type
   EngineBlockResult[BB: ForkyBeaconBlock] = Result[EngineBlock[BB], string]
   BuilderBlockResult[BBB: ForkyBlindedBeaconBlock] = Result[BuilderBlock[BBB], string]
 
+  EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
+    eps*: EPS
+    execution_requests*: ExecutionRequests
+
   Bids[consensusFork: static ConsensusFork] = object
-    engineBid*: Opt[consensusFork.ExecutionPayloadForSigning]
+    engineBid*: Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]
     builderBid*: Opt[consensusFork.BuilderBid]
 
   BoostFactorKind {.pure.} = enum
@@ -135,112 +145,84 @@ func builderBetterBid(
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
+func decodePayloadRequests(
+    _:
+      bellatrix.ExecutionPayloadForSigning | capella.ExecutionPayloadForSigning |
+      deneb.ExecutionPayloadForSigning
+): Result[ExecutionRequests, string] =
+  ok default(ExecutionRequests)
+
+func decodePayloadRequests(
+    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning
+): Result[ExecutionRequests, string] =
+  try:
+    var
+      execution_requests_buffer: ExecutionRequests
+      prev_type: Opt[byte]
+
+    # TODO why aren't these decoded already?
+    for request_type_and_payload in eps.executionRequests:
+      if request_type_and_payload.len < 2:
+        return err("Execution layer request too short")
+
+      let request_type = request_type_and_payload[0]
+      if prev_type.isSome:
+        if request_type < prev_type.get:
+          return err("Execution layer request types not sorted")
+        if request_type == prev_type.get:
+          return err("Execution layer request types duplicated")
+      prev_type.ok request_type
+
+      template request_payload(): untyped =
+        request_type_and_payload.toOpenArray(1, request_type_and_payload.len - 1)
+
+      case request_type_and_payload[0]
+      of DEPOSIT_REQUEST_TYPE:
+        execution_requests_buffer.deposits = SSZ.decode(
+          request_payload, List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
+        )
+      of WITHDRAWAL_REQUEST_TYPE:
+        execution_requests_buffer.withdrawals = SSZ.decode(
+          request_payload,
+          List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD],
+        )
+      of CONSOLIDATION_REQUEST_TYPE:
+        execution_requests_buffer.consolidations = SSZ.decode(
+          request_payload,
+          List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD],
+        )
+      else:
+        return err("Execution layer invalid request type")
+
+    ok execution_requests_buffer
+  except SerializationError as exc:
+    err("Failed to deserialize execution requests")
+
 proc makeEngineBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
-    state: var ForkedHashedBeaconState,
+    state: var ForkyHashedBeaconState,
     cache: var StateCache,
     validator_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    execution_payload: Opt[ForkyExecutionPayloadForSigning],
-
-    # These parameters are for the builder API
-    transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest),
-    withdrawals_root = Opt.none(Eth2Digest),
-    kzg_commitments = Opt.none(KzgCommitments),
-    builder_execution_requests = Opt.none(ExecutionRequests),
+    eps: ForkyExecutionPayloadForSigning,
+    execution_requests: ExecutionRequests,
 ): EngineBlockResult[consensusFork.BeaconBlock] =
-  type BeaconBlockType = consensusFork.BeaconBlock
-
   let
-    payload =
-      if execution_payload.isNone():
-        if state.is_merge_transition_complete():
-          return err("Execution payload required post merge")
-        default(typeof(execution_payload[]))
-      elif withdrawals_root.isSome:
-        # Builder API
-
-        # In Capella, only get withdrawals root from relay.
-        # The execution payload will be small enough to be safe to copy because
-        # it won't have transactions (it's blinded)
-        var modified_execution_payload = execution_payload[]
-        when consensusFork >= ConsensusFork.Capella:
-          let withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-            get_expected_withdrawals(state.forky(consensusFork).data)
-          )
-          if hash_tree_root(withdrawals) != withdrawals_root.get:
-            # If engine API returned a block, will use that
-            return err("Builder relay provided incorrect withdrawals root")
-          # Otherwise, the state transition function notices that there are
-          # too few withdrawals.
-          assign(modified_execution_payload.executionPayload.withdrawals, withdrawals)
-
-        modified_execution_payload
-      else:
-        execution_payload[]
-    attestations =
-      when consensusFork >= ConsensusFork.Electra:
-        node.attestationPool[].getElectraAttestationsForBlock(state, cache)
-      else:
-        node.attestationPool[].getAttestationsForBlock(state, cache)
+    attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
-      node.dag.cfg, state.forky(consensusFork).data
+      node.dag.cfg, state.data
     )
-    execution_requests = builder_execution_requests.valueOr:
-      when consensusFork >= ConsensusFork.Electra:
-        # Don't want un-decoded SSZ going any further/deeper
-        var
-          execution_requests_buffer: ExecutionRequests
-          prev_type: Opt[byte]
-        try:
-          for request_type_and_payload in payload.executionRequests:
-            if request_type_and_payload.len < 2:
-              return err("Execution layer request too short")
-
-            let request_type = request_type_and_payload[0]
-            if prev_type.isSome:
-              if request_type < prev_type.get:
-                return err("Execution layer request types not sorted")
-              if request_type == prev_type.get:
-                return err("Execution layer request types duplicated")
-            prev_type.ok request_type
-
-            template request_payload(): untyped =
-              request_type_and_payload.toOpenArray(1, request_type_and_payload.len - 1)
-
-            case request_type_and_payload[0]
-            of DEPOSIT_REQUEST_TYPE:
-              execution_requests_buffer.deposits = SSZ.decode(
-                request_payload,
-                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD],
-              )
-            of WITHDRAWAL_REQUEST_TYPE:
-              execution_requests_buffer.withdrawals = SSZ.decode(
-                request_payload,
-                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD],
-              )
-            of CONSOLIDATION_REQUEST_TYPE:
-              execution_requests_buffer.consolidations = SSZ.decode(
-                request_payload,
-                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD],
-              )
-            else:
-              return err("Execution layer invalid request type")
-        except CatchableError:
-          return err("Unable to deserialize execution layer requests")
-
-        execution_requests_buffer
-      else:
-        default(ExecutionRequests) # won't be used by block builder
+    sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
+      consensusFork,
       state,
+      cache,
       validator_index,
       randao_reveal,
       Eth1Data(),
@@ -248,15 +230,11 @@ proc makeEngineBlock*(
       attestations,
       @[],
       exits,
-      node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
-      payload,
-      noRollback, # Temporary state - no need for rollback
-      cache,
+      sync_aggregate,
+      eps.executionPayload,
       verificationFlags = {},
-      transactions_root = transactions_root,
-      execution_payload_root = execution_payload_root,
-      kzg_commitments = kzg_commitments,
-      execution_requests = execution_requests,
+      eps.kzg_commitments,
+      execution_requests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -265,27 +243,28 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
-  ok EngineBlock[BeaconBlockType](
-    blck: blockAndRewards.blck.forky(consensusFork),
-    executionValue: payload.blockValue,
+  ok EngineBlock[consensusFork.BeaconBlock](
+    blck: blockAndRewards.blck,
+    executionValue: eps.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
     blobsBundle:
       when consensusFork >= ConsensusFork.Deneb:
-        payload.blobsBundle
+        eps.blobsBundle
       else:
         default(deneb.BlobsBundle),
   )
 
 proc getExecutionPayload*(
     node: BeaconNode,
-    PayloadType: type ForkyExecutionPayloadForSigning,
+    consensusFork: static ConsensusFork,
     head: BlockRef,
     proposalState: ref ForkedHashedBeaconState,
     validator_index: ValidatorIndex,
     validator_pubkey: ValidatorPubKey,
-): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]] {.
+    async: (raises: [CancelledError])
+.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
-
   let
     slot = withState(proposalState[]):
       forkyState.data.slot
@@ -320,21 +299,31 @@ proc getExecutionPayload*(
     latestFinalized = shortLog(latestFinalized),
     feeRecipient = $feeRecipient
 
-  let payload = await node.elManager.getPayload(
-    PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe, latestFinalized,
-    timestamp, random, feeRecipient, withdrawals,
-  )
+  type PayloadType = consensusFork.ExecutionPayloadForSigning
+  let
+    eps = (
+      await node.elManager.getPayload(
+        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+        latestFinalized, timestamp, random, feeRecipient, withdrawals,
+      )
+    ).valueOr:
+      if not proposalState[].is_merge_transition_complete():
+        # Pre-merge, an all-zeroes execution payload is used and there are no
+        # requests, so default is fine here
+        return Opt.some(static(default(EngineBid[PayloadType])))
+      return Opt.none(EngineBid[PayloadType])
 
-  if payload.isSome():
-    # TODO errors are logged in elmanager but unlike most other things, we want
-    #      success log here for getting the payload since they are so rare - it
-    #      would be nice to have a more structured approach to the logging here
-    info "Received engine payload",
-      slot,
-      value = shortLog(payload[].blockValue),
-      payload = shortLog(payload[].executionPayload)
+    requests = decodePayloadRequests(eps).valueOr:
+      warn "Cannot decode payload requests from engine", slot, err = error
+      return Opt.none(EngineBid[PayloadType])
 
-  payload
+  # TODO errors are logged in elmanager but unlike most other things, we want
+  #      success log here for getting the payload since they are so rare - it
+  #      would be nice to have a more structured approach to the logging here
+  info "Received engine payload",
+    slot, value = shortLog(eps.blockValue), payload = shortLog(eps.executionPayload)
+
+  ok EngineBid[PayloadType](eps: eps, execution_requests: requests)
 
 proc getSignedBuilderBid(
     payloadBuilderClient: RestClientRef,
@@ -375,6 +364,7 @@ proc getBuilderBid(
     slot: Slot,
     executionBlockHash: Eth2Digest,
     pubkey: ValidatorPubKey,
+    expected_withdrawals_root: Eth2Digest,
 ): Future[BuilderBidResult[consensusFork.BuilderBid]] {.
     async: (raises: [CancelledError])
 .} =
@@ -409,6 +399,7 @@ proc getBuilderBid(
     head: BlockRef,
     slot: Slot,
     pubkey: ValidatorPubKey,
+    expected_withdrawals_root: Eth2Digest,
 ): Future[BuilderBidResult[consensusFork.BuilderBid]] {.
     async: (raises: [CancelledError])
 .} =
@@ -421,32 +412,14 @@ proc getBuilderBid(
     return err("loadExecutionBlockHash failed")
 
   await node.getBuilderBid(
-    consensusFork, payloadBuilderClient, slot, executionBlockHash, pubkey
+    consensusFork, payloadBuilderClient, slot, executionBlockHash, pubkey,
+    expected_withdrawals_root,
   )
-
-func constructBlindedBeaconBlock(
-    blck: ForkyBeaconBlock, builderBid: ForkyBuilderBid
-): auto =
-  # Leaves signature field default, to be filled in by caller
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: type(blck).kind.BlindedBeaconBlock
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(blindedBlock.body.execution_payload_header, builderBid.header)
-  assign(blindedBlock.body.blob_kzg_commitments, builderBid.blob_kzg_commitments)
-  assign(blindedBlock.body.execution_requests, builderBid.execution_requests)
-
-  blindedBlock
 
 proc makeBuilderBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
-    state: var ForkedHashedBeaconState,
+    state: var ForkyHashedBeaconState,
     cache: var StateCache,
     validator_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
@@ -455,45 +428,42 @@ proc makeBuilderBlock*(
     slot: Slot,
     builderBid: ForkyBuilderBid,
 ): BuilderBlockResult[consensusFork.BlindedBeaconBlock] =
-  # When creating this block, need to ensure it uses the MEV-provided execution
-  # payload, both to avoid repeated calls to network services and to ensure the
-  # consistency of this block (e.g., its state root being correct). Since block
-  # processing does not work directly using blinded blocks, fix up transactions
-  # root after running the state transition function on an otherwise equivalent
-  # non-blinded block without transactions.
-  #
-  # This doesn't have withdrawals, which each node has regardless of engine or
-  # builder API. makeEngineBlock fills it in later.
+  let
+    attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
+    exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
+      node.dag.cfg, state.data
+    )
+    sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
-  var shimExecutionPayload: consensusFork.ExecutionPayloadForSigning
-  copyFields(
-    shimExecutionPayload.executionPayload,
-    builderBid.header,
-    getFieldNames(typeof(builderBid.header)),
-  )
-
-  let fakeBlock =
-    ?node.makeEngineBlock(
+    blockAndRewards = makeBeaconBlockWithRewards(
+      node.dag.cfg,
       consensusFork,
       state,
       cache,
       validator_index,
       randao_reveal,
+      Eth1Data(),
       graffiti,
-      head,
-      slot,
-      execution_payload = Opt.some shimExecutionPayload,
-      transactions_root = Opt.some builderBid.header.transactions_root,
-      execution_payload_root = Opt.some hash_tree_root(builderBid.header),
-      withdrawals_root = Opt.some builderBid.header.withdrawals_root,
-      kzg_commitments = Opt.some builderBid.blob_kzg_commitments,
-      builder_execution_requests = Opt.some builderBid.execution_requests,
-    )
+      attestations,
+      @[],
+      exits,
+      sync_aggregate,
+      builderBid.header,
+      verificationFlags = {},
+      builderBid.blob_kzg_commitments,
+      builderBid.execution_requests,
+    ).valueOr:
+      # This is almost certainly a bug, but it's complex enough that there's a
+      # small risk it might happen even when most proposals succeed - thus we
+      # log instead of asserting
+      warn "Cannot create block for proposal",
+        slot, head = shortLog(head), error = error
+      return err($error)
 
   ok BuilderBlock[consensusFork.BlindedBeaconBlock](
-    blck: constructBlindedBeaconBlock(fakeBlock.blck, builderBid),
-    executionValue: fakeBlock.executionValue,
-    consensusValue: fakeBlock.consensusValue,
+    blck: blockAndRewards.blck,
+    executionValue: builderBid.value,
+    consensusValue: blockAndRewards.rewards.blockConsensusValue(),
   )
 
 func isExcludedTestnet(cfg: RuntimeConfig): bool =
@@ -511,9 +481,7 @@ proc collectBids*(
     slot: Slot,
     proposalState: ref ForkedHashedBeaconState,
 ): Future[Bids[consensusFork]] {.async: (raises: [CancelledError]).} =
-  type
-    EPS = consensusFork.ExecutionPayloadForSigning
-    BB = consensusFork.BuilderBid
+  type BB = consensusFork.BuilderBid
 
   let
     usePayloadBuilder =
@@ -534,14 +502,20 @@ proc collectBids*(
 
     builderBidFut =
       if usePayloadBuilder:
+        let
+          withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
+            get_expected_withdrawals(proposalState[].forky(consensusFork).data)
+          )
+          expected_withdrawals_root = hash_tree_root(withdrawals)
         node.getBuilderBid(
-          consensusFork, payloadBuilderClient, head, slot, validator_pubkey
+          consensusFork, payloadBuilderClient, head, slot, validator_pubkey,
+          expected_withdrawals_root,
         )
       else:
         nil
 
     enginePayloadFut = node.getExecutionPayload(
-      EPS, head, proposalState, validator_index, validator_pubkey
+      consensusFork, head, proposalState, validator_index, validator_pubkey
     )
 
   # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
@@ -573,11 +547,11 @@ proc useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
   bids.builderBid.isSome() and (
     bids.engineBid.isNone() or
     builderBetterBid(
-      boostFactor, bids.builderBid.value().value, bids.engineBid.value().blockValue
+      boostFactor, bids.builderBid.value().value, bids.engineBid.value().eps.blockValue
     )
   )
 
-proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
+proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
     validator_index: ValidatorIndex,
@@ -586,7 +560,16 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     head: BlockRef,
     slot: Slot,
     builderBoostFactor: uint64,
-): Future[ResultType] {.async: (raises: [CancelledError]).} =
+): Future[
+    Result[
+      tuple[
+        blck: consensusFork.MaybeBlindedBeaconBlock,
+        executionValue: UInt256,
+        consensusValue: UInt256,
+      ],
+      string,
+    ]
+] {.async: (raises: [CancelledError]).} =
   let
     proposerKey = node.dag.validatorKey(validator_index).get().toPubKey()
 
@@ -595,7 +578,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
     cache = new StateCache
     state = node.dag.getProposalState(head, slot, cache[]).valueOr:
-      return ResultType.err("Proposal state is not available")
+      return err("Proposal state is not available")
 
     bids = await node.collectBids(
       consensusFork, payloadBuilderClient, proposerKey, validator_index, head, slot,
@@ -614,7 +597,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
   if useBuilderPayload:
     let builderBlock = node.makeBuilderBlock(
       consensusFork,
-      state[],
+      state[].forky(consensusFork),
       cache[],
       validator_index,
       randao_reveal,
@@ -623,9 +606,9 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
       slot,
       bids.builderBid.value(),
     ).valueOr:
-      return ResultType.err("Failed to create builder block")
+      return err("Failed to create builder block")
 
-    return ResultType.ok(
+    return ok(
       (
         blck: consensusFork.MaybeBlindedBeaconBlock(
           isBlinded: true, blindedData: builderBlock.blck
@@ -635,89 +618,28 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
       )
     )
 
+  if bids.engineBid.isNone:
+    return err("Engine payload is not available")
+
   let engineBlock =
     ?node.makeEngineBlock(
       consensusFork,
-      state[],
+      state[].forky(consensusFork),
       cache[],
       validator_index,
       randao_reveal,
       graffiti,
       head,
       slot,
-      bids.engineBid,
+      bids.engineBid[].eps,
+      bids.engineBid[].execution_requests,
     )
 
-  ResultType.ok(
+  ok(
     (
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false, data: engineBlock.toBlockContents(consensusFork)
       ),
-      executionValue: engineBlock.executionValue,
-      consensusValue: engineBlock.consensusValue,
-    )
-  )
-
-proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
-    node: BeaconNode,
-    consensusFork: static ConsensusFork,
-    validator_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    graffiti: GraffitiBytes,
-    head: BlockRef,
-    slot: Slot,
-    builderBoostFactor: uint64,
-): auto =
-  type ResultType = Result[
-    tuple[
-      blck: consensusFork.MaybeBlindedBeaconBlock,
-      executionValue: UInt256,
-      consensusValue: UInt256,
-    ],
-    string,
-  ]
-
-  makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
-    node, consensusFork, validator_index, randao_reveal, graffiti, head, slot,
-    builderBoostFactor,
-  )
-
-proc makeBeaconBlockForHeadAndSlotImpl[ResultType](
-    node: BeaconNode,
-    consensusFork: static ConsensusFork,
-    validator_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    graffiti: GraffitiBytes,
-    head: BlockRef,
-    slot: Slot,
-): Future[ResultType] {.async: (raises: [CancelledError]).} =
-  type EPS = consensusFork.ExecutionPayloadForSigning
-
-  let
-    proposerKey = node.dag.validatorKey(validator_index).get().toPubKey()
-    cache = new StateCache
-    # TODO move the creation of this proposal state away from the hot path
-    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
-      return ResultType.err("Proposal state is not available")
-    enginePayload =
-      await node.getExecutionPayload(EPS, head, state, validator_index, proposerKey)
-
-    engineBlock =
-      ?node.makeEngineBlock(
-        consensusFork,
-        state[],
-        cache[],
-        validator_index,
-        randao_reveal,
-        graffiti,
-        head,
-        slot,
-        enginePayload,
-      )
-
-  ResultType.ok(
-    (
-      blck: engineBlock.toBlockContents(consensusFork),
       executionValue: engineBlock.executionValue,
       consensusValue: engineBlock.consensusValue,
     )
@@ -731,16 +653,47 @@ proc makeBeaconBlockForHeadAndSlot*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-): auto =
-  type ResultType = Result[
-    tuple[
-      blck: consensusFork.BlockContents,
-      executionValue: UInt256,
-      consensusValue: UInt256,
-    ],
-    string,
-  ]
+): Future[
+    Result[
+      tuple[
+        blck: consensusFork.BlockContents,
+        executionValue: UInt256,
+        consensusValue: UInt256,
+      ],
+      string,
+    ]
+] {.async: (raises: [CancelledError]).} =
+  let
+    proposerKey = node.dag.validatorKey(validator_index).get().toPubKey()
+    cache = new StateCache
+    # TODO move the creation of this proposal state away from the hot path
+    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+      return err("Proposal state is not available")
+    enginePayload = (
+      await node.getExecutionPayload(
+        consensusFork, head, state, validator_index, proposerKey
+      )
+    ).valueOr:
+      return err("Engine payload is not available")
 
-  makeBeaconBlockForHeadAndSlotImpl[ResultType](
-    node, consensusFork, validator_index, randao_reveal, graffiti, head, slot
+  let engineBlock =
+    ?node.makeEngineBlock(
+      consensusFork,
+      state[].forky(consensusFork),
+      cache[],
+      validator_index,
+      randao_reveal,
+      graffiti,
+      head,
+      slot,
+      enginePayload.eps,
+      enginePayload.execution_requests,
+    )
+
+  ok(
+    (
+      blck: engineBlock.toBlockContents(consensusFork),
+      executionValue: engineBlock.executionValue,
+      consensusValue: engineBlock.consensusValue,
+    )
   )
