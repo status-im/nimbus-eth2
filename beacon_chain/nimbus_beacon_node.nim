@@ -2214,10 +2214,8 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
-  asyncSpawn ProcessState.waitStopSignals()
 
-  # main event loop
-  ProcessState.pollUntilStopped()
+  waitFor ProcessState.waitStopSignals()
 
   # time to say goodbye
   node.stop()

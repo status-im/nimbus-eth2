@@ -2031,7 +2031,8 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
     #   validatorPool: pool,
     #   keymanagerHost: host)
 
-  ProcessState.pollUntilStopped()
+  while not ProcessState.running:
+    await sleepAsync(1.seconds)
 
   # asyncSpawn startValidatorClient(basePort)
 

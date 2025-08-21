@@ -44,41 +44,38 @@ when defined(posix):
   import posix
   var signalTarget = pthread_self()
 
-  proc ignoreStopSignalsInThread*(_: type ProcessState) =
-    # Block all signals in this thread, so we don't interfere with regular signal
-    # handling elsewhere.
+  proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
+    # Block stop signals in the calling thread - this can be used to avoid
+    # having certain threads be interrupted by process-directed signals
     var signalMask, oldSignalMask: Sigset
 
     if sigemptyset(signalMask) != 0:
-      fatal "Error creating signal mask", err = osErrorMsg(osLastError())
-      quit(QuitFailure)
+      return false
 
     if sigaddset(signalMask, posix.SIGINT) != 0:
-      fatal "Error updating signal mask", err = osErrorMsg(osLastError())
-      quit(QuitFailure)
+      return false
     if sigaddset(signalMask, posix.SIGTERM) != 0:
-      fatal "Error updating signal mask", err = osErrorMsg(osLastError())
-      quit(QuitFailure)
+      return false
 
     if pthread_sigmask(SIG_BLOCK, signalMask, oldSignalMask) != 0:
-      fatal "Error setting signal mask", err = osErrorMsg(osLastError())
-      quit(QuitFailure)
+      return false
 
-    debug "Ignoring signals in thread", chroniclesThreadIds = true
+    true
 
   proc raiseStopSignal() =
     # Main thread that is monitoring the signals...
     discard pthread_kill(signalTarget, posix.SIGTERM)
 
 else:
-  proc ignoreStopSignalsInThread*(_: type ProcessState) =
-    discard
+  proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
+    true
 
   proc raiseStopSignal() =
     discard c_raise(ansi_c.SIGINT)
 
 proc scheduleStop*(_: type ProcessState, source: cstring) =
-  debug "Scheduling shutdown", source
+  ## Schedule that the process should stop in a thread-safe way. This function
+  ## can be used from non-nim threads as well.
   var nilptr: pointer
   discard shutdownSource.compareExchange(nilptr, source)
   raiseStopSignal()
@@ -89,17 +86,16 @@ proc notifyRunning*(_: type ProcessState) =
 proc setupStopHandlers*(_: type ProcessState) =
   ## Install signal handlers for SIGINT/SIGTERM such that the application
   ## updates `processState` on CTRL-C and similar, allowing it to gracefully
-  ## shut down.
+  ## shut down by monitoring `ProcessState.running` at regular intervals.
   ##
-  ## The CTRL-C handling provided by `signal` does not wake the async polling
-  ## loop and can therefore get stuck if no events are happening - see
-  ## `waitStopSignals` for a version that works with the chronos poll loop.
+  ## `async` applications should prefer to use
+  ## `await ProcessState.waitStopsignals()` since the CTRL-C handling provided
+  ## by `signal` does not wake the async polling loop and can therefore get
+  ## stuck if no events are happening.
   ##
   ## This function should be called early on from the main thread to avoid the
   ## default Nim signal handlers from being used as these will crash or close
   ## the application.
-  ##
-  ## Non-main threads should instead call `ignoreStopSignalsInThread`
 
   proc controlCHandler(a: cint) {.noconv.} =
     # Cannot log in here because that would imply memory allocations and system
@@ -115,11 +111,18 @@ proc setupStopHandlers*(_: type ProcessState) =
     # Should also provide synchronization for the shutdownSource write..
     processState.store(Stopping)
 
+  # Nim sets signal handlers using `c_signal`, but unfortunately these are broken
+  # since they perform memory allocations and call unsafe system functions:
+  # https://github.com/nim-lang/Nim/blob/c6352ce0ab5fef061b43c8ca960ff7728541b30b/lib/system/excpt.nim#L622
+
   # Avoid using `setControlCHook` since it has an exception effect
   c_signal(ansi_c.SIGINT, controlCHandler)
 
-  # equivalent SIGTERM handler
-  when declared(ansi_c.SIGTERM):
+  # equivalent SIGTERM handler - this is only set on posix systems since on
+  # windows, SIGTERM is not generated - however, chronos may generate them so
+  # below, in the chronos version, we do monitor it on all platforms.
+  # https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/signal?view=msvc-170
+  when defined(posix):
     c_signal(ansi_c.SIGTERM, controlCHandler)
 
 proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).} =
@@ -127,45 +130,35 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   ##
   ## This approach ensures that the event loop wakes up on signal delivery
   ## unlike `setupStopHandlers` which merely sets a flag that must be polled.
+  ##
+  ## Make sure to call `ignoreStopSignalsInThread`
 
-  when defined(posix):
-    let
-      sigint = waitSignal(chronos.SIGINT)
-      sigterm = waitSignal(chronos.SIGTERM)
+  let
+    sigint = waitSignal(chronos.SIGINT)
+    sigterm = waitSignal(chronos.SIGTERM)
 
-    debug "Waiting for signal", chroniclesThreadIds = true
+  debug "Waiting for signal", chroniclesThreadIds = true
 
-    try:
-      discard await race(sigint, sigterm)
-      processState.store(ProcessState.Stopping, moRelaxed)
-    finally:
-      # Might be finished already, which is fine..
-      await noCancel sigint.cancelAndWait()
-      await noCancel sigterm.cancelAndWait()
+  try:
+    discard await race(sigint, sigterm)
 
-  else:
-    let sigint = waitSignal(chronos.SIGINT)
+    var source = cast[cstring](shutdownSource.load())
+    if source == nil:
+      source = "Unknown"
 
-    debug "Waiting for signal", chroniclesThreadIds = true
+    notice "Shutting down", chroniclesThreadIds = true, source
 
-    try:
-      discard await race(sigint)
-      processState.store(ProcessState.Stopping, moRelaxed)
-    finally:
-      # Might be finished already, which is fine..
-      await noCancel sigint.cancelAndWait()
+    processState.store(ProcessState.Stopping, moRelaxed)
+  finally:
+    # Might be finished already, which is fine..
+    await noCancel sigint.cancelAndWait()
+    await noCancel sigterm.cancelAndWait()
+
+proc running*(_: type ProcessState): bool =
+  processState.load(moRelaxed) == ProcessState.Running
 
 proc stopping*(_: type ProcessState): bool =
   processState.load(moRelaxed) == ProcessState.Stopping
-
-proc pollUntilStopped*(_: type ProcessState) =
-  while processState.load(moRelaxed) != ProcessState.Stopping:
-    poll()
-
-  var source = cast[cstring](shutdownSource.load())
-  if source == nil:
-    source = "Unknown"
-  notice "Shutting down", chroniclesThreadIds = true, source
 
 when isMainModule: # Test case
   import os
@@ -187,7 +180,7 @@ when isMainModule: # Test case
     raiseAssert "Should not reach here, ie stopping the thread should not take 10s"
 
   proc worker(p: ThreadSignalPtr) {.thread.} =
-    ProcessState.ignoreStopSignalsInThread()
+    doAssert ProcessState.ignoreStopSignalsInThread()
     let
       stop = p.wait()
       work = threadWork()
@@ -208,21 +201,23 @@ when isMainModule: # Test case
     # set the same flag as `waitStopSignals` does.
     ProcessState.setupStopHandlers()
 
-    let stop = ProcessState.waitStopSignals()
+    # Wait for a stop signal - this can be either the user pressing ctrl-c or
+    # an out-of-band notification via kill/windows service command / some rest
+    # API etc
+    waitFor ProcessState.waitStopSignals()
 
-    ProcessState.pollUntilStopped()
+    # Notify the thread should stop itself as well using a ThreadSignalPtr
+    # rather than an OS signal
     waitFor stopper.fire()
-
-    waitFor stop.cancelAndWait()
 
     workerThread.joinThread()
 
+    # Now let's reset and try the sync API
     ProcessState.notifyRunning()
-
-    # The async waiting has finished - let's try the sync waiting
     ProcessState.scheduleStop("done")
 
-    # poll for 10s, this should be enough
+    # poll for 10s, this should be enough even on platforms with async signal
+    # delivery (like windows, presumably?)
     for i in 0 ..< 100:
       if ProcessState.stopping():
         break
