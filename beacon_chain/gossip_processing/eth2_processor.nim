@@ -255,8 +255,7 @@ proc processSignedBeaconBlock*(
       self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
     let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb and
-          typeof(signedBlock).kind < ConsensusFork.Fulu:
+      when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres =
           self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
         if bres.isSome():
