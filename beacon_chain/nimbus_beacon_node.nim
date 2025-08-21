@@ -2206,7 +2206,7 @@ proc installMessageValidators(node: BeaconNode) =
                     await node.processor.processDataColumnSidecar(
                       MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           # blob_sidecar_{subnet_id}
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
           let subnetCount =
