@@ -46,6 +46,7 @@ import
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
+from ../spec/peerdas_helpers import assemble_data_column_sidecars
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -554,7 +555,7 @@ proc proposeBlockAux(
     )
 
     blobsOpt =
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         Opt.some(
           signedBlock.create_blob_sidecars(
             engineBlock.blobsBundle.proofs, engineBlock.blobsBundle.blobs
@@ -562,8 +563,18 @@ proc proposeBlockAux(
         )
       else:
         Opt.none(seq[BlobSidecar])
+
+    columnsOpt =
+      when consensusFork >= ConsensusFork.Fulu:
+        Opt.some(signedBlock.assemble_data_column_sidecars(
+          engineBlock.blobsBundleV2.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          @(engineBlock.blobsBundleV2.proofs.mapIt(kzg.KzgProof(it)))))
+      else:
+        Opt.none(seq[DataColumnSidecar])
+
     newBlockRef = await(
-      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt, checkValidator = false)
+      node.router.routeSignedBeaconBlock(
+        signedBlock, blobsOpt, columnsOpt, checkValidator = false)
     ).valueOr:
       # TODO Is this an error?
       beacon_block_production_errors.inc()
@@ -810,7 +821,7 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
-    Future[Opt[BlockRef]] {.async: (raises: [CancelledError]).} =
+    Future[BlockRef] {.async: (raises: [CancelledError]).} =
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling at that slot for the given
   ## head - to compute the proposer, we need to advance a state to the given
@@ -826,14 +837,14 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
-      return Opt.some(head)
+      return head
     proposerKey = node.dag.validatorKey(proposer).get().toPubKey
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
                                         proposer_index = proposer,
                                         proposer = shortLog(proposerKey)
-      return Opt.some(head)
+      return head
 
   await proposeBlock(node, validator, head, slot)
 
@@ -1218,8 +1229,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.updateValidators(forkyState.data.validators.asSeq())
 
   let newHead = await handleProposal(node, head, slot)
-  if newHead.isSome():
-    head = newHead.get
+  head = newHead
 
   let
     # The latest point in time when we'll be sending out attestations

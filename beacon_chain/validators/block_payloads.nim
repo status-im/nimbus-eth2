@@ -45,6 +45,7 @@ type
     executionValue*: Wei
     consensusValue*: UInt256
     blobsBundle*: deneb.BlobsBundle
+    blobsBundleV2*: fulu.BlobsBundleV2
 
   BuilderBlock[BBB: ForkyBlindedBeaconBlock] = object
     blck*: BBB
@@ -72,7 +73,13 @@ type
 template toBlockContents(
     engineBlock: EngineBlock, consensusFork: static ConsensusFork
 ): untyped =
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Fulu:
+    consensusFork.BlockContents(
+      `block`: engineBlock.blck,
+      kzg_proofs: engineBlock.blobsBundleV2.proofs,
+      blobs: engineBlock.blobsBundleV2.blobs,
+    )
+  elif consensusFork >= ConsensusFork.Deneb:
     consensusFork.BlockContents(
       `block`: engineBlock.blck,
       kzg_proofs: engineBlock.blobsBundle.proofs,
@@ -270,10 +277,15 @@ proc makeEngineBlock*(
     executionValue: payload.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
     blobsBundle:
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         payload.blobsBundle
       else:
         default(deneb.BlobsBundle),
+    blobsBundleV2:
+      when consensusFork >= ConsensusFork.Fulu:
+        payload.blobsBundle
+      else:
+        default(fulu.BlobsBundleV2),
   )
 
 proc getExecutionPayload*(
