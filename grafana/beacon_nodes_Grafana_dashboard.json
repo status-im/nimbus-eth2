@@ -5667,7 +5667,7 @@
                 "value": null
               },
               {
-                "color": "red",
+                "color": "green",
                 "value": 1
               }
             ]
@@ -5705,7 +5705,7 @@
             "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
-          "expr": "sum(validator_monitor_slashed{instance=\"${instance}\",container=\"${container}\"})",
+          "expr": "sum(validator_monitor_withdrawable{instance=\"${instance}\",container=\"${container}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
