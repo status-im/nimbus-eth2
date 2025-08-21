@@ -60,7 +60,7 @@ import # Unit test
   ./slashing_protection/test_fixtures,
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client,
-  ./test_beacon_validators,
+  ./test_block_payloads,
   ./test_beacon_chain_file,
   ./test_mev_calls,
   ./test_quarantine,

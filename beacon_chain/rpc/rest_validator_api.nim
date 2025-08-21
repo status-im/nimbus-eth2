@@ -12,7 +12,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
-       ".."/validators/beacon_validators,
+       ".."/validators/[beacon_validators, block_payloads],
        ".."/spec/[beaconstate, forks, network, state_transition_block],
        "."/[rest_utils, state_ttl_cache]
 
@@ -334,19 +334,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   func getMaybeBlindedHeaders(
       consensusFork: ConsensusFork,
       isBlinded: bool,
-      executionValue: Opt[UInt256],
-      consensusValue: Opt[UInt256]): HttpTable =
+      executionValue: UInt256,
+      consensusValue: UInt256): HttpTable =
     var res = HttpTable.init()
     res.add("eth-consensus-version", consensusFork.toString())
     if isBlinded:
       res.add("eth-execution-payload-blinded", "true")
     else:
       res.add("eth-execution-payload-blinded", "false")
-    if executionValue.isSome():
-      res.add(
-        "eth-execution-payload-value", toString(executionValue.get(), 10))
-    if consensusValue.isSome():
-      res.add("eth-consensus-block-value", toString(consensusValue.get(), 10))
+    res.add("eth-execution-payload-value", toString(executionValue, 10))
+    res.add("eth-consensus-block-value", toString(consensusValue, 10))
     res
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
@@ -432,7 +429,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork >= ConsensusFork.Electra:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
-              consensusFork, qrandao, qgraffiti, qhead, qslot,
+              consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
               qboostFactor)).valueOr:
             # HTTP 400 error is only for incorrect parameters.
             return RestApiResponse.jsonError(Http500, error)
@@ -451,52 +448,40 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if message.blck.isBlinded:
               ForkedMaybeBlindedBeaconBlock.init(
                 message.blck.blindedData,
-                message.executionValue,
-                message.consensusValue)
+                Opt.some message.executionValue,
+                Opt.some message.consensusValue)
             else:
               ForkedMaybeBlindedBeaconBlock.init(
                 message.blck.data,
-                message.executionValue,
-                message.consensusValue)
+                Opt.some message.executionValue,
+                Opt.some message.consensusValue)
+          RestApiResponse.jsonResponsePlain(forked, headers)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        let
+          message = (await node.makeBeaconBlockForHeadAndSlot(
+              consensusFork, proposer, qrandao, qgraffiti, qhead, qslot)).valueOr:
+            return RestApiResponse.jsonError(Http500, error)
+          headers = consensusFork.getMaybeBlindedHeaders(
+            isBlinded = false,
+            message.executionValue,
+            message.consensusValue)
+
+        if contentType == sszMediaType:
+          RestApiResponse.sszResponse(message.blck, headers)
+        elif contentType == jsonMediaType:
+          let forked = ForkedMaybeBlindedBeaconBlock.init(
+            message.blck,
+            Opt.some message.executionValue,
+            Opt.some message.consensusValue)
+
           RestApiResponse.jsonResponsePlain(forked, headers)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
       else:
-        when consensusFork >= ConsensusFork.Bellatrix:
-          type PayloadType = consensusFork.ExecutionPayloadForSigning
-        else:
-          type PayloadType = bellatrix.ExecutionPayloadForSigning
-        let
-          message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
-              node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
-            return RestApiResponse.jsonError(Http500, error)
-          executionValue = Opt.some(message.executionPayloadValue)
-          consensusValue = Opt.some(message.consensusBlockValue)
-          headers = consensusFork.getMaybeBlindedHeaders(
-            isBlinded = false, executionValue, consensusValue)
-
-        doAssert message.blck.kind == consensusFork
-        template forkyBlck: untyped = message.blck.forky(consensusFork)
-        if contentType == sszMediaType:
-          RestApiResponse.sszResponse(forkyBlck, headers)
-        elif contentType == jsonMediaType:
-          let forked =
-            when consensusFork >= ConsensusFork.Deneb:
-              ForkedMaybeBlindedBeaconBlock.init(
-                consensusFork.BlockContents(
-                  `block`: forkyBlck,
-                  kzg_proofs: message.blobsBundle.proofs,
-                  blobs: message.blobsBundle.blobs),
-                cvalue = consensusValue,
-                evalue = executionValue)
-            elif consensusFork >= ConsensusFork.Bellatrix:
-              ForkedMaybeBlindedBeaconBlock.init(
-                forkyBlck, executionValue, consensusValue)
-            else:
-              ForkedMaybeBlindedBeaconBlock.init(forkyBlck)
-          RestApiResponse.jsonResponsePlain(forked, headers)
-        else:
-          raiseAssert "preferredContentType() returns invalid content type"
+        return RestApiResponse.jsonError(
+          Http500, "Unsupported fork for block production: " & $consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
