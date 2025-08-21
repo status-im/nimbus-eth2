@@ -766,7 +766,7 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
