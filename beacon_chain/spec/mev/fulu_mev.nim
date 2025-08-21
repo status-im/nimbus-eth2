@@ -13,6 +13,7 @@ from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
+from ".."/datatypes/fulu import BlobsBundleV2
 from ".."/datatypes/electra import
   Attestation, AttesterSlashing, ExecutionRequests
 from ".."/eth2_merkleization import hash_tree_root

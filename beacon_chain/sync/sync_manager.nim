@@ -269,13 +269,14 @@ func groupBlobs*(
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
-        # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
-        # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/electra/p2p-interface.md#blobsidecarsbyrange-v1
+        # "Clients MUST respond with at least the blob sidecars of the first
+        # blob-carrying block that exists in the range, if they have it, and no
+        # more than MAX_REQUEST_BLOB_SIDECARS_ELECTRA sidecars."
         let header = forkyBlck.toSignedBeaconBlockHeader()
         for blob_idx, kzg_commitment in kzgs:
           if blob_cursor >= blobs.len:
-            return err("BlobSidecar: response too short")
+            break
           let blob_sidecar = blobs[blob_cursor]
           if blob_sidecar.index != BlobIndex blob_idx:
             return err("BlobSidecar: unexpected index")
@@ -285,6 +286,8 @@ func groupBlobs*(
             return err("BlobSidecar: unexpected signed_block_header")
           grouped[block_idx].add(blob_sidecar)
           inc blob_cursor
+
+  # TODO verify the at least first blob-carrying-block condition
 
   if blob_cursor != len(blobs):
     # we reached end of blocks without consuming all blobs so either

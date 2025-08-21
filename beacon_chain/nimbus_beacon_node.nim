@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs, algorithm],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -31,6 +31,7 @@ import
 when defined(posix):
   import system/ansi_c
 
+from std/algorithm import sort
 from std/sequtils import filterIt, mapIt, toSeq
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
@@ -423,10 +424,6 @@ proc initFullNode(
         node.network.nodeId,
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
-    minDa =
-      dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId,
-        dag.cfg.CUSTODY_REQUIREMENT.uint64)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
@@ -557,6 +554,8 @@ proc initFullNode(
         clist.tail.get().blck.slot()
       else:
         getLocalWallSlot()
+    eaSlot = dag.head.slot
+    erSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -573,7 +572,7 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, dag.cfg, custodyColumns,
+      node.network, supernode, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
@@ -627,6 +626,8 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.dag.erSlot = erSlot
+  node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
@@ -1274,7 +1275,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let vcus_count = node.dataColumnQuarantine.custody_columns.lenu64
+  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
   if node.config.peerdasSupernode:
     node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT.uint64:
@@ -1674,6 +1675,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
+          node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
@@ -1855,26 +1857,39 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  debug "Custody column count before validator custody detection attempt",
+    custody_columns = node.dataColumnQuarantine.custodyColumns.len
+
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
-    discard node.validatorCustody.detectNewValidatorCustody(node.attachedValidatorBalanceTotal)
+    discard node.validatorCustody.detectNewValidatorCustody(
+      node.attachedValidatorBalanceTotal)
+    if node.validatorCustody.diff_set.len > 0:
+      var custodyColumns =
+        node.validatorCustody.newer_column_set.toSeq()
+      sort(custodyColumns)
+      # update custody columns
+      node.dataColumnQuarantine.updateColumnQuarantine(
+        node.dag.cfg, custodyColumns)
 
-  # Update CGC and metadata with respect to the new detected validator custody
-  let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
-  if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  elif new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
-    node.network.loadCgcnetMetadataAndEnr(new_vcus)
-  else:
-    node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                          node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+      # Update CGC and metadata with respect to the new detected validator custody
+      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+
+      if new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+        node.network.loadCgcnetMetadataAndEnr(new_vcus)
+      else:
+        node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                              node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+
+  debug "Custody column count after validator custody detection attempt",
+    custody_columns = node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let
     nextForkEpoch = node.dag.cfg.nextForkEpochAtEpoch(epoch)
     nextForkDigest = if nextForkEpoch == FAR_FUTURE_EPOCH:
-      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
       # "If no next fork is scheduled, the nfd entry contains the default value
       # for the type (i.e., the SSZ representation of a zero-filled array)."
       default(ForkDigest)
@@ -2030,7 +2045,8 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         node.network.addValidator(
           getBeaconBlocksTopic(digest), proc (
-            signedBlock: consensusFork.SignedBeaconBlock
+            signedBlock: consensusFork.SignedBeaconBlock,
+            src: PeerId,
           ): ValidationResult =
             if node.shouldSyncOptimistically(node.currentSlot):
               toValidationResult(
@@ -2049,7 +2065,7 @@ proc installMessageValidators(node: BeaconNode) =
               let subnet_id = it
               node.network.addAsyncValidator(
                 getAttestationTopic(digest, subnet_id), proc (
-                  attestation: SingleAttestation
+                  attestation: SingleAttestation, src: PeerId
                 ): Future[ValidationResult] {.
                     async: (raises: [CancelledError]).} =
                   return toValidationResult(
@@ -2062,7 +2078,7 @@ proc installMessageValidators(node: BeaconNode) =
               let subnet_id = it
               node.network.addAsyncValidator(
                 getAttestationTopic(digest, subnet_id), proc (
-                  attestation: phase0.Attestation
+                  attestation: phase0.Attestation, src: PeerId
                 ): Future[ValidationResult] {.
                     async: (raises: [CancelledError]).} =
                   return toValidationResult(
@@ -2075,7 +2091,8 @@ proc installMessageValidators(node: BeaconNode) =
         when consensusFork >= ConsensusFork.Electra:
           node.network.addAsyncValidator(
             getAggregateAndProofsTopic(digest), proc (
-              signedAggregateAndProof: electra.SignedAggregateAndProof
+              signedAggregateAndProof: electra.SignedAggregateAndProof,
+              src: PeerId
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedAggregateAndProof(
@@ -2083,7 +2100,8 @@ proc installMessageValidators(node: BeaconNode) =
         else:
           node.network.addAsyncValidator(
             getAggregateAndProofsTopic(digest), proc (
-              signedAggregateAndProof: phase0.SignedAggregateAndProof
+              signedAggregateAndProof: phase0.SignedAggregateAndProof,
+              src: PeerId
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedAggregateAndProof(
@@ -2095,7 +2113,8 @@ proc installMessageValidators(node: BeaconNode) =
         when consensusFork >= ConsensusFork.Electra:
           node.network.addValidator(
             getAttesterSlashingsTopic(digest), proc (
-              attesterSlashing: electra.AttesterSlashing
+              attesterSlashing: electra.AttesterSlashing,
+              src: PeerId
             ): ValidationResult =
               toValidationResult(
                 node.processor[].processAttesterSlashing(
@@ -2103,7 +2122,8 @@ proc installMessageValidators(node: BeaconNode) =
         else:
           node.network.addValidator(
             getAttesterSlashingsTopic(digest), proc (
-              attesterSlashing: phase0.AttesterSlashing
+              attesterSlashing: phase0.AttesterSlashing,
+              src: PeerId
             ): ValidationResult =
               toValidationResult(
                 node.processor[].processAttesterSlashing(
@@ -2113,7 +2133,8 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#proposer_slashing
         node.network.addValidator(
           getProposerSlashingsTopic(digest), proc (
-            proposerSlashing: ProposerSlashing
+            proposerSlashing: ProposerSlashing,
+            src: PeerId
           ): ValidationResult =
             toValidationResult(
               node.processor[].processProposerSlashing(
@@ -2123,7 +2144,8 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#voluntary_exit
         node.network.addValidator(
           getVoluntaryExitsTopic(digest), proc (
-            signedVoluntaryExit: SignedVoluntaryExit
+            signedVoluntaryExit: SignedVoluntaryExit,
+            src: PeerId
           ): ValidationResult =
             toValidationResult(
               node.processor[].processSignedVoluntaryExit(
@@ -2137,7 +2159,8 @@ proc installMessageValidators(node: BeaconNode) =
               let idx = subcommitteeIdx
               node.network.addAsyncValidator(
                 getSyncCommitteeTopic(digest, idx), proc (
-                  msg: SyncCommitteeMessage
+                  msg: SyncCommitteeMessage,
+                  src: PeerId
                 ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                   return toValidationResult(
                     await node.processor.processSyncCommitteeMessage(
@@ -2147,7 +2170,8 @@ proc installMessageValidators(node: BeaconNode) =
           # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
           node.network.addAsyncValidator(
             getSyncCommitteeContributionAndProofTopic(digest), proc (
-              msg: SignedContributionAndProof
+              msg: SignedContributionAndProof,
+              src: PeerId
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedContributionAndProof(
@@ -2157,7 +2181,8 @@ proc installMessageValidators(node: BeaconNode) =
           # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
           node.network.addAsyncValidator(
             getBlsToExecutionChangeTopic(digest), proc (
-              msg: SignedBLSToExecutionChange
+              msg: SignedBLSToExecutionChange,
+              src: PeerId
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processBlsToExecutionChange(
@@ -2171,7 +2196,8 @@ proc installMessageValidators(node: BeaconNode) =
               let subnet_id = it
               node.network.addAsyncValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: fulu.DataColumnSidecar
+                  dataColumnSidecar: fulu.DataColumnSidecar,
+                  src: PeerId
                 ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                   toValidationResult(
                     await node.processor.processDataColumnSidecar(
@@ -2190,7 +2216,8 @@ proc installMessageValidators(node: BeaconNode) =
               let subnet_id = it
               node.network.addValidator(
                 getBlobSidecarTopic(digest, subnet_id), proc (
-                  blobSidecar: deneb.BlobSidecar
+                  blobSidecar: deneb.BlobSidecar,
+                  src: PeerId
                 ): ValidationResult =
                   toValidationResult(
                     node.processor[].processBlobSidecar(
@@ -2674,13 +2701,14 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 proc main() {.noinline, raises: [CatchableError].} =
   var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
+  setupFileLimits()
+
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
     quit QuitFailure
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
-  setupFileLimits()
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such

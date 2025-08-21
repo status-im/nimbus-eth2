@@ -1,4 +1,4 @@
-  # beacon_chain
+# beacon_chain
 # Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -40,7 +40,7 @@ const
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for data columns to arrive over gossip before fetching.
 
-  POLL_INTERVAL* = 1.seconds
+  POLL_INTERVAL = 1.seconds
 
 type
   BlockVerifierFn = proc(
@@ -65,14 +65,13 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
-  DataColumnResponseRecord* = object
+  DataColumnResponseRecord = object
     block_root*: Eth2Digest
     sidecar*: ref DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
-    cfg*: RuntimeConfig
     custody_columns_set: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
@@ -95,7 +94,6 @@ func shortLog*(x: seq[FetchRecord]): string =
 
 proc init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
-              cfg: RuntimeConfig,
               custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
@@ -110,7 +108,6 @@ proc init*(T: type RequestManager, network: Eth2Node,
   RequestManager(
     network: network,
     supernode: supernode,
-    cfg: cfg,
     custody_columns_set: custody_columns_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
@@ -330,7 +327,6 @@ proc checkPeerCustody(rman: RequestManager,
       return true
 
     else:
-
       # Fetch the remote custody count
       let remoteCustodyGroupCount =
         peer.lookupCgcFromPeer()
@@ -340,9 +336,9 @@ proc checkPeerCustody(rman: RequestManager,
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          rman.cfg.resolve_columns_from_custody_groups(
+          rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
-            max(rman.cfg.SAMPLES_PER_SLOT.uint64,
+            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
@@ -663,10 +659,10 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-          if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
-            PARALLEL_REQUESTS
-          else:
-            PARALLEL_REQUESTS_DATA_COLUMNS
+        if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+          PARALLEL_REQUESTS
+        else:
+          PARALLEL_REQUESTS_DATA_COLUMNS
       var workers =
         newSeq[Future[void].Raising([CancelledError])](workerCount)
       for i in 0..<workerCount:

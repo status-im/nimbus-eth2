@@ -114,8 +114,7 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind >= ConsensusFork.Deneb and
-        typeof(blck).kind < ConsensusFork.Fulu:
+    when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
@@ -185,7 +184,7 @@ proc routeSignedBeaconBlock*(
         metadata = router[].network.metadata.custody_group_count
         custody_columns =
           router[].network.cfg.resolve_columns_from_custody_groups(
-            router[].network.node_id,
+            router[].network.nodeId,
             max(SAMPLES_PER_SLOT.uint64,
             metadata))
 
@@ -195,8 +194,7 @@ proc routeSignedBeaconBlock*(
           final_columns.add dc
       dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
-  elif typeof(blck).kind >= ConsensusFork.Deneb and
-      typeof(blck).kind < ConsensusFork.Fulu:
+  elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       var workers = newSeq[Future[SendResult]](blobs.len)

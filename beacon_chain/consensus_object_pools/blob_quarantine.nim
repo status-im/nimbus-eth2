@@ -80,6 +80,8 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
+  ColumnQuarantineRef* = ref ColumnQuarantine
+
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
 
@@ -708,8 +710,9 @@ func fetchMissingColumnsByRoot*(
 ): seq[DataColumnsByRootIdentifier] =
   ## Function returns a sequence of DataColumnsByRootIdentifier for data columns
   ## which are missing for the block associated with root ``blockRoot`` and block ``blck``.
-  var res: seq[DataColumnsByRootIdentifier]
-  var missingIndices: DataColumnIndices
+  var
+    res: seq[DataColumnsByRootIdentifier]
+    missingIndices: DataColumnIndices
   let record = quarantine.roots.getOrDefault(blockRoot)
 
   if len(blck.message.body.blob_kzg_commitments) == 0:
@@ -915,3 +918,21 @@ proc init*(
     db: database,
     onSidecarCallback: onDataColumnSidecarCallback
   )
+
+func updateColumnQuarantine*(
+    quarantine: ref ColumnQuarantine,
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex]) =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
+  for index, item in custodyColumns.pairs():
+    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+    indexMap[int(item)] = index
+
+  quarantine.maxSidecarsPerBlockCount = len(custodyColumns)
+  quarantine.indexMap = indexMap
+  quarantine.custodyColumns = @custodyColumns
+  quarantine.custodyMap = ColumnMap.init(custodyColumns)

@@ -223,9 +223,8 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeFulu*(
-    payload: GetPayloadV5Response):
-    fulu.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asFuluConsensusPayload,
     blockValue: payload.blockValue,
@@ -233,11 +232,11 @@ func asConsensusTypeFulu*(
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    blobsBundle: deneb.BlobsBundle(
+    blobsBundle: fulu.BlobsBundleV2(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: KzgProofsV2.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(

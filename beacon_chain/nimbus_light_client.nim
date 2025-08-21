@@ -132,7 +132,8 @@ proc main() {.noinline, raises: [CatchableError].} =
     let forkDigest = forkDigests[].atConsensusFork(consensusFork)
     network.addValidator(
       getBeaconBlocksTopic(forkDigest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock
+          signedBlock: consensusFork.SignedBeaconBlock,
+          src: PeerId
       ): ValidationResult =
         toValidationResult(
           optimisticProcessor.processSignedBeaconBlock(signedBlock)))

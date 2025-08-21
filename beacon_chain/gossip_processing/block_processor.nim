@@ -112,7 +112,7 @@ type
     taskpool: Taskpool
 
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -246,8 +246,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb and
-      typeof(signedBlock).kind < ConsensusFork.Fulu:
+  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -265,6 +264,9 @@ proc storeBackfillBlock(
         blobsOk = r.isOk()
 
   if not blobsOk:
+    info "FOO3 invalid because invalid blobs, shouldn't be triggering here",
+      blockRoot = shortLog(signedBlock.root),
+      slot = signedBlock.message.slot
     return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -276,11 +278,19 @@ proc storeBackfillBlock(
           self.consensusManager.quarantine[].unviable:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
+        info "FOO1 marking unviable because addBackfillBlock + parent",
+          blockRoot = shortLog(signedBlock.root),
+          slot = signedBlock.message.slot,
+          parentBlockRoot = shortLog(signedBlock.message.parent_root)
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
         return err(VerifierError.UnviableFork)
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
+      info "FOO2 marking unviable because addBackFillblockt",
+        blockRoot = shortLog(signedBlock.root),
+        slot = signedBlock.message.slot,
+        parentBlockRoot = shortLog(signedBlock.message.parent_root)
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else: discard
     return res
@@ -549,6 +559,10 @@ proc storeBlock(
   if signedBlock.message.parent_root in
       self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
+    info "FOO5 marking unviable because of parent root aleady being in quarantine",
+      blockRoot = shortLog(signedBlock.root),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
@@ -578,6 +592,10 @@ proc storeBlock(
 
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
+      info "FOO4 marking unviable",
+        blockRoot = shortLog(signedBlock.root),
+        slot = signedBlock.message.slot,
+        parentBlockRoot = shortLog(signedBlock.message.parent_root)
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else:
       discard
@@ -734,15 +752,28 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  # No need to verify data column sidecar kzg proofs, as
-  # there are verification processes ar every point of entry
-  # for column sidecars, more so as this verification process
-  # is expensive and latent for nodes with higher column custody.
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    if dataColumnsOpt.isSome:
+      let
+        columns0 = dataColumnsOpt.get()
+        kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns0.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns0.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns0[i][])
+          if r.isErr:
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns0[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+            return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -976,8 +1007,7 @@ proc storeBlock(
           else:
             discard self.consensusManager.quarantine[].addColumnless(
               dag.finalizedHead.slot, forkyBlck)
-      elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
-          typeof(forkyBlck).kind < ConsensusFork.Fulu:
+      elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),

@@ -54,6 +54,13 @@ type
   # warning about unused import (rpc/messages).
   GossipMsg = messages.Message
 
+  ValidationSyncProc*[T] =
+    proc(msg: T, src: PeerId): ValidationResult {.gcsafe, raises: [].}
+
+  ValidationAsyncProc*[T] =
+    proc(msg: T, src: PeerId): Future[ValidationResult] {.
+      async: (raises: [CancelledError]).}
+
   SeenItem* = object
     peerId*: PeerId
     stamp*: chronos.Moment
@@ -923,7 +930,15 @@ proc readResponseChunk(
   var responseCodeByte: byte
   try:
     await conn.readExactly(addr responseCodeByte, 1)
-  except LPStreamEOFError, LPStreamIncompleteError:
+  except LPStreamIncompleteError:
+    # `LPStreamIncompleteError` is raised by `nim-libp2p` when remote peer
+    # dropped connection and stream, so it can't be used anymore.
+    return neterr UnexpectedEOF
+  except LPStreamEOFError:
+    # `LPStreamEOFError` is raised by `nim-libp2p` when remote peer sent
+    # EOF frame, which indicates that remote peer wants to gracefully finish
+    # the stream. It also means that our connection with remote peer is not
+    # broken and new streams could be initiated.
     return neterr PotentiallyExpectedEOF
   except CancelledError as exc:
     raise exc
@@ -2535,10 +2550,11 @@ proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
   res.complete(v)
   res
 
-func addValidator*[MsgType](node: Eth2Node,
-                            topic: string,
-                            msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe, raises: [].} ) =
+func addValidator*[MsgType](
+    node: Eth2Node,
+    topic: string,
+    msgValidator: ValidationSyncProc[MsgType]
+) =
   # Message validators run when subscriptions are enabled - they validate the
   # data and return an indication of whether the message should be broadcast
   # or not - validation is `async` but implemented without the macro because
@@ -2553,7 +2569,7 @@ func addValidator*[MsgType](node: Eth2Node,
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
-        msgValidator(decoded) # doesn't raise!
+        msgValidator(decoded, message.fromPeer) # doesn't raise!
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
@@ -2570,12 +2586,15 @@ func addValidator*[MsgType](node: Eth2Node,
   node.validTopics.incl topic # Only allow subscription to validated topics
   node.pubsub.addValidator(topic, execValidator)
 
-proc addAsyncValidator*[MsgType](node: Eth2Node,
-                            topic: string,
-                            msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.async: (raises: [CancelledError]).} ) =
-  proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.async: (raw: true).} =
+proc addAsyncValidator*[MsgType](
+    node: Eth2Node,
+    topic: string,
+    msgValidator: ValidationAsyncProc[MsgType]
+) =
+  proc execValidator(
+      topic: string,
+      message: GossipMsg
+  ): Future[ValidationResult] {.async: (raw: true).} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
@@ -2584,7 +2603,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
-        msgValidator(decoded) # doesn't raise!
+        msgValidator(decoded, message.fromPeer) # doesn't raise!
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
@@ -2704,7 +2723,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
 proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 

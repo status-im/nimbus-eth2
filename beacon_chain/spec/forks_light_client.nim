@@ -222,13 +222,13 @@ template finalized_root_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template FinalityBranch*(kind: static LightClientDataFork): auto =
+template FinalityBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.FinalityBranch]
+    electra.FinalityBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.FinalityBranch]
+    altair.FinalityBranch
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BeaconState unsupported in " & $kind.}
 
 template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
@@ -239,11 +239,11 @@ template current_sync_committee_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
+template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.CurrentSyncCommitteeBranch]
+    electra.CurrentSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.CurrentSyncCommitteeBranch]
+    altair.CurrentSyncCommitteeBranch
   else:
     static: raiseAssert "Unreachable"
 
@@ -256,133 +256,133 @@ template next_sync_committee_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template NextSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
+template NextSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.NextSyncCommitteeBranch]
+    electra.NextSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.NextSyncCommitteeBranch]
+    altair.NextSyncCommitteeBranch
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientHeader*(kind: static LightClientDataFork): auto =
+template LightClientHeader*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientHeader]
+    electra.LightClientHeader
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientHeader]
+    deneb.LightClientHeader
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientHeader]
+    capella.LightClientHeader
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientHeader]
+    altair.LightClientHeader
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientBootstrap*(kind: static LightClientDataFork): auto =
+template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientBootstrap]
+    electra.LightClientBootstrap
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientBootstrap]
+    deneb.LightClientBootstrap
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientBootstrap]
+    capella.LightClientBootstrap
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientBootstrap]
+    altair.LightClientBootstrap
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientUpdate*(kind: static LightClientDataFork): auto =
+template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientUpdate]
+    electra.LightClientUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientUpdate]
+    deneb.LightClientUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientUpdate]
+    capella.LightClientUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientUpdate]
+    altair.LightClientUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
+template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientFinalityUpdate]
+    electra.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientFinalityUpdate]
+    deneb.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientFinalityUpdate]
+    capella.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientFinalityUpdate]
+    altair.LightClientFinalityUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
+template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientOptimisticUpdate]
+    electra.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientOptimisticUpdate]
+    deneb.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientOptimisticUpdate]
+    capella.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientOptimisticUpdate]
+    altair.LightClientOptimisticUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientStore*(kind: static LightClientDataFork): auto =
+template LightClientStore*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientStore]
+    electra.LightClientStore
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientStore]
+    deneb.LightClientStore
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientStore]
+    capella.LightClientStore
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientStore]
+    altair.LightClientStore
   else:
     static: raiseAssert "Unreachable"
 
 template Forky*(
     x: typedesc[ForkedLightClientHeader],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientHeader
 
 template Forky*(
     x: typedesc[ForkedLightClientBootstrap],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientBootstrap
 
 template Forky*(
     x: typedesc[ForkedLightClientUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientFinalityUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientFinalityUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientOptimisticUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientOptimisticUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientStore],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientStore
 
-template Forked*(x: typedesc[ForkyLightClientHeader]): auto =
-  typedesc[ForkedLightClientHeader]
+template Forked*(x: typedesc[ForkyLightClientHeader]): typedesc =
+  ForkedLightClientHeader
 
-template Forked*(x: typedesc[ForkyLightClientBootstrap]): auto =
-  typedesc[ForkedLightClientBootstrap]
+template Forked*(x: typedesc[ForkyLightClientBootstrap]): typedesc =
+  ForkedLightClientBootstrap
 
-template Forked*(x: typedesc[ForkyLightClientUpdate]): auto =
-  typedesc[ForkedLightClientUpdate]
+template Forked*(x: typedesc[ForkyLightClientUpdate]): typedesc =
+  ForkedLightClientUpdate
 
-template Forked*(x: typedesc[ForkyLightClientFinalityUpdate]): auto =
-  typedesc[ForkedLightClientFinalityUpdate]
+template Forked*(x: typedesc[ForkyLightClientFinalityUpdate]): typedesc =
+  ForkedLightClientFinalityUpdate
 
-template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): auto =
-  typedesc[ForkedLightClientOptimisticUpdate]
+template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): typedesc =
+  ForkedLightClientOptimisticUpdate
 
-template Forked*(x: typedesc[ForkyLightClientStore]): auto =
-  typedesc[ForkedLightClientStore]
+template Forked*(x: typedesc[ForkyLightClientStore]): typedesc =
+  ForkedLightClientStore
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =

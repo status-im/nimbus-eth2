@@ -166,7 +166,7 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func removeUnviableOrphanTree(
+proc removeUnviableOrphanTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
@@ -192,13 +192,15 @@ func removeUnviableOrphanTree(
 
     for k in toRemove:
       tbl.del k
+      info "FOO9 in removeUnviableOrphans",
+        blockRoot = shortLog(k[0])
       quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
 
   checked
 
-func removeUnviableSidecarlessTree(
+proc removeUnviableSidecarlessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
@@ -218,11 +220,16 @@ func removeUnviableSidecarlessTree(
 
     for k in toRemove:
       tbl.del k
-      quarantine.unviable[k] = ()
+      info "FOOA in removeUnviableSidecarlessTree",
+        blockRoot = shortLog(k)
+      #quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+# TODO revert to func when addUnviable logging gone
+proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  info "FOO8 in addUnviable", blockRoot = shortLog(root), st = getStackTrace()
+
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -236,7 +243,8 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 
   quarantine.unviable[root] = ()
 
-func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
@@ -247,7 +255,8 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
 
-func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.sidecarless:
@@ -265,7 +274,8 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.reset()
   quarantine.orphans.reset()
 
-func pruneAfterFinalization*(
+# TODO revert to func when addUnviable logging gone
+proc pruneAfterFinalization*(
     quarantine: var Quarantine,
     epoch: Epoch,
     needsBackfill: bool
@@ -276,14 +286,14 @@ func pruneAfterFinalization*(
         # Because Quarantine could be used as temporary storage for blocks which
         # do not have sidecars yet, we should not prune blocks which are behind
         # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill this blocks properly.
+        # be able to backfill these blocks properly.
         if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
           Epoch(0)
         else:
           epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
       else:
         epoch
-    slot = (startEpoch + 1).start_slot()
+    slot = startEpoch.start_slot()
 
   quarantine.cleanupSidecarless(slot)
 

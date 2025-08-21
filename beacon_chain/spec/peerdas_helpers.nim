@@ -18,9 +18,12 @@ import
   ssz_serialization/[
     proofs,
     types],
+  stew/assign2,
   ./crypto,
   ./[helpers, digest],
   ./datatypes/[fulu]
+
+from stew/staticfor import staticfor
 
 type
   CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -41,7 +44,6 @@ iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
 func handle_custody_groups(node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
-
   # Decouples the custody group computation from
   # `get_custody_groups`, in order to later use this custody
   # group list across various types of output types
@@ -70,7 +72,6 @@ func handle_custody_groups(node_id: NodeId,
 func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
-
   # Decouples the custody group computation from
   # `get_custody_groups`, in order to later use this custody
   # group list across various types of output types
@@ -388,7 +389,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
-# Similar to:  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
+# Similar to: https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
                                Result[seq[DataColumnSidecar], string] =
@@ -482,17 +483,11 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
-  for i in 0..<blobs.len:
-    let kzgcells = computeCells(blobs[i])
-
-    cells[i] = kzgcells.get
-    var tmp: ProofBytes
-    for j in 0..<CELLS_PER_EXT_BLOB:
-      tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
-    proofs[i] = tmp
-
-  # TODO can we not refactor the above 4 lines to something like:
-  # proofs[i] = cell_proofs[i * CELLS_PER_EXT_BLOB .. (i+1) * CELLS_PER_EXT_BLOB - 1]
+  for i in 0 ..< blobs.len:
+    cells[i] = computeCells(blobs[i]).get
+    let proofElem = addr proofs[i]
+    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
@@ -514,7 +509,6 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
     sidecars.add(sidecar)
 
   sidecars
-
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
@@ -578,7 +572,7 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
-                                            Result[void, cstring] =
+                                            Result[void, string] =
   ## Verify if the KZG proofs are correct.
   # Iterate through the cell indices
   var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
@@ -599,26 +593,6 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
                                          uint64 =
-  let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
-  debugEcho "Vcus count"
-  debugEcho count
+  let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
-func get_max_blobs_per_block_bpo*(cfg: RuntimeConfig, epoch: Epoch): Opt[uint64] =
-  ## Return the maximum number of blobs that can be included in a block for a
-  ## given epoch.
-  if not len(cfg.BLOB_SCHEDULE) > 0:
-    return Opt.none(uint64)
-
-  # Spec version of function sorts every time, which should happen only once at
-  # loading.
-  for entry in cfg.BLOB_SCHEDULE:
-    if epoch >= entry.EPOCH:
-      return Opt.some entry.MAX_BLOBS_PER_BLOCK
-
-  # This is effectively a constant per node instance.
-  Opt.some foldl(
-    cfg.BLOB_SCHEDULE, min(a, b.MAX_BLOBS_PER_BLOCK),
-    cfg.BLOB_SCHEDULE[0].MAX_BLOBS_PER_BLOCK)

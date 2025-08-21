@@ -170,7 +170,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
-      next_fork_epoch: FAR_FUTURE_EPOCH)
+      next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = HashSet[Epoch]
@@ -214,7 +214,7 @@ func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     maybeIncludeFork(bpo.EPOCH, successorForkEpoch)
     successorForkEpoch = bpo.EPOCH
 
-  #doAssert len(targetForkEpochs) <= 2
+  doAssert len(targetForkEpochs) <= 2
   targetForkEpochs
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =

@@ -30,8 +30,6 @@ const
   VALIDATOR_CUSTODY_POLL_INTERVAL = 384.seconds
 
 type
-  InhibitFn = proc: bool {.gcsafe, raises: [].}
-
   ValidatorCustody* = object
     network*: Eth2Node
     dag*: ChainDAGRef
@@ -41,7 +39,7 @@ type
     newer_column_set*: HashSet[ColumnIndex]
     diff_set*: seq[ColumnIndex]
     global_refill_list: HashSet[DataColumnIdentifier]
-    requested_columns*: seq[DataColumnsByRootIdentifier]
+    requested_columns: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
     dataColumnQuarantine: ref ColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
@@ -55,7 +53,6 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
            older_column_set: HashSet[ColumnIndex],
            getBeaconTime: GetBeaconTimeFn,
            dataColumnQuarantine: ref ColumnQuarantine): ValidatorCustodyRef =
-  let localHeadSlot = getLocalHeadSlotCb
   (ValidatorCustodyRef)(
     network: network,
     dag: dag,
@@ -83,9 +80,9 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
   debug "New validator custody count detected",
     new_vcus_columns = newer_columns
   # update data column quarantine custody requirements
-  vcus.dataColumnQuarantine[].custody_columns =
+  vcus.dataColumnQuarantine[].custodyColumns =
     newer_columns.toSeq()
-  sort(vcus.dataColumnQuarantine[].custody_columns)
+  sort(vcus.dataColumnQuarantine[].custodyColumns)
   # check which custody set is larger
   if newer_columns.len > vcus.older_column_set.len:
     diff_set = newer_columns.difference(vcus.older_column_set)
@@ -105,12 +102,12 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     # behind is currently undergoing excess column refilling.
     vcus.dag.erSlot = slot
     let dataColumnRefillEpoch = (slot.epoch -
-                                vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-    var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int - 1
+                                 vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+    var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
     if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-      var blocks = newSeq[BlockId](vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int)
+      var blocks = newSeq[BlockId](numberOfColumnEpochs)
       let startIndex = vcus.dag.getBlockRange(
-        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs))
+        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs - 1))
       for i in startIndex..<numberOfColumnEpochs.int:
         let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
         withBlck(blck):
@@ -195,7 +192,6 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
 
 proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
-  var cache = StateCache()
   while true:
     await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
     if vcus.diff_set.len != 0:

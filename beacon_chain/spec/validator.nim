@@ -445,13 +445,12 @@ func compute_proposer_indices*(
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
-  let startSlot = epoch.start_slot()
   var proposerIndices: seq[Opt[ValidatorIndex]]
 
   for epochSlot in epoch.slots():
     var buffer: array[32 + 8, byte]
     buffer[0..31] = seed.data
-    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+    buffer[32..39] = uint_to_bytes(epochSlot.asUInt64)
 
     let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
     let proposerIndex = compute_proposer_index(state, indices, slotSeed)

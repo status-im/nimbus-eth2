@@ -281,6 +281,11 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(DataColumnSidecars)
 
+    info "BAR6 enqueuing block",
+      blockRoot = shortLog(signedBlock),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
+
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
@@ -288,6 +293,11 @@ proc processSignedBeaconBlock*(
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
+    info "BAR7 enqueued block",
+      blockRoot = shortLog(signedBlock),
+      slot = signedBlock.message.slot,
+      parentBlockRoot = shortLog(signedBlock.message.parent_root)
 
     # Validator monitor registration for blocks is done by the processor
     beacon_blocks_received.inc()
@@ -342,7 +352,7 @@ proc processBlobSidecar*(
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
-        raiseAssert "Could not have been added as blobless"
+        raiseAssert "Could not be added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -359,7 +369,6 @@ proc validateDataColumnSidecarFromEL*(
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         let
-          start_time = Moment.now()
           blobsFromElOpt =
             await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
@@ -379,7 +388,6 @@ proc validateDataColumnSidecarFromEL*(
                   forkyBlck,
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   flat_proof)
-
             # Send notification to event stream
             # and add these columns to column quarantine
             for col in recovered_columns:
@@ -392,17 +400,13 @@ proc processDataColumnSidecar*(
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
-
   await self.validateDataColumnSidecarFromEL(block_root)
-
   let
     wallTime = self.getCurrentBeaconTime()
     (_, wallSlot) = wallTime.toSlot()
-
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
-
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - block_header.slot.start_beacon_time
   debug "Data column received", delay
@@ -410,15 +414,12 @@ proc processDataColumnSidecar*(
   let v =
     self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
                                        dataColumnSidecar, wallTime, subnet_id)
-
   if v.isErr():
     debug "Dropping data column", error = v.error()
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
-
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
-
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
@@ -434,7 +435,7 @@ proc processDataColumnSidecar*(
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)
       else:
-        raiseAssert "Could not have been added as columnless"
+        raiseAssert "Could not be added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())

@@ -235,7 +235,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
         for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId
@@ -265,7 +265,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
         for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId
