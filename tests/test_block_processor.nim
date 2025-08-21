@@ -70,8 +70,7 @@ suite "Block processor" & preset():
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        getTimeFn)
+        validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
     discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():

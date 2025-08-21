@@ -288,7 +288,7 @@ proc processSignedBeaconBlock*(
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
-      columns,
+      Opt.none(DataColumnSidecars),
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -347,7 +347,7 @@ proc processBlobSidecar*(
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
-                                             Opt.none(DataColumnSidecars))
+            Opt.none(DataColumnSidecars))
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:

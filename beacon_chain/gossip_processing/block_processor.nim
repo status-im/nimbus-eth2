@@ -9,9 +9,7 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[
-    forks, helpers_el, signatures, signatures_batch,
-    peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -188,9 +186,7 @@ proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars]):
-    Result[void, VerifierError] =
-
+    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
@@ -293,7 +289,7 @@ proc storeBackfillBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  # Only store data columns after successfully establishing block validity
+  # Only store data columns after successfully establishing block viability.
   let
     columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in columns:
@@ -478,7 +474,7 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(forkyBlck, blobs, data_columns)
+      let res = self.storeBackfillBlock(forkyBlck, blobs, Opt.none(DataColumnSidecars))
       resfut.complete(res)
       return
 
@@ -766,7 +762,7 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  elif typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -998,7 +994,7 @@ proc storeBlock(
               MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
               cres)
           else:
-            discard self.consensusManager.quarantine[].addColumnless(
+            discard self.consensusManager.quarantine[].addSidecarless(
               dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -1040,7 +1036,9 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, dataColumns, resfut, maybeFinalized, validationDur)
+  enqueueBlock(
+    self, src, blck, blobs, Opt.none(DataColumnSidecars), resfut,
+    maybeFinalized, validationDur)
   resfut
 
 # Event Loop
@@ -1061,7 +1059,7 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, entry.columns,
+      entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
       entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
@@ -1073,8 +1071,8 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
-      entry.src, entry.blck, entry.blobs, entry.columns, entry.resfut, entry.maybeFinalized,
-      entry.validationDur)
+      entry.src, entry.blck, entry.blobs, entry.columns,
+      entry.resfut, entry.maybeFinalized, entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 

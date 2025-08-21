@@ -508,10 +508,7 @@ proc makeBuilderBlock*(
     consensusValue: fakeBlock.consensusValue,
   )
 
-func isExcludedTestnet(cfg: RuntimeConfig): bool =
-  ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and
-    cfg.DEPOSIT_CHAIN_ID in [17000'u64, 560048] # Holesky and Hoodi, respectively
+func isExcludedTestnet(cfg: RuntimeConfig): bool = true
 
 proc collectBids*(
     node: BeaconNode,
