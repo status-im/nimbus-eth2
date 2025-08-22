@@ -60,6 +60,24 @@ type
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests # [New in Electra]
 
+  SigVerifiedBlindedBeaconBlockBody* = object
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+    graffiti*: GraffitiBytes
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: TrustedSyncAggregate
+    execution_payload_header*: electra.ExecutionPayloadHeader
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange,
+        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests # [New in Electra]
+
   # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
@@ -67,6 +85,14 @@ type
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Deneb]
+
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
+  SigVerifiedBlindedBeaconBlock* = object
+    slot*: Slot
+    proposer_index*: uint64
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: SigVerifiedBlindedBeaconBlockBody # [Modified in Deneb]
 
   MaybeBlindedBeaconBlock* = object
     case isBlinded*: bool
@@ -173,3 +199,7 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
         blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
         execution_requests: blck.message.body.execution_requests)),
     signature: blck.signature)
+
+template asSigVerified*(
+    x: BlindedBeaconBlock): SigVerifiedBlindedBeaconBlock =
+  isomorphicCast[SigVerifiedBlindedBeaconBlock](x)

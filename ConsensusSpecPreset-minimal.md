@@ -4249,7 +4249,6 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
-  Light client - Single merkle proof - eip7805                                               Skip
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -4318,8 +4317,8 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - eip7732                                               Skip
   Merkle proof - Single merkle proof - eip7805                                               Skip
+  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4328,10 +4327,6 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
