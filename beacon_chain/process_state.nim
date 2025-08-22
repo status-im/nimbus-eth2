@@ -67,10 +67,13 @@ else:
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
     true
 
+  import chronos/osutils
+
   proc raiseStopSignal() =
     discard c_raise(ansi_c.SIGINT)
-    # Chronos installs its own handlers that are incompatible with `raise`:
-    discard os.raiseSignal(chronos.SIGINT)
+    # Chronos installs its own handlers that are incompatible with `raise` -
+    # when waitSignal is running we must also notify chronos
+    discard osutils.raiseSignal(chronos.SIGINT)
 
 proc scheduleStop*(_: type ProcessState, source: cstring) =
   ## Schedule that the process should stop in a thread-safe way. This function
