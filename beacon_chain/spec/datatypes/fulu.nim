@@ -16,7 +16,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
+  std/typetraits,
   "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
@@ -25,6 +25,7 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
+from std/sequtils import mapIt
 from std/strutils import join
 from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
@@ -59,7 +60,6 @@ const
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
-  SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
 
   # Minimum number of custody groups an honest node with

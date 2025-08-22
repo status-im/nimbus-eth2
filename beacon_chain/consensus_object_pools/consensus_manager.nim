@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, chronos, web3/[primitives, engine_api_types],
@@ -373,7 +373,6 @@ proc runProposalForkchoiceUpdated*(
       debug "Fork-choice updated for proposal", status
 
     static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-    debugFuluComment "Will Fulu need fcuV4? Or there shall be a new fcuV introduced in Fulu? We don't know"
     when consensusFork >= ConsensusFork.Deneb:
       # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
       # does not define any new forkchoiceUpdated, so reuse V3 from Dencun

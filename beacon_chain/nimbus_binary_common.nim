@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, terminal, typetraits],
+  std/[tables, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
@@ -21,7 +21,15 @@ import
   # Local modules
   ./spec/[helpers, keystore],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, version]
+  ./[beacon_clock, beacon_node_status, conf, version]
+
+when defaultChroniclesStream.outputs.type.arity == 2:
+  from std/os import commandLineParams, getEnv, splitFile
+  from ./filepath import secureCreatePath
+
+  import stew/staticfor
+else:
+  from std/os import commandLineParams, getEnv
 
 when defined(posix):
   import termios
@@ -65,12 +73,6 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
       StdoutLogKind.NoColors
   else:
     stdoutKind
-
-when defaultChroniclesStream.outputs.type.arity == 2:
-  from std/os import splitFile
-  from "."/filepath import secureCreatePath
-
-  import stew/staticfor
 
 proc setupFileLimits*() =
   when not defined(windows):
