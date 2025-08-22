@@ -42,8 +42,6 @@ import system/ansi_c
 
 when defined(posix):
   import posix
-  var signalTarget = pthread_self()
-
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
     # Block stop signals in the calling thread - this can be used to avoid
     # having certain threads be interrupted by process-directed signals
@@ -63,8 +61,7 @@ when defined(posix):
     true
 
   proc raiseStopSignal() =
-    # Main thread that is monitoring the signals...
-    discard pthread_kill(signalTarget, posix.SIGTERM)
+    c_raise(posix.SIGTERM)
 
 else:
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
