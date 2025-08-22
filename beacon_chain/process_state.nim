@@ -61,7 +61,7 @@ when defined(posix):
     true
 
   proc raiseStopSignal() =
-    c_raise(posix.SIGTERM)
+    discard c_raise(posix.SIGTERM)
 
 else:
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
