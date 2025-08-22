@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[sets, sequtils], chronos, chronicles
 import ssz_serialization/types
@@ -318,12 +318,12 @@ proc checkPeerCustody(rman: RequestManager,
     # too many full nodes that have a subset of the custody
     # columns
     if peer.lookupCgcFromPeer() ==
-        NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
   else:
     if peer.lookupCgcFromPeer() ==
-        NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
     else:
@@ -659,7 +659,8 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-        if rman.custody_columns_set.lenu64 > NUMBER_OF_CUSTODY_GROUPS.uint64:
+        if rman.custody_columns_set.lenu64 >
+            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
           PARALLEL_REQUESTS
         else:
           PARALLEL_REQUESTS_DATA_COLUMNS

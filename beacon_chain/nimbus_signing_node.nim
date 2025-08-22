@@ -42,6 +42,7 @@ type
     runKeystoreCachePruningLoopFut: Future[void]
     sigintHandleFut: Future[void]
     sigtermHandleFut: Future[void]
+    genesis_fork_version: Version
 
   SigningNodeRef* = ref SigningNode
 
@@ -114,19 +115,31 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
   ok(key)
 
 proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
+  let
+    genesis_fork_version =
+      # With `mainnet` compile-time preset, these are not available
+      if config.eth2Network == some("minimal"):
+        Version [byte 0x00, 0x00, 0x00, 0x01]
+      elif config.eth2Network == some("gnosis"):
+        Version [byte 0x00, 0x00, 0x00, 0x64]
+      else:
+        loadEth2Network(config.eth2Network).cfg.GENESIS_FORK_VERSION
+
   when declared(waitSignal):
     SigningNodeRef(
       config: config,
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
   else:
     SigningNodeRef(
       config: config,
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
 
 template errorResponse(code: HttpCode, message: string): RestApiResponse =
@@ -324,12 +337,11 @@ proc installApiHandlers*(node: SigningNodeRef) =
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
         let
-          forkInfo = request.forkInfo.get()
-          signature = get_builder_signature(forkInfo.fork,
+          signature = get_builder_signature(
+            node.genesis_fork_version,
             ValidatorRegistrationV1(
-              fee_recipient: Eth1Address.fromHex(
-                  request.validatorRegistration.feeRecipient),
-              gas_limit: request.validatorRegistration.gasLimit,
+              fee_recipient: request.validatorRegistration.fee_recipient,
+              gas_limit: request.validatorRegistration.gas_limit,
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),

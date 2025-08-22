@@ -1,15 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Uncategorized helper functions from the spec
 import
-  std/[algorithm, sequtils],
   chronicles, results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -19,7 +18,10 @@ import
   stew/assign2,
   ./crypto,
   ./[helpers, digest],
-  ./datatypes/[fulu]
+  ./datatypes/fulu
+
+from std/algorithm import sort
+from std/sequtils import toSeq
 
 from stew/staticfor import staticfor
 
@@ -27,45 +29,13 @@ type
   CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes* = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
-iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
-                                            ColumnIndex =
-  for i in 0'u64 ..< COLUMNS_PER_GROUP:
-    yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
-
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
                                             custody_group: CustodyIndex):
                                             ColumnIndex =
-  for i in 0'u64 ..< COLUMNS_PER_GROUP:
+  let columns_per_group = NUMBER_OF_COLUMNS div cfg.NUMBER_OF_CUSTODY_GROUPS
+  for i in 0'u64 ..< columns_per_group:
     yield ColumnIndex(cfg.NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
-
-func handle_custody_groups(node_id: NodeId,
-                           custody_group_count: CustodyIndex):
-                           HashSet[CustodyIndex] =
-  # Decouples the custody group computation from
-  # `get_custody_groups`, in order to later use this custody
-  # group list across various types of output types
-
-  var
-    custody_groups: HashSet[CustodyIndex]
-    current_id = node_id
-
-  while custody_groups.lenu64 < custody_group_count:
-    var hashed_bytes: array[8, byte]
-
-    let
-      current_id_bytes = current_id.toBytesLE()
-      hashed_current_id = eth2digest(current_id_bytes)
-
-    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
-    let custody_group = bytes_to_uint64(hashed_bytes) mod
-      NUMBER_OF_CUSTODY_GROUPS
-
-    custody_groups.incl custody_group
-
-    inc current_id
-
-  custody_groups
 
 func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
                            custody_group_count: CustodyIndex):
@@ -87,7 +57,7 @@ func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
 
     hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
     let custody_group = bytes_to_uint64(hashed_bytes) mod
-      NUMBER_OF_CUSTODY_GROUPS
+      cfg.NUMBER_OF_CUSTODY_GROUPS
 
     custody_groups.incl custody_group
 
@@ -96,16 +66,6 @@ func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
   custody_groups
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_custody_groups
-func get_custody_groups*(node_id: NodeId,
-                         custody_group_count: CustodyIndex):
-                         seq[CustodyIndex] =
-  let custody_groups =
-    node_id.handle_custody_groups(custody_group_count)
-
-  var groups = custody_groups.toSeq()
-  groups.sort()
-  groups
-
 func get_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                          custody_group_count: CustodyIndex):
                          seq[CustodyIndex] =
@@ -120,7 +80,7 @@ func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
                                           HashSet[ColumnIndex] =
   ## Returns a set of unique columns for the custody groups of a node.
-  let custody_groups = node_id.get_custody_groups(custody_group_count)
+  let custody_groups = cfg.get_custody_groups(node_id, custody_group_count)
   var columns: HashSet[ColumnIndex]
   for group in custody_groups:
     for index in compute_columns_for_custody_group(cfg, group):
@@ -232,10 +192,9 @@ proc recover_cells_and_proofs*(
   ok(recovered_cps)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
-proc reconstruct_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock,
-    cellsAndProofs: seq[CellsAndProofs]):
-    seq[ref DataColumnSidecar] =
+func get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
+                               cellsAndProofs: seq[CellsAndProofs]):
+                               seq[ref DataColumnSidecar] =
   ## Given a trusted signed beacon block and the cells/proofs associated
   ## with each data column (thereby blob as well) corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
@@ -258,7 +217,7 @@ proc reconstruct_data_column_sidecars*(
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
-        signature: signed_beacon_block.signature)
+        signature: signed_beacon_block.signature.toValidatorSig)
 
   var
     sidecars =
@@ -287,7 +246,7 @@ proc reconstruct_data_column_sidecars*(
 
 # Additional overload to perform reconstruction at the time of gossip
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
+func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
   ## Given a signed beacon block and the blobs corresponding to the block,
@@ -489,7 +448,7 @@ func get_extended_sample_count*(samples_per_slot: int,
   NUMBER_OF_COLUMNS
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
-proc verify_data_column_sidecar*(sidecar: DataColumnSidecar):
+func verify_data_column_sidecar*(sidecar: DataColumnSidecar):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
@@ -506,7 +465,7 @@ proc verify_data_column_sidecar*(sidecar: DataColumnSidecar):
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
-proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
+func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
   let gindex =
@@ -541,7 +500,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0/specs/fulu/validator.md#validator-custody
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
                                          uint64 =

@@ -24,6 +24,7 @@ const
   ElectraSlot = Slot(64000)
   FuluSlot = Slot(96000)
   emptyFork = Fork()
+  emptyVersion = emptyFork.current_version
   emptyRoot = Eth2Digest()
 
 type
@@ -49,7 +50,7 @@ func specifiedFeeRecipient(x: int): Eth1Address =
   copyMem(addr result, unsafeAddr x, sizeof x)
 
 proc prepareRegistration(
-    fork: Fork,
+    genesis_fork_version: Version,
     key: ValidatorPrivKey,
     gas_limit: uint64 = 0'u64,
     timestamp: Time,
@@ -63,7 +64,8 @@ proc prepareRegistration(
         timestamp: uint64(timestamp.toUnix()),
         pubkey: key.toPubKey().toPubKey()
       ))
-  msg.signature = get_builder_signature(fork, msg.message, key).toValidatorSig()
+  msg.signature =
+    get_builder_signature(genesis_fork_version, msg.message, key).toValidatorSig()
   msg
 
 proc generateRegistrations(
@@ -77,7 +79,7 @@ proc generateRegistrations(
         raiseAssert "Unable to generate private key"
       feeRecipient = specifiedFeeRecipient(index)
     res.add(prepareRegistration(
-      emptyFork, privateKey, 30_000_000'u64, getTime(), feeRecipient))
+      emptyVersion, privateKey, 30_000_000'u64, getTime(), feeRecipient))
   res
 
 proc prepare(
@@ -193,7 +195,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
       return RestApiResponse.jsonError(error)
 
     for item in registrations:
-      if not(verify_builder_signature(emptyFork, item.message,
+      if not(verify_builder_signature(emptyVersion, item.message,
                                       item.message.pubkey, item.signature)):
         return RestApiResponse.jsonError(Http400,
                                          "Signature verification failed")

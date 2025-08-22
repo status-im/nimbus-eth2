@@ -405,7 +405,7 @@ proc getBuilderBid(
     sbb = ?sbbRes
 
   if not verify_builder_signature(
-    node.dag.cfg.genesisFork, sbb.message, sbb.message.pubkey, sbb.signature
+    node.dag.cfg.GENESIS_FORK_VERSION, sbb.message, sbb.message.pubkey, sbb.signature
   ):
     return err "Builder signature verification failed"
 

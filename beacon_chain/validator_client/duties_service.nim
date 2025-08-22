@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -561,13 +561,13 @@ proc registerValidators*(
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
-    genesisFork = vc.forks[0]
+    genesis_fork_version = vc.forks[0].current_version
     registrations =
       try:
-        await vc.prepareRegistrationList(getTime(), genesisFork)
+        await vc.prepareRegistrationList(getTime(), genesis_fork_version)
       except CancelledError as exc:
         debug "Validator registration preparation was interrupted",
-              slot = currentSlot, fork = genesisFork
+              slot = currentSlot
         raise exc
 
     count =
@@ -576,12 +576,12 @@ proc registerValidators*(
           await registerValidator(vc, registrations)
         except ValidatorApiError as exc:
           warn "Unable to register validators", slot = currentSlot,
-                fork = genesisFork, err_name = exc.name,
+                version = genesis_fork_version, err_name = exc.name,
                 err_msg = exc.msg, reason = exc.getFailureReason()
           0
         except CancelledError as exc:
           debug "Validator registration was interrupted", slot = currentSlot,
-                fork = genesisFork
+                version = genesis_fork_version
           raise exc
       else:
         0

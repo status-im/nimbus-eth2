@@ -1338,8 +1338,9 @@ proc addFuluMessageHandlers(
   node.addCapellaMessageHandlers(forkDigest, slot)
   let
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.network.nodeId.get_custody_groups(max(node.dag.cfg.SAMPLES_PER_SLOT.uint64,
-                                                     targetSubnets.uint64))
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT.uint64, targetSubnets.uint64))
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1378,8 +1379,9 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
   let
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.network.nodeId.get_custody_groups(max(node.dag.cfg.SAMPLES_PER_SLOT.uint64,
-                                                     targetSubnets.uint64))
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT.uint64, targetSubnets.uint64))
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)

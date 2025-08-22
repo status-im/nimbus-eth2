@@ -994,7 +994,7 @@ proc getValidatorRegistration(
 
   validatorRegistration.signature =
     ?await validator.getBuilderSignature(
-      node.dag.cfg.genesisFork, validatorRegistration.message
+      node.dag.cfg.GENESIS_FORK_VERSION, validatorRegistration.message
     )
 
   ok validatorRegistration

@@ -1067,7 +1067,7 @@ proc getValidatorRegistration(
     vc: ValidatorClientRef,
     validator: AttachedValidator,
     timestamp: Time,
-    fork: Fork
+    genesis_fork_version: Version,
 ): Result[PendingValidatorRegistration, RegistrationKind] =
   if validator.index.isNone():
     debug "Validator registration missing validator index",
@@ -1104,7 +1104,7 @@ proc getValidatorRegistration(
       )
     )
 
-  let sigfut = validator.getBuilderSignature(fork, registration.message)
+  let sigfut = validator.getBuilderSignature(genesis_fork_version, registration.message)
   if sigfut.finished():
     # This is short-path if we able to create signature locally.
     if not(sigfut.completed()):
@@ -1126,7 +1126,7 @@ proc getValidatorRegistration(
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
     timestamp: Time,
-    fork: Fork
+    genesis_fork_version: Version,
 ): Future[seq[SignedValidatorRegistrationV1]] {.
   async: (raises: [CancelledError]).} =
 
@@ -1146,7 +1146,7 @@ proc prepareRegistrationList*(
     timed = 0
 
   for validator in vc.attachedValidators[].items():
-    let res = vc.getValidatorRegistration(validator, timestamp, fork)
+    let res = vc.getValidatorRegistration(validator, timestamp, genesis_fork_version)
     if res.isOk():
       let preg = res.get()
       if preg.future.isNil():

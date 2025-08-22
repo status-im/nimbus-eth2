@@ -11,6 +11,8 @@ import
   "."/[helpers, forks],
   "."/datatypes/base
 
+from std/algorithm import sort, upperBound
+
 export base
 
 const
@@ -177,45 +179,42 @@ type GossipState* = HashSet[Epoch]
 func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     GossipState =
   if isBehind:
-    return HashSet[Epoch]()
+    return static(HashSet[Epoch]())
 
-  doAssert cfg.BELLATRIX_FORK_EPOCH >= cfg.ALTAIR_FORK_EPOCH
-  doAssert cfg.CAPELLA_FORK_EPOCH >= cfg.BELLATRIX_FORK_EPOCH
-  doAssert cfg.DENEB_FORK_EPOCH >= cfg.CAPELLA_FORK_EPOCH
-  doAssert cfg.ELECTRA_FORK_EPOCH >= cfg.DENEB_FORK_EPOCH
-  doAssert cfg.FULU_FORK_EPOCH >= cfg.ELECTRA_FORK_EPOCH
-
-  # https://github.com/ethereum/consensus-specs/issues/2902
-  # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
-  # BELLATRIX_FORK_EPOCH == CAPELLA_FORK_EPOCH works, because those
-  # theoretically possible networks are ill-defined regardless, and
-  # consequently prohibited by checkForkConsistency(). Therefore, a
-  # transitional epoch always exists, for every fork.
-  var targetForkEpochs: GossipState
-
-  template maybeIncludeFork(
-      targetForkEpoch: Epoch, successiveForkEpoch: Epoch) =
-    # Subscribe one epoch ahead
-    if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
-      targetForkEpochs.incl targetForkEpoch
-
-  maybeIncludeFork(GENESIS_EPOCH,            cfg.ALTAIR_FORK_EPOCH)
-  maybeIncludeFork(cfg.ALTAIR_FORK_EPOCH,    cfg.BELLATRIX_FORK_EPOCH)
-  maybeIncludeFork(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
-  maybeIncludeFork(cfg.CAPELLA_FORK_EPOCH,   cfg.DENEB_FORK_EPOCH)
-  maybeIncludeFork(cfg.DENEB_FORK_EPOCH,     cfg.ELECTRA_FORK_EPOCH)
-  maybeIncludeFork(cfg.ELECTRA_FORK_EPOCH,   cfg.FULU_FORK_EPOCH)
-  maybeIncludeFork(cfg.FULU_FORK_EPOCH,      FAR_FUTURE_EPOCH)
-  var successorForkEpoch = FAR_FUTURE_EPOCH
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  var epochs = newSeqOfCap[Epoch](
+    int(high(ConsensusFork)) + 1 + len(cfg.BLOB_SCHEDULE))
   for bpo in cfg.BLOB_SCHEDULE:
-    # Always in reverse, sorted order from high to low epochs
-    # TODO _should_ be ok to maybeInclude in this reverse order due to the
-    # epoch < successiveForkEpoch guard.
-    maybeIncludeFork(bpo.EPOCH, successorForkEpoch)
-    successorForkEpoch = bpo.EPOCH
+    epochs.add bpo.EPOCH
+  epochs.add GENESIS_EPOCH
+  epochs.add cfg.ALTAIR_FORK_EPOCH
+  epochs.add cfg.BELLATRIX_FORK_EPOCH
+  epochs.add cfg.CAPELLA_FORK_EPOCH
+  epochs.add cfg.DENEB_FORK_EPOCH
+  epochs.add cfg.ELECTRA_FORK_EPOCH
+  epochs.add cfg.FULU_FORK_EPOCH
 
-  doAssert len(targetForkEpochs) <= 2
-  targetForkEpochs
+  # Fusaka, Glamsterdam, and further forks' BPOs epochs interleave with fork
+  # epochs; ensure they're treated uniformly.
+  epochs.sort()
+
+  # Either the next epoch marker:
+  # (a) doesn't exist, because the chain is past all the known transitions;
+  # (b) points to a next epoch 1 epoch away; or
+  # (c) points to a next epoch more than 1 epoch away.
+  #
+  # (a) and (c) result in a single-epoch return, (b) in both current and next
+  # epoch boundaries.
+
+  # Because GENESIS_EPOCH is always present, should never be 0.
+  let nextEpochIdx = upperBound(epochs, epoch)
+  doAssert nextEpochIdx > 0
+
+  let curEpochBoundary = epochs[nextEpochIdx - 1]
+  if nextEpochIdx == len(epochs) or epochs[nextEpochIdx] > epoch + 1: # (a)/(c)
+    toHashSet([curEpochBoundary])
+  else:                                                               # (b)
+    toHashSet([curEpochBoundary, epochs[nextEpochIdx]])
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability
