@@ -2042,11 +2042,10 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      # oops, turns out a named tuple is better
-      let digests = @[forkDigests[].atConsensusFork(consensusFork)] & forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2])
-
-      for digest in digests:
+      for digest in @[forkDigests[].atConsensusFork(consensusFork)] &
+          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2]):
         let digest = digest # lent
+
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         node.network.addValidator(
