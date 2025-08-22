@@ -432,6 +432,12 @@ func popColumnless*(
 ): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
   quarantine.popSidecarless(root)
 
+func popBlobless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
+  quarantine.popSidecarless(root)
+
 func getColumnless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
@@ -439,12 +445,6 @@ func getColumnless*(
     Opt.some(quarantine.sidecarless[root])
   except KeyError:
     Opt.none(ForkedSignedBeaconBlock)
-
-func popBlobless*(
-    quarantine: var Quarantine,
-    root: Eth2Digest
-): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
-  quarantine.popSidecarless(root)
 
 iterator peekSidecarless*(
     quarantine: var Quarantine

@@ -22,6 +22,7 @@ import
 
 from std/algorithm import sort
 from std/sequtils import toSeq
+from stew/staticfor import staticfor
 
 from stew/staticfor import staticfor
 
