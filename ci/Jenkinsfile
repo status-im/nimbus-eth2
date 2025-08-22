@@ -59,6 +59,7 @@ pipeline {
   environment {
     NPROC = Runtime.getRuntime().availableProcessors()
     MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
+    XDG_CACHE_HOME = "${env.WORKSPACE_TMP}/.cache"
   }
 
   stages {
