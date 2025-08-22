@@ -47,24 +47,21 @@ when defined(posix):
     var signalTarget = pthread_self()
 
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
-    # Block stop signals in the calling thread - this can be used to avoid
-    # having certain threads be interrupted by process-directed signals
+    # Block signals in the current thread and all threads created from it
+    # (hopefully)
     var signalMask, oldSignalMask: Sigset
 
-    if sigemptyset(signalMask) != 0:
-      return false
-
-    if sigaddset(signalMask, posix.SIGINT) != 0:
-      return false
-    if sigaddset(signalMask, posix.SIGTERM) != 0:
-      return false
-
-    if pthread_sigmask(SIG_BLOCK, signalMask, oldSignalMask) != 0:
-      return false
-
-    true
+    sigemptyset(signalMask) == 0 and sigaddset(signalMask, posix.SIGINT) == 0 and
+      sigaddset(signalMask, posix.SIGTERM) == 0 and
+      pthread_sigmask(SIG_BLOCK, signalMask, oldSignalMask) == 0
 
   proc raiseStopSignal() =
+    # If the default signal handler is blocked and the app is polling, we still
+    # want the state updated - blocking signals on all threads is necessary for
+    # waitSignal to work, but the application might want to check _before_ the
+    # signal handler is invoked.
+    processState.store(ProcessState.Stopping)
+
     when defined(linux):
       # On linux, we want to direct the signal to the thread that is currently
       # listening on `waitSignal` - when there's no such thread, it doesn't
@@ -120,7 +117,6 @@ proc setupStopHandlers*(_: type ProcessState) =
         cstring("SIGINT")
       else:
         cstring("SIGTERM")
-    c_printf("XXXXXX: handler %d\n")
 
     var nilptr: pointer
     discard shutdownSource.compareExchange(nilptr, sourceName)
