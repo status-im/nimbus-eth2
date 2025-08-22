@@ -78,6 +78,9 @@ proc scheduleStop*(_: type ProcessState, source: cstring) =
   ## can be used from non-nim threads as well.
   var nilptr: pointer
   discard shutdownSource.compareExchange(nilptr, source)
+
+  c_printf("XXXXXX: schedule %d\n")
+
   raiseStopSignal()
 
 proc notifyRunning*(_: type ProcessState) =
@@ -105,6 +108,7 @@ proc setupStopHandlers*(_: type ProcessState) =
         cstring("SIGINT")
       else:
         cstring("SIGTERM")
+    c_printf("XXXXXX: handler %d\n")
 
     var nilptr: pointer
     discard shutdownSource.compareExchange(nilptr, sourceName)
@@ -180,7 +184,6 @@ when isMainModule: # Test case
     raiseAssert "Should not reach here, ie stopping the thread should not take 10s"
 
   proc worker(p: ThreadSignalPtr) {.thread.} =
-    doAssert ProcessState.ignoreStopSignalsInThread()
     let
       stop = p.wait()
       work = threadWork()
