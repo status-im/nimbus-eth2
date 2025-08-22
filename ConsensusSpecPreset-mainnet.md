@@ -3984,7 +3984,6 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
-  Light client - Single merkle proof - eip7805                                               Skip
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -4007,8 +4006,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
-  Merkle proof - Single merkle proof - eip7732                                               Skip
   Merkle proof - Single merkle proof - eip7805                                               Skip
+  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4017,10 +4016,6 @@ ConsensusSpecPreset-mainnet
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
