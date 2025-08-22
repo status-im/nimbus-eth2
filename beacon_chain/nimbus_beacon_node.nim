@@ -12,6 +12,7 @@ import
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
+  kzg4844/kzg,
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/[
     blob_quarantine, blockchain_list],
@@ -1681,6 +1682,63 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
 
+proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
+  logScope:
+    slot = slot
+
+  let blck = node.dag.getForkedBlock(node.dag.finalizedHead.blck.bid).valueOr:
+    warn "Failed to get dag head"
+    return
+
+  withBlck(blck):
+    when consensusFork >= ConsensusFork.Fulu:
+      let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
+      var
+        columns: seq[ref DataColumnSidecar]
+        indices: seq[uint64]
+
+      # Get columns from database
+      for i in 0 ..< maxColCount:
+        var colData: DataColumnSidecar
+        if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
+          columns.add(newClone(colData))
+          indices.add(i)
+      debug "Stored data columns", indices
+
+      # Make sure the node has obtained 50%+ of all the columns
+      if columns.len.uint64 < (maxColCount div 2):
+        warn "The node did not obtain 50%+ of all the columns"
+        return
+      # Ignore if the node has already obtained all the columns
+      elif columns.len.uint64 == maxColCount:
+        debug "The node has already obtained all the columns"
+        return
+
+      # Reconstruct columns
+      let recovered = recover_cells_and_proofs_parallel(
+        node.processor[].blockProcessor[].taskpool, columns).valueOr:
+          error "Error in data column reconstruction"
+          return
+      let rowCount = recovered.len
+      for i in 0 ..< maxColCount:
+        if i in indices:
+          continue
+        var
+          cells = newSeq[Cell](rowCount)
+          proofs = newSeq[kzg.KzgProof](rowCount)
+        for j in 0 ..< rowCount:
+          cells[j] = recovered[j].cells[i]
+          proofs[j] = recovered[j].proofs[i]
+        let dataColumn = DataColumnSidecar(
+          index: ColumnIndex(i),
+          column: DataColumn(cells),
+          kzg_proofs: KzgProofs(proofs),
+          signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader())
+        node.dag.db.putDataColumnSidecar(dataColumn)
+
+      debug "Column reconstructed",
+        len = maxColCount.int - indices.len
+
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1693,6 +1751,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if endCutoff.inFuture:
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
+
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
+    reconstructDataColumns(node, slot)
 
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
