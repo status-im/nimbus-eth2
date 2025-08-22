@@ -72,6 +72,8 @@ else:
 
   proc raiseStopSignal() =
     discard c_raise(ansi_c.SIGINT)
+    # Chronos installs its own handlers that are incompatible with `raise`:
+    discard os.raiseSignal(chronos.SIGINT)
 
 proc scheduleStop*(_: type ProcessState, source: cstring) =
   ## Schedule that the process should stop in a thread-safe way. This function
