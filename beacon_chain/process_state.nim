@@ -42,6 +42,10 @@ import system/ansi_c
 
 when defined(posix):
   import posix
+
+  when defined(linux):
+    var signalTarget = pthread_self()
+
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
     # Block stop signals in the calling thread - this can be used to avoid
     # having certain threads be interrupted by process-directed signals
@@ -61,7 +65,15 @@ when defined(posix):
     true
 
   proc raiseStopSignal() =
-    discard c_raise(posix.SIGTERM)
+    when defined(linux):
+      # On linux, we want to direct the signal to the thread that is currently
+      # listening on `waitSignal` - when there's no such thread, it doesn't
+      # really matter which thread it goes to
+      discard pthread_kill(signalTarget, posix.SIGTERM)
+    else:
+      # kqueue listens only to process-directed signals - for waitSignal to
+      # work as expected, we use kill
+      discard kill(getpid(), posix.SIGTERM)
 
 else:
   proc ignoreStopSignalsInThread*(_: type ProcessState): bool =
@@ -80,8 +92,6 @@ proc scheduleStop*(_: type ProcessState, source: cstring) =
   ## can be used from non-nim threads as well.
   var nilptr: pointer
   discard shutdownSource.compareExchange(nilptr, source)
-
-  c_printf("XXXXXX: schedule %d\n")
 
   raiseStopSignal()
 
@@ -137,13 +147,15 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   ## This approach ensures that the event loop wakes up on signal delivery
   ## unlike `setupStopHandlers` which merely sets a flag that must be polled.
   ##
-  ## Make sure to call `ignoreStopSignalsInThread`
+  ## Only one thread should ever listen for stop signals this way.
 
   let
     sigint = waitSignal(chronos.SIGINT)
     sigterm = waitSignal(chronos.SIGTERM)
 
   debug "Waiting for signal", chroniclesThreadIds = true
+  when defined(linux):
+    signalTarget = pthread_self()
 
   try:
     discard await race(sigint, sigterm)
