@@ -2049,6 +2049,9 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
   ProcessState.scheduleStop("stop")
 
 proc main(basePort: int) {.async.} =
+  # Overwrite the standard nim stop handlers
+  ProcessState.setupStopHandlers()
+
   if dirExists(dataDir):
     os.removeDir dataDir
 
