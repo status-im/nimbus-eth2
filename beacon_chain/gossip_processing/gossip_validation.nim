@@ -23,7 +23,6 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
-from std/sequtils import mapIt
 from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult

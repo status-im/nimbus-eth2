@@ -76,11 +76,8 @@ type
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
-
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
-
-  ColumnQuarantineRef* = ref ColumnQuarantine
 
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
