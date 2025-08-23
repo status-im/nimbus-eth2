@@ -145,6 +145,10 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
   ##
   ## Only one thread should ever listen for stop signals this way.
 
+  # Ensure other threads don't cause a crash, in case the application did not
+  # already call it
+  ProcessState.setupStopHandlers()
+
   let
     sigint = waitSignal(chronos.SIGINT)
     sigterm = waitSignal(chronos.SIGTERM)
@@ -164,9 +168,14 @@ proc waitStopSignals*(_: type ProcessState) {.async: (raises: [CancelledError]).
 
     processState.store(ProcessState.Stopping, moRelaxed)
   finally:
+    # waitSignal sometimes overwrites signal handlers:
+    # https://github.com/status-im/nim-chronos/issues/581
+    ProcessState.setupStopHandlers()
+
     # Might be finished already, which is fine..
     await noCancel sigint.cancelAndWait()
     await noCancel sigterm.cancelAndWait()
+
 
 proc running*(_: type ProcessState): bool =
   processState.load(moRelaxed) == ProcessState.Running
