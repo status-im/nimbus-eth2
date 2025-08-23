@@ -443,8 +443,9 @@ proc initFullNode(
     batchVerifier = BatchVerifier.new(rng, taskpool)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      batchVerifier, consensusManager, node.validatorMonitor, taskpool,
-      blobQuarantine, dataColumnQuarantine, getBeaconTime, config.invalidBlockRoots)
+      batchVerifier, consensusManager, node.validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, getBeaconTime,
+      config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -1068,6 +1069,7 @@ proc init*(T: type BeaconNode,
     netKeys: netKeys,
     db: db,
     config: config,
+    taskpool: taskpool,
     attachedValidators: validatorPool,
     elManager: elManager,
     restServer: restServer,
@@ -1721,7 +1723,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
-        node.processor[].blockProcessor[].taskpool, columns).valueOr:
+        node.taskpool, columns).valueOr:
           error "Error in data column reconstruction"
           return
       let rowCount = recovered.len
@@ -1742,7 +1744,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         node.dag.db.putDataColumnSidecar(dataColumn)
 
       debug "Column reconstructed",
-        len = maxColCount.int - indices.len
+        len = maxColCount - indices.len.uint64
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
