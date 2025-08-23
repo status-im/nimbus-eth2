@@ -773,6 +773,7 @@ proc sendGetBlobsV2*(
     return err()
 
   let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
   var bestIdx: Opt[int]
 
   while true:

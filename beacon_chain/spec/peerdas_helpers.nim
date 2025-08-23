@@ -25,8 +25,8 @@ from std/sequtils import toSeq
 from stew/staticfor import staticfor
 
 type
-  CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
-  ProofBytes* = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
+  CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
@@ -363,8 +363,9 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
-                                            Result[void, string] =
+                                            Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
+
   # Iterate through the cell indices
   var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
   for _ in 0..<sidecar.column.len:
