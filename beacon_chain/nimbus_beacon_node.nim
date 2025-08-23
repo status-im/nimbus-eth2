@@ -1737,7 +1737,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         node.dag.db.putDataColumnSidecar(dataColumn)
 
       debug "Column reconstructed",
-        len = maxColCount.int - indices.len
+        len = maxColCount - indices.len.uint64
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the

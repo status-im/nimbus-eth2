@@ -215,8 +215,8 @@ proc recover_cells_and_proofs_parallel*(
     res = newSeq[CellsAndProofs](blobCount)
   for blobIdx in 0..<blobCount:
     var
-      cellIndices: seq[CellIndex]
-      cells: seq[Cell]
+      cellIndices = newSeqOfCap[CellIndex](columnCount)
+      cells = newSeqOfCap[Cell](columnCount)
     for column in dataColumns:
       cellIndices.add(column[].index)
       cells.add(column[].column[blobIdx])

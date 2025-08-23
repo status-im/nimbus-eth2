@@ -16,8 +16,8 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import anyIt, mapIt, toSeq, filterIt
-from std/strutils import rsplit, contains
+from std/sequtils import anyIt, filterIt, mapIt, toSeq
+from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
 from ../../beacon_chain/spec/peerdas_helpers import
   recover_matrix, recover_cells_and_proofs_parallel
