@@ -90,7 +90,7 @@ type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
   DataColumnIndices* = List[ColumnIndex, Limit(NUMBER_OF_COLUMNS)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
