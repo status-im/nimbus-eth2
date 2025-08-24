@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   kzg4844/[kzg_abi, kzg],
@@ -191,7 +191,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: deneb.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
@@ -211,7 +211,7 @@ func asConsensusType*(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: deneb.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
@@ -231,7 +231,7 @@ func asConsensusType*(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
           kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: KzgProofs.init(
+      proofs: deneb.KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
