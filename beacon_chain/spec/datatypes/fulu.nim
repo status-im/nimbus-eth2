@@ -176,7 +176,7 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    blobsBundle*: deneb.BlobsBundle # [New in Fulu]
+    blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
@@ -618,7 +618,7 @@ type
 
   BlockContents* = object
     `block`*: BeaconBlock
-    kzg_proofs*: deneb.KzgProofs
+    kzg_proofs*: fulu.KzgProofs
     blobs*: Blobs
 
 func shortLog*(v: DataColumnSidecar): auto =
