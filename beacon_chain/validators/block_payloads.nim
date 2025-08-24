@@ -50,8 +50,7 @@ type
     blck*: BB
     executionValue*: Wei
     consensusValue*: UInt256
-    blobsBundle*: deneb.BlobsBundle
-    blobsBundleV2*: fulu.BlobsBundle
+    blobsBundle*: fulu.BlobsBundle
 
   BuilderBlock[BBB: ForkyBlindedBeaconBlock] = object
     blck*: BBB
@@ -86,13 +85,13 @@ template toBlockContents(
   when consensusFork >= ConsensusFork.Fulu:
     consensusFork.BlockContents(
       `block`: engineBlock.blck,
-      kzg_proofs: engineBlock.blobsBundleV2.proofs,
-      blobs: engineBlock.blobsBundleV2.blobs,
+      kzg_proofs: engineBlock.blobsBundle.proofs,
+      blobs: engineBlock.blobsBundle.blobs,
     )
   elif consensusFork >= ConsensusFork.Deneb:
     consensusFork.BlockContents(
       `block`: engineBlock.blck,
-      kzg_proofs: engineBlock.blobsBundle.proofs,
+      kzg_proofs: deneb.KzgProofs(engineBlock.blobsBundle.proofs),
       blobs: engineBlock.blobsBundle.blobs,
     )
   else:
@@ -250,18 +249,20 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
+  template getFuluBlobsBundle(bb: fulu.BlobsBundle): fulu.BlobsBundle = bb
+  template getFuluBlobsBundle(bb: deneb.BlobsBundle): fulu.BlobsBundle =
+    fulu.BlobsBundle(
+      commitments: bb.commitments,
+      proofs: fulu.KzgProofs(bb.proofs),
+      blobs: bb.blobs)
+
   ok EngineBlock[consensusFork.BeaconBlock](
     blck: blockAndRewards.blck,
     executionValue: eps.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
     blobsBundle:
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        eps.blobsBundle
-      else:
-        default(deneb.BlobsBundle),
-    blobsBundleV2:
-      when consensusFork >= ConsensusFork.Fulu:
-        eps.blobsBundle
+      when consensusFork >= ConsensusFork.Deneb:
+        getFuluBlobsBundle(eps.blobsBundle)
       else:
         default(fulu.BlobsBundle),
   )

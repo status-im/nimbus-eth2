@@ -25,7 +25,7 @@ import
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
     attestation_pool, sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
-  ./spec/datatypes/[base, altair, fulu],
+  ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
   ./sync/[sync_manager, request_manager, sync_types, validator_custody],

@@ -46,7 +46,7 @@ type
 
   ValidatorCustodyRef* = ref ValidatorCustody
 
-proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
+func init*(T: type ValidatorCustodyRef, network: Eth2Node,
            dag: ChainDAGRef,
            supernode: bool,
            getLocalHeadSlotCb: GetSlotCallback,
@@ -64,8 +64,6 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
 
 proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
                                 total_node_balance: Gwei): seq[ColumnIndex] =
-  var
-    diff_set: HashSet[ColumnIndex]
   debug "Total node balance before applying validator custody",
     total_node_balance = total_node_balance
   let
@@ -80,13 +78,11 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
   debug "New validator custody count detected",
     new_vcus_columns = newer_columns
   # update data column quarantine custody requirements
-  vcus.dataColumnQuarantine[].custodyColumns =
-    newer_columns.toSeq()
+  vcus.dataColumnQuarantine[].custodyColumns = newer_columns.toSeq()
   sort(vcus.dataColumnQuarantine[].custodyColumns)
   # check which custody set is larger
   if newer_columns.len > vcus.older_column_set.len:
-    diff_set = newer_columns.difference(vcus.older_column_set)
-    vcus.diff_set = toSeq(diff_set)
+    vcus.diff_set = toSeq(newer_columns.difference(vcus.older_column_set))
   vcus.newer_column_set = newer_columns
   vcus.diff_set
 
@@ -103,15 +99,16 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     vcus.dag.erSlot = slot
     let dataColumnRefillEpoch = (slot.epoch -
                                  vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-    var numberOfColumnEpochs = vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
+    let numberOfColumnEpochs =
+      vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
     if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
       var blocks = newSeq[BlockId](numberOfColumnEpochs)
       let startIndex = vcus.dag.getBlockRange(
         dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs - 1))
-      for i in startIndex..<numberOfColumnEpochs.int:
+      for i in startIndex..<numberOfColumnEpochs:
         let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
         withBlck(blck):
-          # No need to check for fork version, as this loop is triggered post Fulu
+          # No need to check for fork version, as this loop is triggered post-Fulu
           let entry1 =
             DataColumnsByRootIdentifier(block_root: forkyBlck.root,
                                         indices: DataColumnIndices.init(diff))

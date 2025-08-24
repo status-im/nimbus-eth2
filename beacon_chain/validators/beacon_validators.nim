@@ -563,17 +563,16 @@ proc proposeBlockAux(
       when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         Opt.some(
           signedBlock.create_blob_sidecars(
-            engineBlock.blobsBundle.proofs, engineBlock.blobsBundle.blobs
-          )
-        )
+            deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+            engineBlock.blobsBundle.blobs))
       else:
         Opt.none(seq[BlobSidecar])
 
     columnsOpt =
       when consensusFork >= ConsensusFork.Fulu:
         Opt.some(signedBlock.assemble_data_column_sidecars(
-          engineBlock.blobsBundleV2.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-          @(engineBlock.blobsBundleV2.proofs.mapIt(kzg.KzgProof(it)))))
+          engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
       else:
         Opt.none(seq[DataColumnSidecar])
 
