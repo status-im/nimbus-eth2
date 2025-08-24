@@ -125,11 +125,11 @@ type
     column_index*: ColumnIndex
     row_index*: RowIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#blobsbundle
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
   KzgProofs* = List[KzgProof,
     Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#blobsbundle
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
   BlobsBundle* = object
     commitments*: KzgCommitments
     proofs*: fulu.KzgProofs
