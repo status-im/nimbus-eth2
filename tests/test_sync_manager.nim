@@ -75,7 +75,9 @@ func createBlobs(
   var res = newSeq[ref BlobSidecar](len(slots))
   for blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Fulu:
+        doAssert false   # create_blob_sidecars() might not work as such
+      elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         for i, slot in slots:
           if slot == forkyBlck.message.slot:
