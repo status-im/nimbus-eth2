@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Uncategorized helper functions from the spec
 
@@ -229,7 +229,7 @@ func verify_blob_sidecar_inclusion_proof*(
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
     fulu.SignedBeaconBlock,
-    kzg_proofs: KzgProofs,
+    kzg_proofs: deneb.KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments

@@ -51,7 +51,7 @@ type
     executionValue*: Wei
     consensusValue*: UInt256
     blobsBundle*: deneb.BlobsBundle
-    blobsBundleV2*: fulu.BlobsBundleV2
+    blobsBundleV2*: fulu.BlobsBundle
 
   BuilderBlock[BBB: ForkyBlindedBeaconBlock] = object
     blck*: BBB
@@ -263,7 +263,7 @@ proc makeEngineBlock*(
       when consensusFork >= ConsensusFork.Fulu:
         eps.blobsBundle
       else:
-        default(fulu.BlobsBundleV2),
+        default(fulu.BlobsBundle),
   )
 
 proc getExecutionPayload*(
