@@ -142,7 +142,7 @@ proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
 proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
                 blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   withBlck(signedBlock):
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       if blobsOpt.isSome():
         let blobs = blobsOpt.get()
 

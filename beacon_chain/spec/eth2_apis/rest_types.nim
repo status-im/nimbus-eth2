@@ -410,10 +410,8 @@ type
 
   # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
   Web3SignerValidatorRegistration* = object
-    feeRecipient* {.
-      serializedFieldName: "fee_recipient".}: string
-    gasLimit* {.
-      serializedFieldName: "gas_limit".}: uint64
+    fee_recipient*: Eth1Address
+    gas_limit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
@@ -959,22 +957,17 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     syncCommitteeContributionAndProof: data
   )
 
-from stew/byteutils import to0xHex
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+func init*(t: typedesc[Web3SignerRequest],
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
     signingRoot: signingRoot,
     validatorRegistration: Web3SignerValidatorRegistration(
-      feeRecipient: data.fee_recipient.data.to0xHex,
-      gasLimit: data.gas_limit,
+      fee_recipient: data.fee_recipient,
+      gas_limit: data.gas_limit,
       timestamp: data.timestamp,
       pubkey: data.pubkey)
   )

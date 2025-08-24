@@ -68,7 +68,12 @@ suite "Size bounds":
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"
         byte.record()
-      elif T is ExecutionAddress|BloomLogs:
+      elif T is ExecutionAddress:
+        res.add loc.join(".") & "[" & $sizeof(T) & "]: SszLengthBounds" &
+          "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
+        loc[^1].add "[element]"
+        byte.record()
+      elif T is BloomLogs:
         res.add loc.join(".") & "[" & $T.data.len & "]: SszLengthBounds" &
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"

@@ -791,9 +791,13 @@ func check_attestation_compatible*(
     return err("Incompatible shuffling")
   ok()
 
-proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: ForkyHashedBeaconState,
-                              cache: var StateCache): seq[phase0.Attestation] =
+proc getAttestationsForBlock*(
+    pool: var AttestationPool,
+    state:
+      phase0.HashedBeaconState | altair.HashedBeaconState | bellatrix.HashedBeaconState |
+      capella.HashedBeaconState | deneb.HashedBeaconState,
+    cache: var StateCache,
+): seq[phase0.Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestations
@@ -929,10 +933,11 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     else:
       default(seq[phase0.Attestation])
 
-proc getElectraAttestationsForBlock*(
+proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState,
-    cache: var StateCache): seq[electra.Attestation] =
+    cache: var StateCache,
+): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -1092,7 +1097,7 @@ proc getElectraAttestationsForBlock*(
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
     when consensusFork >= ConsensusFork.Electra:
-      pool.getElectraAttestationsForBlock(forkyState, cache)
+      pool.getAttestationsForBlock(forkyState, cache)
     else:
       default(seq[electra.Attestation])
 

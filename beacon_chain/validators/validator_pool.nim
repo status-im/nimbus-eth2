@@ -802,14 +802,13 @@ proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
     await v.signData(request)
 
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
-proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
+proc getBuilderSignature*(v: AttachedValidator, genesis_fork_version: Version,
     validatorRegistration: ValidatorRegistrationV1):
     Future[SignatureResult] {.async: (raises: [CancelledError]).} =
   case v.kind
   of ValidatorKind.Local:
     SignatureResult.ok(get_builder_signature(
-      fork, validatorRegistration, v.data.privateKey).toValidatorSig())
+      genesis_fork_version, validatorRegistration, v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    let request = Web3SignerRequest.init(
-      fork, ZERO_HASH, validatorRegistration)
+    let request = Web3SignerRequest.init(ZERO_HASH, validatorRegistration)
     await v.signData(request)

@@ -12,7 +12,7 @@ import
   unittest2, chronicles, results,
   chronos/asyncproc,
   chronos/unittest2/asynctests,
-  ../beacon_chain/spec/crypto,
+  ../beacon_chain/spec/[crypto, presets],
   ../beacon_chain/spec/eth2_apis/rest_remote_signer_calls,
   ../beacon_chain/validators/validator_pool
 
@@ -739,14 +739,16 @@ block:
         sres3.get() == rres3.get()
 
     asyncTest "Signing validator registration (getBuilderSignature())":
+      # mainnet version used by default in nimbus_signing_node
+      const genesis_fork_version = defaultRuntimeConfig.GENESIS_FORK_VERSION
       let
         vdata = default(ValidatorRegistrationV1)
-        sres1 = await validator1.getBuilderSignature(SigningFork, vdata)
-        sres2 = await validator2.getBuilderSignature(SigningFork, vdata)
-        sres3 = await validator3.getBuilderSignature(SigningFork, vdata)
-        rres1 = await validator4.getBuilderSignature(SigningFork, vdata)
-        rres2 = await validator5.getBuilderSignature(SigningFork, vdata)
-        rres3 = await validator6.getBuilderSignature(SigningFork, vdata)
+        sres1 = await validator1.getBuilderSignature(genesis_fork_version, vdata)
+        sres2 = await validator2.getBuilderSignature(genesis_fork_version, vdata)
+        sres3 = await validator3.getBuilderSignature(genesis_fork_version, vdata)
+        rres1 = await validator4.getBuilderSignature(genesis_fork_version, vdata)
+        rres2 = await validator5.getBuilderSignature(genesis_fork_version, vdata)
+        rres3 = await validator6.getBuilderSignature(genesis_fork_version, vdata)
 
       check:
         sres1.isOk()

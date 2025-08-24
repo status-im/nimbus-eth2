@@ -162,3 +162,19 @@ suite "EF - Electra - Transition " & preset():
       deneb.BeaconState, electra.BeaconState, deneb.SignedBeaconBlock,
       electra.SignedBeaconBlock, cfg, "EF - Electra - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
+
+from ../../beacon_chain/spec/datatypes/fulu import
+  BeaconState, SignedBeaconBlock
+
+suite "EF - Fulu - Transition " & preset():
+  const TransitionDir =
+    SszTestsDir/const_preset/"fulu"/"transition"/"core"/"pyspec_tests"
+
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
+    let transitionInfo = getTransitionInfo(TransitionDir / path)
+    var cfg = defaultRuntimeConfig
+    cfg.FULU_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+    runTest(
+      electra.BeaconState, fulu.BeaconState, electra.SignedBeaconBlock,
+      fulu.SignedBeaconBlock, cfg, "EF - Fulu - Transition",
+      TransitionDir, suiteName, path, transitionInfo.fork_block)

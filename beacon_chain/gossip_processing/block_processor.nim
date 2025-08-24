@@ -5,14 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, chronos, metrics,
   taskpools,
-  ../spec/[
-    forks, helpers_el, signatures, signatures_batch,
-    peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -193,39 +191,12 @@ from ../consensus_object_pools/block_clearance import
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars]):
-    Result[void, VerifierError] =
-
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
-
-  var
-    columnsOk = true
-    malformed_cols: seq[int]
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            malformed_cols.add(i)
-            debug "backfill data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-
-      columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >
-          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
-
-  if not columnsOk:
-    return err(VerifierError.Invalid)
 
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
@@ -284,7 +255,59 @@ proc storeBackfillBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  # Only store data columns after successfully establishing block validity
+  res
+
+proc storeBackfillBlock(
+    self: var BlockProcessor,
+    signedBlock: fulu.SignedBeaconBlock,
+    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
+  # The block is certainly not missing any more
+  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+  var
+    columnsOk = true
+    malformed_cols: seq[int]
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    if dataColumnsOpt.isSome:
+      let columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr:
+            malformed_cols.add(i)
+            debug "backfill data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+
+      columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >
+          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
+
+  if not columnsOk:
+    return err(VerifierError.Invalid)
+
+  let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
+
+  if res.isErr():
+    case res.error
+    of VerifierError.MissingParent:
+      if signedBlock.message.parent_root in
+          self.consensusManager.quarantine[].unviable:
+        # DAG doesn't know about unviable ancestor blocks - we do! Translate
+        # this to the appropriate error so that sync etc doesn't retry the block
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+
+        return err(VerifierError.UnviableFork)
+    of VerifierError.UnviableFork:
+      # Track unviables so that descendants can be discarded properly
+      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    else: discard
+    return res
+
+  # Only store data columns after successfully establishing block viability.
   let
     columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for i in 0..<columns.len:
@@ -471,10 +494,12 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(forkyBlck, blobs, data_columns)
-      resfut.complete(res)
+      when consensusFork >= ConsensusFork.Fulu:
+        resfut.complete(
+          self.storeBackfillBlock(forkyBlck, data_columns))
+      else:
+        resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
-
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
@@ -911,7 +936,6 @@ proc storeBlock(
             deadlineObj = deadlineObj,
             maxRetriesCount = getRetriesCount())
 
-        debugFuluComment "We don't know yet if there'd be new PayloadAttributes version in Fulu."
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
@@ -991,7 +1015,7 @@ proc storeBlock(
               MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
               cres)
           else:
-            discard self.consensusManager.quarantine[].addColumnless(
+            discard self.consensusManager.quarantine[].addSidecarless(
               dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -1019,9 +1043,11 @@ proc storeBlock(
 # Enqueue
 # ------------------------------------------------------------------------------
 
+# Beacon block with no blobs and no data columns.
 proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], dataColumns: Opt[DataColumnSidecars], maybeFinalized = false,
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -1033,7 +1059,48 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, dataColumns, resfut, maybeFinalized, validationDur)
+  enqueueBlock(self, src, blck, Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+    resfut, maybeFinalized, validationDur)
+  resfut
+
+# Post-Deneb and pre-Fulu block which MAY have blobs.
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+  ## Enqueue a Gossip-validated block for consensus verification
+  # Backpressure:
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
+  # Producers:
+  # - Gossip (when synced)
+  # - SyncManager (during sync)
+  # - RequestManager (missing ancestor blocks)
+  # - API
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, blobs, Opt.none(DataColumnSidecars),
+    resfut, maybeFinalized, validationDur)
+  resfut
+
+# Post-Fulu block which MAY have data columns.
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    data_columns: Opt[DataColumnSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+  ## Enqueue a Gossip-validated block for consensus verification
+  # Backpressure:
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
+  # Producers:
+  # - Gossip (when synced)
+  # - SyncManager (during sync)
+  # - RequestManager (missing ancestor blocks)
+  # - API
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, Opt.none(BlobSidecars), data_columns,
+    resfut, maybeFinalized, validationDur)
   resfut
 
 # Event Loop
@@ -1054,7 +1121,7 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, entry.columns,
+      entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
       entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
@@ -1066,8 +1133,8 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
-      entry.src, entry.blck, entry.blobs, entry.columns, entry.resfut, entry.maybeFinalized,
-      entry.validationDur)
+      entry.src, entry.blck, entry.blobs, entry.columns,
+      entry.resfut, entry.maybeFinalized, entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 

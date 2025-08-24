@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/sequtils,
@@ -154,10 +154,8 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  var blobRefs = Opt.none(BlobSidecars)
-  var dataColumnRefs =
-    Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Fulu:
+    var dataColumnRefs = Opt.none(DataColumnSidecars)
     let dataColumns = dataColumnsOpt.get()
     if dataColumnsOpt.isSome() and dataColumns.len != 0:
       var das_workers =
@@ -185,8 +183,7 @@ proc routeSignedBeaconBlock*(
         custody_columns =
           router[].network.cfg.resolve_columns_from_custody_groups(
             router[].network.nodeId,
-            max(SAMPLES_PER_SLOT.uint64,
-            metadata))
+            max(router[].network.cfg.SAMPLES_PER_SLOT.uint64, metadata))
 
       var final_columns: seq[DataColumnSidecar]
       for dc in dataColumns:
@@ -194,7 +191,10 @@ proc routeSignedBeaconBlock*(
           final_columns.add dc
       dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck), dataColumnRefs)
   elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+    var blobRefs = Opt.none(BlobSidecars)
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       var workers = newSeq[Future[SendResult]](blobs.len)
@@ -214,9 +214,11 @@ proc routeSignedBeaconBlock*(
           notice "Blob sent", blob = shortLog(blobs[i])
       blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
-  let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs,
-    dataColumnRefs)
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
+  else:
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

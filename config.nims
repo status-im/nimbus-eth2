@@ -180,6 +180,8 @@ if canEnableDebuggingSymbols:
 switch("warningAsError", "BareExcept:on")
 # switch("warningAsError", "CStringConv:on") obviously do not merge this
 switch("warningAsError", "UnusedImport:on")
+switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
+switch("hintAsError", "DuplicateModuleImport:on")
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")

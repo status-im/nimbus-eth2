@@ -358,7 +358,6 @@ proc getHeadRoot*(peer: Peer): Eth2Digest =
   let
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
-    remoteFork = state.getBeaconTime().slotOrZero.epoch()
   if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.headRoot
   else:
@@ -368,7 +367,6 @@ proc getHeadSlot*(peer: Peer): Slot =
   let
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
-    remoteFork = state.getBeaconTime().slotOrZero.epoch()
   if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.headSlot
   else:
@@ -378,7 +376,6 @@ proc getFinalizedEpoch*(peer: Peer): Epoch =
   let
     state = peer.networkState(PeerSync)
     pstate = peer.state(PeerSync)
-    remoteFork = state.getBeaconTime().slotOrZero.epoch()
   if pstate.statusMsgV2.isSome():
     pstate.statusMsgV2.get.finalizedEpoch
   else:

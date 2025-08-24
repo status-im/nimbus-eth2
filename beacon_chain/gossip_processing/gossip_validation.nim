@@ -12,7 +12,6 @@ import
   chronicles, chronos, metrics,
   results,
   kzg4844/[kzg, kzg_abi],
-  stew/byteutils,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks,

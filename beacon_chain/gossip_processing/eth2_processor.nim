@@ -5,10 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/[tables, sequtils],
+  std/[sequtils, tables],
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
@@ -255,8 +255,8 @@ proc processSignedBeaconBlock*(
       self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
     let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb and
-          typeof(signedBlock).kind < ConsensusFork.Fulu:
+      when typeof(signedBlock).kind in
+          [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres =
           self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
         if bres.isSome():
@@ -348,7 +348,7 @@ proc processBlobSidecar*(
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
-                                             Opt.none(DataColumnSidecars))
+            Opt.none(DataColumnSidecars))
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
@@ -360,8 +360,7 @@ proc processBlobSidecar*(
   v
 
 proc validateDataColumnSidecarFromEL*(
-    self: ref Eth2Processor,
-    block_root: Eth2Digest)
+    self: ref Eth2Processor, block_root: Eth2Digest)
     {.async: (raises: [CancelledError]).} =
   let elManager = self.blockProcessor[].consensusManager.elManager
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
@@ -432,7 +431,7 @@ proc processDataColumnSidecar*(
             Opt.none(BlobSidecars),
             cres)
         else:
-          discard self.quarantine[].addColumnless(
+          discard self.quarantine[].addSidecarless(
             self.dag.finalizedHead.slot, forkyBlck)
       else:
         raiseAssert "Could not be added as columnless"
