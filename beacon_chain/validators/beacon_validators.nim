@@ -559,10 +559,11 @@ proc proposeBlockAux(
     )
 
     blobsOpt =
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         Opt.some(
           signedBlock.create_blob_sidecars(
-            engineBlock.blobsBundle.proofs, engineBlock.blobsBundle.blobs
+            deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+            engineBlock.blobsBundle.blobs
           )
         )
       else:

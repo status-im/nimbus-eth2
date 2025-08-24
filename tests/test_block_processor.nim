@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -73,9 +73,8 @@ suite "Block processor" & preset():
     discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let
-      missing = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+    let missing = await processor[].addBlock(
+      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
 
     check: missing.error == VerifierError.MissingParent
 
