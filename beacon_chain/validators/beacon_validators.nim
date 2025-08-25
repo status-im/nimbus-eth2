@@ -471,7 +471,7 @@ proc proposeBlockAux(
               unblindedBlockRef =
                 await node.unblindAndRouteBlockMEV(payloadBuilderClient, blindedBlock)
 
-            if unblindedBlockRef.isErr or unblindedBlockRef.get.isNone:
+            if unblindedBlockRef.isErr:
               # unblindedBlockRef.isErr or unblindedBlockRef.get.isNone indicates that
               # the block failed to validate or integrate into the DAG, which for the
               # purpose of this return value, is equivalent. It's used to drive Beacon
@@ -501,6 +501,17 @@ proc proposeBlockAux(
               beacon_block_builder_missed_without_fallback.inc()
 
               return head
+
+            when consensusFork >= ConsensusFork.Fulu:
+              if unblindedBlockRef.isOk and unblindedBlockRef.get.isNone:
+                # This corresponds to 202 in Fulu MEV.
+                return head
+            else:
+              if unblindedBlockRef.get.isNone:
+                warn "Failed to unblind or route builder payload",
+                  validator = shortLog(validator),
+                  blck = shortLog(blindedBlock.message),
+                  err = "Unblinded block not returned to proposer"
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get.get
