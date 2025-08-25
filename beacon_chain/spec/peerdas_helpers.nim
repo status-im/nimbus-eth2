@@ -153,8 +153,7 @@ proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
-
-  # This helper recovers blobs from the data column sidecars
+  ## This helper recovers blobs from the data column sidecars parallelly
   if not (dataColumns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
@@ -184,7 +183,7 @@ proc recover_cells_and_proofs_parallel*(
   for i in 0..<blobCount:
     let futRes = sync pendingFuts[i]
     if futRes.isErr:
-      return err("kzg cells and proofs recover failed")
+      return err("KZG cells and proofs recovery failed")
     res[i] = futRes.get
   ok(res)
 

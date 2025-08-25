@@ -1713,11 +1713,11 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       debug "Stored data columns", indices
 
       # Make sure the node has obtained 50%+ of all the columns
-      if columns.len.uint64 < (maxColCount div 2):
+      if columns.lenu64 < (maxColCount div 2):
         warn "The node did not obtain 50%+ of all the columns"
         return
       # Ignore if the node has already obtained all the columns
-      elif columns.len.uint64 == maxColCount:
+      elif columns.lenu64 == maxColCount:
         debug "The node has already obtained all the columns"
         return
 
@@ -1744,7 +1744,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         node.dag.db.putDataColumnSidecar(dataColumn)
 
       debug "Column reconstructed",
-        len = maxColCount - indices.len.uint64
+        len = maxColCount - indices.lenu64
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
