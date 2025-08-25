@@ -312,7 +312,7 @@ proc runRecoverCellsAndKzgProofsParallelTest(suiteName, suitePath: string) =
   test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
     # read scenario data from valid cases
     var
-      data = newSeq[MatrixEntry]()
+      data: seq[MatrixEntry]
       rowCount = 0
     block dataFromValidCases:
       for kind, path in walkDir(suitePath, relative = true, checkDir = true):
@@ -359,7 +359,7 @@ proc runRecoverCellsAndKzgProofsParallelTest(suiteName, suitePath: string) =
 
       # convert input into column
       var
-        colInput = newSeq[ref DataColumnSidecar]()
+        colInput: seq[ref DataColumnSidecar]
         colEntries: Table[uint64, seq[MatrixEntry]]
 
       for entry in input:
