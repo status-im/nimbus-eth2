@@ -340,10 +340,8 @@ proc checkPeerCustody(rman: RequestManager,
             remoteNodeId,
             max(rman.network.cfg.SAMPLES_PER_SLOT,
                 remoteCustodyGroupCount))
-      var isect = 0
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
-          inc(isect)
           return true
       peer.updateScore(PeerScoreBadColumnIntersection)
       return false
