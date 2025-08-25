@@ -91,8 +91,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -584,8 +584,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -1110,8 +1110,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -1734,8 +1734,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -2453,8 +2453,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -3095,6 +3095,7 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Electra - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
++ EF - Electra - Slots - effective_decrease_balance_updates_lookahead [Preset: mainnet]      OK
 + EF - Electra - Slots - empty_epoch [Preset: mainnet]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: mainnet]                            OK
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]             OK
@@ -3273,6 +3274,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: mainnet]
 ```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
 + Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
 ```
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
@@ -3308,8 +3310,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -3351,6 +3353,8 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: mainnet]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: mainnet]                        OK
 + EF - Fulu - Fork - lookahead_consistency_at_fork [Preset: mainnet]                         OK
++ EF - Fulu - Fork - lookahead_consistency_with_effective_balance_change_at_fork [Preset: ma OK
++ EF - Fulu - Fork - proposer_lookahead_init_at_fork_only_contains_active_validators [Preset OK
 ```
 ## EF - Fulu - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3934,6 +3938,7 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Fulu - Slots - balance_change_affects_proposer [Preset: mainnet]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: mainnet]                                   OK
++ EF - Fulu - Slots - effective_decrease_balance_updates_lookahead [Preset: mainnet]         OK
 + EF - Fulu - Slots - empty_epoch [Preset: mainnet]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: mainnet]                               OK
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]                OK
@@ -3947,9 +3952,38 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Slots - slots_1 [Preset: mainnet]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: mainnet]                                              OK
 ```
+## EF - Fulu - Transition  [Preset: mainnet]
+```diff
++ EF - Fulu - Transition - non_empty_historical_roots [Preset: mainnet]                      OK
++ EF - Fulu - Transition - normal_transition [Preset: mainnet]                               OK
++ EF - Fulu - Transition - simple_transition [Preset: mainnet]                               OK
++ EF - Fulu - Transition - transition_attestation_from_previous_fork_with_new_range [Preset: OK
++ EF - Fulu - Transition - transition_missing_first_post_block [Preset: mainnet]             OK
++ EF - Fulu - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]          OK
++ EF - Fulu - Transition - transition_only_blocks_post_fork [Preset: mainnet]                OK
++ EF - Fulu - Transition - transition_randomized_state [Preset: mainnet]                     OK
++ EF - Fulu - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]        OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_after_fork [Preset: mainn OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_before_fork [Preset: main OK
++ EF - Fulu - Transition - transition_with_btec_right_after_fork [Preset: mainnet]           OK
++ EF - Fulu - Transition - transition_with_btec_right_before_fork [Preset: mainnet]          OK
++ EF - Fulu - Transition - transition_with_consolidation_request_right_after_fork [Preset: m OK
++ EF - Fulu - Transition - transition_with_deposit_request_right_after_fork [Preset: mainnet OK
++ EF - Fulu - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]        OK
++ EF - Fulu - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]       OK
++ EF - Fulu - Transition - transition_with_finality [Preset: mainnet]                        OK
++ EF - Fulu - Transition - transition_with_leaking_at_fork [Preset: mainnet]                 OK
++ EF - Fulu - Transition - transition_with_leaking_pre_fork [Preset: mainnet]                OK
++ EF - Fulu - Transition - transition_with_no_attestations_until_after_fork [Preset: mainnet OK
++ EF - Fulu - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]      OK
++ EF - Fulu - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Prese OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mainn OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_before_fork [Preset: main OK
++ EF - Fulu - Transition - transition_with_random_half_participation [Preset: mainnet]       OK
++ EF - Fulu - Transition - transition_with_random_three_quarters_participation [Preset: main OK
+```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
-  Light client - Single merkle proof - eip7805                                               Skip
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3972,8 +4006,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
-  Merkle proof - Single merkle proof - eip7732                                               Skip
   Merkle proof - Single merkle proof - eip7805                                               Skip
+  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -3982,10 +4016,6 @@ ConsensusSpecPreset-mainnet
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
@@ -4052,8 +4082,8 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: mainnet]   OK
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: mainnet]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
@@ -4502,6 +4532,23 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
   ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_zero OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__not_availabl OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__ok           OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK

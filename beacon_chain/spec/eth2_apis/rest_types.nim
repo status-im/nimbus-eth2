@@ -56,7 +56,7 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, SingleAttestation,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate
 
@@ -410,10 +410,8 @@ type
 
   # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
   Web3SignerValidatorRegistration* = object
-    feeRecipient* {.
-      serializedFieldName: "fee_recipient".}: string
-    gasLimit* {.
-      serializedFieldName: "gas_limit".}: uint64
+    fee_recipient*: Eth1Address
+    gas_limit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
@@ -550,7 +548,6 @@ type
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
   SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
@@ -960,22 +957,17 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     syncCommitteeContributionAndProof: data
   )
 
-from stew/byteutils import to0xHex
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+func init*(t: typedesc[Web3SignerRequest],
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
     signingRoot: signingRoot,
     validatorRegistration: Web3SignerValidatorRegistration(
-      feeRecipient: data.fee_recipient.data.to0xHex,
-      gasLimit: data.gas_limit,
+      fee_recipient: data.fee_recipient,
+      gas_limit: data.gas_limit,
       timestamp: data.timestamp,
       pubkey: data.pubkey)
   )

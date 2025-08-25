@@ -373,27 +373,28 @@ proc verify_contribution_and_proof_signature*(
 
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 func compute_builder_signing_root(
-    fork: Fork,
-    msg: electra_mev.BuilderBid | fulu_mev.BuilderBid |
+    genesis_fork_version: Version,
+      msg: electra_mev.BuilderBid | fulu_mev.BuilderBid |
          ValidatorRegistrationV1): Eth2Digest =
-  # Uses genesis fork version regardless
-  doAssert fork.current_version == fork.previous_version
-
-  let domain = get_domain(
-    fork, DOMAIN_APPLICATION_BUILDER, GENESIS_EPOCH, ZERO_HASH)
+  # Fork = none in spec which means GENESIS_FORK_VERSION:
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/phase0/beacon-chain.md#compute_domain
+  let domain = compute_domain(
+    DOMAIN_APPLICATION_BUILDER, genesis_fork_version, ZERO_HASH)
   compute_signing_root(msg, domain)
 
 proc get_builder_signature*(
-    fork: Fork, msg: ValidatorRegistrationV1, privkey: ValidatorPrivKey):
+    genesis_fork_version: Version,
+    msg: ValidatorRegistrationV1, privkey: ValidatorPrivKey):
     CookedSig =
-  let signing_root = compute_builder_signing_root(fork, msg)
+  let signing_root = compute_builder_signing_root(genesis_fork_version, msg)
   blsSign(privkey, signing_root.data)
 
 proc verify_builder_signature*(
-    fork: Fork, msg: electra_mev.BuilderBid |
+    genesis_fork_version: Version,
+    msg: electra_mev.BuilderBid |
           fulu_mev.BuilderBid | ValidatorRegistrationV1,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
-  let signing_root = compute_builder_signing_root(fork, msg)
+  let signing_root = compute_builder_signing_root(genesis_fork_version, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change

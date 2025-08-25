@@ -5,17 +5,19 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/primitives as web3types,
+  stew/[byteutils], stint, eth/common/addresses as eth,
   ./datatypes/constants
+
+from std/algorithm import sort
 
 export constants
 
-export stint, web3types.toHex, web3types.`==`
+export stint, eth
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -37,9 +39,10 @@ const
 
 type
   Version* = distinct array[4, byte]
-  Eth1Address* = web3types.Address
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-blobparameters
+  Eth1Address* = eth.Address
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/beacon-chain.md#new-blobparameters
   BlobParameters* = object
     EPOCH*: Epoch
     MAX_BLOBS_PER_BLOCK*: uint64
@@ -131,15 +134,16 @@ type
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
 
     # Fulu
-    # TODO NUMBER_OF_COLUMNS*: uint64
-    # TODO NUMBER_OF_CUSTODY_GROUPS*: uint64
-    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64
-    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64
-    # TODO SAMPLES_PER_SLOT*: uint64
-    # TODO CUSTODY_REQUIREMENT*: uint64
-    # TODO VALIDATOR_CUSTODY_REQUIREMENT*: uint64
-    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
-    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
+    NUMBER_OF_COLUMNS*: uint64
+    NUMBER_OF_CUSTODY_GROUPS*: uint64
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64
+    MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64
+    SAMPLES_PER_SLOT*: uint64
+    CUSTODY_REQUIREMENT*: uint64
+    VALIDATOR_CUSTODY_REQUIREMENT*: uint64
+    BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
+    MAX_BLOBS_PER_BLOCK_FULU*: uint64
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
     BLOB_SCHEDULE*: seq[BlobParameters]
 
   PresetFile* = object
@@ -193,8 +197,8 @@ when const_preset == "mainnet":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: Hash32.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
     # Genesis
     # ---------------------------------------------------------------
@@ -320,20 +324,16 @@ when const_preset == "mainnet":
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
 
     # Fulu
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
-    # provides sorting rules.
-    BLOB_SCHEDULE: @[
-      BlobParameters(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BlobParameters(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
-    # TODO NUMBER_OF_COLUMNS: 128,
-    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
-    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
-    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
-    # TODO SAMPLES_PER_SLOT: 8,
-    # TODO CUSTODY_REQUIREMENT: 4,
-    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
-    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    NUMBER_OF_COLUMNS: 128,
+    NUMBER_OF_CUSTODY_GROUPS: 128,
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    SAMPLES_PER_SLOT: 8,
+    CUSTODY_REQUIREMENT: 4,
+    VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
 
 elif const_preset == "gnosis":
@@ -365,8 +365,8 @@ elif const_preset == "gnosis":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
     # Genesis
     # ---------------------------------------------------------------
@@ -492,15 +492,16 @@ elif const_preset == "gnosis":
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 256,
 
     # Fulu
-    # TODO NUMBER_OF_COLUMNS: 128,
-    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
-    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
-    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
-    # TODO SAMPLES_PER_SLOT: 8,
-    # TODO CUSTODY_REQUIREMENT: 4,
-    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
-    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    NUMBER_OF_COLUMNS: 128,
+    NUMBER_OF_CUSTODY_GROUPS: 128,
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    SAMPLES_PER_SLOT: 8,
+    CUSTODY_REQUIREMENT: 4,
+    VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
 elif const_preset == "minimal":
@@ -528,8 +529,8 @@ elif const_preset == "minimal":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: Hash32.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    TERMINAL_BLOCK_HASH:
+      hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
 
     # Genesis
@@ -658,20 +659,16 @@ elif const_preset == "minimal":
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
 
     # Fulu
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
-    # provides sorting rules.
-    BLOB_SCHEDULE: @[
-      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
-      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
-    # TODO NUMBER_OF_COLUMNS: 128,
-    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
-    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
-    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
-    # TODO SAMPLES_PER_SLOT: 8,
-    # TODO CUSTODY_REQUIREMENT: 4,
-    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
-    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    NUMBER_OF_COLUMNS: 128,
+    NUMBER_OF_CUSTODY_GROUPS: 128,
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    SAMPLES_PER_SLOT: 8,
+    CUSTODY_REQUIREMENT: 4,
+    VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
 
 else:
@@ -750,6 +747,10 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
+func cmpBlobParameters*(x, y: BlobParameters): int =
+  # Don't care about ties and want reverse order.
+  cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
+
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [PresetFileError, PresetIncompatibleError].} =
@@ -781,6 +782,70 @@ proc readRuntimeConfig*(
     if lineParts[0] in ignoredValues: continue
 
     values[lineParts[0]] = lineParts[1].strip
+  # Accumulate BLOB_SCHEDULE entries
+  var
+    blobScheduleEntries: seq[BlobParameters]
+    inBlobSchedule = false
+    currentBPO: BlobParameters
+
+  for rawLine in splitLines(fileContent):
+    inc lineNum
+    # Skip blank lines or full-line comments
+    if rawLine.len == 0 or rawLine[0] == '#':
+      continue
+
+    # Remove trailing comments but preserve leading whitespace for indentation
+    let noComment = rawLine.split("#")[0]
+    let clean = noComment.strip()
+
+    # Enter the BLOB_SCHEDULE block
+    # Begin BLOB_SCHEDULE section
+    if clean == "BLOB_SCHEDULE:":
+      inBlobSchedule = true
+      continue
+
+    if inBlobSchedule:
+      let entry = strip(noComment, leading=true, trailing=false)
+      if entry.startsWith("- EPOCH:"):
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        currentBPO = BlobParameters()
+        let epochStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
+        except ValueError:
+          fail("Unable to parse EPOCH: " & epochStr)
+        continue
+      elif entry.startsWith("MAX_BLOBS_PER_BLOCK:"):
+        let maxStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.MAX_BLOBS_PER_BLOCK = parse(uint64, maxStr)
+        except ValueError:
+          fail("Unable to parse MAX_BLOBS_PER_BLOCK: " & maxStr)
+        continue
+      # Exit section on non-indented line
+      elif noComment[0] notin {' ', '\t'}:
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        inBlobSchedule = false
+      else:
+        continue
+
+    # Key: Value parsing
+    if not inBlobSchedule:
+      let parts = clean.split(":")
+      if parts.len != 2:
+        fail("Invalid syntax: expected 'Key: Value'")
+      let key = parts[0]
+      if key notin ignoredValues:
+        values[key] = parts[1].strip()
+
+  # Final BLOB_SCHEDULE entry
+  if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
+    blobScheduleEntries.add(currentBPO)
+
+  # BPO entries must be sorted in reverse epoch order
+  blobScheduleEntries.sort(cmp = cmpBlobParameters)
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
@@ -898,15 +963,18 @@ proc readRuntimeConfig*(
   checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   for name, field in cfg.fieldPairs():
-    if name in values:
+    if values.hasKey(name):
       when field is seq[BlobParameters]:
-        discard
+        field = blobScheduleEntries
       else:
         try:
           field = parse(typeof(field), values[name])
-          values.del name
         except ValueError:
-          raise (ref PresetFileError)(msg: "Unable to parse " & name)
+          fail("Unable to parse " & name)
+      values.del(name)
+    elif name == "BLOB_SCHEDULE":
+      when field is seq[BlobParameters]:
+        field = blobScheduleEntries
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(

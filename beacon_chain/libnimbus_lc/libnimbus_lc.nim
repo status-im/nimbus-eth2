@@ -537,13 +537,13 @@ proc ETHLightClientStoreProcessUpdatesByRange(
       didProgress = true
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         break
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         discard
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         break
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         return 1
   if not didProgress:
     return 2
@@ -625,13 +625,13 @@ proc ETHLightClientStoreProcessFinalityUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 proc ETHLightClientStoreProcessOptimisticUpdate(
@@ -710,13 +710,13 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 func ETHLightClientStoreGetFinalizedHeader(
@@ -735,7 +735,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -755,7 +755,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -1321,7 +1321,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       wds.add ETHWithdrawal(
         index: wd.index,
         validatorIndex: wd.validatorIndex,
-        address: ExecutionAddress(data: wd.address.data),
+        address: wd.address,
         amount: wd.amount,
         bytes: rlpBytes)
 
@@ -1552,10 +1552,7 @@ proc ETHTransactionsCreateFromJson(
         return nil
       if yParity != data.v:
         return nil
-    if data.authorizationList.isSome:
-      for authorization in data.authorizationList.get:
-        if authorization.v > uint8.high:
-          return nil
+
     let
       tx = eth_types.EthTransaction(
         txType: txType,
@@ -1612,15 +1609,12 @@ proc ETHTransactionsCreateFromJson(
 
     func recoverSignerAddress(
         rawSig: array[65, byte],
-        hashForSigning: Hash32): Opt[array[20, byte]] =
+        hashForSigning: Hash32): SkResult[ExecutionAddress] =
       let
-        sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
-          return Opt.none(array[20, byte])
-        sigHash = SkMessage.fromBytes(hashForSigning.data).valueOr:
-          return Opt.none(array[20, byte])
-        pubkey = sig.recover(sigHash).valueOr:
-          return Opt.none(array[20, byte])
-      Opt.some keys.PublicKey(pubkey).toCanonicalAddress().data
+        signature = ?Signature.fromRaw(rawSig)
+        pubkey = ?signature.recover(SkMessage(hashForSigning.data()))
+
+      ok pubkey.toCanonicalAddress()
 
     # Compute from execution address
     let
@@ -1633,7 +1627,7 @@ proc ETHTransactionsCreateFromJson(
       sigHash = tx.rlpHashForSigning(tx.isEip155())
       fromAddress = recoverSignerAddress(rawSig, sigHash).valueOr:
         return nil
-    if distinctBase(data.`from`) != fromAddress:
+    if data.`from` != fromAddress:
       return nil
 
     # Compute to execution address
@@ -1656,30 +1650,30 @@ proc ETHTransactionsCreateFromJson(
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        sig = packSignature(auth.r, auth.s, auth.yParity)
         authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
       authorizationList.add ETHAuthorization(
         chainId: auth.chainId,
-        address: ExecutionAddress(data: auth.address.data),
+        address: auth.address,
         nonce: auth.nonce,
-        authority: ExecutionAddress(data: authority),
+        authority: authority,
         signature: @sig)
 
     txs.add ETHTransaction(
       hash: keccak256(rlpBytes).asEth2Digest,
       chainId: tx.chainId,
-      `from`: ExecutionAddress(data: fromAddress),
+      `from`: fromAddress,
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
       maxFeePerGas: tx.maxFeePerGas.uint64,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
-      to: ExecutionAddress(data: toAddress.data),
+      to: toAddress,
       value: tx.value,
       input: tx.payload,
       accessList: tx.accessList.mapIt(ETHAccessTuple(
-        address: ExecutionAddress(data: it.address.data),
+        address: it.address,
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
@@ -2401,7 +2395,7 @@ proc ETHReceiptsCreateFromJson(
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
       logsBloom: BloomLogs(data: rec.logsBloom.data),
       logs: rec.logs.mapIt(ETHLog(
-        address: ExecutionAddress(data: it.address.data),
+        address: it.address,
         topics: it.topics.mapIt(Eth2Digest(data: it.data)),
         data: it.data)),
       bytes: rlpBytes)

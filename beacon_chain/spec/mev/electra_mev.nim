@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, electra]
+import ".."/datatypes/[altair, bellatrix, electra]
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
-from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
 from ".."/eth2_merkleization import hash_tree_root
@@ -61,6 +60,24 @@ type
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests # [New in Electra]
 
+  SigVerifiedBlindedBeaconBlockBody* = object
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+    graffiti*: GraffitiBytes
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: TrustedSyncAggregate
+    execution_payload_header*: electra.ExecutionPayloadHeader
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange,
+        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests # [New in Electra]
+
   # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
@@ -68,6 +85,14 @@ type
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Deneb]
+
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
+  SigVerifiedBlindedBeaconBlock* = object
+    slot*: Slot
+    proposer_index*: uint64
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: SigVerifiedBlindedBeaconBlockBody # [Modified in Deneb]
 
   MaybeBlindedBeaconBlock* = object
     case isBlinded*: bool
@@ -149,7 +174,7 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
-        execution_payload_header: ExecutionPayloadHeader(
+        execution_payload_header: electra.ExecutionPayloadHeader(
           parent_hash: blck.message.body.execution_payload.parent_hash,
           fee_recipient: blck.message.body.execution_payload.fee_recipient,
           state_root: blck.message.body.execution_payload.state_root,
@@ -174,3 +199,7 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
         blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
         execution_requests: blck.message.body.execution_requests)),
     signature: blck.signature)
+
+template asSigVerified*(
+    x: BlindedBeaconBlock): SigVerifiedBlindedBeaconBlock =
+  isomorphicCast[SigVerifiedBlindedBeaconBlock](x)

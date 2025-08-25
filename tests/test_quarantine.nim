@@ -115,8 +115,8 @@ func compareSidecarsByValue(
 
 func compareSidecars(
     blockRoot: Eth2Digest,
-    a: openArray[ref BlobSidecar|ref DataColumnSidecar],
-    b: openArray[BlobIdentifier|DataColumnIdentifier]
+    a: openArray[ref BlobSidecar],
+    b: openArray[BlobIdentifier]
 ): bool =
   if len(a) != len(b):
     return false
@@ -127,14 +127,32 @@ func compareSidecars(
       return false
   true
 
-func compareIdentifiers(
-  a, b: openArray[DataColumnIdentifier]): bool =
-  if len(a) != len(b):
+func compareSidecars(
+    blockRoot: Eth2Digest,
+    a: openArray[ref DataColumnSidecar],
+    b: DataColumnsByRootIdentifier
+): bool =
+  if len(a) != len(b.indices):
     return false
   if len(a) == 0:
     return true
+  if b.block_root != blockRoot:
+    return false
   for i in 0 ..< len(a):
-    if (a[i].block_root != b[i].block_root) or (a[i].index != b[i].index):
+    if (a[i][].index != b.indices[i]):
+      return false
+  true
+
+func compareIdentifiers(
+  a, b: DataColumnsByRootIdentifier): bool =
+  if len(a.indices) != len(b.indices):
+    return false
+  if a.block_root != b.block_root:
+    return false
+  if len(a.indices) == 0:
+    return true
+  for i in 0 ..< len(a.indices):
+    if (a.indices[i] != b.indices[i]):
       return false
   true
 
@@ -679,7 +697,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == true
 
-    bq.pruneAfterFinalization(Epoch(0))
+    bq.pruneAfterFinalization(Epoch(0), false)
     check:
       len(bq) == len(TestVectors) - 5
 
@@ -694,7 +712,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(1))
+    bq.pruneAfterFinalization(Epoch(1), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6
 
@@ -709,7 +727,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(2))
+    bq.pruneAfterFinalization(Epoch(2), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6 - 12
 
@@ -724,7 +742,7 @@ suite "BlobQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(3))
+    bq.pruneAfterFinalization(Epoch(3), false)
     check:
       len(bq) == 0
 
@@ -1031,14 +1049,14 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     # Pruning memory and database
     for epoch in epochs1:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
     for epoch in epochs2:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
 
     check:
       len(bq) == 1
 
-    bq.pruneAfterFinalization(Slot(100000).epoch())
+    bq.pruneAfterFinalization(Slot(100000).epoch(), false)
 
     check:
       len(bq) == 0
@@ -1475,37 +1493,33 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
       expected1 = [
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(63)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(64)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(63)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(64)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(63)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(64)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(63)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(64)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(64)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(95)),
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[
-          DataColumnIdentifier(block_root: broot1, index: ColumnIndex(96))],
-        @[],
-        @[]
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(63), 64, 95, 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(63), 64, 95, 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(63), 64, 95, 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(63), 64, 95, 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(64), 95, 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(95), 96]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[ColumnIndex(96)]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[]),
+        DataColumnsByRootIdentifier(
+          block_root: broot1,
+          indices: DataColumnIndices @[])
       ]
       sidecars1 =
         block:
@@ -1534,10 +1548,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
       let
         missing1 = bq.fetchMissingSidecars(broot1, fuluBlock1)
         missing2 = bq.fetchMissingSidecars(broot2, fuluBlock2)
-        missing3 = bq.fetchMissingSidecars(broot1, fuluBlock1,
-                                           peerCustodyColumns1)
-        missing4 = bq.fetchMissingSidecars(broot2, fuluBlock2,
-                                           peerCustodyColumns2)
+        missing3 =
+          bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
+        missing4 =
+          bq.fetchMissingSidecars(broot2, fuluBlock2, peerCustodyColumns2)
 
       check:
         compareSidecars(
@@ -1549,7 +1563,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
       check:
         compareIdentifiers(expected1[i], missing3)
-        len(missing4) == 0
+        len(missing4.indices) == 0
 
       if i >= len(sidecars1):
         break
@@ -1597,7 +1611,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     func checkSupernodeExpected(
       root: Eth2Digest,
       index: int,
-      missing: openArray[DataColumnIdentifier]
+      missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
         (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
@@ -1614,11 +1628,12 @@ suite "ColumnQuarantine data structure test suite " & preset():
       doAssert(index in 0 .. 65)
       for expect in ExpectedVectors:
         if index in expect[1]:
-          if len(expect[0]) != len(missing):
+          if len(expect[0]) != len(missing.indices):
             return false
-          for i in 0 ..< len(missing):
-            if (missing[i].block_root != root) or
-               (int(missing[i].index) != expect[0][i]):
+          for i in 0 ..< len(missing.indices):
+            if missing.block_root != root:
+              return false
+            if (int(missing.indices[i]) != expect[0][i]):
               return false
           return true
       false
@@ -1627,8 +1642,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       let
         missing1 = bq.fetchMissingSidecars(broot1, fuluBlock1)
         missing2 = bq.fetchMissingSidecars(broot2, fuluBlock2)
-        missing3 = bq.fetchMissingSidecars(broot1, fuluBlock1,
-                                           peerCustodyColumns1)
+        missing3 =
+          bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
       check:
         compareSidecars(
           broot1,
@@ -1832,34 +1847,38 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       len(bq) == 0
-      len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
-        len(custodyColumns)
-      len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
-        len(custodyColumns)
+      len(bq.fetchMissingSidecars(
+        broot1, fuluBlock1, custodyColumns).indices) == len(custodyColumns)
+      len(bq.fetchMissingSidecars(
+        broot2, fuluBlock2, custodyColumns).indices) == len(custodyColumns)
 
     for index in 0 ..< len(custodyColumns):
       bq.put(broot1, sidecars1[index])
       check:
         len(bq) == (index + 1)
-        len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
-          len(custodyColumns) - (index + 1)
+        len(bq.fetchMissingSidecars(
+          broot1, fuluBlock1, custodyColumns).indices) ==
+            len(custodyColumns) - (index + 1)
       bq.put(broot1, sidecars1d[index])
       check:
         len(bq) == (index + 1)
-        len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
-          len(custodyColumns) - (index + 1)
+        len(bq.fetchMissingSidecars(
+          broot1, fuluBlock1, custodyColumns).indices) ==
+            len(custodyColumns) - (index + 1)
 
     for index in 0 ..< len(custodyColumns):
       bq.put(broot2, sidecars2[index])
       check:
         len(bq) == len(custodyColumns) + (index + 1)
-        len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
-          len(custodyColumns) - (index + 1)
+        len(bq.fetchMissingSidecars(
+          broot2, fuluBlock2, custodyColumns).indices) ==
+            len(custodyColumns) - (index + 1)
       bq.put(broot2, sidecars2d[index])
       check:
         len(bq) == len(custodyColumns) + (index + 1)
-        len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
-          len(custodyColumns) - (index + 1)
+        len(bq.fetchMissingSidecars(
+          broot2, fuluBlock2, custodyColumns).indices) ==
+            len(custodyColumns) - (index + 1)
 
     bq.remove(broot2)
     check len(bq) == len(custodyColumns)
@@ -1925,7 +1944,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == true
 
-    bq.pruneAfterFinalization(Epoch(0))
+    bq.pruneAfterFinalization(Epoch(0), false)
     check:
       len(bq) == len(TestVectors) - 5
 
@@ -1940,7 +1959,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(1))
+    bq.pruneAfterFinalization(Epoch(1), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6
 
@@ -1955,7 +1974,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(2))
+    bq.pruneAfterFinalization(Epoch(2), false)
     check:
       len(bq) == len(TestVectors) - 5 - 6 - 12
 
@@ -1970,7 +1989,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           genBlockRoot(item.root), Slot(item.slot),
           uint64(item.proposer_index), BlobIndex(item.index)) == res
 
-    bq.pruneAfterFinalization(Epoch(3))
+    bq.pruneAfterFinalization(Epoch(3), false)
     check:
       len(bq) == 0
 
@@ -2302,14 +2321,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     # Pruning memory and database
     for epoch in epochs1:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
     for epoch in epochs2:
-      bq.pruneAfterFinalization(epoch)
+      bq.pruneAfterFinalization(epoch, false)
 
     check:
       len(bq) == 1
 
-    bq.pruneAfterFinalization(Slot(1000000).epoch())
+    bq.pruneAfterFinalization(Slot(1000000).epoch(), false)
 
     check:
       len(bq) == 0

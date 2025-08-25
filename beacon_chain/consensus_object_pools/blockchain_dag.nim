@@ -2304,7 +2304,7 @@ proc loadExecutionBlockHash*(
     dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
-    # The initial `BlockRef` is creted before the checkpoint block is loaded.
+    # The initial `BlockRef` is created before the checkpoint block is loaded.
     # It is backfilled later, so return `none` and keep retrying.
     return Opt.none(Eth2Digest)
 
@@ -2680,7 +2680,7 @@ proc getProposer*(
 
 proc getProposalState*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
-    Result[ref ForkedHashedBeaconState, cstring] =
+    Opt[ref ForkedHashedBeaconState] =
   ## Return a state suitable for making proposals for the given head and slot -
   ## in particular, the state can be discarded after use and does not have a
   ## state root set
@@ -2700,7 +2700,7 @@ proc getProposalState*(
       error "Cannot get proposal state - skipping block production, database corrupt?",
         head = shortLog(head),
         slot
-      return err("Cannot create proposal state")
+      return err()
   else:
     loadStateCache(dag, cache, head.bid, slot.epoch)
 

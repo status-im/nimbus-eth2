@@ -41,7 +41,7 @@ export
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri,
-  LightClientDataImportMode
+  LightClientDataImportMode, slashing_protection_common
 
 declareGauge network_name, "network name", ["name"]
 
@@ -1098,6 +1098,11 @@ type
     logFile* {.
       desc: "Specifies a path for the written JSON log file"
       name: "log-file" .}: Option[OutFile]
+
+    eth2Network* {.
+      desc: "The Eth2 network to join"
+      defaultValueDesc: "mainnet"
+      name: "network" .}: Option[string]
 
     nonInteractive* {.
       desc: "Do not display interactive prompts. Quit on missing configuration"

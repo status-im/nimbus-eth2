@@ -39,14 +39,6 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
-  # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
-  # current spec doesn't ever SSZ-serialize it or hash_tree_root it
-  # TODO make `distinct` then add a REST serialization for it specifically, via
-  # basically to0xHex, then fix BlobSidecarInfoObject to use VersionedHash, not
-  # string, and rely on REST serialization, rather than serialize VersionedHash
-  # field manually
-  VersionedHash* = array[32, byte]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
@@ -594,6 +586,26 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
+    excess_blob_gas: $(v.excess_blob_gas)
+  )
+
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+    withdrawals_root: shortLog(v.withdrawals_root),
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )

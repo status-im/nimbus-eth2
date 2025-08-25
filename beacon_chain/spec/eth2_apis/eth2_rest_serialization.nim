@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[typetraits, strutils]
 import results, stew/[assign2, base10, byteutils, endians2], presto/common,
@@ -46,10 +46,10 @@ RestJson.useDefaultSerializationFor(
   BeaconBlockHeader,
   BlobSidecar,
   BlobSidecarInfoObject,
-  BlobsBundle,
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecarInfoObject,
   DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
@@ -223,6 +223,7 @@ RestJson.useDefaultSerializationFor(
   deneb.BeaconBlock,
   deneb.BeaconBlockBody,
   deneb.BeaconState,
+  deneb.BlobsBundle,
   deneb.BlockContents,
   deneb.ExecutionPayload,
   deneb.ExecutionPayloadHeader,
@@ -270,7 +271,6 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BlindedBeaconBlock,
   fulu_mev.BlindedBeaconBlockBody,
   fulu_mev.BuilderBid,
-  fulu_mev.ExecutionPayloadAndBlobsBundle,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
   phase0.AggregateAndProof,
@@ -342,6 +342,7 @@ const
 type
   EncodeTypes* =
     BlobSidecarInfoObject |
+    DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -392,8 +393,7 @@ type
   MevDecodeTypes* =
     GetHeaderResponseElectra |
     GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseElectra |
-    SubmitBlindedBlockResponseFulu
+    SubmitBlindedBlockResponseElectra
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -983,9 +983,6 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
-template hexOriginal(data: openArray[byte]): string =
-  to0xHex(data)
-
 proc decodeJsonString*[T](t: typedesc[T],
                           data: JsonString): Result[T, cstring] =
   try:
@@ -1070,7 +1067,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     w: var JsonWriter[RestJson], value: JustificationBits
 ) {.raises: [IOError].} =
-  w.writeValue hexOriginal([uint8(value)])
+  w.writeValue to0xHex([uint8(value)])
 
 proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
     raises: [IOError, SerializationError].} =
@@ -1236,7 +1233,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ValidatorSig
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorSig) {.
      raises: [IOError, SerializationError].} =
@@ -1251,7 +1248,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorSig) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: TrustedSig
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var TrustedSig) {.
      raises: [IOError, SerializationError].} =
@@ -1266,7 +1263,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var TrustedSig) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ValidatorPubKey
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(toRaw(value)))
+  writeValue(writer, to0xHex(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorPubKey) {.
      raises: [IOError, SerializationError].} =
@@ -1298,7 +1295,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitSeq) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitSeq) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.bytes()))
+  writeValue(writer, to0xHex(value.bytes()))
 
 ## BitList
 proc readValue*(reader: var JsonReader[RestJson], value: var BitList) {.
@@ -1321,9 +1318,9 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitArray) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitArray) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.bytes))
+  writeValue(writer, to0xHex(value.bytes))
 
-## BlockHash/Hash32
+## Hash32
 proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
      raises: [IOError, SerializationError].} =
   try:
@@ -1334,7 +1331,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Hash32) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## Eth2Digest
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
@@ -1347,7 +1344,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Eth2Digest) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.data))
+  writeValue(writer, to0xHex(value.data))
 
 ## BloomLogs
 proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
@@ -1360,7 +1357,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: BloomLogs) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(value.data))
+  writeValue(writer, to0xHex(value.data))
 
 ## HashArray
 proc readValue*(reader: var JsonReader[RestJson], value: var HashArray) {.
@@ -1393,7 +1390,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Eth1Address) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Eth1Address
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## Blob
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L129-L133
@@ -1408,7 +1405,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Blob) {.
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Blob
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 ## KzgCommitment, KzgProof, and KzgCell
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
@@ -1424,13 +1421,13 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof | KzgCell
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value.bytes)))
+  writeValue(writer, to0xHex(distinctBase(value.bytes)))
 
 ## GraffitiBytes
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: GraffitiBytes
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, to0xHex(distinctBase(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
                {.raises: [IOError, SerializationError].} =
@@ -1449,7 +1446,7 @@ proc readValue*(
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(
-      reader, "Expected a valid hex string with " & $value.len() & " bytes")
+      reader, "Expected a valid hex string with " & $distinctBase(value).len() & " bytes")
 
 template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
   # TODO: There should be a different notification mechanism for informing the
@@ -1480,8 +1477,7 @@ template prepareForkedBlockReading(blockType: typedesc,
       if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
-      when (blockType is ForkedBlindedBeaconBlock) or
-           (blockType is ProduceBlockResponseV3):
+      when blockType is ProduceBlockResponseV3:
         if data.isSome():
           reader.raiseUnexpectedField(
             "Multiple '" & fieldName & "' fields found", blockType.name)
@@ -1528,85 +1524,6 @@ template prepareForkedBlockReading(blockType: typedesc,
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
 
-proc readValue*[BlockType: ForkedBlindedBeaconBlock](
-       reader: var JsonReader[RestJson],
-       value: var BlockType
-     ) {.raises: [IOError, SerializationError].} =
-  var
-    version: Opt[ConsensusFork]
-    data: Opt[JsonString]
-    blinded: Opt[bool]
-    payloadValue: Opt[UInt256]
-    blockValue: Opt[UInt256]
-
-  prepareForkedBlockReading(BlockType, reader, version, data, blinded,
-                            payloadValue, blockValue)
-
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        phase0.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Phase0,
-                                     phase0Data: res)
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        altair.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect altair block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
-                                     altairData: res)
-  of ConsensusFork.Bellatrix .. ConsensusFork.Capella:
-    reader.raiseUnexpectedValue("pre-Deneb blinded block formats unsupported")
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        deneb_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect deneb block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
-                                     denebData: res)
-  of ConsensusFork.Electra:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        electra_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect electra block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Electra,
-                                     electraData: res)
-  of ConsensusFork.Fulu:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        fulu_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect electra block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Fulu,
-                                     fuluData: res)
-
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
     value: var BlockType) {.raises: [IOError, SerializationError].} =
@@ -1622,7 +1539,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
 
   if version.get() <= ConsensusFork.Altair:
     reader.raiseUnexpectedValue(
-      "Web3Signer implementation supports Capella and newer")
+      "Web3Signer implementation supports Bellatrix and newer")
 
   let res =
     try:
@@ -2124,10 +2041,7 @@ proc writeValue*(
                       value.syncCommitteeContributionAndProof)
   of Web3SignerRequestKind.ValidatorRegistration:
     # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
-    doAssert(value.forkInfo.isSome(),
-             "forkInfo should be set for this type of request")
     writer.writeField("type", "VALIDATOR_REGISTRATION")
-    writer.writeField("fork_info", value.forkInfo.get())
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("validator_registration", value.validatorRegistration)
@@ -2360,15 +2274,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       if dataName != "validator_registration":
         reader.raiseUnexpectedValue(
           "Field `validator_registration` is missing")
-      if forkInfo.isNone():
-        reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data = decodeJsonString(Web3SignerValidatorRegistration,
                                   data.get()).valueOr:
         reader.raiseUnexpectedValue(
           "Incorrect field `validator_registration` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.ValidatorRegistration,
-        forkInfo: forkInfo, signingRoot: signingRoot,
+        signingRoot: signingRoot,
         validatorRegistration: data
       )
 
@@ -3640,30 +3552,30 @@ func encodeString*(
   ok(Base10.toString(uint64(value)))
 
 func encodeString*(value: ValidatorSig): RestResult[string] =
-  ok(hexOriginal(toRaw(value)))
+  ok(to0xHex(toRaw(value)))
 
 func encodeString*(value: GraffitiBytes): RestResult[string] =
-  ok(hexOriginal(distinctBase(value)))
+  ok(to0xHex(distinctBase(value)))
 
 func encodeString*(value: Eth2Digest): RestResult[string] =
-  ok(hexOriginal(value.data))
+  ok(to0xHex(value.data))
 
 func encodeString*(value: ValidatorIdent): RestResult[string] =
   case value.kind
   of ValidatorQueryKind.Index:
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
-    ok(hexOriginal(toRaw(value.key)))
+    ok(to0xHex(toRaw(value.key)))
 
 func encodeString*(value: ValidatorPubKey): RestResult[string] =
-  ok(hexOriginal(toRaw(value)))
+  ok(to0xHex(toRaw(value)))
 
 func encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
   of StateQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
   of StateQueryKind.Root:
-    ok(hexOriginal(value.root.data))
+    ok(to0xHex(value.root.data))
   of StateQueryKind.Named:
     case value.value
     of StateIdentType.Head:
@@ -3689,7 +3601,7 @@ func encodeString*(value: BlockIdent): RestResult[string] =
   of BlockQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
   of BlockQueryKind.Root:
-    ok(hexOriginal(value.root.data))
+    ok(to0xHex(value.root.data))
   of BlockQueryKind.Named:
     case value.value
     of BlockIdentType.Head:
@@ -3767,6 +3679,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.AttesterSlashing)
   of "blob_sidecar":
     ok(EventTopic.BlobSidecar)
+  of "data_column_sidecar":
+    ok(EventTopic.DataColumnSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -3802,6 +3716,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("attester_slashing,")
   if EventTopic.BlobSidecar in value:
     res.add("blob_sidecar,")
+  if EventTopic.DataColumnSidecar in value:
+    res.add("data_column_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:

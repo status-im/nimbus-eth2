@@ -97,8 +97,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -614,8 +614,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1164,8 +1164,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1817,8 +1817,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -2568,8 +2568,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -3268,6 +3268,7 @@ ConsensusSpecPreset-minimal
 ```diff
 + EF - Electra - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Electra - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]      OK
 + EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]             OK
@@ -3455,6 +3456,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
 + Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
 ```
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
@@ -3497,8 +3499,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -3550,6 +3552,8 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
 + EF - Fulu - Fork - lookahead_consistency_at_fork [Preset: minimal]                         OK
++ EF - Fulu - Fork - lookahead_consistency_with_effective_balance_change_at_fork [Preset: mi OK
++ EF - Fulu - Fork - proposer_lookahead_init_at_fork_only_contains_active_validators [Preset OK
 ```
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -4181,6 +4185,7 @@ ConsensusSpecPreset-minimal
 ```diff
 + EF - Fulu - Slots - balance_change_affects_proposer [Preset: minimal]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
++ EF - Fulu - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]         OK
 + EF - Fulu - Slots - empty_epoch [Preset: minimal]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: minimal]                               OK
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]                OK
@@ -4193,6 +4198,42 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Slots - pending_deposit_extra_gwei [Preset: minimal]                           OK
 + EF - Fulu - Slots - slots_1 [Preset: minimal]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: minimal]                                              OK
+```
+## EF - Fulu - Transition  [Preset: minimal]
+```diff
++ EF - Fulu - Transition - higher_churn_limit_to_lower [Preset: minimal]                     OK
++ EF - Fulu - Transition - non_empty_historical_roots [Preset: minimal]                      OK
++ EF - Fulu - Transition - normal_transition [Preset: minimal]                               OK
++ EF - Fulu - Transition - simple_transition [Preset: minimal]                               OK
++ EF - Fulu - Transition - transition_attestation_from_previous_fork_with_new_range [Preset: OK
++ EF - Fulu - Transition - transition_missing_first_post_block [Preset: minimal]             OK
++ EF - Fulu - Transition - transition_missing_last_pre_fork_block [Preset: minimal]          OK
++ EF - Fulu - Transition - transition_only_blocks_post_fork [Preset: minimal]                OK
++ EF - Fulu - Transition - transition_randomized_state [Preset: minimal]                     OK
++ EF - Fulu - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]        OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_after_fork [Preset: minim OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_before_fork [Preset: mini OK
++ EF - Fulu - Transition - transition_with_btec_right_after_fork [Preset: minimal]           OK
++ EF - Fulu - Transition - transition_with_btec_right_before_fork [Preset: minimal]          OK
++ EF - Fulu - Transition - transition_with_consolidation_request_right_after_fork [Preset: m OK
++ EF - Fulu - Transition - transition_with_deposit_request_right_after_fork [Preset: minimal OK
++ EF - Fulu - Transition - transition_with_deposit_right_after_fork [Preset: minimal]        OK
++ EF - Fulu - Transition - transition_with_deposit_right_before_fork [Preset: minimal]       OK
++ EF - Fulu - Transition - transition_with_finality [Preset: minimal]                        OK
++ EF - Fulu - Transition - transition_with_full_withdrawal_request_right_after_fork [Preset: OK
++ EF - Fulu - Transition - transition_with_leaking_at_fork [Preset: minimal]                 OK
++ EF - Fulu - Transition - transition_with_leaking_pre_fork [Preset: minimal]                OK
++ EF - Fulu - Transition - transition_with_no_attestations_until_after_fork [Preset: minimal OK
++ EF - Fulu - Transition - transition_with_non_empty_activation_queue [Preset: minimal]      OK
++ EF - Fulu - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Prese OK
++ EF - Fulu - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pre OK
++ EF - Fulu - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [Pr OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_after_fork [Preset: minim OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mini OK
++ EF - Fulu - Transition - transition_with_random_half_participation [Preset: minimal]       OK
++ EF - Fulu - Transition - transition_with_random_three_quarters_participation [Preset: mini OK
++ EF - Fulu - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal] OK
++ EF - Fulu - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minimal OK
 ```
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
@@ -4208,7 +4249,6 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
-  Light client - Single merkle proof - eip7805                                               Skip
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -4277,8 +4317,8 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - eip7732                                               Skip
   Merkle proof - Single merkle proof - eip7805                                               Skip
+  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4287,10 +4327,6 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
@@ -4361,8 +4397,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
@@ -4985,6 +5021,23 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots_ OK
   ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_zero OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__not_availabl OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__ok           OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK

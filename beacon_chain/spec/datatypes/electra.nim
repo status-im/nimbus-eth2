@@ -22,7 +22,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0]
+  "."/[base, phase0, bellatrix]
 
 from kzg4844 import KzgCommitment, KzgProof
 from stew/bitops2 import log2trunc
@@ -30,7 +30,6 @@ from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, num_active_participants
-from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
@@ -715,6 +714,26 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
+    excess_blob_gas: $(v.excess_blob_gas)
+  )
+
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+    withdrawals_root: shortLog(v.withdrawals_root),
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )

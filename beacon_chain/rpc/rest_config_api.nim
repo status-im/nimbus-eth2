@@ -7,6 +7,7 @@
 
 {.push raises: [].}
 
+import std/algorithm, json, sequtils
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/spec/forks,
@@ -16,11 +17,28 @@ export rest_utils
 
 logScope: topics = "rest_config"
 
+func cmpBPOconfig(x, y: BlobParameters): int =
+  cmp(x.EPOCH.distinctBase, y.EPOCH.distinctBase)
+
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   template cfg(): auto = node.dag.cfg
   let
     cachedForkSchedule =
       RestApiResponse.prepareJsonResponse(getForkSchedule(cfg))
+
+    # This has been intentionally copied and sorted in ascending order
+    # as the spec demands the endpoint to be sorted in this fashion.
+    # The spec says:
+    # There MUST NOT exist multiple blob schedule entries with the same epoch value.
+    # The maximum blobs per block limit for blob schedules entries MUST be less than
+    # or equal to `MAX_BLOB_COMMITMENTS_PER_BLOCK`. The blob schedule entries SHOULD
+    # be sorted by epoch in ascending order. The blob schedule MAY be empty.
+    sortedBlobSchedule = cfg.BLOB_SCHEDULE.sorted(cmp=cmpBPOconfig)
+    restBlobSchedule = sortedBlobSchedule.mapIt(%*{
+      "EPOCH": Base10.toString(uint64(it.EPOCH)),
+      "MAX_BLOBS_PER_BLOCK": Base10.toString(uint64(it.MAX_BLOBS_PER_BLOCK))
+    })
+
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
@@ -285,24 +303,25 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(NUMBER_OF_COLUMNS.uint64),
+            Base10.toString(cfg.NUMBER_OF_COLUMNS.uint64),
           NUMBER_OF_CUSTODY_GROUPS:
-            Base10.toString(NUMBER_OF_CUSTODY_GROUPS.uint64),
+            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS.uint64),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-            Base10.toString(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
+            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
           MAX_REQUEST_DATA_COLUMN_SIDECARS:
-            Base10.toString(MAX_REQUEST_DATA_COLUMN_SIDECARS),
+            Base10.toString(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS),
           SAMPLES_PER_SLOT:
-            Base10.toString(SAMPLES_PER_SLOT.uint64),
+            Base10.toString(cfg.SAMPLES_PER_SLOT.uint64),
           CUSTODY_REQUIREMENT:
-            Base10.toString(CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.CUSTODY_REQUIREMENT.uint64),
           VALIDATOR_CUSTODY_REQUIREMENT:
-            Base10.toString(VALIDATOR_CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT.uint64),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
-            Base10.toString(BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
-          # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
-          #   Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
-
+            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP.uint64),
+          BLOB_SCHEDULE:
+            restBlobSchedule,
+          MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
+            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS.uint64),
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH

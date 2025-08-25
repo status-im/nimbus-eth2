@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/json,
@@ -51,7 +51,8 @@ type
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     GetPayloadV3Response |
-    GetPayloadV4Response
+    GetPayloadV4Response |
+    GetPayloadV5Response
 
 const
   noTimeout = WithoutTimeout(0)
@@ -63,6 +64,8 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#request-2
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
+
+  GETBLOBS_TIMEOUT = 100.milliseconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -406,9 +409,11 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
-            GetPayloadResponseType is engine_api.GetPayloadV4Response:
-        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+            GetPayloadResponseType is engine_api.GetPayloadV4Response or
+            GetPayloadResponseType is engine_api.GetPayloadV5Response:
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+        # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -459,7 +464,7 @@ template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): typ
   engine_api.GetPayloadV4Response
 
 template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV4Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -484,7 +489,8 @@ proc getPayload*(
     withdrawals: seq[capella.Withdrawal]
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
-    return err()
+    notice "No engine configured, using empty payload"
+    return Opt.none(PayloadType)
 
   let
     engineApiWithdrawals = toEngineWithdrawals withdrawals
@@ -583,12 +589,8 @@ proc getPayload*(
       requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
 
-    when PayloadType.kind == ConsensusFork.Fulu:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeFulu)
-    else:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    if bestPayloadIdx.isSome():
+      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
@@ -630,6 +632,13 @@ proc sendNewPayloadToSingleEL(
   await rpcClient.engine_newPayloadV4(
     payload, versioned_hashes, Hash32 parent_beacon_block_root,
     executionRequests)
+
+proc sendGetBlobsV2toSingleEl(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV2(versioned_hashes)
 
 type
   StatusRelation = enum
@@ -756,6 +765,68 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
     if len(pending) > 0:
       await noCancel allFutures(pending)
 
+proc sendGetBlobsV2*(
+    m: ELManager,
+    blck: fulu.SignedBeaconBlock,
+): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    return err()
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  var bestIdx: Opt[int]
+
+  while true:
+    let requests = m.elConnections.mapIt(
+      sendGetBlobsV2toSingleEl(it,
+        mapIt(blck.message.body.blob_kzg_commitments,
+              kzg_commitment_to_versioned_hash(it))
+      )
+    )
+
+    let timeoutExceeded =
+      try:
+        await allFutures(requests).wait(deadline)
+        false
+      except AsyncTimeoutError:
+        true
+      except CancelledError as exc:
+        # cancel anything still running, then re-raise
+        await noCancel allFutures(
+          requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+        )
+        raise exc
+
+    for idx, req in requests:
+      if req.finished():
+        # choose the first successful (not failed) response
+        if req.error.isNil and bestIdx.isNone:
+          bestIdx = Opt.some(idx)
+      else:
+        # finished == false
+        let errmsg =
+          if req.error.isNil: "request still pending"
+          else: req.error.msg
+        warn "Timeout while getting blobs & proofs",
+             url = m.elConnections[idx].engineUrl.url,
+             reason = errmsg
+
+    await noCancel allFutures(
+      requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+    )
+
+    if bestIdx.isSome():
+      let chosen = requests[bestIdx.get()]
+      # chosen is finished; but could still be an error, so guard again
+      if chosen.error.isNil:
+        return ok(chosen.value())
+      else:
+        warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
+    if timeoutExceeded:
+      break
+
+  err()
+
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
@@ -783,7 +854,7 @@ proc sendNewPayload*(
               let
                 versioned_hashes = mapIt(
                   blck.body.blob_kzg_commitments,
-                  engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                  kzg_commitment_to_versioned_hash(it))
                 # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
                 # "Each list element is a `requests` byte array as defined by
                 # EIP-7685. The first byte of each element is the `request_type`
@@ -810,7 +881,7 @@ proc sendNewPayload*(
               # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
               let versioned_hashes = mapIt(
                 blck.body.blob_kzg_commitments,
-                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                kzg_commitment_to_versioned_hash(it))
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
                 FixedBytes[32] blck.parent_root.data)

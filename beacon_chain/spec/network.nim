@@ -11,11 +11,13 @@ import
   "."/[helpers, forks],
   "."/datatypes/base
 
+from std/algorithm import sort, upperBound
+
 export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
@@ -118,11 +120,11 @@ func compute_subnet_for_blob_sidecar*(
       cfg.BLOB_SIDECAR_SUBNET_COUNT
   BlobId(blob_index mod subnetCount)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
@@ -173,53 +175,46 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
-type GossipState* = set[ConsensusFork]
-func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH, ELECTRA_FORK_EPOCH,  FULU_FORK_EPOCH: Epoch,
-    isBehind: bool):
+type GossipState* = HashSet[Epoch]
+func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     GossipState =
   if isBehind:
-    return {}
+    return static(HashSet[Epoch]())
 
-  doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
-  doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
-  doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
-  doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
-  doAssert FULU_FORK_EPOCH >= ELECTRA_FORK_EPOCH
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  var epochs = newSeqOfCap[Epoch](
+    int(high(ConsensusFork)) + 1 + len(cfg.BLOB_SCHEDULE))
+  for bpo in cfg.BLOB_SCHEDULE:
+    epochs.add bpo.EPOCH
+  epochs.add GENESIS_EPOCH
+  epochs.add cfg.ALTAIR_FORK_EPOCH
+  epochs.add cfg.BELLATRIX_FORK_EPOCH
+  epochs.add cfg.CAPELLA_FORK_EPOCH
+  epochs.add cfg.DENEB_FORK_EPOCH
+  epochs.add cfg.ELECTRA_FORK_EPOCH
+  epochs.add cfg.FULU_FORK_EPOCH
 
-  # https://github.com/ethereum/consensus-specs/issues/2902
-  # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
-  # BELLATRIX_FORK_EPOCH == CAPELLA_FORK_EPOCH works, because those
-  # theoretically possible networks are ill-defined regardless, and
-  # consequently prohibited by checkForkConsistency(). Therefore, a
-  # transitional epoch always exists, for every fork.
-  var targetForks: GossipState
+  # Fusaka, Glamsterdam, and further forks' BPOs epochs interleave with fork
+  # epochs; ensure they're treated uniformly.
+  epochs.sort()
 
-  template maybeIncludeFork(
-      targetFork: ConsensusFork, targetForkEpoch: Epoch,
-      successiveForkEpoch: Epoch) =
-    # Subscribe one epoch ahead
-    if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
-      targetForks.incl targetFork
+  # Either the next epoch marker:
+  # (a) doesn't exist, because the chain is past all the known transitions;
+  # (b) points to a next epoch 1 epoch away; or
+  # (c) points to a next epoch more than 1 epoch away.
+  #
+  # (a) and (c) result in a single-epoch return, (b) in both current and next
+  # epoch boundaries.
 
-  maybeIncludeFork(
-    ConsensusFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     ELECTRA_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FULU_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Fulu,      FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+  # Because GENESIS_EPOCH is always present, should never be 0.
+  let nextEpochIdx = upperBound(epochs, epoch)
+  doAssert nextEpochIdx > 0
 
-  doAssert len(targetForks) <= 2
-  targetForks
+  let curEpochBoundary = epochs[nextEpochIdx - 1]
+  if nextEpochIdx == len(epochs) or epochs[nextEpochIdx] > epoch + 1: # (a)/(c)
+    toHashSet([curEpochBoundary])
+  else:                                                               # (b)
+    toHashSet([curEpochBoundary, epochs[nextEpochIdx]])
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability

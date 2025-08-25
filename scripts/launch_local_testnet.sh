@@ -1060,7 +1060,7 @@ if ((SIGNER_NODES > 0)); then
   for NUM_REMOTE in $(seq 0 $LAST_SIGNER_NODE_IDX); do
     # TODO find some way for this and other background-launched processes to
     # still participate in set -e, ideally
-    source "${SCRIPTS_DIR}/signers/${SIGNER_TYPE}.sh" $NUM_REMOTE
+    source "${SCRIPTS_DIR}/signers/${SIGNER_TYPE}.sh" $NUM_REMOTE $CONST_PRESET
   done
 fi
 

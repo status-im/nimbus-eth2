@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,7 @@ suite "Light client processor" & preset():
       lcDataConfig = LightClientDataConfig(
         serve: true,
         importMode: LightClientDataImportMode.OnlyNew))
-    quarantine = newClone(Quarantine.init())
+    quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
   var verifier =BatchVerifier.init(rng, taskpool)
@@ -100,7 +100,7 @@ suite "Light client processor" & preset():
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
           store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
-        res: Result[bool, VerifierError]
+        res: Result[bool, LightClientVerifierError]
 
     test "Sync" & testNameSuffix:
       var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
@@ -173,7 +173,7 @@ suite "Light client processor" & preset():
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isErr
-                      res.error == VerifierError.Duplicate
+                      res.error == LightClientVerifierError.Duplicate
                       forkyStore.best_valid_update.isSome
                       forkyStore.best_valid_update.get.matches(forkyUpdate)
             else:
@@ -184,7 +184,7 @@ suite "Light client processor" & preset():
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
-                    res.error == VerifierError.MissingParent
+                    res.error == LightClientVerifierError.MissingParent
                     forkyStore.best_valid_update.isSome
                     not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
@@ -204,7 +204,7 @@ suite "Light client processor" & preset():
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
-                    res.error == VerifierError.Duplicate
+                    res.error == LightClientVerifierError.Duplicate
                     forkyStore.best_valid_update.isSome
                     forkyStore.best_valid_update.get.matches(forkyUpdate)
             else:
@@ -215,7 +215,7 @@ suite "Light client processor" & preset():
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
-                    res.error == VerifierError.MissingParent
+                    res.error == LightClientVerifierError.MissingParent
                     forkyStore.best_valid_update.isSome
                     not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
@@ -237,7 +237,7 @@ suite "Light client processor" & preset():
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
-                  res.error == VerifierError.Duplicate
+                  res.error == LightClientVerifierError.Duplicate
                   forkyStore.best_valid_update.isNone
                 if forkyStore.finalized_header == forkyUpdate.attested_header:
                   break
@@ -251,7 +251,7 @@ suite "Light client processor" & preset():
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
-                  res.error == VerifierError.Duplicate
+                  res.error == LightClientVerifierError.Duplicate
                   forkyStore.best_valid_update.isSome
                   forkyStore.best_valid_update.get.matches(forkyUpdate)
           else:
@@ -262,7 +262,7 @@ suite "Light client processor" & preset():
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
-                  res.error == VerifierError.MissingParent
+                  res.error == LightClientVerifierError.MissingParent
                   forkyStore.best_valid_update.isSome
                   not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
@@ -318,9 +318,9 @@ suite "Light client processor" & preset():
               forkyStore.best_valid_update.get.matches(forkyUpdate)
               forkyStore.optimistic_header == forkyUpdate.attested_header
       elif finalizationMode == LightClientFinalizationMode.Optimistic:
-        check res.error == VerifierError.Duplicate
+        check res.error == LightClientVerifierError.Duplicate
       else:
-        check res.error == VerifierError.MissingParent
+        check res.error == LightClientVerifierError.MissingParent
       check numOnStoreInitializedCalls == 1
 
     test "Invalid bootstrap" & testNameSuffix:
@@ -334,7 +334,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
         res.isErr
-        res.error == VerifierError.Invalid
+        res.error == LightClientVerifierError.Invalid
         numOnStoreInitializedCalls == 0
 
     test "Duplicate bootstrap" & testNameSuffix:
@@ -352,7 +352,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
         res.isErr
-        res.error == VerifierError.Duplicate
+        res.error == LightClientVerifierError.Duplicate
         numOnStoreInitializedCalls == 1
 
     test "Missing bootstrap (update)" & testNameSuffix:
@@ -365,7 +365,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), update)
       check:
         res.isErr
-        res.error == VerifierError.MissingParent
+        res.error == LightClientVerifierError.MissingParent
         numOnStoreInitializedCalls == 0
 
     test "Missing bootstrap (finality update)" & testNameSuffix:
@@ -378,7 +378,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), finalityUpdate)
       check:
         res.isErr
-        res.error == VerifierError.MissingParent
+        res.error == LightClientVerifierError.MissingParent
         numOnStoreInitializedCalls == 0
 
     test "Missing bootstrap (optimistic update)" & testNameSuffix:
@@ -391,5 +391,5 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), optimisticUpdate)
       check:
         res.isErr
-        res.error == VerifierError.MissingParent
+        res.error == LightClientVerifierError.MissingParent
         numOnStoreInitializedCalls == 0

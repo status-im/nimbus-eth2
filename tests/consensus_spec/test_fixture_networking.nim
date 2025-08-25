@@ -35,7 +35,8 @@ proc runComputeForCustodyGroup(suiteName, path: string) =
       custody_group = meta.custody_group
 
     var counter = 0
-    for column in compute_columns_for_custody_group(custody_group):
+    for column in compute_columns_for_custody_group(
+        defaultRuntimeConfig, custody_group):
       check column == meta.result[counter]
       inc counter
 
@@ -56,7 +57,8 @@ proc runGetCustodyGroups(suiteName, path: string) =
       node_id = UInt256.fromDecimal(meta.node_id)
       custody_group_count = meta.custody_group_count
 
-    let columns = get_custody_groups(node_id, custody_group_count)
+    let columns = defaultRuntimeConfig.get_custody_groups(
+      node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
       check columns[i] == meta.result[i]

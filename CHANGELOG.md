@@ -1,3 +1,18 @@
+2025-07-31 v25.7.1
+==================
+
+Nimbus `v25.7.1` is a `medium-urgency` release, fixing a potential syncing-related crash.
+
+### Improvements
+
+- Use Nimbus agent string for builder API calls:
+  https://github.com/status-im/nimbus-eth2/pull/7300
+
+### Fixes
+
+- Fix assertion on syncing:
+  https://github.com/status-im/nimbus-eth2/pull/7315
+
 2025-07-10 v25.7.0
 ==================
 

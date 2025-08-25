@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Uncategorized helper functions from the spec
 
@@ -227,9 +227,8 @@ func verify_blob_sidecar_inclusion_proof*(
   ok()
 
 func create_blob_sidecars*(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock,
-    kzg_proofs: KzgProofs,
+    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    kzg_proofs: deneb.KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments
@@ -380,7 +379,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
@@ -408,34 +407,23 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState,
-    body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
-          bellatrix.SigVerifiedBeaconBlockBody |
-          capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
-          capella.SigVerifiedBeaconBlockBody |
-          deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
-          deneb.SigVerifiedBeaconBlockBody |
-          electra.BeaconBlockBody | electra.TrustedBeaconBlockBody |
-          electra.SigVerifiedBeaconBlockBody |
-          fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
-          fulu.SigVerifiedBeaconBlockBody): bool =
-  const defaultExecutionPayload = default(typeof(body.execution_payload))
-  not is_merge_transition_complete(state) and
-    body.execution_payload != defaultExecutionPayload
+    body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody): bool =
+  when body is SomeForkyBlindedBeaconBlockBody:
+    const defaultExecutionPayload = default(typeof(body.execution_payload_header))
+    not is_merge_transition_complete(state) and
+      body.execution_payload_header != defaultExecutionPayload
+  elif typeof(body).kind >= ConsensusFork.Bellatrix:
+    const defaultExecutionPayload = default(typeof(body.execution_payload))
+    not is_merge_transition_complete(state) and
+      body.execution_payload != defaultExecutionPayload
+  else:
+    false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState,
-    body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
-          bellatrix.SigVerifiedBeaconBlockBody |
-          capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
-          capella.SigVerifiedBeaconBlockBody |
-          deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
-          deneb.SigVerifiedBeaconBlockBody |
-          electra.BeaconBlockBody | electra.TrustedBeaconBlockBody |
-          electra.SigVerifiedBeaconBlockBody |
-          fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
-          fulu.SigVerifiedBeaconBlockBody): bool =
+    body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot

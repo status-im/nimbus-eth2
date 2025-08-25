@@ -54,12 +54,13 @@ type
     count: int
 
   SidecarQuarantine[A, B] = object
+    minEpochsForSidecarsRequests: uint64
     maxMemSidecarsCount: int
     memSidecarsCount: int
     maxDiskSidecarsCount: int
     diskSidecarsCount: int
     maxSidecarsPerBlockCount: int
-    custodyColumns: seq[ColumnIndex]
+    custodyColumns*: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     memUsage: OrderedSet[Eth2Digest]
@@ -71,7 +72,7 @@ type
   OnBlobSidecarCallback* = proc(
     data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
   OnDataColumnSidecarCallback* = proc(
-    data: DataColumnSidecar) {.gcsafe, raises: [].}
+    data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
@@ -635,15 +636,20 @@ func fetchMissingSidecars*(
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
-): seq[DataColumnIdentifier] =
-  ## Function returns sequence of DataColumnIdentifier's for data columns which
-  ## are missing for block associated with root ``blockRoot`` and block ``blck``.
-  var res: seq[DataColumnIdentifier]
+): DataColumnsByRootIdentifier =
+  ## Function returns a DataColumnsByRootIdentifier for data columns
+  ## which are missing for the block associated with root ``blockRoot`` and
+  ## block ``blck``.
+  ##
+  ## Note: If there is no missing columns - DataColumnByRootIdentifier.indices
+  ## array will be empty.
+  var res: seq[ColumnIndex]
   let record = quarantine.roots.getOrDefault(blockRoot)
 
   if len(blck.message.body.blob_kzg_commitments) == 0:
-    # Fast-path if block do not have any columns
-    return res
+    # Fast-path if block does not have any columns
+    return DataColumnsByRootIdentifier(
+      block_root: blockRoot, indices: DataColumnIndices(res))
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -667,11 +673,13 @@ func fetchMissingSidecars*(
           # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
           # columns.
           break
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
+        res.add(column)
         inc(columnsRequested)
     else:
       if record.count >= columnsCount:
-        return res
+        return
+          DataColumnsByRootIdentifier(
+            block_root: blockRoot, indices: DataColumnIndices(res))
       var columnsRequested = 0
       for column in columns:
         if record.count + columnsRequested >= columnsCount:
@@ -680,7 +688,7 @@ func fetchMissingSidecars*(
           break
         let index = quarantine.getIndex(column)
         if (index == -1) or record.sidecars[index].isEmpty():
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
+          res.add(column)
           inc(columnsRequested)
   else:
     let peerMap =
@@ -690,21 +698,68 @@ func fetchMissingSidecars*(
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
       for column in (peerMap and quarantine.custodyMap).items():
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
+        res.add(column)
     else:
       for column in (peerMap and quarantine.custodyMap).items():
         let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isEmpty():
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-  res
+        if (index == -1) or (record.sidecars[index].isEmpty()):
+          res.add(column)
 
-proc pruneAfterFinalization*[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    epoch: Epoch
+  DataColumnsByRootIdentifier(
+    block_root: blockRoot, indices: DataColumnIndices(res))
+
+proc pruneAfterFinalization*(
+    quarantine: var BlobQuarantine,
+    epoch: Epoch,
+    backfillNeeded: bool
 ) =
-  let epochSlot = (epoch + 1).start_slot()
-  var rootsToRemove: seq[Eth2Digest]
+  let
+    startEpoch =
+      if backfillNeeded:
+        # Because BlobQuarantine could be used as temporary storage for incoming
+        # blob sidecars, we should not prune blobs which are behind
+        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
+        # be able to backfill blobs.
+        if epoch < quarantine.minEpochsForSidecarsRequests:
+          Epoch(0)
+        else:
+          epoch - quarantine.minEpochsForSidecarsRequests
+      else:
+        epoch
+    epochSlot = (startEpoch + 1).start_slot()
 
+  var rootsToRemove: seq[Eth2Digest]
+  for mkey, mrecord in quarantine.roots.mpairs():
+    if (mrecord.count > 0) and (mrecord.slot < epochSlot):
+      rootsToRemove.add(mkey)
+
+  for root in rootsToRemove:
+    quarantine.removeRoot(root)
+
+proc pruneAfterFinalization*(
+    quarantine: var ColumnQuarantine,
+    epoch: Epoch,
+    backfillNeeded: bool
+) =
+  # TODO: In this procedure `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS`
+  # should be used instead of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`, but it
+  # was unavailable in the moment of this code being written.
+  let
+    startEpoch =
+      if backfillNeeded:
+        # Because ColumnQuarantine could be used as temporary storage for
+        # incoming data column sidecars, we should not prune data columns which
+        # are behind `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` epoch.
+        # Otherwise we will not be able to backfill data columns.
+        if epoch < quarantine.minEpochsForSidecarsRequests:
+          Epoch(0)
+        else:
+          epoch - quarantine.minEpochsForSidecarsRequests
+      else:
+        epoch
+    epochSlot = (startEpoch + 1).start_slot()
+
+  var rootsToRemove: seq[Eth2Digest]
   for mkey, mrecord in quarantine.roots.mpairs():
     if (mrecord.count > 0) and (mrecord.slot < epochSlot):
       rootsToRemove.add(mkey)
@@ -743,7 +798,10 @@ proc init*(
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   BlobQuarantine(
-    maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
+    minEpochsForSidecarsRequests:
+      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+    maxSidecarsPerBlockCount:
+      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
     memSidecarsCount: 0,
@@ -759,7 +817,7 @@ proc init*(
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onBlobSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
@@ -779,6 +837,9 @@ proc init*(
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   ColumnQuarantine(
+    minEpochsForSidecarsRequests:
+      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      # This should be changed to MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
@@ -788,5 +849,23 @@ proc init*(
     custodyColumns: @custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
     db: database,
-    onSidecarCallback: onBlobSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback
   )
+
+func updateColumnQuarantine*(
+    quarantine: ref ColumnQuarantine,
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex]) =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
+  for index, item in custodyColumns.pairs():
+    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+    indexMap[int(item)] = index
+
+  quarantine.maxSidecarsPerBlockCount = len(custodyColumns)
+  quarantine.indexMap = indexMap
+  quarantine.custodyColumns = @custodyColumns
+  quarantine.custodyMap = ColumnMap.init(custodyColumns)

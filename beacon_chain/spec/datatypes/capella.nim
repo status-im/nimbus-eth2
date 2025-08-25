@@ -22,13 +22,13 @@ import
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
-  ../digest,
+  ../[digest, ssz_codec],
   "."/[base, phase0, altair, bellatrix]
 
-export json_serialization, base
+export json_serialization, base, ssz_codec
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
@@ -634,6 +634,24 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals)
+  )
+
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+    withdrawals_root: shortLog(v.withdrawals_root),
   )
 
 func shortLog*(v: BLSToExecutionChange): auto =

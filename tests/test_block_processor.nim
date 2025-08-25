@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -15,7 +15,7 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/deneb,
+  ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
@@ -47,8 +47,9 @@ suite "Block processor" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     var
       taskpool = Taskpool.new()
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
+      dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
@@ -68,14 +69,12 @@ suite "Block processor" & preset():
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn)
+        validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
     discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let
-      missing = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+    let missing = await processor[].addBlock(
+      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
 
     check: missing.error == VerifierError.MissingParent
 
@@ -86,8 +85,7 @@ suite "Block processor" & preset():
 
     let
       status = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -133,15 +131,14 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
       processorFut = processor.runQueueProcessingLoop()
     defer: await processorFut.cancelAndWait()
 
     block:
       let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
@@ -149,8 +146,7 @@ suite "Block processor" & preset():
 
     block:
       let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -163,8 +159,7 @@ suite "Block processor" & preset():
 
     block:
       let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)

@@ -73,12 +73,32 @@ type
     F: HashArray[4, FixedTestStruct]
     G: HashArray[2, VarTestStruct]
 
+  ProgressiveTestStruct = object
+    A: seq[byte]
+    B: seq[uint64]
+    C: seq[SmallTestStruct]
+    D: seq[seq[VarTestStruct]]
+
   BitsStruct = object
     A: BitList[5]
     B: BitArray[2]
     C: BitArray[1]
     D: BitList[6]
     E: BitArray[8]
+
+  ProgressiveBitsStruct = object
+    A: BitArray[256]
+    B: BitList[256]
+    C: BitSeq
+    D: BitArray[257]
+    E: BitList[257]
+    F: BitSeq
+    G: BitArray[1280]
+    H: BitList[1280]
+    I: BitSeq
+    J: BitArray[1281]
+    K: BitList[1281]
+    L: BitSeq
 
 # Type specific checks
 # ------------------------------------------------------------------------
@@ -98,6 +118,34 @@ proc checkBasic(
   check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
+
+proc checkProgressiveList(
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+) {.raises: [
+    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+  var typeIdent: string
+  let wasMatched =
+    try:
+      scanf(sszSubType, "proglist_$+", typeIdent)
+    except ValueError:
+      false  # Parsed `size` is out of range
+  doAssert wasMatched
+
+  case typeIdent
+  of "bool":
+    checkBasic(seq[bool], dir, expectedHash)
+  of "uint8":
+    checkBasic(seq[uint8], dir, expectedHash)
+  of "uint16":
+    checkBasic(seq[uint16], dir, expectedHash)
+  of "uint32":
+    checkBasic(seq[uint32], dir, expectedHash)
+  of "uint64":
+    checkBasic(seq[uint64], dir, expectedHash)
+  of "uint128":
+    checkBasic(seq[UInt128], dir, expectedHash)
+  of "uint256":
+    checkBasic(seq[UInt256], dir, expectedHash)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
@@ -177,11 +225,17 @@ proc checkBitVector(
   of 3: checkBasic(BitArray[3], dir, expectedHash)
   of 4: checkBasic(BitArray[4], dir, expectedHash)
   of 5: checkBasic(BitArray[5], dir, expectedHash)
+  of 6: checkBasic(BitArray[6], dir, expectedHash)
+  of 7: checkBasic(BitArray[7], dir, expectedHash)
   of 8: checkBasic(BitArray[8], dir, expectedHash)
   of 9: checkBasic(BitArray[9], dir, expectedHash)
+  of 15: checkBasic(BitArray[15], dir, expectedHash)
   of 16: checkBasic(BitArray[16], dir, expectedHash)
+  of 17: checkBasic(BitArray[17], dir, expectedHash)
   of 31: checkBasic(BitArray[31], dir, expectedHash)
   of 32: checkBasic(BitArray[32], dir, expectedHash)
+  of 33: checkBasic(BitArray[33], dir, expectedHash)
+  of 511: checkBasic(BitArray[511], dir, expectedHash)
   of 512: checkBasic(BitArray[512], dir, expectedHash)
   of 513: checkBasic(BitArray[513], dir, expectedHash)
   else:
@@ -199,10 +253,17 @@ proc checkBitList(
     checkBasic(BitList[3], dir, expectedHash)
     checkBasic(BitList[4], dir, expectedHash)
     checkBasic(BitList[5], dir, expectedHash)
+    checkBasic(BitList[6], dir, expectedHash)
+    checkBasic(BitList[7], dir, expectedHash)
     checkBasic(BitList[8], dir, expectedHash)
+    checkBasic(BitList[9], dir, expectedHash)
+    checkBasic(BitList[15], dir, expectedHash)
     checkBasic(BitList[16], dir, expectedHash)
+    checkBasic(BitList[17], dir, expectedHash)
     checkBasic(BitList[31], dir, expectedHash)
     checkBasic(BitList[32], dir, expectedHash)
+    checkBasic(BitList[33], dir, expectedHash)
+    checkBasic(BitList[511], dir, expectedHash)
     checkBasic(BitList[512], dir, expectedHash)
     checkBasic(BitList[513], dir, expectedHash)
     return
@@ -221,10 +282,17 @@ proc checkBitList(
   of 3: checkBasic(BitList[3], dir, expectedHash)
   of 4: checkBasic(BitList[4], dir, expectedHash)
   of 5: checkBasic(BitList[5], dir, expectedHash)
+  of 6: checkBasic(BitList[6], dir, expectedHash)
+  of 7: checkBasic(BitList[7], dir, expectedHash)
   of 8: checkBasic(BitList[8], dir, expectedHash)
+  of 9: checkBasic(BitList[9], dir, expectedHash)
+  of 15: checkBasic(BitList[15], dir, expectedHash)
   of 16: checkBasic(BitList[16], dir, expectedHash)
+  of 17: checkBasic(BitList[17], dir, expectedHash)
   of 31: checkBasic(BitList[31], dir, expectedHash)
   of 32: checkBasic(BitList[32], dir, expectedHash)
+  of 33: checkBasic(BitList[33], dir, expectedHash)
+  of 511: checkBasic(BitList[511], dir, expectedHash)
   of 512: checkBasic(BitList[512], dir, expectedHash)
   of 513: checkBasic(BitList[513], dir, expectedHash)
   else:
@@ -237,6 +305,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
                ValueError, YamlConstructionError, YamlParserError].} =
   let dir = baseDir/sszSubType
+  checkpoint dir
 
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
@@ -265,6 +334,8 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
+  of "basic_progressive_list":
+    checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
@@ -280,9 +351,15 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
+    of "ProgressiveTestStruct":
+      checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
+    of "ProgressiveBitsStruct":
+      checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
+  of "progressive_bitlist":
+    checkBasic(BitSeq, dir, expectedHash)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -299,19 +376,14 @@ suite "EF - SSZ generic types":
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
-    var skipped: string
-    case sszType
-    of "containers":
-      skipped = " - skipping BitsStruct"
-
-    test &"Testing {sszType:12} inputs - valid" & skipped:
+    test &"Testing {sszType:12} inputs - valid":
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
         sszCheck(path, sszType, sszSubType)
 
-    test &"Testing {sszType:12} inputs - invalid" & skipped:
+    test &"Testing {sszType:12} inputs - invalid":
       let path = SSZDir/sszType/"invalid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):

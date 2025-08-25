@@ -5,46 +5,47 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
-# This module is responsible for handling beacon node validators, ie those that
-# that are running directly in the beacon node and not in a separate validator
-# client process - we name these "beacon validators" while those running
-# outside are "client validators".
-# This module also contains implementation logic for the REST validator API.
+## This module is responsible for handling beacon node validators, ie those that
+## that are running directly in the beacon node and not in a separate validator
+## client process - we name these "beacon validators" while those running
+## outside are "client validators".
 
 import
   # Standard library
   std/[os, tables],
 
   # Nimble packages
-  stew/[assign2, byteutils],
-  chronos, metrics,
-  chronicles, chronicles/timings,
-  json_serialization/std/[options, sets, net],
-  eth/db/kvstore,
+  stew/byteutils,
+  chronos,
+  metrics,
+  chronicles,
+  json_serialization/std/[sets, net],
   web3/primitives,
-  kzg4844,
 
   # Local modules
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
-    validator],
+    state_transition_block, validator,
+  ],
+  ../spec/mev/rest_mev_calls,
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance, attestation_pool,
-    sync_committee_msg_pool, validator_change_pool, consensus_manager,
-    common_tools],
+    spec_cache, blockchain_dag, attestation_pool, sync_committee_msg_pool,
+    validator_change_pool, consensus_manager, common_tools,
+  ],
   ../el/el_manager,
   ../networking/eth2_network,
-  ../sszdump, ../sync/sync_manager,
-  ../gossip_processing/block_processor,
-  ".."/[conf, beacon_clock, beacon_node],
-  "."/[
-    keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/[rest_electra_mev_calls, rest_fulu_mev_calls]
+  ../sszdump,
+  ../[conf, beacon_clock, beacon_node],
+  ./[
+    block_payloads, keystore_management, slashing_protection, validator_duties,
+    validator_pool,
+  ]
 
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
+from ./message_router_mev import unblindAndRouteBlockMEV
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -75,44 +76,6 @@ declarePublicGauge(attached_validator_balance_total,
 
 logScope: topics = "beacval"
 
-type
-  EngineBid = object
-    blck*: ForkedBeaconBlock
-    executionPayloadValue*: Wei
-    consensusBlockValue*: UInt256
-    blobsBundle*: deneb.BlobsBundle
-
-  BuilderBid[SBBB] = object
-    blindedBlckPart*: SBBB
-    executionRequests*: ExecutionRequests
-    executionPayloadValue*: UInt256
-    consensusBlockValue*: UInt256
-
-  ForkedBlockResult =
-    Result[EngineBid, string]
-  BlindedBlockResult[SBBB] =
-    Result[BuilderBid[SBBB], string]
-
-  Bids[SBBB] = object
-    engineBid: Opt[EngineBid]
-    builderBid: Opt[BuilderBid[SBBB]]
-
-  BoostFactorKind {.pure.} = enum
-    Local, Builder
-
-  BoostFactor = object
-    case kind: BoostFactorKind
-    of BoostFactorKind.Local:
-      value8: uint8
-    of BoostFactorKind.Builder:
-      value64: uint64
-
-func init(t: typedesc[BoostFactor], value: uint8): BoostFactor =
-  BoostFactor(kind: BoostFactorKind.Local, value8: value)
-
-func init(t: typedesc[BoostFactor], value: uint64): BoostFactor =
-  BoostFactor(kind: BoostFactorKind.Builder, value64: value)
-
 func getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
@@ -128,6 +91,16 @@ func blockConsensusValue(r: BlockRewards): UInt256 {.noinit.} =
   # Returns value of `block-consensus-value` in Wei units.
   u256(r.attestations + r.sync_aggregate +
     r.proposer_slashings + r.attester_slashings) * u256(1000000000)
+
+proc getFeeRecipient(node: BeaconNode,
+                     pubkey: ValidatorPubKey,
+                     validatorIdx: Opt[ValidatorIndex],
+                     epoch: Epoch): Eth1Address =
+  node.consensusManager[].getFeeRecipient(pubkey, validatorIdx, epoch)
+
+proc getGasLimit(node: BeaconNode,
+                 pubkey: ValidatorPubKey): uint64 =
+  node.consensusManager[].getGasLimit(pubkey)
 
 proc addValidatorsFromWeb3Signer(
     node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch)
@@ -147,9 +120,8 @@ proc addValidatorsFromWeb3Signer(
           Opt.some(data.get().index)
         else:
           Opt.none(ValidatorIndex)
-      feeRecipient =
-        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
-      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
+      feeRecipient = node.getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit = node.getGasLimit(keystore.pubkey)
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
@@ -168,9 +140,8 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
           Opt.some(data.get().index)
         else:
           Opt.none(ValidatorIndex)
-      feeRecipient = node.consensusManager[].getFeeRecipient(
-        keystore.pubkey, index, epoch)
-      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
+      feeRecipient = node.getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit = node.getGasLimit(keystore.pubkey)
 
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
@@ -197,10 +168,8 @@ proc pollForDynamicValidators*(node: BeaconNode,
     let
       epoch = node.currentSlot().epoch
       index = Opt.none(ValidatorIndex)
-      feeRecipient =
-        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
-      gasLimit =
-        node.consensusManager[].getGasLimit(keystore.pubkey)
+      feeRecipient = node.getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit = node.getGasLimit(keystore.pubkey)
     discard node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                    gasLimit)
 
@@ -367,904 +336,278 @@ proc createAndSendAttestation(node: BeaconNode,
       registered.toAttestation(signature), subnet_id,
       checkSignature = false, checkValidator = false)
 
-proc getFeeRecipient(node: BeaconNode,
-                     pubkey: ValidatorPubKey,
-                     validatorIdx: ValidatorIndex,
-                     epoch: Epoch): Eth1Address =
-  node.consensusManager[].getFeeRecipient(pubkey, Opt.some(validatorIdx), epoch)
-
-proc getGasLimit(node: BeaconNode,
-                 pubkey: ValidatorPubKey): uint64 =
-  node.consensusManager[].getGasLimit(pubkey)
-
-from web3/engine_api_types import PayloadExecutionStatus
-from ../spec/beaconstate import get_expected_withdrawals
-
-proc getExecutionPayload(
-    PayloadType: type ForkyExecutionPayloadForSigning,
-    node: BeaconNode, head: BlockRef, proposalState: ref ForkedHashedBeaconState,
-    validator_index: ValidatorIndex): Future[Opt[PayloadType]]
-    {.async: (raises: [CancelledError], raw: true).} =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
-
-  let
-    epoch = withState(proposalState[]):
-      forkyState.data.slot.epoch
-    feeRecipient = block:
-      let pubkey = node.dag.validatorKey(validator_index)
-      if pubkey.isNone():
-        warn "Cannot get proposer pubkey, bug?", validator_index
-        default(Eth1Address)
-      else:
-        node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
-
-    beaconHead = node.attestationPool[].getBeaconHead(head)
-    executionHead = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Bellatrix:
-        forkyState.data.latest_execution_payload_header.block_hash
-      else:
-        (static(default(Eth2Digest)))
-    latestSafe = beaconHead.safeExecutionBlockHash
-    latestFinalized = beaconHead.finalizedExecutionBlockHash
-    timestamp = withState(proposalState[]):
-      compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
-    random = withState(proposalState[]):
-      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
-    withdrawals = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Capella:
-        get_expected_withdrawals(forkyState.data)
-      else:
-        @[]
-
-  info "Requesting engine payload",
-    beaconHead = shortLog(beaconHead.blck),
-    executionHead = shortLog(executionHead),
-    validatorIndex = validator_index,
-    feeRecipient = $feeRecipient
-
-  node.elManager.getPayload(
-    PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-    latestFinalized, timestamp, random, feeRecipient, withdrawals)
-
-# BlockRewards has issues resolving somehow otherwise
-import ".."/spec/state_transition_block
-
-proc makeBeaconBlockForHeadAndSlot*(
-    PayloadType: type ForkyExecutionPayloadForSigning,
-    node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot,
-
-    # These parameters are for the builder API
-    execution_payload: Opt[PayloadType],
-    transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest],
-    withdrawals_root: Opt[Eth2Digest],
-    kzg_commitments: Opt[KzgCommitments],
-    builder_execution_requests: Opt[ExecutionRequests]):
-    Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
-  # Advance state to the slot that we're proposing for
-  var cache = StateCache()
-
-  let
-    # The clearance state already typically sits at the right slot per
-    # `advanceClearanceState`
-
-    # TODO can use `valueOr:`/`return err($error)` if/when
-    # https://github.com/status-im/nim-stew/issues/161 is addressed
-    maybeState = node.dag.getProposalState(head, slot, cache)
-
-  if maybeState.isErr:
-    beacon_block_production_errors.inc()
-    return err($maybeState.error)
-
-  let
-    state = maybeState.get
-    payloadFut =
-      if execution_payload.isSome:
-        # Builder API
-
-        # In Capella, only get withdrawals root from relay.
-        # The execution payload will be small enough to be safe to copy because
-        # it won't have transactions (it's blinded)
-        var modified_execution_payload = execution_payload
-        withState(state[]):
-          when  consensusFork >= ConsensusFork.Capella and
-                PayloadType.kind >= ConsensusFork.Capella:
-            let withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-              get_expected_withdrawals(forkyState.data))
-            if  withdrawals_root.isNone or
-                hash_tree_root(withdrawals) != withdrawals_root.get:
-              # If engine API returned a block, will use that
-              return err("Builder relay provided incorrect withdrawals root")
-            # Otherwise, the state transition function notices that there are
-            # too few withdrawals.
-            assign(modified_execution_payload.get.executionPayload.withdrawals,
-                   withdrawals)
-
-        let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
-          "given-payload")
-        fut.complete(modified_execution_payload)
-        fut
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-           not state[].is_merge_transition_complete:
-        let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
-          "empty-payload")
-        fut.complete(Opt.some(default(PayloadType)))
-        fut
-      else:
-        # Create execution payload while packing attestations
-        getExecutionPayload(PayloadType, node, head, state, validator_index)
-
-  let
-    attestations =
-      when PayloadType.kind >= ConsensusFork.Electra:
-        node.attestationPool[].getElectraAttestationsForBlock(state[], cache)
-      else:
-        node.attestationPool[].getAttestationsForBlock(state[], cache)
-    exits = withState(state[]):
-      node.validatorChangePool[].getBeaconBlockValidatorChanges(
-        node.dag.cfg, forkyState.data)
-    # TODO workaround for https://github.com/arnetheduck/nim-results/issues/34
-    payloadRes = await payloadFut
-    payload = payloadRes.valueOr:
-      beacon_block_production_errors.inc()
-      warn "Unable to get execution payload. Skipping block proposal",
-        slot, validator_index
-      return err("Unable to get execution payload")
-
-  let execution_requests_actual = builder_execution_requests.valueOr:
-    when PayloadType.kind >= ConsensusFork.Electra:
-      # Don't want un-decoded SSZ going any further/deeper
-      var
-        execution_requests_buffer: ExecutionRequests
-        prev_type: Opt[byte]
-      try:
-        for request_type_and_payload in payload.executionRequests:
-          if request_type_and_payload.len < 2:
-            return err("Execution layer request too short")
-
-          let request_type = request_type_and_payload[0]
-          if prev_type.isSome:
-            if request_type < prev_type.get:
-              return err("Execution layer request types not sorted")
-            if request_type == prev_type.get:
-              return err("Execution layer request types duplicated")
-          prev_type.ok request_type
-
-          template request_payload: untyped =
-            request_type_and_payload.toOpenArray(
-              1, request_type_and_payload.len - 1)
-          case request_type_and_payload[0]
-          of DEPOSIT_REQUEST_TYPE:
-            execution_requests_buffer.deposits =
-              SSZ.decode(request_payload,
-                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
-          of WITHDRAWAL_REQUEST_TYPE:
-            execution_requests_buffer.withdrawals =
-              SSZ.decode(request_payload,
-                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
-          of CONSOLIDATION_REQUEST_TYPE:
-            execution_requests_buffer.consolidations =
-              SSZ.decode(request_payload,
-                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
-          else:
-            return err("Execution layer invalid request type")
-      except CatchableError:
-        return err("Unable to deserialize execution layer requests")
-
-      execution_requests_buffer
-    else:
-      default(ExecutionRequests)  # won't be used by block builder
-
-  let res = makeBeaconBlockWithRewards(
-      node.dag.cfg,
-      state[],
-      validator_index,
-      randao_reveal,
-      Eth1Data(),
-      graffiti,
-      attestations,
-      @[],
-      exits,
-      node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
-      payload,
-      noRollback, # Temporary state - no need for rollback
-      cache,
-      verificationFlags = {},
-      transactions_root = transactions_root,
-      execution_payload_root = execution_payload_root,
-      kzg_commitments = kzg_commitments,
-      execution_requests = execution_requests_actual).mapErr do (error: cstring) -> string:
-    # This is almost certainly a bug, but it's complex enough that there's a
-    # small risk it might happen even when most proposals succeed - thus we
-    # log instead of asserting
-    beacon_block_production_errors.inc()
-    warn "Cannot create block for proposal",
-      slot, head = shortLog(head), error
-    $error
-
-  if res.isOk:
-    ok(EngineBid(
-      blck: res.get().blck,
-      executionPayloadValue: payload.blockValue,
-      consensusBlockValue: res.get().rewards.blockConsensusValue(),
-      blobsBundle:
-        when typeof(payload).kind >= ConsensusFork.Deneb:
-          payload.blobsBundle
-        else:
-          default(deneb.BlobsBundle)
-    ))
-  else:
-    err(res.error)
-
-# For VC, which only uses this for pre-Bellatrix blocks.
-# TODO move this into VC and just have it specify all these
-# Opt.none()'s directly
-proc makeBeaconBlockForHeadAndSlot*(
-    PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot):
-    Future[ForkedBlockResult] =
-  return makeBeaconBlockForHeadAndSlot(
-    PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
-    execution_payload = Opt.none(PayloadType),
-    transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest),
-    withdrawals_root = Opt.none(Eth2Digest),
-    kzg_commitments = Opt.none(KzgCommitments),
-    builder_execution_requests = static(Opt.none(ExecutionRequests)))
-
-proc getBlindedExecutionPayload[
-    EPH: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-         fulu_mev.BlindedExecutionPayloadAndBlobsBundle](
-    node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
-    executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey):
-    Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
-  # Not ideal to use `when` where instead of splitting into separate functions,
-  # but Nim doesn't overload on generic EPH type parameter.
-  when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-    let
-      response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderElectra(
-          slot, executionBlockHash, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          return err "Timeout obtaining Electra blinded header from builder"
-
-      res = decodeBytesJsonOrSsz(
-        GetHeaderResponseElectra, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
-
-      blindedHeader = res.valueOr:
-        return err(
-          "Unable to decode Electra blinded header: " & $res.error &
-            " with HTTP status " & $response.status & ", Content-Type " &
-            $response.contentType & " and content " & $response.data)
-  elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
-    debugFuluComment "Because fulu MEV isn't working yet, this is a placeholder copy"
-    let
-      response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderFulu(
-          slot, executionBlockHash, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          return err "Timeout obtaining Fulu blinded header from builder"
-
-      res = decodeBytesJsonOrSsz(
-        GetHeaderResponseFulu, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
-
-      blindedHeader = res.valueOr:
-        return err(
-          "Unable to decode Fulu blinded header: " & $res.error &
-            " with HTTP status " & $response.status & ", Content-Type " &
-            $response.contentType & " and content " & $response.data)
-  else:
-    static: doAssert false
-
-  const httpOk = 200
-  if response.status != httpOk:
-    return err "getBlindedExecutionPayload: non-200 HTTP response"
-  else:
-    if not verify_builder_signature(
-        node.dag.cfg.genesisFork, blindedHeader.data.message,
-        blindedHeader.data.message.pubkey, blindedHeader.data.signature):
-      return err "getBlindedExecutionPayload: signature verification failed"
-
-    template builderBid: untyped = blindedHeader.data.message
-    when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
-        EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
-      return ok(BuilderBid[EPH](
-        blindedBlckPart: EPH(
-          execution_payload_header: builderBid.header,
-          blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        executionRequests: builderBid.execution_requests,
-        executionPayloadValue: builderBid.value))
-    else:
-      static: doAssert false
-
-from ./message_router_mev import
-  copyFields, getFieldNames, unblindAndRouteBlockMEV
-
-func constructSignableBlindedBlock[T:
-      electra_mev.SignedBlindedBeaconBlock | fulu_mev.SignedBlindedBeaconBlock](
-    blck: electra.BeaconBlock | fulu.BeaconBlock,
-    blindedBundle:
-      electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-      fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
-    executionRequests: ExecutionRequests): T =
-  # Leaves signature field default, to be filled in by caller
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock.message, blck, blckFields)
-  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.message.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-  assign(
-    blindedBlock.message.body.execution_requests, executionRequests)
-
-  blindedBlock
-
-proc blindedBlockCheckSlashingAndSign[
-    T: electra_mev.SignedBlindedBeaconBlock |
-       fulu_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, slot: Slot, validator: AttachedValidator,
-    validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
-    Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
-  # Check with slashing protection before submitBlindedBlock
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    blockRoot = hash_tree_root(nonsignedBlindedBlock.message)
-    signingRoot = compute_block_signing_root(
-      fork, genesis_validators_root, slot, blockRoot)
-    notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
-
-  if notSlashable.isErr:
-    warn "Slashing protection activated for MEV block",
-      blockRoot = shortLog(blockRoot), blck = shortLog(nonsignedBlindedBlock),
-      signingRoot = shortLog(signingRoot), validator = validator.pubkey,
-      slot = slot, existingProposal = notSlashable.error
-    return err("MEV proposal would be slashable: " & $notSlashable.error)
-
-  var blindedBlock = nonsignedBlindedBlock
-  blindedBlock.signature = block:
-    let res = await validator.getBlockSignature(
-      fork, genesis_validators_root, slot, blockRoot, blindedBlock.message)
-    if res.isErr():
-      return err("Unable to sign block: " & res.error())
-    res.get()
-
-  return ok blindedBlock
-
-func getUnsignedBlindedBeaconBlock[
-    T: electra_mev.SignedBlindedBeaconBlock |
-       fulu_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, slot: Slot,
-    validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-                            fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
-    executionRequests: ExecutionRequests): Result[T, string] =
-  withBlck(forkedBlock):
-    when consensusFork >= ConsensusFork.Deneb:
-      when not (
-          (T is electra_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Electra) or
-          (T is fulu_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Fulu)):
-        return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
-      else:
-        return ok constructSignableBlindedBlock[T](
-          forkyBlck, executionPayloadHeader, executionRequests)
-    else:
-      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Deneb blinded block")
-
-proc getBlindedBlockParts[
-    EPH: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-         fulu_mev.BlindedExecutionPayloadAndBlobsBundle](
-    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
-    pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes):
-    Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock, ExecutionRequests), string]]
-    {.async: (raises: [CancelledError]).} =
-  let
-    executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
-      # With checkpoint sync, the checkpoint block may be unavailable,
-      # and it could already be the parent of the new block before backfill.
-      # Fallback to EL, hopefully the block is available on the local path.
-      warn "Failed to load parent execution block hash, skipping block builder",
-        slot, validator_index, head = shortLog(head)
-      return err("loadExecutionBlockHash failed")
-
-    blindedBlockRes =
-      try:
-        awaitWithTimeout(
-            getBlindedExecutionPayload[EPH](
-              node, payloadBuilderClient, slot, executionBlockHash, pubkey),
-            BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
-      except RestDecodingError as exc:
-        BlindedBlockResult[EPH].err(
-          "getBlindedExecutionPayload REST decoding error: " & exc.msg)
-      except RestError as exc:
-        BlindedBlockResult[EPH].err(
-          "getBlindedExecutionPayload REST error: " & exc.msg)
-
-  if blindedBlockRes.isErr:
-    warn "Could not obtain blinded execution payload header",
-      error = blindedBlockRes.error, slot, validator_index,
-      head = shortLog(head)
-    # Haven't committed to the MEV block, so allow EL fallback.
-    return err(blindedBlockRes.error)
-
-  # When creating this block, need to ensure it uses the MEV-provided execution
-  # payload, both to avoid repeated calls to network services and to ensure the
-  # consistency of this block (e.g., its state root being correct). Since block
-  # processing does not work directly using blinded blocks, fix up transactions
-  # root after running the state transition function on an otherwise equivalent
-  # non-blinded block without transactions.
-  #
-  # This doesn't have withdrawals, which each node has regardless of engine or
-  # builder API. makeBeaconBlockForHeadAndSlot fills it in later.
-  when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-    type PayloadType = electra.ExecutionPayloadForSigning
-    template actualEPH: untyped =
-      blindedBlockRes.get.blindedBlckPart.execution_payload_header
-    let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
-      kzg_commitments = Opt.some(
-        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests
-
-    var shimExecutionPayload: PayloadType
-    type ElectraEPH =
-      electra_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
-    copyFields(
-      shimExecutionPayload.executionPayload, actualEPH, getFieldNames(ElectraEPH))
-  elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
-    debugFuluComment "verify (again, after change) this is what builder API needs"
-    type PayloadType = fulu.ExecutionPayloadForSigning
-    template actualEPH: untyped =
-      blindedBlockRes.get.blindedBlckPart.execution_payload_header
-    let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
-      kzg_commitments = Opt.some(
-        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests
-
-    var shimExecutionPayload: PayloadType
-    type FuluEPH =
-      fulu_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
-    copyFields(
-      shimExecutionPayload.executionPayload, actualEPH, getFieldNames(FuluEPH))
-  else:
-    static: doAssert false
-
-  let newBlock = await makeBeaconBlockForHeadAndSlot(
-    PayloadType, node, randao, validator_index, graffiti, head, slot,
-    execution_payload = Opt.some shimExecutionPayload,
-    transactions_root = Opt.some actualEPH.transactions_root,
-    execution_payload_root = Opt.some hash_tree_root(actualEPH),
-    withdrawals_root = withdrawals_root,
-    kzg_commitments = kzg_commitments,
-    builder_execution_requests = Opt.some execution_requests)
-
-  if newBlock.isErr():
-    # Haven't committed to the MEV block, so allow EL fallback.
-    return err(newBlock.error)  # already logged elsewhere!
-
-  let forkedBlck = newBlock.get()
-
-  return ok(
-    (blindedBlockRes.get.blindedBlckPart,
-     blindedBlockRes.get.executionPayloadValue, forkedBlck.consensusBlockValue,
-     forkedBlck.blck, execution_requests))
-
-proc getBuilderBid[
-    SBBB: electra_mev.SignedBlindedBeaconBlock |
-          fulu_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
-    validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
-    graffitiBytes: GraffitiBytes, validator_index: ValidatorIndex):
-    Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
-  ## Returns the unsigned blinded block obtained from the Builder API.
-  ## Used by the BN's own validators, but not the REST server
-  when SBBB is electra_mev.SignedBlindedBeaconBlock:
-    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif SBBB is fulu_mev.SignedBlindedBeaconBlock:
-    type EPH = fulu_mev.BlindedExecutionPayloadAndBlobsBundle
-  else:
-    static: doAssert false
-
-  let blindedBlockParts = await getBlindedBlockParts[EPH](
-    node, payloadBuilderClient, head, validator_pubkey, slot, randao,
-    validator_index, graffitiBytes)
-  if blindedBlockParts.isErr:
-    # Not signed yet, fine to try to fall back on EL
-    beacon_block_builder_missed_with_fallback.inc()
-    return err blindedBlockParts.error()
-
-  # These, together, get combined into the blinded block for signing and
-  # proposal through the relay network.
-  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck,
-       executionRequests) =
-    blindedBlockParts.get
-
-  let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
-    node, slot, validator_index, forkedBlck, executionPayloadHeader,
-    executionRequests)
-
-  if unsignedBlindedBlock.isErr:
-    return err unsignedBlindedBlock.error()
-
-  when SBBB is electra_mev.SignedBlindedBeaconBlock or
-       SBBB is fulu_mev.SignedBlindedBeaconBlock:
-    return ok(BuilderBid[SBBB](
-      blindedBlckPart: unsignedBlindedBlock.get,
-      executionRequests: executionRequests,
-      executionPayloadValue: bidValue,
-      consensusBlockValue: consensusValue))
-  else:
-    static: doAssert false
-
-proc proposeBlockMEV(
-    node: BeaconNode, payloadBuilderClient: RestClientRef,
-    blindedBlock:
-      electra_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock):
-    Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
-  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
-    payloadBuilderClient, blindedBlock)
-  return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
-    beacon_blocks_proposed.inc()
-    ok(unblindedBlockRef.get.get)
-  else:
-    # unblindedBlockRef.isOk and unblindedBlockRef.get.isNone indicates that
-    # the block failed to validate and integrate into the DAG, which for the
-    # purpose of this return value, is equivalent. It's used to drive Beacon
-    # REST API output.
-    #
-    # https://collective.flashbots.net/t/post-mortem-april-3rd-2023-mev-boost-relay-incident-and-related-timing-issue/1540
-    # has caused false positives, because
-    # "A potential mitigation to this attack is to introduce a cutoff timing
-    # into the proposer's slot whereafter this time (e.g. 3 seconds) the relay
-    # will no longer return a block to the proposer. Relays began to roll out
-    # this mitigation in the evening of April 3rd UTC time with a 2 second
-    # cutoff, and notified other relays to do the same. After receiving
-    # credible reports of honest validators missing their slots the suggested
-    # timing cutoff was increased to 3 seconds."
-    let errMsg =
-      if unblindedBlockRef.isErr:
-        unblindedBlockRef.error
-      else:
-        "Unblinded block not returned to proposer"
-    err errMsg
-
-func isExcludedTestnet(cfg: RuntimeConfig): bool =
-  ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID in [
-    17000'u64, 560048]  # Holesky and Hoodi, respectively
-
-proc collectBids(
-    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
-    payloadBuilderClient: RestClientRef, validator_pubkey: ValidatorPubKey,
-    validator_index: ValidatorIndex, graffitiBytes: GraffitiBytes,
-    head: BlockRef, slot: Slot,
-    randao: ValidatorSig): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
-  let usePayloadBuilder =
-    if not payloadBuilderClient.isNil:
-      withState(node.dag.headState):
-        # Head slot, not proposal slot, matters here
-        # TODO it might make some sense to allow use of builder API if local
-        # EL fails -- i.e. it would change priorities, so any block from the
-        # execution layer client would override builder API. But it seems an
-        # odd requirement to produce no block at all in those conditions.
-        (node.dag.cfg.isExcludedTestnet) or (not livenessFailsafeInEffect(
-          forkyState.data.block_roots.data, forkyState.data.slot))
-    else:
-      false
-
-  let
-    payloadBuilderBidFut =
-      if usePayloadBuilder:
-        # TODO apparently some capella support still here?
-        when not (EPS is bellatrix.ExecutionPayloadForSigning):
-          getBuilderBid[SBBB](node, payloadBuilderClient, head,
-                              validator_pubkey, slot, randao, graffitiBytes,
-                              validator_index)
-        else:
-          let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
-          fut.complete(BlindedBlockResult[SBBB].err(
-            "Bellatrix Builder API unsupported"))
-          fut
-      else:
-        let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
-        fut.complete(BlindedBlockResult[SBBB].err(
-          "either payload builder disabled or liveness failsafe active"))
-        fut
-    engineBlockFut = makeBeaconBlockForHeadAndSlot(
-      EPS, node, randao, validator_index, graffitiBytes, head, slot)
-
-  # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
-  # second for remote validators. makeBeaconBlockForHeadAndSlot times out after
-  # 1 second.
-  await allFutures(payloadBuilderBidFut, engineBlockFut)
-  doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
-
-  let builderBid =
-    if payloadBuilderBidFut.completed:
-      if payloadBuilderBidFut.value().isOk:
-        Opt.some(payloadBuilderBidFut.value().value())
-      elif usePayloadBuilder:
-        notice "Payload builder error",
-          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = payloadBuilderBidFut.value().error()
-        Opt.none(BuilderBid[SBBB])
-      else:
-        # Effectively the same case, but without the log message
-        Opt.none(BuilderBid[SBBB])
-    else:
-      notice "Payload builder bid request failed",
-        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-        err = payloadBuilderBidFut.error.msg
-      Opt.none(BuilderBid[SBBB])
-
-  let engineBid =
-    if engineBlockFut.completed:
-      if engineBlockFut.value.isOk:
-        Opt.some(engineBlockFut.value().value())
-      else:
-        notice "Engine block building error",
-          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = engineBlockFut.value.error()
-        Opt.none(EngineBid)
-    else:
-      notice "Engine block building failed",
-        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-        err = engineBlockFut.error.msg
-      Opt.none(EngineBid)
-
-  Bids[SBBB](
-    engineBid: engineBid,
-    builderBid: builderBid)
-
-func builderBetterBid(localBlockValueBoost: uint8,
-                      builderValue: UInt256, engineValue: Wei): bool =
-  # Scale down to ensure no overflows; if lower few bits would have been
-  # otherwise decisive, was close enough not to matter. Calibrate to let
-  # uint8-range percentages avoid overflowing.
-  const scalingBits = 10
-  static: doAssert 1 shl scalingBits >
-    high(typeof(localBlockValueBoost)).uint16 + 100
-  let
-    scaledBuilderValue = (builderValue shr scalingBits) * 100
-    scaledEngineValue = engineValue shr scalingBits
-  scaledBuilderValue >
-    scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
-
-func builderBetterBid*(builderBoostFactor: uint64,
-                       builderValue: UInt256, engineValue: Wei): bool =
-  if builderBoostFactor == 0'u64:
-    false
-  elif builderBoostFactor == 100'u64:
-    builderValue >= engineValue
-  elif builderBoostFactor == high(uint64):
-    true
-  else:
-    let
-      multiplier = builderBoostFactor.u256
-      multipledBuilderValue = builderValue * multiplier
-      overflow =
-        if builderValue == UInt256.zero:
-          false
-        else:
-          builderValue != multipledBuilderValue div multiplier
-
-    if overflow:
-      # In case of overflow we will use `builderValue`.
-      true
-    else:
-      (multipledBuilderValue div 100) >= engineValue
-
-func builderBetterBid(boostFactor: BoostFactor, builderValue: UInt256,
-                      engineValue: Wei): bool =
-  case boostFactor.kind
-  of BoostFactorKind.Local:
-    builderBetterBid(boostFactor.value8, builderValue, engineValue)
-  of BoostFactorKind.Builder:
-    builderBetterBid(boostFactor.value64, builderValue, engineValue)
-
-proc proposeBlockAux(
-    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
-    validator: AttachedValidator, validator_index: ValidatorIndex,
-    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
-    genesis_validators_root: Eth2Digest,
-    localBlockValueBoost: uint8
-): Future[BlockRef] {.async: (raises: [CancelledError]).} =
-  let
-    boostFactor = BoostFactor.init(localBlockValueBoost)
-    graffitiBytes = node.getGraffitiBytes(validator)
-    payloadBuilderClient =
-      node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
-
-    collectedBids = await collectBids(
-      SBBB, EPS, node, payloadBuilderClient, validator.pubkey, validator_index,
-      graffitiBytes, head, slot, randao)
-
-    useBuilderBlock =
-      if collectedBids.builderBid.isSome():
-        collectedBids.engineBid.isNone() or builderBetterBid(
-          boostFactor,
-          collectedBids.builderBid.value().executionPayloadValue,
-          collectedBids.engineBid.value().executionPayloadValue)
-      else:
-        if not collectedBids.engineBid.isSome():
-          return head   # errors logged in router
-        false
-
-  # There should always be an engine bid, and if payloadBuilderClient exists,
-  # not getting a builder bid is also an error. Do not report lack of builder
-  # when that's intentional. Replicate some of the nested if statements here,
-  # because that avoids entangling logging with other functionality. The logs
-  # here are inteded to clarify that, for example, when the builder API relay
-  # URL is provided for this validator, it's reasonable for Nimbus not to use
-  # it for every block.
-  if collectedBids.engineBid.isSome():
-    # Three cases: builder bid expected and absent, builder bid expected and
-    # present, and builder bid not expected.
-    if collectedBids.builderBid.isSome():
-      info "Compared engine and builder block bids",
-        localBlockValueBoost,
-        useBuilderBlock,
-        builderBlockValue =
-          toString(collectedBids.builderBid.value().executionPayloadValue, 10),
-        engineBlockValue =
-          toString(collectedBids.engineBid.value().executionPayloadValue, 10)
-    elif payloadBuilderClient.isNil:
-      discard  # builder API not configured for this block
-    else:
-      info "Did not receive expected builder bid; using engine block",
-        engineBlockValue = collectedBids.engineBid.value().executionPayloadValue
-  else:
-    # Similar three cases: builder bid expected and absent, builder bid
-    # expected and present, and builder bid not expected. However, only
-    # the second is worth logging, because the other two result in this
-    # block being missed altogether, and with details logged elsewhere.
-    if collectedBids.builderBid.isSome:
-      info "Did not receive expected engine bid; using builder block",
-        builderBlockValue =
-          collectedBids.builderBid.value().executionPayloadValue
-
-  if useBuilderBlock:
-    let
-      blindedBlock = (await blindedBlockCheckSlashingAndSign(
-        node, slot, validator, validator_index,
-        collectedBids.builderBid.value().blindedBlckPart)).valueOr:
-          return head
-      # Before proposeBlockMEV, can fall back to EL; after, cannot without
-      # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(
-        node, payloadBuilderClient, blindedBlock)
-
-    return maybeUnblindedBlock.valueOr:
-      warn "Blinded block proposal incomplete",
-        head = shortLog(head), slot, validator_index,
-        validator = shortLog(validator),
-        err = maybeUnblindedBlock.error,
-        blindedBlck = shortLog(blindedBlock)
-      beacon_block_builder_missed_without_fallback.inc()
-      return head
-
-  let engineBid = collectedBids.engineBid.value()
-
-  withBlck(engineBid.blck):
-    let
-      blockRoot = hash_tree_root(forkyBlck)
-      signingRoot = compute_block_signing_root(
-        fork, genesis_validators_root, slot, blockRoot)
-
-      notSlashable = node.attachedValidators
-        .slashingProtection
-        .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
-
-    if notSlashable.isErr:
-      warn "Slashing protection activated for block proposal",
-        blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
-        signingRoot = shortLog(signingRoot),
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
-      return head
-
-    let
-      signature =
-        block:
-          let res = await validator.getBlockSignature(
-            fork, genesis_validators_root, slot, blockRoot, engineBid.blck)
-          if res.isErr():
-            warn "Unable to sign block",
-                 validator = shortLog(validator), error_msg = res.error()
-            return head
-          res.get()
-      signedBlock = consensusFork.SignedBeaconBlock(
-        message: forkyBlck, signature: signature, root: blockRoot)
-      blobsOpt =
-        when consensusFork >= ConsensusFork.Deneb:
-          Opt.some(signedBlock.create_blob_sidecars(
-            engineBid.blobsBundle.proofs, engineBid.blobsBundle.blobs))
-        else:
-          Opt.none(seq[BlobSidecar])
-      newBlockRef = (
-        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
-          checkValidator = false)
-      ).valueOr:
-        return head # Errors logged in router
-
-    if newBlockRef.isNone():
-      return head # Validation errors logged in router
-
-    notice "Block proposed",
-      blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
-      signature = shortLog(signature), validator = shortLog(validator)
-
-    beacon_blocks_proposed.inc()
-
-    return newBlockRef.get()
-
-proc proposeBlock(
+proc registerBlock(
     node: BeaconNode,
     validator: AttachedValidator,
     validator_index: ValidatorIndex,
+    blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock,
+): Result[Eth2Digest, string] =
+  let
+    fork = node.dag.forkAtEpoch(blck.slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+    blockRoot = hash_tree_root(blck)
+    signingRoot =
+      compute_block_signing_root(fork, genesis_validators_root, blck.slot, blockRoot)
+
+  node.attachedValidators[].slashingProtection.registerBlock(
+    validator_index, validator.pubkey, blck.slot, signingRoot
+  ).isOkOr:
+    warn "Slashing protection activated for block proposal",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(blck),
+      signingRoot = shortLog(signingRoot),
+      validator = validator.pubkey,
+      slot = blck.slot,
+      existingProposal = error
+    return err("Proposal would be slashable: " & $error)
+  ok blockRoot
+
+proc getBlockSignature(
+    node: BeaconNode,
+    validator: AttachedValidator,
+    blockRoot: Eth2Digest,
+    blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock,
+): Future[Result[ValidatorSig, string]] {.async: (raises: [CancelledError]).} =
+  # Check with slashing protection before submitBlindedBlock
+  let
+    fork = node.dag.forkAtEpoch(blck.slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+    res =
+      await validator.getBlockSignature(fork, genesis_validators_root, blockRoot, blck)
+
+  if res.isErr:
+    warn "Could not get block proposal signature",
+      validator = shortLog(validator),
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(blck),
+      err = res.error
+
+  res
+
+proc proposeBlockAux(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    validator: AttachedValidator,
     head: BlockRef,
-    slot: Slot
+    slot: Slot,
+    randao_reveal: ValidatorSig,
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
-  if head.slot >= slot:
-    # We should normally not have a head newer than the slot we're proposing for
-    # but this can happen if block proposal is delayed
-    warn "Skipping proposal, have newer head already",
-      headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root),
-      slot = shortLog(slot)
+  var
+    cache = new StateCache
+    # TODO move the creation of this proposal state away from the hot path
+    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+
+  let
+    graffiti = node.getGraffitiBytes(validator)
+    validator_index = validator.index.expect("index set for proposer")
+
+    engineBid =
+      when consensusFork >= ConsensusFork.Electra:
+        # Fetch both builder and engine payloads then use the better one to
+        # make a block
+        let
+          payloadBuilderClient =
+            node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
+
+          bids = await node.collectBids(
+            consensusFork, payloadBuilderClient, validator.pubkey, validator_index,
+            head, slot, state,
+          )
+
+          localBlockValueBoost = node.config.localBlockValueBoost
+          useBuilderPayload =
+            bids.useBuilderPayload(BoostFactor.init(localBlockValueBoost))
+
+        if payloadBuilderClient != nil:
+          # Log payload selection only if the user enabled builder support
+          info "Payload selected",
+            slot,
+            validator = shortLog(validator),
+            localBlockValueBoost,
+            useBuilderPayload,
+            hasBuilderPayload = bids.builderBid.isSome(),
+            hasEnginePayload = bids.engineBid.isSome()
+
+        if useBuilderPayload:
+          doAssert bids.builderBid.isSome(), "Checked in useBuilderPayload"
+          let builderBlockRes = node.makeBuilderBlock(
+            consensusFork,
+            state[].forky(consensusFork),
+            cache[],
+            validator_index,
+            randao_reveal,
+            graffiti,
+            head,
+            slot,
+            bids.builderBid.value(),
+          )
+
+          if builderBlockRes.isOk:
+            # Slashing database serves as the cutoff point for falling back to
+            # engine blocks since failures from this point onwards should be
+            # independent of the (type of) payload.
+            template blck(): untyped =
+              builderBlockRes.get().blck
+
+            let
+              blockRoot = node.registerBlock(validator, validator_index, blck).valueOr:
+                beacon_block_builder_missed_without_fallback.inc()
+                beacon_block_production_errors.inc()
+                return head
+
+              signature = (await node.getBlockSignature(validator, blockRoot, blck)).valueOr:
+                beacon_block_builder_missed_without_fallback.inc()
+                beacon_block_production_errors.inc()
+                return head
+
+              blindedBlock = consensusFork.SignedBlindedBeaconBlock(
+                message: blck, signature: signature
+              )
+
+              unblindedBlockRef =
+                await node.unblindAndRouteBlockMEV(payloadBuilderClient, blindedBlock)
+
+            if unblindedBlockRef.isErr or unblindedBlockRef.get.isNone:
+              # unblindedBlockRef.isErr or unblindedBlockRef.get.isNone indicates that
+              # the block failed to validate or integrate into the DAG, which for the
+              # purpose of this return value, is equivalent. It's used to drive Beacon
+              # REST API output.
+              #
+              # https://collective.flashbots.net/t/post-mortem-april-3rd-2023-mev-boost-relay-incident-and-related-timing-issue/1540
+              # has caused false positives, because
+              # "A potential mitigation to this attack is to introduce a cutoff timing
+              # into the proposer's slot whereafter this time (e.g. 3 seconds) the relay
+              # will no longer return a block to the proposer. Relays began to roll out
+              # this mitigation in the evening of April 3rd UTC time with a 2 second
+              # cutoff, and notified other relays to do the same. After receiving
+              # credible reports of honest validators missing their slots the suggested
+              # timing cutoff was increased to 3 seconds."
+              let errMsg =
+                if unblindedBlockRef.isErr:
+                  unblindedBlockRef.error
+                else:
+                  "Unblinded block not returned to proposer"
+
+              warn "Failed to unblind or route builder payload",
+                validator = shortLog(validator),
+                blck = shortLog(blindedBlock.message),
+                err = errMsg
+
+              # TODO Just because the relay didn't answer doesn't mean it was missed?
+              beacon_block_builder_missed_without_fallback.inc()
+
+              return head
+
+            beacon_blocks_proposed.inc()
+            return unblindedBlockRef.get.get
+
+          if bids.engineBid.isNone() and state[].is_merge_transition_complete():
+            # Cannot fall back to engine without a payload, post merge
+            beacon_block_production_errors.inc()
+            return head
+
+          beacon_block_builder_missed_with_fallback.inc()
+
+          notice "Failed to create builder-based block, trying engine payload",
+            slot, error = builderBlockRes.error
+
+          # makeBuilderBlock will invalidate the state - get a new one
+          cache = new StateCache
+          state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+            beacon_block_production_errors.inc()
+            return head
+
+        bids.engineBid
+      else:
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey
+        )
+
+  if engineBid.isNone():
+    beacon_block_production_errors.inc()
     return head
 
   let
+    engineBlock = node.makeEngineBlock(
+      consensusFork,
+      state[].forky(consensusFork),
+      cache[],
+      validator_index,
+      randao_reveal,
+      graffiti,
+      head,
+      slot,
+      engineBid[].eps,
+      engineBid[].execution_requests,
+    ).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+
+    blockRoot = node.registerBlock(validator, validator_index, engineBlock.blck).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+
+    signature = await(node.getBlockSignature(validator, blockRoot, engineBlock.blck)).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+
+    signedBlock = consensusFork.SignedBeaconBlock(
+      message: engineBlock.blck, signature: signature, root: blockRoot
+    )
+
+    blobsOpt =
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+        Opt.some(
+          signedBlock.create_blob_sidecars(
+            engineBlock.blobsBundle.proofs, engineBlock.blobsBundle.blobs
+          )
+        )
+      else:
+        Opt.none(seq[BlobSidecar])
+    newBlockRef = await(
+      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt, checkValidator = false)
+    ).valueOr:
+      # TODO Is this an error?
+      beacon_block_production_errors.inc()
+      return head # Errors logged in router
+
+  if newBlockRef.isNone():
+    # TODO is this an error?
+    beacon_block_production_errors.inc()
+    return head # Validation errors logged in router
+
+  notice "Block proposed",
+    blockRoot = shortLog(blockRoot),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signature),
+    validator = shortLog(validator)
+
+  beacon_blocks_proposed.inc()
+
+  newBlockRef.get()
+
+proc proposeBlock(
+    node: BeaconNode, validator: AttachedValidator, head: BlockRef, slot: Slot
+): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+  let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    randao = block:
-      let res = await validator.getEpochSignature(
-        fork, genesis_validators_root, slot.epoch)
-      if res.isErr():
-        warn "Unable to generate randao reveal",
-             validator = shortLog(validator), error_msg = res.error()
-        return head
-      res.get()
+    randao_reveal = (
+      await validator.getEpochSignature(fork, genesis_validators_root, slot.epoch)
+    ).valueOr:
+      warn "Unable to generate randao reveal",
+        validator = shortLog(validator), error_msg = error
+      return head
 
-  template proposeBlockContinuation(type1, type2: untyped): auto =
-    await proposeBlockAux(
-      type1, type2, node, validator, validator_index, head, slot, randao, fork,
-        genesis_validators_root, node.config.localBlockValueBoost)
-
-  return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Electra:
-      proposeBlockContinuation(
-        consensusFork.SignedBlindedBeaconBlock,
-        consensusFork.ExecutionPayloadForSigning)
+  withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
     else:
-      # Pre-Deneb MEV is not supported; this signals that, because it triggers
-      # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
-      proposeBlockContinuation(
-        electra_mev.SignedBlindedBeaconBlock,
-        max(ConsensusFork.Bellatrix, consensusFork).ExecutionPayloadForSigning)
+      warn "Block proposals for fork no longer supported", consensusFork
+      head
 
 proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -1477,6 +820,15 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   ## that is supposed to do so, given the shuffling at that slot for the given
   ## head - to compute the proposer, we need to advance a state to the given
   ## slot
+  if head.slot >= slot:
+    # We should normally not have a head newer than the slot we're proposing for
+    # but this can happen if block proposal is delayed
+    warn "Skipping proposal, have newer head already",
+      headSlot = shortLog(head.slot),
+      headBlockRoot = shortLog(head.root),
+      slot = shortLog(slot)
+    return head
+
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
       return head
@@ -1488,7 +840,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
                                         proposer = shortLog(proposerKey)
       return head
 
-  return await proposeBlock(node, validator, proposer, head, slot)
+  await proposeBlock(node, validator, head, slot)
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
@@ -1614,32 +966,32 @@ from std/times import epochTime
 proc getValidatorRegistration(
     node: BeaconNode, validator: AttachedValidator, epoch: Epoch):
     Future[Result[SignedValidatorRegistrationV1, string]] {.async: (raises: [CancelledError]).} =
-  let validatorIdx = validator.index.valueOr:
+  if validator.index.isNone:
     # The validator index will be missing when the validator was not
     # activated for duties yet. We can safely skip the registration then.
     return
 
-  let feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
-  let gasLimit = node.getGasLimit(validator.pubkey)
+  let
+    feeRecipient = node.getFeeRecipient(validator.pubkey, validator.index, epoch)
+    gasLimit = node.getGasLimit(validator.pubkey)
+
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
-      fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+      fee_recipient: feeRecipient,
       gas_limit: gasLimit,
       timestamp: epochTime().uint64,
-      pubkey: validator.pubkey))
+      pubkey: validator.pubkey,
+    )
+  )
 
-  let signature = await validator.getBuilderSignature(
-    node.dag.cfg.genesisFork, validatorRegistration.message)
+  debug "getValidatorRegistration: registering", validatorRegistration
 
-  debug "getValidatorRegistration: registering",
-    validatorRegistration
+  validatorRegistration.signature =
+    ?await validator.getBuilderSignature(
+      node.dag.cfg.GENESIS_FORK_VERSION, validatorRegistration.message
+    )
 
-  if signature.isErr:
-    return err signature.error
-
-  validatorRegistration.signature = signature.get
-
-  return ok validatorRegistration
+  ok validatorRegistration
 
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
@@ -1959,83 +1311,3 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
-
-proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
-    node: BeaconNode, consensusFork: static ConsensusFork,
-    randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot,
-    builderBoostFactor: uint64): Future[ResultType] {.async: (raises: [CancelledError]).} =
-  let
-    proposer = node.dag.getProposer(head, slot).valueOr:
-      return ResultType.err(
-        "Unable to get proposer for specific head and slot")
-    proposerKey = node.dag.validatorKey(proposer).get().toPubKey()
-
-    payloadBuilderClient =
-      node.getPayloadBuilderClient(proposer.distinctBase).valueOr(nil)
-
-    collectedBids =
-      await collectBids(consensusFork.SignedBlindedBeaconBlock,
-                        consensusFork.ExecutionPayloadForSigning,
-                        node,
-                        payloadBuilderClient, proposerKey,
-                        proposer, graffiti, head, slot,
-                        randao_reveal)
-    useBuilderBlock =
-      if collectedBids.builderBid.isSome():
-        collectedBids.engineBid.isNone() or builderBetterBid(
-          BoostFactor.init(builderBoostFactor),
-          collectedBids.builderBid.value().executionPayloadValue,
-          collectedBids.engineBid.value().executionPayloadValue)
-      else:
-        if not(collectedBids.engineBid.isSome):
-          return ResultType.err("Engine bid is not available")
-        false
-
-    engineBid = block:
-      if useBuilderBlock:
-        let blindedBid = collectedBids.builderBid.value()
-        return ResultType.ok((
-          blck:
-            consensusFork.MaybeBlindedBeaconBlock(
-              isBlinded: true,
-              blindedData: blindedBid.blindedBlckPart.message),
-          executionValue: Opt.some(blindedBid.executionPayloadValue),
-          consensusValue: Opt.some(blindedBid.consensusBlockValue)))
-
-      collectedBids.engineBid.value()
-
-  doAssert engineBid.blck.kind == consensusFork
-  template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
-    doAssert engineBid.blobsBundle.commitments ==
-      forkyBlck.body.blob_kzg_commitments
-    ResultType.ok((
-      blck: consensusFork.MaybeBlindedBeaconBlock(
-        isBlinded: false,
-        data: consensusFork.BlockContents(
-          `block`: forkyBlck,
-          kzg_proofs: engineBid.blobsBundle.proofs,
-          blobs: engineBid.blobsBundle.blobs)),
-      executionValue: Opt.some(engineBid.executionPayloadValue),
-      consensusValue: Opt.some(engineBid.consensusBlockValue)))
-  else:
-    ResultType.ok((
-      blck: consensusFork.MaybeBlindedBeaconBlock(
-        isBlinded: false,
-        data: forkyBlck),
-      executionValue: Opt.some(engineBid.executionPayloadValue),
-      consensusValue: Opt.some(engineBid.consensusBlockValue)))
-
-proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
-    node: BeaconNode, consensusFork: static ConsensusFork,
-    randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot, builderBoostFactor: uint64): auto =
-  type ResultType = Result[tuple[
-    blck: consensusFork.MaybeBlindedBeaconBlock,
-    executionValue: Opt[UInt256],
-    consensusValue: Opt[UInt256]], string]
-
-  makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
-    node, consensusFork, randao_reveal, graffiti, head, slot,
-    builderBoostFactor)

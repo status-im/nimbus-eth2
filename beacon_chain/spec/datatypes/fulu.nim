@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Types specific to Fulu (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
@@ -16,8 +16,8 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
-  "."/[phase0, base, electra],
+  std/typetraits,
+  "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -25,17 +25,17 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
+from std/sequtils import mapIt
 from std/strutils import join
 from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
-from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
@@ -60,9 +60,7 @@ const
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
-  SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
-  NUMBER_OF_CUSTODY_GROUPS* = 128
 
   # Minimum number of custody groups an honest node with
   # validators attached custodies and serves samples from
@@ -71,9 +69,6 @@ const
   # Balance increment corresponding to one additional group to custody
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
   BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
-
-  # Number of columns in the network per custody group
-  COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
@@ -92,22 +87,26 @@ type
   CellIndex* = uint64
   CustodyIndex* = uint64
 
-
-type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
   DataColumnIndices* = List[ColumnIndex, Limit(NUMBER_OF_COLUMNS)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
     kzg_commitments*: KzgCommitments
-    kzg_proofs*: KzgProofs
+    kzg_proofs*: deneb.KzgProofs
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
+
+  DataColumnSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    slot*: Slot
+    kzg_commitments*: KzgCommitments
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
@@ -125,6 +124,16 @@ type
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
+  KzgProofs* = List[KzgProof,
+    Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
+  BlobsBundle* = object
+    commitments*: KzgCommitments
+    proofs*: fulu.KzgProofs
+    blobs*: Blobs
 
   # Not in spec, defined in order to compute custody subnets
   CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
@@ -167,7 +176,7 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    blobsBundle*: BlobsBundle
+    blobsBundle*: deneb.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
@@ -609,7 +618,7 @@ type
 
   BlockContents* = object
     `block`*: BeaconBlock
-    kzg_proofs*: KzgProofs
+    kzg_proofs*: deneb.KzgProofs
     blobs*: Blobs
 
 func shortLog*(v: DataColumnSidecar): auto =
@@ -687,6 +696,27 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
+    excess_blob_gas: $(v.excess_blob_gas)
+  )
+
+
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+    withdrawals_root: shortLog(v.withdrawals_root),
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )

@@ -17,13 +17,13 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client],
+  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    attestation_pool, sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
@@ -56,6 +56,7 @@ type
     phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
     electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
+    columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
@@ -81,7 +82,7 @@ type
     list*: ChainListRef
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
-    dataColumnQuarantine*: ref DataColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -171,4 +172,5 @@ proc getPayloadBuilderClient*(
     socketFlags = {SocketFlags.TcpNoDelay}
 
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
-                    socketFlags = socketFlags)
+                    socketFlags = socketFlags,
+                    userAgent = nimbusAgentStr)
