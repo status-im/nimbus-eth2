@@ -1701,14 +1701,14 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
       var
         columns: seq[ref DataColumnSidecar]
-        indices: seq[uint64]
+        indices: HashSet[uint64]
 
       # Get columns from database
       for i in 0 ..< maxColCount:
         var colData: DataColumnSidecar
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
-          indices.add(i)
+          indices.incl(i)
       debug "Stored data columns", indices
 
       # Make sure the node has obtained 50%+ of all the columns
