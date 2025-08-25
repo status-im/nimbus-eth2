@@ -69,8 +69,7 @@ suite "Block processor" & preset():
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, taskpool, blobQuarantine,
-        dataColumnQuarantine, getTimeFn)
+        validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
     discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
@@ -130,11 +129,9 @@ suite "Block processor" & preset():
 
   asyncTest "Invalidate block root" & preset():
     let
-      taskpool = Taskpool.new()
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, taskpool,
-        blobQuarantine, dataColumnQuarantine,
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn, invalidBlockRoots = @[b2.root])
       processorFut = processor.runQueueProcessingLoop()
     defer: await processorFut.cancelAndWait()
