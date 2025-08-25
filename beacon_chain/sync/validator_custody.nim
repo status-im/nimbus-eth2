@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[algorithm, sets]
+import std/[sets]
 import chronos, chronicles
 import ssz_serialization/[proofs, types]
 import
