@@ -272,6 +272,7 @@ chronicles.formatIt EpochString: it.Slot.shortLog
 chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
 chronicles.formatIt SPDIR_SignedBlock: it.shortLog
 chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
+chronicles.formatIt PubKey0x: "0x" & it.PubKeyBytes.toHex
 
 # Interchange import
 # --------------------------------------------
@@ -331,6 +332,12 @@ proc importInterchangeV5Impl*(
             ZeroDigest
         status = db.registerBlock(parsedKey, latestBlock.slot.Slot, signing_root)
 
+      # We might be importing a duplicate which EIP-3076 allows:
+      # there is no reason during normal operation to integrate a duplicate
+      # (checkSlashableBlockProposal would have rejected it), but we special-case that for imports.
+      # Note: rule 2 mentions repeat signing in the MinSlotViolation case; having 2 blocks
+      # with the same signing root and different slots would break the chain, so we only
+      # check for exact slot here.
       if status.isErr():
         if status.error.kind == DoubleProposal and
             signing_root != ZeroDigest and
