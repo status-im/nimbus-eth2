@@ -305,8 +305,6 @@ proc importInterchangeV5Impl*(
         continue
       key.get()
 
-    # --- Replace the original sorting + selection logic ---
-
     const ZeroDigest = Eth2Digest()
 
     let (dbSlot, dbSource, dbTarget) = db.retrieveLatestValidatorData(parsedKey)
@@ -329,6 +327,7 @@ proc importInterchangeV5Impl*(
           if latestBlock.signing_root.isSome:
             latestBlock.signing_root.get.Eth2Digest
           else:
+            # https://eips.ethereum.org/EIPS/eip-3076#advice-for-complete-databases
             ZeroDigest
         status = db.registerBlock(parsedKey, latestBlock.slot.Slot, signing_root)
 
@@ -349,10 +348,17 @@ proc importInterchangeV5Impl*(
       if latestBlock.slot.int > maxValidSlotSeen:
         maxValidSlotSeen = int latestBlock.slot
 
+    # Now prune everything that predates
+    # this DB or interchange file max slot
+    # Even if the block is not imported, pruning will keep the latest one.
     db.pruneBlocks(parsedKey, Slot maxValidSlotSeen)
 
     # Attestations
     # ---------------------------------------------------
+    # After import we need to prune the DB from everything
+    # besides the last imported attestation source and target epochs.
+    # This ensures that even if 2 slashing DB are imported in the wrong order
+    # (the last before the earliest) the minEpochViolation check stays consistent.
     var maxValidSourceEpochSeen = -1
     var maxValidTargetEpochSeen = -1
 
@@ -373,6 +379,8 @@ proc importInterchangeV5Impl*(
         pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex()
       continue
 
+    # See formal proof https://github.com/michaelsproul/slashing-proofs
+    # of synthetic attestation
     if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
        not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
       warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
