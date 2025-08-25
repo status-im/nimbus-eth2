@@ -249,7 +249,7 @@ proc storeBackfillBlock(
 
   var
     columnsOk = true
-    malformed_cols: seq[int]
+    malformed_cols: HashSet[int]
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
       let columns = dataColumnsOpt.get()
@@ -259,7 +259,7 @@ proc storeBackfillBlock(
           let r =
             verify_data_column_sidecar_kzg_proofs(columns[i][])
           if r.isErr:
-            malformed_cols.add(i)
+            malformed_cols.incl(i)
             debug "backfill data column validation failed",
               blockRoot = shortLog(signedBlock.root),
               column_sidecar = shortLog(columns[i][]),
