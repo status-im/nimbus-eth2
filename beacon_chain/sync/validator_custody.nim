@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/sets
+import std/[algorithm, sets]
 import chronos, chronicles
 import ssz_serialization/[proofs, types]
 import
@@ -121,7 +121,8 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
 
 proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                               peer: Peer): seq[DataColumnsByRootIdentifier] =
-  var columnList: seq[DataColumnsByRootIdentifier]
+  var columnList =
+      newSeqOfCap[DataColumnsByRootIdentifier](vcus.requested_columns.len)
   # Fetch the remote custody count
   let remoteCustodyGroupCount =
     peer.lookupCgcFromPeer()
@@ -141,6 +142,7 @@ proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                                         index: cindex)
       if lookup notin vcus.global_refill_list and cindex in remoteCustodyColumns:
         colIds.add cindex
+    sort(colIds)
     columnList.add DataColumnsByRootIdentifier(block_root: request_item.block_root,
                                                indices: DataColumnIndices.init(colIds))
   columnList
@@ -157,7 +159,6 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
       await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList colIdList)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
-      ucolumns.sort(cmpSidecarIndexes)
       let records = checkColumnResponse(colIdList, ucolumns).valueOr:
         debug "Response to columns by root is not a subset",
           peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
