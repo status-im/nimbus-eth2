@@ -1693,7 +1693,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     slot = slot
 
   let blck = node.dag.getForkedBlock(node.dag.finalizedHead.blck.bid).valueOr:
-    warn "Failed to get dag head"
+    warn "Failed to get the current slot head"
     return
 
   withBlck(blck):
