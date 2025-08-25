@@ -172,25 +172,25 @@ proc routeSignedBeaconBlock*(
         let res = allres[i]
         doAssert res.finished()
         if res.failed():
-          notice "Data columns not sent",
+          notice "Data column not sent",
             data_column = shortLog(dataColumns[i]), error = res.error[]
         else:
-          notice "Data columns sent",
+          notice "Data column sent",
             data_column = shortLog(dataColumns[i])
       # Push only those columns to processor for which we custody
       let
         metadata = router[].network.metadata.custody_group_count
+        samples_per_slot = router[].network.cfg.SAMPLES_PER_SLOT
         custody_columns =
           router[].network.cfg.resolve_columns_from_custody_groups(
             router[].network.nodeId,
-            max(router[].network.cfg.SAMPLES_PER_SLOT.uint64, metadata))
+            max(samples_per_slot, metadata))
 
-      var final_columns: seq[DataColumnSidecar]
+      var final_columns: seq[ref DataColumnSidecar]
       for dc in dataColumns:
         if dc.index in custody_columns:
-          final_columns.add dc
-      dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
-
+          final_columns.add newClone(dc)
+      dataColumnRefs = Opt.some(final_columns)
     let added = await router[].blockProcessor[].addBlock(
       MsgSource.api, ForkedSignedBeaconBlock.init(blck), dataColumnRefs)
   elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:

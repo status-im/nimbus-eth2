@@ -26,7 +26,8 @@ import
 
   # Local modules
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    eth2_merkleization, forks, helpers, network,
+    peerdas_helpers, signatures, state_transition,
     state_transition_block, validator,
   ],
   ../spec/mev/rest_mev_calls,
@@ -575,10 +576,9 @@ proc proposeBlockAux(
           @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
       else:
         Opt.none(seq[DataColumnSidecar])
-
     newBlockRef = await(
-      node.router.routeSignedBeaconBlock(
-        signedBlock, blobsOpt, columnsOpt, checkValidator = false)
+      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
+        columnsOpt, checkValidator = false)
     ).valueOr:
       # TODO Is this an error?
       beacon_block_production_errors.inc()

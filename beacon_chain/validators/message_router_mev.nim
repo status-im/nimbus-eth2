@@ -126,15 +126,14 @@ proc unblindAndRouteBlockMEV*(
       Opt.some(signedBlock.create_blob_sidecars(
         blobs_bundle.proofs, blobs_bundle.blobs))
 
-    let columnsOpt = Opt.none(seq[DataColumnSidecar]) # <- replaced here
-
     debug "unblindAndRouteBlockMEV: proposing unblinded block",
       blck = shortLog(signedBlock)
 
     let newBlockRef =
       (await node.router.routeSignedBeaconBlock(
-        signedBlock, blobsOpt, columnsOpt, checkValidator = false)).valueOr:
-        return err("routeSignedBeaconBlock error")
+        signedBlock, blobsOpt, Opt.none(seq[DataColumnSidecar]), checkValidator = false)).valueOr:
+        # submitBlindedBlock has run, so don't allow fallback to run
+        return err("routeSignedBeaconBlock error") # Errors logged in router
 
     if newBlockRef.isSome:
       beacon_block_builder_proposed.inc()
