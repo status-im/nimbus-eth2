@@ -165,10 +165,8 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
         return
       for col in records:
         let
-          block_root =
-            hash_tree_root(col.block_root)
           exclude =
-            DataColumnIdentifier(block_root: block_root,
+            DataColumnIdentifier(block_root: col.block_root,
                                  index: col.sidecar.index)
         vcus.global_refill_list.excl(exclude)
         # write new columns to database, no need of BlockVerifier
