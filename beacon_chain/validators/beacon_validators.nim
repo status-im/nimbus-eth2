@@ -512,6 +512,7 @@ proc proposeBlockAux(
                   validator = shortLog(validator),
                   blck = shortLog(blindedBlock.message),
                   err = "Unblinded block not returned to proposer"
+                return head
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get.get
