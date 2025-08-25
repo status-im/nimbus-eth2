@@ -1074,7 +1074,6 @@ proc init*(T: type BeaconNode,
     netKeys: netKeys,
     db: db,
     config: config,
-    taskpool: taskpool,
     attachedValidators: validatorPool,
     elManager: elManager,
     restServer: restServer,
@@ -1723,7 +1722,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
-        node.taskpool, columns).valueOr:
+        node.batchVerifier[].taskpool, columns).valueOr:
           error "Error in data column reconstruction"
           return
       let rowCount = recovered.len

@@ -15,7 +15,6 @@ import
   # Nimble packages
   chronos, presto, bearssl/rand,
   metrics, metrics/chronos_httpserver,
-  taskpools,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
@@ -81,7 +80,6 @@ type
     lightClient*: LightClient
     dag*: ChainDAGRef
     list*: ChainListRef
-    taskpool*: Taskpool
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
