@@ -383,6 +383,7 @@ proc importInterchangeV5Impl*(
     # of synthetic attestation
     if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
        not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
+      # Special-case genesis (Slashing prot is deactivated anyway)
       warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
         pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
         maxValidSourceEpochSeen = maxValidSourceEpochSeen,
