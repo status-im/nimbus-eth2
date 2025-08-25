@@ -922,15 +922,6 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     cache.total_active_balance[epoch] = tab
     return tab
 
-func get_total_active_balance*(state: ForkyBeaconState): Gwei =
-  let epoch = state.get_current_epoch()
-  let active_val_indices =
-    get_active_validator_indices(state, epoch)
-  var res = 0.Gwei
-  for vi in active_val_indices:
-    res += state.validators[vi].effective_balance
-  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt(
     total_active_balance_sqrt: uint64): Gwei =
