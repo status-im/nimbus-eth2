@@ -1739,7 +1739,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         let dataColumn = DataColumnSidecar(
           index: ColumnIndex(i),
           column: DataColumn(cells),
-          kzg_proofs: KzgProofs(proofs),
+          kzg_proofs: deneb.KzgProofs(proofs),
           signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader())
         node.dag.db.putDataColumnSidecar(dataColumn)
 
