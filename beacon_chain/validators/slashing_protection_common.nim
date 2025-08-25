@@ -272,7 +272,7 @@ chronicles.formatIt EpochString: it.Slot.shortLog
 chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
 chronicles.formatIt SPDIR_SignedBlock: it.shortLog
 chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
-chronicles.formatIt PubKey0x: "0x" & it.PubKeyBytes.toHex
+chronicles.formatIt PubKey0x: it.PubKeyBytes.to0xHex
 
 # Interchange import
 # --------------------------------------------
