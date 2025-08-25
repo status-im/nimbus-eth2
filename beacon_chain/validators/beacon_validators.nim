@@ -27,7 +27,7 @@ import
   # Local modules
   ../spec/[
     eth2_merkleization, forks, helpers, network,
-    peerdas_helpers, signatures, state_transition,
+    signatures, state_transition,
     state_transition_block, validator,
   ],
   ../spec/mev/rest_mev_calls,

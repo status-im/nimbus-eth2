@@ -344,8 +344,7 @@ proc checkPeerCustody(rman: RequestManager,
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
           inc(isect)
-      if isect > 0:
-        return true
+          return true
       peer.updateScore(PeerScoreBadColumnIntersection)
       return false
 
