@@ -503,7 +503,7 @@ proc proposeBlockAux(
               return head
 
             when consensusFork >= ConsensusFork.Fulu:
-              if unblindedBlockRef.isOk and unblindedBlockRef.get.isNone:
+              if unblindedBlockRef.get.isNone:
                 # This corresponds to 202 in Fulu MEV.
                 return head
             else:
