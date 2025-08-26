@@ -636,85 +636,20 @@ func fetchMissingSidecars*(
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
-): seq[DataColumnIdentifier] =
-  ## Function returns sequence of DataColumnIdentifier's for data columns which
-  ## are missing for block associated with root ``blockRoot`` and block ``blck``.
-  var res: seq[DataColumnIdentifier]
-  let record = quarantine.roots.getOrDefault(blockRoot)
-
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    # Fast-path if block do not have any columns
-    return res
-
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if supernode:
-    let
-      columns =
-        if len(peerCustodyColumns) > 0:
-          @peerCustodyColumns
-        else:
-          quarantine.custodyColumns
-    if len(record.sidecars) == 0:
-      var columnsRequested = 0
-      for column in columns:
-        if columnsRequested >= columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
-          # columns.
-          break
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-        inc(columnsRequested)
-    else:
-      if record.count >= columnsCount:
-        return res
-      var columnsRequested = 0
-      for column in columns:
-        if record.count + columnsRequested >= columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
-          # columns.
-          break
-        let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isEmpty():
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-          inc(columnsRequested)
-  else:
-    let peerMap =
-      if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
-      else:
-        ColumnMap.init(quarantine.custodyColumns)
-    if len(record.sidecars) == 0:
-      for column in (peerMap and quarantine.custodyMap).items():
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-    else:
-      for column in (peerMap and quarantine.custodyMap).items():
-        let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isEmpty():
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-  res
-
-func fetchMissingColumnsByRoot*(
-    quarantine: ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock,
-    peerCustodyColumns: openArray[ColumnIndex] = []
-): seq[DataColumnsByRootIdentifier] =
-  ## Function returns a sequence of DataColumnsByRootIdentifier for data columns
-  ## which are missing for the block associated with root ``blockRoot`` and block ``blck``.
-  var
-    res: seq[DataColumnsByRootIdentifier]
-    missingIndices: DataColumnIndices
+): DataColumnsByRootIdentifier =
+  ## Function returns a DataColumnsByRootIdentifier for data columns
+  ## which are missing for the block associated with root ``blockRoot`` and
+  ## block ``blck``.
+  ##
+  ## Note: If there is no missing columns - DataColumnByRootIdentifier.indices
+  ## array will be empty.
+  var res: seq[ColumnIndex]
   let record = quarantine.roots.getOrDefault(blockRoot)
 
   if len(blck.message.body.blob_kzg_commitments) == 0:
     # Fast-path if block does not have any columns
-    return res
+    return DataColumnsByRootIdentifier(
+      block_root: blockRoot, indices: DataColumnIndices(res))
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -738,11 +673,13 @@ func fetchMissingColumnsByRoot*(
           # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
           # columns.
           break
-        discard missingIndices.add(column)
+        res.add(column)
         inc(columnsRequested)
     else:
       if record.count >= columnsCount:
-        return res
+        return
+          DataColumnsByRootIdentifier(
+            block_root: blockRoot, indices: DataColumnIndices(res))
       var columnsRequested = 0
       for column in columns:
         if record.count + columnsRequested >= columnsCount:
@@ -751,7 +688,7 @@ func fetchMissingColumnsByRoot*(
           break
         let index = quarantine.getIndex(column)
         if (index == -1) or record.sidecars[index].isEmpty():
-          discard missingIndices.add(column)
+          res.add(column)
           inc(columnsRequested)
   else:
     let peerMap =
@@ -761,16 +698,15 @@ func fetchMissingColumnsByRoot*(
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
       for column in (peerMap and quarantine.custodyMap).items():
-        discard missingIndices.add(column)
+        res.add(column)
     else:
       for column in (peerMap and quarantine.custodyMap).items():
         let index = quarantine.getIndex(column)
         if (index == -1) or (record.sidecars[index].isEmpty()):
-          discard missingIndices.add(column)
+          res.add(column)
 
-  if missingIndices.len > 0:
-    res.add(DataColumnsByRootIdentifier(block_root: blockRoot, indices: missingIndices))
-  res
+  DataColumnsByRootIdentifier(
+    block_root: blockRoot, indices: DataColumnIndices(res))
 
 proc pruneAfterFinalization*(
     quarantine: var BlobQuarantine,

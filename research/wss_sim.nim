@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # `wss_sim` loads a state and a set of validator keys, then simulates a
 # beacon chain running with the given validators producing blocks
@@ -306,7 +306,7 @@ cli do(validatorsDir: string, secretsDir: string,
               proposerPrivkey).toValidatorSig())
 
         dump(".", signedBlock)
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let blobs = signedBlock.create_blob_sidecars(
             payload.blobsBundle.proofs, payload.blobsBundle.blobs)
           for blob in blobs:

@@ -4,7 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Helpers and functions pertaining to managing the validator set
 
@@ -445,13 +445,12 @@ func compute_proposer_indices*(
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
-  let startSlot = epoch.start_slot()
   var proposerIndices: seq[Opt[ValidatorIndex]]
 
-  for i in 0..<SLOTS_PER_EPOCH:
+  for epochSlot in epoch.slots():
     var buffer: array[32 + 8, byte]
     buffer[0..31] = seed.data
-    buffer[32..39] = uint_to_bytes((startSlot + i).asUInt64)
+    buffer[32..39] = uint_to_bytes(epochSlot.asUInt64)
 
     let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
     let proposerIndex = compute_proposer_index(state, indices, slotSeed)
@@ -524,13 +523,11 @@ func get_beacon_proposer_indices*(
             shuffled_index, seq_len, epoch_shuffle_seed))
 
     res
-
   else:
     # Not using shuffled indices here is not a bug,
     # as the method of computing proposer in the below
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
-
 
 func initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):

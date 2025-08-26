@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import std/[strutils, sequtils]
@@ -75,7 +75,9 @@ func createBlobs(
   var res = newSeq[ref BlobSidecar](len(slots))
   for blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Fulu:
+        doAssert false   # create_blob_sidecars() might not work as such
+      elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         for i, slot in slots:
           if slot == forkyBlck.message.slot:
@@ -83,7 +85,7 @@ func createBlobs(
         if kzgs.len > 0:
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           var
-            kzg_proofs: KzgProofs
+            kzg_proofs: deneb.KzgProofs
             blobs: Blobs
           for _ in kzgs:
             doAssert kzg_proofs.add default(KzgProof)
@@ -1739,7 +1741,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] checkBlobsResponse() test":
     const maxBlobsPerBlockElectra = 9
-    
+
     proc checkBlobsResponse[T](
         req: SyncRequest[T],
         data: openArray[Slot]): Result[void, cstring] =
