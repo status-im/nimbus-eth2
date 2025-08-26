@@ -125,14 +125,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Altair - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
-+ [Valid]   EF - Altair - Finality - finality_rule_1 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_2 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_3 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_4 [Preset: minimal]                       OK
-```
 ## EF - Altair - Fork  [Preset: minimal]
 ```diff
 + EF - Altair - Fork - altair_fork_random_0 [Preset: minimal]                                OK
@@ -318,25 +310,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__scaled_churn     OK
 ```
-## EF - Altair - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Altair - Random - randomized_0 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_1 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_10 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_11 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_12 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_13 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_14 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_15 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_2 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_3 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_4 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_5 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_6 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_7 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_8 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_9 [Preset: minimal]                            OK
-```
 ## EF - Altair - Rewards  [Preset: minimal]
 ```diff
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
@@ -415,61 +388,6 @@ ConsensusSpecPreset-minimal
 +   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
-```
-## EF - Altair - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - attestation [Preset: minimal]                    OK
-+ [Valid]   EF - Altair - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
-+ [Valid]   EF - Altair - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
-+ [Valid]   EF - Altair - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
-+ [Valid]   EF - Altair - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
-+ [Valid]   EF - Altair - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
-+ [Valid]   EF - Altair - Sanity - Blocks - historical_batch [Preset: minimal]               OK
-+ [Valid]   EF - Altair - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pr OK
-+ [Valid]   EF - Altair - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Altair - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__full [Preset: minimal] OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__half [Preset: minimal] OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__full [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
 ## EF - Altair - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -641,14 +559,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
-## EF - Bellatrix - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_1 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_2 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
 ```
 ## EF - Bellatrix - Fork  [Preset: minimal]
 ```diff
@@ -869,25 +779,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
-## EF - Bellatrix - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Bellatrix - Random - randomized_0 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_1 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_10 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_11 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_12 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_13 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_14 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_15 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_2 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_3 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_4 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_5 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_6 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_7 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_8 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_9 [Preset: minimal]                         OK
-```
 ## EF - Bellatrix - Rewards  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
@@ -969,64 +860,6 @@ ConsensusSpecPreset-minimal
 +   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
-```
-## EF - Bellatrix - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_attester_slashing_same_bloc OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_blo OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [ OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal] OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_exp OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_pro OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_only_increase_deposit_count [Preset:  OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minima OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: m OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_same_slot_block_transition [Preset: m OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - attestation [Preset: minimal]                 OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - attester_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - block_transition_randomized_payload [Preset:  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_0 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_1 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_2 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_3 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - high_proposer_index [Preset: minimal]         OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - historical_batch [Preset: minimal]            OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - inactivity_scores_full_participation_leaking  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_attester_slashings_no_overlap [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_attester_slashings_partial_overlap [ OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_different_proposer_slashings_same_bl OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_different_validator_exits_same_block OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_after_inactive_index [Preset: minima OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_self_slashing [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - skipped_slots [Preset: minimal]               OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__empty [Preset: mini OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__full [Preset: minim OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__half [Preset: minim OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__empty [Pres OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__full [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
 ```
 ## EF - Bellatrix - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -1191,14 +1024,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
-## EF - Capella - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
-+ [Valid]   EF - Capella - Finality - finality_rule_1 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_2 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: minimal]                      OK
 ```
 ## EF - Capella - Fork  [Preset: minimal]
 ```diff
@@ -1494,25 +1319,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-## EF - Capella - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Capella - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_9 [Preset: minimal]                           OK
-```
 ## EF - Capella - Rewards  [Preset: minimal]
 ```diff
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -1598,78 +1404,6 @@ ConsensusSpecPreset-minimal
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
-```
-## EF - Capella - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
-+ [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
-+ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
-+ [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
-+ [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
-+ [Valid]   EF - Capella - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
-+ [Valid]   EF - Capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
-+ [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
-+ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
-+ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
-+ [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
-+ [Valid]   EF - Capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-+ [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 ```
 ## EF - Capella - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -1844,14 +1578,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
-## EF - Deneb - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_1 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_2 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
 ```
 ## EF - Deneb - Fork  [Preset: minimal]
 ```diff
@@ -2161,25 +1887,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-## EF - Deneb - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Deneb - Random - randomized_0 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_1 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_10 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_11 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_12 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_13 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_14 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_15 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_2 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_3 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_4 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_5 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_6 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_7 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_8 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_9 [Preset: minimal]                             OK
-```
 ## EF - Deneb - Rewards  [Preset: minimal]
 ```diff
 + EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
@@ -2267,87 +1974,6 @@ ConsensusSpecPreset-minimal
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
-```
-## EF - Deneb - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [P OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mini OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minima OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - block_transition_randomized_payload [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]    OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]     OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 ```
 ## EF - Deneb - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -2595,14 +2221,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
-## EF - Electra - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
-+ [Valid]   EF - Electra - Finality - finality_rule_1 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_2 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_3 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: minimal]                      OK
 ```
 ## EF - Electra - Fork  [Preset: minimal]
 ```diff
@@ -3045,25 +2663,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-## EF - Electra - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Electra - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_9 [Preset: minimal]                           OK
-```
 ## EF - Electra - Rewards  [Preset: minimal]
 ```diff
 + EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -3159,110 +2758,6 @@ ConsensusSpecPreset-minimal
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
-```
-## EF - Electra - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_not_enough_eth1_dep OK
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_too_many_eth1_depos OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mi OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mini OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
-+ [Invalid] EF - Electra - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
-+ [Valid]   EF - Electra - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
-+ [Valid]   EF - Electra - Sanity - Blocks - attestation [Preset: minimal]                   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
-+ [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
-+ [Valid]   EF - Electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: minima OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
-+ [Valid]   EF - Electra - Sanity - Blocks - effective_balance_increase_changes_lookahead [P OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - historical_batch [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
-+ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
-+ [Valid]   EF - Electra - Sanity - Blocks - max_blobs_per_block [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minima OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob_max_txs [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob_two_txs [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Electra - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
-+ [Valid]   EF - Electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_pending_con OK
-+ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
-+ [Valid]   EF - Electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_que OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
-+ [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -3526,14 +3021,6 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
-## EF - Fulu - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_1 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_2 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
 ```
 ## EF - Fulu - Fork  [Preset: minimal]
 ```diff
@@ -3972,25 +3459,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
-## EF - Fulu - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Fulu - Random - randomized_0 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_1 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_10 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_11 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_12 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_13 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_14 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_15 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_2 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_3 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_4 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_5 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_6 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_7 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_8 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_9 [Preset: minimal]                              OK
-```
 ## EF - Fulu - Rewards  [Preset: minimal]
 ```diff
 + EF - Fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
@@ -4089,97 +3557,6 @@ ConsensusSpecPreset-minimal
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
-```
-## EF - Fulu - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minima OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minimal OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - attestation [Preset: minimal]                      OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_block OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset: m OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]      OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: minim OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - bls_change [Preset: minimal]                       OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - consolidation_requests_when_pending_consolidation_ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_max_per_payload [Preset: minimal]  OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - effective_balance_increase_changes_lookahead [Pres OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]     OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_0 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_1 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_2 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_3 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: minim OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - high_proposer_index [Preset: minimal]              OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - historical_batch [Preset: minimal]                 OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]      OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minimal]  OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - one_blob [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                 OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_self_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - switch_to_compounding_requests_when_pending_consol OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - switch_to_compounding_requests_when_too_little_con OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: minim OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_upd OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_queue_ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
 ```
 ## EF - Fulu - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -4647,80 +4024,703 @@ ConsensusSpecPreset-minimal
 + EF - Phase 0 - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-## EF - Phase0 - Finality  [Preset: minimal]
+## EF - altair - Finality  [Preset: minimal]
 ```diff
-+ [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_1 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
++ [Valid]   EF - altair - Finality - finality_rule_1 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_2 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_3 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_4 [Preset: minimal]                       OK
 ```
-## EF - Phase0 - Random  [Preset: minimal]
+## EF - altair - Random  [Preset: minimal]
 ```diff
-+ [Valid]   EF - Phase0 - Random - randomized_0 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_1 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_10 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_11 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_12 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_13 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_14 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_15 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_2 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_3 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_4 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_5 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_6 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_7 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_8 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_9 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_0 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_1 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_10 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_11 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_12 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_13 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_14 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_15 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_2 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_3 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_4 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_5 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_6 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_7 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_8 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_9 [Preset: minimal]                            OK
 ```
-## EF - Phase0 - Sanity - Blocks  [Preset: minimal]
+## EF - altair - Sanity - Blocks  [Preset: minimal]
 ```diff
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: minim OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - attestation [Preset: minimal]                    OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - historical_batch [Preset: minimal]               OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - attestation [Preset: minimal]                    OK
++ [Valid]   EF - altair - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
++ [Valid]   EF - altair - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
++ [Valid]   EF - altair - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
++ [Valid]   EF - altair - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - altair - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
++ [Valid]   EF - altair - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
++ [Valid]   EF - altair - Sanity - Blocks - historical_batch [Preset: minimal]               OK
++ [Valid]   EF - altair - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pr OK
++ [Valid]   EF - altair - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
++ [Valid]   EF - altair - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
++ [Valid]   EF - altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__full [Preset: minimal] OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__half [Preset: minimal] OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__full [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
+```
+## EF - bellatrix - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_1 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_2 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
+```
+## EF - bellatrix - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - bellatrix - Random - randomized_0 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_1 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_10 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_11 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_12 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_13 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_14 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_15 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_2 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_3 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_4 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_5 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_6 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_7 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_8 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_9 [Preset: minimal]                         OK
+```
+## EF - bellatrix - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_attester_slashing_same_bloc OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_blo OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [ OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal] OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_exp OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_pro OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_only_increase_deposit_count [Preset:  OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minima OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: m OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_same_slot_block_transition [Preset: m OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - attestation [Preset: minimal]                 OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - attester_slashing [Preset: minimal]           OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - block_transition_randomized_payload [Preset:  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_0 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_1 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_2 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_3 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - high_proposer_index [Preset: minimal]         OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - historical_batch [Preset: minimal]            OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - inactivity_scores_full_participation_leaking  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_attester_slashings_no_overlap [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_attester_slashings_partial_overlap [ OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_proposer_slashings_same_bl OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_validator_exits_same_block OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_after_inactive_index [Preset: minima OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_self_slashing [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_slashing [Preset: minimal]           OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - skipped_slots [Preset: minimal]               OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__empty [Preset: mini OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__full [Preset: minim OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__half [Preset: minim OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__empty [Pres OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__full [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
+```
+## EF - capella - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
++ [Valid]   EF - capella - Finality - finality_rule_1 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_2 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_3 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_4 [Preset: minimal]                      OK
+```
+## EF - capella - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - capella - Random - randomized_0 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_1 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_10 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_11 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_12 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_13 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_14 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_15 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_2 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_3 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_4 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_5 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_6 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_7 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_8 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - capella - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
++ [Invalid] EF - capella - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - capella - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
++ [Valid]   EF - capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
++ [Valid]   EF - capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
++ [Valid]   EF - capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - capella - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
++ [Valid]   EF - capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - capella - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
++ [Valid]   EF - capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
++ [Valid]   EF - capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
++ [Valid]   EF - capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
++ [Valid]   EF - capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
++ [Valid]   EF - capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
+```
+## EF - deneb - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
++ [Valid]   EF - deneb - Finality - finality_rule_1 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_2 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
+```
+## EF - deneb - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - deneb - Random - randomized_0 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_1 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_10 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_11 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_12 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_13 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_14 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_15 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_2 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_3 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_4 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_5 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_6 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_7 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_8 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_9 [Preset: minimal]                             OK
+```
+## EF - deneb - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [P OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mini OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minima OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
++ [Invalid] EF - deneb - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
++ [Valid]   EF - deneb - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
++ [Valid]   EF - deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
++ [Valid]   EF - deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
++ [Valid]   EF - deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - deneb - Sanity - Blocks - block_transition_randomized_payload [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
++ [Valid]   EF - deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]    OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - deneb - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
++ [Valid]   EF - deneb - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
++ [Valid]   EF - deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]     OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
++ [Valid]   EF - deneb - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
++ [Valid]   EF - deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
++ [Valid]   EF - deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
++ [Valid]   EF - deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
++ [Valid]   EF - deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
+```
+## EF - electra - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
++ [Valid]   EF - electra - Finality - finality_rule_1 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_2 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_3 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_4 [Preset: minimal]                      OK
+```
+## EF - electra - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - electra - Random - randomized_0 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_1 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_10 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_11 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_12 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_13 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_14 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_15 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_2 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_3 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_4 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_5 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_6 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_7 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_8 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - electra - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_not_enough_eth1_dep OK
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_too_many_eth1_depos OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mi OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mini OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
++ [Invalid] EF - electra - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - electra - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
++ [Valid]   EF - electra - Sanity - Blocks - attestation [Preset: minimal]                   OK
++ [Valid]   EF - electra - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
++ [Valid]   EF - electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
++ [Valid]   EF - electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - electra - Sanity - Blocks - effective_balance_increase_changes_lookahead [P OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
++ [Valid]   EF - electra - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - electra - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - historical_batch [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - electra - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - electra - Sanity - Blocks - max_blobs_per_block [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]   OK
++ [Valid]   EF - electra - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob [Preset: minimal]                      OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob_max_txs [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob_two_txs [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
++ [Valid]   EF - electra - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
++ [Valid]   EF - electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - switch_to_compounding_requests_when_pending_con OK
++ [Valid]   EF - electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_ OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_que OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
++ [Valid]   EF - electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
+```
+## EF - fulu - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
++ [Valid]   EF - fulu - Finality - finality_rule_1 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_2 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - fulu - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - fulu - Random - randomized_0 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_1 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_10 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_11 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_12 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_13 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_14 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_15 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_2 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_3 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_4 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_5 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_6 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_7 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_8 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_9 [Preset: minimal]                              OK
+```
+## EF - fulu - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minimal OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - fulu - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
++ [Valid]   EF - fulu - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
++ [Valid]   EF - fulu - Sanity - Blocks - attestation [Preset: minimal]                      OK
++ [Valid]   EF - fulu - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
++ [Valid]   EF - fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset: m OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]      OK
++ [Valid]   EF - fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - bls_change [Preset: minimal]                       OK
++ [Valid]   EF - fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
++ [Valid]   EF - fulu - Sanity - Blocks - consolidation_requests_when_pending_consolidation_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_request_max_per_payload [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
++ [Valid]   EF - fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
++ [Valid]   EF - fulu - Sanity - Blocks - effective_balance_increase_changes_lookahead [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]     OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
++ [Valid]   EF - fulu - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
++ [Valid]   EF - fulu - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_0 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_1 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_2 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_3 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - high_proposer_index [Preset: minimal]              OK
++ [Valid]   EF - fulu - Sanity - Blocks - historical_batch [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]      OK
++ [Valid]   EF - fulu - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_self_slashing [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
++ [Valid]   EF - fulu - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
++ [Valid]   EF - fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - switch_to_compounding_requests_when_pending_consol OK
++ [Valid]   EF - fulu - Sanity - Blocks - switch_to_compounding_requests_when_too_little_con OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
++ [Valid]   EF - fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_upd OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_queue_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
++ [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
+```
+## EF - phase0 - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
++ [Valid]   EF - phase0 - Finality - finality_rule_1 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
+```
+## EF - phase0 - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - phase0 - Random - randomized_0 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_1 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_10 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_11 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_12 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_13 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_14 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_15 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_2 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_3 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_4 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_5 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_6 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_7 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_8 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - phase0 - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: minim OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - attestation [Preset: minimal]                    OK
++ [Valid]   EF - phase0 - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
++ [Valid]   EF - phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
++ [Valid]   EF - phase0 - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
++ [Valid]   EF - phase0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
++ [Valid]   EF - phase0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
++ [Valid]   EF - phase0 - Sanity - Blocks - historical_batch [Preset: minimal]               OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
++ [Valid]   EF - phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
 ## ForkChoice
 ```diff

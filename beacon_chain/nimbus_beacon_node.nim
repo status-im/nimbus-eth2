@@ -314,9 +314,9 @@ proc initFullNode(
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
-        some node.dag.is_optimistic(data.toBlockId())
+        Opt.some node.dag.is_optimistic(data.toBlockId())
       else:
-        none[bool]()
+        Opt.none(bool)
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
   proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
@@ -326,7 +326,7 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(
+        res.optimistic = Opt.some node.dag.is_optimistic(
           BlockId(slot: data.slot, root: data.block_root))
         res
       else:
@@ -336,7 +336,7 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(
+        res.optimistic = Opt.some node.dag.is_optimistic(
           BlockId(slot: data.slot, root: data.new_head_block))
         res
       else:
@@ -355,7 +355,7 @@ proc initFullNode(
           var res = data
           # `slot` in this `BlockId` may be higher than block's actual slot,
           # this is alright for the purpose of calling `is_optimistic`.
-          res.optimistic = some node.dag.is_optimistic(
+          res.optimistic = Opt.some node.dag.is_optimistic(
             BlockId(slot: data.epoch.start_slot, root: data.block_root))
           res
         else:

@@ -1901,9 +1901,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         decoded =
           try:
             RestJson.decode(response.data,
-                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
-                            requireAllFields = true,
-                            allowUnknownFields = true)
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]])
           except SerializationError:
             raiseAssert "Invalid response encoding"
       check:
@@ -1933,9 +1931,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         decoded =
           try:
             RestJson.decode(response.data,
-                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
-                            requireAllFields = true,
-                            allowUnknownFields = true)
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]])
           except SerializationError:
             raiseAssert "Invalid response encoding"
       check:
@@ -1966,9 +1962,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         decoded =
           try:
             RestJson.decode(response.data,
-                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
-                            requireAllFields = true,
-                            allowUnknownFields = true)
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]])
           except SerializationError:
             raiseAssert "Invalid response encoding"
       check:
@@ -1998,9 +1992,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         decoded =
           try:
             RestJson.decode(response.data,
-                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
-                            requireAllFields = true,
-                            allowUnknownFields = true)
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]])
           except SerializationError:
             raiseAssert "Invalid response encoding"
       check:
