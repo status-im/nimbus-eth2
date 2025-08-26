@@ -95,16 +95,15 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   # Make earliest refilled slot go up to head
   vcus.dag.erSlot = slot
   # Number of epochs to fetch per refill batch
-  const WindowEpochs = 3
+  let numberOfColumnEpochs = 3
   # Keep track of where we left off last time
   var startEpoch: Epoch
   if vcus.last_refilled_slot.isSome:
-    startEpoch = vcus.last_refilled_slot.get.epoch - WindowEpochs
+    startEpoch = vcus.last_refilled_slot.get.epoch - numberOfColumnEpochs
   else:
     # First time: go from head
-    startEpoch = slot.epoch - WindowEpochs
+    startEpoch = slot.epoch - numberOfColumnEpochs
   if slot.is_epoch() and startEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-    let numberOfColumnEpochs = WindowEpochs
     var blocks = newSeq[BlockId](numberOfColumnEpochs)
 
     let startIndex = vcus.dag.getBlockRange(
