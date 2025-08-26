@@ -95,7 +95,7 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   # Make earliest refilled slot go up to head
   vcus.dag.erSlot = slot
   # Number of epochs to fetch per refill batch
-  let numberOfColumnEpochs = 3
+  const numberOfColumnEpochs = 3
   # Keep track of where we left off last time
   var startEpoch: Epoch
   if vcus.last_refilled_slot.isSome:
