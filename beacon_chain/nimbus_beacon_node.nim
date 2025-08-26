@@ -21,7 +21,7 @@ import
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -553,6 +553,8 @@ proc initFullNode(
         clist.tail.get().blck.slot()
       else:
         getLocalWallSlot()
+    eaSlot = dag.head.slot
+    erSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -573,6 +575,8 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+    validatorCustody = ValidatorCustodyRef.init(node.network, dag, supernode,
+      getLocalHeadSlot, custodyColumns, getBeaconTime, dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -621,6 +625,8 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.dag.erSlot = erSlot
+  node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
@@ -634,6 +640,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
+  node.validatorCustody = validatorCustody
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager
@@ -1641,6 +1648,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
+          node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
@@ -1821,6 +1829,34 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # the next slot, just before that slot starts - because of the advance cuttoff
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
+
+  debug "Custody column count before validator custody detection attempt",
+    custody_columns = node.dataColumnQuarantine.custodyColumns.len
+
+  if (not node.config.peerdasSupernode) and
+     (slot.epoch() + 1).start_slot() - slot == 1:
+    # Detect new validator custody at the last slot of every epoch
+    discard node.validatorCustody.detectNewValidatorCustody(
+      node.attachedValidatorBalanceTotal)
+    if node.validatorCustody.diff_set.len > 0:
+      var custodyColumns =
+        node.validatorCustody.newer_column_set.toSeq()
+      sort(custodyColumns)
+      # update custody columns
+      node.dataColumnQuarantine.updateColumnQuarantine(
+        node.dag.cfg, custodyColumns)
+
+      # Update CGC and metadata with respect to the new detected validator custody
+      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+
+      if new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+        node.network.loadCgcnetMetadataAndEnr(new_vcus)
+      else:
+        node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                              node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+
+  debug "Custody column count after validator custody detection attempt",
+    custody_columns = node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let
@@ -2199,6 +2235,9 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
+  if node.network.getBeaconTime().slotOrZero.epoch >=
+      node.network.cfg.FULU_FORK_EPOCH:
+    node.validatorCustody.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)
