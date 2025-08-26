@@ -100,10 +100,10 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   var startEpoch: Epoch
   if vcus.last_refilled_slot.isSome:
     let lrs = vcus.last_refilled_slot.get.epoch
-    startEpoch = lrs - min(lrs, numberOfColumnEpochs)
+    startEpoch = lrs - min(lrs, numberOfColumnEpochs.Epoch)
   else:
     # First time: go from head
-    startEpoch = slot.epoch - min(slot.epoch, numberOfColumnEpochs)
+    startEpoch = slot.epoch - min(slot.epoch, numberOfColumnEpochs.Epoch)
   if slot.is_epoch() and startEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
     var blocks = newSeq[BlockId](numberOfColumnEpochs)
 
