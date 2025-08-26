@@ -112,6 +112,7 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     for i in startIndex..<numberOfColumnEpochs:
       let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
+        # No need to check for fork version, as this loop is triggered post-Fulu
         let entry1 =
           DataColumnsByRootIdentifier(block_root: forkyBlck.root,
                                       indices: DataColumnIndices.init(diff))
