@@ -38,6 +38,7 @@ type
     older_column_set: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
     diff_set*: seq[ColumnIndex]
+    last_refilled_slot*: Opt[Slot]
     global_refill_list: HashSet[DataColumnIdentifier]
     requested_columns: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
@@ -88,36 +89,41 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   if vcus.global_refill_list.len > 0:
-    # There's already a batch of column refilling going on
-    # hence, no need to re-create this list.
-    discard
+    # A batch of column refilling is already in progress
+    return
+  let slot = vcus.getLocalHeadSlot()
+  # Make earliest refilled slot go up to head
+  vcus.dag.erSlot = slot
+  # Number of epochs to fetch per refill batch
+  const WindowEpochs = 3
+  # Keep track of where we left off last time
+  var startEpoch: Epoch
+  if vcus.last_refilled_slot.isSome:
+    startEpoch = vcus.last_refilled_slot.get.epoch - WindowEpochs
   else:
-    let
-      slot = vcus.getLocalHeadSlot()
-    # Make earliest refilled slot go upto head because everythingprefer
-    # behind is currently undergoing excess column refilling.
-    vcus.dag.erSlot = slot
-    let dataColumnRefillEpoch = (slot.epoch -
-                                 vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-    let numberOfColumnEpochs =
-      vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
-    if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-      var blocks = newSeq[BlockId](numberOfColumnEpochs)
-      let startIndex = vcus.dag.getBlockRange(
-        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs - 1))
-      for i in startIndex..<numberOfColumnEpochs:
-        let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-        withBlck(blck):
-          # No need to check for fork version, as this loop is triggered post-Fulu
-          let entry1 =
-            DataColumnsByRootIdentifier(block_root: forkyBlck.root,
-                                        indices: DataColumnIndices.init(diff))
-          vcus.requested_columns.add entry1
-          for column in vcus.diff_set:
-            let entry2 =
-              DataColumnIdentifier(block_root: forkyBlck.root,
-                                   index: ColumnIndex(column))
-            vcus.global_refill_list.incl(entry2)
+    # First time: go from head
+    startEpoch = slot.epoch - WindowEpochs
+  if slot.is_epoch() and startEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
+    let numberOfColumnEpochs = WindowEpochs
+    var blocks = newSeq[BlockId](numberOfColumnEpochs)
+
+    let startIndex = vcus.dag.getBlockRange(
+      startEpoch.start_slot,
+      blocks.toOpenArray(0, numberOfColumnEpochs - 1))
+    for i in startIndex..<numberOfColumnEpochs:
+      let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        let entry1 =
+          DataColumnsByRootIdentifier(block_root: forkyBlck.root,
+                                      indices: DataColumnIndices.init(diff))
+        vcus.requested_columns.add entry1
+        for column in vcus.diff_set:
+          let entry2 =
+            DataColumnIdentifier(block_root: forkyBlck.root,
+                                 index: ColumnIndex(column))
+          vcus.global_refill_list.incl(entry2)
+    # Update marker: last slot we touched this round
+    vcus.last_refilled_slot = Opt.some(startEpoch.start_slot)
 
 proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                               peer: Peer): seq[DataColumnsByRootIdentifier] =
