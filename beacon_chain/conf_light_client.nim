@@ -9,7 +9,7 @@
 
 import
   json_serialization/std/net,
-  ./conf
+  ./conf, ./nimbus_binary_common
 
 export net, conf
 
@@ -37,12 +37,11 @@ type LightClientConf* = object
     name: "log-file" .}: Option[OutFile]
 
   # Storage
-  dataDir* {.
+  dataDirFlag* {.
     desc: "The directory where nimbus will store all blockchain data"
-    defaultValue: config.defaultDataDir()
-    defaultValueDesc: ""
+    defaultValueDesc: defaultDataDir("", "<network>")
     abbr: "d"
-    name: "data-dir" .}: OutDir
+    name: "data-dir" .}: Option[OutDir]
 
   # Network
   eth2Network* {.
@@ -149,22 +148,11 @@ type LightClientConf* = object
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64
 
+proc defaultDataDir*(config: LightClientConf): string =
+  defaultDataDir("", config.eth2Network.loadEth2Network().cfg.name())
+
+proc dataDir*(config: LightClientConf): OutDir =
+  config.dataDirFlag.get(OutDir legacyDataDir().valueOr(defaultDataDir(config)))
+
 template databaseDir*(config: LightClientConf): string =
   config.dataDir.databaseDir
-
-template loadJwtSecret*(
-    rng: var HmacDrbgContext,
-    config: LightClientConf,
-    allowCreate: bool): Option[seq[byte]] =
-  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
-
-proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
-  let elUrls = if config.noEl:
-    return newSeq[EngineApiUrl]()
-  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[getDefaultEngineApiUrl(config.jwtSecret)]
-  else:
-    config.elUrls
-
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    config.jwtSecret.configJwtSecretOpt)

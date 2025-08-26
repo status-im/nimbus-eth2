@@ -8,22 +8,17 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, web3/[primitives, engine_api_types],
+  chronicles, chronos,
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
   ../beacon_clock,
   ./common_tools
 
-from ../el/engine_api_conversions import asBlockHash
 from ../spec/beaconstate import
-  get_expected_withdrawals, has_eth1_withdrawal_credential
-from ../spec/datatypes/capella import Withdrawal
+  get_expected_withdrawals
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
-from ../validators/keystore_management import
-  KeymanagerHost, getPerValidatorDefaultFeeRecipient, getSuggestedFeeRecipient,
-  getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
 logScope: topics = "cman"

@@ -7,11 +7,11 @@
 
 {.push raises: [].}
 
-# Common routines for a BeaconNode and a ValidatorClient
+# Utilities common across several nimbus binaries (BN/VC/EC/Portal/etc)
 
 import
   # Standard library
-  std/[tables, terminal, typetraits],
+  std/[os, tables, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
@@ -19,34 +19,27 @@ import
   stew/io2, metrics/chronos_httpserver,
 
   # Local modules
-  ./spec/[helpers, keystore],
-  ./spec/datatypes/base,
-  ./[beacon_clock, conf, process_state, version]
+  ./spec/keystore,
+  ./buildinfo
 
 when defaultChroniclesStream.outputs.type.arity == 2:
-  from std/os import commandLineParams, getEnv, splitFile
   from ./filepath import secureCreatePath
 
   import stew/staticfor
-else:
-  from std/os import commandLineParams, getEnv
 
 when defined(posix):
   import termios
 
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
-
-declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
-
 export
-  confutils, toml_serialization, beacon_clock, conf
-
+  confutils, toml_serialization
 
 type
-  SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe, raises: [].}
+  StdoutLogKind* {.pure.} = enum
+    Auto = "auto"
+    Colors = "colors"
+    NoColors = "nocolors"
+    Json = "json"
+    None = "none"
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -166,13 +159,13 @@ proc setupLogging*(
     quit 1
 
 proc makeBannerAndConfig*(
-    clientId, copyright, banner, specVersion: string,
+    helpBanner: string, versions: openArray[string],
     environment: openArray[string],
     ConfType: type,
 ): Result[ConfType, string] =
   let
-    spec = "eth2 specification v" & specVersion
-    version = clientId & "\p" & copyright & "\p\p" & spec & "\p\p" & banner
+    version = helpBanner & "\p" & copyrights & "\p\p" & (@versions & @[nimBanner()]).join("\p")
+
     cmdLine =
       if len(environment) == 0:
         commandLineParams()
@@ -183,8 +176,8 @@ proc makeBannerAndConfig*(
   let config =
     try:
       ConfType.load(
-        version = version, # but a short version string makes more sense...
-        copyrightBanner = clientId,
+        version = version, # what --version outputs
+        copyrightBanner = helpBanner, # what is shown on top of --help
         cmdLine = cmdLine,
         secondarySources = proc(
             config: ConfType, sources: ref SecondarySources
@@ -212,8 +205,10 @@ proc makeBannerAndConfig*(
   {.pop.}
   ok(config)
 
-template makeBannerAndConfig*(clientId: string, ConfType: type): auto =
-  makeBannerAndConfig(clientId, copyrights, nimbanner, SPEC_VERSION, [], ConfType).valueOr:
+template makeBannerAndConfig*(helpBanner: string, ConfType: type): auto =
+  makeBannerAndConfig(
+    helpBanner, ["Ethereum consensus spec v" & SPEC_VERSION], [], ConfType
+  ).valueOr:
     try:
       stderr.write(error)
     except IOError:
@@ -254,87 +249,10 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
     if exitLoop: break
     cache.pruneExpiredKeys()
 
-proc sleepAsync*(t: TimeDiff): Future[void] =
-  sleepAsync(nanoseconds(
-    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
-
-proc sleepAsync2*(t: TimeDiff): Future[void] {.
+proc sleepAsync*(t: TimeDiff): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
-
-proc runSlotLoop*[T](node: T, startTime: BeaconTime,
-                     slotProc: SlotStartProc[T]) {.async.} =
-  var
-    curSlot = startTime.slotOrZero()
-    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - startTime
-
-  info "Scheduling first slot action",
-    startTime = shortLog(startTime),
-    nextSlot = shortLog(nextSlot),
-    timeToNextSlot = shortLog(timeToNextSlot)
-
-  while true:
-    # Start by waiting for the time when the slot starts. Sleeping relinquishes
-    # control to other tasks which may or may not finish within the allotted
-    # time, so below, we need to be wary that the ship might have sailed
-    # already.
-    await sleepAsync(timeToNextSlot)
-
-    let
-      wallTime = node.beaconClock.now()
-      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
-
-    if wallSlot < nextSlot:
-      # While we were sleeping, the system clock changed and time moved
-      # backwards!
-      if wallSlot + 1 < nextSlot:
-        # This is a critical condition where it's hard to reason about what
-        # to do next - we'll call the attention of the user here by shutting
-        # down.
-        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
-          nextSlot = shortLog(nextSlot),
-          wallSlot = shortLog(wallSlot)
-        ProcessState.scheduleStop("clock skew")
-        return
-
-      # Time moved back by a single slot - this could be a minor adjustment,
-      # for example when NTP does its thing after not working for a while
-      warn "System time adjusted backwards, rescheduling slot actions",
-        wallTime = shortLog(wallTime),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      # cur & next slot remain the same
-      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
-      continue
-
-    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
-      # Time moved forwards by more than an epoch - either the clock was reset
-      # or we've been stuck in processing for a long time - either way, we will
-      # skip ahead so that we only process the events of the last
-      # SLOTS_PER_EPOCH slots
-      warn "Time moved forwards by more than an epoch, skipping ahead",
-        curSlot = shortLog(curSlot),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      curSlot = wallSlot - SLOTS_PER_EPOCH
-
-    elif wallSlot > nextSlot:
-        notice "Missed expected slot start, catching up",
-          delay = shortLog(wallTime - nextSlot.start_beacon_time()),
-          curSlot = shortLog(curSlot),
-          nextSlot = shortLog(curSlot)
-
-    let breakLoop = await slotProc(node, wallTime, curSlot)
-    if breakLoop:
-      break
-
-    curSlot = wallSlot
-    nextSlot = wallSlot + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
 
 proc init*(T: type RestServerRef,
            ip: IpAddress,
@@ -342,7 +260,7 @@ proc init*(T: type RestServerRef,
            allowedOrigin: Option[string],
            validateFn: PatternCallback,
            ident: string,
-           config: AnyConf): T =
+           config: auto): T =
   let
     address = initTAddress(ip, port)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
@@ -380,7 +298,7 @@ type
     token*: string
 
 proc initKeymanagerServer*(
-    config: AnyConf,
+    config: auto,
     existingRestServer: RestServerRef = nil): KeymanagerInitResult
     {.raises: [].} =
 
@@ -405,7 +323,7 @@ proc initKeymanagerServer*(
       fatal "The keymanager token should not be empty", tokenFilePath
       quit 1
 
-    when config is BeaconNodeConf:
+    when compiles(config.restPort):
       if existingRestServer != nil and
          config.restAddress == config.keymanagerAddress and
         config.restPort == config.keymanagerPort:
@@ -428,7 +346,7 @@ proc initKeymanagerServer*(
   KeymanagerInitResult(server: keymanagerServer, token: token)
 
 proc initMetricsServer*(
-    config: AnyConf
+    config: auto
 ): Future[Result[Opt[MetricsHttpServerRef], string]] {.
   async: (raises: [CancelledError]).} =
   if config.metricsEnabled:
@@ -478,3 +396,41 @@ proc quitSlashing*() =
 
   const QuitSlashing = 198
   quit QuitSlashing
+
+proc defaultDataDir*(namespace, network: string): string =
+  ## Return the location to use by default for the given network - since
+  ## each network has its own blocks and configuration, separate the data
+  ## directories by chain to keep things simple.
+  ##
+  ## Namespace is for separating applications by namespace, ie when they don't
+  ## support sharing data directory - in particular, the validator client,
+  ## signing node and beacon node must use separate folders or they risk loading
+  ## the same keys!
+  ##
+  ## In theory, things like private keys could be shared between testnets and
+  ## mainnet, but this amounts to reusing the same keys for both environments
+  ## which seems dubious at best, security-wise.
+
+  let
+    base =
+      when defined(windows):
+        # Avoid roaming profile since DB is large
+        os.getEnv("LOCALAPPDATA", os.getEnv("APPDATA"))
+      elif defined(macos) or defined(macosx):
+        # Everything goes in here on mac
+        os.getHomeDir() / "Library/Application Support"
+      else:
+        # https://specifications.freedesktop.org/basedir-spec/0.8/#variables
+        os.getEnv("XDG_STATE_HOME", os.getEnv("HOME") / ".local/state")
+
+    nimbus = when defined(linux): "nimbus" else: "Nimbus"
+
+  var dir = base / nimbus
+
+  if namespace.len > 0:
+    dir = dir / namespace
+
+  if network.len > 0:
+    dir = dir / network
+
+  dir
