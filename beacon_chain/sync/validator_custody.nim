@@ -209,7 +209,7 @@ proc validatorCustodyColumnLoop(
         for i in 0..<PARALLEL_REFILL_REQUESTS:
           workers[i] = vcus.refillDataColumnsFromNetwork()
         await allFutures(workers)
-        let finish = SyncMoment.now(uint64(len(vcus.global_refill_list)))
+        let finish = SyncMoment.now(lenu64(vcus.global_refill_list))
         debug "Validator custody backfill tick",
               backfill_speed = speed(start, finish)
       else:
