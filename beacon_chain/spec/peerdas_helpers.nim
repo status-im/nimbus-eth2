@@ -170,11 +170,11 @@ proc recover_cells_and_proofs_parallel*(
     res = newSeq[CellsAndProofs](blobCount)
   for blobIdx in 0..<blobCount:
     var
-      cellIndices = newSeqOfCap[CellIndex](columnCount)
-      cells = newSeqOfCap[Cell](columnCount)
-    for column in dataColumns:
-      cellIndices.add(column[].index)
-      cells.add(column[].column[blobIdx])
+      cellIndices = newSeq[CellIndex](columnCount)
+      cells = newSeq[Cell](columnCount)
+    for i in 0 ..< dataColumns.len:
+      cellIndices[i] = dataColumns[i][].index
+      cells[i] = dataColumns[i][].column[blobIdx]
     pendingFuts[blobIdx] =
       tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells)
 
