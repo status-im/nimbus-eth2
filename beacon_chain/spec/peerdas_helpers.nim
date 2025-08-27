@@ -142,7 +142,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
+proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
                                   cells: seq[Cell]): Result[CellsAndProofs, void] =
   recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
     proc (x: string) =
@@ -160,8 +160,8 @@ proc recover_cells_and_proofs_parallel*(
     columnCount = dataColumns.len
     blobCount = dataColumns[0].column.len
 
-  for data_column in dataColumns:
-    if not (blobCount == data_column.column.len):
+  for column in dataColumns:
+    if not (blobCount == column.column.len):
       return err ("DataColumns do not have the same length")
 
   # spawn threads for recovery
