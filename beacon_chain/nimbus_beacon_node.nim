@@ -2217,13 +2217,8 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  block mainLoop:
-    while true:
-      ProcessState.stopping.isErrOr:
-        notice "Shutting down", reason = value
-        break mainLoop
-
-      poll()
+  while not ProcessState.stopIt(notice "Shutting down", reason = it):
+    poll()
 
   # time to say goodbye
   node.stop()
@@ -2462,8 +2457,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     if res.isErr():
       raiseAssert res.error()
 
-  ProcessState.stopping.isErrOr:
-    notice "Shutting down", reason = value
+  if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
@@ -2477,8 +2471,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   node.metricsServer = metricsServer
 
-  ProcessState.stopping.isErrOr:
-    notice "Shutting down", reason = value
+  if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
 
   when not defined(windows):

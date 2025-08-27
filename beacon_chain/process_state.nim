@@ -36,6 +36,8 @@
 
 import std/atomics, results
 
+export results
+
 type ProcessState* {.pure.} = enum
   Starting
   Running
@@ -113,6 +115,15 @@ proc stopping*(_: type ProcessState): Opt[cstring] =
     ok source
   else:
     Opt.none(cstring)
+
+template stopIt*(_: type ProcessState, body: untyped): bool =
+  let state = ProcessState.stopping()
+  if state.isSome():
+    let it {.inject.} = state.get()
+    body
+    true
+  else:
+    false
 
 when isMainModule: # Test case
   import os, chronos, chronos/threadsync
