@@ -16,29 +16,14 @@ import
   ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
-  "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
+  ./[filepath, light_client, light_client_db, nimbus_binary_common, process_state, version]
 
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
-# this needs to be global, so it can be set in the Ctrl+C signal handler
-var globalRunning = true
-
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    globalRunning = false
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
+  ProcessState.setupStopHandlers()
 
   var config = makeBannerAndConfig(
     "Nimbus light client " & fullVersionStr, LightClientConf)
@@ -343,10 +328,9 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   asyncSpawn runOnSlotLoop()
   asyncSpawn runOnSecondLoop()
-  while globalRunning:
-    poll()
 
-  notice "Exiting light client"
+  while not ProcessState.stopIt(notice("Shutting down", reason = it)):
+    poll()
 
 when isMainModule:
   main()
