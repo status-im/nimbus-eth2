@@ -40,7 +40,7 @@ export
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
-  LightClientDataImportMode, slashing_protection_common
+  LightClientDataImportMode, slashing_protection_common, nimbus_binary_common
 
 declareGauge network_name, "network name", ["name"]
 
