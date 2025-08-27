@@ -1171,15 +1171,15 @@ proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
 template loadEth2Network*(config: BeaconNodeConf|SigningNodeConf): Eth2NetworkMetadata =
   loadEth2Network(config.eth2Network)
 
-proc shortNetworkName*(eth2Network: Option[string]) =
+proc shortNetworkName*(eth2Network: Option[string]): string =
   # Given an eth2Network configuration, figure out a good canonical name for the
   # network that can be used for directories etc.
   if eth2Network.isSome() and
-      config.eth2Network.get() in
+      eth2Network.get() in
       ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "holesky", "sepolia"]:
     eth2Network.get()
   else:
-    config.loadEth2Network().cfg.name()
+    eth2Network.loadEth2Network().cfg.name()
 
 proc legacyDataDir*(): Opt[string] =
   let dir =
