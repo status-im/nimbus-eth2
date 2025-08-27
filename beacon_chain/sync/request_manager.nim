@@ -65,7 +65,7 @@ type
     block_root: Eth2Digest
     sidecar: ref BlobSidecar
 
-  DataColumnResponseRecord = object
+  DataColumnResponseRecord* = object
     block_root*: Eth2Digest
     sidecar*: ref DataColumnSidecar
 
