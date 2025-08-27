@@ -148,7 +148,7 @@ type LightClientConf* = object
     name: "debug-stop-at-epoch" .}: uint64
 
 proc defaultDataDir*(config: LightClientConf): string =
-  defaultDataDir("", config.eth2Network.loadEth2Network().cfg.name())
+  defaultDataDir("", config.eth2Network.shortNetworkName())
 
 proc dataDir*(config: LightClientConf): OutDir =
   config.dataDirFlag.get(OutDir legacyDataDir().valueOr(defaultDataDir(config)))
