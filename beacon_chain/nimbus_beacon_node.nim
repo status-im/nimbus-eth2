@@ -9,7 +9,6 @@
 
 import
   std/[os, random, terminal, times, exitprocs],
-  stew/byteutils,
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -830,7 +829,7 @@ proc init*(T: type BeaconNode,
         config.eraDir,
         config.externalBeaconApiUrl.get,
         config.trustedStateRoot.map do (x: Eth2Digest) -> string:
-          x.data.toOxHex(),
+          x.data.to0xHex(),
         trustedBlockRoot,
         backfill = false,
         reindex = false,
