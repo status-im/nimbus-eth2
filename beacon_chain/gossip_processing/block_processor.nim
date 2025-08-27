@@ -301,8 +301,7 @@ proc storeBackfillBlock(
     return res
 
   # Only store data columns after successfully establishing block viability.
-  let
-    columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for i in 0..<columns.len:
     if i in malformed_cols:
       continue
