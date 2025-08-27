@@ -151,7 +151,6 @@ type
 
     dataDirFlag* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValueDesc: defaultDataDir("", "<network>")
       abbr: "d"
       name: "data-dir" .}: Option[OutDir]
 
@@ -913,7 +912,6 @@ type
 
     dataDirFlag* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValueDesc: defaultDataDir("vc", "")
       abbr: "d"
       name: "data-dir" .}: Option[OutDir]
 
@@ -1098,7 +1096,6 @@ type
 
     dataDirFlag* {.
       desc: "The directory where nimbus will store validator's keys"
-      defaultValueDesc: defaultDataDir("sn", "<network>")
       abbr: "d"
       name: "data-dir" .}: Option[OutDir]
 

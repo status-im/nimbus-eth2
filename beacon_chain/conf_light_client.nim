@@ -39,7 +39,6 @@ type LightClientConf* = object
   # Storage
   dataDirFlag* {.
     desc: "The directory where nimbus will store all blockchain data"
-    defaultValueDesc: defaultDataDir("", "<network>")
     abbr: "d"
     name: "data-dir" .}: Option[OutDir]
 
