@@ -266,7 +266,7 @@ proc storeBackfillBlock(
             signature = shortLog(signedBlock.signature),
             msg = r.error()
 
-    columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >
+    columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >=
         (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
 
   if not columnsOk:
