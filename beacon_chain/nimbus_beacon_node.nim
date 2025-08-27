@@ -9,6 +9,7 @@
 
 import
   std/[os, random, terminal, times, exitprocs],
+  stew/byteutils,
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
