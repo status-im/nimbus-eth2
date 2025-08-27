@@ -2217,7 +2217,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  while not ProcessState.stopIt(notice "Shutting down", reason = it):
+  while not ProcessState.stopIt(notice("Shutting down", reason = it)):
     poll()
 
   # time to say goodbye
