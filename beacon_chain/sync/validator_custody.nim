@@ -38,6 +38,7 @@ type
     older_column_set: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
     diff_set*: seq[ColumnIndex]
+    last_refilled_slot*: Opt[Slot]
     global_refill_list: HashSet[DataColumnIdentifier]
     requested_columns: seq[DataColumnsByRootIdentifier]
     getBeaconTime: GetBeaconTimeFn
@@ -88,36 +89,41 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   if vcus.global_refill_list.len > 0:
-    # There's already a batch of column refilling going on
-    # hence, no need to re-create this list.
-    discard
+    # A batch of column refilling is already in progress
+    return
+  let slot = vcus.getLocalHeadSlot()
+  # Make earliest refilled slot go up to head
+  vcus.dag.erSlot = slot
+  # Number of epochs to fetch per refill batch
+  const numberOfColumnEpochs = 3
+  # Keep track of where we left off last time
+  let startEpoch = if vcus.last_refilled_slot.isSome:
+    let lrs = vcus.last_refilled_slot.get.epoch
+    Epoch(lrs - min(lrs, numberOfColumnEpochs.Epoch))
   else:
-    let
-      slot = vcus.getLocalHeadSlot()
-    # Make earliest refilled slot go upto head because everythingprefer
-    # behind is currently undergoing excess column refilling.
-    vcus.dag.erSlot = slot
-    let dataColumnRefillEpoch = (slot.epoch -
-                                 vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-    let numberOfColumnEpochs =
-      vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS.int
-    if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
-      var blocks = newSeq[BlockId](numberOfColumnEpochs)
-      let startIndex = vcus.dag.getBlockRange(
-        dataColumnRefillEpoch.start_slot, blocks.toOpenArray(0, numberOfColumnEpochs - 1))
-      for i in startIndex..<numberOfColumnEpochs:
-        let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-        withBlck(blck):
-          # No need to check for fork version, as this loop is triggered post-Fulu
-          let entry1 =
-            DataColumnsByRootIdentifier(block_root: forkyBlck.root,
-                                        indices: DataColumnIndices.init(diff))
-          vcus.requested_columns.add entry1
-          for column in vcus.diff_set:
-            let entry2 =
-              DataColumnIdentifier(block_root: forkyBlck.root,
-                                   index: ColumnIndex(column))
-            vcus.global_refill_list.incl(entry2)
+    # First time: go from head
+    Epoch(slot.epoch - min(slot.epoch, numberOfColumnEpochs.Epoch))
+  if slot.is_epoch() and startEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
+    var blocks = newSeq[BlockId](numberOfColumnEpochs)
+
+    let startIndex = vcus.dag.getBlockRange(
+      startEpoch.start_slot,
+      blocks.toOpenArray(0, numberOfColumnEpochs - 1))
+    for i in startIndex..<numberOfColumnEpochs:
+      let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        # No need to check for fork version, as this loop is triggered post-Fulu
+        let entry1 =
+          DataColumnsByRootIdentifier(block_root: forkyBlck.root,
+                                      indices: DataColumnIndices.init(diff))
+        vcus.requested_columns.add entry1
+        for column in vcus.diff_set:
+          let entry2 =
+            DataColumnIdentifier(block_root: forkyBlck.root,
+                                 index: ColumnIndex(column))
+          vcus.global_refill_list.incl(entry2)
+    # Update marker: last slot we touched this round
+    vcus.last_refilled_slot = Opt.some(startEpoch.start_slot)
 
 proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                               peer: Peer): seq[DataColumnsByRootIdentifier] =
@@ -202,7 +208,7 @@ proc validatorCustodyColumnLoop(
         for i in 0..<PARALLEL_REFILL_REQUESTS:
           workers[i] = vcus.refillDataColumnsFromNetwork()
         await allFutures(workers)
-        let finish = SyncMoment.now(uint64(len(vcus.global_refill_list)))
+        let finish = SyncMoment.now(lenu64(vcus.global_refill_list))
         debug "Validator custody backfill tick",
               backfill_speed = speed(start, finish)
       else:
