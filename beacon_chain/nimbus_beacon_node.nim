@@ -1273,6 +1273,15 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
+func readCustodyGroupSubnets(node: BeaconNode): uint64 =
+  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
+  if node.config.peerdasSupernode:
+    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+  elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
+    vcus_count
+  else:
+    node.dag.cfg.CUSTODY_REQUIREMENT
+
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
@@ -1322,7 +1331,19 @@ proc addElectraMessageHandlers(
 
 proc addFuluMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addElectraMessageHandlers(forkDigest, slot)
+  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
+  # of columns. Last common ancestor fork for gossip environment is Capellla.
+  node.addCapellaMessageHandlers(forkDigest, slot)
+
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.subscribe(topic, basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1354,7 +1375,19 @@ proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
     forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeElectraMessageHandlers(forkDigest)
+  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
+  # of columns. Last common ancestor fork for gossip environment is Capellla.
+  node.removeCapellaMessageHandlers(forkDigest)
+
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.unsubscribe(topic)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
