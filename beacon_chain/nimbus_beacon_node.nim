@@ -829,7 +829,7 @@ proc init*(T: type BeaconNode,
         config.eraDir,
         config.externalBeaconApiUrl.get,
         config.trustedStateRoot.map do (x: Eth2Digest) -> string:
-          "0x" & x.data.toHex,
+          x.data.toOxHex(),
         trustedBlockRoot,
         backfill = false,
         reindex = false,
