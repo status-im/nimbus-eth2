@@ -128,7 +128,7 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
 proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                               peer: Peer): seq[DataColumnsByRootIdentifier] =
   var columnList =
-      newSeqOfCap[DataColumnsByRootIdentifier](vcus.requested_columns.len)
+    newSeqOfCap[DataColumnsByRootIdentifier](vcus.requested_columns.len)
   # Fetch the remote custody count
   let remoteCustodyGroupCount =
     peer.lookupCgcFromPeer()
@@ -155,7 +155,7 @@ proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
 
 proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
                                  {.async: (raises: [CancelledError]).} =
-  var peer = await vcus.network.peerPool.acquire()
+  let peer = await vcus.network.peerPool.acquire()
   let colIdList = vcus.checkIntersectingCustody(peer)
   try:
     if colIdList.len > 0:
@@ -164,7 +164,7 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
     let columns =
       await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList colIdList)
     if columns.isOk:
-      var ucolumns = columns.get().asSeq()
+      let ucolumns = columns.get().asSeq()
       let records = checkColumnResponse(colIdList, ucolumns).valueOr:
         debug "Response to columns by root is not a subset",
           peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
