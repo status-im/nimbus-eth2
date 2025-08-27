@@ -259,25 +259,24 @@ proc storeBackfillBlock(
   var
     columnsOk = true
     malformed_cols: HashSet[int]
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            malformed_cols.incl(i)
-            debug "backfill data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
+  if dataColumnsOpt.isSome:
+    let columns = dataColumnsOpt.get()
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if columns.len > 0 and kzgCommits.len > 0:
+      for i in 0..<columns.len:
+        let r =
+          verify_data_column_sidecar_kzg_proofs(columns[i][])
+        if r.isErr:
+          malformed_cols.incl(i)
+          debug "backfill data column validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            column_sidecar = shortLog(columns[i][]),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
 
-      columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >
-          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
+    columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >
+        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
 
   if not columnsOk:
     return err(VerifierError.Invalid)
