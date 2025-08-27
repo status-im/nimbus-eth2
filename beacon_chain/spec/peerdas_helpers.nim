@@ -144,9 +144,9 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
 proc recoverCellsAndKzgProofsTask(cell_indices: seq[CellIndex],
                                   cells: seq[Cell]): Result[CellsAndProofs, void] =
-  let res = recoverCellsAndKzgProofs(cell_indices, cells).valueOr:
-    return err()
-  ok(res)
+  recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
+    proc (x: string) =
+      discard)
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
