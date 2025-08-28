@@ -1241,7 +1241,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     time_to_slot = shortLog(timeToSlot)
 
   while true:
-    await sleepAsync2(timeToSlot)
+    await sleepAsync(timeToSlot)
 
     let
       wallTime = vc.beaconClock.now()

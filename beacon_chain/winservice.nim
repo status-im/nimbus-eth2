@@ -106,10 +106,8 @@ when defined(windows):
   proc reportServiceStatusSuccess*() =
     reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
 
-  template establishWindowsService*(argClientId,
-                                    argCopyrights,
-                                    argNimBanner,
-                                    argSpecVersion,
+  template establishWindowsService*(argHelpBanner: string,
+                                    argVersions: openArray[string],
                                     argServiceName: string,
                                     argConfigType: untyped,
                                     argEntryPoint: untyped,
@@ -150,8 +148,7 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
         quit QuitFailure
 
-      var config = makeBannerAndConfig(argClientId, argCopyrights,
-                                       argNimBanner, argSpecVersion,
+      var config = makeBannerAndConfig(argHelpBanner, argVersions,
                                        environment, argConfigType).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure

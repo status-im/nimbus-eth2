@@ -1273,6 +1273,15 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
+func readCustodyGroupSubnets(node: BeaconNode): uint64 =
+  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
+  if node.config.peerdasSupernode:
+    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+  elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
+    vcus_count
+  else:
+    node.dag.cfg.CUSTODY_REQUIREMENT
+
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
@@ -1322,7 +1331,19 @@ proc addElectraMessageHandlers(
 
 proc addFuluMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addElectraMessageHandlers(forkDigest, slot)
+  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
+  # of columns. Last common ancestor fork for gossip environment is Capellla.
+  node.addCapellaMessageHandlers(forkDigest, slot)
+
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.subscribe(topic, basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1354,7 +1375,19 @@ proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
     forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeElectraMessageHandlers(forkDigest)
+  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
+  # of columns. Last common ancestor fork for gossip environment is Capellla.
+  node.removeCapellaMessageHandlers(forkDigest)
+
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId,
+      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.unsubscribe(topic)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1960,6 +1993,76 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   return false
 
+proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
+  var
+    curSlot = startTime.slotOrZero()
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+
+  info "Scheduling first slot action",
+    startTime = shortLog(startTime),
+    nextSlot = shortLog(nextSlot),
+    timeToNextSlot = shortLog(timeToNextSlot)
+
+  while true:
+    # Start by waiting for the time when the slot starts. Sleeping relinquishes
+    # control to other tasks which may or may not finish within the allotted
+    # time, so below, we need to be wary that the ship might have sailed
+    # already.
+    await sleepAsync(timeToNextSlot)
+
+    let
+      wallTime = node.beaconClock.now()
+      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+
+    if wallSlot < nextSlot:
+      # While we were sleeping, the system clock changed and time moved
+      # backwards!
+      if wallSlot + 1 < nextSlot:
+        # This is a critical condition where it's hard to reason about what
+        # to do next - we'll call the attention of the user here by shutting
+        # down.
+        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
+          nextSlot = shortLog(nextSlot), wallSlot = shortLog(wallSlot)
+        ProcessState.scheduleStop("clock skew")
+        return
+
+      # Time moved back by a single slot - this could be a minor adjustment,
+      # for example when NTP does its thing after not working for a while
+      warn "System time adjusted backwards, rescheduling slot actions",
+        wallTime = shortLog(wallTime),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      # cur & next slot remain the same
+      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
+      continue
+
+    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
+      # Time moved forwards by more than an epoch - either the clock was reset
+      # or we've been stuck in processing for a long time - either way, we will
+      # skip ahead so that we only process the events of the last
+      # SLOTS_PER_EPOCH slots
+      warn "Time moved forwards by more than an epoch, skipping ahead",
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      curSlot = wallSlot - SLOTS_PER_EPOCH
+    elif wallSlot > nextSlot:
+      notice "Missed expected slot start, catching up",
+        delay = shortLog(wallTime - nextSlot.start_beacon_time()),
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(curSlot)
+
+    let breakLoop = await onSlotStart(node, wallTime, curSlot)
+    if breakLoop:
+      break
+
+    curSlot = wallSlot
+    nextSlot = wallSlot + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+
 proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
@@ -2251,7 +2354,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
     asyncSpawn node.pollForDynamicValidators(
       web3signerUrl, node.config.web3signerUpdateInterval)
 
-  asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
+  asyncSpawn runSlotLoop(node, wallTime)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
@@ -2688,7 +2791,8 @@ proc main() {.noinline, raises: [CatchableError].} =
     if config.runAsService:
       proc exitService() =
         ProcessState.scheduleStop("exitService")
-      establishWindowsService(clientId, copyrights, nimBanner, SPEC_VERSION,
+      establishWindowsService(clientId,
+                              ["Ethereum consensus spec v" & SPEC_VERSION],
                               "nimbus_beacon_node", BeaconNodeConf,
                               handleStartUpCmd, exitService)
     else:
