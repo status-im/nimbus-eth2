@@ -308,29 +308,34 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
-proc runRecoverCellsAndKzgProofsParallelTest(suiteName, suitePath: string) =
-  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
-    # read scenario data from valid cases
+proc loadCellsAndKzgProofsValidCases(suitePath: string): seq[MatrixEntry] =
+  try:
     var
       data: seq[MatrixEntry]
       rowCount = 0
-    block dataFromValidCases:
-      for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-        if not path.contains("_case_valid_"):
-          continue
+    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+      if not path.contains("_case_valid_"):
+        continue
+      let
+        rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+        output = rowData["output"]
+      for i in 0..<output[0].len:
+        data.add(MatrixEntry(
+          cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
+          kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
+          column_index: ColumnIndex(i),
+          row_index: RowIndex(rowCount)))
+      rowCount += 1
+    return data
+  except Exception:
+    debugEcho "Problem in loading KZG valid case data"
 
-        let
-          rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
-          output = rowData["output"]
-        for i in 0..<output[0].len:
-          data.add(MatrixEntry(
-            cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
-            kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
-            column_index: ColumnIndex(i),
-            row_index: RowIndex(rowCount)))
-        rowCount += 1
-
+proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
     let
+      # read scenario data from valid cases
+      data = loadCellsAndKzgProofsValidCases(suitePath)
+      rowCount = data[data.len - 1].row_index.int + 1
       # The 64 column indices
       indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
       # Minimal data for recovery
@@ -458,7 +463,7 @@ suite suiteName:
 
   block:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
-    runRecoverCellsAndKzgProofsParallelTest(suiteName, testsDir)
+    runRecoverCellsAndKzgProofsParallelValidTest(suiteName, testsDir)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
