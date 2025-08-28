@@ -18,6 +18,9 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 from std/algorithm import sort
 from std/sequtils import keepItIf, maxIndex
 
@@ -169,7 +172,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
             unrealized =
               if blckRef == dag.head:
                 withState(dag.headState):
-                  when consensusFork >= ConsensusFork.Altair:
+                  debugGloasComment ""
+                  when consensusFork == ConsensusFork.Gloas:
+                    default(FinalityCheckpoints)
+                  elif consensusFork >= ConsensusFork.Altair:
                     forkyState.data.compute_unrealized_finality()
                   else:
                     var cache: StateCache
@@ -1096,7 +1102,8 @@ proc getElectraAttestationsForBlock*(
     pool: var AttestationPool, state: ForkedHashedBeaconState,
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
-    when consensusFork >= ConsensusFork.Electra:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Electra and consensusFork != ConsensusFork.Gloas:
       pool.getAttestationsForBlock(forkyState, cache)
     else:
       default(seq[electra.Attestation])

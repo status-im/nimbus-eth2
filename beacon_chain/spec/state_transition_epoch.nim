@@ -27,6 +27,9 @@ import
   ../extras,
   "."/[beaconstate, eth2_merkleization, validator]
 
+debugGloasComment "forks will eventually export this"
+import ./datatypes/gloas
+
 from std/math import sum, `^`
 from stew/bitops2 import setBit
 from ./datatypes/capella import
@@ -1650,6 +1653,13 @@ proc process_epoch*(
   ? process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
 
   ok()
+
+proc process_epoch*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
+  debugGloasComment "do epoch transition"
+  discard
 
 proc get_validator_balance_after_epoch*(
     cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState,

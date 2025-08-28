@@ -13,6 +13,9 @@ import
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 logScope: topics = "val_mon"
 
 # Validator monitoring based on the same feature in Lighthouse - using the same

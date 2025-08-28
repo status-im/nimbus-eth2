@@ -37,6 +37,9 @@ from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
   getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 export sszdump, signatures_batch
 
 logScope: topics = "gossip_blocks"
@@ -491,7 +494,9 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+      elif consensusFork >= ConsensusFork.Fulu:
         resfut.complete(
           self.storeBackfillBlock(forkyBlck, data_columns))
       else:
@@ -928,6 +933,8 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Gloas:
+            debugGloasComment ""
           of ConsensusFork.Deneb, ConsensusFork.Electra, ConsensusFork.Fulu:
             # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
             # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
@@ -980,7 +987,12 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
+      when typeof(forkyBlck).kind == ConsensusFork.Gloas:
+        debugGloasComment ""
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+          Opt.none(DataColumnSidecars))
+      elif typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
           Opt.none(DataColumnSidecars))
@@ -1109,9 +1121,13 @@ proc processBlock(
     quit 1
 
   let res = withBlck(entry.blck):
-    await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
-      entry.maybeFinalized, entry.queueTick, entry.validationDur)
+    debugGloasComment ""
+    when consensusFork != ConsensusFork.Gloas:
+      await self.storeBlock(
+        entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
+        entry.maybeFinalized, entry.queueTick, entry.validationDur)
+    else:
+      default(Result[BlockRef, (VerifierError, ProcessingStatus)])
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a

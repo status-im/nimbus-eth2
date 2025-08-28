@@ -979,5 +979,5 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
-# Specifically has the `Fulu` naming, for easy debugging.
-template debugFuluComment* (s: string) = discard
+template debugFuluComment*(s: string) = discard
+template debugGloasComment*(s: string) = discard

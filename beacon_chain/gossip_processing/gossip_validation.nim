@@ -23,6 +23,9 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult
@@ -301,8 +304,9 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   else:
     cfg.MAX_BLOBS_PER_BLOCK
 
+debugGloasComment ""
 template validateBeaconBlockBellatrix(
-    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BlockRef): untyped =
   discard
 
@@ -360,11 +364,12 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
+debugGloasComment ""
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
     _:
       phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BeaconTime): untyped =
   discard
 
@@ -1498,7 +1503,8 @@ proc validateBlsToExecutionChange*(
   # [REJECT] All of the conditions within `process_bls_to_execution_change`
   # pass validation.
   withState(pool.dag.headState):
-    when consensusFork < ConsensusFork.Capella:
+    debugGloasComment ""
+    when consensusFork < ConsensusFork.Capella or consensusFork == ConsensusFork.Gloas:
       return errIgnore(
         "SignedBLSToExecutionChange: can't validate against pre-Capella state")
     else:

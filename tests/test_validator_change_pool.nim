@@ -108,10 +108,12 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        check:
-          pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).proposer_slashings.lenu64 ==
-            min(i + 1, MAX_PROPOSER_SLASHINGS)
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          check:
+            pool[].getBeaconBlockValidatorChanges(
+                cfg, forkyState.data).proposer_slashings.lenu64 ==
+              min(i + 1, MAX_PROPOSER_SLASHINGS)
 
   test "addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
@@ -129,10 +131,12 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        check:
-          pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).phase0_attester_slashings.lenu64 ==
-            min(i + 1, MAX_ATTESTER_SLASHINGS)
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          check:
+            pool[].getBeaconBlockValidatorChanges(
+                cfg, forkyState.data).phase0_attester_slashings.lenu64 ==
+              min(i + 1, MAX_ATTESTER_SLASHINGS)
 
   test "addValidatorChangeMessage/getAttesterSlashingMessage (Electra)":
     var
@@ -159,10 +163,12 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        check:
-          pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).electra_attester_slashings.lenu64 ==
-            min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          check:
+            pool[].getBeaconBlockValidatorChanges(
+                cfg, forkyState.data).electra_attester_slashings.lenu64 ==
+              min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":
     # Need to advance state or it will not accept voluntary exits
@@ -186,10 +192,12 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        check:
-          pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).voluntary_exits.lenu64 ==
-            min(i + 1, MAX_VOLUNTARY_EXITS)
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          check:
+            pool[].getBeaconBlockValidatorChanges(
+                cfg, forkyState.data).voluntary_exits.lenu64 ==
+              min(i + 1, MAX_VOLUNTARY_EXITS)
 
   test "addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)":
     # Need to advance state or it will not accept execution changes
@@ -217,9 +225,11 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        # Too early to get BLS to execution changes for blocks
-        check pool[].getBeaconBlockValidatorChanges(
-          cfg, forkyState.data).bls_to_execution_changes.len == 0
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          # Too early to get BLS to execution changes for blocks
+          check pool[].getBeaconBlockValidatorChanges(
+            cfg, forkyState.data).bls_to_execution_changes.len == 0
 
   test "addValidatorChangeMessage/getBlsToExecutionChange (post-capella)":
     # Need to advance state or it will not accept execution changes
@@ -251,13 +261,15 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
-          cfg, forkyState.data).bls_to_execution_changes
-        check:
-          blsToExecutionChanges.lenu64 == min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
+            cfg, forkyState.data).bls_to_execution_changes
+          check:
+            blsToExecutionChanges.lenu64 == min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
 
-          # Ensure priority of API to gossip messages is observed
-          allIt(priorityMessages, pool[].isSeen(it))
+            # Ensure priority of API to gossip messages is observed
+            allIt(priorityMessages, pool[].isSeen(it))
 
   test "pre-pre-fork voluntary exit":
     var
@@ -280,8 +292,10 @@ suite "Validator change pool testing suite":
       {}).expect("ok")
 
     withState(dag.headState):
-      check:
-        # Message signed with a (fork-2) domain can no longer be added as that
-        # fork is not present in the BeaconState and thus fails transition
-        pool[].getBeaconBlockValidatorChanges(
-          cfg, forkyState.data).voluntary_exits.lenu64 == 0
+      debugGloasComment ""
+      when consensusFork != ConsensusFork.Gloas:
+        check:
+          # Message signed with a (fork-2) domain can no longer be added as that
+          # fork is not present in the BeaconState and thus fails transition
+          pool[].getBeaconBlockValidatorChanges(
+            cfg, forkyState.data).voluntary_exits.lenu64 == 0

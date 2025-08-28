@@ -297,7 +297,8 @@ proc getExecutionPayload*(
     random = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Capella:
+      debugGloasComment ""
+      when consensusFork >= ConsensusFork.Capella and consensusFork != ConsensusFork.Gloas:
         get_expected_withdrawals(forkyState.data)
       else:
         @[]

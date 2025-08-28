@@ -113,7 +113,8 @@ cli do(validatorsDir: string, secretsDir: string,
   # The EL may otherwise refuse to produce new heads
   elManager.start(syncChain = false)
   withBlck(blck[]):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
       if forkyBlck.message.is_execution_block:
         template payload(): auto = forkyBlck.message.body.execution_payload
         if not payload.block_hash.isZero:
@@ -240,92 +241,95 @@ cli do(validatorsDir: string, secretsDir: string,
           validators.getOrDefault(
             proposer, default(ValidatorPrivKey))).toValidatorSig()
       withState(state[]):
-        let
-          payload =
-            when consensusFork >= ConsensusFork.Bellatrix:
-              let
-                executionHead =
-                  forkyState.data.latest_execution_payload_header.block_hash
-                withdrawals =
-                  when consensusFork >= ConsensusFork.Capella:
-                    get_expected_withdrawals(forkyState.data)
-                  else:
-                    newSeq[capella.Withdrawal]()
+        debugGloasComment ""
+        when consensusFork != ConsensusFork.Gloas:
+          let
+            payload =
+              when consensusFork >= ConsensusFork.Bellatrix:
+                let
+                  executionHead =
+                    forkyState.data.latest_execution_payload_header.block_hash
+                  withdrawals =
+                    when consensusFork >= ConsensusFork.Capella and consensusFork != ConsensusFork.Gloas:
+                      debugGloasComment ""
+                      get_expected_withdrawals(forkyState.data)
+                    else:
+                      newSeq[capella.Withdrawal]()
 
-              var pl: consensusFork.ExecutionPayloadForSigning
-              while true:
-                pl = (waitFor noCancel elManager.getPayload(
-                    consensusFork.ExecutionPayloadForSigning,
-                    consensusHead = forkyState.latest_block_root,
-                    headBlock = executionHead,
-                    safeBlock = executionHead,
-                    finalizedBlock = ZERO_HASH,
-                    timestamp = compute_timestamp_at_slot(
-                      forkyState.data, forkyState.data.slot),
-                    randomData = get_randao_mix(
-                      forkyState.data, get_current_epoch(forkyState.data)),
-                    suggestedFeeRecipient = feeRecipient,
-                    withdrawals = withdrawals)).valueOr:
-                  waitFor noCancel sleepAsync(chronos.seconds(2))
-                  continue
-                break
-              pl
-            else:
-              default(bellatrix.ExecutionPayloadForSigning)
-          message = makeBeaconBlock(
-            cfg,
-            consensusFork,
-            forkyState,
-            cache,
-            proposer,
-            randao_reveal,
-            forkyState.data.eth1_data,
-            graffitiValue,
-            when consensusFork >= ConsensusFork.Electra:
-              default(seq[electra.Attestation])
-            else:
-              blockAggregates,
-            @[],
-            BeaconBlockValidatorChanges(),
-            syncAggregate,
-            payload,
-            {}).expect("block")
+                var pl: consensusFork.ExecutionPayloadForSigning
+                while true:
+                  pl = (waitFor noCancel elManager.getPayload(
+                      consensusFork.ExecutionPayloadForSigning,
+                      consensusHead = forkyState.latest_block_root,
+                      headBlock = executionHead,
+                      safeBlock = executionHead,
+                      finalizedBlock = ZERO_HASH,
+                      timestamp = compute_timestamp_at_slot(
+                        forkyState.data, forkyState.data.slot),
+                      randomData = get_randao_mix(
+                        forkyState.data, get_current_epoch(forkyState.data)),
+                      suggestedFeeRecipient = feeRecipient,
+                      withdrawals = withdrawals)).valueOr:
+                    waitFor noCancel sleepAsync(chronos.seconds(2))
+                    continue
+                  break
+                pl
+              else:
+                default(bellatrix.ExecutionPayloadForSigning)
+            message = makeBeaconBlock(
+              cfg,
+              consensusFork,
+              forkyState,
+              cache,
+              proposer,
+              randao_reveal,
+              forkyState.data.eth1_data,
+              graffitiValue,
+              when consensusFork >= ConsensusFork.Electra:
+                default(seq[electra.Attestation])
+              else:
+                blockAggregates,
+              @[],
+              BeaconBlockValidatorChanges(),
+              syncAggregate,
+              payload,
+              {}).expect("block")
 
-        blockRoot = message.hash_tree_root()
-        let
-          proposerPrivkey =
-            try:
-              validators[proposer]
-            except KeyError as exc:
-              raiseAssert "Proposer key not available: " & exc.msg
-          signedBlock = consensusFork.SignedBeaconBlock(
-            message: message,
-            root: blockRoot,
-            signature: get_block_signature(
-              fork, genesis_validators_root, slot, blockRoot,
-              proposerPrivkey).toValidatorSig())
+          blockRoot = message.hash_tree_root()
+          let
+            proposerPrivkey =
+              try:
+                validators[proposer]
+              except KeyError as exc:
+                raiseAssert "Proposer key not available: " & exc.msg
+            signedBlock = consensusFork.SignedBeaconBlock(
+              message: message,
+              root: blockRoot,
+              signature: get_block_signature(
+                fork, genesis_validators_root, slot, blockRoot,
+                proposerPrivkey).toValidatorSig())
 
-        dump(".", signedBlock)
-        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-          let blobs = signedBlock.create_blob_sidecars(
-            payload.blobsBundle.proofs, payload.blobsBundle.blobs)
-          for blob in blobs:
-            dump(".", blob)
+          dump(".", signedBlock)
+          when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+            let blobs = signedBlock.create_blob_sidecars(
+              payload.blobsBundle.proofs, payload.blobsBundle.blobs)
+            for blob in blobs:
+              dump(".", blob)
 
-        notice "Block proposed", message, blockRoot
+          notice "Block proposed", message, blockRoot
 
-        when consensusFork >= ConsensusFork.Bellatrix:
-          while true:
-            let status = waitFor noCancel elManager
-              .newExecutionPayload(signedBlock.message)
-            if status.isNone:
-              waitFor noCancel sleepAsync(chronos.seconds(2))
-              continue
-            doAssert status.get in [
-              PayloadExecutionStatus.valid,
-              PayloadExecutionStatus.accepted,
-              PayloadExecutionStatus.syncing]
-            break
+          when consensusFork >= ConsensusFork.Bellatrix:
+            while true:
+              let status = waitFor noCancel elManager
+                .newExecutionPayload(signedBlock.message)
+              if status.isNone:
+                waitFor noCancel sleepAsync(chronos.seconds(2))
+                continue
+              doAssert status.get in [
+                PayloadExecutionStatus.valid,
+                PayloadExecutionStatus.accepted,
+                PayloadExecutionStatus.syncing]
+              break
 
       aggregates.setLen(0)
 

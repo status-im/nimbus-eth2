@@ -34,7 +34,11 @@ proc installBuilderApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlotId(bslot):
       withState(state):
-        when consensusFork >= ConsensusFork.Capella:
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment ""
+          return RestApiResponse.jsonError(
+            Http400, "The specified state is not a capella state")
+        elif consensusFork >= ConsensusFork.Capella:
           return RestApiResponse.jsonResponseWOpt(
             get_expected_withdrawals(forkyState.data),
             node.getStateOptimistic(state))

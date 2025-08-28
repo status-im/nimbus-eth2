@@ -13,6 +13,9 @@ import
   ".."/spec/forks,
   "."/[common, api, fallback_service]
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 const
   ServiceName = "block_service"
   BlockPollInterval = attestationSlotOffset.nanoseconds div 4

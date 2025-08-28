@@ -450,7 +450,8 @@ proc collectSignatureSets*(
       # 7. SyncAggregate
       # ----------------------------------------------------
       withState(state):
-        when consensusFork >= ConsensusFork.Altair:
+        debugGloasComment ""
+        when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
           if signed_block.message.body.sync_aggregate.sync_committee_bits.isZeros:
             if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
               return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
@@ -475,7 +476,8 @@ proc collectSignatureSets*(
     # 8. BLS to execution changes
     when typeof(signed_block).kind >= ConsensusFork.Capella:
       withState(state):
-        when consensusFork >= ConsensusFork.Capella:
+        debugGloasComment ""
+        when consensusFork >= ConsensusFork.Capella and consensusFork != ConsensusFork.Gloas:
           for bls_change in signed_block.message.body.bls_to_execution_changes:
             let sig = bls_change.signature.load.valueOr:
               return err("collectSignatureSets: cannot load BLS to execution change signature")

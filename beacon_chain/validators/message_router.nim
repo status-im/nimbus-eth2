@@ -19,6 +19,9 @@ import
   ../spec/datatypes/deneb
 from  ../spec/state_transition_block import validate_blobs
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 export eth2_processor, eth2_network
 
 logScope:

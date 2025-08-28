@@ -19,8 +19,8 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
-from ../spec/datatypes/capella import TrustedSignedBeaconBlock
-from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
+debugGloasComment ""
+import ../spec/datatypes/gloas
 
 from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
@@ -312,11 +312,12 @@ type
   OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
   OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
   OnFuluBlockAdded* = OnBlockAdded[fulu.TrustedSignedBeaconBlock]
+  OnGloasBlockAdded* = OnBlockAdded[gloas.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
     OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded |
-    OnFuluBlockAdded
+    OnFuluBlockAdded | OnGloasBlockAdded
 
   OnForkedBlockAdded* = proc(
     blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
@@ -359,7 +360,9 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Fulu:
+  when kind == ConsensusFork.Gloas:
+    typedesc[OnGloasBlockAdded]
+  elif kind == ConsensusFork.Fulu:
     typedesc[OnFuluBlockAdded]
   elif kind == ConsensusFork.Electra:
     typedesc[OnElectraBlockAdded]

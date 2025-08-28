@@ -16,6 +16,9 @@ import
   "."/[block_pools_types, block_dag, blockchain_dag,
        blockchain_dag_light_client]
 
+debugGloasComment ""
+import ../spec/datatypes/gloas
+
 export results, signatures_batch, block_dag, blockchain_dag
 
 # Clearance
@@ -100,7 +103,10 @@ proc addResolvedHeadBlock(
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
     let unrealized = withState(state):
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        default(FinalityCheckpoints)
+      elif consensusFork >= ConsensusFork.Altair:
         forkyState.data.compute_unrealized_finality()
       else:
         forkyState.data.compute_unrealized_finality(cache)
@@ -453,7 +459,9 @@ proc addBackfillBlock*(
   ok()
 
 template BlockAdded(kind: static ConsensusFork): untyped =
-  when kind == ConsensusFork.Fulu:
+  when kind == ConsensusFork.Gloas:
+    OnGloasBlockAdded
+  elif kind == ConsensusFork.Fulu:
     OnFuluBlockAdded
   elif kind == ConsensusFork.Electra:
     OnElectraBlockAdded

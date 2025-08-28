@@ -100,6 +100,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
     of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
     of ConsensusFork.Electra:   SSZ.saveFile(filename, value.electraData.data)
     of ConsensusFork.Fulu:      SSZ.saveFile(filename, value.fuluData.data)
+    of ConsensusFork.Gloas:     SSZ.saveFile(filename, value.gloasData.data)
   except IOError:
     raiseAssert "error saving SSZ file"
 

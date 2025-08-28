@@ -1107,7 +1107,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
               Opt.none(seq[DataColumnSidecar]),
               checkValidator = true)
-          elif consensusFork >= ConsensusFork.Fulu:
+          elif consensusFork >= ConsensusFork.Fulu and consensusFork != ConsensusFork.Gloas:
+            debugGloasComment ""
             let data_columns =
               assemble_data_column_sidecars(
                 forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -1167,7 +1168,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork <= ConsensusFork.Altair:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      elif consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
@@ -1208,7 +1212,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
@@ -1291,7 +1299,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     withConsensusFork(currentEpochFork):
       # TODO (cheatfate): handle broadcast_validation flag
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
@@ -1585,7 +1597,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttestations(phase0.Attestation)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttestations(electra.SingleAttestation)
 
     let failures =
@@ -1685,7 +1697,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttesterSlashing(phase0.AttesterSlashing)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings

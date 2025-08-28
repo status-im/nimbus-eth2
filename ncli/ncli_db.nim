@@ -284,6 +284,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Fulu:
         blocks[6].add dag.db.getBlock(
           blck.root, fulu.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Gloas:
+        debugGloasComment ""
 
   let stateData = newClone(dag.headState)
 
@@ -364,7 +366,10 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Fulu:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[6][].data, noRollback)
+              of ConsensusFork.Gloas:
+                debugGloasComment ""
 
+            debugGloasComment ""
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
                 of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
@@ -374,6 +379,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
+                of ConsensusFork.Gloas:     default(Digest)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -1142,9 +1148,11 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          var stateData = newClone(forkyState.data)
-          rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            stateData[], cache, cfg, flags)
+          debugGloasComment ""
+          when consensusFork != ConsensusFork.Gloas:
+            var stateData = newClone(forkyState.data)
+            rewardsAndPenalties.collectEpochRewardsAndPenalties(
+              stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"

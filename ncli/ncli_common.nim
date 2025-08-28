@@ -346,28 +346,31 @@ func collectFromProposerSlashings(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
-    for proposer_slashing in forkyBlck.message.body.proposer_slashings:
-      doAssert check_proposer_slashing(
-        forkyState.data, proposer_slashing, {}).isOk
-      let slashedIndex =
-        proposer_slashing.signed_header_1.message.proposer_index
-      rewardsAndPenalties.collectFromSlashedValidator(
-        forkyState.data, slashedIndex.ValidatorIndex,
-        forkyBlck.message.proposer_index.ValidatorIndex)
+    when consensusFork != ConsensusFork.Gloas:
+      for proposer_slashing in forkyBlck.message.body.proposer_slashings:
+        doAssert check_proposer_slashing(
+          forkyState.data, proposer_slashing, {}).isOk
+        let slashedIndex =
+          proposer_slashing.signed_header_1.message.proposer_index
+        rewardsAndPenalties.collectFromSlashedValidator(
+          forkyState.data, slashedIndex.ValidatorIndex,
+          forkyBlck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
-    for attester_slashing in forkyBlck.message.body.attester_slashings:
-      let attester_slashing_validity = check_attester_slashing(
-        forkyState.data, attester_slashing, {})
-      doAssert attester_slashing_validity.isOk
-      for slashedIndex in attester_slashing_validity.value:
-        rewardsAndPenalties.collectFromSlashedValidator(
-          forkyState.data, slashedIndex,
-          forkyBlck.message.proposer_index.ValidatorIndex)
+    debugGloasComment ""
+    when consensusFork != ConsensusFork.Gloas:
+      for attester_slashing in forkyBlck.message.body.attester_slashings:
+        let attester_slashing_validity = check_attester_slashing(
+          forkyState.data, attester_slashing, {})
+        doAssert attester_slashing_validity.isOk
+        for slashedIndex in attester_slashing_validity.value:
+          rewardsAndPenalties.collectFromSlashedValidator(
+            forkyState.data, slashedIndex,
+            forkyBlck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -376,7 +379,8 @@ func collectFromAttestations(
     epochParticipationFlags: var ParticipationFlags,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when consensusFork > ConsensusFork.Phase0:
+    debugGloasComment ""
+    when consensusFork > ConsensusFork.Phase0 and consensusFork != ConsensusFork.Gloas:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0.Gwei
@@ -447,7 +451,8 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when consensusFork > ConsensusFork.Phase0:
+    debugGloasComment ""
+    when consensusFork > ConsensusFork.Phase0 and consensusFork != ConsensusFork.Gloas:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)

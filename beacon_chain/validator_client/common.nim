@@ -46,7 +46,8 @@ const
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
-static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+debugGloasComment "Update OptionalForks constant! (really)"
+static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
   OptionalForks* = {ConsensusFork.Fulu}

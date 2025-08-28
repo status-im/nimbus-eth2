@@ -27,7 +27,8 @@ type
     of ValidatorStorageKind.Identifier:
       ident: ValidatorIdent
 
-static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+debugGloasComment " yeah do it "
+static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
   OptionalForks* = {ConsensusFork.Fulu}

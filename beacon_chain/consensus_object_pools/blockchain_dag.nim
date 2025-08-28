@@ -17,6 +17,9 @@ import
   ".."/[beacon_chain_db, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
 
+debugGloasComment "..."
+import ../spec/datatypes/gloas
+
 export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
@@ -266,8 +269,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
@@ -1019,6 +1025,9 @@ proc applyBlock(
     ? state_transition(
       dag.cfg, state, data, cache, info,
       updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Gloas:
+    debugGloasComment ""
+    return ok()
 
   ok()
 
@@ -1158,7 +1167,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.heads = @[headRef]
 
     withState(dag.headState):
-      when consensusFork >= ConsensusFork.Altair:
+      debugGloasComment ""
+      when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
         dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
     assign(dag.clearanceState, dag.headState)
@@ -1181,6 +1191,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
+      of ConsensusFork.Gloas:     gloasFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -2479,7 +2490,8 @@ proc updateHead*(
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let

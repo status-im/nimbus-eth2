@@ -168,9 +168,12 @@ suite "Block pool processing" & preset():
       shufflingRef = dag.getShufflingRef(dag.head, nextEpoch, false).valueOr:
         raiseAssert "false"
       nextEpochProposers = withState(dag.headState):
-        get_beacon_proposer_indices(
-          forkyState.data, shufflingRef.shuffled_active_validator_indices,
-          nextEpoch)
+        when consensusFork == ConsensusFork.Gloas:
+          default(seq[Opt[ValidatorIndex]])
+        else:
+          get_beacon_proposer_indices(
+            forkyState.data, shufflingRef.shuffled_active_validator_indices,
+            nextEpoch)
 
     check:
       # get_beacon_proposer_indices based on ShufflingRef matches EpochRef

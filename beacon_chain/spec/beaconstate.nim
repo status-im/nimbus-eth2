@@ -16,6 +16,9 @@ import
 from std/algorithm import fill, sort
 from std/sequtils import anyIt, mapIt, toSeq
 
+debugFuluComment "right now, be cautious about exporting gloas module where it doesn't yet need to be, or anything in it"
+import ./datatypes/gloas
+
 export extras, forks, validator, chronicles
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#increase_balance
@@ -86,7 +89,7 @@ func get_validator_from_deposit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#deposits
 func get_validator_from_deposit*(
-    _: electra.BeaconState | fulu.BeaconState,
+    _: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest, amount: Gwei): Validator =
   var validator = Validator(
@@ -530,6 +533,17 @@ func get_initial_beacon_block*(state: fulu.HashedBeaconState):
   fulu.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
+func get_initial_beacon_block*(state: gloas.HashedBeaconState):
+    gloas.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = gloas.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  gloas.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
@@ -720,7 +734,8 @@ func get_attesting_indices*(state: ForkedHashedBeaconState;
 
   var idxBuf: seq[ValidatorIndex]
   withState(state):
-    when consensusFork >= ConsensusFork.Electra:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Electra and consensusFork != ConsensusFork.Gloas:
       for vidx in forkyState.data.get_attesting_indices(data, aggregation_bits, committee_bits, cache):
         idxBuf.add vidx
   idxBuf

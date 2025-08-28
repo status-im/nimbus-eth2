@@ -356,7 +356,10 @@ proc validateDataColumnSidecarFromEL*(
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      debugGloasComment ""
+      when consensusFork >= ConsensusFork.Gloas:
+        discard
+      elif consensusFork >= ConsensusFork.Fulu:
         let
           blobsFromElOpt =
             await elManager.sendGetBlobsV2(forkyBlck)
@@ -412,7 +415,9 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+      elif consensusFork >= ConsensusFork.Fulu:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():

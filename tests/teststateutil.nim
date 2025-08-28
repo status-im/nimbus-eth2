@@ -79,7 +79,7 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
   if consensusFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   if consensusFork >= ConsensusFork.Bellatrix:
@@ -92,6 +92,8 @@ proc getTestStates*(
     cfg.ELECTRA_FORK_EPOCH = 5.Epoch
   if consensusFork >= ConsensusFork.Fulu:
     cfg.FULU_FORK_EPOCH = 6.Epoch
+  if consensusFork >= ConsensusFork.Gloas:
+    cfg.GLOAS_FORK_EPOCH = 7.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot

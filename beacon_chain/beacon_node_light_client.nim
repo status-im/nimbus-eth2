@@ -42,7 +42,9 @@ proc initLightClient*(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Bellatrix:
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment ""
+        elif consensusFork >= ConsensusFork.Bellatrix:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if not payload.block_hash.isZero:
@@ -181,11 +183,13 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
   var header: ForkedLightClientHeader
   withBlck(bdata):
-    const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-    when lcDataFork > LightClientDataFork.None:
-      header = ForkedLightClientHeader.init(
-        forkyBlck.toLightClientHeader(lcDataFork))
-    else: raiseAssert "Unreachable"
+    debugGloasComment ""
+    when consensusFork != ConsensusFork.Gloas:
+      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+      when lcDataFork > LightClientDataFork.None:
+        header = ForkedLightClientHeader.init(
+          forkyBlck.toLightClientHeader(lcDataFork))
+      else: raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)
     node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

@@ -118,7 +118,11 @@ func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
   const lcDataFork = max(
     lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-  ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
+  debugGloasComment "..."
+  when kind(typeof(blck)) == ConsensusFork.Gloas:
+    default(ForkedLightClientHeader)
+  else:
+    ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 func sync_aggregate(
     blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
@@ -134,7 +138,12 @@ proc getExistingLightClientHeader(
   if bdata.isNone:
     return res
 
-  res = withBlck(bdata.get): forkyBlck.lightClientHeader()
+  res = withBlck(bdata.get):
+    debugGloasComment "..."
+    when consensusFork != ConsensusFork.Gloas:
+      forkyBlck.lightClientHeader()
+    else:
+      default(ForkedLightClientHeader)
   dag.cacheRecentLightClientHeader(bid, res)
   res
 
@@ -148,7 +157,10 @@ proc getExistingSyncAggregate(
     return Opt.none(SyncAggregate)
 
   let res = withBlck(bdata.get):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment "..."
+    when consensusFork >= ConsensusFork.Fulu:
+      return Opt.none(SyncAggregate)
+    elif consensusFork >= ConsensusFork.Altair:
       Opt.some forkyBlck.sync_aggregate()
     else:
       return Opt.none(SyncAggregate)
@@ -246,7 +258,9 @@ proc initLightClientBootstrapForPeriod(
         res.err()
         continue
       withStateAndBlck(tmpState[], bdata):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment "..."
+        elif consensusFork >= ConsensusFork.Altair:
           const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
@@ -397,7 +411,9 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(bid.slot)
       return err()
     withStateAndBlck(updatedState, bdata):
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+      elif consensusFork >= ConsensusFork.Altair:
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         update = ForkedLightClientUpdate.init(lcDataFork.LightClientUpdate(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
@@ -418,17 +434,20 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(finalizedBid.slot)
       return err()
     withBlck(bdata):
-      withForkyUpdate(update):
-        when lcDataFork > LightClientDataFork.None:
-          when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
-            forkyUpdate.finalized_header =
-              forkyBlck.toLightClientHeader(lcDataFork)
-          else: raiseAssert "Unreachable"
+      debugGloasComment ""
+      when consensusFork != ConsensusFork.Gloas:
+        withForkyUpdate(update):
+          when lcDataFork > LightClientDataFork.None:
+            when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
+              forkyUpdate.finalized_header =
+                forkyBlck.toLightClientHeader(lcDataFork)
+            else: raiseAssert "Unreachable"
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
           forkyUpdate.sync_aggregate =
@@ -719,7 +738,8 @@ proc createLightClientBootstrap(
           tmpState[], period)
       dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
@@ -823,7 +843,8 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       res.err()
       continue
     withStateAndBlck(dag.headState, bdata):
-      when consensusFork >= ConsensusFork.Altair:
+      debugGloasComment ""
+      when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
         if i == blocks.high:
           let
             period = bid.slot.sync_committee_period
@@ -1099,7 +1120,8 @@ proc getLightClientBootstrap*(
     debug "LC bootstrap unavailable: Block not found", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = forkyBlck.toLightClientHeader(lcDataFork)

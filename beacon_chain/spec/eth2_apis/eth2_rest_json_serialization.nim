@@ -19,6 +19,9 @@ import
   ../[forks, keystore],
   ./[rest_keymanager_types, rest_types]
 
+debugGloasComment "..."
+import ../datatypes/gloas
+
 export
   results, json_serialization, results, slashing_protection_common, block_pools_types,
   forks, keystore, rest_keymanager_types, rest_types
@@ -115,6 +118,7 @@ RestJson.useDefaultSerializationFor(
   GetStateValidatorResponse,
   GetStateValidatorsResponse,
   GetValidatorGasLimitResponse,
+  GloasSignedBlockContents,
   HeadChangeInfoObject,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
@@ -289,6 +293,12 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BuilderBid,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
+  gloas.BeaconBlock,
+  gloas.BeaconBlockBody,
+  gloas.BeaconState,
+  gloas.BlockContents,
+  gloas.ExecutionPayload,
+  gloas.ExecutionPayloadHeader,
   phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
@@ -655,6 +665,8 @@ proc readValue*(r: var RestJsonReader, value: var ForkedHashedBeaconState) {.rea
       toValue(electraData)
     of ConsensusFork.Fulu:
       toValue(fuluData)
+    of ConsensusFork.Gloas:
+      toValue(gloasData)
   except SerializationError:
     r.raiseUnexpectedValue(&"Incorrect {v.version} beacon state format")
 
@@ -1233,8 +1245,17 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
+    debugGloasComment "re-add gloas mev"
     value =
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Gloas:
+        if v.execution_payload_blinded:
+          r.raiseUnexpectedValue(
+            &"`execution_payload_blinded` unsupported for {v.version}"
+          )
+        ForkedMaybeBlindedBeaconBlock.init(
+          RestJson.decode(string(v.data), consensusFork.BlockContents)
+        )
+      elif consensusFork >= ConsensusFork.Electra:
         if v.execution_payload_blinded:
           ForkedMaybeBlindedBeaconBlock.init(
             RestJson.decode(string(v.data), consensusFork.BlindedBlockContents),
