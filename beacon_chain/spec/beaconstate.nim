@@ -564,7 +564,7 @@ func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
     get_block_root(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
-template get_total_balance*(
+template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.

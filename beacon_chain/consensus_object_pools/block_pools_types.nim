@@ -301,7 +301,6 @@ type
   BlockData* = object
     blck*: ForkedSignedBeaconBlock
     blob*: Opt[BlobSidecars]
-    dataColumn*: Opt[DataColumnSidecars]
 
   OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
