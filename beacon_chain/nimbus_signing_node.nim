@@ -123,7 +123,7 @@ proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
       elif config.eth2Network == some("gnosis"):
         Version [byte 0x00, 0x00, 0x00, 0x64]
       else:
-        loadEth2Network(config.eth2Network).cfg.GENESIS_FORK_VERSION
+        config.loadEth2Network().cfg.GENESIS_FORK_VERSION
 
   when declared(waitSignal):
     SigningNodeRef(

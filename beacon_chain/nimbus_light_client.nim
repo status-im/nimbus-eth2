@@ -16,7 +16,10 @@ import
   ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
-  ./[filepath, light_client, light_client_db, nimbus_binary_common, process_state, version]
+  ./[
+    beacon_clock, buildinfo, filepath, light_client, light_client_db,
+    nimbus_binary_common, process_state, version,
+  ]
 
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult

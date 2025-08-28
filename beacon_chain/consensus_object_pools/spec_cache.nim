@@ -229,14 +229,14 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
                                 bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
-                                  Option[ValidatorIndex] =
+                                  Opt[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
-  var res = none(ValidatorIndex)
+  var res = Opt.none(ValidatorIndex)
   for validator_index in get_attesting_indices(
       shufflingRef, slot, committee_index, bits):
-    if res.isSome(): return none(ValidatorIndex)
-    res = some(validator_index)
+    if res.isSome(): return Opt.none(ValidatorIndex)
+    res = Opt.some(validator_index)
   res
 
 func get_attesting_indices_one*(shufflingRef: ShufflingRef,

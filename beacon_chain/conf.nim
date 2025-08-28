@@ -8,9 +8,9 @@
 {.push raises: [].}
 
 import
-  std/[options, unicode, uri],
+  std/[options, os, unicode, uri],
   metrics,
-
+  results,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net,
   confutils/toml/defs as confTomlDefs,
@@ -28,9 +28,8 @@ import
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
   ./el/el_conf,
-  ./filepath
+  ./[filepath, nimbus_binary_common]
 
-from std/os import getHomeDir, parentDir, `/`
 from std/strutils import parseBiggestUInt, replace
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
@@ -41,7 +40,7 @@ export
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
-  LightClientDataImportMode, slashing_protection_common
+  LightClientDataImportMode, slashing_protection_common, nimbus_binary_common
 
 declareGauge network_name, "network name", ["name"]
 
@@ -84,7 +83,7 @@ type
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
 
-  SNStartUpCmd* = enum
+  SNStartUpCmd* {.pure.} = enum
     SNNoCommand
 
   RecordCmd* {.pure.} = enum
@@ -99,22 +98,13 @@ type
     v2
     both
 
-  StdoutLogKind* {.pure.} = enum
-    Auto = "auto"
-    Colors = "colors"
-    NoColors = "nocolors"
-    Json = "json"
-    None = "none"
-
   HistoryMode* {.pure.} = enum
     Archive = "archive"
     Prune = "prune"
 
-  SlashProtCmd* = enum
+  SlashProtCmd* {.pure.} = enum
     `import` = "Import a EIP-3076 slashing protection interchange file"
     `export` = "Export a EIP-3076 slashing protection interchange file"
-    # migrateAll = "Export and remove the whole validator slashing protection DB."
-    # migrate = "Export and remove specified validators from Nimbus."
 
   ImportMethod* {.pure.} = enum
     Normal = "normal"
@@ -159,12 +149,10 @@ type
       defaultValueDesc: "mainnet"
       name: "network" .}: Option[string]
 
-    dataDir* {.
+    dataDirFlag* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir()
-      defaultValueDesc: ""
       abbr: "d"
-      name: "data-dir" .}: OutDir
+      name: "data-dir" .}: Option[OutDir]
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
@@ -658,7 +646,7 @@ type
       # https://github.com/prysmaticlabs/prysm/pull/10312
       suggestedFeeRecipient* {.
         desc: "Suggested fee recipient"
-        name: "suggested-fee-recipient" .}: Option[Address]
+        name: "suggested-fee-recipient" .}: Option[Eth1Address]
 
       suggestedGasLimit* {.
         desc: "Suggested gas limit"
@@ -922,12 +910,10 @@ type
       desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
-    dataDir* {.
+    dataDirFlag* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir()
-      defaultValueDesc: ""
       abbr: "d"
-      name: "data-dir" .}: OutDir
+      name: "data-dir" .}: Option[OutDir]
 
     doppelgangerDetection* {.
       # TODO This description is shared between the BN and the VC.
@@ -991,7 +977,7 @@ type
     # https://github.com/prysmaticlabs/prysm/pull/10312
     suggestedFeeRecipient* {.
       desc: "Suggested fee recipient"
-      name: "suggested-fee-recipient" .}: Option[Address]
+      name: "suggested-fee-recipient" .}: Option[Eth1Address]
 
     suggestedGasLimit* {.
       desc: "Suggested gas limit"
@@ -1108,12 +1094,10 @@ type
       desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
-    dataDir* {.
+    dataDirFlag* {.
       desc: "The directory where nimbus will store validator's keys"
-      defaultValue: config.defaultDataDir()
-      defaultValueDesc: ""
       abbr: "d"
-      name: "data-dir" .}: OutDir
+      name: "data-dir" .}: Option[OutDir]
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
@@ -1126,7 +1110,7 @@ type
     expectedFeeRecipient* {.
       desc: "Signatures for blocks will require proofs of the specified " &
             "fee recipient"
-      name: "expected-fee-recipient".}: Option[Address]
+      name: "expected-fee-recipient".}: Option[Eth1Address]
 
     serverIdent* {.
       desc: "Server identifier which will be used in HTTP Host header"
@@ -1165,26 +1149,76 @@ type
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
-proc defaultDataDir*[Conf](config: Conf): string =
-  let dataDir = when defined(windows):
-    "AppData" / "Roaming" / "Nimbus"
-  elif defined(macosx):
-    "Library" / "Application Support" / "Nimbus"
+proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
+  let metadata =
+    if eth2Network.isSome:
+      getMetadataForNetwork(eth2Network.get)
+    else:
+      when const_preset == "gnosis":
+        getMetadataForNetwork("gnosis")
+      elif const_preset == "mainnet":
+        getMetadataForNetwork("mainnet")
+      else:
+        # Presumably other configurations can have other defaults, but for now
+        # this simplifies the flow
+        fatal "Must specify network on non-mainnet node"
+        quit 1
+
+  network_name.set(2, labelValues = [metadata.cfg.name()])
+
+  metadata
+
+template loadEth2Network*(config: BeaconNodeConf|SigningNodeConf): Eth2NetworkMetadata =
+  loadEth2Network(config.eth2Network)
+
+proc shortNetworkName*(eth2Network: Option[string]): string =
+  # Given an eth2Network configuration, figure out a good canonical name for the
+  # network that can be used for directories etc.
+  if eth2Network.isSome() and
+      eth2Network.get() in
+      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "holesky", "sepolia"]:
+    eth2Network.get()
   else:
-    ".cache" / "nimbus"
+    eth2Network.loadEth2Network().cfg.name()
 
-  getHomeDir() / dataDir / "BeaconNode"
+proc legacyDataDir*(): Opt[string] =
+  let dir =
+    getHomeDir() / (
+      when defined(windows):
+        "AppData" / "Roaming" / "Nimbus" / "BeaconNode"
+      elif defined(macosx):
+        "Library" / "Application Support" / "Nimbus" / "BeaconNode"
+      else:
+        ".cache" / "nimbus" / "BeaconNode"
+    )
 
-func dumpDir(config: AnyConf): string =
+  if dirExists(dir):
+    Opt.some(dir)
+  else:
+    Opt.none(string)
+
+proc defaultDataDir*(config: BeaconNodeConf): string =
+  defaultDataDir("", config.eth2Network.shortNetworkName())
+
+proc defaultDataDir*(_: ValidatorClientConf): string =
+  defaultDataDir("vc", "")
+
+proc defaultDataDir*(config: SigningNodeConf): string =
+  defaultDataDir("sn", config.eth2Network.shortNetworkName())
+
+proc dataDir*(config: AnyConf): OutDir =
+  config.dataDirFlag.get(OutDir legacyDataDir().valueOr(defaultDataDir(config)))
+
+proc dumpDir(config: AnyConf): string =
   config.dataDir / "dump"
 
-func dumpDirInvalid*(config: AnyConf): string =
+proc dumpDirInvalid*(config: AnyConf): string =
   config.dumpDir / "invalid" # things that failed validation
 
-func dumpDirIncoming*(config: AnyConf): string =
+proc dumpDirIncoming*(config: AnyConf): string =
   config.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
 
-func dumpDirOutgoing*(config: AnyConf): string =
+proc dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
 
 proc createDumpDirs*(config: BeaconNodeConf) =
@@ -1303,16 +1337,16 @@ proc parseCmdArg*(T: type enr.Record, p: string): T {.raises: [ValueError].} =
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
 
-func validatorsDir*[Conf](config: Conf): string =
+proc validatorsDir*[Conf](config: Conf): string =
   string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 
-func secretsDir*[Conf](config: Conf): string =
+proc secretsDir*[Conf](config: Conf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
-func walletsDir*(config: BeaconNodeConf): string =
+proc walletsDir*(config: BeaconNodeConf): string =
   string config.walletsDirFlag.get(InputDir(config.dataDir / "wallets"))
 
-func eraDir*(config: BeaconNodeConf): string =
+proc eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
@@ -1437,38 +1471,12 @@ proc readValue*(r: var TomlReader, a: var WalletName)
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
-proc readValue*(r: var TomlReader, a: var Address)
+proc readValue*(r: var TomlReader, a: var Eth1Address)
                {.raises: [SerializationError].} =
   try:
-    a = parseCmdArg(Address, r.readValue(string))
+    a = parseCmdArg(Eth1Address, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
-
-proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
-  const defaultName =
-    when const_preset == "gnosis":
-      "gnosis"
-    elif const_preset == "mainnet":
-      "mainnet"
-    else:
-      "(unspecified)"
-  network_name.set(2, labelValues = [eth2Network.get(otherwise = defaultName)])
-
-  if eth2Network.isSome:
-    getMetadataForNetwork(eth2Network.get)
-  else:
-    when const_preset == "gnosis":
-      getMetadataForNetwork("gnosis")
-    elif const_preset == "mainnet":
-      getMetadataForNetwork("mainnet")
-    else:
-      # Presumably other configurations can have other defaults, but for now
-      # this simplifies the flow
-      fatal "Must specify network on non-mainnet node"
-      quit 1
-
-template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
-  loadEth2Network(config.eth2Network)
 
 func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
   if conf.suggestedFeeRecipient.isSome:
@@ -1509,12 +1517,12 @@ func configJwtSecretOpt*(jwtSecret: Option[InputFile]): Opt[InputFile] =
 
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
-    config: BeaconNodeConf,
+    config: auto,
     allowCreate: bool): Opt[seq[byte]] =
   rng.loadJwtSecret(
     string(config.dataDir), config.jwtSecret.configJwtSecretOpt, allowCreate)
 
-proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
+proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
     return newSeq[EngineApiUrl]()
   elif config.elUrls.len == 0 and config.web3Urls.len == 0:
