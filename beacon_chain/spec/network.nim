@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   "."/[helpers, forks],
@@ -172,7 +172,16 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
-      next_fork_epoch: FAR_FUTURE_EPOCH)
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/phase0/p2p-interface.md#eth2-field
+      # "`next_fork_epoch` is the epoch at which the next fork is planned and
+      # the `current_fork_version` will be updated. If no future fork is
+      # planned, set `next_fork_epoch = FAR_FUTURE_EPOCH` to signal this fact"
+      #
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/fulu/p2p-interface.md#eth2-field
+      # "`next_fork_epoch` is the epoch at which the next fork (whether a
+      # regular fork *or a BPO fork*) is planned. If no future fork is planned,
+      # set `next_fork_epoch = FAR_FUTURE_EPOCH` to signal this fact."
+      next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = HashSet[Epoch]

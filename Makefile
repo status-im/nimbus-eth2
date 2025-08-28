@@ -299,7 +299,8 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	block_sim \
-	test_libnimbus_lc
+	test_libnimbus_lc \
+	process_state
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
 
 # Preset-dependent tests
@@ -381,6 +382,14 @@ block_sim: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"research/$@.nim" \
+			$(NIM_PARAMS) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+process_state: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"beacon_chain/$@.nim" \
 			$(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 

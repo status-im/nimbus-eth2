@@ -22,9 +22,10 @@ import
 from std/sequtils import mapIt
 
 export
-  extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
-  fulu, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, deneb_mev, electra_mev, fulu_mev
+  extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
+  presets,
+  phase0, altair, bellatrix, capella, deneb, electra, fulu,
+  bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -44,13 +45,14 @@ export
 
 type
   ConsensusFork* {.pure.} = enum
-    Phase0,
-    Altair,
-    Bellatrix,
-    Capella,
-    Deneb,
-    Electra,
-    Fulu
+    ## Fork names spelled as in beacon API spec
+    Phase0 = "phase0"
+    Altair = "altair"
+    Bellatrix = "bellatrix"
+    Capella = "capella"
+    Deneb = "deneb"
+    Electra = "electra"
+    Fulu = "fulu"
 
   ForkyBeaconState* =
     phase0.BeaconState |
@@ -914,21 +916,7 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: fulu.TrustedSignedB
   T(kind: ConsensusFork.Fulu, fuluData: blck)
 
 template toString*(kind: ConsensusFork): string =
-  case kind
-  of ConsensusFork.Phase0:
-    "phase0"
-  of ConsensusFork.Altair:
-    "altair"
-  of ConsensusFork.Bellatrix:
-    "bellatrix"
-  of ConsensusFork.Capella:
-    "capella"
-  of ConsensusFork.Deneb:
-    "deneb"
-  of ConsensusFork.Electra:
-    "electra"
-  of ConsensusFork.Fulu:
-    "fulu"
+  $kind
 
 template init*(T: typedesc[ConsensusFork], value: string): Opt[ConsensusFork] =
   case value

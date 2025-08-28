@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   json_serialization/std/net,
-  ./conf
+  ./conf, ./nimbus_binary_common
 
 export net, conf
 
@@ -37,12 +37,10 @@ type LightClientConf* = object
     name: "log-file" .}: Option[OutFile]
 
   # Storage
-  dataDir* {.
+  dataDirFlag* {.
     desc: "The directory where nimbus will store all blockchain data"
-    defaultValue: config.defaultDataDir()
-    defaultValueDesc: ""
     abbr: "d"
-    name: "data-dir" .}: OutDir
+    name: "data-dir" .}: Option[OutDir]
 
   # Network
   eth2Network* {.
@@ -149,22 +147,11 @@ type LightClientConf* = object
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64
 
+proc defaultDataDir*(config: LightClientConf): string =
+  defaultDataDir("", config.eth2Network.shortNetworkName())
+
+proc dataDir*(config: LightClientConf): OutDir =
+  config.dataDirFlag.get(OutDir legacyDataDir().valueOr(defaultDataDir(config)))
+
 template databaseDir*(config: LightClientConf): string =
   config.dataDir.databaseDir
-
-template loadJwtSecret*(
-    rng: var HmacDrbgContext,
-    config: LightClientConf,
-    allowCreate: bool): Option[seq[byte]] =
-  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
-
-proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
-  let elUrls = if config.noEl:
-    return newSeq[EngineApiUrl]()
-  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[getDefaultEngineApiUrl(config.jwtSecret)]
-  else:
-    config.elUrls
-
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    config.jwtSecret.configJwtSecretOpt)

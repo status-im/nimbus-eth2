@@ -506,12 +506,7 @@ proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
 
 proc init(t: typedesc[GetBlockRootResponse],
           optimistic: Opt[bool], root: Eth2Digest): GetBlockRootResponse =
-  let optopt =
-    if optimistic.isNone():
-      none[bool]()
-    else:
-      some(optimistic.get())
-  GetBlockRootResponse(data: RestRoot(root: root), execution_optimistic: optopt)
+  GetBlockRootResponse(data: RestRoot(root: root), execution_optimistic: optimistic)
 
 proc createRootsSeen(
        root: tuple[root: string, slot: uint64]): Table[Eth2Digest, Slot] =
@@ -536,9 +531,7 @@ suite "Validator Client test suite":
 
     if mediaType == ApplicationJsonMediaType:
       try:
-        ok RestJson.decode(value, T,
-                           requireAllFields = true,
-                           allowUnknownFields = true)
+        ok RestJson.decode(value, T)
       except SerializationError:
         err("Serialization error")
     else:

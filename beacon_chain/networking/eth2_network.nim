@@ -95,7 +95,7 @@ type
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
-    getBeaconTime: GetBeaconTimeFn
+    getBeaconTime*: GetBeaconTimeFn
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 

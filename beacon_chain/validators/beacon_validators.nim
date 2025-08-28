@@ -26,7 +26,8 @@ import
 
   # Local modules
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    eth2_merkleization, forks, helpers, network,
+    peerdas_helpers, signatures, state_transition,
     state_transition_block, validator,
   ],
   ../spec/mev/rest_mev_calls,
@@ -470,7 +471,7 @@ proc proposeBlockAux(
               unblindedBlockRef =
                 await node.unblindAndRouteBlockMEV(payloadBuilderClient, blindedBlock)
 
-            if unblindedBlockRef.isErr or unblindedBlockRef.get.isNone:
+            if unblindedBlockRef.isErr:
               # unblindedBlockRef.isErr or unblindedBlockRef.get.isNone indicates that
               # the block failed to validate or integrate into the DAG, which for the
               # purpose of this return value, is equivalent. It's used to drive Beacon
@@ -500,6 +501,18 @@ proc proposeBlockAux(
               beacon_block_builder_missed_without_fallback.inc()
 
               return head
+
+            when consensusFork >= ConsensusFork.Fulu:
+              if unblindedBlockRef.get.isNone:
+                # This corresponds to 202 in Fulu MEV.
+                return head
+            else:
+              if unblindedBlockRef.get.isNone:
+                warn "Failed to unblind or route builder payload",
+                  validator = shortLog(validator),
+                  blck = shortLog(blindedBlock.message),
+                  err = "Unblinded block not returned to proposer"
+                return head
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get.get
@@ -562,13 +575,21 @@ proc proposeBlockAux(
       when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         Opt.some(
           signedBlock.create_blob_sidecars(
-            engineBlock.blobsBundle.proofs, engineBlock.blobsBundle.blobs
-          )
-        )
+            deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+            engineBlock.blobsBundle.blobs))
       else:
         Opt.none(seq[BlobSidecar])
+
+    columnsOpt =
+      when consensusFork >= ConsensusFork.Fulu:
+        Opt.some(signedBlock.assemble_data_column_sidecars(
+          engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+      else:
+        Opt.none(seq[DataColumnSidecar])
     newBlockRef = await(
-      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt, checkValidator = false)
+      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
+        columnsOpt, checkValidator = false)
     ).valueOr:
       # TODO Is this an error?
       beacon_block_production_errors.inc()

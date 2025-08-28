@@ -12,6 +12,7 @@ import
   std/[tables, hashes],
   # Status libraries
   chronicles,
+  results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
@@ -25,7 +26,7 @@ from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
 export
   sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, LogProc, VanityLogs
+  block_pools_types_light_client, validator_monitor, LogProc, VanityLogs, results
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -130,6 +131,15 @@ type
       ## caches.
 
     era*: EraDB
+
+    eaSlot*: Slot
+      ## Earliest available slot is the earliest slot at which the BN can
+      ## guarantee serving blocks with sidecars.
+
+    erSlot*: Slot
+      ## Earliest refilled slot is the earliest slot at which excess
+      ## DataColumnSidecar downloading finishes, if erSlot = GENESIS_SLOT
+      ## we can deduce that validator custody is inactive.
 
     validatorMonitor*: ref ValidatorMonitor
 
@@ -322,7 +332,7 @@ type
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
-    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -331,18 +341,18 @@ type
     new_head_block*: Eth2Digest
     old_head_state*: Eth2Digest
     new_head_state*: Eth2Digest
-    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   FinalizationInfoObject* = object
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
-    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   EventBeaconBlockObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
-    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   EventBeaconBlockGossipObject* = object
     slot*: Slot
@@ -397,14 +407,7 @@ func horizon*(dag: ChainDAGRef): Slot =
     GENESIS_SLOT
 
 func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
-  if dag.backfill.slot < dag.tail.slot and
-      dag.backfill.slot != GENESIS_SLOT:
-    # When the BN is backfilling, backfill slot is the earliest
-    # persisted block.
-    dag.backfill.slot
-  else:
-    # When the BN has backfilled, tail moves progressively.
-    dag.tail.slot
+  max(dag.eaSlot, dag.erSlot)
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
@@ -489,7 +492,7 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
 
 func init*(t: typedesc[EventBeaconBlockObject],
            v: ForkedTrustedSignedBeaconBlock,
-           optimistic: Option[bool]): EventBeaconBlockObject =
+           optimistic: Opt[bool]): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
       slot: forkyBlck.message.slot,
