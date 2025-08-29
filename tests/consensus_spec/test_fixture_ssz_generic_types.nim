@@ -100,6 +100,33 @@ type
     K: BitList[1281]
     L: BitSeq
 
+  ProgressiveSingleFieldContainerTestStruct
+      {.sszActiveFields: [1].} = object
+    A: byte
+
+  ProgressiveSingleListContainerTestStruct
+      {.sszActiveFields: [0, 0, 0, 0, 1].} = object
+    C: BitSeq
+
+  ProgressiveVarTestStruct
+      {.sszActiveFields: [1, 0, 1, 0, 1].} = object
+    A: byte
+    B: List[uint16, 123]
+    C: BitSeq
+
+  ProgressiveComplexTestStruct
+      {.sszActiveFields: [
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1
+      ].} = object
+    A: byte
+    B: List[uint16, 123]
+    C: BitSeq
+    D: seq[uint64]
+    E: seq[SmallTestStruct]
+    F: seq[seq[VarTestStruct]]
+    G: List[ProgressiveSingleFieldContainerTestStruct, 10]
+    H: seq[ProgressiveVarTestStruct]
+
 # Type specific checks
 # ------------------------------------------------------------------------
 
@@ -301,12 +328,9 @@ proc checkBitList(
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(baseDir, sszType, sszSubType: string)
+proc sszCheck(dir, sszType, sszSubType: string)
     {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
                ValueError, YamlConstructionError, YamlParserError].} =
-  let dir = baseDir/sszSubType
-  checkpoint dir
-
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
   if fileExists(dir/"meta.yaml"):
@@ -360,6 +384,22 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   of "progressive_bitlist":
     checkBasic(BitSeq, dir, expectedHash)
+  of "progressive_containers":
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "ProgressiveSingleFieldContainerTestStruct":
+      checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
+    of "ProgressiveSingleListContainerTestStruct":
+      checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
+    of "ProgressiveVarTestStruct":
+      checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
+    of "ProgressiveComplexTestStruct":
+      checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown progressive container in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -371,31 +411,39 @@ proc sszCheck(baseDir, sszType, sszSubType: string)
 # Test runner
 # ------------------------------------------------------------------------
 
+proc runValidTest(dir, sszType, sszSubType: string) =
+  test &"{sszType:12} - valid - " & sszSubType:
+    sszCheck(dir, sszType, sszSubType)
+
+proc runInvalidTest(dir, sszType, sszSubType: string) =
+  test &"{sszType:12} - invalid - " & sszSubType:
+    try:
+      sszCheck(dir, sszType, sszSubType)
+    except SszError, UnconsumedInput:
+      discard
+    except TestSizeError as err:
+      echo err.msg
+      skip()
+    except:
+      echo getStackTrace(getCurrentException())
+      echo getCurrentExceptionMsg()
+      check false
+
 suite "EF - SSZ generic types":
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
-    test &"Testing {sszType:12} inputs - valid":
+    block:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
-        sszCheck(path, sszType, sszSubType)
+        runValidTest(path/sszSubType, sszType, sszSubType)
 
-    test &"Testing {sszType:12} inputs - invalid":
+    block:
       let path = SSZDir/sszType/"invalid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
-        try:
-          sszCheck(path, sszType, sszSubType)
-        except SszError, UnconsumedInput:
-          discard
-        except TestSizeError as err:
-          echo err.msg
-          skip()
-        except:
-          checkpoint getStackTrace(getCurrentException())
-          checkpoint getCurrentExceptionMsg()
-          check false
+        runInvalidTest(path/sszSubType, sszType, sszSubType)
