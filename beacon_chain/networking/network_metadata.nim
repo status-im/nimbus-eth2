@@ -249,8 +249,8 @@ when const_preset == "gnosis":
       checkForkConsistency(network.cfg)
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Fulu
-
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Gloas
 
 elif const_preset == "mainnet":
   when incbinEnabled:
