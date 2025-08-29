@@ -334,16 +334,6 @@ type
     fulu.SigVerifiedSignedBeaconBlock |
     gloas.SigVerifiedSignedBeaconBlock
 
-  ForkyMsgTrustedSignedBeaconBlock* =
-    phase0.MsgTrustedSignedBeaconBlock |
-    altair.MsgTrustedSignedBeaconBlock |
-    bellatrix.MsgTrustedSignedBeaconBlock |
-    capella.MsgTrustedSignedBeaconBlock |
-    deneb.MsgTrustedSignedBeaconBlock |
-    electra.MsgTrustedSignedBeaconBlock |
-    fulu.MsgTrustedSignedBeaconBlock |
-    gloas.MsgTrustedSignedBeaconBlock
-
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
@@ -353,17 +343,6 @@ type
     electra.TrustedSignedBeaconBlock |
     fulu.TrustedSignedBeaconBlock |
     gloas.TrustedSignedBeaconBlock
-
-  ForkedMsgTrustedSignedBeaconBlock* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Altair:    altairData*:    altair.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   capella.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     deneb.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Electra:   electraData*:   electra.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Fulu:      fuluData*:      fulu.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Gloas:     gloasData*:     gloas.MsgTrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -379,7 +358,6 @@ type
   SomeForkySignedBeaconBlock* =
     ForkySignedBeaconBlock |
     ForkySigVerifiedSignedBeaconBlock |
-    ForkyMsgTrustedSignedBeaconBlock |
     ForkyTrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
@@ -414,7 +392,6 @@ template kind*(
       phase0.SigVerifiedBeaconBlockBody |
       phase0.TrustedBeaconBlockBody |
       phase0.SigVerifiedSignedBeaconBlock |
-      phase0.MsgTrustedSignedBeaconBlock |
       phase0.TrustedSignedBeaconBlock |
       phase0.Attestation |
       phase0.AggregateAndProof |
@@ -432,7 +409,6 @@ template kind*(
       altair.SigVerifiedBeaconBlockBody |
       altair.TrustedBeaconBlockBody |
       altair.SigVerifiedSignedBeaconBlock |
-      altair.MsgTrustedSignedBeaconBlock |
       altair.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Altair
 
@@ -450,7 +426,6 @@ template kind*(
       bellatrix.SigVerifiedBeaconBlockBody |
       bellatrix.TrustedBeaconBlockBody |
       bellatrix.SigVerifiedSignedBeaconBlock |
-      bellatrix.MsgTrustedSignedBeaconBlock |
       bellatrix.TrustedSignedBeaconBlock] |
       bellatrix_mev.SignedBlindedBeaconBlock): ConsensusFork =
   ConsensusFork.Bellatrix
@@ -469,7 +444,6 @@ template kind*(
       capella.SigVerifiedBeaconBlockBody |
       capella.TrustedBeaconBlockBody |
       capella.SigVerifiedSignedBeaconBlock |
-      capella.MsgTrustedSignedBeaconBlock |
       capella.TrustedSignedBeaconBlock |
       capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
@@ -488,7 +462,6 @@ template kind*(
       deneb.SigVerifiedBeaconBlockBody |
       deneb.TrustedBeaconBlockBody |
       deneb.SigVerifiedSignedBeaconBlock |
-      deneb.MsgTrustedSignedBeaconBlock |
       deneb.TrustedSignedBeaconBlock |
       deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
@@ -507,7 +480,6 @@ template kind*(
       electra.SigVerifiedBeaconBlockBody |
       electra.TrustedBeaconBlockBody |
       electra.SigVerifiedSignedBeaconBlock |
-      electra.MsgTrustedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
       electra.Attestation |
       electra.SingleAttestation |
@@ -534,7 +506,6 @@ template kind*(
       fulu.SigVerifiedBeaconBlockBody |
       fulu.TrustedBeaconBlockBody |
       fulu.SigVerifiedSignedBeaconBlock |
-      fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
       fulu_mev.BlindedBeaconBlock |
       fulu_mev.SignedBlindedBeaconBlock |
@@ -555,7 +526,6 @@ template kind*(
       gloas.SigVerifiedBeaconBlockBody |
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
-      gloas.MsgTrustedSignedBeaconBlock |
       gloas.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Gloas
 
@@ -962,17 +932,6 @@ template init*(T: type ForkedSignedBlindedBeaconBlock,
     fuluData: fulu_mev.SignedBlindedBeaconBlock(
       message: blck, signature: signature))
 
-template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Phase0,    phase0Data: blck)
-template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: altair.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Altair,    altairData: blck)
-template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: bellatrix.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Bellatrix, bellatrixData: blck)
-template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: capella.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Capella,   capellaData: blck)
-template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: deneb.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Deneb,     denebData: blck)
-
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =
@@ -1252,44 +1211,23 @@ template atEpoch*(
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
 template asSigned*(
-    x: ForkedMsgTrustedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock
-): ForkedSignedBeaconBlock =
+    x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)
 
 template asSigned*(
-    x: ref ForkedMsgTrustedSignedBeaconBlock |
-       ref ForkedTrustedSignedBeaconBlock
-): ref ForkedSignedBeaconBlock =
+    x: ref ForkedTrustedSignedBeaconBlock): ref ForkedSignedBeaconBlock =
   isomorphicCast[ref ForkedSignedBeaconBlock](x)
 
-template asMsgTrusted*(
-    x: ForkedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock
-): ForkedMsgTrustedSignedBeaconBlock =
-  isomorphicCast[ForkedMsgTrustedSignedBeaconBlock](x)
-
-template asMsgTrusted*(
-    x: ref ForkedSignedBeaconBlock |
-       ref ForkedTrustedSignedBeaconBlock
-): ref ForkedMsgTrustedSignedBeaconBlock =
-  isomorphicCast[ref ForkedMsgTrustedSignedBeaconBlock](x)
-
 template asTrusted*(
-    x: ForkedSignedBeaconBlock |
-       ForkedMsgTrustedSignedBeaconBlock
-): ForkedTrustedSignedBeaconBlock =
+    x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
 template asTrusted*(
-    x: ref ForkedSignedBeaconBlock |
-       ref ForkedMsgTrustedSignedBeaconBlock
-): ref ForkedTrustedSignedBeaconBlock =
+    x: ref ForkedSignedBeaconBlock): ref ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ref ForkedTrustedSignedBeaconBlock](x)
 
 template withBlck*(
-    x: ForkedBeaconBlock |
-       ForkedSignedBeaconBlock | ForkedMsgTrustedSignedBeaconBlock |
+    x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
        ForkedTrustedSignedBeaconBlock | ForkedSignedBlindedBeaconBlock,
     body: untyped): untyped =
   case x.kind
@@ -1338,9 +1276,7 @@ func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest =
 func hash_tree_root*(_: Opt[auto]) {.error.}
 
 template getForkedBlockField*(
-    x: ForkedSignedBeaconBlock |
-       ForkedMsgTrustedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock,
+    x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock,
     y: untyped): untyped =
   # unsafeAddr avoids a copy of the field in some cases
   (case x.kind
@@ -1354,7 +1290,6 @@ template getForkedBlockField*(
   of ConsensusFork.Gloas:     unsafeAddr x.gloasData.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock |
-                       ForkedMsgTrustedSignedBeaconBlock |
                        ForkedSignedBlindedBeaconBlock): ValidatorSig =
   withBlck(x): forkyBlck.signature
 
@@ -1362,12 +1297,10 @@ template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
   withBlck(x): forkyBlck.signature
 
 template root*(x: ForkedSignedBeaconBlock |
-                  ForkedMsgTrustedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Eth2Digest =
   withBlck(x): forkyBlck.root
 
 template slot*(x: ForkedSignedBeaconBlock |
-                  ForkedMsgTrustedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Slot =
   withBlck(x): forkyBlck.message.slot
 
@@ -1375,14 +1308,12 @@ template shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)
 
 template shortLog*(x: ForkedSignedBeaconBlock |
-                      ForkedMsgTrustedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock |
                       ForkedSignedBlindedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)
 
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
-chronicles.formatIt ForkedMsgTrustedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 
 template withForkyMaybeBlindedBlck*(
@@ -1464,7 +1395,6 @@ template shortLog*(x: ForkedMaybeBlindedBeaconBlock): auto =
 template withStateAndBlck*(
     s: ForkedHashedBeaconState,
     b: ForkedBeaconBlock | ForkedSignedBeaconBlock |
-       ForkedMsgTrustedSignedBeaconBlock |
        ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case s.kind
@@ -1597,8 +1527,7 @@ template toBeaconBlockHeader*(
   blck.message.toBeaconBlockHeader()
 
 template toBeaconBlockHeader*(
-    blckParam: ForkedMsgTrustedSignedBeaconBlock |
-               ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
+    blckParam: ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given signed beacon block to its `BeaconBlockHeader`.
   withBlck(blckParam): forkyBlck.toBeaconBlockHeader()
 
@@ -1881,7 +1810,6 @@ func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
   BlockId(root: blck.root, slot: blck.message.slot)
 
 func toBlockId*(blck: ForkedSignedBeaconBlock |
-                      ForkedMsgTrustedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock): BlockId =
   withBlck(blck): BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
 

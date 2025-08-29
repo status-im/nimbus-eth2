@@ -590,12 +590,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
@@ -605,7 +599,6 @@ type
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
     TrustedSignedBeaconBlock
   SomeBeaconBlock* =
     BeaconBlock |
@@ -723,13 +716,11 @@ func shortLog*(v: ExecutionPayloadHeader): auto =
 
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
@@ -737,14 +728,7 @@ template asSigVerified*(
     x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
-
 template asTrusted*(
     x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
