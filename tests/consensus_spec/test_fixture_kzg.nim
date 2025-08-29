@@ -444,7 +444,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
       if shouldSkip:
         continue
 
-      test "KZG - Recover Cells And Kzg Proofs Parallel - " & path:
+      test "KZG - Recover Cells And Kzg Proofs Parallel - invalid - " & path.rsplit("_case_invalid_", 1)[1]:
         let
           input = validData.filterIt(it.column_index in indices) & invalidData
           rowCount = validCount + 1
