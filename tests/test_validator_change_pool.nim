@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -163,12 +163,10 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        debugGloasComment ""
-        when consensusFork != ConsensusFork.Gloas:
-          check:
-            pool[].getBeaconBlockValidatorChanges(
-                cfg, forkyState.data).electra_attester_slashings.lenu64 ==
-              min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
+        check:
+          pool[].getBeaconBlockValidatorChanges(
+              cfg, forkyState.data).electra_attester_slashings.lenu64 ==
+            min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":
     # Need to advance state or it will not accept voluntary exits

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
@@ -23,6 +23,10 @@ import
 
 from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
+from stew/staticfor import staticfor
+
+debugGloasComment "when forks exports"
+import ../beacon_chain/spec/datatypes/gloas
 
 when defined(posix):
   import system/ansi_c
@@ -252,7 +256,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[capella.TrustedSignedBeaconBlock],
       seq[deneb.TrustedSignedBeaconBlock],
       seq[electra.TrustedSignedBeaconBlock],
-      seq[fulu.TrustedSignedBeaconBlock])
+      seq[fulu.TrustedSignedBeaconBlock],
+      seq[gloas.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -299,7 +304,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref capella.HashedBeaconState)(),
       (ref deneb.HashedBeaconState)(),
       (ref electra.HashedBeaconState)(),
-      (ref fulu.HashedBeaconState)())
+      (ref fulu.HashedBeaconState)(),
+      (ref gloas.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -369,7 +375,6 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Gloas:
                 debugGloasComment ""
 
-            debugGloasComment ""
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
                 of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
@@ -379,17 +384,11 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
-                of ConsensusFork.Gloas:     default(Digest)
+                of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
-  processBlocks(blocks[0])
-  processBlocks(blocks[1])
-  processBlocks(blocks[2])
-  processBlocks(blocks[3])
-  processBlocks(blocks[4])
-  processBlocks(blocks[5])
-  processBlocks(blocks[6])
-
+  staticFor i, 0 .. 7:
+    processBlocks(blocks[i])
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf) =
@@ -404,6 +403,7 @@ proc cmdDumpState(conf: DbConf) =
     denebState     = (ref deneb.HashedBeaconState)()
     electraState   = (ref electra.HashedBeaconState)()
     fuluState      = (ref fulu.HashedBeaconState)()
+    gloasState     = (ref gloas.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -424,6 +424,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(denebState[])
     doit(electraState[])
     doit(fuluState[])
+    debugGloasComment "add doit(gloasState[])"
 
     echo "Couldn't load ", stateRoot
 
@@ -1148,11 +1149,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          debugGloasComment ""
-          when consensusFork != ConsensusFork.Gloas:
-            var stateData = newClone(forkyState.data)
-            rewardsAndPenalties.collectEpochRewardsAndPenalties(
-              stateData[], cache, cfg, flags)
+          var stateData = newClone(forkyState.data)
+          rewardsAndPenalties.collectEpochRewardsAndPenalties(
+            stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"

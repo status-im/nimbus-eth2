@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## This module contains signature verification helpers corresponding to those
 ## in signatures.nim, for use with signature sets / batch signature verification
@@ -476,8 +476,7 @@ proc collectSignatureSets*(
     # 8. BLS to execution changes
     when typeof(signed_block).kind >= ConsensusFork.Capella:
       withState(state):
-        debugGloasComment ""
-        when consensusFork >= ConsensusFork.Capella and consensusFork != ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Capella:
           for bls_change in signed_block.message.body.bls_to_execution_changes:
             let sig = bls_change.signature.load.valueOr:
               return err("collectSignatureSets: cannot load BLS to execution change signature")

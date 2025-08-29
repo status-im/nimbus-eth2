@@ -5,23 +5,21 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/[os, strutils],
   stew/bitops2,
   ../beacon_chain/spec/[
-    datatypes/base,
-    datatypes/phase0,
-    datatypes/altair,
-    datatypes/bellatrix,
     beaconstate,
     state_transition_epoch,
     state_transition_block,
     signatures],
   ../beacon_chain/consensus_object_pools/blockchain_dag
 
-from ../beacon_chain/spec/datatypes/capella import BeaconState
+from std/os import walkDir, `/`
+from std/strutils import endsWith, isDigit, parseUInt, repeat
+debugGloasComment "when forks exports"
+import ../beacon_chain/spec/datatypes/gloas
 
 type
   RewardsAndPenalties* = object
@@ -276,7 +274,7 @@ proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
