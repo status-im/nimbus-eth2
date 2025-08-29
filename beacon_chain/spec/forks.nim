@@ -581,7 +581,7 @@ template BeaconState*(kind: static ConsensusFork): typedesc =
 
 template BeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Gloas:
-    fulu.BeaconBlock
+    gloas.BeaconBlock
   elif kind == ConsensusFork.Fulu:
     fulu.BeaconBlock
   elif kind == ConsensusFork.Electra:
