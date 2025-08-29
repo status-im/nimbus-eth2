@@ -1603,16 +1603,14 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
     # We "know" the actions for the current and the next epoch
     withState(node.dag.headState):
-      debugGloasComment ""
-      when consensusFork != ConsensusFork.Gloas:
-        if node.consensusManager[].actionTracker.needsUpdate(
-            forkyState, slot.epoch):
-          let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
-            "Getting head EpochRef should never fail")
-          node.consensusManager[].actionTracker.updateActions(
-            epochRef.shufflingRef, epochRef.beacon_proposers)
+      if node.consensusManager[].actionTracker.needsUpdate(
+          forkyState, slot.epoch):
+        let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
+          "Getting head EpochRef should never fail")
+        node.consensusManager[].actionTracker.updateActions(
+          epochRef.shufflingRef, epochRef.beacon_proposers)
 
-        node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   if node.gossipState.len > 0 and targetGossipState.len == 0:
     debug "Disabling topic subscriptions",
@@ -1776,21 +1774,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let head = node.dag.head
   if node.isSynced(head) and head.executionValid:
     withState(node.dag.headState):
-      debugGloasComment ""
-      when consensusFork != ConsensusFork.Gloas:
-        # maybeUpdateActionTrackerNextEpoch might not account for balance changes
-        # from the process_rewards_and_penalties() epoch transition but only from
-        # process_block() and other per-slot sources. This mainly matters insofar
-        # as it might trigger process_effective_balance_updates() changes in that
-        # same epoch transition, which function is therefore potentially blind to
-        # but which might then affect beacon proposers.
-        #
-        # Because this runs every slot, it can account naturally for slashings,
-        # which affect balances via slash_validator() when they happen, and any
-        # missed sync committee participation via process_sync_aggregate(), but
-        # attestation penalties for example, need, specific handling.
-        # checked by maybeUpdateActionTrackerNextEpoch.
-        node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
+      # maybeUpdateActionTrackerNextEpoch might not account for balance changes
+      # from the process_rewards_and_penalties() epoch transition but only from
+      # process_block() and other per-slot sources. This mainly matters insofar
+      # as it might trigger process_effective_balance_updates() changes in that
+      # same epoch transition, which function is therefore potentially blind to
+      # but which might then affect beacon proposers.
+      #
+      # Because this runs every slot, it can account naturally for slashings,
+      # which affect balances via slash_validator() when they happen, and any
+      # missed sync committee participation via process_sync_aggregate(), but
+      # attestation penalties for example, need, specific handling.
+      # checked by maybeUpdateActionTrackerNextEpoch.
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   let
     nextAttestationSlot =
