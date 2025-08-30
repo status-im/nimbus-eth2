@@ -113,6 +113,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Altair - Fork  [Preset: mainnet]
 ```diff
++ EF - Altair - Fork - after_fork_deactivate_validators_from_phase0_to_altair [Preset: mainn OK
++ EF - Altair - Fork - after_fork_deactivate_validators_wo_block_from_phase0_to_altair [Pres OK
++ EF - Altair - Fork - after_fork_new_validator_active_from_phase0_to_altair [Preset: mainne OK
 + EF - Altair - Fork - altair_fork_random_0 [Preset: mainnet]                                OK
 + EF - Altair - Fork - altair_fork_random_1 [Preset: mainnet]                                OK
 + EF - Altair - Fork - altair_fork_random_2 [Preset: mainnet]                                OK
@@ -529,6 +532,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Bellatrix - Fork  [Preset: mainnet]
 ```diff
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_from_altair_to_bellatrix [Preset: OK
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_wo_block_from_altair_to_bellatrix OK
++ EF - Bellatrix - Fork - after_fork_new_validator_active_from_altair_to_bellatrix [Preset:  OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: mainnet]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_1 [Preset: mainnet]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_2 [Preset: mainnet]                          OK
@@ -975,6 +981,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Capella - Fork  [Preset: mainnet]
 ```diff
++ EF - Capella - Fork - after_fork_deactivate_validators_from_bellatrix_to_capella [Preset:  OK
++ EF - Capella - Fork - after_fork_deactivate_validators_wo_block_from_bellatrix_to_capella  OK
++ EF - Capella - Fork - after_fork_new_validator_active_from_bellatrix_to_capella [Preset: m OK
 + EF - Capella - Fork - capella_fork_random_0 [Preset: mainnet]                              OK
 + EF - Capella - Fork - capella_fork_random_1 [Preset: mainnet]                              OK
 + EF - Capella - Fork - capella_fork_random_2 [Preset: mainnet]                              OK
@@ -1507,6 +1516,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Deneb - Fork  [Preset: mainnet]
 ```diff
++ EF - Deneb - Fork - after_fork_deactivate_validators_from_capella_to_deneb [Preset: mainne OK
++ EF - Deneb - Fork - after_fork_deactivate_validators_wo_block_from_capella_to_deneb [Prese OK
++ EF - Deneb - Fork - after_fork_new_validator_active_from_capella_to_deneb [Preset: mainnet OK
 + EF - Deneb - Fork - deneb_fork_random_0 [Preset: mainnet]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_1 [Preset: mainnet]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_2 [Preset: mainnet]                                  OK
@@ -2125,6 +2137,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Fork  [Preset: mainnet]
 ```diff
++ EF - Electra - Fork - after_fork_deactivate_validators_from_deneb_to_electra [Preset: main OK
++ EF - Electra - Fork - after_fork_deactivate_validators_wo_block_from_deneb_to_electra [Pre OK
++ EF - Electra - Fork - after_fork_new_validator_active_from_deneb_to_electra [Preset: mainn OK
 + EF - Electra - Fork - electra_fork_random_0 [Preset: mainnet]                              OK
 + EF - Electra - Fork - electra_fork_random_1 [Preset: mainnet]                              OK
 + EF - Electra - Fork - electra_fork_random_2 [Preset: mainnet]                              OK
@@ -2863,6 +2878,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Fork  [Preset: mainnet]
 ```diff
++ EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: mainnet] OK
++ EF - Fulu - Fork - after_fork_deactivate_validators_wo_block_from_electra_to_fulu [Preset: OK
++ EF - Fulu - Fork - after_fork_new_validator_active_from_electra_to_fulu [Preset: mainnet]  OK
 + EF - Fulu - Fork - fork_base_state [Preset: mainnet]                                       OK
 + EF - Fulu - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
 + EF - Fulu - Fork - fork_next_epoch [Preset: mainnet]                                       OK
