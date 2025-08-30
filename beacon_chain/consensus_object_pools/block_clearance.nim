@@ -78,6 +78,9 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
+  when typeof(trustedBlock).kind >= ConsensusFork.Deneb:
+    debugEcho "FOO3: ", trustedBlock.message.body.execution_payload.withdrawals
+
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
