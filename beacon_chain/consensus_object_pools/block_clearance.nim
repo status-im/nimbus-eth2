@@ -79,7 +79,7 @@ proc addResolvedHeadBlock(
     epochRefTick = Moment.now()
 
   when typeof(trustedBlock).kind >= ConsensusFork.Deneb:
-    debugEcho "FOO3: ", trustedBlock.message.body.execution_payload.withdrawals
+    debugEcho "BAZ3: state.slot = ", getStateField(state, slot), "; block.slot = ", trustedBlock.message.slot, "; ", hash_tree_root(trustedBlock.message.body.execution_payload.withdrawals), "; ", trustedBlock.message.body.execution_payload.withdrawals
 
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
