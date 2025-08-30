@@ -611,8 +611,7 @@ proc popSidecars*(
 func fetchMissingSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
 ): seq[BlobIdentifier] =
   ## Function returns sequence of BlobIdentifiers for blobs which are missing
   ## for block root ``blockRoot`` and block ``blck``.
