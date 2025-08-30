@@ -146,9 +146,9 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "ExecutionPayload":
             checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadEnvelope":
-            checkSSZ(electra.ExecutionPayloadEnvelope, path, hash)
+            checkSSZ(ExecutionPayloadEnvelope, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+            checkSSZ(gloas.ExecutionPayloadHeader, path, hash)
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
@@ -159,7 +159,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "IndexedAttestation":
             checkSSZ(electra.IndexedAttestation, path, hash)
           of "IndexedPayloadAttestation":
-            checkSSZ(electra.IndexedPayloadAttestation, path, hash)
+            checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(electra.LightClientBootstrap, path, hash)
           of "LightClientHeader":
@@ -178,8 +178,6 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
             checkSSZ(PayloadAttestationData, path, hash)
           of "PayloadAttestationMessage":
             checkSSZ(PayloadAttestationMessage, path, hash)
-          of "PayloadAttestationData":
-            checkSSZ(PayloadAttestationData, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PendingConsolidation": checkSSZ(PendingConsolidation, path, hash)
           of "PendingDeposit": checkSSZ(PendingDeposit, path, hash)
@@ -190,7 +188,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "SignedAggregateAndProof":
             checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
-            checkSSZ(electra.SignedBeaconBlock, path, hash)
+            checkSSZ(gloas.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedBLSToExecutionChange":

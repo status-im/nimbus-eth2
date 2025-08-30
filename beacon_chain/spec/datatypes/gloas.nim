@@ -37,10 +37,6 @@ from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
-type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
-  PayloadStatus* = distinct uint8
-
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
@@ -72,17 +68,11 @@ const
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
   BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc-1
-  PTC_SIZE*: uint64 = 512
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
-  PAYLOAD_TIMELY_THRESHOLD* = PTC_SIZE div 2
-  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
-  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
-  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#max-operations-per-block
   MAX_PAYLOAD_ATTESTATIONS* = 4
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
+  BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
@@ -142,7 +132,7 @@ type
     builder_index*: uint64 
     beacon_block_root*: Eth2Digest
     slot*: Slot
-    blob_kzg_commitments*: KZGCommitments
+    blob_kzg_commitments*: KzgCommitments
     state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
@@ -171,14 +161,9 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#indexedpayloadattestation
   IndexedPayloadAttestation* = object
-    attesting_indices*: List[ValidatorIndex, Limit PTC_SIZE]
+    attesting_indices*: List[uint64, Limit PTC_SIZE]
     data*: PayloadAttestationData
     signature*: ValidatorSig
-  
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#new-forkchoicenode
-  ForkChoiceNode* = object
-    root*: Eth2Digest
-    payload_status*: PayloadStatus
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingwithdrawal
   BuilderPendingWithdrawal* = object
@@ -389,7 +374,7 @@ type
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
-    execution_payload_availability*: ExecutionPayloadAvailabilityBits
+    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
     builder_pending_payments*: HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
@@ -490,17 +475,13 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-      ## [Removed in Gloas:EIP7732]
-    # execution_payload*: gloas.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
-      ## [Removed in Gloas:EIP7732]
-    # blob_kzg_commitments*: KzgCommitments
-    # execution_requests*: ExecutionRequests  # [New in Electra]
 
-      ## [New in Gloas:EIP7732]
+    ## [New in Gloas:EIP7732]
     signed_execution_payload_header*: SignedExecutionPayloadHeader
-      ## [New in Gloas:EIP7732]
-    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    ## [New in Gloas:EIP7732]
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -676,22 +657,15 @@ func shortLog*(v: ExecutionPayload): auto =
 
 func shortLog*(v: ExecutionPayloadHeader): auto =
   (
-    parent_hash: shortLog(v.parent_hash),
-    fee_recipient: $v.fee_recipient,
-    state_root: shortLog(v.state_root),
-    receipts_root: shortLog(v.receipts_root),
-    prev_randao: shortLog(v.prev_randao),
-    block_number: v.block_number,
-    gas_limit: v.gas_limit,
-    gas_used: v.gas_used,
-    timestamp: v.timestamp,
-    extra_data: toPrettyString(distinctBase v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
+    parent_block_hash: shortLog(v.parent_block_hash),
+    parent_block_root: shortLog(v.parent_block_root),
     block_hash: shortLog(v.block_hash),
-    transactions_root: shortLog(v.transactions_root),
-    withdrawals_root: shortLog(v.withdrawals_root),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
+    fee_recipient: $v.fee_recipient,
+    gas_limit: v.gas_limit,
+    builder_index: v.builder_index,
+    slot: v.slot,
+    value: v.value,
+    blob_kzg_commitments_root: shortLog(v.blob_kzg_commitments_root),
   )
 
 template asSigned*(
