@@ -216,6 +216,8 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
+  ExecutionPayloadAvailabilityBits* = distinct BitArray[SLOTS_PER_HISTORICAL_ROOT]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader

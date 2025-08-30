@@ -37,6 +37,10 @@ from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
+type
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
+  PayloadStatus* = distinct uint8
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
@@ -67,6 +71,18 @@ const
   # Balance increment corresponding to one additional group to custody
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
   BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc-1
+  PTC_SIZE*: uint64 = 512
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
+  PAYLOAD_TIMELY_THRESHOLD* = PTC_SIZE div 2
+  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
+  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
+  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#max-operations-per-block
+  MAX_PAYLOAD_ATTESTATIONS* = 4
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
@@ -101,29 +117,80 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-    block_number*: uint64
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
+    parent_block_hash*: Eth2Digest
+    parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+    builder_index*: uint64
+    slot*: Slot
+    value*: Gwei
+    blob_kzg_commitments_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadheader
+  SignedExecutionPayloadHeader* = object
+    message*: ExecutionPayloadHeader
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#executionpayloadenvelope
+  ExecutionPayloadEnvelope* = object
+    payload*: ExecutionPayload
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64 
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    blob_kzg_commitments*: KZGCommitments
+    state_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
+  SignedExecutionPayloadEnvelope* = object
+    message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationdata
+  PayloadAttestationData* = object
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    payload_present*: bool
+    blob_data_available*: bool
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestation
+  PayloadAttestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationmessage
+  PayloadAttestationMessage* = object
+    validatorIndex*: uint64
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#indexedpayloadattestation
+  IndexedPayloadAttestation* = object
+    attesting_indices*: List[ValidatorIndex, Limit PTC_SIZE]
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+  
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#new-forkchoicenode
+  ForkChoiceNode* = object
+    root*: Eth2Digest
+    payload_status*: PayloadStatus
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingwithdrawal
+  BuilderPendingWithdrawal* = object
+    fee_recipient*: ExecutionAddress
+    amount*: Gwei
+    builder_index*: uint64
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
+  BuilderPendingPayment* = object
+    weight*: Gwei
+    withdrawal*: BuilderPendingWithdrawal
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
@@ -235,7 +302,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -321,7 +388,17 @@ type
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
-      ## [New in Electra:EIP7251]
+    # [New in Gloas:EIP7732]
+    execution_payload_availability*: ExecutionPayloadAvailabilityBits
+    # [New in Gloas:EIP7732]
+    builder_pending_payments*: HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
+    # [New in Gloas:EIP7732]
+    builder_pending_withdrawals*: 
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    # [New in Gloas:EIP7732]
+    latest_block_hash*: Eth2Digest
+    # [New in Gloas:EIP7732]
+    latest_withdrawals_root*: Eth2Digest
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -391,7 +468,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -413,10 +490,17 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: gloas.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+      ## [Removed in Gloas:EIP7732]
+    # execution_payload*: gloas.ExecutionPayload
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+      ## [Removed in Gloas:EIP7732]
+    # blob_kzg_commitments*: KzgCommitments
+    # execution_requests*: ExecutionRequests  # [New in Electra]
+
+      ## [New in Gloas:EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+      ## [New in Gloas:EIP7732]
+    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
