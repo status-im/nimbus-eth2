@@ -251,54 +251,60 @@ proc assemble_data_column_sidecars*(
   var
     sidecars =
       newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
-  template kzg_commitments: untyped =
-    signed_beacon_block.message.body.blob_kzg_commitments
-  if kzg_commitments.len == 0:
+      
+  when signed_beacon_block is gloas.SignedBeaconBlock:
+    debugGloasComment "kzg_commitments removed from beaconblock in gloas"
     return sidecars
-  let
-    beacon_block_header =
-      BeaconBlockHeader(
-        slot: blck.slot,
-        proposer_index: blck.proposer_index,
-        parent_root: blck.parent_root,
-        state_root: blck.state_root,
-        body_root: hash_tree_root(blck.body))
+  else:
+    debugGloasComment " "
+    template kzg_commitments: untyped =
+      signed_beacon_block.message.body.blob_kzg_commitments
+    if kzg_commitments.len == 0:
+      return sidecars
+    let
+      beacon_block_header =
+        BeaconBlockHeader(
+          slot: blck.slot,
+          proposer_index: blck.proposer_index,
+          parent_root: blck.parent_root,
+          state_root: blck.state_root,
+          body_root: hash_tree_root(blck.body))
 
-    signed_beacon_block_header =
-      SignedBeaconBlockHeader(
-        message: beacon_block_header,
-        signature: signed_beacon_block.signature)
+      signed_beacon_block_header =
+        SignedBeaconBlockHeader(
+          message: beacon_block_header,
+          signature: signed_beacon_block.signature)
 
-  var
-    cells = newSeq[CellBytes](blobs.len)
-    proofs = newSeq[ProofBytes](blobs.len)
-
-  for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
-
-  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
-      column = newSeqOfCap[KzgCell](blobs.len)
-      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
-    for rowIndex in 0..<blobs.len:
-      column.add(cells[rowIndex][columnIndex])
-      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+      cells = newSeq[CellBytes](blobs.len)
+      proofs = newSeq[ProofBytes](blobs.len)
 
-    var sidecar = fulu.DataColumnSidecar(
-      index: ColumnIndex(columnIndex),
-      column: DataColumn.init(column),
-      kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
-      signed_block_header: signed_beacon_block_header)
-    blck.body.build_proof(
-      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
-      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
+    for i in 0 ..< blobs.len:
+      cells[i] = computeCells(blobs[i]).get
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
-  sidecars
+    for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+      var
+        column = newSeqOfCap[KzgCell](blobs.len)
+        kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
+      for rowIndex in 0..<blobs.len:
+        column.add(cells[rowIndex][columnIndex])
+        kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+
+      var sidecar = fulu.DataColumnSidecar(
+        index: ColumnIndex(columnIndex),
+        column: DataColumn.init(column),
+        kzg_commitments: blck.body.blob_kzg_commitments,
+        kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+        signed_block_header: signed_beacon_block_header)
+      blck.body.build_proof(
+        KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+        sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+      sidecars.add(sidecar)
+
+    sidecars
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
