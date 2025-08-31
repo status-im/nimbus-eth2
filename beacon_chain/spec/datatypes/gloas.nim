@@ -37,37 +37,6 @@ from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
-  FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
-  # Number of field elements in a Reed-Solomon extended blob |
-  FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
-  BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
-  # The number of bytes in a cell |
-  CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
-  # The number of cells in an extended blob |
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#preset
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
-  NUMBER_OF_COLUMNS* = 128
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
-  DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
-  CUSTODY_REQUIREMENT* = 4
-
-  # Minimum number of custody groups an honest node with
-  # validators attached custodies and serves samples from
-  VALIDATOR_CUSTODY_REQUIREMENT* = 8
-
-  # Balance increment corresponding to one additional group to custody
-  # 2**5 * 10**9 (= 32,000,000,000) Gwei
-  BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
-
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object

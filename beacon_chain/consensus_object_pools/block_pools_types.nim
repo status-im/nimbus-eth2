@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -18,9 +18,6 @@ import
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
-
-debugGloasComment ""
-import ../spec/datatypes/gloas
 
 from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils, tables, sets],
@@ -1167,8 +1167,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.heads = @[headRef]
 
     withState(dag.headState):
-      debugGloasComment ""
-      when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Altair:
         dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
     assign(dag.clearanceState, dag.headState)

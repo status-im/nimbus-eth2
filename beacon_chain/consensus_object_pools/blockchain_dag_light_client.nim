@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -157,10 +157,7 @@ proc getExistingSyncAggregate(
     return Opt.none(SyncAggregate)
 
   let res = withBlck(bdata.get):
-    debugGloasComment "..."
-    when consensusFork >= ConsensusFork.Fulu:
-      return Opt.none(SyncAggregate)
-    elif consensusFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       Opt.some forkyBlck.sync_aggregate()
     else:
       return Opt.none(SyncAggregate)
@@ -446,8 +443,7 @@ proc initLightClientUpdateForPeriod(
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
   withBlck(bdata):
-    debugGloasComment ""
-    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Altair:
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
           forkyUpdate.sync_aggregate =
@@ -843,8 +839,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       res.err()
       continue
     withStateAndBlck(dag.headState, bdata):
-      debugGloasComment ""
-      when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Altair:
         if i == blocks.high:
           let
             period = bid.slot.sync_committee_period
