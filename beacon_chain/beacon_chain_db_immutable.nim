@@ -19,6 +19,9 @@ from ./spec/datatypes/electra import
   PendingPartialWithdrawal
 from ./spec/datatypes/fulu import
   ExecutionPayloadHeader
+from ./spec/datatypes/gloas import
+  BuilderPendingPayment, BuilderPendingWithdrawal, 
+  BUILDER_PENDING_WITHDRAWALS_LIMIT
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -534,8 +537,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -558,14 +560,15 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: InactivityScores
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: fulu.ExecutionPayloadHeader
+    latest_execution_payload_header*: gloas.ExecutionPayloadHeader
+      ## [Modified in Electra:EIP6110:EIP7002]
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -589,8 +592,20 @@ type
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
-      ## [New in Electra:EIP7251]
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
+    # [New in Gloas:EIP7732]
+    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    # [New in Gloas:EIP7732]
+    builder_pending_payments*: 
+      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
+    # [New in Gloas:EIP7732]
+    builder_pending_withdrawals*: 
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    # [New in Gloas:EIP7732]
+    latest_block_hash*: Eth2Digest
+    # [New in Gloas:EIP7732]
+    latest_withdrawals_root*: Eth2Digest

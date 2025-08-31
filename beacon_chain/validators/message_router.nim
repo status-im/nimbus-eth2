@@ -87,7 +87,7 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], dataColumnsOpt: Opt[seq[DataColumnSidecar]],
+    blobsOpt: Opt[seq[BlobSidecar]], dataColumnsOpt: Opt[seq[fulu.DataColumnSidecar]],
     checkValidator: bool): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
@@ -156,7 +156,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    var dataColumnRefs = Opt.none(DataColumnSidecars)
+    var dataColumnRefs = Opt.none(fulu.DataColumnSidecars)
     let dataColumns = dataColumnsOpt.get()
     if dataColumnsOpt.isSome() and dataColumns.len != 0:
       var das_workers =
@@ -187,7 +187,7 @@ proc routeSignedBeaconBlock*(
             router[].network.nodeId,
             max(samples_per_slot, metadata))
 
-      var final_columns: seq[ref DataColumnSidecar]
+      var final_columns: seq[ref fulu.DataColumnSidecar]
       for dc in dataColumns:
         if dc.index in custody_columns:
           final_columns.add newClone(dc)

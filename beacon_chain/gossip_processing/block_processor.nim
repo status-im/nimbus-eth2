@@ -637,17 +637,18 @@ proc storeBlock(
         var columnsOk = true
         let columns =
           withBlck(parentBlck.get()):
+            debugGloasComment " "
             when consensusFork >= ConsensusFork.Fulu:
-              var data_column_sidecars: DataColumnSidecars
+              var data_column_sidecars: fulu.DataColumnSidecars
               for i in self.dataColumnQuarantine[].custodyColumns:
-                let data_column = DataColumnSidecar.new()
+                let data_column = fulu.DataColumnSidecar.new()
                 if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
                   columnsOk = false
                   break
                 data_column_sidecars.add data_column
               Opt.some data_column_sidecars
             else:
-              Opt.none DataColumnSidecars
+              Opt.none fulu.DataColumnSidecars
 
         var blobsOk = true
         let blobs =

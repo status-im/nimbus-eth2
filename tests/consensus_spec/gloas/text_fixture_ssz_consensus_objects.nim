@@ -53,7 +53,7 @@ type
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
 proc checkSSZ(
-    T: type electra.SignedBeaconBlock,
+    T: type gloas.SignedBeaconBlock,
     dir: string,
     expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput].} =

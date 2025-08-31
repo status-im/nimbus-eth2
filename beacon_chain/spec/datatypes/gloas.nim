@@ -26,7 +26,6 @@ import
   kzg4844/[kzg, kzg_abi]
 
 from stew/bitops2 import log2trunc
-from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
@@ -388,7 +387,8 @@ type
     # [New in Gloas:EIP7732]
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
-    builder_pending_payments*: HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
+    builder_pending_payments*: 
+      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
     builder_pending_withdrawals*: 
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
@@ -530,10 +530,13 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+
+    ## [New in Gloas:EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    ## [New in Gloas:EIP7732]
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -558,10 +561,13 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+
+    ## [New in Gloas:EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    ## [New in Gloas:EIP7732]
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -631,13 +637,13 @@ func shortLog*(v: SomeBeaconBlock): auto =
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: v.body.execution_payload.block_number,
+    block_number: 0'u64,
     # TODO checksum hex? shortlog?
-    block_hash: to0xHex(v.body.execution_payload.block_hash.data),
-    parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
-    fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    block_hash: "",
+    parent_hash: "",
+    fee_recipient: "",
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
+    blob_kzg_commitments_len: 0,
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -665,7 +671,6 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
-
 
 func shortLog*(v: ExecutionPayloadHeader): auto =
   (
