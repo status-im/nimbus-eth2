@@ -100,7 +100,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
 # Test runner
 # ----------------------------------------------------------------
 
-suite "EF - Fulu - SSZ consensus objects " & preset():
+suite "EF - Gloas - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
@@ -121,8 +121,8 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(electra.BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
+          of "BeaconBlock": checkSSZ(gloas.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(gloas.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(gloas.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
@@ -134,7 +134,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
-          of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
+          of "DataColumnSidecar": checkSSZ(gloas.DataColumnSidecar, path, hash)
           of "DataColumnsByRootIdentifier":
             checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
@@ -161,15 +161,15 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(electra.LightClientBootstrap, path, hash)
+            checkSSZ(gloas.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(electra.LightClientHeader, path, hash)
+            checkSSZ(gloas.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(electra.LightClientUpdate, path, hash)
+            checkSSZ(gloas.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(electra.LightClientFinalityUpdate, path, hash)
+            checkSSZ(gloas.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(gloas.LightClientOptimisticUpdate, path, hash)
           of "MatrixEntry":
             checkSSZ(MatrixEntry, path, hash)
           of "PayloadAttestation":

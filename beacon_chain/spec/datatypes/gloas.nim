@@ -48,8 +48,10 @@ const
   # The number of cells in an extended blob |
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#preset
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/p2p-interface.md#preset
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS* = 9
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
   NUMBER_OF_COLUMNS* = 128
@@ -75,6 +77,16 @@ const
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  DataColumnSidecar* = object
+    index*: ColumnIndex 
+    column*: DataColumn
+    kzg_commitments*: KzgCommitments
+    kzg_proofs*: deneb.KzgProofs
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitments_inclusion_proof*:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS, Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
@@ -149,7 +161,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestation
   PayloadAttestation* = object
-    aggregation_bits*: ElectraCommitteeValidatorsBits
+    aggregation_bits*: BitArray[int PTC_SIZE]
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
@@ -172,7 +184,7 @@ type
     builder_index*: uint64
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/beacon-chain.md#builderpendingpayment
   BuilderPendingPayment* = object
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
