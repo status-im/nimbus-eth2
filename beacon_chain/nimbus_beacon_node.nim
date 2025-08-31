@@ -172,7 +172,7 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
         (proc() = notice "🐅 Blob parameters updated 🐅"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
-  debugGloasComment ""
+  debugGloasComment "don't know vanity mascot yet"
   case consensusFork
   of ConsensusFork.Gloas:
     "?"
@@ -1637,7 +1637,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeMessageHandlers[gossipFork](
       node, node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg))
 
-  debugGloasComment ""
+  debugGloasComment "don't know yet for addMessageHandlers"
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,

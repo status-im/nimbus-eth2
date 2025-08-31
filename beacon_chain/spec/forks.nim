@@ -24,7 +24,7 @@ from std/sequtils import mapIt
 export
   extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
   presets,
-  phase0, altair, bellatrix, capella, deneb, electra, fulu,
+  phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
   bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
