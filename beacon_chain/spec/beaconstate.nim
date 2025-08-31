@@ -16,9 +16,6 @@ import
 from std/algorithm import fill, sort
 from std/sequtils import anyIt, mapIt, toSeq
 
-debugFuluComment "right now, be cautious about exporting gloas module where it doesn't yet need to be, or anything in it"
-import ./datatypes/gloas
-
 export extras, forks, validator, chronicles
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#increase_balance
@@ -675,7 +672,7 @@ iterator get_attesting_indices_iter*(state: ForkyBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_attesting_indices
 iterator get_attesting_indices_iter*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     data: AttestationData,
     aggregation_bits: ElectraCommitteeValidatorsBits,
     committee_bits: auto,
@@ -731,12 +728,11 @@ func get_attesting_indices*(state: ForkedHashedBeaconState;
                             cache: var StateCache): seq[ValidatorIndex] =
   # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
   # iterator
-
   var idxBuf: seq[ValidatorIndex]
   withState(state):
-    debugGloasComment ""
-    when consensusFork >= ConsensusFork.Electra and consensusFork != ConsensusFork.Gloas:
-      for vidx in forkyState.data.get_attesting_indices(data, aggregation_bits, committee_bits, cache):
+    when consensusFork >= ConsensusFork.Electra:
+      for vidx in forkyState.data.get_attesting_indices(
+          data, aggregation_bits, committee_bits, cache):
         idxBuf.add vidx
   idxBuf
 
@@ -885,7 +881,8 @@ func get_attestation_participation_flag_indices(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
+    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -951,7 +948,8 @@ func get_base_reward_per_increment*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -997,9 +995,10 @@ proc check_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
-    flags: UpdateFlags, cache: var StateCache, on_chain: static bool): Result[void, cstring] =
+    flags: UpdateFlags, cache: var StateCache, on_chain: static bool):
+    Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -1476,7 +1475,7 @@ func get_expected_withdrawals*(
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
 template get_expected_withdrawals_with_partial_count_aux*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
   doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
@@ -1578,13 +1577,15 @@ template get_expected_withdrawals_with_partial_count_aux*(
   (withdrawals, processed_partial_withdrawals_count)
 
 template get_expected_withdrawals_with_partial_count*(
-    state: electra.BeaconState | fulu.BeaconState): (seq[Withdrawal], uint64) =
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    (seq[Withdrawal], uint64) =
   get_expected_withdrawals_with_partial_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
 
-func get_expected_withdrawals*(state: electra.BeaconState | fulu.BeaconState):
-                               seq[Withdrawal] =
+func get_expected_withdrawals*(
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee

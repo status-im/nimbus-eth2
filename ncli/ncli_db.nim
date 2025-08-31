@@ -25,9 +25,6 @@ from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
 from stew/staticfor import staticfor
 
-debugGloasComment "when forks exports"
-import ../beacon_chain/spec/datatypes/gloas
-
 when defined(posix):
   import system/ansi_c
 
@@ -290,7 +287,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         blocks[6].add dag.db.getBlock(
           blck.root, fulu.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Gloas:
-        debugGloasComment ""
+        blocks[7].add dag.db.getBlock(
+          blck.root, gloas.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -373,7 +371,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[6][].data, noRollback)
               of ConsensusFork.Gloas:
-                debugGloasComment ""
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[7][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
@@ -15,9 +15,6 @@ import
     state_transition, state_transition_epoch],
   "."/[block_pools_types, block_dag, blockchain_dag,
        blockchain_dag_light_client]
-
-debugGloasComment ""
-import ../spec/datatypes/gloas
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -103,10 +100,7 @@ proc addResolvedHeadBlock(
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
     let unrealized = withState(state):
-      when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(FinalityCheckpoints)
-      elif consensusFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         forkyState.data.compute_unrealized_finality()
       else:
         forkyState.data.compute_unrealized_finality(cache)

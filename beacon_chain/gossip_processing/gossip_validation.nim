@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status
@@ -1503,8 +1503,7 @@ proc validateBlsToExecutionChange*(
   # [REJECT] All of the conditions within `process_bls_to_execution_change`
   # pass validation.
   withState(pool.dag.headState):
-    debugGloasComment ""
-    when consensusFork < ConsensusFork.Capella or consensusFork == ConsensusFork.Gloas:
+    when consensusFork < ConsensusFork.Capella:
       return errIgnore(
         "SignedBLSToExecutionChange: can't validate against pre-Capella state")
     else:

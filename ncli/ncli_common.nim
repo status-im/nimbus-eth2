@@ -18,8 +18,6 @@ import
 
 from std/os import walkDir, `/`
 from std/strutils import endsWith, isDigit, parseUInt, repeat
-debugGloasComment "when forks exports"
-import ../beacon_chain/spec/datatypes/gloas
 
 type
   RewardsAndPenalties* = object
@@ -377,8 +375,7 @@ func collectFromAttestations(
     epochParticipationFlags: var ParticipationFlags,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    debugGloasComment ""
-    when consensusFork > ConsensusFork.Phase0 and consensusFork != ConsensusFork.Gloas:
+    when consensusFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0.Gwei

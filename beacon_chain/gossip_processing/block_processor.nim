@@ -37,9 +37,6 @@ from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
   getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
-debugGloasComment ""
-import ../spec/datatypes/gloas
-
 export sszdump, signatures_batch
 
 logScope: topics = "gossip_blocks"

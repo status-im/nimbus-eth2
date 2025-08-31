@@ -12,7 +12,7 @@
 # and attesting when they're supposed to.
 
 import
-  std/[strformat, sequtils, tables],
+  std/[strformat, tables],
   chronicles,
   confutils,
   stew/io2,
@@ -27,6 +27,7 @@ import
     signatures, state_transition],
   ../beacon_chain/validators/[keystore_management, validator_pool]
 
+from std/sequtils import filterIt, toSeq
 from ../beacon_chain/gossip_processing/block_processor import
   newExecutionPayload
 
@@ -250,8 +251,7 @@ cli do(validatorsDir: string, secretsDir: string,
                   executionHead =
                     forkyState.data.latest_execution_payload_header.block_hash
                   withdrawals =
-                    when consensusFork >= ConsensusFork.Capella and consensusFork != ConsensusFork.Gloas:
-                      debugGloasComment ""
+                    when consensusFork >= ConsensusFork.Capella:
                       get_expected_withdrawals(forkyState.data)
                     else:
                       newSeq[capella.Withdrawal]()

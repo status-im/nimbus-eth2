@@ -123,8 +123,9 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
       kind: ConsensusFork.Fulu,
       data: forked.fuluData.toBeaconBlockHeader)
   of ConsensusFork.Gloas:
-    debugGloasComment ""
-    raiseAssert "supports Gloas not yet"
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Gloas,
+      data: forked.gloasData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =

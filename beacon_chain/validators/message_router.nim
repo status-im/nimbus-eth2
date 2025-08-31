@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/sequtils,
@@ -18,9 +18,6 @@ import
   ./activity_metrics,
   ../spec/datatypes/deneb
 from  ../spec/state_transition_block import validate_blobs
-
-debugGloasComment ""
-import ../spec/datatypes/gloas
 
 export eth2_processor, eth2_network
 
