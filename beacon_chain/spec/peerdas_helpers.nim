@@ -143,7 +143,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
   ok(extended_matrix)
 
 proc recover_cells_and_proofs*(
-    data_columns: seq[ref DataColumnSidecar]):
+    data_columns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## This helper recovers blobs from the data column sidecars
   if data_columns.len == 0:
@@ -194,7 +194,7 @@ proc recover_cells_and_proofs*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
 func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
-                               seq[DataColumnSidecar] =
+                               seq[fulu.DataColumnSidecar] =
   ## Given a signed beacon block and the blobs corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
@@ -221,7 +221,7 @@ func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   var
     sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+      newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
@@ -231,7 +231,7 @@ func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
       column_cells.add(cellsAndProofs[i].cells)
       column_proofs.add(cellsAndProofs[i].proofs)
 
-    var sidecar = DataColumnSidecar(
+    var sidecar = fulu.DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: DataColumn.init(column_cells),
       kzg_commitments: blck.body.blob_kzg_commitments,
@@ -247,11 +247,11 @@ func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                     blobs: seq[KzgBlob],
                                     cell_proofs: seq[KzgProof]):
-                                    seq[DataColumnSidecar] =
+                                    seq[fulu.DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
   var
     sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+      newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
   template kzg_commitments: untyped =
     signed_beacon_block.message.body.blob_kzg_commitments
   if kzg_commitments.len == 0:
@@ -288,7 +288,7 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    var sidecar = DataColumnSidecar(
+    var sidecar = fulu.DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_commitments: blck.body.blob_kzg_commitments,
@@ -328,7 +328,7 @@ func get_extended_sample_count*(samples_per_slot: int,
   NUMBER_OF_COLUMNS
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
-func verify_data_column_sidecar*(sidecar: DataColumnSidecar):
+func verify_data_column_sidecar*(sidecar: fulu.DataColumnSidecar):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
@@ -345,7 +345,7 @@ func verify_data_column_sidecar*(sidecar: DataColumnSidecar):
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
-func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
+func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
   let gindex =
@@ -362,7 +362,7 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 

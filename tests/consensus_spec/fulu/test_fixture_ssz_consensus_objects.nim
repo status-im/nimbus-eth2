@@ -130,7 +130,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
-          of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
+          of "DataColumnSidecar": checkSSZ(fulu.DataColumnSidecar, path, hash)
           of "DataColumnsByRootIdentifier":
             checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)

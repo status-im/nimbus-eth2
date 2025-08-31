@@ -2828,7 +2828,7 @@ proc broadcastBlobSidecar*(
   node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = data_column.signed_block_header.message.slot.epoch

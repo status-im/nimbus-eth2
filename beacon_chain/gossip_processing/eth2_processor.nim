@@ -388,7 +388,7 @@ proc validateDataColumnSidecarFromEL*(
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    dataColumnSidecar: fulu.DataColumnSidecar, subnet_id: uint64):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)

@@ -164,7 +164,7 @@ proc loadOps(
             for column_name in step["columns"]:
               let column = parseTest(
                 path/(column_name.getStr()) & ".ssz_snappy", SSZ,
-                DataColumnSidecar)
+                fulu.DataColumnSidecar)
               columnsValid = columnsValid and
                 verify_data_column_sidecar_inclusion_proof(column).isOk and
                 verify_data_column_sidecar_kzg_proofs(column).isOk

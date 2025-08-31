@@ -87,7 +87,7 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type (ref DataColumnSidecar)):
+    conn: Connection, peer: Peer, MsgType: type (ref fulu.DataColumnSidecar)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
@@ -100,7 +100,7 @@ proc readChunkPayload*(
 
   withConsensusFork(contextFork):
     when consensusFork >= ConsensusFork.Fulu:
-      let res = await readChunkPayload(conn, peer, DataColumnSidecar)
+      let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
       if res.isOk:
         return ok newClone(res.get)
       else:
@@ -380,7 +380,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       colIds: DataColumnsByRootIdentifierList,
       response: MultipleChunksResponse[
-        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
+        ref fulu.DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
       {.async, libp2pProtocol("data_column_sidecars_by_root", 1).} =
 
     trace "got data column root request", peer, len = colIds.len
@@ -444,7 +444,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqColumns: List[ColumnIndex, NUMBER_OF_COLUMNS],
       response: MultipleChunksResponse[
-        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
+        ref fulu.DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
       {.async, libp2pProtocol("data_column_sidecars_by_range", 1).} =
 
     trace "got data columns range request", peer, startSlot,

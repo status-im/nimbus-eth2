@@ -41,17 +41,8 @@ type
   PayloadStatus* = uint8
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#max-operations-per-block
-  MAX_PAYLOAD_ATTESTATIONS* = 4
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#preset
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS* = 9
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc-1
-  PTC_SIZE*: uint64 = 512
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
   PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
