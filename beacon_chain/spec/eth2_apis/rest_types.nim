@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
@@ -18,9 +18,6 @@ import
   results,
   stew/base10, httputils, stew/bitops2,
   ../forks
-
-debugGloasComment ""
-import ../datatypes/gloas
 
 export forks, tables, httputils, results
 

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/os,
@@ -441,13 +441,11 @@ iterator getBlockIds*(
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
     case db.cfg.consensusForkAtEpoch(slot.epoch)
-    of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+    of ConsensusFork.Phase0 .. ConsensusFork.Gloas:
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(
           db, historical_roots, historical_summaries, stateSlot, state[]):
         state = nil # No `return` in iterators
-    of ConsensusFork.Gloas:
-      debugGloasComment "probably trivial"
 
     if state == nil:
       break

@@ -423,7 +423,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(denebState[])
     doit(electraState[])
     doit(fuluState[])
-    debugGloasComment "add doit(gloasState[])"
+    doit(gloasState[])
 
     echo "Couldn't load ", stateRoot
 

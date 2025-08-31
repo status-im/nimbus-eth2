@@ -250,15 +250,13 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        debugGloasComment ""
-        when consensusFork != ConsensusFork.Gloas:
-          let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).bls_to_execution_changes
-          check:
-            blsToExecutionChanges.lenu64 == min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
+        let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
+          cfg, forkyState.data).bls_to_execution_changes
+        check:
+          blsToExecutionChanges.lenu64 == min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
 
-            # Ensure priority of API to gossip messages is observed
-            allIt(priorityMessages, pool[].isSeen(it))
+          # Ensure priority of API to gossip messages is observed
+          allIt(priorityMessages, pool[].isSeen(it))
 
   test "pre-pre-fork voluntary exit":
     var
@@ -281,10 +279,8 @@ suite "Validator change pool testing suite":
       {}).expect("ok")
 
     withState(dag.headState):
-      debugGloasComment ""
-      when consensusFork != ConsensusFork.Gloas:
-        check:
-          # Message signed with a (fork-2) domain can no longer be added as that
-          # fork is not present in the BeaconState and thus fails transition
-          pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).voluntary_exits.lenu64 == 0
+      check:
+        # Message signed with a (fork-2) domain can no longer be added as that
+        # fork is not present in the BeaconState and thus fails transition
+        pool[].getBeaconBlockValidatorChanges(
+          cfg, forkyState.data).voluntary_exits.lenu64 == 0

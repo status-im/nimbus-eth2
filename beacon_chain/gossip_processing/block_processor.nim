@@ -242,7 +242,7 @@ proc storeBackfillBlock(
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: fulu.SignedBeaconBlock,
+    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -491,11 +491,8 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-      elif consensusFork >= ConsensusFork.Fulu:
-        resfut.complete(
-          self.storeBackfillBlock(forkyBlck, data_columns))
+      when consensusFork >= ConsensusFork.Fulu:
+        resfut.complete(self.storeBackfillBlock(forkyBlck, data_columns))
       else:
         resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
@@ -698,7 +695,10 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+        when typeof(signedBlock).kind == ConsensusFork.Gloas:
+          debugGloasComment "need getExecutionValidity on gloas blocks"
+          NewPayloadStatus.valid
+        elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadlineObj, getRetriesCount())
         else:
@@ -1118,13 +1118,9 @@ proc processBlock(
     quit 1
 
   let res = withBlck(entry.blck):
-    debugGloasComment ""
-    when consensusFork != ConsensusFork.Gloas:
-      await self.storeBlock(
-        entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
-        entry.maybeFinalized, entry.queueTick, entry.validationDur)
-    else:
-      default(Result[BlockRef, (VerifierError, ProcessingStatus)])
+    await self.storeBlock(
+      entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
+      entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a

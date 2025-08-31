@@ -2489,8 +2489,7 @@ proc updateHead*(
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    debugGloasComment ""
-    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Altair:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let
