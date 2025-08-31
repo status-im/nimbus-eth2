@@ -13,9 +13,6 @@ import
   "."/[crypto, helpers]
 export helpers
 
-debugGloasComment ""
-import ./datatypes/gloas
-
 const
   SEED_SIZE = sizeof(Eth2Digest)
   ROUND_SIZE = 1

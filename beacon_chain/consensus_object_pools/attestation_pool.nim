@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -17,9 +17,6 @@ import
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
-
-debugGloasComment ""
-import ../spec/datatypes/gloas
 
 from std/algorithm import sort
 from std/sequtils import keepItIf, maxIndex
@@ -172,10 +169,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
             unrealized =
               if blckRef == dag.head:
                 withState(dag.headState):
-                  debugGloasComment ""
-                  when consensusFork == ConsensusFork.Gloas:
-                    default(FinalityCheckpoints)
-                  elif consensusFork >= ConsensusFork.Altair:
+                  when consensusFork >= ConsensusFork.Altair:
                     forkyState.data.compute_unrealized_finality()
                   else:
                     var cache: StateCache

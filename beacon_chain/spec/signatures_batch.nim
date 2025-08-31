@@ -450,8 +450,7 @@ proc collectSignatureSets*(
       # 7. SyncAggregate
       # ----------------------------------------------------
       withState(state):
-        debugGloasComment ""
-        when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Altair:
           if signed_block.message.body.sync_aggregate.sync_committee_bits.isZeros:
             if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
               return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")

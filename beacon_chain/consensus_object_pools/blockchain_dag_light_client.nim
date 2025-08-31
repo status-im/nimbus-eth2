@@ -138,12 +138,7 @@ proc getExistingLightClientHeader(
   if bdata.isNone:
     return res
 
-  res = withBlck(bdata.get):
-    debugGloasComment "..."
-    when consensusFork != ConsensusFork.Gloas:
-      forkyBlck.lightClientHeader()
-    else:
-      default(ForkedLightClientHeader)
+  res = withBlck(bdata.get): forkyBlck.lightClientHeader()
   dag.cacheRecentLightClientHeader(bid, res)
   res
 

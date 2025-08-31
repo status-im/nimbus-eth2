@@ -17,9 +17,6 @@ import
   ".."/[beacon_chain_db, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
 
-debugGloasComment "..."
-import ../spec/datatypes/gloas
-
 export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
@@ -1026,8 +1023,11 @@ proc applyBlock(
       dag.cfg, state, data, cache, info,
       updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Gloas:
-    debugGloasComment ""
-    return ok()
+    let data = getBlock(dag, bid, gloas.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      updateFlags + {slotProcessed}, noRollback)
 
   ok()
 

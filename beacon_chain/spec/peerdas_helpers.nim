@@ -244,10 +244,9 @@ func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   sidecars
 
-proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
-                                    blobs: seq[KzgBlob],
-                                    cell_proofs: seq[KzgProof]):
-                                    seq[DataColumnSidecar] =
+proc assemble_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
   var
     sidecars =

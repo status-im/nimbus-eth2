@@ -27,9 +27,6 @@ import
   ../extras,
   "."/[beaconstate, eth2_merkleization, validator]
 
-debugGloasComment "forks will eventually export this"
-import ./datatypes/gloas
-
 from std/math import sum, `^`
 from stew/bitops2 import setBit
 from ./datatypes/capella import
@@ -450,7 +447,8 @@ proc process_justification_and_finalization*(
 
 proc compute_unrealized_finality*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState): FinalityCheckpoints =
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState): FinalityCheckpoints =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return FinalityCheckpoints(
       justified: state.current_justified_checkpoint,

@@ -169,6 +169,11 @@ proc publishBlock*(body: FuluSignedBlockContents): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
+proc publishBlock*(body: GloasSignedBlockContents): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
 proc publishSszBlock*(
        client: RestClientRef,
        blck: ForkySignedBeaconBlock

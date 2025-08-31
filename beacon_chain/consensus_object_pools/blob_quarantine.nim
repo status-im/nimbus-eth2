@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/bitops2,
@@ -611,8 +611,7 @@ proc popSidecars*(
 func fetchMissingSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
 ): seq[BlobIdentifier] =
   ## Function returns sequence of BlobIdentifiers for blobs which are missing
   ## for block root ``blockRoot`` and block ``blck``.
@@ -634,7 +633,7 @@ func fetchMissingSidecars*(
 func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns
