@@ -27,7 +27,6 @@ template toSszType*(v: Version): auto = distinctBase(v)
 template toSszType*(v: JustificationBits): auto = distinctBase(v)
 template toSszType*(v: EpochParticipationFlags): auto = asList v
 template toSszType*(v: Eth1Address): auto = v.data()
-template toSszType*(v: PayloadStatus): auto = uint8(v)
 
 func fromSszBytes*(
     T: type GraffitiBytes, data: openArray[byte]): T {.raises: [SszError].} =

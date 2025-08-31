@@ -163,20 +163,6 @@ ethAmountUnit Gwei
 ethAmountUnit Ether
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
-  PayloadStatus* = uint8
-
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc-1
-  PTC_SIZE*: uint64 = 512
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
-  PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
-  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
-  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
-  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
-
-type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
@@ -478,11 +464,6 @@ type
     next_fork_epoch*: Epoch
 
   AttnetBits* = BitArray[int ATTESTATION_SUBNET_COUNT]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#new-forkchoicenode
-  ForkChoiceNode* = object
-    root*: Eth2Digest
-    payload_status*: PayloadStatus
 
 type
   # Caches for computing justificiation, rewards and penalties - based on

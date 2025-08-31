@@ -36,6 +36,10 @@ from ./deneb import Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
+type
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
+  PayloadStatus* = uint8
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
@@ -49,7 +53,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/p2p-interface.md#preset
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS* = 9
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
@@ -75,8 +79,17 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc-1
+  PTC_SIZE*: uint64 = 512
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
+  PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
+  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
+  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
+  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
+
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex 
     column*: DataColumn
@@ -183,7 +196,7 @@ type
     builder_index*: uint64
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/gloas/beacon-chain.md#builderpendingpayment
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
   BuilderPendingPayment* = object
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
@@ -489,9 +502,9 @@ type
     # Execution
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     signed_execution_payload_header*: SignedExecutionPayloadHeader
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
@@ -532,9 +545,9 @@ type
     # Execution
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     signed_execution_payload_header*: SignedExecutionPayloadHeader
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
@@ -563,9 +576,9 @@ type
     # Execution
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     signed_execution_payload_header*: SignedExecutionPayloadHeader
-    ## [New in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 

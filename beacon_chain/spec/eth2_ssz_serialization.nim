@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,6 +19,7 @@ import
 from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/electra import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/fulu import SignedBeaconBlock, TrustedSignedBeaconBlock
+from ./datatypes/gloas import SignedBeaconBlock, TrustedSignedBeaconBlock
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
@@ -73,6 +74,12 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var fulu.TrustedSignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var gloas.SignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var gloas.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(
