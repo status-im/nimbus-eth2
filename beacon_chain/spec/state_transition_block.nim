@@ -1158,7 +1158,7 @@ func process_withdrawals*(
     when payload is ForkyExecutionPayloadHeader:
       debugEcho "BAZ1: ", state.slot, "; ", hash_tree_root(expected_withdrawals), "; ", expected_withdrawals
   else:
-    let expected_withdrawals = get_expected_withdrawals(state)
+    let expected_withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
   when payload is ForkyExecutionPayloadHeader:
     if not (payload.withdrawals_root == hash_tree_root(expected_withdrawals)):
@@ -1167,7 +1167,7 @@ func process_withdrawals*(
     if false and not (payload.withdrawals_root == hash_tree_root(expected_withdrawals)):
       return err("process_withdrawals: withdrawals_root does not match expected withdrawals")
   else:
-    if payload.withdrawals.asSeq() != expected_withdrawals:
+    if payload.withdrawals.asSeq() != distinctBase(expected_withdrawals):
       return err("process_withdrawals: payload withdrawals don't match expected withdrawals")
 
   for withdrawal in expected_withdrawals:
