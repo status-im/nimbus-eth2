@@ -630,7 +630,7 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root,
+    payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
 proc sendGetBlobsV2toSingleEl(
