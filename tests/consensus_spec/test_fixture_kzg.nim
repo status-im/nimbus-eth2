@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -313,11 +313,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_challenge` isn't provided by nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_kzg_proof",
-     "verify_blob_kzg_proof", "verify_blob_kzg_proof_batch",
-     "verify_kzg_proof"]
+    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_challenge",
+     "compute_kzg_proof", "verify_blob_kzg_proof",
+     "verify_blob_kzg_proof_batch", "verify_kzg_proof"]
 
   block:
     let testsDir = suitePath/"blob_to_kzg_commitment"/"kzg-mainnet"
@@ -355,9 +356,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_verify_cell_kzg_proof_batch_challenge` isn't provided by
+  # nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs",
+     "compute_verify_cell_kzg_proof_batch_challenge",
      "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
 
   block:
