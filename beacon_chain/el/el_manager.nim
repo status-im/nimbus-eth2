@@ -39,7 +39,6 @@ const
     [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
 
 type
-  FixedBytes[N: static int] = web3.FixedBytes[N]
   WithoutTimeout = distinct int
 
   DeadlineObject* = object

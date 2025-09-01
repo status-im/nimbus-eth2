@@ -1717,11 +1717,12 @@ proc initialize_hashed_beacon_state_from_eth1*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
+    consensusFork: static ConsensusFork,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): auto =
+    flags: UpdateFlags = {}): consensusFork.BeaconState =
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -1738,7 +1739,6 @@ proc initialize_beacon_state_from_eth1*(
   # at that point :)
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
-  const consensusFork = typeof(execution_payload_header).kind
   let
     forkVersion = cfg.forkVersion(consensusFork)
     fork = Fork(
