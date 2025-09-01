@@ -466,7 +466,9 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Fulu:
+        when consensusFork >= ConsensusFork.Fulu and 
+            consensusFork < ConsensusFork.Gloas:
+          debugGloasComment "no blob_kzg_commitments field for gloas"
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,

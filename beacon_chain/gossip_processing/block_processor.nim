@@ -250,41 +250,46 @@ proc storeBackfillBlock(
   var
     columnsOk = true
     malformed_cols: seq[int]
-  if dataColumnsOpt.isSome:
-    let columns = dataColumnsOpt.get()
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      for i in 0..<columns.len:
-        let r =
-          verify_data_column_sidecar_kzg_proofs(columns[i][])
-        if r.isErr:
-          malformed_cols.add(i)
-          debug "backfill data column validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            column_sidecar = shortLog(columns[i][]),
-            blck = shortLog(signedBlock.message),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        columnsOk = r.isOk()
 
-    # DataColumnSidecar repairing strategy attempt in case of
-    # malformed columns where 50%+ columns are legit. Note that
-    # this repairing will almost never happen unless these malformed
-    # columns coming via req/resp.
-    if dataColumnsOpt.get.lenu64 >
-        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-         not columnsOk:
-      let
-        recovered_cps =
-          recover_cells_and_proofs(columns)
-        recovered_columns =
-          signedBlock.get_data_column_sidecars(recovered_cps.get)
+  when signedBlock is gloas.SignedBeaconBlock:
+    debugGloasComment "blob_kzg_commitments removed from BeaconBlockBody in Gloas"
+    
+    # For Gloas, we still need to store the columns if they're provided
+    # but skip validation since we don't have kzg_commitments in the block
+    if dataColumnsOpt.isSome:
+      debugGloasComment "potentially validate against payload envelope"
+      let columns = dataColumnsOpt.get()
+      discard
+  else:
+    if dataColumnsOpt.isSome:
+      let columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr:
+            malformed_cols.add(i)
+            debug "backfill data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          columnsOk = r.isOk()
 
-      for mc in malformed_cols:
-        # copy the healed columns only into the
-        # sidecar spaces
-        columns[mc][] = recovered_columns[mc]
-      columnsOk = true
+      # DataColumnSidecar repairing strategy attempt in case of
+      # malformed columns where 50%+ columns are legit
+      if dataColumnsOpt.get.lenu64 >
+          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
+           not columnsOk:
+        let
+          recovered_cps = recover_cells_and_proofs(columns)
+          recovered_columns = signedBlock.get_data_column_sidecars(recovered_cps.get)
+
+        for mc in malformed_cols:
+          # copy the healed columns only into the sidecar spaces
+          columns[mc][] = recovered_columns[mc]
+        columnsOk = true
 
   if not columnsOk:
     return err(VerifierError.Invalid)
@@ -299,7 +304,6 @@ proc storeBackfillBlock(
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-
         return err(VerifierError.UnviableFork)
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
@@ -337,7 +341,9 @@ proc expectValidForkchoiceUpdated(
       deadlineObj = deadlineObj,
       maxRetriesCount = maxRetriesCount)
     receivedExecutionBlockHash =
-      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
+      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix and 
+          typeof(receivedBlock).kind < ConsensusFork.Gloas:
+        debugGloasComment "no execution payload field for gloas"
         receivedBlock.message.body.execution_payload.block_hash
       else:
         # https://github.com/nim-lang/Nim/issues/19802
@@ -716,7 +722,9 @@ proc storeBlock(
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and 
+        typeof(signedBlock).kind < ConsensusFork.Gloas:
+      debugGloasComment "no exection payload field for gloas"
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 
@@ -755,7 +763,9 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu and 
+      typeof(signedBlock).kind < ConsensusFork.Gloas:
+    debugGloasComment "no blob_kzg_commitments field for gloas"
     if dataColumnsOpt.isSome:
       let
         columns0 = dataColumnsOpt.get()
@@ -776,7 +786,9 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb and 
+      typeof(signedBlock).kind < ConsensusFork.Gloas:
+    debugGloasComment "no blob_kzg_commitments field for gloas"
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq

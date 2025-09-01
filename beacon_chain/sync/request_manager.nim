@@ -576,7 +576,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
 
   for columnless in rman.quarantine[].peekSidecarless():
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"

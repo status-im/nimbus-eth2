@@ -499,6 +499,12 @@ proc popSidecars*(
   ## block ``blck``.
   ## If some of the blob sidecars are missing Opt.none() is returned.
   ## If block do not have any blob sidecars Opt.some([]) is returned.
+  
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "no blob_kzg_commitments field for gloas beacon block"
+    quarantine.remove(blockRoot)
+    return Opt.some(default(seq[ref BlobSidecar]))
+
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
