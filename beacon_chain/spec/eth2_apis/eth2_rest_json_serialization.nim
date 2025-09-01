@@ -19,9 +19,6 @@ import
   ../[forks, keystore],
   ./[rest_keymanager_types, rest_types]
 
-debugGloasComment "..."
-import ../datatypes/gloas
-
 export
   results, json_serialization, results, slashing_protection_common, block_pools_types,
   forks, keystore, rest_keymanager_types, rest_types

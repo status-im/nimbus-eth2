@@ -356,13 +356,8 @@ proc validateDataColumnSidecarFromEL*(
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      debugGloasComment ""
-      when consensusFork >= ConsensusFork.Gloas:
-        discard
-      elif consensusFork >= ConsensusFork.Fulu:
-        let
-          blobsFromElOpt =
-            await elManager.sendGetBlobsV2(forkyBlck)
+      when consensusFork >= ConsensusFork.Fulu:
+        let blobsFromElOpt = await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
           # check lengths of array[BlobAndProofV2 with blobs
@@ -374,12 +369,9 @@ proc validateDataColumnSidecarFromEL*(
             for item in blobsEl:
               for proof in item.proofs:
                 flat_proof.add(kzg.KzgProof(bytes: proof.data))
-            let
-              recovered_columns =
-                assemble_data_column_sidecars(
-                  forkyBlck,
-                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-                  flat_proof)
+            let recovered_columns = assemble_data_column_sidecars(
+              forkyBlck, blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+              flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
             for col in recovered_columns:
@@ -415,9 +407,7 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-      elif consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():

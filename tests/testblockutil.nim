@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
@@ -187,55 +187,51 @@ proc addTestBlock*(
         ValidatorSig()
 
   withState(state):
-    when consensusFork == ConsensusFork.Gloas:
-      debugGloasComment ""
-      default(ForkedSignedBeaconBlock)
-    else:
-      let execution_payload =
-        when consensusFork > ConsensusFork.Bellatrix:
-          default(consensusFork.ExecutionPayloadForSigning)
-        elif consensusFork == ConsensusFork.Bellatrix:
-          if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-            # Can't keep correctly doing this once Capella happens, but LVH search
-            # test relies on merging. So, merge only if no Capella transition.
-            default(bellatrix.ExecutionPayloadForSigning)
-          else:
-            if forkyState.data.slot > cfg.lastPremergeSlotInTestCfg:
-              if is_merge_transition_complete(forkyState.data):
-                const feeRecipient = default(Eth1Address)
-                build_empty_execution_payload(forkyState.data, feeRecipient)
-              else:
-                build_empty_merge_execution_payload(forkyState.data)
-            else:
-              default(bellatrix.ExecutionPayloadForSigning)
-        else:
+    let execution_payload =
+      when consensusFork > ConsensusFork.Bellatrix:
+        default(consensusFork.ExecutionPayloadForSigning)
+      elif consensusFork == ConsensusFork.Bellatrix:
+        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          # Can't keep correctly doing this once Capella happens, but LVH search
+          # test relies on merging. So, merge only if no Capella transition.
           default(bellatrix.ExecutionPayloadForSigning)
-
-      let message = makeBeaconBlock(
-        cfg,
-        consensusFork,
-        forkyState,
-        cache,
-        proposer_index,
-        randao_reveal,
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
-          block_hash: eth1_data.block_hash),
-        graffiti,
-        when consensusFork >= ConsensusFork.Electra:
-          electraAttestations
         else:
-          attestations,
-        deposits,
-        BeaconBlockValidatorChanges(),
-        sync_aggregate,
-        execution_payload,
-        verificationFlags = {skipBlsValidation}).expect("block")
+          if forkyState.data.slot > cfg.lastPremergeSlotInTestCfg:
+            if is_merge_transition_complete(forkyState.data):
+              const feeRecipient = default(Eth1Address)
+              build_empty_execution_payload(forkyState.data, feeRecipient)
+            else:
+              build_empty_merge_execution_payload(forkyState.data)
+          else:
+            default(bellatrix.ExecutionPayloadForSigning)
+      else:
+        default(bellatrix.ExecutionPayloadForSigning)
 
-      signBlock(
-          forkyState.data.fork, forkyState.data.genesis_validators_root, message, privKey, flags)
+    let message = makeBeaconBlock(
+      cfg,
+      consensusFork,
+      forkyState,
+      cache,
+      proposer_index,
+      randao_reveal,
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
+        block_hash: eth1_data.block_hash),
+      graffiti,
+      when consensusFork >= ConsensusFork.Electra:
+        electraAttestations
+      else:
+        attestations,
+      deposits,
+      BeaconBlockValidatorChanges(),
+      sync_aggregate,
+      execution_payload,
+      verificationFlags = {skipBlsValidation}).expect("block")
+
+    signBlock(
+        forkyState.data.fork, forkyState.data.genesis_validators_root, message, privKey, flags)
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,

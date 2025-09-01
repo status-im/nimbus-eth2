@@ -466,10 +466,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment ""
-          return err(VerifierError.UnviableFork) # sure why not
-        elif consensusFork >= ConsensusFork.Fulu:
+        when consensusFork >= ConsensusFork.Fulu:
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
@@ -1351,6 +1348,10 @@ proc addFuluMessageHandlers(
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams())
 
+proc addGloasMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addFuluMessageHandlers(forkDigest, slot)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1394,6 +1395,9 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.unsubscribe(topic)
+
+proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeFuluMessageHandlers(forkDigest)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1620,7 +1624,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
     node.processor[].clearDoppelgangerProtection()
 
-  debugGloasComment ""
   const removeMessageHandlers: array[ConsensusFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
@@ -1629,7 +1632,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeDenebMessageHandlers,
     removeElectraMessageHandlers,
     removeFuluMessageHandlers,
-    removeFuluMessageHandlers    # nope, will be different
+    removeGloasMessageHandlers
   ]
 
   for gossipEpoch in oldGossipEpochs:
@@ -1637,7 +1640,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeMessageHandlers[gossipFork](
       node, node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg))
 
-  debugGloasComment "don't know yet for addMessageHandlers"
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
@@ -1646,7 +1648,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addDenebMessageHandlers,
     addElectraMessageHandlers,
     addFuluMessageHandlers,
-    addFuluMessageHandlers   # nope, will be different
+    addGloasMessageHandlers
   ]
 
   for gossipEpoch in newGossipEpochs:

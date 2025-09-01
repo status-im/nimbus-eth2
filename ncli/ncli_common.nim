@@ -357,16 +357,14 @@ func collectFromAttesterSlashings(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
-    debugGloasComment ""
-    when consensusFork != ConsensusFork.Gloas:
-      for attester_slashing in forkyBlck.message.body.attester_slashings:
-        let attester_slashing_validity = check_attester_slashing(
-          forkyState.data, attester_slashing, {})
-        doAssert attester_slashing_validity.isOk
-        for slashedIndex in attester_slashing_validity.value:
-          rewardsAndPenalties.collectFromSlashedValidator(
-            forkyState.data, slashedIndex,
-            forkyBlck.message.proposer_index.ValidatorIndex)
+    for attester_slashing in forkyBlck.message.body.attester_slashings:
+      let attester_slashing_validity = check_attester_slashing(
+        forkyState.data, attester_slashing, {})
+      doAssert attester_slashing_validity.isOk
+      for slashedIndex in attester_slashing_validity.value:
+        rewardsAndPenalties.collectFromSlashedValidator(
+          forkyState.data, slashedIndex,
+          forkyBlck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -446,8 +444,7 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    debugGloasComment ""
-    when consensusFork > ConsensusFork.Phase0 and consensusFork != ConsensusFork.Gloas:
+    when consensusFork > ConsensusFork.Phase0:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)

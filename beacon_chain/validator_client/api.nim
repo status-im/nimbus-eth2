@@ -2996,8 +2996,7 @@ proc publishBlindedBlock*(
         of ConsensusFork.Fulu:
           publishBlindedBlock(it, data.fuluData)
         of ConsensusFork.Gloas:
-          debugGloasComment ""
-          return false
+          publishBlindedBlock(it, data.gloasData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()

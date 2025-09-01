@@ -23,9 +23,6 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
-debugGloasComment ""
-import ../spec/datatypes/gloas
-
 from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult

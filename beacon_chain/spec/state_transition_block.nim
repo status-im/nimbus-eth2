@@ -447,11 +447,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
-    debugGloasComment ""
-    when consensusFork == ConsensusFork.Gloas:
-      default(Result[ValidatorIndex, cstring])
-    else:
-      check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
+    check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit

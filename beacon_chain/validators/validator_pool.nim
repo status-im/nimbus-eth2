@@ -548,8 +548,7 @@ proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedInd
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
   elif fork == ConsensusFork.Gloas:
-    debugGloasComment "this is obviously not correct, but it's the right type, which is fine for now"
-    prop.fuluIndex
+    prop.gloasIndex
   else:
     static: raiseAssert "Unknown fork " & $fork
 

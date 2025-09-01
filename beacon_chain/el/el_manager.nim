@@ -767,7 +767,7 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
 
 proc sendGetBlobsV2*(
     m: ELManager,
-    blck: fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
