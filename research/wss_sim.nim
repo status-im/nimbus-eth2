@@ -266,7 +266,7 @@ cli do(validatorsDir: string, secretsDir: string,
                       finalizedBlock = ZERO_HASH,
                       timestamp = compute_timestamp_at_slot(
                         forkyState.data, forkyState.data.slot),
-                      randomData = get_randao_mix(
+                      prevRandao = get_randao_mix(
                         forkyState.data, get_current_epoch(forkyState.data)),
                       suggestedFeeRecipient = feeRecipient,
                       withdrawals = withdrawals)).valueOr:

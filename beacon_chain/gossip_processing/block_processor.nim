@@ -319,7 +319,7 @@ from web3/engine_api_types import
   PayloadExecutionStatus, PayloadStatusV1
 from ../el/el_manager import
   ELManager, DeadlineObject, forkchoiceUpdated, hasConnection,
-  hasProperlyConfiguredConnection, sendNewPayload, init
+  sendNewPayload, init
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
@@ -375,39 +375,21 @@ proc newExecutionPayload*(
     deadlineObj: DeadlineObject,
     maxRetriesCount: int
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-
   template executionPayload: untyped = blck.body.execution_payload
-
-  if not elManager.hasProperlyConfiguredConnection:
-    if elManager.hasConnection:
-      info "No execution client connected; cannot process block payloads",
-        executionPayload = shortLog(executionPayload)
-    else:
-      debug "No execution client connected; cannot process block payloads",
-        executionPayload = shortLog(executionPayload)
-    return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  try:
-    let payloadStatus =
-      await elManager.sendNewPayload(blck, deadlineObj, maxRetriesCount)
+  let payloadStatus =
+    ?await elManager.sendNewPayload(blck, deadlineObj, maxRetriesCount)
 
-    debug "newPayload: succeeded",
-      parentHash = executionPayload.parent_hash,
-      blockHash = executionPayload.block_hash,
-      blockNumber = executionPayload.block_number,
-      payloadStatus = $payloadStatus
+  debug "newPayload: succeeded",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    blockNumber = executionPayload.block_number,
+    payloadStatus = $payloadStatus
 
-    return Opt.some payloadStatus
-  except CatchableError as err:
-    warn "newPayload failed - check execution client",
-      msg = err.msg,
-      parentHash = shortLog(executionPayload.parent_hash),
-      blockHash = shortLog(executionPayload.block_hash),
-      blockNumber = executionPayload.block_number
-    return Opt.none PayloadExecutionStatus
+  Opt.some payloadStatus
 
 proc newExecutionPayload*(
     elManager: ELManager,

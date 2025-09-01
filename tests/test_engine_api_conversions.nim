@@ -464,7 +464,7 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))
 
   test "Roundtrip engine RPC V2 and capella ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
@@ -1009,7 +1009,7 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))
 
   test "Roundtrip engine RPC V3 and deneb ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
@@ -1604,4 +1604,4 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))
