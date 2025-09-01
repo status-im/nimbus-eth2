@@ -15,7 +15,7 @@ import
   ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
-  ../beacon_chain/spec/eth2_merkleization,
+  ../beacon_chain/spec/[eth2_merkleization, forks],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management

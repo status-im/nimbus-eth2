@@ -611,6 +611,18 @@ template TrustedSignedBeaconBlock*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "TrustedSignedBeaconBlock unsupported in " & $kind.}
 
+template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
+  when kind in [
+      ConsensusFork.Gloas, ConsensusFork.Fulu, ConsensusFork.Electra,
+      ConsensusFork.Deneb]:
+    deneb.ExecutionPayloadHeader
+  elif kind == ConsensusFork.Capella:
+    capella.ExecutionPayloadHeader
+  elif kind == ConsensusFork.Bellatrix:
+    bellatrix.ExecutionPayloadHeader
+  else:
+    {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
+
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Gloas:
     gloas.ExecutionPayloadForSigning
