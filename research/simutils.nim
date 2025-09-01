@@ -123,7 +123,7 @@ proc loadGenesis*(
       kind: ConsensusFork.Electra,
       electraData: electra.HashedBeaconState(
         data: initialize_beacon_state_from_eth1(
-          cfg, ZERO_HASH, 0, deposits,
+          cfg, ConsensusFork.Electra, ZERO_HASH, 0, deposits,
           default(deneb.ExecutionPayloadHeader), {skipBlsValidation})))
 
     info "Saving genesis file", fileName = genesisFn
