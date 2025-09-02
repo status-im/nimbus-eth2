@@ -1107,10 +1107,9 @@ func toCapellaLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   capella.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: payload.toExecutionPayloadHeader(),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
@@ -1216,17 +1215,7 @@ func toElectraLightClientHeader(
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
-      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =

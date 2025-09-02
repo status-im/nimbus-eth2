@@ -761,9 +761,9 @@ template BlockContents*(kind: static ConsensusFork): typedesc =
 template BlindedBlockContents*(
     kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu_mev.BlindedBeaconBlock]
+    fulu_mev.BlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra_mev.BlindedBeaconBlock]
+    electra_mev.BlindedBeaconBlock
   else:
     {.error: "BlindedBlockContents unsupported in " & $kind.}
 
@@ -771,7 +771,7 @@ template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
   when kind >= ConsensusFork.Deneb:
-    typedesc[PayloadAttributesV3]
+    PayloadAttributesV3
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
     # Consensus layer client MUST call this method instead of

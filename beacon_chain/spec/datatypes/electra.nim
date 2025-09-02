@@ -645,7 +645,8 @@ func get_lc_execution_root*(
   let epoch = header.beacon.slot.epoch
 
   # [New in Electra]
-  if epoch >= cfg.ELECTRA_FORK_EPOCH:
+  # TODO https://github.com/ethereum/consensus-specs/issues/4557
+  if epoch >= cfg.DENEB_FORK_EPOCH:
     return hash_tree_root(header.execution)
 
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
