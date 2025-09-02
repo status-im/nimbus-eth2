@@ -134,58 +134,6 @@ proc getBlockHeader*(
     else:
       raiseRestResponseError(resp)
 
-proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: capella.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: DenebSignedBlockContents): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: ElectraSignedBlockContents): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: FuluSignedBlockContents): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishBlock*(body: GloasSignedBlockContents): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-
-proc publishSszBlock*(
-       client: RestClientRef,
-       blck: ForkySignedBeaconBlock
-     ): Future[RestPlainResponse] {.async.} =
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-  let
-    consensus = typeof(blck).kind.toString()
-    resp = await client.publishBlock(
-      blck, restContentType = $OctetStreamMediaType,
-      extraHeaders = @[("eth-consensus-version", consensus)])
-  return resp
-
 proc publishBlockV2(
     broadcast_validation: Option[BroadcastValidationType],
     body: phase0.SignedBeaconBlock
