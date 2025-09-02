@@ -233,7 +233,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
     elif qslot == FuluSlot:
       let bid = fulu_mev.SignedBuilderBid(
         message: fulu_mev.BuilderBid(
-          header: fulu.ExecutionPayloadHeader(parent_hash: qhash))
+          header: deneb.ExecutionPayloadHeader(parent_hash: qhash))
       )
       respondSszOrJson(contentType, bid)
     else:
