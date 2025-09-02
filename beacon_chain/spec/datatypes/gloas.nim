@@ -25,7 +25,6 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
-from stew/bitops2 import log2trunc
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
