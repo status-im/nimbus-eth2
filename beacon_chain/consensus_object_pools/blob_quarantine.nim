@@ -630,6 +630,41 @@ func fetchMissingSidecars*(
       res.add(BlobIdentifier(block_root: blockRoot, index: BlobIndex(bindex)))
   res
 
+proc peekSidecarAtSlot*(
+    quarantine: ColumnQuarantine,
+    slot: Slot
+): Opt[ref DataColumnSidecar] =
+  ## Returns the last loaded DataColumnSidecar for the given slot
+  ## without removing it from the quarantine.
+  ## If no loaded sidecar exists, returns Opt.none().
+  for root, record in quarantine.roots:
+    if record.slot != slot:
+      continue
+
+    if len(record.sidecars) == 0 or record.count == 0:
+      return Opt.none(ref DataColumnSidecar)
+
+    let supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
+
+    if supernode:
+      # Look from the end backwards, return the last loaded
+      for i in countdown(record.sidecars.high, 0):
+        let holder = record.sidecars[i]
+        if not holder.isEmpty():
+          doAssert(holder.isLoaded(),
+                   "Sidecars should already be in memory")
+          return Opt.some(holder.data)
+    else:
+      # For custodyColumns, take the last one
+      let lastIndex = quarantine.getIndex(quarantine.custodyColumns[^1])
+      let holder = record.sidecars[lastIndex]
+      doAssert(holder.isLoaded(),
+               "Sidecars should already be in memory")
+      return Opt.some(holder.data)
+
+  # No record found for that slot
+  Opt.none(ref DataColumnSidecar)
+
 func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,

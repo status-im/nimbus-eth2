@@ -222,7 +222,7 @@ proc removeUnviableSidecarlessTree(
       tbl.del k
       info "FOOA in removeUnviableSidecarlessTree",
         blockRoot = shortLog(k)
-      #quarantine.unviable[k] = ()
+      quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 

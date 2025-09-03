@@ -1929,6 +1929,46 @@ proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
 
+proc attemptGetBlobs(node: BeaconNode,
+                     lastSlot: Slot) {.async.} =
+  let lastDcSidecar =
+    node.dataColumnQuarantine[].peekSidecarAtSlot(lastSlot + 1)
+      .valueOr: return   # early return if none found
+
+  template block_header: untyped = lastDcSidecar[].signed_block_header.message
+  let
+    block_root = hash_tree_root(block_header)
+    elManager = node.blockProcessor[].consensusManager.elManager
+  if (let o = node.quarantine[].getColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let
+          blobsFromElOpt=
+            await elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+            let
+              recovered_columns =
+                assemble_data_column_sidecars(
+                  forkyBlck,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+                  flat_proof)
+            # Send notification to event stream
+            # and add these columns to column quarantine
+            for col in recovered_columns:
+              if col.index in node.dataColumnQuarantine[].custodyColumns:
+                node.dataColumnQuarantine[].put(block_root, newClone(col))
+
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -1980,6 +2020,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
+
+  await node.attemptGetBlobs(lastSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
@@ -2272,13 +2314,13 @@ proc installMessageValidators(node: BeaconNode) =
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it
-              node.network.addAsyncValidator(
+              node.network.addValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
                   dataColumnSidecar: fulu.DataColumnSidecar,
                   src: PeerId
-                ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                ): ValidationResult =
                   toValidationResult(
-                    await node.processor.processDataColumnSidecar(
+                    node.processor[].processDataColumnSidecar(
                       MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
