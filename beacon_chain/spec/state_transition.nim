@@ -440,6 +440,7 @@ proc makeBeaconBlockWithRewards*(
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Bellatrix and
       consensusFork < ConsensusFork.Gloas:
+    debugGloasComment "handle correctly for gloas"
     when execution_payload is ForkyExecutionPayloadHeader:
       blck.body.execution_payload_header = execution_payload
     else:

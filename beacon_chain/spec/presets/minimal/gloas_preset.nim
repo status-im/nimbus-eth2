@@ -13,11 +13,11 @@ const
   # Networking
   # ---------------------------------------------------------------
   # floorlog2(get_generalized_index(BeaconBlockBody, "signed_execution_payload_header", "message", "blob_kzg_commitments_root")) (= 9)
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS*:uint64 = 9
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS*: uint64 = 9
 
   # Execution
   # ---------------------------------------------------------------
   # [customized] 2**1 (= 2) validators
-  PTC_SIZE*:uint64 = 2
+  PTC_SIZE*: uint64 = 2
   # 2**2 (= 4) attestations
-  MAX_PAYLOAD_ATTESTATIONS*:uint64 = 4
+  MAX_PAYLOAD_ATTESTATIONS*: uint64 = 4

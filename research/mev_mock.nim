@@ -50,7 +50,8 @@ proc getParentBlock(restClient: RestClientRef):
         return Opt.none ParentHeaderInfo
 
   withBlck(resp):
-    when consensusFork >= ConsensusFork.Capella and consensusFork < ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Capella and 
+        consensusFork < ConsensusFork.Gloas:
       debugGloasComment "handle this correctly for Gloas"
       return Opt.some ParentHeaderInfo(
         block_number: forkyBlck.message.body.execution_payload.block_number,

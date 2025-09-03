@@ -535,7 +535,8 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*:
+      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
