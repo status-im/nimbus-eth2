@@ -904,7 +904,8 @@ proc updateBeaconMetrics(
     beacon_current_active_validators.set(active_validators)
 
     beacon_head_execution_number.set(
-      when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Bellatrix and 
+          consensusFork < ConsensusFork.Gloas:
         debugGloasComment "handle correctly for gloas"
         forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
       else:
