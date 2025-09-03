@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronicles, results,
+  chronicles, results, taskpools,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
   ssz_serialization/[
@@ -141,6 +141,50 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
       ))
 
   ok(extended_matrix)
+
+proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
+                                  cells: seq[Cell]): Result[CellsAndProofs, void] =
+  recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
+    proc (x: string) =
+      discard)
+
+proc recover_cells_and_proofs_parallel*(
+    tp: Taskpool,
+    dataColumns: seq[ref DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring] =
+  ## This helper recovers blobs from the data column sidecars parallelly
+  if data_columns.len == 0:
+    return err("DataColumnSidecar: Length should not be 0")
+
+  let
+    columnCount = dataColumns.len
+    blobCount = dataColumns[0].column.len
+
+  for column in dataColumns:
+    if not (blobCount == column.column.len):
+      return err ("DataColumns do not have the same length")
+
+  # spawn threads for recovery
+  var
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
+    res = newSeq[CellsAndProofs](blobCount)
+  for blobIdx in 0..<blobCount:
+    var
+      cellIndices = newSeq[CellIndex](columnCount)
+      cells = newSeq[Cell](columnCount)
+    for i in 0 ..< dataColumns.len:
+      cellIndices[i] = dataColumns[i][].index
+      cells[i] = dataColumns[i][].column[blobIdx]
+    pendingFuts[blobIdx] =
+      tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells)
+
+  # sync threads
+  for i in 0..<blobCount:
+    let futRes = sync pendingFuts[i]
+    if futRes.isErr:
+      return err("KZG cells and proofs recovery failed")
+    res[i] = futRes.get
+  ok(res)
 
 proc recover_cells_and_proofs*(
     data_columns: seq[ref DataColumnSidecar]):

@@ -12,12 +12,15 @@ import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
+  taskpools,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import rsplit
+from std/sequtils import anyIt, filterIt, mapIt, toSeq
+from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
+from ../../beacon_chain/spec/peerdas_helpers import
+  recover_matrix, recover_cells_and_proofs_parallel
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -305,6 +308,171 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
+proc loadCellsAndKzgProofsValidCases(suitePath: string): seq[MatrixEntry] =
+  try:
+    var
+      data: seq[MatrixEntry]
+      rowCount = 0
+    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+      if not path.contains("_case_valid_"):
+        continue
+      let
+        rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+        output = rowData["output"]
+      for i in 0..<output[0].len:
+        data.add(MatrixEntry(
+          cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
+          kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
+          column_index: ColumnIndex(i),
+          row_index: RowIndex(rowCount)))
+      rowCount += 1
+    return data
+  except Exception:
+    debugEcho "Problem in loading KZG valid case data"
+
+proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
+    let
+      # read scenario data from valid cases
+      data = loadCellsAndKzgProofsValidCases(suitePath)
+      rowCount = data[data.len - 1].row_index.int + 1
+      # The 64 column indices
+      indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
+      # Minimal data for recovery
+      input = data.filterIt(it.column_index in indices)
+        .mapIt(MatrixEntry(
+          cell: it.cell,
+          row_index: it.row_index,
+          column_index: it.column_index))
+
+    block singleThread:
+      ## ensure the output is consistent with that of the multi-thread
+
+      # check recovered cells and proofs
+      # assuming columns are sorted
+      let v = recover_matrix(input, rowCount)
+      check v.isOk
+      let val = v.get
+      for i in 0..<val.len:
+        check data[i].cell.bytes == val[i].cell.bytes
+        check data[i].kzg_proof.bytes == val[i].kzg_proof.bytes
+        check data[i].row_index == val[i].row_index
+        check data[i].column_index == val[i].column_index
+
+    block multiThread:
+      ## verify the output from multi-thread version
+
+      # convert input into column
+      var
+        colInput: seq[ref DataColumnSidecar]
+        colEntries: Table[uint64, seq[MatrixEntry]]
+
+      for entry in input:
+        colEntries.mgetOrPut(entry.column_index, @[]).add(entry)
+
+      for cIdx, entries in colEntries:
+        var cells = newSeq[Cell](rowCount)
+        for entry in entries:
+          cells[entry.row_index] = entry.cell
+        let sidecar = DataColumnSidecar(
+          index: ColumnIndex(cIdx),
+          column: DataColumn(cells))
+        colInput.add(newClone(sidecar))
+
+      # check recovered cells and proofs
+      # assuming columns are sorted
+      var tp = Taskpool.new()
+      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      check v.isOk
+      let val = v.get
+      for i in 0..<val.len:
+        for j in 0..<val[i].cells.len:
+          let k = i * NUMBER_OF_COLUMNS + j
+          check data[k].cell.bytes == val[i].cells[j].bytes
+          check data[k].kzg_proof.bytes == val[i].proofs[j].bytes
+
+proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string) =
+  try:
+    # Preload data of valid cases
+    let
+      validData = loadCellsAndKzgProofsValidCases(suitePath)
+      validCount = validData[validData.len - 1].row_index + 1
+
+    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+      if not path.contains("_case_invalid_"):
+        continue
+
+      let
+        rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+        inputCells = rowData["input"]["cells"]
+        inputIndices = rowData["input"]["cell_indices"]
+
+      # skip case of different length of inputs as it should have covered in
+      # the single thread tests, and it is not compatible with
+      # `seq[DataColumnSidecar]`
+      if inputCells.len != inputIndices.len:
+        continue
+      # skip case of invalid length
+      if inputCells.len > fulu.CELLS_PER_EXT_BLOB or inputCells.len == 0:
+        continue
+
+      var
+        shouldSkip = false
+        invalidData: seq[MatrixEntry]
+        indices: seq[ColumnIndex]
+
+      for i in 0..<inputCells.len:
+        let
+          cellBytes = fromHex[2048](inputCells[i].getStr).valueOr:
+            # skip case of cell has length != 2048
+            # TODO: support dynamic length for future-proof
+            shouldSkip = true
+            break
+          columnIdx = ColumnIndex(inputIndices[i].getInt.toUInt64.get)
+
+        # Duplicate index is not compatible with `seq[DataColumnSidecar]`
+        if columnIdx in indices:
+          shouldSkip = true
+          break
+
+        indices.add(columnIdx)
+        invalidData.add(MatrixEntry(
+          cell: Cell(bytes: cellBytes),
+          column_index: columnIdx,
+          row_index: RowIndex(validCount)))
+
+      if shouldSkip:
+        continue
+
+      test "KZG - Recover Cells And Kzg Proofs Parallel - invalid - " & path.rsplit("_case_invalid_", 1)[1]:
+        let
+          input = validData.filterIt(it.column_index in indices) & invalidData
+          rowCount = validCount + 1
+
+        # convert input into column
+        var
+          colInput: seq[ref DataColumnSidecar]
+          colEntries: Table[uint64, seq[MatrixEntry]]
+
+        for entry in input:
+          colEntries.mgetOrPut(entry.column_index, @[]).add(entry)
+
+        for cIdx, entries in colEntries:
+          var cells = newSeq[Cell](rowCount)
+          for entry in entries:
+            cells[entry.row_index] = entry.cell
+          let sidecar = DataColumnSidecar(
+            index: ColumnIndex(cIdx),
+            column: DataColumn(cells))
+          colInput.add(newClone(sidecar))
+
+        # check recovered cells and proofs
+        var tp = Taskpool.new()
+        let v = tp.recover_cells_and_proofs_parallel(colInput)
+        check v.isErr
+  except Exception:
+    debugEcho "Problem in loading KZG invalid case data"
+
 from std/algorithm import sorted
 
 var suiteName = "EF - KZG"
@@ -374,6 +542,11 @@ suite suiteName:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
+
+  block:
+    let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
+    runRecoverCellsAndKzgProofsParallelValidTest(suiteName, testsDir)
+    runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, testsDir)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
