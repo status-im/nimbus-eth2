@@ -425,34 +425,26 @@ proc getExecutionValidity(
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
-  try:
-    let executionPayloadStatus = await elManager.newExecutionPayload(
-      blck.message, deadlineObj, maxRetriesCount)
-    if executionPayloadStatus.isNone:
-      return NewPayloadStatus.noResponse
+  let executionPayloadStatus = (
+    await elManager.newExecutionPayload(blck.message, deadlineObj, maxRetriesCount)
+  ).valueOr:
+    return NewPayloadStatus.noResponse
 
-    case executionPayloadStatus.get
-      of PayloadExecutionStatus.invalid,
-         PayloadExecutionStatus.invalid_block_hash:
-        # Blocks come either from gossip or request manager requests. In the
-        # former case, they've passed libp2p gossip validation which implies
-        # correct signature for correct proposer,which makes spam expensive,
-        # while for the latter, spam is limited by the request manager.
-        info "execution payload invalid from EL client newPayload",
-          executionPayloadStatus = $executionPayloadStatus.get,
-          executionPayload = shortLog(blck.message.body.execution_payload),
-          blck = shortLog(blck)
-        return NewPayloadStatus.invalid
-      of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
-        return NewPayloadStatus.notValid
-      of PayloadExecutionStatus.valid:
-        return NewPayloadStatus.valid
-  except CatchableError as err:
-    error "newPayload failed and leaked exception",
-      err = err.msg,
+  case executionPayloadStatus
+  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+    # Blocks come either from gossip or request manager requests. In the
+    # former case, they've passed libp2p gossip validation which implies
+    # correct signature for correct proposer,which makes spam expensive,
+    # while for the latter, spam is limited by the request manager.
+    info "execution payload invalid from EL client newPayload",
+      executionPayloadStatus,
       executionPayload = shortLog(blck.message.body.execution_payload),
       blck = shortLog(blck)
-    return NewPayloadStatus.noResponse
+    NewPayloadStatus.invalid
+  of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
+    NewPayloadStatus.notValid
+  of PayloadExecutionStatus.valid:
+    NewPayloadStatus.valid
 
 proc checkBlobOrColumnlessSignature(
     self: BlockProcessor,
