@@ -636,9 +636,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#import-era-files" class="md-nav__link">
+  <a href="#syncing-using-era-files" class="md-nav__link">
     <span class="md-ellipsis">
-      Import era files
+      Syncing using era files
     </span>
   </a>
   
@@ -654,9 +654,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#top-up-blocks-from-the-consensus-node" class="md-nav__link">
+  <a href="#optionally-quickstart-with-a-pre-synced-database" class="md-nav__link">
     <span class="md-ellipsis">
-      Top up blocks from the consensus node
+      Optionally quickstart with a pre-synced database
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-consensus-node-to-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the consensus node to sync
     </span>
   </a>
   
@@ -2348,9 +2357,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#import-era-files" class="md-nav__link">
+  <a href="#syncing-using-era-files" class="md-nav__link">
     <span class="md-ellipsis">
-      Import era files
+      Syncing using era files
     </span>
   </a>
   
@@ -2366,9 +2375,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#top-up-blocks-from-the-consensus-node" class="md-nav__link">
+  <a href="#optionally-quickstart-with-a-pre-synced-database" class="md-nav__link">
     <span class="md-ellipsis">
-      Top up blocks from the consensus node
+      Optionally quickstart with a pre-synced database
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-consensus-node-to-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the consensus node to sync
     </span>
   </a>
   
@@ -2408,15 +2426,15 @@
 </code></pre></div>
 <h3 id="run-the-build-process">Run the build process</h3>
 <p>To build the Nimbus execution client and its dependencies, make sure you have <a href="install.html">all prerequisites</a> and then run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus_execution_client<span class="w"> </span>nrpc
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus_execution_client
 </code></pre></div>
 <p>This may take a few minutes.</p>
-<p>When the process finishes, the <code>nimbus_execution_client</code> and <code>nrpc</code> executables can be found in the <code>build</code> subdirectory.</p>
-<h2 id="import-era-files">Import era files</h2>
+<p>When the process finishes, the <code>nimbus_execution_client</code> executables can be found in the <code>build</code> subdirectory.</p>
+<h2 id="syncing-using-era-files">Syncing using era files</h2>
 <p>Syncing Nimbus requires a set of <code>era1</code> and <code>era</code> files. These can be generated from a <code>geth</code> and <code>nimbus</code> consensus client respectively or downloaded from a third-party repository.</p>
 <p>In addition to the era files themselves, you will need at least 200GB of free space on a fast SSD in your data directory, as set by the <code>--data-dir</code> command line option.</p>
 <div class="admonition info">
-<p class="admonition-title"><code>era</code> file download locations</p>
+<p class="admonition-title"><code>era</code> file downloading</p>
 <p><code>era</code> and <code>era1</code> files for testing purposes could at the time of writing be found here - these sources may or may not be available:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Hoodi</label><label for="__tabbed_1_3">Holesky</label><label for="__tabbed_1_4">Sepolia</label></div>
 <div class="tabbed-content">
@@ -2446,31 +2464,73 @@
 </div>
 </div>
 </div>
+<p>A wider community maintained list of <code>era</code> and <code>era1</code> files can be found eth-clients github <a href="https://eth-clients.github.io/history-endpoints/">history-endpoints</a></p>
+<p>Downloading these files can take a long time, specially if you are downloading sequentially.
+For easier and fast download, please use the <code>era_downloader.sh</code> script provided in the <code>nimbus-eth1</code> repository.</p>
+<h4 id="youll-need">You'll need:</h4>
+<ul>
+<li><a href="https://aria2.github.io/"><code>aria2</code></a> installed:<ul>
+<li><strong>macOS</strong>: <code>brew install aria2</code></li>
+<li><strong>Ubuntu/Debian</strong>: <code>sudo apt install aria2</code></li>
+</ul>
+</li>
+<li>Standard Unix tools: <code>bash</code>, <code>awk</code>, <code>find</code>, <code>grep</code>, <code>curl</code></li>
+</ul>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label><label for="__tabbed_2_3">Holesky</label><label for="__tabbed_2_4">Sepolia</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth1
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chmod<span class="w"> </span>+x<span class="w"> </span>scripts/era_downloader.sh
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/era_downloader.sh<span class="w"> </span>https://mainnet.era1.nimbus.team/<span class="w"> </span>../build/era1
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>./scripts/era_downloader.sh<span class="w"> </span>https://mainnet.era.nimbus.team/<span class="w"> </span>../build/era
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth1
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>chmod<span class="w"> </span>+x<span class="w"> </span>scripts/era_downloader.sh
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>./scripts/era_downloader.sh<span class="w"> </span>https://hoodi.era.nimbus.team/<span class="w"> </span>../build/era
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth1
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>chmod<span class="w"> </span>+x<span class="w"> </span>scripts/era_downloader.sh
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>./scripts/era_downloader.sh<span class="w"> </span>https://holesky.era.nimbus.team/<span class="w"> </span>../build/era
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth1
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>chmod<span class="w"> </span>+x<span class="w"> </span>scripts/era_downloader.sh
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>./scripts/era_downloader.sh<span class="w"> </span>https://sepolia.era1.nimbus.team/<span class="w"> </span>../build/era1
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>./scripts/era_downloader.sh<span class="w"> </span>https://sepolia.era.nimbus.team/<span class="w"> </span>../build/era
+</code></pre></div>
+</div>
+</div>
+</div>
 </div>
 <p>It is recommended that you place the era files in the data directory under <code>era1</code> and <code>era</code> respectively. Era files can be shared between multiple nodes and can reside on a slow drive - use the <code>--era1-dir</code> and <code>--era-dir</code> options if they are located outside of the data directory.</p>
 <p>See the <a href="era-store.html">era file guide</a> for more information.</p>
 <div class="admonition tip">
-<p>Future versions of Nimbus will support other methods of syncing</p>
+<p>Future versions of Nimbus will support other methods of syncing, such as snap sync.</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label><label for="__tabbed_2_3">Holesky</label><label for="__tabbed_2_4">Sepolia</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Hoodi</label><label for="__tabbed_3_3">Holesky</label><label for="__tabbed_3_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="admonition note">
 <p>Performing a full sync of mainnet from era files takes several days - its speed varies greatly depending on hardware. Use one of the testnets to get started more quickly!</p>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>import
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>import
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>import
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>import
 </code></pre></div>
 </div>
 </div>
@@ -2479,55 +2539,66 @@
 <p>In order for the execution client to operate, you need to connect a consensus node. This can be the <a href="quick-start.html">Nimbus beacon node</a>, a <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients">supported consensus client</a> or a <a href="el-light-client.html">light client</a>.</p>
 <p>The consensus node connects to the execution client via the Engine API which is enabled using <code>--engine-api</code> and by default runs on port <code>8551</code>.</p>
 <p>During startup, a <code>jwt.hex</code> file will be placed in the data directory containing authentication information that the consensus node uses to connect - make sure to use the same <code>jwt.hex</code> file on both consensus and execution node.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Hoodi</label><label for="__tabbed_3_3">Holesky</label><label for="__tabbed_3_4">Sepolia</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>--engine-api
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>--engine-api
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>--engine-api
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>--engine-api
-</code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="top-up-blocks-from-the-consensus-node">Top up blocks from the consensus node</h2>
-<p>While era files cover the majority of chain history, Nimbus currenty relies on the consensus node to sync the most recent blocks using the <code>nrpc</code> helper.</p>
-<p>This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Hoodi</label><label for="__tabbed_4_3">Holesky</label><label for="__tabbed_4_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/mainnet/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/hoodi/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/holesky/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/sepolia/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>--engine-api
+</code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="optionally-quickstart-with-a-pre-synced-database">Optionally quickstart with a pre-synced database</h2>
+<div class="admonition warning">
+<p class="admonition-title">Unverified pre-synced database</p>
+<p>The pre-synced database is provided by the Nimbus team which contained the state, but using this database is trusting the team to have provided a valid database. This gives you a headstart on syncing, but if you don't trust the provider, you should do a full sync instead, either from era files or from the p2p network.
+The pre-synced database is not available for all networks, and is only available for mainnet</p>
+</div>
+<p>If you want to skip the era file import and start with a pre-synced database, you can download a pre-synced database from the Nimbus team. This database is for now only available for the mainnet.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Download the pre-synced database</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>wget<span class="w"> </span>https://eth1-db.nimbus.team/mainnet-static-vid-keyed.tar.gz
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Extract the database into the data directory</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>tar<span class="w"> </span>-xzf<span class="w"> </span>mainnet-static-vid-keyed.tar.gz
+</code></pre></div>
+<p>This will extract the pre-synced database into the current directory, which you can then use as your data directory.</p>
+<h2 id="using-the-consensus-node-to-sync">Using the consensus node to sync</h2>
+<p>While era files cover the majority of chain history. In most cases, Nimbus will automatically sync recent blocks via peer-to-peer networking.
+However, if your node is stuck, has no peers, or you're on a weak network connection, you can optionally use nrpc to sync recent blocks directly from a connected consensus node using the Engine API.</p>
+<p>This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:4"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Hoodi</label><label for="__tabbed_5_3">Holesky</label><label for="__tabbed_5_4">Sepolia</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>./build/nrpc<span class="w"> </span>sync<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/mainnet/jwt.hex
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>./build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/hoodi/jwt.hex
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>./build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/holesky/jwt.hex
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>./build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/sepolia/jwt.hex
 </code></pre></div>
 </div>
 </div>
 </div>
 <div class="admonition tip">
-<p>Future versions of Nimbus will support other methods of syncing</p>
+<p>Future versions of Nimbus will support snap sync.</p>
 </div>
 
 
