@@ -691,6 +691,7 @@ proc storeBlock(
 
     return err(parent.error())
 
+  const consensusFork = typeof(signedBlock).kind
   let
     payloadStatus =
       if maybeFinalized and
@@ -705,10 +706,10 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).kind == ConsensusFork.Gloas:
+        when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "need getExecutionValidity on gloas blocks"
           NewPayloadStatus.valid
-        elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+        elif consensusFork >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadlineObj, getRetriesCount())
         else:
@@ -716,9 +717,7 @@ proc storeBlock(
     payloadValid = payloadStatus == NewPayloadStatus.valid
 
   if NewPayloadStatus.invalid == payloadStatus:
-    self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-    self[].dumpInvalidBlock(signedBlock)
-    return err(VerifierError.UnviableFork)
+    return err(VerifierError.Invalid)
 
   if NewPayloadStatus.noResponse == payloadStatus:
     # When the execution layer is not available to verify the payload, we do the
@@ -726,7 +725,7 @@ proc storeBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 
@@ -735,9 +734,7 @@ proc storeBlock(
             debug msg, reason = extraMsg, executionPayload = shortLog(payload)
           else:
             debug msg, executionPayload = shortLog(payload)
-          self[].dumpInvalidBlock(signedBlock)
           doAssert strictVerification notin dag.updateFlags
-          self.consensusManager.quarantine[].addUnviable(signedBlock.root)
           return err(VerifierError.Invalid)
 
         if payload.transactions.anyIt(it.len == 0):
@@ -748,7 +745,7 @@ proc storeBlock(
           returnWithError "Execution block hash validation failed"
 
         # [New in Deneb:EIP4844]
-        when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb:
           let blobsRes = signedBlock.message.is_valid_versioned_hashes
           if blobsRes.isErr:
             returnWithError "Blob versioned hashes invalid", blobsRes.error
@@ -765,7 +762,7 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
       let
         columns0 = dataColumnsOpt.get()
@@ -786,7 +783,7 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif consensusFork >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -824,18 +821,13 @@ proc storeBlock(
 
       withState(dag[].clearanceState):
         when consensusFork >= ConsensusFork.Altair and
-            Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
+            consensusFork == typeof(signedBlock).kind:
           for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
             vm[].registerSyncAggregateInBlock(
               trustedBlock.message.slot, trustedBlock.root,
               forkyState.data.current_sync_committee.pubkeys.data[i])
 
-  self[].dumpBlock(signedBlock, blckRes)
-
-  # There can be a scenario where we receive a block we already received.
-  # However this block was before the last finalized epoch and so its parent
-  # was pruned from the ForkChoice.
-  let blck = ?blckRes
+  let blck = ?blckRes # `?` and `do?` are not friendly with each other
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -1070,15 +1062,19 @@ proc processBlock(
 
   let
     res = withBlck(entry.blck):
-      await self.storeBlock(
+      let res = await self.storeBlock(
         entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
         entry.maybeFinalized, entry.queueTick, entry.validationDur)
+
+      self[].dumpBlock(forkyBlck, res)
+
+      res
     root = entry.blck.root
+
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self[].enqueueQuarantine(root)
   else:
-
     case res.error()
     of VerifierError.MissingParent:
       if (let r = self.consensusManager.quarantine[].addOrphan(
@@ -1100,8 +1096,10 @@ proc processBlock(
           blck = shortLog(entry.blck),
           signature = shortLog(entry.blck.signature)
 
-    of VerifierError.UnviableFork:
+    of VerifierError.UnviableFork, VerifierError.Invalid:
       # Track unviables so that descendants can be discarded promptly
+      # TODO Invalid and unviable should be treated separately, to correctly
+      #      respond when a descendant of an invalid block is validated
       self.consensusManager.quarantine[].addUnviable(root)
     else:
       discard
