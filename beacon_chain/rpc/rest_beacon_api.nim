@@ -20,10 +20,6 @@ import
       forks, network, validator],
   ../validators/message_router_mev
 
-from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
-from ../spec/mev/capella_mev import toSignedBlindedBeaconBlock
-from ../spec/mev/deneb_mev import toSignedBlindedBeaconBlock
-
 export rest_utils
 
 logScope: topics = "rest_beaconapi"

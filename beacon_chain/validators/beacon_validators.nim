@@ -22,7 +22,6 @@ import
   metrics,
   chronicles,
   json_serialization/std/[sets, net],
-  web3/primitives,
 
   # Local modules
   ../spec/[

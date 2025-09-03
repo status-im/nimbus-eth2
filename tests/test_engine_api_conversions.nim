@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,7 +22,7 @@ from ../beacon_chain/spec/datatypes/bellatrix import
 from ../beacon_chain/spec/datatypes/capella import ExecutionPayload
 from ../beacon_chain/spec/datatypes/deneb import ExecutionPayload
 from ../beacon_chain/spec/datatypes/electra import
-  ConsolidationRequest, DepositRequest, ExecutionPayload, WithdrawalRequest
+  ConsolidationRequest, DepositRequest, WithdrawalRequest
 from ../beacon_chain/spec/digest import Eth2Digest
 from ../beacon_chain/spec/presets import
   MAX_BYTES_PER_TRANSACTION, MAX_EXTRA_DATA_BYTES, MAX_TRANSACTIONS_PER_PAYLOAD
@@ -464,7 +464,7 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))
 
   test "Roundtrip engine RPC V2 and capella ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
@@ -1009,7 +1009,7 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))
 
   test "Roundtrip engine RPC V3 and deneb ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
@@ -1604,4 +1604,4 @@ suite "Engine API conversions":
     for blockBody in blockBodies:
       check:
         blockBody.execution_payload == asConsensusType(
-          asEngineExecutionPayload(blockBody))
+          asEngineExecutionPayload(blockBody.execution_payload))

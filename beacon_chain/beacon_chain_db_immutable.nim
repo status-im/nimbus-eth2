@@ -15,10 +15,8 @@ from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import
-  ExecutionPayloadHeader, PendingConsolidation, PendingDeposit,
+  PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
-from ./spec/datatypes/fulu import
-  ExecutionPayloadHeader
 from ./spec/datatypes/gloas import
   BuilderPendingPayment, BuilderPendingWithdrawal, 
   BUILDER_PENDING_WITHDRAWALS_LIMIT
@@ -396,7 +394,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: electra.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -480,7 +478,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: fulu.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -510,7 +508,7 @@ type
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
-  # Memory-representation-equivalent to a Fulu BeaconState for in-place SSZ
+  # Memory-representation-equivalent to a Gloas BeaconState for in-place SSZ
   # reading and writing
   GloasBeaconStateNoImmutableValidators* = object
     # Versioning
@@ -568,7 +566,7 @@ type
 
     # Execution
     latest_execution_payload_header*: gloas.ExecutionPayloadHeader
-      ## [Modified in Electra:EIP6110:EIP7002]
+      ## [Modified in Gloas:EIP7732]
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex

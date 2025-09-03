@@ -25,7 +25,7 @@ suite "Beacon state" & preset():
 
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = newClone(initialize_beacon_state_from_eth1(
-      cfg, ZERO_HASH, 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}),
+      cfg, ConsensusFork.Bellatrix, ZERO_HASH, 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}),
       default(bellatrix.ExecutionPayloadHeader), {}))
     check: state.validators.lenu64 == SLOTS_PER_EPOCH
 

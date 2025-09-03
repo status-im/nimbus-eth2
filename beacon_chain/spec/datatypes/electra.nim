@@ -33,7 +33,9 @@ from ./altair import
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import
+  Blobs, BlobsBundle, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments,
+  KzgProofs
 
 export json_serialization, base, kzg4844
 
@@ -88,64 +90,11 @@ type
     attestation_1*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
-    # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-      ## 'beneficiary' in the yellow paper
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-      ## 'difficulty' in the yellow paper
-    block_number*: uint64
-      ## 'number' in the yellow paper
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
-    block_hash*: Eth2Digest # Hash of execution block
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
-
   ExecutionPayloadForSigning* = object
-    executionPayload*: ExecutionPayload
+    executionPayload*: deneb.ExecutionPayload
     blockValue*: Wei
     blobsBundle*: BlobsBundle
     executionRequests*: seq[seq[byte]]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
-    # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-    block_number*: uint64
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
-    block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
-
-  ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#pendingdeposit
   PendingDeposit* = object
@@ -210,7 +159,7 @@ type
     beacon*: BeaconBlockHeader
       ## Beacon block header
 
-    execution*: electra.ExecutionPayloadHeader
+    execution*: deneb.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
@@ -371,8 +320,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: ExecutionPayloadHeader
-      ## [Modified in Electra:EIP6110:EIP7002]
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -488,7 +436,7 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: electra.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -528,7 +476,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -556,7 +504,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -691,76 +639,15 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: ExecutionPayload): auto =
-  (
-    parent_hash: shortLog(v.parent_hash),
-    fee_recipient: $v.fee_recipient,
-    state_root: shortLog(v.state_root),
-    receipts_root: shortLog(v.receipts_root),
-    prev_randao: shortLog(v.prev_randao),
-    block_number: v.block_number,
-    gas_limit: v.gas_limit,
-    gas_used: v.gas_used,
-    timestamp: v.timestamp,
-    extra_data: toPrettyString(distinctBase v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
-    block_hash: shortLog(v.block_hash),
-    num_transactions: len(v.transactions),
-    num_withdrawals: len(v.withdrawals),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
-  )
-
-func shortLog*(v: ExecutionPayloadHeader): auto =
-  (
-    parent_hash: shortLog(v.parent_hash),
-    fee_recipient: $v.fee_recipient,
-    state_root: shortLog(v.state_root),
-    receipts_root: shortLog(v.receipts_root),
-    prev_randao: shortLog(v.prev_randao),
-    block_number: v.block_number,
-    gas_limit: v.gas_limit,
-    gas_used: v.gas_used,
-    timestamp: v.timestamp,
-    extra_data: toPrettyString(distinctBase v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
-    block_hash: shortLog(v.block_hash),
-    transactions_root: shortLog(v.transactions_root),
-    withdrawals_root: shortLog(v.withdrawals_root),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
-  )
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
 
   # [New in Electra]
-  if epoch >= cfg.ELECTRA_FORK_EPOCH:
-    return hash_tree_root(header.execution)
-
-  # [Modified in Electra]
+  # TODO https://github.com/ethereum/consensus-specs/issues/4557
   if epoch >= cfg.DENEB_FORK_EPOCH:
-    let execution_header = deneb.ExecutionPayloadHeader(
-      parent_hash: header.execution.parent_hash,
-      fee_recipient: header.execution.fee_recipient,
-      state_root: header.execution.state_root,
-      receipts_root: header.execution.receipts_root,
-      logs_bloom: header.execution.logs_bloom,
-      prev_randao: header.execution.prev_randao,
-      block_number: header.execution.block_number,
-      gas_limit: header.execution.gas_limit,
-      gas_used: header.execution.gas_used,
-      timestamp: header.execution.timestamp,
-      extra_data: header.execution.extra_data,
-      base_fee_per_gas: header.execution.base_fee_per_gas,
-      block_hash: header.execution.block_hash,
-      transactions_root: header.execution.transactions_root,
-      withdrawals_root: header.execution.withdrawals_root,
-      blob_gas_used: header.execution.blob_gas_used,
-      excess_blob_gas: header.execution.excess_blob_gas)
-    return hash_tree_root(execution_header)
+    return hash_tree_root(header.execution)
 
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
     let execution_header = capella.ExecutionPayloadHeader(
@@ -795,7 +682,7 @@ func is_valid_light_client_header*(
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
-      header.execution == static(default(electra.ExecutionPayloadHeader)) and
+      header.execution == static(default(deneb.ExecutionPayloadHeader)) and
       header.execution_branch == static(default(ExecutionBranch))
 
   is_valid_merkle_branch(
@@ -826,24 +713,7 @@ func upgrade_lc_header_to_electra*(
     pre: deneb.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon,
-    execution: ExecutionPayloadHeader(
-        parent_hash: pre.execution.parent_hash,
-        fee_recipient: pre.execution.fee_recipient,
-        state_root: pre.execution.state_root,
-        receipts_root: pre.execution.receipts_root,
-        logs_bloom: pre.execution.logs_bloom,
-        prev_randao: pre.execution.prev_randao,
-        block_number: pre.execution.block_number,
-        gas_limit: pre.execution.gas_limit,
-        gas_used: pre.execution.gas_used,
-        timestamp: pre.execution.timestamp,
-        extra_data: pre.execution.extra_data,
-        base_fee_per_gas: pre.execution.base_fee_per_gas,
-        block_hash: pre.execution.block_hash,
-        transactions_root: pre.execution.transactions_root,
-        withdrawals_root: pre.execution.withdrawals_root,
-        blob_gas_used: pre.execution.blob_gas_used,
-        excess_blob_gas: pre.execution.excess_blob_gas),
+    execution: pre.execution,
     execution_branch: pre.execution_branch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data

@@ -144,7 +144,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(electra.ExecutionPayload, path, hash)
+            checkSSZ(deneb.ExecutionPayload, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
           of "ExecutionPayloadHeader":

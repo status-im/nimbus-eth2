@@ -10,6 +10,7 @@
 import
   kzg4844/[kzg_abi, kzg],
   ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
+  ../spec/[eth2_ssz_serialization, state_transition_block],
   web3/[engine_api, engine_api_types]
 
 from std/sequtils import mapIt
@@ -126,58 +127,6 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
-func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
-    electra.ExecutionPayload =
-  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
-    bellatrix.Transaction.init(tt.distinctBase)
-
-  electra.ExecutionPayload(
-    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient: rpcExecutionPayload.feeRecipient,
-    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
-    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
-    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
-    block_number: rpcExecutionPayload.blockNumber.uint64,
-    gas_limit: rpcExecutionPayload.gasLimit.uint64,
-    gas_used: rpcExecutionPayload.gasUsed.uint64,
-    timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
-    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
-    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
-    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
-
-func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
-    fulu.ExecutionPayload =
-  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
-    bellatrix.Transaction.init(tt.distinctBase)
-
-  fulu.ExecutionPayload(
-    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient: rpcExecutionPayload.feeRecipient,
-    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
-    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
-    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
-    block_number: rpcExecutionPayload.blockNumber.uint64,
-    gas_limit: rpcExecutionPayload.gasLimit.uint64,
-    gas_used: rpcExecutionPayload.gasUsed.uint64,
-    timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
-    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
-    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
-    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
-
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
   deneb.ExecutionPayloadForSigning(
@@ -201,7 +150,7 @@ func asConsensusType*(
     payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
   electra.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asElectraConsensusPayload,
+    executionPayload: payload.executionPayload.asConsensusType(),
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -221,7 +170,7 @@ func asConsensusType*(
 func asConsensusType*(
     payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asFuluConsensusPayload,
+    executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -238,10 +187,8 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
+func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
-  template executionPayload(): untyped = blockBody.execution_payload
-
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -269,10 +216,8 @@ template toEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
     address: w.address,
     amount: Quantity(w.amount))
 
-func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
+func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     ExecutionPayloadV2 =
-  template executionPayload(): untyped = blockBody.execution_payload
-
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
   engine_api.ExecutionPayloadV2(
@@ -293,12 +238,8 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
-func asEngineExecutionPayload*(
-    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody |
-    fulu.BeaconBlockBody):
+func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     ExecutionPayloadV3 =
-  template executionPayload(): untyped = blockBody.execution_payload
-
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -321,3 +262,31 @@ func asEngineExecutionPayload*(
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+proc asEngineVersionedHashes*(
+    blob_kzg_commitments: KzgCommitments
+): seq[VersionedHash] =
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
+
+  mapIt(blob_kzg_commitments, kzg_commitment_to_versioned_hash(it))
+
+proc asEngineExecutionRequests*(
+    execution_requests: electra.ExecutionRequests
+): seq[seq[byte]] =
+  # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
+  # "Each list element is a `requests` byte array as defined by
+  # EIP-7685. The first byte of each element is the `request_type`
+  # and the remaining bytes are the `request_data`. Elements of
+  # the list MUST be ordered by `request_type` in ascending order.
+  # Elements with empty `request_data` MUST be excluded from the
+  # list."
+
+  var requests: seq[seq[byte]]
+  for request_type, request_data in [
+    SSZ.encode(execution_requests.deposits),
+    SSZ.encode(execution_requests.withdrawals),
+    SSZ.encode(execution_requests.consolidations),
+  ]:
+    if request_data.len > 0:
+      requests.add @[request_type.byte] & request_data
+  requests

@@ -294,7 +294,7 @@ proc getExecutionPayload*(
     latestFinalized = beaconHead.finalizedExecutionBlockHash
     timestamp = withState(proposalState[]):
       compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
-    random = withState(proposalState[]):
+    prevRandao = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Capella:
@@ -317,7 +317,7 @@ proc getExecutionPayload*(
     eps = (
       await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, random, feeRecipient, withdrawals,
+        latestFinalized, timestamp, prevRandao, feeRecipient, withdrawals,
       )
     ).valueOr:
       if not proposalState[].is_merge_transition_complete():

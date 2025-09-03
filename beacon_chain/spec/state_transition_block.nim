@@ -894,21 +894,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
-  state.latest_execution_payload_header = bellatrix.ExecutionPayloadHeader(
-    parent_hash: payload.parent_hash,
-    fee_recipient: payload.fee_recipient,
-    state_root: payload.state_root,
-    receipts_root: payload.receipts_root,
-    logs_bloom: payload.logs_bloom,
-    prev_randao: payload.prev_randao,
-    block_number: payload.block_number,
-    gas_limit: payload.gas_limit,
-    gas_used: payload.gas_used,
-    timestamp: payload.timestamp,
-    base_fee_per_gas: payload.base_fee_per_gas,
-    block_hash: payload.block_hash,
-    extra_data: payload.extra_data,
-    transactions_root: hash_tree_root(payload.transactions))
+  state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
 
   ok()
 
@@ -990,24 +976,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
-  state.latest_execution_payload_header = deneb.ExecutionPayloadHeader(
-    parent_hash: payload.parent_hash,
-    fee_recipient: payload.fee_recipient,
-    state_root: payload.state_root,
-    receipts_root: payload.receipts_root,
-    logs_bloom: payload.logs_bloom,
-    prev_randao: payload.prev_randao,
-    block_number: payload.block_number,
-    gas_limit: payload.gas_limit,
-    gas_used: payload.gas_used,
-    timestamp: payload.timestamp,
-    base_fee_per_gas: payload.base_fee_per_gas,
-    block_hash: payload.block_hash,
-    extra_data: payload.extra_data,
-    transactions_root: hash_tree_root(payload.transactions),
-    withdrawals_root: hash_tree_root(payload.withdrawals),
-    blob_gas_used: payload.blob_gas_used,     # [New in Deneb]
-    excess_blob_gas: payload.excess_blob_gas) # [New in Deneb]
+  state.latest_execution_payload_header = payload.toExecutionPayloadHeader() # [New in Deneb]
 
   ok()
 
@@ -1021,7 +990,7 @@ type SomeElectraBeaconBlockBody =
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     body: SomeElectraBeaconBlockBody | electra_mev.SigVerifiedBlindedBeaconBlockBody,
-    notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
+    notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload
 
   # Verify consistency of the parent hash with respect to the previous
@@ -1051,24 +1020,8 @@ proc process_execution_payload*(
       return err("process_execution_payload: execution payload invalid")
 
     # Cache execution payload header
-    state.latest_execution_payload_header = electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      extra_data: payload.extra_data,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas)
+    state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
+
   ok()
 
 # copy of datatypes/fulu.nim
@@ -1080,7 +1033,7 @@ type SomeFuluBeaconBlockBody =
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody | fulu_mev.SigVerifiedBlindedBeaconBlockBody,
-    notify_new_payload: fulu.ExecutePayload): Result[void, cstring] =
+    notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload()
 
   # Verify consistency of the parent hash with respect to the previous
@@ -1112,24 +1065,7 @@ proc process_execution_payload*(
       return err("process_execution_payload: execution payload invalid")
 
     # Cache execution payload header
-    state.latest_execution_payload_header = fulu.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      extra_data: payload.extra_data,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas)
+    state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
 
   ok()
 
@@ -1386,7 +1322,7 @@ proc process_block*(
     ? process_withdrawals(state, blck.body.payload)
     ? process_execution_payload(
         cfg, state, blck.body,
-        func(_: electra.ExecutionPayload): bool = true)
+        func(_: deneb.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
@@ -1421,7 +1357,7 @@ proc process_block*(
 
     ? process_execution_payload(
         cfg, state, blck.body,
-        func(_: fulu.ExecutionPayload): bool = true)
+        func(_: deneb.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
