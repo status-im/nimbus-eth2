@@ -89,18 +89,12 @@ type
   ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload |
-    deneb.ExecutionPayload |
-    electra.ExecutionPayload |
-    fulu.ExecutionPayload |
-    gloas.ExecutionPayload
+    deneb.ExecutionPayload
 
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
     capella.ExecutionPayloadHeader |
-    deneb.ExecutionPayloadHeader |
-    electra.ExecutionPayloadHeader |
-    fulu.ExecutionPayloadHeader |
-    gloas.ExecutionPayloadHeader
+    deneb.ExecutionPayloadHeader
 
   ForkyExecutionPayloadOrHeader* =
     ForkyExecutionPayload | ForkyExecutionPayloadHeader
@@ -416,9 +410,7 @@ template kind*(
     x: typedesc[
       bellatrix.BeaconState |
       bellatrix.HashedBeaconState |
-      bellatrix.ExecutionPayload |
       bellatrix.ExecutionPayloadForSigning |
-      bellatrix.ExecutionPayloadHeader |
       bellatrix.BeaconBlock |
       bellatrix.SignedBeaconBlock |
       bellatrix.TrustedBeaconBlock |
@@ -434,9 +426,7 @@ template kind*(
     x: typedesc[
       capella.BeaconState |
       capella.HashedBeaconState |
-      capella.ExecutionPayload |
       capella.ExecutionPayloadForSigning |
-      capella.ExecutionPayloadHeader |
       capella.BeaconBlock |
       capella.SignedBeaconBlock |
       capella.TrustedBeaconBlock |
@@ -452,9 +442,7 @@ template kind*(
     x: typedesc[
       deneb.BeaconState |
       deneb.HashedBeaconState |
-      deneb.ExecutionPayload |
       deneb.ExecutionPayloadForSigning |
-      deneb.ExecutionPayloadHeader |
       deneb.BeaconBlock |
       deneb.SignedBeaconBlock |
       deneb.TrustedBeaconBlock |
@@ -470,9 +458,7 @@ template kind*(
     x: typedesc[
       electra.BeaconState |
       electra.HashedBeaconState |
-      electra.ExecutionPayload |
       electra.ExecutionPayloadForSigning |
-      electra.ExecutionPayloadHeader |
       electra.BeaconBlock |
       electra.SignedBeaconBlock |
       electra.TrustedBeaconBlock |
@@ -496,9 +482,7 @@ template kind*(
     x: typedesc[
       fulu.BeaconState |
       fulu.HashedBeaconState |
-      fulu.ExecutionPayload |
       fulu.ExecutionPayloadForSigning |
-      fulu.ExecutionPayloadHeader |
       fulu.BeaconBlock |
       fulu.SignedBeaconBlock |
       fulu.TrustedBeaconBlock |
@@ -516,9 +500,7 @@ template kind*(
     x: typedesc[
       gloas.BeaconState |
       gloas.HashedBeaconState |
-      gloas.ExecutionPayload |
       gloas.ExecutionPayloadForSigning |
-      gloas.ExecutionPayloadHeader |
       gloas.BeaconBlock |
       gloas.SignedBeaconBlock |
       gloas.TrustedBeaconBlock |
@@ -628,6 +610,18 @@ template TrustedSignedBeaconBlock*(kind: static ConsensusFork): typedesc =
     phase0.TrustedSignedBeaconBlock
   else:
     {.error: "TrustedSignedBeaconBlock unsupported in " & $kind.}
+
+template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
+  when kind in [
+      ConsensusFork.Gloas, ConsensusFork.Fulu, ConsensusFork.Electra,
+      ConsensusFork.Deneb]:
+    deneb.ExecutionPayloadHeader
+  elif kind == ConsensusFork.Capella:
+    capella.ExecutionPayloadHeader
+  elif kind == ConsensusFork.Bellatrix:
+    bellatrix.ExecutionPayloadHeader
+  else:
+    {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
 
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Gloas:
@@ -767,9 +761,9 @@ template BlockContents*(kind: static ConsensusFork): typedesc =
 template BlindedBlockContents*(
     kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
-    typedesc[fulu_mev.BlindedBeaconBlock]
+    fulu_mev.BlindedBeaconBlock
   elif kind == ConsensusFork.Electra:
-    typedesc[electra_mev.BlindedBeaconBlock]
+    electra_mev.BlindedBeaconBlock
   else:
     {.error: "BlindedBlockContents unsupported in " & $kind.}
 
@@ -777,7 +771,7 @@ template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
   when kind >= ConsensusFork.Deneb:
-    typedesc[PayloadAttributesV3]
+    PayloadAttributesV3
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
     # Consensus layer client MUST call this method instead of
@@ -1991,3 +1985,143 @@ proc kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
     eps.blobsBundle.commitments
   else:
     default(KzgCommitments)
+
+# These need access to eth_merkleization indirectly
+func toSignedBlindedBeaconBlock*(
+    blck: bellatrix.SignedBeaconBlock
+): bellatrix_mev.SignedBlindedBeaconBlock =
+  SignedBlindedBeaconBlock(
+    message: bellatrix_mev.BlindedBeaconBlock(
+      slot: blck.message.slot,
+      proposer_index: blck.message.proposer_index,
+      parent_root: blck.message.parent_root,
+      state_root: blck.message.state_root,
+      body: bellatrix_mev.BlindedBeaconBlockBody(
+        randao_reveal: blck.message.body.randao_reveal,
+        eth1_data: blck.message.body.eth1_data,
+        graffiti: blck.message.body.graffiti,
+        proposer_slashings: blck.message.body.proposer_slashings,
+        attester_slashings: blck.message.body.attester_slashings,
+        attestations: blck.message.body.attestations,
+        deposits: blck.message.body.deposits,
+        voluntary_exits: blck.message.body.voluntary_exits,
+        sync_aggregate: blck.message.body.sync_aggregate,
+        execution_payload_header:
+          blck.message.body.execution_payload.toExecutionPayloadHeader(),
+      ),
+    ),
+    signature: blck.signature,
+  )
+
+func toSignedBlindedBeaconBlock*(
+    blck: capella.SignedBeaconBlock
+): capella_mev.SignedBlindedBeaconBlock =
+  capella_mev.SignedBlindedBeaconBlock(
+    message: capella_mev.BlindedBeaconBlock(
+      slot: blck.message.slot,
+      proposer_index: blck.message.proposer_index,
+      parent_root: blck.message.parent_root,
+      state_root: blck.message.state_root,
+      body: capella_mev.BlindedBeaconBlockBody(
+        randao_reveal: blck.message.body.randao_reveal,
+        eth1_data: blck.message.body.eth1_data,
+        graffiti: blck.message.body.graffiti,
+        proposer_slashings: blck.message.body.proposer_slashings,
+        attester_slashings: blck.message.body.attester_slashings,
+        attestations: blck.message.body.attestations,
+        deposits: blck.message.body.deposits,
+        voluntary_exits: blck.message.body.voluntary_exits,
+        sync_aggregate: blck.message.body.sync_aggregate,
+        execution_payload_header:
+          blck.message.body.execution_payload.toExecutionPayloadHeader(),
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
+      ),
+    ),
+    signature: blck.signature,
+  )
+
+func toSignedBlindedBeaconBlock*(
+    blck: deneb.SignedBeaconBlock
+): deneb_mev.SignedBlindedBeaconBlock =
+  deneb_mev.SignedBlindedBeaconBlock(
+    message: deneb_mev.BlindedBeaconBlock(
+      slot: blck.message.slot,
+      proposer_index: blck.message.proposer_index,
+      parent_root: blck.message.parent_root,
+      state_root: blck.message.state_root,
+      body: deneb_mev.BlindedBeaconBlockBody(
+        randao_reveal: blck.message.body.randao_reveal,
+        eth1_data: blck.message.body.eth1_data,
+        graffiti: blck.message.body.graffiti,
+        proposer_slashings: blck.message.body.proposer_slashings,
+        attester_slashings: blck.message.body.attester_slashings,
+        attestations: blck.message.body.attestations,
+        deposits: blck.message.body.deposits,
+        voluntary_exits: blck.message.body.voluntary_exits,
+        sync_aggregate: blck.message.body.sync_aggregate,
+        execution_payload_header:
+          blck.message.body.execution_payload.toExecutionPayloadHeader(),
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
+        blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
+      ),
+    ),
+    signature: blck.signature,
+  )
+
+func toSignedBlindedBeaconBlock*(
+    blck: electra.SignedBeaconBlock
+): electra_mev.SignedBlindedBeaconBlock =
+  electra_mev.SignedBlindedBeaconBlock(
+    message: electra_mev.BlindedBeaconBlock(
+      slot: blck.message.slot,
+      proposer_index: blck.message.proposer_index,
+      parent_root: blck.message.parent_root,
+      state_root: blck.message.state_root,
+      body: electra_mev.BlindedBeaconBlockBody(
+        randao_reveal: blck.message.body.randao_reveal,
+        eth1_data: blck.message.body.eth1_data,
+        graffiti: blck.message.body.graffiti,
+        proposer_slashings: blck.message.body.proposer_slashings,
+        attester_slashings: blck.message.body.attester_slashings,
+        attestations: blck.message.body.attestations,
+        deposits: blck.message.body.deposits,
+        voluntary_exits: blck.message.body.voluntary_exits,
+        sync_aggregate: blck.message.body.sync_aggregate,
+        execution_payload_header:
+          blck.message.body.execution_payload.toExecutionPayloadHeader(),
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
+        blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
+        execution_requests: blck.message.body.execution_requests,
+      ),
+    ),
+    signature: blck.signature,
+  )
+
+func toSignedBlindedBeaconBlock*(
+    blck: fulu.SignedBeaconBlock
+): fulu_mev.SignedBlindedBeaconBlock =
+  fulu_mev.SignedBlindedBeaconBlock(
+    message: fulu_mev.BlindedBeaconBlock(
+      slot: blck.message.slot,
+      proposer_index: blck.message.proposer_index,
+      parent_root: blck.message.parent_root,
+      state_root: blck.message.state_root,
+      body: fulu_mev.BlindedBeaconBlockBody(
+        randao_reveal: blck.message.body.randao_reveal,
+        eth1_data: blck.message.body.eth1_data,
+        graffiti: blck.message.body.graffiti,
+        proposer_slashings: blck.message.body.proposer_slashings,
+        attester_slashings: blck.message.body.attester_slashings,
+        attestations: blck.message.body.attestations,
+        deposits: blck.message.body.deposits,
+        voluntary_exits: blck.message.body.voluntary_exits,
+        sync_aggregate: blck.message.body.sync_aggregate,
+        execution_payload_header:
+          blck.message.body.execution_payload.toExecutionPayloadHeader(),
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
+        blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
+        execution_requests: blck.message.body.execution_requests,
+      ),
+    ),
+    signature: blck.signature,
+  )

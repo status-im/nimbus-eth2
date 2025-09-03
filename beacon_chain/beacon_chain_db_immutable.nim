@@ -15,10 +15,8 @@ from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import
-  ExecutionPayloadHeader, PendingConsolidation, PendingDeposit,
+  PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
-from ./spec/datatypes/fulu import
-  ExecutionPayloadHeader
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -393,7 +391,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: electra.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -477,7 +475,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: fulu.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -565,7 +563,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: fulu.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex

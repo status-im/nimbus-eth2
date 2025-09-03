@@ -39,7 +39,6 @@ const
     [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
 
 type
-  FixedBytes[N: static int] = web3.FixedBytes[N]
   WithoutTimeout = distinct int
 
   DeadlineObject* = object
@@ -375,7 +374,7 @@ proc getPayloadFromSingleEL(
     consensusHead: Eth2Digest,
     headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64,
-    randomData: Eth2Digest,
+    prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[WithdrawalV1]
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
@@ -395,7 +394,7 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV1(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient))
       elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
         let response = await rpcClient.forkchoiceUpdated(
@@ -405,7 +404,7 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV2(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
@@ -421,7 +420,7 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV3(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
             parentBeaconBlockRoot: consensusHead.to(Hash32)))
@@ -484,7 +483,7 @@ proc getPayload*(
     consensusHead: Eth2Digest,
     headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64,
-    randomData: Eth2Digest,
+    prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[capella.Withdrawal]
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
@@ -496,7 +495,7 @@ proc getPayload*(
     engineApiWithdrawals = toEngineWithdrawals withdrawals
     isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
       headBlock, safeBlock, finalizedBlock, timestamp,
-      randomData, suggestedFeeRecipient, engineApiWithdrawals)
+      prevRandao, suggestedFeeRecipient, engineApiWithdrawals)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -511,7 +510,7 @@ proc getPayload*(
       m.elConnections.mapIt(
         it.getPayloadFromSingleEL(EngineApiResponseType(PayloadType),
           isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
-          timestamp, randomData, suggestedFeeRecipient, engineApiWithdrawals))
+          timestamp, prevRandao, suggestedFeeRecipient, engineApiWithdrawals))
 
     let timeoutExceeded =
       try:
@@ -615,22 +614,22 @@ proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: FixedBytes[32]
+    parent_beacon_block_root: Hash32
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV3(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root)
+    payload, versioned_hashes, parent_beacon_block_root)
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: FixedBytes[32],
+    parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root,
+    payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
 proc sendGetBlobsV2toSingleEl(
@@ -831,14 +830,30 @@ proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
     deadlineObj: DeadlineObject,
-    maxRetriesCount: int
-): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
+    maxRetriesCount: int,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   doAssert maxRetriesCount > 0
+
+  if m.elConnections.len == 0:
+    info "No execution client configured; cannot process block payloads",
+      executionPayload = shortLog(blck.body.execution_payload)
+    return Opt.none(PayloadExecutionStatus)
+
+  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
     deadline = deadlineObj.future
-    payload = blck.body.asEngineExecutionPayload
+    payload = blck.body.execution_payload.asEngineExecutionPayload
+
+  when consensusFork >= ConsensusFork.Deneb:
+    let
+      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      parent_root = blck.parent_root.to(Hash32)
+
+  when consensusFork >= ConsensusFork.Electra:
+    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+
   var
     responseProcessor = ELConsensusViolationDetector.init()
     sleepCounter = 0
@@ -846,50 +861,20 @@ proc sendNewPayload*(
 
   while true:
     block mainLoop:
-      let
-        requests = m.elConnections.mapIt:
-          let req =
-            when typeof(blck).kind >= ConsensusFork.Electra:
-              # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
-              let
-                versioned_hashes = mapIt(
-                  blck.body.blob_kzg_commitments,
-                  kzg_commitment_to_versioned_hash(it))
-                # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
-                # "Each list element is a `requests` byte array as defined by
-                # EIP-7685. The first byte of each element is the `request_type`
-                # and the remaining bytes are the `request_data`. Elements of
-                # the list MUST be ordered by `request_type` in ascending order.
-                # Elements with empty `request_data` MUST be excluded from the
-                # list."
-                execution_requests = block:
-                  var requests: seq[seq[byte]]
-                  for request_type, request_data in
-                      [SSZ.encode(blck.body.execution_requests.deposits),
-                       SSZ.encode(blck.body.execution_requests.withdrawals),
-                       SSZ.encode(blck.body.execution_requests.consolidations)]:
-                    if request_data.len > 0:
-                      requests.add @[request_type.byte] & request_data
-                  requests
+      let requests = m.elConnections.mapIt:
+        let req =
+          when consensusFork >= ConsensusFork.Electra:
+            sendNewPayloadToSingleEL(
+              it, payload, versioned_hashes, parent_root, execution_requests
+            )
+          elif consensusFork >= ConsensusFork.Deneb:
+            sendNewPayloadToSingleEL(it, payload, versioned_hashes, parent_root)
+          elif consensusFork >= ConsensusFork.Bellatrix:
+            sendNewPayloadToSingleEL(it, payload)
+          else:
+            {.error: "Unsupported fork " & $consensusFork.}
 
-              sendNewPayloadToSingleEL(
-                it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data, execution_requests)
-            elif typeof(blck).kind == ConsensusFork.Deneb:
-              # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
-              # Verify the execution payload is valid
-              # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
-              let versioned_hashes = mapIt(
-                blck.body.blob_kzg_commitments,
-                kzg_commitment_to_versioned_hash(it))
-              sendNewPayloadToSingleEL(
-                it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data)
-            elif typeof(blck).kind in [ConsensusFork.Bellatrix, ConsensusFork.Capella]:
-              sendNewPayloadToSingleEL(it, payload)
-            else:
-              static: doAssert false
-          engineApiRequest(it, req, "newPayload", startTime, noTimeout)
+        engineApiRequest(it, req, "newPayload", startTime, noTimeout)
 
       var pendingRequests = requests
 
@@ -924,8 +909,9 @@ proc sendNewPayload*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return PayloadExecutionStatus.invalid
-        elif responseProcessor.selectedResponse.isSome():
+          return Opt.some PayloadExecutionStatus.invalid
+
+        if responseProcessor.selectedResponse.isSome():
           if (len(pendingRequests) == 0) or
              not(responseProcessor.couldBeBetter()):
             # We spawn task which will wait for all other responses which are
@@ -933,7 +919,7 @@ proc sendNewPayload*(
             # cancelled.
             asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
             return
-              requests[responseProcessor.selectedResponse.get].value().status
+              Opt.some requests[responseProcessor.selectedResponse.get].value().status
 
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
@@ -941,25 +927,18 @@ proc sendNewPayload*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return PayloadExecutionStatus.syncing
+          return Opt.some PayloadExecutionStatus.syncing
 
         if len(pendingRequests) == 0:
           # All requests failed.
           inc(retriesCount)
           if retriesCount == maxRetriesCount:
-            return PayloadExecutionStatus.syncing
+            return Opt.some PayloadExecutionStatus.syncing
 
           # To avoid continous spam of requests when EL node is offline we
           # going to sleep until next attempt.
           await variedSleep(sleepCounter, SleepDurations)
           break mainLoop
-
-proc sendNewPayload*(
-    m: ELManager,
-    blck: SomeForkyBeaconBlock
-): Future[PayloadExecutionStatus] {.
-    async: (raises: [CancelledError], raw: true).} =
-  sendNewPayload(m, blck, DeadlineObject.init(NEWPAYLOAD_TIMEOUT), high(int))
 
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
@@ -1248,13 +1227,6 @@ func hasConnection*(m: ELManager): bool =
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
-
-func hasProperlyConfiguredConnection*(m: ELManager): bool =
-  for connection in m.elConnections:
-    if connection.chainIdStatus == ChainIdStatus.match:
-      return true
-
-  false
 
 proc startCheckChainIdLoop(
     m: ELManager
