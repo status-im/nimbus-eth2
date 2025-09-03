@@ -118,10 +118,6 @@ type
     invalid
     noResponse
 
-  ProcessingStatus {.pure.} = enum
-    completed
-    notCompleted
-
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -524,14 +520,87 @@ proc updateHead*(
   else:
     err("Head selection failed, using previous head")
 
+proc enqueueQuarantine(self: var BlockProcessor, root: Eth2Digest) =
+  ## Enqueue blocks whose parent is `root` - ie when `root` has been added to
+  ## the blockchain dag, its direct descendants are now candidates for
+  ## processing
+  for quarantined in self.consensusManager.quarantine[].pop(root):
+    # Process the blocks that had the newly accepted block as parent
+    debug "Block from quarantine",
+      blockRoot = shortLog(root), quarantined = shortLog(quarantined.root)
+
+    withBlck(quarantined):
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        self.enqueueBlock(
+          MsgSource.gossip,
+          quarantined,
+          Opt.none(BlobSidecars),
+          Opt.none(DataColumnSidecars),
+        )
+      elif consensusFork == ConsensusFork.Fulu:
+        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+          self.enqueueBlock(
+            MsgSource.gossip,
+            quarantined,
+            Opt.some(BlobSidecars @[]),
+            Opt.some(DataColumnSidecars @[]),
+          )
+        else:
+          if (let res = checkBlobOrColumnlessSignature(self, forkyBlck); res.isErr):
+            warn "Failed to verify signature of unorphaned blobless block",
+              blck = shortLog(forkyBlck), error = res.error()
+            continue
+          let cres = self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome:
+            self.enqueueBlock(
+              MsgSource.gossip, quarantined, Opt.none(BlobSidecars), cres
+            )
+          else:
+            discard self.consensusManager.quarantine[].addSidecarless(
+              self.consensusManager[].dag.finalizedHead.slot, forkyBlck
+            )
+      elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+          self.enqueueBlock(
+            MsgSource.gossip,
+            quarantined,
+            Opt.some(BlobSidecars @[]),
+            Opt.some(DataColumnSidecars @[]),
+          )
+        else:
+          if (let res = checkBlobOrColumnlessSignature(self, forkyBlck); res.isErr):
+            warn "Failed to verify signature of unorphaned columnless block",
+              blck = shortLog(forkyBlck), error = res.error()
+            continue
+          let bres = self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            self.enqueueBlock(
+              MsgSource.gossip, quarantined, bres, Opt.none(DataColumnSidecars)
+            )
+          else:
+            self.consensusManager.quarantine[].addSidecarless(forkyBlck)
+      elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        self.enqueueBlock(
+          MsgSource.gossip,
+          quarantined,
+          Opt.none(BlobSidecars),
+          Opt.none(DataColumnSidecars),
+        )
+      else:
+        {.error: "Unknown consensus fork " & $consensusFork.}
+
 proc storeBlock(
-    self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
+    self: ref BlockProcessor,
+    src: MsgSource,
+    wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
     dataColumnsOpt: Opt[DataColumnSidecars],
-    maybeFinalized = false,
-    queueTick: Moment = Moment.now(), validationDur = Duration()):
-    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async: (raises: [CancelledError]).} =
+    maybeFinalized: bool,
+    queueTick: Moment,
+    validationDur: Duration,
+): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -566,40 +635,7 @@ proc storeBlock(
   if signedBlock.message.parent_root in
       self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
-    self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-
-    return err((VerifierError.UnviableFork, ProcessingStatus.completed))
-
-  template handleVerifierError(errorParam: VerifierError): auto =
-    let error = errorParam
-    case error
-    of VerifierError.MissingParent:
-      if (let r = self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock));
-              r.isErr()):
-        debug "could not add orphan",
-          blockRoot = shortLog(signedBlock.root),
-          blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature),
-          err = r.error()
-      else:
-        if blobsOpt.isSome:
-          self.blobQuarantine[].put(signedBlock.root, blobsOpt.get)
-        if dataColumnsOpt.isSome:
-          self.dataColumnQuarantine[].put(signedBlock.root, dataColumnsOpt.get)
-
-        debug "Block quarantined",
-          blockRoot = shortLog(signedBlock.root),
-          blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature)
-
-    of VerifierError.UnviableFork:
-      # Track unviables so that descendants can be discarded promptly
-      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-    else:
-      discard
-
-    err((error, ProcessingStatus.completed))
+    return err(VerifierError.UnviableFork)
 
   let
     # We have to be careful that there exists only one in-flight entry point
@@ -679,7 +715,7 @@ proc storeBlock(
             MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars),
             columns)
 
-    return handleVerifierError(parent.error())
+    return err(parent.error())
 
   let
     payloadStatus =
@@ -708,13 +744,14 @@ proc storeBlock(
   if NewPayloadStatus.invalid == payloadStatus:
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     self[].dumpInvalidBlock(signedBlock)
-    return err((VerifierError.UnviableFork, ProcessingStatus.completed))
+    return err(VerifierError.UnviableFork)
 
   if NewPayloadStatus.noResponse == payloadStatus:
     # When the execution layer is not available to verify the payload, we do the
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
     when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
@@ -727,7 +764,7 @@ proc storeBlock(
           self[].dumpInvalidBlock(signedBlock)
           doAssert strictVerification notin dag.updateFlags
           self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
+          return err(VerifierError.Invalid)
 
         if payload.transactions.anyIt(it.len == 0):
           returnWithError "Execution block contains zero length transactions"
@@ -770,7 +807,7 @@ proc storeBlock(
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
-            return err((VerifierError.Invalid, ProcessingStatus.completed))
+            return err(VerifierError.Invalid)
 
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
@@ -790,12 +827,12 @@ proc storeBlock(
             kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
+          return err(VerifierError.Invalid)
 
   type Trusted = typeof signedBlock.asTrusted()
 
   let
-    blck = dag.addHeadBlockWithParent(
+    blckRes = dag.addHeadBlockWithParent(
         self.verifier, signedBlock, parent.value(), payloadValid) do (
       blckRef: BlockRef, trustedBlock: Trusted,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -819,13 +856,12 @@ proc storeBlock(
               trustedBlock.message.slot, trustedBlock.root,
               forkyState.data.current_sync_committee.pubkeys.data[i])
 
-  self[].dumpBlock(signedBlock, blck)
+  self[].dumpBlock(signedBlock, blckRes)
 
   # There can be a scenario where we receive a block we already received.
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
-  if blck.isErr():
-    return handleVerifierError(blck.error())
+  let blck = ?blckRes
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -974,69 +1010,10 @@ proc storeBlock(
 
   debug "Block processed",
     head = shortLog(dag.head),
-    blck = shortLog(blck.get()),
+    blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
-  for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
-    # Process the blocks that had the newly accepted block as parent
-    debug "Block from quarantine",
-      blockRoot = shortLog(signedBlock.root),
-      quarantined = shortLog(quarantined.root)
-
-    withBlck(quarantined):
-      when typeof(forkyBlck).kind == ConsensusFork.Gloas:
-        debugGloasComment ""
-        self[].enqueueBlock(
-          MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
-          Opt.none(DataColumnSidecars))
-      elif typeof(forkyBlck).kind < ConsensusFork.Deneb:
-        self[].enqueueBlock(
-          MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
-          Opt.none(DataColumnSidecars))
-      elif typeof(forkyBlck).kind >= ConsensusFork.Fulu:
-        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),
-            Opt.some(DataColumnSidecars @[]))
-        else:
-          if (let res = checkBlobOrColumnlessSignature(self[],
-                                                       forkyBlck);
-                                                       res.isErr):
-            warn "Failed to verify signature of unorphaned blobless block",
-             blck = shortLog(forkyBlck),
-             error = res.error()
-            continue
-          let cres =
-            self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if cres.isSome:
-            self[].enqueueBlock(
-              MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
-              cres)
-          else:
-            discard self.consensusManager.quarantine[].addSidecarless(
-              dag.finalizedHead.slot, forkyBlck)
-      elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),
-            Opt.some(DataColumnSidecars @[]))
-        else:
-          if (let res = checkBlobOrColumnlessSignature(self[],
-                                                       forkyBlck);
-                                                       res.isErr):
-            warn "Failed to verify signature of unorphaned columnless block",
-             blck = shortLog(forkyBlck),
-             error = res.error()
-            continue
-          let bres =
-            self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if bres.isSome():
-            self[].enqueueBlock(MsgSource.gossip, quarantined, bres,
-            Opt.none(DataColumnSidecars))
-          else:
-            self.consensusManager.quarantine[].addSidecarless(forkyBlck)
-
-  ok blck.value()
+  ok blck
 
 # Enqueue
 # ------------------------------------------------------------------------------
@@ -1117,43 +1094,63 @@ proc processBlock(
     error "Processing block before genesis, clock turned back?"
     quit 1
 
-  let res = withBlck(entry.blck):
-    await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
-      entry.maybeFinalized, entry.queueTick, entry.validationDur)
+  let
+    res = withBlck(entry.blck):
+      await self.storeBlock(
+        entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
+        entry.maybeFinalized, entry.queueTick, entry.validationDur)
+    root = entry.blck.root
+  if res.isOk():
+    # Once a block is successfully stored, enqueue the direct descendants
+    self[].enqueueQuarantine(root)
+  else:
 
-  if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
-    # When an execution engine returns an error or fails to respond to a
-    # payload validity request for some block, a consensus engine:
-    # - MUST NOT optimistically import the block.
-    # - MUST NOT apply the block to the fork choice store.
-    # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
-    await sleepAsync(chronos.seconds(1))
-    self[].enqueueBlock(
-      entry.src, entry.blck, entry.blobs, entry.columns,
-      entry.resfut, entry.maybeFinalized, entry.validationDur)
-    # To ensure backpressure on the sync manager, do not complete these futures.
-    return
+    case res.error()
+    of VerifierError.MissingParent:
+      if (let r = self.consensusManager.quarantine[].addOrphan(
+          self.consensusManager.dag.finalizedHead.slot, entry.blck);
+              r.isErr()):
+        debug "could not add orphan",
+          blockRoot = shortLog(root),
+          blck = shortLog(entry.blck),
+          signature = shortLog(entry.blck.signature),
+          err = r.error()
+      else:
+        if entry.blobs.isSome:
+          self.blobQuarantine[].put(root, entry.blobs.get)
+        if entry.columns.isSome:
+          self.dataColumnQuarantine[].put(root, entry.columns.get)
+
+        debug "Block quarantined",
+          blockRoot = shortLog(root),
+          blck = shortLog(entry.blck),
+          signature = shortLog(entry.blck.signature)
+
+    of VerifierError.UnviableFork:
+      # Track unviables so that descendants can be discarded promptly
+      self.consensusManager.quarantine[].addUnviable(root)
+    else:
+      discard
 
   if entry.resfut != nil:
-    entry.resfut.complete(
-      if res.isOk(): Result[void, VerifierError].ok()
-      else: Result[void, VerifierError].err(res.error()[0]))
+    entry.resfut.complete(res.mapConvert(void))
 
-proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
-  while true:
-    # Cooperative concurrency: one block per loop iteration - because
-    # we run both networking and CPU-heavy things like block processing
-    # on the same thread, we need to make sure that there is steady progress
-    # on the networking side or we get long lockups that lead to timeouts.
-    const
-      # We cap waiting for an idle slot in case there's a lot of network traffic
-      # taking up all CPU - we don't want to _completely_ stop processing blocks
-      # in this case - doing so also allows us to benefit from more batching /
-      # larger network reads when under load.
-      idleTimeout = 10.milliseconds
+proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async: (raises: []).} =
+  try:
+    while true:
+      # Cooperative concurrency: one block per loop iteration - because
+      # we run both networking and CPU-heavy things like block processing
+      # on the same thread, we need to make sure that there is steady progress
+      # on the networking side or we get long lockups that lead to timeouts.
+      const
+        # We cap waiting for an idle slot in case there's a lot of network traffic
+        # taking up all CPU - we don't want to _completely_ stop processing blocks
+        # in this case - doing so also allows us to benefit from more batching /
+        # larger network reads when under load.
+        idleTimeout = 10.milliseconds
 
-    discard await idleAsync().withTimeout(idleTimeout)
+      discard await idleAsync().withTimeout(idleTimeout)
 
-    await self.processBlock(await self[].blockQueue.popFirst())
+      await self.processBlock(await self[].blockQueue.popFirst())
+  except CancelledError:
+    debug "Shutting down queue processing loop"
