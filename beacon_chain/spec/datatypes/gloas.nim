@@ -25,7 +25,6 @@ import
   ../digest,
   kzg4844/[kzg, kzg_abi]
 
-from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
@@ -97,15 +96,6 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
-
-  CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
-
-  NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
@@ -122,7 +112,7 @@ type
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+    current_sync_committee_branch*: electra.CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
@@ -132,11 +122,11 @@ type
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
       ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: NextSyncCommitteeBranch
+    next_sync_committee_branch*: electra.NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: FinalityBranch
+    finality_branch*: electra.FinalityBranch
 
     sync_aggregate*: SyncAggregate
       ## Sync committee aggregate signature
@@ -150,7 +140,7 @@ type
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: FinalityBranch
+    finality_branch*: electra.FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate

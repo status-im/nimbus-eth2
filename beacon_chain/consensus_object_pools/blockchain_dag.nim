@@ -48,6 +48,8 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 
 declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
 
+declareGauge beacon_head_execution_number, "Execuction block number of the beacon head block"
+
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
     ## When finality happens, we prune historical states from the database except
@@ -900,6 +902,13 @@ proc updateBeaconMetrics(
       forkyState.data, forkyState.data.slot.epoch, cache).toGaugeValue
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
+
+    beacon_head_execution_number.set(
+      when consensusFork >= ConsensusFork.Bellatrix:
+        forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
+      else:
+        0.toGaugeValue
+    )
 
 import blockchain_dag_light_client
 
