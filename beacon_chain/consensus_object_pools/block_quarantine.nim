@@ -79,7 +79,7 @@ type
 
     last_block_slot*: Opt[tuple[root: Eth2Digest, slot: Slot]]
       ## Stores the latest sidecarless block root and slot, in order to quickly
-      ## fetch the latest that info without having to traverse sidecarless
+      ## fetch the latest info without having to traverse sidecarless
       ## quarantine.
 
     missing*: Table[Eth2Digest, MissingBlock]
