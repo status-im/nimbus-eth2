@@ -581,7 +581,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
             columnless.root, forkyBlck)
 
-        if len(ident.indices) > 0:
+        if len(ident.indices) > 0 and ident notin fetches:
           fetches.add(ident)
         else:
           if commitmentsCount == 0:
