@@ -27,7 +27,7 @@ from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addSidecarless, addColumnless, addOrphan, addUnviable,
-  pop, removeOrphan
+  pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
@@ -554,6 +554,7 @@ proc storeBlock(
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
+  self.consensusManager.quarantine[].removeSidecarless(signedBlock)
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
