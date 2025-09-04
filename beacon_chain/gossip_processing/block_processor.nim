@@ -318,15 +318,15 @@ from web3/engine_api_types import
   PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
   PayloadExecutionStatus, PayloadStatusV1
 from ../el/el_manager import
-  ELManager, DeadlineObject, forkchoiceUpdated, hasConnection,
+  ELManager, DeadlineFuture, forkchoiceUpdated, hasConnection,
   sendNewPayload, init
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     receivedBlock: ForkySignedBeaconBlock,
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
+    deadline: DeadlineFuture,
+    retry: bool
 ): Future[void] {.async: (raises: [CancelledError]).} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
@@ -334,8 +334,8 @@ proc expectValidForkchoiceUpdated(
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
       payloadAttributes = Opt.none headBlockPayloadAttributesType,
-      deadlineObj = deadlineObj,
-      maxRetriesCount = maxRetriesCount)
+      deadline = deadline,
+      retry = retry)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix and 
           typeof(receivedBlock).kind < ConsensusFork.Gloas:
@@ -374,22 +374,21 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 proc newExecutionPayload*(
     elManager: ELManager,
     blck: SomeForkyBeaconBlock,
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
+    deadline: DeadlineFuture,
+    retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   template executionPayload: untyped = blck.body.execution_payload
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  let payloadStatus =
-    ?await elManager.sendNewPayload(blck, deadlineObj, maxRetriesCount)
+  let payloadStatus = ?await elManager.sendNewPayload(blck, deadline, retry)
 
   debug "newPayload: succeeded",
     parentHash = executionPayload.parent_hash,
     blockHash = executionPayload.block_hash,
     blockNumber = executionPayload.block_number,
-    payloadStatus = $payloadStatus
+    payloadStatus = payloadStatus
 
   Opt.some payloadStatus
 
@@ -399,22 +398,21 @@ proc newExecutionPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.
   async: (raises: [CancelledError], raw: true).} =
   newExecutionPayload(
-    elManager, blck, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT),
-    high(int))
+    elManager, blck, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock,
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
+    deadline: DeadlineFuture,
+    retry: bool,
 ): Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
   let executionPayloadStatus = (
-    await elManager.newExecutionPayload(blck.message, deadlineObj, maxRetriesCount)
+    await elManager.newExecutionPayload(blck.message, deadline, retry)
   ).valueOr:
     return NewPayloadStatus.noResponse
 
@@ -599,13 +597,10 @@ proc storeBlock(
           0.seconds
         else:
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadlineObj = DeadlineObject.init(deadlineTime)
+    deadline = sleepAsync(deadlineTime)
 
-  func getRetriesCount(): int =
-    if dag.is_optimistic(dag.head.bid):
-      1
-    else:
-      high(int)
+  func shouldRetry(): bool =
+    not dag.is_optimistic(dag.head.bid)
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
@@ -718,7 +713,7 @@ proc storeBlock(
           NewPayloadStatus.valid
         elif consensusFork >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, deadlineObj, getRetriesCount())
+            signedBlock, deadline, shouldRetry())
         else:
           NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
@@ -909,8 +904,8 @@ proc storeBlock(
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             payloadAttributes = Opt.none attributes,
-            deadlineObj = deadlineObj,
-            maxRetriesCount = getRetriesCount())
+            deadline = deadline,
+            retry = shouldRetry())
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)
@@ -938,8 +933,8 @@ proc storeBlock(
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             receivedBlock = signedBlock,
-            deadlineObj = deadlineObj,
-            maxRetriesCount = getRetriesCount())
+            deadline = deadline,
+            retry = shouldRetry())
 
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
