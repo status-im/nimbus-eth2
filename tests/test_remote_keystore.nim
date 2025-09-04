@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -138,6 +138,7 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties[0].denebIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
+      debugGloasComment "check gloas fee recipient generalizedindex"
 
   test "Verifying Signer / Many remotes":
     for version in [3]:
@@ -187,3 +188,4 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties[0].denebIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
+      debugGloasComment "check gloas fee recipient generalizedindex"

@@ -327,6 +327,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
+    debugGloasComment ""
     when consensusFork == type(signedBlock).kind:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
@@ -362,8 +363,7 @@ proc state_transition*(
       cfg, state, signedBlock.message.slot, cache, info,
       flags + {skipLastStateRootCalculation})
 
-  state_transition_block(
-    cfg, state, signedBlock, cache, flags, rollback)
+  state_transition_block(cfg, state, signedBlock, cache, flags, rollback)
 
 template toList[A](attestations: seq[A]): auto =
   when A is phase0.Attestation:

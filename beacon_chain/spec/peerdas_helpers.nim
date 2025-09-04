@@ -236,9 +236,9 @@ proc recover_cells_and_proofs*(
 
 # Additional overload to perform reconstruction at the time of gossip
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#get_data_column_sidecars
-func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
-                               cellsAndProofs: seq[CellsAndProofs]):
-                               seq[DataColumnSidecar] =
+func get_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    cellsAndProofs: seq[CellsAndProofs]): seq[DataColumnSidecar] =
   ## Given a signed beacon block and the blobs corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
@@ -288,10 +288,9 @@ func get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   sidecars
 
-proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
-                                    blobs: seq[KzgBlob],
-                                    cell_proofs: seq[KzgProof]):
-                                    seq[DataColumnSidecar] =
+proc assemble_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
   var
     sidecars =

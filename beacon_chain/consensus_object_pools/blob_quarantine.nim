@@ -5,18 +5,21 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/bitops2,
   std/[sets, tables],
   results, metrics,
-  ../spec/datatypes/[deneb, electra, fulu],
   ../spec/[presets, helpers],
   ../beacon_chain_db_quarantine
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
+from ../spec/datatypes/deneb import SignedBeaconBlock
+from ../spec/datatypes/electra import SignedBeaconBlock
+from ../spec/datatypes/fulu import SignedBeaconBlock
+from ../spec/datatypes/gloas import SignedBeaconBlock
 
 export results
 
@@ -490,7 +493,7 @@ proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
   ## block ``blck``.
@@ -531,7 +534,7 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref DataColumnSidecar]] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``
   ## and block ``blck``.
@@ -596,7 +599,7 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var BlobQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
@@ -633,7 +636,7 @@ func fetchMissingSidecars*(
 func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns

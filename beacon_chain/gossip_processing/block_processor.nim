@@ -252,7 +252,7 @@ proc storeBackfillBlock(
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: fulu.SignedBeaconBlock,
+    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -486,8 +486,7 @@ proc enqueueBlock*(
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
       when consensusFork >= ConsensusFork.Fulu:
-        resfut.complete(
-          self.storeBackfillBlock(forkyBlck, data_columns))
+        resfut.complete(self.storeBackfillBlock(forkyBlck, data_columns))
       else:
         resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
@@ -698,7 +697,10 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+        when typeof(signedBlock).kind == ConsensusFork.Gloas:
+          debugGloasComment "need getExecutionValidity on gloas blocks"
+          NewPayloadStatus.valid
+        elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadlineObj, getRetriesCount())
         else:
@@ -930,6 +932,8 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Gloas:
+            debugGloasComment ""
           of ConsensusFork.Deneb, ConsensusFork.Electra, ConsensusFork.Fulu:
             # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
             # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
@@ -982,7 +986,12 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
+      when typeof(forkyBlck).kind == ConsensusFork.Gloas:
+        debugGloasComment ""
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+          Opt.none(DataColumnSidecars))
+      elif typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
           Opt.none(DataColumnSidecars))

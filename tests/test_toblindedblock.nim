@@ -158,4 +158,5 @@ suite "Blinded block conversions":
           electra_steps
         when consensusFork >= ConsensusFork.Fulu:
           fulu_steps
-        static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+        debugGloasComment ""
+        static: doAssert high(ConsensusFork) == ConsensusFork.Gloas

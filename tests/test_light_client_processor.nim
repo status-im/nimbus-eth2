@@ -26,9 +26,10 @@ suite "Light client processor" & preset():
     lowPeriod = 0.SyncCommitteePeriod
     lastPeriodWithSupermajority = 4.SyncCommitteePeriod
     highPeriod = 6.SyncCommitteePeriod
+  debugGloasComment "add res.GLOAS_FORK_EPOCH = ..."
   let
     cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
-      static: doAssert ConsensusFork.high == ConsensusFork.Fulu
+      static: doAssert ConsensusFork.high == ConsensusFork.Gloas
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
       res.BELLATRIX_FORK_EPOCH = 2.Epoch

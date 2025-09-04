@@ -367,8 +367,10 @@ proc runProposalForkchoiceUpdated*(
         payloadAttributes = Opt.some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-    when consensusFork >= ConsensusFork.Deneb:
+    static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+    when consensusFork >= ConsensusFork.Gloas:
+      debugGloasComment "well, likely can't keep reusing V3 much longer"
+    elif consensusFork >= ConsensusFork.Deneb:
       # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
       # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
       callForkchoiceUpdated(PayloadAttributesV3(

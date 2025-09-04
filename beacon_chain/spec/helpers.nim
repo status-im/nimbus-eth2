@@ -19,6 +19,9 @@ import
   # Internal
   "."/[eth2_merkleization, forks, ssz_codec]
 
+debugGloasComment ""
+import ./datatypes/gloas
+
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
@@ -386,7 +389,7 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState): bool =
+           electra.BeaconState | fulu.BeaconState | gloas.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
@@ -394,8 +397,7 @@ func is_merge_transition_complete*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Bellatrix:
-    const defaultExecutionPayload =
-      default(typeof(body.execution_payload))
+    const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
   else:
     false

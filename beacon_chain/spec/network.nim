@@ -190,7 +190,7 @@ func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
   if isBehind:
     return static(HashSet[Epoch]())
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
   var epochs = newSeqOfCap[Epoch](
     int(high(ConsensusFork)) + 1 + len(cfg.BLOB_SCHEDULE))
   for bpo in cfg.BLOB_SCHEDULE:
@@ -202,6 +202,7 @@ func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
   epochs.add cfg.DENEB_FORK_EPOCH
   epochs.add cfg.ELECTRA_FORK_EPOCH
   epochs.add cfg.FULU_FORK_EPOCH
+  epochs.add cfg.GLOAS_FORK_EPOCH
 
   # Fusaka, Glamsterdam, and further forks' BPOs epochs interleave with fork
   # epochs; ensure they're treated uniformly.

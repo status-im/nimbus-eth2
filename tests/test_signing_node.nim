@@ -98,8 +98,11 @@ proc getBlock(
         ElectraBlockContents % [feeRecipient, SomeSignature],
           ElectraSignedBlockContents).signed_block.message)
     of ConsensusFork.Fulu:
-      debugFuluComment "electra test signing node getblock"
+      debugFuluComment "fulu test signing node getblock"
       raiseAssert "fulu unsupported"
+    of ConsensusFork.Gloas:
+      debugFuluComment "gloas test signing node getblock"
+      raiseAssert "gloas unsupported"
   except ValueError:
     # https://github.com/nim-lang/Nim/pull/23356
     raiseAssert "Arguments match the format string"
@@ -119,6 +122,10 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Fulu,
       data: forked.fuluData.toBeaconBlockHeader)
+  of ConsensusFork.Gloas:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Gloas,
+      data: forked.gloasData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =

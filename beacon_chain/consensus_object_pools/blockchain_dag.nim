@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils, tables, sets],
@@ -266,8 +266,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
@@ -1019,6 +1022,12 @@ proc applyBlock(
     ? state_transition(
       dag.cfg, state, data, cache, info,
       updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Gloas:
+    let data = getBlock(dag, bid, gloas.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      updateFlags + {slotProcessed}, noRollback)
 
   ok()
 
@@ -1181,6 +1190,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
+      of ConsensusFork.Gloas:     gloasFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec

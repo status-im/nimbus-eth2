@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -118,7 +118,11 @@ func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
   const lcDataFork = max(
     lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-  ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
+  debugGloasComment "..."
+  when kind(typeof(blck)) == ConsensusFork.Gloas:
+    default(ForkedLightClientHeader)
+  else:
+    ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 func sync_aggregate(
     blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
@@ -246,7 +250,9 @@ proc initLightClientBootstrapForPeriod(
         res.err()
         continue
       withStateAndBlck(tmpState[], bdata):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment "..."
+        elif consensusFork >= ConsensusFork.Altair:
           const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
@@ -397,7 +403,9 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(bid.slot)
       return err()
     withStateAndBlck(updatedState, bdata):
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+      elif consensusFork >= ConsensusFork.Altair:
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         update = ForkedLightClientUpdate.init(lcDataFork.LightClientUpdate(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
@@ -418,12 +426,14 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(finalizedBid.slot)
       return err()
     withBlck(bdata):
-      withForkyUpdate(update):
-        when lcDataFork > LightClientDataFork.None:
-          when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
-            forkyUpdate.finalized_header =
-              forkyBlck.toLightClientHeader(lcDataFork)
-          else: raiseAssert "Unreachable"
+      debugGloasComment ""
+      when consensusFork != ConsensusFork.Gloas:
+        withForkyUpdate(update):
+          when lcDataFork > LightClientDataFork.None:
+            when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
+              forkyUpdate.finalized_header =
+                forkyBlck.toLightClientHeader(lcDataFork)
+            else: raiseAssert "Unreachable"
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
@@ -719,7 +729,8 @@ proc createLightClientBootstrap(
           tmpState[], period)
       dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
@@ -1099,7 +1110,8 @@ proc getLightClientBootstrap*(
     debug "LC bootstrap unavailable: Block not found", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = forkyBlck.toLightClientHeader(lcDataFork)
