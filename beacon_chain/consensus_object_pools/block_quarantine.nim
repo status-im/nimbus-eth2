@@ -77,6 +77,11 @@ type
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
 
+    last_block_slot*: Opt[tuple[root: Eth2Digest, slot: Slot]]
+      ## Stores the latest sidecarless block root and slot, in order to quickly
+      ## fetch the latest that info without having to traverse sidecarless
+      ## quarantine.
+
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
@@ -385,6 +390,8 @@ proc addSidecarless(
         block_root = shortLog(signedBlock.root)
   quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.last_block_slot =
+    Opt.some((signedBlock.root, signedBlock.message.slot))
   quarantine.missing.del(signedBlock.root)
   quarantine.sidecarlessEvent.fire()
   true

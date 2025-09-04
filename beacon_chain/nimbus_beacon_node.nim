@@ -1931,13 +1931,12 @@ when defined(windows):
 
 proc attemptGetBlobs(node: BeaconNode,
                      lastSlot: Slot) {.async.} =
-  let lastDcSidecar =
-    node.dataColumnQuarantine[].peekSidecarAtSlot(lastSlot + 1)
-      .valueOr: return   # early return if none found
-
-  template block_header: untyped = lastDcSidecar[].signed_block_header.message
   let
-    block_root = hash_tree_root(block_header)
+    (block_root, latest_slot) = node.quarantine[].last_block_slot.valueOr:
+      return
+  if latest_slot != lastSlot + 1:
+    return
+  let
     elManager = node.blockProcessor[].consensusManager.elManager
   if (let o = node.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
