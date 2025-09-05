@@ -3849,6 +3849,243 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
 + EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: minimal]   OK
 ```
+## EF - Gloas - Operations - Attester Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_all_empty_indices          OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_bad_extra_index       OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_bad_replaced_index    OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_duplicate_index_doubl OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_duplicate_index_norma OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_empty_indices         OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_high_index            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_bad_extra_index       OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_bad_replaced_index    OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_duplicate_index_doubl OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_duplicate_index_norma OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_empty_indices         OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_high_index            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_1            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_1_and_2      OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_2            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_no_double_or_surround      OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_participants_already_slash OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_same_data                  OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_1             OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_2             OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - already_exited_long_ago            OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - already_exited_recent              OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - attestation_from_future            OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - basic_double                       OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - basic_surround                     OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - low_balances                       OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - misc_balances                      OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - proposer_index_slashed             OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - with_effective_balance_disparity   OK
+```
+## EF - Gloas - Operations - BLS to execution change  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_already_0x01         OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_bad_signature        OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_current_fork_version OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_genesis_validators_r OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_incorrect_from_bls_p OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_previous_fork_versio OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_val_index_out_of_ran OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - genesis_fork_version         OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success                      OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_exited               OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_in_activation_queue  OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_in_exit_queue        OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_not_activated        OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_withdrawable         OK
+```
+## EF - Gloas - Operations - Block Header  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_multiple_blocks_single_slot     OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_parent_root                     OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_proposer_index                  OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_proposer_slashed                OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_slot_block_header               OK
++ [Valid]   EF - Gloas - Operations - Block Header - basic_block_header                      OK
+```
+## EF - Gloas - Operations - Consolidation Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_in_current OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_in_new_con OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_source_has OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_target_has OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_compo OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_exces OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_insuf OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_preex OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_switch_to_compounding    OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_balance_larger_t OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_balance_through_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_churn_limit_bala OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exceed_pending_conso OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exited_source        OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exited_target        OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_inactive_source      OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_inactive_target      OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_no_source_execution_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_not_enough_consolida OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_same_source_target   OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_address       OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_has_pending_w OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_not_active_lo OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_pubkey_is_tar OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_with_bls_cred OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_target_with_bls_cred OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_target_with_eth1_cre OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_unknown_source_pubke OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_unknown_target_pubke OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_exited_s OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_inactive OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_not_auth OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_source_b OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_source_c OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_unknown_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_exc OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_pen OK
+```
+## EF - Gloas - Operations - Deposit  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Deposit - invalid_bad_merkle_proof                     OK
++ [Invalid] EF - Gloas - Operations - Deposit - invalid_wrong_deposit_for_deposit_count      OK
++ [Valid]   EF - Gloas - Operations - Deposit - correct_sig_but_forked_state                 OK
++ [Valid]   EF - Gloas - Operations - Deposit - effective_deposit_with_genesis_fork_version  OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_new_deposit                    OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_top_up                         OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_withdrawal_credentials_top_up      OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_bad_fork_version    OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_current_fork_versio OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_previous_fork_versi OK
++ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_decompression           OK
++ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_subgroup                OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_eth1_withdrawal_credentials      OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_max                              OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_non_versioned_withdrawal_credent OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_over_max                         OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_under_max                        OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__less_effective_balance               OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__max_effective_balance                OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__zero_balance                         OK
+```
+## EF - Gloas - Operations - Deposit Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
+```
+## EF - Gloas - Operations - Proposer Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_different_proposer_indices OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_ OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_ OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_proposer_index   OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1            OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2_swap OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_2            OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - basic                              OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
+```
+## EF - Gloas - Operations - Sync Aggregate  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_bad_domain          OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_extra_participant   OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_infinite_signature_ OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_infinite_signature_ OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_missing_participant OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_no_participants     OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_past_block          OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_previous_committee  OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - proposer_in_committee_with_participat OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - proposer_in_committee_without_partici OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_all_but_one_participating_with OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_high_participation_without_dup OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_low_participation_without_dupl OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_misc_balances_and_half_partici OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_only_one_participant_without_d OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_with_exits_without_duplicates  OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_empty_particip OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_nonduplicate_c OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_not_full_parti OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_nonparticipating_ OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_nonparticipating_ OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_participating_exi OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_participating_wit OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - valid_signature_future_committee      OK
+```
+## EF - Gloas - Operations - Voluntary Exit  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_has_pending_withdra OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_incorrect_validator OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_not_active          OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_not_active_long_eno OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exit                      OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_above_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_up_to_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__scaled_churn      OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit   OK
+```
+## EF - Gloas - Operations - Withdrawal Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - activation_epoch_less_than_shard_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request  OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request          OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_com OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_fir OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_ful OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - full_exit_request_has_partial_wit OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_inactive_validator      OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_source_address          OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_withdrawal_credential_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - insufficient_balance              OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - insufficient_effective_balance    OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - no_compounding_credentials        OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - no_excess_balance                 OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - on_withdrawal_request_initiated_e OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_activation_epo OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_incorrect_sour OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_incorrect_with OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_on_exit_initia OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_queue_full     OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_h OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_h OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_l OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - pending_withdrawals_consume_all_e OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - unknown_pubkey                    OK
+```
 ## EF - Gloas - Rewards  [Preset: minimal]
 ```diff
 + EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
@@ -3957,6 +4194,24 @@ ConsensusSpecPreset-minimal
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
+```
+## EF - Gloas - Sanity - Slots  [Preset: minimal]
+```diff
++ EF - Gloas - Slots - balance_change_affects_proposer [Preset: minimal]                     OK
++ EF - Gloas - Slots - double_empty_epoch [Preset: minimal]                                  OK
++ EF - Gloas - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]        OK
++ EF - Gloas - Slots - empty_epoch [Preset: minimal]                                         OK
++ EF - Gloas - Slots - historical_accumulator [Preset: minimal]                              OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]               OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset: OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset: OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: minimal]   OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: mi OK
++ EF - Gloas - Slots - over_epoch_boundary [Preset: minimal]                                 OK
++ EF - Gloas - Slots - pending_consolidation [Preset: minimal]                               OK
++ EF - Gloas - Slots - pending_deposit_extra_gwei [Preset: minimal]                          OK
++ EF - Gloas - Slots - slots_1 [Preset: minimal]                                             OK
++ EF - Gloas - Slots - slots_2 [Preset: minimal]                                             OK
 ```
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff

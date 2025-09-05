@@ -185,9 +185,9 @@ func get_state_exit_queue_info*(
   ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
 
-func get_state_exit_queue_info*(state: electra.BeaconState |
-                                       fulu.BeaconState):
-                                ExitQueueInfo =
+func get_state_exit_queue_info*(
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    ExitQueueInfo =
   # Electra initiate_validator_exit doesn't have same quadratic aspect given
   # StateCache balance caching
   default(ExitQueueInfo)
@@ -301,7 +301,8 @@ func compute_exit_epoch_and_update_churn*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn
 func compute_consolidation_epoch_and_update_churn*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     consolidation_balance: Gwei, cache: var StateCache): Epoch =
   var earliest_consolidation_epoch = max(state.earliest_consolidation_epoch,
     compute_activation_exit_epoch(get_current_epoch(state)))
@@ -399,7 +400,8 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
        state is capella.BeaconState or state is deneb.BeaconState or
-       state is electra.BeaconState or state is fulu.BeaconState:
+       state is electra.BeaconState or state is fulu.BeaconState or
+       state is gloas.BeaconState:
     whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
     {.fatal: "invalid BeaconState type".}
@@ -1360,7 +1362,7 @@ func is_partially_withdrawable_validator(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
-    state: var (electra.BeaconState | fulu.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: uint64) =
   let balance = state.balances.item(index)
   if balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -1378,7 +1380,7 @@ func queue_excess_active_balance(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
 func switch_to_compounding_validator*(
-    state: var (electra.BeaconState | fulu.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: ValidatorIndex) =
   let validator = addr state.validators.mitem(index)
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
