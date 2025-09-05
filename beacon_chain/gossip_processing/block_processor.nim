@@ -1016,6 +1016,7 @@ proc storeBlock(
               MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
               cres)
           else:
+            debug "FOOB2 added sidecarless", block_root = forkyBlck.root
             discard self.consensusManager.quarantine[].addSidecarless(
               dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
@@ -1037,6 +1038,7 @@ proc storeBlock(
             self[].enqueueBlock(MsgSource.gossip, quarantined, bres,
             Opt.none(DataColumnSidecars))
           else:
+            debug "FOOB3 added sidecarless", block_root = forkyBlck.root
             self.consensusManager.quarantine[].addSidecarless(forkyBlck)
 
   ok blck.value()
