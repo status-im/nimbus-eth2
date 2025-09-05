@@ -480,6 +480,7 @@ proc initFullNode(
           else:
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
+            debug "FOOB1 added sidecarless", block_root = forkyBlck.root
             if not quarantine[].addSidecarless(
               dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
