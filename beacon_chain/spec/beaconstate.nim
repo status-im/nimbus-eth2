@@ -237,8 +237,8 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 func get_balance_churn_limit(
-    cfg: RuntimeConfig, state: electra.BeaconState |
-    fulu.BeaconState,
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     cache: var StateCache): Gwei =
   ## Return the churn limit for the current epoch.
   let churn = max(
@@ -249,7 +249,9 @@ func get_balance_churn_limit(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 func get_activation_exit_churn_limit*(
-    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState, cache: var StateCache):
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    cache: var StateCache):
     Gwei =
   ## Return the churn limit for the current epoch dedicated to activations and
   ## exits.
@@ -259,14 +261,17 @@ func get_activation_exit_churn_limit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
-    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState, cache: var StateCache):
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    cache: var StateCache):
     Gwei =
   get_balance_churn_limit(cfg, state, cache) -
     get_activation_exit_churn_limit(cfg, state, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
 func compute_exit_epoch_and_update_churn*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     exit_balance: Gwei,
     cache: var StateCache): Epoch =
   var earliest_exit_epoch = max(state.earliest_exit_epoch,
@@ -326,7 +331,8 @@ func compute_consolidation_epoch_and_update_churn*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#modified-initiate_validator_exit
 func initiate_validator_exit*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: ValidatorIndex, exit_queue_info: ExitQueueInfo,
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
   ## Initiate the exit of the validator with index ``index``.
@@ -1263,7 +1269,7 @@ func get_next_sync_committee_keys(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
 func get_next_sync_committee_keys(
-    state: electra.BeaconState | fulu.BeaconState):
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -1591,7 +1597,8 @@ func get_expected_withdrawals*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState):
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState):
     SyncCommittee =
   ## Return the next sync committee, with possible pubkey duplicates.
   var res: SyncCommittee

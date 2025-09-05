@@ -66,7 +66,7 @@ proc checkSSZ(
    # htr(BeaconBlock), so do it manually
    check: expectedHash.root == "0x" & toLowerAscii($hash_tree_root(
      [hash_tree_root(deserialized.message),
-     hash_tree_root(deserialized.signature)]))
+      hash_tree_root(deserialized.signature)]))
 
    check deserialized.root == hash_tree_root(deserialized.message)
    check SSZ.encode(deserialized[]) == encoded
@@ -129,7 +129,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
-          of "BuilderPendingWithdrawal": 
+          of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
@@ -152,7 +152,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
-          of "ForkChoiceNode": 
+          of "ForkChoiceNode":
             debugGloasComment "skipping ForkChoiceNode test for now"
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)

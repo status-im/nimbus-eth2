@@ -29,6 +29,7 @@ import
 
 from std/math import sum, `^`
 from stew/bitops2 import setBit
+from stew/staticfor import staticFor
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
 
@@ -855,7 +856,7 @@ func process_rewards_and_penalties*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     info: var altair.EpochInfo) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -958,7 +959,8 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#modified-process_registry_updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     cache: var StateCache): Result[void, cstring] =
   # Process activation eligibility and ejections
   for index in 0 ..< state.validators.len:
@@ -1144,7 +1146,8 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
 func process_participation_flag_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState |
-                electra.BeaconState | fulu.BeaconState)) =
+                electra.BeaconState | fulu.BeaconState |
+                gloas.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
   const zero = 0.ParticipationFlags
@@ -1159,7 +1162,8 @@ func process_participation_flag_updates*(
 func process_sync_committee_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState |
-                electra.BeaconState | fulu.BeaconState)) =
+                electra.BeaconState | fulu.BeaconState |
+                gloas.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch.is_sync_committee_period():
     state.current_sync_committee = state.next_sync_committee
@@ -1223,7 +1227,7 @@ func process_inactivity_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#historical-summaries-updates
 func process_historical_summaries_update*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState)):
+                fulu.BeaconState | gloas.BeaconState)):
     Result[void, cstring] =
   # Set historical block root accumulator.
   let next_epoch = get_current_epoch(state) + 1
@@ -1243,7 +1247,8 @@ from ".."/validator_bucket_sort import
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
 func apply_pending_deposit(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     deposit: PendingDeposit, validator_index: Opt[ValidatorIndex]):
     Result[void, cstring] =
   ## Applies ``deposit`` to the ``state``.
@@ -1264,7 +1269,8 @@ func apply_pending_deposit(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
 func process_pending_deposits*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState) ,
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     cache: var StateCache): Result[void, cstring] =
   let
     next_epoch = get_current_epoch(state) + 1
@@ -1357,7 +1363,8 @@ func process_pending_deposits*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_consolidations
 func process_pending_consolidations*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState) ):
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState)):
     Result[void, cstring] =
   let next_epoch = get_current_epoch(state) + 1
   var next_pending_consolidation = 0
@@ -1395,9 +1402,9 @@ func process_pending_consolidations*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
-func process_proposer_lookahead*(state: var fulu.BeaconState,
-                                 cache: var StateCache):
-                                 Result[void, cstring] =
+func process_proposer_lookahead*(
+    state: var (fulu.BeaconState | gloas.BeaconState), cache: var StateCache):
+    Result[void, cstring] =
   let
     total_slots      = state.proposer_lookahead.data.lenu64
     last_epoch_start = total_slots - SLOTS_PER_EPOCH
@@ -1414,6 +1421,39 @@ func process_proposer_lookahead*(state: var fulu.BeaconState,
   for i in 0 ..< SLOTS_PER_EPOCH:
     if new_proposers[i].isSome():
       mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_builder_payment_quorum_threshold
+func get_builder_payment_quorum_threshold(state: gloas.BeaconState, cache: var StateCache): uint64 =
+  ## Calculate the quorum threshold for builder payments.
+  let quorum = (
+    get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
+  uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
+func process_builder_pending_payments*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState, cache: var StateCache):
+    Result[void, cstring] =
+  ## Processes the builder pending payments from the previous epoch.
+  let quorum = get_builder_payment_quorum_threshold(state, cache)
+
+  for index in 0 ..< min(
+      state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
+    var payment = state.builder_pending_payments.mitem(index)
+    if payment.weight.distinctBase > quorum:
+      let exit_queue_epoch = compute_exit_epoch_and_update_churn(
+        cfg, state, payment.withdrawal.amount, cache)
+      payment.withdrawal.withdrawable_epoch =
+        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+      if not state.builder_pending_withdrawals.add(payment.withdrawal):
+        return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
+
+  staticFor i, 0 ..< SLOTS_PER_EPOCH.int:
+    assign(
+      state.builder_pending_payments.mitem(i),
+      state.builder_pending_payments.item(i + SLOTS_PER_EPOCH))
+    state.builder_pending_payments.mitem(i + SLOTS_PER_EPOCH).reset()
 
   ok()
 

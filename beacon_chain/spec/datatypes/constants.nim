@@ -87,3 +87,7 @@ const
   DEPOSIT_REQUEST_TYPE* = 0x00'u8
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc
+  BUILDER_PAYMENT_THRESHOLD_NUMERATOR* = 6'u64
+  BUILDER_PAYMENT_THRESHOLD_DENOMINATOR* = 10'u64
