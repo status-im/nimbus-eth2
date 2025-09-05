@@ -8,7 +8,8 @@
 {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu],
+  ./datatypes/[
+    phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas],
   ./eth2_merkleization
 
 type

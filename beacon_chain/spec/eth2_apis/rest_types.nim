@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
@@ -320,6 +320,11 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
+  GloasSignedBlockContents* = object
+    signed_block*: gloas.SignedBeaconBlock
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -329,6 +334,7 @@ type
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
+    of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -612,6 +618,13 @@ func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Gloas:
+    const consensusFork {.inject, used.} = ConsensusFork.Gloas
+    template forkyData: untyped {.inject, used.} = x.gloasData
+    template forkyBlck: untyped {.inject, used.} = x.gloasData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.gloasData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.gloasData.blobs
+    body
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
     template forkyData: untyped {.inject, used.} = x.fuluData
@@ -672,6 +685,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
     of ConsensusFork.Fulu:
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
+    of ConsensusFork.Gloas:
+      ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -752,6 +767,22 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     kind: ConsensusFork.Fulu,
     fuluData: FuluSignedBlockContents(
       signed_block: fulu.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: gloas.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Gloas,
+    gloasData: GloasSignedBlockContents(
+      signed_block: gloas.SignedBeaconBlock(
         message: contents.`block`,
         root: root,
         signature: signature

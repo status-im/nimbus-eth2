@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -1096,7 +1096,8 @@ proc getElectraAttestationsForBlock*(
     pool: var AttestationPool, state: ForkedHashedBeaconState,
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
-    when consensusFork >= ConsensusFork.Electra:
+    debugGloasComment ""
+    when consensusFork >= ConsensusFork.Electra and consensusFork != ConsensusFork.Gloas:
       pool.getAttestationsForBlock(forkyState, cache)
     else:
       default(seq[electra.Attestation])

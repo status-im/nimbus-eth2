@@ -3432,7 +3432,6 @@ ConsensusSpecPreset-mainnet
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
   Merkle proof - Single merkle proof - eip7805                                               Skip
-  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK

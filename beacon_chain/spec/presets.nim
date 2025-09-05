@@ -76,6 +76,8 @@ type
     ELECTRA_FORK_EPOCH*: Epoch
     FULU_FORK_VERSION*: Version
     FULU_FORK_EPOCH*: Epoch
+    GLOAS_FORK_VERSION*: Version
+    GLOAS_FORK_EPOCH*: Epoch
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -235,6 +237,9 @@ when const_preset == "mainnet":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x00],
     FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x00],
+    GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -403,6 +408,9 @@ elif const_preset == "gnosis":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x64],
     FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x64],
+    GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -568,6 +576,9 @@ elif const_preset == "minimal":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x01],
     FULU_FORK_EPOCH: Epoch(uint64.high),
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x01],
+    GLOAS_FORK_EPOCH: Epoch(uint64.high),
 
     # Time parameters
     # ---------------------------------------------------------------

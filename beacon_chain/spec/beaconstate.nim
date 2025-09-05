@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/assign2,
@@ -86,7 +86,7 @@ func get_validator_from_deposit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#deposits
 func get_validator_from_deposit*(
-    _: electra.BeaconState | fulu.BeaconState,
+    _: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest, amount: Gwei): Validator =
   var validator = Validator(
@@ -364,8 +364,8 @@ func get_slashing_penalty*(
   elif state is bellatrix.BeaconState or state is capella.BeaconState or
        state is deneb.BeaconState:
     validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
-  elif state is electra.BeaconState or
-       state is fulu.BeaconState:
+  elif state is electra.BeaconState or state is fulu.BeaconState or
+       state is gloas.BeaconState:
     validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA
   else:
     {.fatal: "invalid BeaconState type".}
@@ -381,7 +381,7 @@ func get_whistleblower_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 
@@ -530,6 +530,17 @@ func get_initial_beacon_block*(state: fulu.HashedBeaconState):
   fulu.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
+func get_initial_beacon_block*(state: gloas.HashedBeaconState):
+    gloas.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = gloas.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  gloas.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
@@ -661,7 +672,7 @@ iterator get_attesting_indices_iter*(state: ForkyBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_attesting_indices
 iterator get_attesting_indices_iter*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     data: AttestationData,
     aggregation_bits: ElectraCommitteeValidatorsBits,
     committee_bits: auto,
@@ -717,11 +728,11 @@ func get_attesting_indices*(state: ForkedHashedBeaconState;
                             cache: var StateCache): seq[ValidatorIndex] =
   # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
   # iterator
-
   var idxBuf: seq[ValidatorIndex]
   withState(state):
     when consensusFork >= ConsensusFork.Electra:
-      for vidx in forkyState.data.get_attesting_indices(data, aggregation_bits, committee_bits, cache):
+      for vidx in forkyState.data.get_attesting_indices(
+          data, aggregation_bits, committee_bits, cache):
         idxBuf.add vidx
   idxBuf
 
@@ -870,7 +881,8 @@ func get_attestation_participation_flag_indices(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
+    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -936,7 +948,8 @@ func get_base_reward_per_increment*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -982,9 +995,10 @@ proc check_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
-    flags: UpdateFlags, cache: var StateCache, on_chain: static bool): Result[void, cstring] =
+    flags: UpdateFlags, cache: var StateCache, on_chain: static bool):
+    Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -1052,7 +1066,7 @@ proc check_attestation*(
 proc check_bls_to_execution_change*(
     genesisFork: Fork,
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-    fulu.BeaconState,
+           fulu.BeaconState | gloas.BeaconState,
     signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
     Result[void, cstring] =
   let address_change = signed_address_change.message
@@ -1366,7 +1380,7 @@ func switch_to_compounding_validator*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei
   for withdrawal in state.pending_partial_withdrawals:
@@ -1461,7 +1475,7 @@ func get_expected_withdrawals*(
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
 template get_expected_withdrawals_with_partial_count_aux*(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
   doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
@@ -1563,13 +1577,15 @@ template get_expected_withdrawals_with_partial_count_aux*(
   (withdrawals, processed_partial_withdrawals_count)
 
 template get_expected_withdrawals_with_partial_count*(
-    state: electra.BeaconState | fulu.BeaconState): (seq[Withdrawal], uint64) =
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    (seq[Withdrawal], uint64) =
   get_expected_withdrawals_with_partial_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
 
-func get_expected_withdrawals*(state: electra.BeaconState | fulu.BeaconState):
-                               seq[Withdrawal] =
+func get_expected_withdrawals*(
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
@@ -2398,7 +2414,8 @@ func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
 
 func get_sync_committee_cache*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState,
     cache: var StateCache): SyncCommitteeCache =
   let period = state.slot.sync_committee_period()
 

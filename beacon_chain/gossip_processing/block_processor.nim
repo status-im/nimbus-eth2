@@ -27,7 +27,7 @@ from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addSidecarless, addColumnless, addOrphan, addUnviable,
-  pop, removeOrphan
+  pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
@@ -252,14 +252,13 @@ proc storeBackfillBlock(
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: fulu.SignedBeaconBlock,
+    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
-
   var
     columnsOk = true
-    malformed_cols: seq[int]
+    malformed_cols: HashSet[int]
   if dataColumnsOpt.isSome:
     let columns = dataColumnsOpt.get()
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -268,33 +267,16 @@ proc storeBackfillBlock(
         let r =
           verify_data_column_sidecar_kzg_proofs(columns[i][])
         if r.isErr:
-          malformed_cols.add(i)
+          malformed_cols.incl(i)
           debug "backfill data column validation failed",
             blockRoot = shortLog(signedBlock.root),
             column_sidecar = shortLog(columns[i][]),
             blck = shortLog(signedBlock.message),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
-        columnsOk = r.isOk()
 
-    # DataColumnSidecar repairing strategy attempt in case of
-    # malformed columns where 50%+ columns are legit. Note that
-    # this repairing will almost never happen unless these malformed
-    # columns coming via req/resp.
-    if dataColumnsOpt.get.lenu64 >
-        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-         not columnsOk:
-      let
-        recovered_cps =
-          recover_cells_and_proofs(columns)
-        recovered_columns =
-          signedBlock.get_data_column_sidecars(recovered_cps.get)
-
-      for mc in malformed_cols:
-        # copy the healed columns only into the
-        # sidecar spaces
-        columns[mc][] = recovered_columns[mc]
-      columnsOk = true
+    columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >=
+        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
 
   if not columnsOk:
     return err(VerifierError.Invalid)
@@ -319,8 +301,10 @@ proc storeBackfillBlock(
 
   # Only store data columns after successfully establishing block viability.
   let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  for c in columns:
-    self.consensusManager.dag.db.putDataColumnSidecar(c[])
+  for i in 0..<columns.len:
+    if i in malformed_cols:
+      continue
+    self.consensusManager.dag.db.putDataColumnSidecar(columns[i][])
 
   res
 
@@ -502,8 +486,7 @@ proc enqueueBlock*(
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
       when consensusFork >= ConsensusFork.Fulu:
-        resfut.complete(
-          self.storeBackfillBlock(forkyBlck, data_columns))
+        resfut.complete(self.storeBackfillBlock(forkyBlck, data_columns))
       else:
         resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
@@ -571,6 +554,7 @@ proc storeBlock(
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
+  self.consensusManager.quarantine[].removeSidecarless(signedBlock)
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
@@ -714,7 +698,10 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+        when typeof(signedBlock).kind == ConsensusFork.Gloas:
+          debugGloasComment "need getExecutionValidity on gloas blocks"
+          NewPayloadStatus.valid
+        elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadlineObj, getRetriesCount())
         else:
@@ -946,6 +933,8 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Gloas:
+            debugGloasComment ""
           of ConsensusFork.Deneb, ConsensusFork.Electra, ConsensusFork.Fulu:
             # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
             # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
@@ -998,7 +987,12 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
+      when typeof(forkyBlck).kind == ConsensusFork.Gloas:
+        debugGloasComment ""
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+          Opt.none(DataColumnSidecars))
+      elif typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
           Opt.none(DataColumnSidecars))

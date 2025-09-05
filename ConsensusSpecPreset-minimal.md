@@ -3695,7 +3695,6 @@ ConsensusSpecPreset-minimal
 ## EF - Merkle proof [Preset: minimal]
 ```diff
   Merkle proof - Single merkle proof - eip7805                                               Skip
-  Merkle proof - Single merkle proof - gloas                                                 Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK

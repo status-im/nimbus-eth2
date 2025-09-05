@@ -1,3 +1,31 @@
+2025-09-02 v25.9.0
+==================
+
+Nimbus `v25.9.0` is a `low-urgency` release which increases the resiliency and efficiency of block production. Furthermore, macOS amd64 releases have been deprecated and will be discontinued by October 2025.
+
+### Improvements
+
+- Allow fallback to builder API if EL provides invalid requests:
+  https://github.com/status-im/nimbus-eth2/pull/7396
+
+- Propose blocks more efficiently when the builder API is enabled:
+  https://github.com/status-im/nimbus-eth2/pull/7353
+
+- Log execution addresses more readably:
+  https://github.com/status-im/nimbus-eth2/pull/7325
+
+### Fixes
+
+- Avoid crashing on startup when data directory can't be created:
+  https://github.com/status-im/nimbus-eth2/pull/7326
+
+- Require matching Electra fork configurations between beacon node and REST clients:
+  https://github.com/status-im/nimbus-eth2/pull/7321
+  https://github.com/status-im/nimbus-eth2/pull/7322
+
+- Fix dropped connections being interpreted as empty lists during syncing:
+  https://github.com/status-im/nimbus-eth2/pull/7318
+
 2025-07-31 v25.7.1
 ==================
 

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
@@ -149,13 +149,9 @@ func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
-func removeBlobless*(
+func removeSidecarless*(
   quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.blobless.del(signedBlock.root)
-
-func removeColumnless*(
-  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.columnless.del(signedBlock.root)
+  quarantine.sidecarless.del(signedBlock.root)
 
 func isViable(
     finalizedSlot: Slot, slot: Slot): bool =
@@ -372,7 +368,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
 proc addSidecarless(
     quarantine: var Quarantine, finalizedSlot: Opt[Slot],
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                 fulu.SignedBeaconBlock
+                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool =
   if finalizedSlot.isSome():
     if not isViable(finalizedSlot.get(), signedBlock.message.slot):
@@ -399,20 +395,20 @@ proc addSidecarless(
 proc addSidecarless*(
   quarantine: var Quarantine, finalizedSlot: Slot,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool =
   quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
 
 proc addSidecarless*(
   quarantine: var Quarantine,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 
 proc addColumnless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: fulu.SignedBeaconBlock
+    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool {.deprecated.} =
   quarantine.addSidecarless(finalizedSlot, signedBlock)
 
