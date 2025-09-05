@@ -1878,9 +1878,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
-  debug "Custody column count before validator custody detection attempt",
-    custody_columns = node.dataColumnQuarantine.custodyColumns.len
-
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
@@ -1903,8 +1900,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
                                               node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
-  debug "Custody column count after validator custody detection attempt",
-    custody_columns = node.dataColumnQuarantine.custodyColumns.len
+      info "New validator custody count detected",
+        custody_columns = node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let
