@@ -3843,6 +3843,12 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
+## EF - Gloas - Fork  [Preset: minimal]
+```diff
++ EF - Gloas - Fork - after_fork_deactivate_validators_from_fulu_to_gloas [Preset: minimal]  OK
++ EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
++ EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: minimal]   OK
+```
 ## EF - Gloas - Rewards  [Preset: minimal]
 ```diff
 + EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK

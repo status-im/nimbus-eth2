@@ -3620,6 +3620,12 @@ ConsensusSpecPreset-mainnet
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
+## EF - Gloas - Fork  [Preset: mainnet]
+```diff
++ EF - Gloas - Fork - after_fork_deactivate_validators_from_fulu_to_gloas [Preset: mainnet]  OK
++ EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
++ EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: mainnet]   OK
+```
 ## EF - Gloas - Rewards  [Preset: mainnet]
 ```diff
 + EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                   OK
