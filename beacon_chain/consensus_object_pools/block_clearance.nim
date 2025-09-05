@@ -32,7 +32,7 @@ proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
-       executionValid: bool,
+       optimisticStatus: OptimisticStatus,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnForkyBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
@@ -43,14 +43,15 @@ proc addResolvedHeadBlock(
 
   let
     blockRoot = trustedBlock.root
-    blockRef = BlockRef.init(
-      blockRoot, executionValid = executionValid, trustedBlock.message)
+    blockRef = BlockRef.init(blockRoot, optimisticStatus, trustedBlock.message)
     startTick = Moment.now()
 
   link(parent, blockRef)
 
-  if executionValid:
-    dag.markBlockVerified(blockRef)
+  if optimisticStatus == OptimisticStatus.valid:
+    # Since the new block has a valid payload, its ancestors also do but this
+    # might be the first time we learn of it
+    parent.markExecutionValid(true)
 
   dag.forkBlocks.incl(KeyedBlockRef.init(blockRef))
 
@@ -81,7 +82,7 @@ proc addResolvedHeadBlock(
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
-    executionValid, heads = dag.heads.len(),
+    optimisticStatus, heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
     epochRefDur = epochRefTick - putBlockTick
@@ -134,26 +135,28 @@ proc checkStateTransition(
   else:
     ok()
 
-proc advanceClearanceState*(dag: ChainDAGRef) =
+proc advanceClearanceState*(dag: ChainDAGRef, nextSlot: Slot) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive
   # epoch transition ahead of time.
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
-  let advanced = withState(dag.clearanceState):
-    forkyState.data.slot > forkyState.data.latest_block_header.slot
-  if not advanced:
-    let
-      startTick = Moment.now()
-      next = getStateField(dag.clearanceState, slot) + 1
-    var
-      cache = StateCache()
-      info = ForkedEpochInfo()
-    dag.advanceSlots(dag.clearanceState, next, true, cache, info,
-                     dag.updateFlags)
+  let head = dag.head
+  if dag.clearanceState.matches_block_slot(head.root, nextSlot):
+    return
+
+  let startTick = Moment.now()
+  var cache = StateCache()
+  if dag.updateState(
+    dag.clearanceState,
+    BlockSlotId.init(head.bid, nextSlot),
+    true,
+    cache,
+    dag.updateFlags,
+  ):
     debug "Prepared clearance state for next block",
-      next, updateStateDur = Moment.now() - startTick
+      nextSlot, head, updateStateDur = Moment.now() - startTick
 
 proc checkHeadBlock*(
     dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):
@@ -225,7 +228,7 @@ proc checkHeadBlock*(
 proc addHeadBlockWithParent*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
-    executionValid: bool, onBlockAdded: OnForkyBlockAdded
+    optimisticStatus: OptimisticStatus, onBlockAdded: OnForkyBlockAdded
     ): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
@@ -307,7 +310,7 @@ proc addHeadBlockWithParent*(
   ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
-    executionValid,
+    optimisticStatus,
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
@@ -553,7 +556,7 @@ proc addBackfillBlockData*(
     discard addResolvedHeadBlock(
       dag, dag.clearanceState,
       forkyBlck.asTrusted(),
-      true,
+      OptimisticStatus.notValidated,
       parent, cache,
       blockHandler,
       proposerVerifyTick - startTick,

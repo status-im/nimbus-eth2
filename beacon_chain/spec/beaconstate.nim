@@ -1434,20 +1434,20 @@ template get_updated_effective_balance*(
     balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-template get_expected_withdrawals_aux*(
-    state: capella.BeaconState | deneb.BeaconState, epoch: Epoch,
-    fetch_balance: untyped): seq[Withdrawal] =
+proc get_expected_withdrawals*(
+    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
   let
+    epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
   var
     withdrawal_index = state.next_withdrawal_index
-    validator_index {.inject.} = state.next_withdrawal_validator_index
+    validator_index = state.next_withdrawal_validator_index
     withdrawals: seq[Withdrawal] = @[]
   for _ in 0 ..< bound:
     let
       validator = state.validators[validator_index]
-      balance = fetch_balance
+      balance = state.balances[validator_index]
     if is_fully_withdrawable_validator(
         typeof(state).kind, validator, balance, epoch):
       var w = Withdrawal(
@@ -1470,11 +1470,6 @@ template get_expected_withdrawals_aux*(
       break
     validator_index = (validator_index + 1) mod num_validators
   withdrawals
-
-func get_expected_withdrawals*(
-    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
-  get_expected_withdrawals_aux(state, get_current_epoch(state)) do:
-    state.balances[validator_index]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 # This partials count is used in exactly one place, while in general being able

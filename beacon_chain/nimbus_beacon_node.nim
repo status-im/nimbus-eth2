@@ -1862,13 +1862,32 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
-  if advanceCutoff.inFuture:
-    # We wait until there's only a second left before the next slot begins, then
-    # we advance the clearance state to the next slot - this gives us a high
-    # probability of being prepared for the block that will arrive and the
-    # epoch processing that follows
-    await sleepAsync(advanceCutoff.offset)
-    node.dag.advanceClearanceState()
+
+  let proposalFcu =
+    if advanceCutoff.inFuture:
+      # We wait until there's only a second left before the next slot begins, then
+      # we advance the clearance state to the next slot - this gives us a high
+      # probability of being prepared for the block that will arrive and the
+      # epoch processing that follows
+      await sleepAsync(advanceCutoff.offset)
+      let
+        nextSlot = slot + 1
+        nextSlotCutoff = node.beaconClock.fromNow(nextSlot.start_beacon_time)
+        head = node.dag.head # could be a new head compared to earlier
+
+      if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
+        node.dag.advanceClearanceState(nextSlot)
+
+        # If there is a proposal, we want to let the execution client know a bit
+        # earlier - the risk is that fork choice changes again before the proposal
+        # but this risk should be small
+        node.consensusManager.proposalForkchoiceUpdated(
+          nextSlot, sleepAsync(nextSlotCutoff.offset)
+        )
+      else:
+        nil
+    else:
+      nil
 
   # Prepare action tracker for the next slot
   node.consensusManager[].actionTracker.updateSlot(slot + 1)
@@ -1919,6 +1938,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.network.updateNextForkDigest(nextForkDigest)
 
   await node.updateGossipStatus(slot + 1)
+
+  if proposalFcu != nil:
+    await proposalFcu
 
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =

@@ -11,7 +11,8 @@ import results
 
 from ../beacon_chain/consensus_object_pools/block_clearance import
   addHeadBlockWithParent
-from ../beacon_chain/consensus_object_pools/block_dag import BlockRef
+from ../beacon_chain/consensus_object_pools/block_dag import
+  BlockRef, OptimisticStatus
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef, OnForkyBlockAdded, VerifierError
 from ../beacon_chain/spec/forks import ForkySignedBeaconBlock
@@ -24,4 +25,4 @@ proc addHeadBlock*(
     ): Result[BlockRef, VerifierError] =
   addHeadBlockWithParent(
     dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    executionValid = true, onBlockAdded)
+    OptimisticStatus.valid, onBlockAdded)
