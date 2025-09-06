@@ -679,9 +679,16 @@ proc start*(rman: var RequestManager) =
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc switchToColumnLoop*(rman: var RequestManager) =
-  if not(isNil(rman.blobLoopFuture)):
-    rman.blobLoopFuture.cancelSoon()
-  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
+  let currentEpoch =
+      rman.getBeaconTime().slotOrZero().epoch()
+
+  if currentEpoch >= rman.network.cfg.FULU_FORK_EPOCH and
+     isNil(rman.dataColumnLoopFuture):
+    if not(isNil(rman.blobLoopFuture)):
+      rman.blobLoopFuture.cancelSoon()
+
+    rman.dataColumnLoopFuture =
+      rman.requestManagerDataColumnLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
