@@ -561,7 +561,7 @@ proc storeBlock(
   if signedBlock.message.parent_root in
       self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
-    info "FOO5 marking unviable because of parent root aleady being in quarantine",
+    info "FOO5 marking unviable because of parent root aleady being in quarantine unviables",
       blockRoot = shortLog(signedBlock.root),
       slot = signedBlock.message.slot,
       parentBlockRoot = shortLog(signedBlock.message.parent_root)
