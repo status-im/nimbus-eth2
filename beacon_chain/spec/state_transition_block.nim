@@ -1072,6 +1072,97 @@ proc process_execution_payload*(
 
   ok()
 
+# copy of datatypes/fulu.nim
+type SomeGloasBeaconBlock =
+  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock |
+  gloas.TrustedBeaconBlock
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_execution_payload_header
+proc process_execution_payload_header*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    blck: SomeGloasBeaconBlock): Result[void, cstring] =
+
+  let 
+    signed_header = blck.body.signed_execution_payload_header
+    header = signed_header.message
+    builder_index = ValidatorIndex.init(header.builder_index).valueOr:
+      return err("process_execution_payload_header: invalid builder index")
+    builder = state.validators.item(builder_index)
+    amount = header.value
+
+  # Verify the header signature
+  if not verify_execution_payload_header_signature(
+      state.fork, state.genesis_validators_root, signed_header,
+      state, builder.pubkey, signed_header.signature):
+    return err("payload_header: invalid header signature")
+
+  if not is_active_validator(builder, get_current_epoch(state)):
+    return err("process_execution_payload_header: builder not active")
+  if builder.slashed:
+    return err("process_execution_payload_header: builder isslashed")
+
+  # For self-builds, amount must be zero regardless of withdrawal credential prefix
+  if builder_index == blck.proposer_index:
+    if amount != 0.Gwei:
+      return err("process_execution_payload_header: self-build must have zero amount")
+  else:
+    # Non-self builds require builder withdrawal credential
+    if not has_builder_withdrawal_credential(builder):
+      return err("process_execution_payload_header: builder missing withdrawal credential")
+
+  # Check that the builder is active, non-slashed, and has funds to cover the bid
+  let
+    pending_payments = block:
+      var total: Gwei
+      for payment in state.builder_pending_payments:
+        if payment.withdrawal.builder_index == builder_index:
+          total += payment.withdrawal.amount
+      total
+
+    pending_withdrawals = block:
+      var total: Gwei
+      for withdrawal in state.builder_pending_withdrawals:
+        if withdrawal.builder_index == builder_index:
+          total += withdrawal.amount
+      total
+
+    required_balance = 
+      amount + pending_payments + pending_withdrawals + 
+      static(MIN_ACTIVATION_BALANCE.Gwei)
+
+  if amount != 0.Gwei and
+      state.balances.item(builder_index) < required_balance:
+    return err("process_execution_payload_header: insufficient builder balance")
+
+  # Verify that the bid is for the current slot
+  if header.slot != blck.slot:
+    return err("process_execution_payload_header: header slot mismatch")
+  
+  # Verify that the bid is for the right parent block
+  if header.parent_block_hash != state.latest_block_hash:
+    return err("process_execution_payload_header: parent block hash mismatch")
+  if header.parent_block_root != blck.parent_root:
+    return err("process_execution_payload_header: parent block root mismatch")
+
+  # Record the pending payment
+  let 
+    pending_payment = BuilderPendingPayment(
+      weight: 0.Gwei,
+      withdrawal: BuilderPendingWithdrawal(
+        fee_recipient: header.fee_recipient,
+        amount: amount,
+        builder_index: builder_index.uint64
+      )
+    )
+
+  state.builder_pending_payments.mitem(
+    SLOTS_PER_EPOCH + (header.slot mod SLOTS_PER_EPOCH)) = pending_payment
+
+  # Cache the signed execution payload header
+  state.latest_execution_payload_header = header
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
