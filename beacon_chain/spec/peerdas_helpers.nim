@@ -248,10 +248,8 @@ proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
-  var
-    sidecars =
-      newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
-      
+  var sidecars = newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
   when signed_beacon_block is gloas.SignedBeaconBlock:
     debugGloasComment "kzg_commitments removed from beaconblock in gloas"
     return sidecars
@@ -305,32 +303,6 @@ proc assemble_data_column_sidecars*(
       sidecars.add(sidecar)
 
     sidecars
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
-func get_extended_sample_count*(samples_per_slot: int,
-                                allowed_failures: int):
-                                int =
-  ## `get_extended_sample_count` computes the number of samples we
-  ## should query from peers, given the SAMPLES_PER_SLOT and
-  ## the number of allowed failures
-
-  # If 50% of the columns are missing, we are able to reconstruct the data
-  # If 50% + 1 columns are missing, we cannot reconstruct the data
-  const worstCaseConditionCount = (NUMBER_OF_COLUMNS div 2) + 1
-
-  # Compute the false positive threshold
-  let falsePositiveThreshold =
-    hypergeom_cdf(0, NUMBER_OF_COLUMNS, worstCaseConditionCount, samples_per_slot)
-
-  # Finally, compute the extended sample count
-  for i in samples_per_slot .. NUMBER_OF_COLUMNS:
-    if hypergeom_cdf(
-        allowed_failures,
-        NUMBER_OF_COLUMNS,
-        worstCaseConditionCount, i) <= falsePositiveThreshold:
-      return i
-
-  NUMBER_OF_COLUMNS
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
 func verify_data_column_sidecar*(sidecar: fulu.DataColumnSidecar):
