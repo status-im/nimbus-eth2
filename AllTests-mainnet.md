@@ -803,10 +803,6 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## PeerDAS Sampling Tests
-```diff
-+ PeerDAS: Extended Sample Count                                                             OK
-```
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -952,7 +948,6 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
-+ hypergeom_cdf                                                                              OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types
