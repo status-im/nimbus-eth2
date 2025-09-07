@@ -83,7 +83,6 @@ func init*(
 func init*(
     T: type BlockRef, root: Eth2Digest, executionValid: bool,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
-  debugGloasComment "is this right?"
   BlockRef.init(
     root,
     Opt.some blck.body.signed_execution_payload_header.message.block_hash,
