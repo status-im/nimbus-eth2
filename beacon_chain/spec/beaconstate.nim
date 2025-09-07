@@ -1486,7 +1486,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
     state: electra.BeaconState | fulu.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
-  doAssert epoch - get_current_epoch(state)
+  doAssert epoch == get_current_epoch(state)
 
   var
     withdrawal_index = state.next_withdrawal_index
