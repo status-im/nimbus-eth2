@@ -16,8 +16,6 @@ import
   ../beacon_clock,
   ./common_tools
 
-from ../spec/beaconstate import
-  get_expected_withdrawals
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
@@ -106,7 +104,7 @@ proc checkExpectedBlock(self: var ConsensusManager) =
 
   if self.dag.head.slot < self.expectedSlot or not self.dag.head.executionValid:
     # Don't trigger `expectBlock` if the head is optimistic - this gives the
-    # forkchoiceUpdated call time to maybe update the optimistic status before
+    # `forkchoiceUpdated` call time to maybe update the optimistic status before
     # it's time to validate
     return
 
@@ -288,7 +286,7 @@ proc proposalForkchoiceUpdated*(
     self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
 ) {.async: (raises: [CancelledError]).} =
   ## Send a "warm-up" forkchoiceUpdated to the execution client, assuming that
-  ## `clearanceState` has been updated to the expected epooch of the proposal
+  ## `clearanceState` has been updated to the expected epoch of the proposal
   if self.forkchoiceInflight:
     debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
     return
@@ -486,7 +484,7 @@ proc updateExecutionHead*(
   ## In the case that we were optimistically synced and the execution client has
   ## determined that the payload was invalid, we will also attempt to update
   ## the consensus head towards a valid / nonValidated block by rerunning
-  ## fork choice with the new information in mind.
+  ## fork choice with the new information about invalid blocks in mind.
 
   if self.forkchoiceInflight:
     return
