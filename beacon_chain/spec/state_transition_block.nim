@@ -1155,7 +1155,7 @@ func process_withdrawals*(state: var gloas.BeaconState):
 
   let processed_count = min(
     processed_builder_withdrawals_count, 
-    state.builder_pending_withdrawals.len.uint64).int
+    state.builder_pending_withdrawals.lenu64).int
 
   for i in 0 ..< processed_count:
     let withdrawal = state.builder_pending_withdrawals.item(i)

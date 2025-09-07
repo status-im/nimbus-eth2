@@ -1486,7 +1486,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
     state: electra.BeaconState | fulu.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
-  doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
+  doAssert epoch - get_current_epoch(state)
 
   var
     withdrawal_index = state.next_withdrawal_index
@@ -1601,7 +1601,7 @@ template get_expected_withdrawals_with_builder_count_aux(
     state: gloas.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64, uint64) =
-  doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
+  doAssert epoch == get_current_epoch(state)
 
   var
     withdrawal_index = state.next_withdrawal_index
@@ -1619,11 +1619,10 @@ template get_expected_withdrawals_with_builder_count_aux(
     
     if is_builder_payment_withdrawable(state, withdrawal):
       let
-        validator_index = withdrawal.builder_index
         total_withdrawn = block:
           var res: Gwei
           for w in withdrawals:
-            if w.validator_index == validator_index:
+            if w.validator_index == withdrawal.builder_index:
               res += w.amount
           res
         balance = fetch_balance - total_withdrawn
