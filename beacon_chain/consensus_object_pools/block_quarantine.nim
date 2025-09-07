@@ -144,13 +144,9 @@ func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
-func removeBlobless*(
+func removeSidecarless*(
   quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.blobless.del(signedBlock.root)
-
-func removeColumnless*(
-  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.columnless.del(signedBlock.root)
+  quarantine.sidecarless.del(signedBlock.root)
 
 func isViable(
     finalizedSlot: Slot, slot: Slot): bool =

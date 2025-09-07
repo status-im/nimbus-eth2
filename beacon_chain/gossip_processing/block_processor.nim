@@ -27,7 +27,7 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, pop, removeOrphan
+  addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
@@ -249,7 +249,7 @@ proc storeBackfillBlock(
 
   when signedBlock is gloas.SignedBeaconBlock:
     debugGloasComment "blob_kzg_commitments removed from BeaconBlockBody in Gloas"
-    
+
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
     if dataColumnsOpt.isSome:
@@ -337,7 +337,7 @@ proc expectValidForkchoiceUpdated(
       deadline = deadline,
       retry = retry)
     receivedExecutionBlockHash =
-      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix and 
+      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix and
           typeof(receivedBlock).kind < ConsensusFork.Gloas:
         debugGloasComment "no execution payload field for gloas"
         receivedBlock.message.body.execution_payload.block_hash
@@ -604,6 +604,7 @@ proc storeBlock(
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
+  self.consensusManager.quarantine[].removeSidecarless(signedBlock)
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
@@ -726,7 +727,7 @@ proc storeBlock(
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and 
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and
         typeof(signedBlock).kind < ConsensusFork.Gloas:
       debugGloasComment "no exection payload field for gloas"
       if signedBlock.message.is_execution_block:
@@ -765,7 +766,7 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu and 
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu and
       typeof(signedBlock).kind < ConsensusFork.Gloas:
     debugGloasComment "no blob_kzg_commitments field for gloas"
     if dataColumnsOpt.isSome:
@@ -788,7 +789,7 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  elif typeof(signedBlock).kind >= ConsensusFork.Deneb and 
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb and
       typeof(signedBlock).kind < ConsensusFork.Gloas:
     debugGloasComment "no blob_kzg_commitments field for gloas"
     if blobsOpt.isSome:
