@@ -54,7 +54,7 @@ const testDirs = toHashSet([
 ])
 
 doAssert toHashSet(
- mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
+  mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
 
 proc runTest[T, U](
     testSuiteDir, suiteName, opName, applyFile: string,

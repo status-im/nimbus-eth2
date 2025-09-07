@@ -1132,8 +1132,7 @@ func process_withdrawals*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_withdrawals
-func process_withdrawals*(
-    state: var gloas.BeaconState): 
+func process_withdrawals*(state: var gloas.BeaconState):
     Result[void, cstring] =
   # return early if the parent block was empty
   if not is_parent_block_full(state):
@@ -1152,18 +1151,18 @@ func process_withdrawals*(
     decrease_balance(state, validator_index, withdrawal.amount)
   
   # Update the pending builder withdrawals
-  var new_builder_withdrawals: seq[BuilderPendingWithdrawal] = @[]
+  var new_builder_withdrawals: seq[BuilderPendingWithdrawal]
 
-  for i in 0 ..< processed_builder_withdrawals_count.int:
-    if i < state.builder_pending_withdrawals.len and 
-      not is_builder_payment_withdrawable(
-        state, 
-        state.builder_pending_withdrawals.item(i)):
-      new_builder_withdrawals.add(
-        state.builder_pending_withdrawals.item(i))
+  let processed_count = min(
+    processed_builder_withdrawals_count, 
+    state.builder_pending_withdrawals.len.uint64).int
 
-  for i in processed_builder_withdrawals_count.int ..< 
-      state.builder_pending_withdrawals.len:
+  for i in 0 ..< processed_count:
+    let withdrawal = state.builder_pending_withdrawals.item(i)
+    if not is_builder_payment_withdrawable(state, withdrawal):
+      new_builder_withdrawals.add(withdrawal)
+
+  for i in processed_count ..< state.builder_pending_withdrawals.len:
     new_builder_withdrawals.add(
       state.builder_pending_withdrawals.item(i))
   

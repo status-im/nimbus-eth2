@@ -1597,7 +1597,7 @@ func get_expected_withdrawals*(
   get_expected_withdrawals_with_partial_count(state)[0]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-get_expected_withdrawals
-template get_expected_withdrawals_with_builder_count_aux*(
+template get_expected_withdrawals_with_builder_count_aux(
     state: gloas.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64, uint64) =
@@ -1606,15 +1606,15 @@ template get_expected_withdrawals_with_builder_count_aux*(
   var
     withdrawal_index = state.next_withdrawal_index
     validator_index {.inject.} = state.next_withdrawal_validator_index
-    withdrawals: seq[Withdrawal] = @[]
-    processed_partial_withdrawals_count: uint64 = 0
-    processed_builder_withdrawals_count: uint64 = 0
+    withdrawals = newSeqOfCap[Withdrawal](MAX_WITHDRAWALS_PER_PAYLOAD)
+    processed_partial_withdrawals_count = 0'u64
+    processed_builder_withdrawals_count = 0'u64
 
   # [New in Gloas:EIP7732] 
   # Sweep for builder payments
   for withdrawal in state.builder_pending_withdrawals:
-    if withdrawal.withdrawable_epoch > epoch or 
-       len(withdrawals) + 1 == MAX_WITHDRAWALS_PER_PAYLOAD:
+    if  withdrawal.withdrawable_epoch > epoch or 
+        len(withdrawals) + 1 == MAX_WITHDRAWALS_PER_PAYLOAD:
       break
     
     if is_builder_payment_withdrawable(state, withdrawal):
@@ -1727,20 +1727,15 @@ template get_expected_withdrawals_with_builder_count_aux*(
     validator_index = (validator_index + 1) mod num_validators
 
   (withdrawals, 
-  processed_builder_withdrawals_count, 
-  processed_partial_withdrawals_count)
+   processed_builder_withdrawals_count, 
+   processed_partial_withdrawals_count)
 
-template get_expected_withdrawals_with_builder_count*(
+template get_expected_withdrawals*(
     state: gloas.BeaconState):
     (seq[Withdrawal], uint64, uint64) =
   get_expected_withdrawals_with_builder_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
-
-func get_expected_withdrawals*(
-    state: gloas.BeaconState):
-    (seq[Withdrawal], uint64, uint64) =
-  get_expected_withdrawals_with_builder_count(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
