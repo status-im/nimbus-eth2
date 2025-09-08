@@ -205,24 +205,24 @@ proc loadChainDag(
     if dag == nil: return
     withForkyFinalityUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+        let
+          contextEpoch = forkyFinalityUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.finUpdateQueue.emit(
           RestVersioned[ForkedLightClientFinalityUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+        let
+          contextEpoch = forkyOptimisticUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.optUpdateQueue.emit(
           RestVersioned[ForkedLightClientOptimisticUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
 
   let
     chainDagFlags =
@@ -466,7 +466,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Fulu and 
+        when consensusFork >= ConsensusFork.Fulu and
             consensusFork < ConsensusFork.Gloas:
           debugGloasComment "no blob_kzg_commitments field for gloas"
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)

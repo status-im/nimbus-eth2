@@ -46,8 +46,7 @@ proc readChunkPayload*(
       let res = await eth2_network.readChunkPayload(
         conn, peer, MsgType.Forky(lcDataFork))
       if res.isOk:
-        if contextFork !=
-            peer.network.cfg.consensusForkAtEpoch(res.get.contextEpoch):
+        if peer.network.forkDigestAtEpoch(res.get.contextEpoch) != contextBytes:
           return neterr InvalidContextBytes
         return ok MsgType.init(res.get)
       else:
@@ -57,12 +56,8 @@ proc readChunkPayload*(
 
 {.pop.}
 
-func forkDigestAtEpoch(state: LightClientNetworkState,
-                       epoch: Epoch): ForkDigest =
-  state.dag.forkDigests[].atEpoch(epoch, state.dag.cfg)
-
-p2pProtocol LightClientSync(version = 1,
-                       networkState = LightClientNetworkState):
+p2pProtocol LightClientSync(
+    version = 1, networkState = LightClientNetworkState):
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
       peer: Peer,
@@ -78,7 +73,7 @@ p2pProtocol LightClientSync(version = 1,
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyBootstrap.contextEpoch
-          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
 
         # TODO extract from libp2pProtocol
         peer.awaitQuota(
@@ -120,8 +115,7 @@ p2pProtocol LightClientSync(version = 1,
         when lcDataFork > LightClientDataFork.None:
           let
             contextEpoch = forkyUpdate.contextEpoch
-            contextBytes =
-              peer.networkState.forkDigestAtEpoch(contextEpoch).data
+            contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
 
           # TODO extract from libp2pProtocol
           peer.awaitQuota(
@@ -148,7 +142,7 @@ p2pProtocol LightClientSync(version = 1,
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyFinalityUpdate.contextEpoch
-          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
 
         # TODO extract from libp2pProtocol
         peer.awaitQuota(
@@ -174,7 +168,7 @@ p2pProtocol LightClientSync(version = 1,
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyOptimisticUpdate.contextEpoch
-          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
 
         # TODO extract from libp2pProtocol
         peer.awaitQuota(

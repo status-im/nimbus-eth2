@@ -904,7 +904,7 @@ proc updateBeaconMetrics(
     beacon_current_active_validators.set(active_validators)
 
     beacon_head_execution_number.set(
-      when consensusFork >= ConsensusFork.Bellatrix and 
+      when consensusFork >= ConsensusFork.Bellatrix and
           consensusFork < ConsensusFork.Gloas:
         debugGloasComment "handle correctly for gloas"
         forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
@@ -1382,6 +1382,9 @@ template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
 
 proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
   dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")
+
+func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  dag.forkDigests[].atEpoch(epoch, dag.cfg)
 
 func getEpochRef*(
     dag: ChainDAGRef, state: ForkedHashedBeaconState, cache: var StateCache): EpochRef =

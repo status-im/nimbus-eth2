@@ -117,15 +117,16 @@ proc main() {.noinline, raises: [CatchableError].} =
     PeerSync, PeerSync.NetworkState.init(
       cfg, forkDigests, genesisBlockRoot, getBeaconTime))
 
-  withAll(ConsensusFork):
-    let forkDigest = forkDigests[].atConsensusFork(consensusFork)
-    network.addValidator(
-      getBeaconBlocksTopic(forkDigest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock,
-          src: PeerId
-      ): ValidationResult =
-        toValidationResult(
-          optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  for consensusFork in ConsensusFork:
+    for forkDigest in consensusFork.forkDigests(forkDigests[]):
+      withConsensusFork(consensusFork):
+        network.addValidator(
+          getBeaconBlocksTopic(forkDigest), proc (
+              signedBlock: consensusFork.SignedBeaconBlock,
+              src: PeerId
+          ): ValidationResult =
+            toValidationResult(
+              optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()

@@ -1209,6 +1209,14 @@ template atEpoch*(
   else:
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
+iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
+  yield forkDigests.atConsensusFork(consensusFork)
+
+  if consensusFork >= ConsensusFork.Fulu:
+    for (_, consensusFork, forkDigest) in forkDigests.bpos:
+      if consensusFork == consensusFork:
+        yield forkDigest
+
 template asSigned*(
     x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)

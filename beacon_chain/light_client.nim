@@ -287,11 +287,13 @@ proc installMessageValidators*(
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,
-      contextFork: ConsensusFork,
+      expectedContextBytes: ForkDigest,
       validatorProcName: untyped): ValidationResult =
     msg.logReceived()
 
-    if contextFork != lightClient.cfg.consensusForkAtEpoch(msg.contextEpoch):
+    let contextBytes =
+      lightClient.forkDigests[].atEpoch(msg.contextEpoch, lightClient.cfg)
+    if contextBytes != expectedContextBytes:
       msg.logDropped(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
@@ -346,30 +348,29 @@ proc installMessageValidators*(
 
   let forkDigests = lightClient.forkDigests
   for consensusFork in ConsensusFork:
-    withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
-      when lcDataFork > LightClientDataFork.None:
-        closureScope:
-          let
-            contextFork = consensusFork
-            digest = forkDigests[].atConsensusFork(contextFork)
+    for forkDigest in consensusFork.forkDigests(forkDigests[]):
+      withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
+        when lcDataFork > LightClientDataFork.None:
+          closureScope:
+            let contextBytes = forkDigest
 
-          # light_client_optimistic_update
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
-          lightClient.network.addValidator(
-            getLightClientFinalityUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientFinalityUpdate,
-              src: PeerId
-            ): ValidationResult =
-              validate(msg, contextFork, processLightClientFinalityUpdate))
+            # light_client_optimistic_update
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+            lightClient.network.addValidator(
+              getLightClientFinalityUpdateTopic(forkDigest), proc (
+                msg: lcDataFork.LightClientFinalityUpdate,
+                src: PeerId
+              ): ValidationResult =
+                validate(msg, contextBytes, processLightClientFinalityUpdate))
 
-          # light_client_optimistic_update
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
-          lightClient.network.addValidator(
-            getLightClientOptimisticUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientOptimisticUpdate,
-              src: PeerId
-            ): ValidationResult =
-              validate(msg, contextFork, processLightClientOptimisticUpdate))
+            # light_client_optimistic_update
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+            lightClient.network.addValidator(
+              getLightClientOptimisticUpdateTopic(forkDigest), proc (
+                msg: lcDataFork.LightClientOptimisticUpdate,
+                src: PeerId
+              ): ValidationResult =
+                validate(msg, contextBytes, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
