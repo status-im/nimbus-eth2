@@ -2015,7 +2015,8 @@ proc attemptGetBlobs(node: BeaconNode,
   if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and
+           consensusFork < ConsensusFork.Gloas:
         let
           blobsFromElOpt=
             await elManager.sendGetBlobsV2(forkyBlck)

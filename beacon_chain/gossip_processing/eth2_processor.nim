@@ -354,7 +354,8 @@ proc processBlobSidecar*(
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+    dataColumnSidecar: fulu.DataColumnSidecar | gloas.DataColumnSidecar,
+    subnet_id: uint64): ValidationRes =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
   let
