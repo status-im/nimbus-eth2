@@ -2018,7 +2018,7 @@ proc attemptGetBlobs(node: BeaconNode,
       when consensusFork >= ConsensusFork.Fulu and
            consensusFork < ConsensusFork.Gloas:
         let
-          blobsFromElOpt=
+          blobsFromElOpt =
             await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
