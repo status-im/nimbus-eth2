@@ -513,6 +513,9 @@ AllTests-mainnet
 + KZG - Recover Cells And Kzg Proofs Parallel - invalid - cell_1                             OK
 + KZG - Recover Cells And Kzg Proofs Parallel - invalid - cell_index                         OK
 + KZG - Recover Cells And Kzg Proofs Parallel - invalid - more_than_half_missing             OK
++ KZG - Recover Cells And Kzg Proofs Parallel - invalid - shuffled_half_missing              OK
++ KZG - Recover Cells And Kzg Proofs Parallel - invalid - shuffled_no_missing                OK
++ KZG - Recover Cells And Kzg Proofs Parallel - invalid - shuffled_one_missing               OK
 + KZG - Recover Cells And Kzg Proofs Parallel - valid                                        OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_cell        OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_commitment  OK
