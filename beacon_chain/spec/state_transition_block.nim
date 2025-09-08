@@ -1027,6 +1027,7 @@ proc process_execution_payload*(
 
   ok()
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/fulu.nim
 type SomeFuluBeaconBlockBody =
   fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
@@ -1074,32 +1075,32 @@ proc process_execution_payload*(
 
 # copy of datatypes/gloas.nim
 type SomeGloasBeaconBlock =
-  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock |
-  gloas.TrustedBeaconBlock
+  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_execution_payload_header
 proc process_execution_payload_header*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     blck: SomeGloasBeaconBlock): Result[void, cstring] =
 
-  let 
-    signed_header = blck.body.signed_execution_payload_header
-    header = signed_header.message
+  template signed_header: untyped = blck.body.signed_execution_payload_header
+  template header: untyped = signed_header.message
+
+  let
     builder_index = ValidatorIndex.init(header.builder_index).valueOr:
       return err("process_execution_payload_header: invalid builder index")
-    builder = state.validators.item(builder_index)
+    builder = addr state.validators.item(builder_index)
     amount = header.value
 
   # Verify the header signature
   if not verify_execution_payload_header_signature(
       state.fork, state.genesis_validators_root, signed_header,
-      state, builder.pubkey, signed_header.signature):
+      state, builder[].pubkey, signed_header.signature):
     return err("payload_header: invalid header signature")
 
-  if not is_active_validator(builder, get_current_epoch(state)):
+  if not is_active_validator(builder[], get_current_epoch(state)):
     return err("process_execution_payload_header: builder not active")
-  if builder.slashed:
-    return err("process_execution_payload_header: builder isslashed")
+  if builder[].slashed:
+    return err("process_execution_payload_header: builder is slashed")
 
   # For self-builds, amount must be zero regardless of withdrawal credential prefix
   if builder_index == blck.proposer_index:
@@ -1107,7 +1108,7 @@ proc process_execution_payload_header*(
       return err("process_execution_payload_header: self-build must have zero amount")
   else:
     # Non-self builds require builder withdrawal credential
-    if not has_builder_withdrawal_credential(builder):
+    if not has_builder_withdrawal_credential(builder[]):
       return err("process_execution_payload_header: builder missing withdrawal credential")
 
   # Check that the builder is active, non-slashed, and has funds to cover the bid
