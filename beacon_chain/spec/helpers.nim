@@ -474,7 +474,7 @@ func computeRequestsHash(
 
 proc toExecutionBlockHeader(
     payload: ForkyExecutionPayload,
-    parentRoot: Eth2Digest,
+    parentRoot: Opt[Eth2Digest],
     requestsHash = Opt.none(EthHash32)): EthHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
@@ -483,23 +483,23 @@ proc toExecutionBlockHeader(
   let
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
-      when typeof(payload).kind >= ConsensusFork.Capella:
+      when compiles(payload.withdrawals):
         Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
         Opt.none(EthHash32)
     blobGasUsed =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
+      when compiles(payload.blob_gas_used):
         Opt.some payload.blob_gas_used
       else:
         Opt.none(uint64)
     excessBlobGas =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
+      when compiles(payload.excess_blob_gas):
         Opt.some payload.excess_blob_gas
       else:
         Opt.none(uint64)
     parentBeaconBlockRoot =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some EthHash32(parentRoot.data)
+      if parentRoot.isSome():
+        Opt.some(parentRoot.get().to(EthHash32))
       else:
         Opt.none(EthHash32)
 
@@ -531,10 +531,14 @@ proc compute_execution_block_hash*(
     parentRoot: Eth2Digest): Eth2Digest =
   when typeof(body).kind >= ConsensusFork.Electra:
     body.execution_payload.toExecutionBlockHeader(
-        parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+        Opt.some parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+      .computeRlpHash().to(Eth2Digest)
+  elif typeof(body).kind >= ConsensusFork.Deneb:
+    body.execution_payload.toExecutionBlockHeader(
+        Opt.some parentRoot)
       .computeRlpHash().to(Eth2Digest)
   else:
-    body.execution_payload.toExecutionBlockHeader(parentRoot)
+    body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
       .computeRlpHash().to(Eth2Digest)
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
