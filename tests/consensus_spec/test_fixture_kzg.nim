@@ -16,6 +16,7 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
+from std/algorithm import sort, sorted
 from std/sequtils import anyIt, filterIt, mapIt, toSeq
 from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
@@ -379,6 +380,8 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
           column: DataColumn(cells))
         colInput.add(newClone(sidecar))
 
+      sort(colInput) do (x, y: auto) -> int: cmp(x[].index, y[].index)
+
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
@@ -472,8 +475,6 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
         check v.isErr
   except Exception:
     debugEcho "Problem in loading KZG invalid case data"
-
-from std/algorithm import sorted
 
 var suiteName = "EF - KZG"
 
