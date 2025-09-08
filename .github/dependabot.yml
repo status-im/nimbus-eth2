@@ -15,6 +15,7 @@ updates:
       - dependency-name: vendor/sepolia
       - dependency-name: vendor/hoodi
       - dependency-name: vendor/gnosis-chain-configs
+      - dependency-name: vendor/nim-sqlite3-abi
     schedule:
       interval: daily
     target-branch: unstable
