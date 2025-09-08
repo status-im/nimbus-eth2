@@ -138,6 +138,9 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
+func hasRestAllowedOrigin*(node: BeaconNode): bool =
+  node.config.restAllowedOrigin.isSome
+
 func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
   if config.payloadBuilderEnable:
     Opt.some config.payloadBuilderUrl

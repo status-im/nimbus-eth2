@@ -331,21 +331,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(
       Http410, DeprecatedRemovalProduceBlindedBlockV1)
 
-  func getMaybeBlindedHeaders(
-      consensusFork: ConsensusFork,
-      isBlinded: bool,
-      executionValue: UInt256,
-      consensusValue: UInt256): HttpTable =
-    var res = HttpTable.init()
-    res.add("eth-consensus-version", consensusFork.toString())
-    if isBlinded:
-      res.add("eth-execution-payload-blinded", "true")
-    else:
-      res.add("eth-execution-payload-blinded", "false")
-    res.add("eth-execution-payload-value", toString(executionValue, 10))
-    res.add("eth-consensus-block-value", toString(consensusValue, 10))
-    res
-
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
   router.api(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
@@ -437,16 +422,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               qboostFactor)).valueOr:
             # HTTP 400 error is only for incorrect parameters.
             return RestApiResponse.jsonError(Http500, error)
-          headers = consensusFork.getMaybeBlindedHeaders(
-            message.blck.isBlinded,
-            message.executionValue,
-            message.consensusValue)
 
         if contentType == sszMediaType:
           if message.blck.isBlinded:
-            RestApiResponse.sszResponse(message.blck.blindedData, headers)
+            RestApiResponse.sszResponse(
+              message.blck.blindedData, consensusFork, isBlinded = true,
+              message.executionValue, message.consensusValue,
+              node.hasRestAllowedOrigin)
           else:
-            RestApiResponse.sszResponse(message.blck.data, headers)
+            RestApiResponse.sszResponse(
+              message.blck.data, consensusFork, isBlinded = false,
+              message.executionValue, message.consensusValue,
+              node.hasRestAllowedOrigin)
         elif contentType == jsonMediaType:
           let forked =
             if message.blck.isBlinded:
@@ -459,7 +446,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 message.blck.data,
                 Opt.some message.executionValue,
                 Opt.some message.consensusValue)
-          RestApiResponse.jsonResponsePlain(forked, headers)
+          RestApiResponse.jsonResponsePlain(
+            forked, consensusFork, message.blck.isBlinded,
+            message.executionValue, message.consensusValue,
+            node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
       elif consensusFork >= ConsensusFork.Bellatrix:
@@ -467,20 +457,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           message = (await node.makeBeaconBlockForHeadAndSlot(
               consensusFork, proposer, qrandao, qgraffiti, qhead, qslot)).valueOr:
             return RestApiResponse.jsonError(Http500, error)
-          headers = consensusFork.getMaybeBlindedHeaders(
-            isBlinded = false,
-            message.executionValue,
-            message.consensusValue)
 
         if contentType == sszMediaType:
-          RestApiResponse.sszResponse(message.blck, headers)
+          RestApiResponse.sszResponse(
+            message.blck, consensusFork, isBlinded = false,
+            message.executionValue, message.consensusValue,
+            node.hasRestAllowedOrigin)
         elif contentType == jsonMediaType:
           let forked = ForkedMaybeBlindedBeaconBlock.init(
             message.blck,
             Opt.some message.executionValue,
             Opt.some message.consensusValue)
 
-          RestApiResponse.jsonResponsePlain(forked, headers)
+          RestApiResponse.jsonResponsePlain(
+            forked, consensusFork, isBlinded = false,
+            message.executionValue, message.consensusValue,
+            node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
       else:
@@ -641,8 +633,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 UnableToGetAggregatedAttestationError)
           ForkedAttestation.init(phase0_attestation, qfork)
 
-    let headers = HttpTable.init([("eth-consensus-version", qfork.toString())])
-    RestApiResponse.jsonResponsePlain(forked, headers)
+    RestApiResponse.jsonResponsePlain(forked, qfork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
   router.api2(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
@@ -686,7 +677,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
     let
-      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      headerVersion = request.headers.getString("eth-consensus-version")
       consensusVersion = ConsensusFork.init(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
