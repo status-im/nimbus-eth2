@@ -334,7 +334,7 @@ proc proposalForkchoiceUpdated*(
         return
 
       when consensusFork >= ConsensusFork.Deneb:
-        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let attributes = PayloadAttributesV3(
           timestamp: Quantity timestamp,
@@ -461,7 +461,7 @@ proc forkchoiceUpdated(
       true
     of OptimisticStatus.invalidated:
       if head.blck.executionValid:
-        # https://github.com/ethereum/consensus-specs/blob/927073b0aafc958aef4689010fb4f97d22813015/sync/optimistic.md?plain=1#L420
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
         warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,

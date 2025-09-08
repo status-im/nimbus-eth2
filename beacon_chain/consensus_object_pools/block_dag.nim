@@ -16,10 +16,10 @@ export chronicles, forks
 type
   OptimisticStatus* {.pure.} = enum
     # A simplified version of `PayloadStatusV1`
-    # https://github.com/ethereum/consensus-specs/blob/927073b0aafc958aef4689010fb4f97d22813015/sync/optimistic.md?plain=1#L55
-    notValidated
-    valid
-    invalidated
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#helpers
+    notValidated = "NOT_VALIDATED"
+    valid = "VALID"
+    invalidated = "INVALIDATED"
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to finalized head, and to
@@ -96,7 +96,7 @@ func init*(
     root,
     Opt.some blck.body.signed_execution_payload_header.message.block_hash,
     if optimisticStatus == OptimisticStatus.valid or
-        blck.body.signed_execution_payload_header.message.block_hash == ZERO_HASH:
+        blck.body.signed_execution_payload_header.message.block_hash.isZero:
       OptimisticStatus.valid
     else:
       optimisticStatus,
