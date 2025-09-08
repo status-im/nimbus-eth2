@@ -1161,15 +1161,15 @@ suite "Beacon chain DB" & preset():
 
       # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
-      dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
-      dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
-      dataColumnSidecar2 = DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
+      dataColumnSidecar0 = fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
+      dataColumnSidecar1 = fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
+      dataColumnSidecar2 = fulu.DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
 
       db = makeTestDB(SLOTS_PER_EPOCH)
 
     var
       buf: seq[byte]
-      dataColumnSidecar: DataColumnSidecar
+      dataColumnSidecar: fulu.DataColumnSidecar
 
     check:
       not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
@@ -1289,8 +1289,8 @@ suite "Quarantine" & preset():
       index: int,
       slot: int,
       proposer_index: int
-  ): DataColumnSidecar =
-    DataColumnSidecar(
+  ): fulu.DataColumnSidecar =
+    fulu.DataColumnSidecar(
       index: ColumnIndex(index),
       signed_block_header: SignedBeaconBlockHeader(
         message: BeaconBlockHeader(
@@ -1298,8 +1298,8 @@ suite "Quarantine" & preset():
           proposer_index: uint64(proposer_index))))
 
   proc cmp(
-      a: openArray[ref BlobSidecar|ref DataColumnSidecar],
-      b: openArray[ref BlobSidecar|ref DataColumnSidecar]
+      a: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar],
+      b: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar]
   ): bool =
     if len(a) != len(b):
       return false
@@ -1321,7 +1321,7 @@ suite "Quarantine" & preset():
       newClone(genBlobSidecar(8, 100, 18, 24))
     ]
 
-  proc generateDataColumnSidecars(): seq[ref DataColumnSidecar] =
+  proc generateDataColumnSidecars(): seq[ref fulu.DataColumnSidecar] =
     @[
       newClone(genDataColumnSidecar(0, 200, 100234)),
       newClone(genDataColumnSidecar(7, 200, 100234)),
@@ -1343,7 +1343,7 @@ suite "Quarantine" & preset():
 
   proc getSidecars(
       quarantine: QuarantineDB,
-      T: typedesc[BlobSidecar|DataColumnSidecar],
+      T: typedesc[BlobSidecar|fulu.DataColumnSidecar],
       blockRoot: Eth2Digest
   ): seq[ref T] =
     var res: seq[ref T]

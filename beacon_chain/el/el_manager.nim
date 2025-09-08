@@ -771,60 +771,66 @@ proc sendGetBlobsV2*(
   if m.elConnections.len == 0:
     return err()
 
-  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "handle correctly for Gloas?"
+    return err()
+  else:
+    debugGloasComment "handle correctly for other forks"
 
-  var bestIdx: Opt[int]
+    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
 
-  while true:
-    let requests = m.elConnections.mapIt(
-      sendGetBlobsV2toSingleEl(it,
-        mapIt(blck.message.body.blob_kzg_commitments,
-              kzg_commitment_to_versioned_hash(it))
-      )
-    )
+    var bestIdx: Opt[int]
 
-    let timeoutExceeded =
-      try:
-        await allFutures(requests).wait(deadline)
-        false
-      except AsyncTimeoutError:
-        true
-      except CancelledError as exc:
-        # cancel anything still running, then re-raise
-        await noCancel allFutures(
-          requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+    while true:
+      let requests = m.elConnections.mapIt(
+        sendGetBlobsV2toSingleEl(it,
+          mapIt(blck.message.body.blob_kzg_commitments,
+                kzg_commitment_to_versioned_hash(it))
         )
-        raise exc
+      )
 
-    for idx, req in requests:
-      if req.finished():
-        # choose the first successful (not failed) response
-        if req.error.isNil and bestIdx.isNone:
-          bestIdx = Opt.some(idx)
-      else:
-        # finished == false
-        let errmsg =
-          if req.error.isNil: "request still pending"
-          else: req.error.msg
-        warn "Timeout while getting blobs & proofs",
-             url = m.elConnections[idx].engineUrl.url,
-             reason = errmsg
+      let timeoutExceeded =
+        try:
+          await allFutures(requests).wait(deadline)
+          false
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          # cancel anything still running, then re-raise
+          await noCancel allFutures(
+            requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+          )
+          raise exc
 
-    await noCancel allFutures(
-      requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
-    )
+      for idx, req in requests:
+        if req.finished():
+          # choose the first successful (not failed) response
+          if req.error.isNil and bestIdx.isNone:
+            bestIdx = Opt.some(idx)
+        else:
+          # finished == false
+          let errmsg =
+            if req.error.isNil: "request still pending"
+            else: req.error.msg
+          warn "Timeout while getting blobs & proofs",
+              url = m.elConnections[idx].engineUrl.url,
+              reason = errmsg
 
-    if bestIdx.isSome():
-      let chosen = requests[bestIdx.get()]
-      # chosen is finished; but could still be an error, so guard again
-      if chosen.error.isNil:
-        return ok(chosen.value())
-      else:
-        warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
-    if timeoutExceeded:
-      break
+      await noCancel allFutures(
+        requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+      )
 
-  err()
+      if bestIdx.isSome():
+        let chosen = requests[bestIdx.get()]
+        # chosen is finished; but could still be an error, so guard again
+        if chosen.error.isNil:
+          return ok(chosen.value())
+        else:
+          warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
+      if timeoutExceeded:
+        break
+
+    err()
 
 proc sendNewPayload*(
     m: ELManager,

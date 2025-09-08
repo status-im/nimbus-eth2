@@ -57,7 +57,7 @@ type
 
   DataColumnLoaderFn = proc(
       columnId: DataColumnIdentifier):
-      Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
+      Opt[ref fulu.DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
 
@@ -67,7 +67,7 @@ type
 
   DataColumnResponseRecord* = object
     block_root*: Eth2Digest
-    sidecar*: ref DataColumnSidecar
+    sidecar*: ref fulu.DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -134,10 +134,10 @@ func checkResponse(roots: openArray[Eth2Digest],
   true
 
 func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
-                          y: ref BlobSidecar | ref DataColumnSidecar): int =
+                          y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x.index, y[].index)
 
-func cmpColumnIndex(x: ColumnIndex, y: ref DataColumnSidecar): int =
+func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
 func checkResponseSanity(
@@ -170,7 +170,7 @@ func checkResponseSanity(
   Opt.some(records)
 
 func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
-                          columns: openArray[ref DataColumnSidecar]):
+                          columns: openArray[ref fulu.DataColumnSidecar]):
                           Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
@@ -260,7 +260,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpSidecarIndexes*(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
+func cmpSidecarIndexes*(x, y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
@@ -570,7 +570,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
 
   for columnless in rman.quarantine[].peekSidecarless():
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"

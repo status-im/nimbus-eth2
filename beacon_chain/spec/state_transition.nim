@@ -438,7 +438,9 @@ proc makeBeaconBlockWithRewards*(
     blck.body.sync_aggregate = sync_aggregate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/validator.md#block-proposal
-  when consensusFork >= ConsensusFork.Bellatrix:
+  when consensusFork >= ConsensusFork.Bellatrix and
+      consensusFork < ConsensusFork.Gloas:
+    debugGloasComment "handle correctly for gloas"
     when execution_payload is ForkyExecutionPayloadHeader:
       blck.body.execution_payload_header = execution_payload
     else:
@@ -449,10 +451,14 @@ proc makeBeaconBlockWithRewards*(
     blck.body.bls_to_execution_changes = validator_changes.bls_to_execution_changes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Deneb and
+      consensusFork < ConsensusFork.Gloas:
+    debugGloasComment "handle correctly for gloas"
     blck.body.blob_kzg_commitments = kzg_commitments
 
-  when consensusFork >= ConsensusFork.Electra:
+  when consensusFork >= ConsensusFork.Electra and
+      consensusFork < ConsensusFork.Gloas:
+    debugGloasComment "handle correctly for gloas"
     blck.body.execution_requests = execution_requests
 
   let rewards =

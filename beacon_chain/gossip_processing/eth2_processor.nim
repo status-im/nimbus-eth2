@@ -359,7 +359,9 @@ proc validateDataColumnSidecarFromEL*(
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and
+          consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "no blob_kzg_commitments field for gloas"
         let blobsFromElOpt = await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
@@ -383,7 +385,7 @@ proc validateDataColumnSidecarFromEL*(
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    dataColumnSidecar: fulu.DataColumnSidecar, subnet_id: uint64):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
@@ -410,7 +412,8 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and 
+          consensusFork < ConsensusFork.Gloas:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():

@@ -80,7 +80,7 @@ type
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
-    SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
+    SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
 
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
@@ -236,10 +236,10 @@ func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
 func getIndex(quarantine: ColumnQuarantine, index: ColumnIndex): int =
   quarantine.indexMap[int(index)]
 
-template slot(b: BlobSidecar|DataColumnSidecar): Slot =
+template slot(b: BlobSidecar|fulu.DataColumnSidecar): Slot =
   b.signed_block_header.message.slot
 
-template proposer_index(b: BlobSidecar|DataColumnSidecar): uint64 =
+template proposer_index(b: BlobSidecar|fulu.DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
 func unload[A](holder: var SidecarHolder[A]): ref A =
@@ -499,6 +499,12 @@ proc popSidecars*(
   ## block ``blck``.
   ## If some of the blob sidecars are missing Opt.none() is returned.
   ## If block do not have any blob sidecars Opt.some([]) is returned.
+  
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "no blob_kzg_commitments field for gloas beacon block"
+    quarantine.remove(blockRoot)
+    return Opt.some(default(seq[ref BlobSidecar]))
+
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
@@ -534,8 +540,8 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
+    blck: fulu.SignedBeaconBlock
+): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``
   ## and block ``blck``.
   ## If some of the column sidecars are missing Opt.none() is returned.
@@ -544,12 +550,12 @@ proc popSidecars*(
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
     quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref DataColumnSidecar]))
+    return Opt.some(default(seq[ref fulu.DataColumnSidecar]))
 
   var record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not allocated.
-    return Opt.none(seq[ref DataColumnSidecar])
+    return Opt.none(seq[ref fulu.DataColumnSidecar])
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -561,13 +567,13 @@ proc popSidecars*(
 
   if record.count < columnsCount:
     # Quarantine does not hold enough column sidecars.
-    return Opt.none(seq[ref DataColumnSidecar])
+    return Opt.none(seq[ref fulu.DataColumnSidecar])
 
   if record.unloaded > 0:
     # Quarantine unloaded some blobs to disk, we should load it back.
     quarantine.loadRoot(blockRoot, record)
 
-  var sidecars: seq[ref DataColumnSidecar]
+  var sidecars: seq[ref fulu.DataColumnSidecar]
   if supernode:
     for sidecar in record.sidecars:
       # Supernode could have some of the columns not filled.
@@ -607,7 +613,7 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blck: fulu.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
+): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
 

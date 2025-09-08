@@ -586,7 +586,7 @@ proc proposeBlockAux(
           engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
           @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
       else:
-        Opt.none(seq[DataColumnSidecar])
+        Opt.none(seq[fulu.DataColumnSidecar])
     newBlockRef = await(
       node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
         columnsOpt, checkValidator = false)
