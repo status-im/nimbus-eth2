@@ -71,12 +71,25 @@ func init*(
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
-          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock |
-          gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Opt.some blck.body.execution_payload.block_hash,
+    root,
+    Opt.some blck.body.execution_payload.block_hash,
     executionValid =
       executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
+    blck.slot
+  )
+
+func init*(
+    T: type BlockRef, root: Eth2Digest, executionValid: bool,
+    blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(
+    root,
+    Opt.some blck.body.signed_execution_payload_header.message.block_hash,
+    executionValid =
+      executionValid or
+      blck.body.signed_execution_payload_header.message.block_hash ==
+      ZERO_HASH,
     blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =

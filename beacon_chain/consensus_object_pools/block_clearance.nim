@@ -78,7 +78,7 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
-  when typeof(trustedBlock).kind >= ConsensusFork.Deneb:
+  when typeof(trustedBlock).kind >= ConsensusFork.Deneb and typeof(trustedBlock).kind != ConsensusFork.Gloas:
     debugEcho "BAZ3: state.slot = ", getStateField(state, slot), "; block.slot = ", trustedBlock.message.slot, "; ", hash_tree_root(trustedBlock.message.body.execution_payload.withdrawals), "; ", trustedBlock.message.body.execution_payload.withdrawals
 
   debug "Block resolved",

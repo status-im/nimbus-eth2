@@ -227,13 +227,13 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
     if qslot == ElectraSlot:
       let bid = electra_mev.SignedBuilderBid(
         message: electra_mev.BuilderBid(
-          header: electra.ExecutionPayloadHeader(parent_hash: qhash))
+          header: deneb.ExecutionPayloadHeader(parent_hash: qhash))
       )
       respondSszOrJson(contentType, bid)
     elif qslot == FuluSlot:
       let bid = fulu_mev.SignedBuilderBid(
         message: fulu_mev.BuilderBid(
-          header: fulu.ExecutionPayloadHeader(parent_hash: qhash))
+          header: deneb.ExecutionPayloadHeader(parent_hash: qhash))
       )
       respondSszOrJson(contentType, bid)
     else:
@@ -271,7 +271,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
                               contentBody.get()).valueOr:
             return RestApiResponse.jsonError(error)
         payload = electra_mev.ExecutionPayloadAndBlobsBundle(
-          execution_payload: electra.ExecutionPayload(
+          execution_payload: deneb.ExecutionPayload(
             parent_hash: blck.message.body.execution_payload_header.parent_hash
           ),
           blobs_bundle: deneb.BlobsBundle()

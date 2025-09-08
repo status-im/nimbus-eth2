@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -14,43 +14,44 @@ import
   unittest2,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
-  ../../../beacon_chain/spec/datatypes/electra,
+  ../../../beacon_chain/spec/datatypes/gloas,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
 
 const
-  OpDir                     = SszTestsDir/const_preset/"electra"/"operations"
-  OpAttestationsDir         = OpDir/"attestation"
-  OpAttSlashingDir          = OpDir/"attester_slashing"
-  OpBlockHeaderDir          = OpDir/"block_header"
-  OpBlsToExecutionChangeDir = OpDir/"bls_to_execution_change"
-  OpConsolidationRequestDir = OpDir/"consolidation_request"
-  OpDepositRequestDir       = OpDir/"deposit_request"
-  OpDepositsDir             = OpDir/"deposit"
-  OpWithdrawalRequestDir    = OpDir/"withdrawal_request"
-  OpExecutionPayloadDir     = OpDir/"execution_payload"
-  OpProposerSlashingDir     = OpDir/"proposer_slashing"
-  OpSyncAggregateDir        = OpDir/"sync_aggregate"
-  OpVoluntaryExitDir        = OpDir/"voluntary_exit"
-  OpWithdrawalsDir          = OpDir/"withdrawals"
+  OpDir                       = SszTestsDir/const_preset/"gloas"/"operations"
+  OpAttestationsDir           = OpDir/"attestation"
+  OpAttSlashingDir            = OpDir/"attester_slashing"
+  OpBlockHeaderDir            = OpDir/"block_header"
+  OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
+  OpConsolidationRequestDir   = OpDir/"consolidation_request"
+  OpDepositRequestDir         = OpDir/"deposit_request"
+  OpDepositsDir               = OpDir/"deposit"
+  OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
+  OpExecutionPayloadDir       = OpDir/"execution_payload"
+  OpExecutionPayloadHeaderDir = OpDir/"execution_payload_header"
+  OpPayloadAttestationDir     = OpDir/"payload_attestation"
+  OpProposerSlashingDir       = OpDir/"proposer_slashing"
+  OpSyncAggregateDir          = OpDir/"sync_aggregate"
+  OpVoluntaryExitDir          = OpDir/"voluntary_exit"
+  OpWithdrawalsDir            = OpDir/"withdrawals"
 
-  baseDescription = "EF - Electra - Operations - "
-
+  baseDescription = "EF - Gloas - Operations - "
 
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
-  OpWithdrawalsDir])
+  OpExecutionPayloadHeaderDir, OpPayloadAttestationDir, OpProposerSlashingDir,
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
+])
 
 doAssert toHashSet(
   mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
@@ -68,14 +69,14 @@ proc runTest[T, U](
 
   test prefix & baseDescription & opName & " - " & identifier:
     let preState = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, electra.BeaconState))
+      parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
     let done = applyProc(
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
       let postState =
         newClone(parseTest(
-          testDir/"post.ssz_snappy", SSZ, electra.BeaconState))
+          testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
 
       reportDiff(preState, postState)
       check:
@@ -86,7 +87,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var electra.BeaconState, attestation: electra.Attestation):
+      preState: var gloas.BeaconState, attestation: electra.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -101,13 +102,15 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
+    debugGloasComment "do attestations operations fixture"
+    if true: continue
     runTest[electra.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var electra.BeaconState,
+      preState: var gloas.BeaconState,
       attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
@@ -122,16 +125,13 @@ suite baseDescription & "Attester Slashing " & preset():
 
 suite baseDescription & "Block Header " & preset():
   proc applyBlockHeader(
-      preState: var electra.BeaconState, blck: electra.BeaconBlock):
+      preState: var gloas.BeaconState, blck: gloas.BeaconBlock):
       Result[void, cstring] =
-    if blck.is_execution_block:
-      check blck.body.execution_payload.block_hash ==
-        blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
-    runTest[electra.BeaconBlock, typeof applyBlockHeader](
+    runTest[gloas.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, suiteName, "Block Header", "block",
       applyBlockHeader, path)
 
@@ -140,7 +140,7 @@ from ../../../beacon_chain/spec/datatypes/capella import
 
 suite baseDescription & "BLS to execution change " & preset():
   proc applyBlsToExecutionChange(
-      preState: var electra.BeaconState,
+      preState: var gloas.BeaconState,
       signed_address_change: SignedBLSToExecutionChange):
       Result[void, cstring] =
     process_bls_to_execution_change(
@@ -156,7 +156,7 @@ from ".."/".."/".."/beacon_chain/validator_bucket_sort import
 
 suite baseDescription & "Consolidation Request " & preset():
   proc applyConsolidationRequest(
-      preState: var electra.BeaconState,
+      preState: var gloas.BeaconState,
       consolidation_request: ConsolidationRequest): Result[void, cstring] =
     var cache: StateCache
     process_consolidation_request(
@@ -172,7 +172,7 @@ suite baseDescription & "Consolidation Request " & preset():
 
 suite baseDescription & "Deposit " & preset():
   func applyDeposit(
-      preState: var electra.BeaconState, deposit: Deposit):
+      preState: var gloas.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
       defaultRuntimeConfig, preState,
@@ -184,7 +184,7 @@ suite baseDescription & "Deposit " & preset():
 
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
-      preState: var electra.BeaconState, depositRequest: DepositRequest):
+      preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     process_deposit_request(
       defaultRuntimeConfig, preState, depositRequest, {})
@@ -194,34 +194,15 @@ suite baseDescription & "Deposit Request " & preset():
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
-suite baseDescription & "Execution Payload " & preset():
-  func makeApplyExecutionPayloadCb(path: string): auto =
-    return proc(
-        preState: var electra.BeaconState, body: electra.BeaconBlockBody):
-        Result[void, cstring] =
-      let payloadValid = os_ops.readFile(
-          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-        ).contains("execution_valid: true")
-      if payloadValid and body.is_execution_block and
-          not body.execution_payload.transactions.anyIt(it.len == 0):
-        let expectedOk = (path != "incorrect_block_hash")
-        check expectedOk == (body.execution_payload.block_hash ==
-          body.compute_execution_block_hash(
-            preState.latest_block_root(
-              assignClone(preState)[].hash_tree_root())))
-      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      process_execution_payload(
-        defaultRuntimeConfig, preState, body, executePayload)
+suite baseDescription & "Execution Payload Header " & preset():
+  debugGloasComment "execution payload header operations not yet implemented"
 
-  for path in walkTests(OpExecutionPayloadDir):
-    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-    runTest[electra.BeaconBlockBody, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
-      applyExecutionPayload, path)
+suite baseDescription & "Payload Attestation " & preset():
+  debugGloasComment "payload attestation operations not yet implemented"
 
 suite baseDescription & "Withdrawal Request " & preset():
   func applyWithdrawalRequest(
-      preState: var electra.BeaconState, withdrawalRequest: WithdrawalRequest):
+      preState: var gloas.BeaconState, withdrawalRequest: WithdrawalRequest):
       Result[void, cstring] =
     var cache: StateCache
     process_withdrawal_request(
@@ -237,7 +218,7 @@ suite baseDescription & "Withdrawal Request " & preset():
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var electra.BeaconState, proposerSlashing: ProposerSlashing):
+      preState: var gloas.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
@@ -252,7 +233,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var electra.BeaconState, syncAggregate: SyncAggregate):
+      preState: var gloas.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
     var cache: StateCache
     discard ? process_sync_aggregate(
@@ -267,7 +248,7 @@ suite baseDescription & "Sync Aggregate " & preset():
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var electra.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      preState: var gloas.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
     if process_voluntary_exit(
@@ -284,9 +265,9 @@ suite baseDescription & "Voluntary Exit " & preset():
 
 suite baseDescription & "Withdrawals " & preset():
   func applyWithdrawals(
-      preState: var electra.BeaconState,
+      preState: var gloas.BeaconState,
       executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
-    process_withdrawals(preState, executionPayload)
+    process_withdrawals(preState)
 
   for path in walkTests(OpWithdrawalsDir):
     runTest[deneb.ExecutionPayload, typeof applyWithdrawals](

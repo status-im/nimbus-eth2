@@ -904,7 +904,9 @@ proc updateBeaconMetrics(
     beacon_current_active_validators.set(active_validators)
 
     beacon_head_execution_number.set(
-      when consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix and 
+          consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
         forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
       else:
         0.toGaugeValue
@@ -1480,7 +1482,10 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment ""
+    when consensusFork == ConsensusFork.Gloas:
+      return Opt.none(Eth2Digest)
+    elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:
         var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
         mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
@@ -2328,7 +2333,10 @@ proc loadExecutionBlockHash*(
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment " "
+    when consensusFork == ConsensusFork.Gloas:
+      Opt.some ZERO_HASH
+    elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
       Opt.some ZERO_HASH

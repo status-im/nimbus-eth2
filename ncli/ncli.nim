@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   confutils, json_serialization,
@@ -243,6 +243,7 @@ proc doSSZ(conf: NcliConf) =
   of "deneb_signed_block": printit(deneb.SignedBeaconBlock)
   of "electra_signed_block": printit(electra.SignedBeaconBlock)
   of "fulu_signed_block": printit(fulu.SignedBeaconBlock)
+  of "gloas_signed_block": printit(gloas.SignedBeaconBlock)
   of "phase0_block": printit(phase0.BeaconBlock)
   of "altair_block": printit(altair.BeaconBlock)
   of "bellatrix_block": printit(bellatrix.BeaconBlock)
@@ -250,6 +251,7 @@ proc doSSZ(conf: NcliConf) =
   of "deneb_block": printit(deneb.BeaconBlock)
   of "electra_block": printit(electra.BeaconBlock)
   of "fulu_block": printit(fulu.BeaconBlock)
+  of "gloas_block": printit(gloas.BeaconBlock)
   of "phase0_block_body": printit(phase0.BeaconBlockBody)
   of "altair_block_body": printit(altair.BeaconBlockBody)
   of "bellatrix_block_body": printit(bellatrix.BeaconBlockBody)
@@ -257,6 +259,7 @@ proc doSSZ(conf: NcliConf) =
   of "deneb_block_body": printit(deneb.BeaconBlockBody)
   of "electra_block_body": printit(electra.BeaconBlockBody)
   of "fulu_block_body": printit(fulu.BeaconBlockBody)
+  of "gloas_block_body": printit(gloas.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
@@ -268,6 +271,7 @@ proc doSSZ(conf: NcliConf) =
   of "deneb_state": printit(deneb.BeaconState)
   of "electra_state": printit(electra.BeaconState)
   of "fulu_state": printit(fulu.BeaconState)
+  of "gloas_state": printit(gloas.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

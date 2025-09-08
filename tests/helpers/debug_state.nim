@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/macros,
@@ -80,6 +80,9 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       if tImpl[0].eqIdent"HashList" or tImpl[0].eqIdent"HashArray":
         # TODO  resolve trouble with overloaded `[]` template
         discard
+      elif tImpl[0].eqIdent"BitArray":
+        # TODO it doesn't have `low` or `high`, even as distinctBase
+        discard
       else:
       # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
         compareContainerStmt(xSubField, ySubField, stmts)
@@ -107,5 +110,3 @@ macro reportDiff*(x, y: typed): untyped =
   inspectType(typeImpl, x, y, result)
 
   # echo result.toStrLit
-
-# -----------------------------------------

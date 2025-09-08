@@ -310,7 +310,7 @@ proc jsonResponseBlock*(_: typedesc[RestApiResponse],
 
 proc jsonResponseDataSidecars*(
     _: typedesc[RestApiResponse],
-    data: openArray[BlobSidecar | DataColumnSidecar],
+    data: openArray[BlobSidecar | fulu.DataColumnSidecar],
     version: ConsensusFork,
     execOpt: Opt[bool],
     finalized: bool

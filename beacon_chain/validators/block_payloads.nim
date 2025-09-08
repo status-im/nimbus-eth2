@@ -249,8 +249,11 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
-  template getFuluBlobsBundle(bb: fulu.BlobsBundle): fulu.BlobsBundle = bb
-  template getFuluBlobsBundle(bb: deneb.BlobsBundle): fulu.BlobsBundle =
+  template getFuluBlobsBundle(bb: fulu.BlobsBundle):
+      fulu.BlobsBundle {.used.} =
+    bb
+  template getFuluBlobsBundle(bb: deneb.BlobsBundle):
+      fulu.BlobsBundle {.used.} =
     fulu.BlobsBundle(
       commitments: bb.commitments,
       proofs: fulu.KzgProofs(bb.proofs),
@@ -294,11 +297,15 @@ proc getExecutionPayload*(
     latestFinalized = beaconHead.finalizedExecutionBlockHash
     timestamp = withState(proposalState[]):
       compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
-    random = withState(proposalState[]):
+    prevRandao = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Capella:
-        get_expected_withdrawals(forkyState.data)
+        when consensusFork >= ConsensusFork.Gloas:
+          debugGloasComment "Extracting just the withdrawals from tuple"
+          get_expected_withdrawals(forkyState.data)[0]
+        else:
+          get_expected_withdrawals(forkyState.data)
       else:
         @[]
 
@@ -317,7 +324,7 @@ proc getExecutionPayload*(
     eps = (
       await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, random, feeRecipient, withdrawals,
+        latestFinalized, timestamp, prevRandao, feeRecipient, withdrawals,
       )
     ).valueOr:
       if not proposalState[].is_merge_transition_complete():
@@ -512,9 +519,15 @@ proc collectBids*(
 
     builderBidFut =
       if usePayloadBuilder:
+        debugGloasComment "handle different get_expected_withdrawals types"
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-            get_expected_withdrawals(proposalState[].forky(consensusFork).data)
+            when consensusFork == ConsensusFork.Gloas:
+              get_expected_withdrawals(
+                proposalState[].forky(consensusFork).data)[0]
+            else:
+              get_expected_withdrawals(
+                proposalState[].forky(consensusFork).data)
           )
           expected_withdrawals_root = hash_tree_root(withdrawals)
         node.getBuilderBid(

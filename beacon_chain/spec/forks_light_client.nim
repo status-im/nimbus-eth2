@@ -1004,6 +1004,76 @@ func migratingToDataFork*[
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
 
+# Convenience-based location for toExecutionPayloadHeader because this is the
+# first time we have access to `hash_tree_root` in a universally available
+# module
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: bellatrix.ExecutionPayload
+): bellatrix.ExecutionPayloadHeader =
+  bellatrix.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: capella.ExecutionPayload
+): capella.ExecutionPayloadHeader =
+  capella.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals), # [New in Capella]
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: deneb.ExecutionPayload
+): deneb.ExecutionPayloadHeader =
+  deneb.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used, # [New in Deneb]
+    excess_blob_gas: payload.excess_blob_gas, # [New in Deneb]
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1037,25 +1107,9 @@ func toCapellaLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   capella.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: capella.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
@@ -1108,27 +1162,9 @@ func toDenebLightClientHeader(
     blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: deneb.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
@@ -1157,7 +1193,7 @@ func toElectraLightClientHeader(
   template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
+    execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
       state_root: payload.state_root,
@@ -1179,59 +1215,13 @@ func toElectraLightClientHeader(
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
-      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 

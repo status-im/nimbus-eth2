@@ -20,10 +20,6 @@ import
       forks, network, validator],
   ../validators/message_router_mev
 
-from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
-from ../spec/mev/capella_mev import toSignedBlindedBeaconBlock
-from ../spec/mev/deneb_mev import toSignedBlindedBeaconBlock
-
 export rest_utils
 
 logScope: topics = "rest_beaconapi"
@@ -1048,11 +1044,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
-              Opt.none(seq[DataColumnSidecar]), checkValidator = true)
+              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
-              Opt.none(seq[DataColumnSidecar]), checkValidator = true)
+              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1105,7 +1101,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
-              Opt.none(seq[DataColumnSidecar]),
+              Opt.none(seq[fulu.DataColumnSidecar]),
               checkValidator = true)
           elif consensusFork >= ConsensusFork.Fulu:
             let data_columns = assemble_data_column_sidecars(
@@ -1118,7 +1114,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
-              Opt.none(seq[DataColumnSidecar]),
+              Opt.none(seq[fulu.DataColumnSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -1255,7 +1251,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
-            Opt.none(seq[DataColumnSidecar]), checkValidator = true)
+            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(
@@ -1342,7 +1338,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
-            Opt.none(seq[DataColumnSidecar]), checkValidator = true)
+            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -364,7 +364,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
 
       # convert input into column
       var
-        colInput: seq[ref DataColumnSidecar]
+        colInput: seq[ref fulu.DataColumnSidecar]
         colEntries: Table[uint64, seq[MatrixEntry]]
 
       for entry in input:
@@ -374,7 +374,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
         var cells = newSeq[Cell](rowCount)
         for entry in entries:
           cells[entry.row_index] = entry.cell
-        let sidecar = DataColumnSidecar(
+        let sidecar = fulu.DataColumnSidecar(
           index: ColumnIndex(cIdx),
           column: DataColumn(cells))
         colInput.add(newClone(sidecar))
@@ -451,7 +451,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
         # convert input into column
         var
-          colInput: seq[ref DataColumnSidecar]
+          colInput: seq[ref fulu.DataColumnSidecar]
           colEntries: Table[uint64, seq[MatrixEntry]]
 
         for entry in input:
@@ -461,7 +461,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
           var cells = newSeq[Cell](rowCount)
           for entry in entries:
             cells[entry.row_index] = entry.cell
-          let sidecar = DataColumnSidecar(
+          let sidecar = fulu.DataColumnSidecar(
             index: ColumnIndex(cIdx),
             column: DataColumn(cells))
           colInput.add(newClone(sidecar))
@@ -481,11 +481,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_challenge` isn't provided by nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_kzg_proof",
-     "verify_blob_kzg_proof", "verify_blob_kzg_proof_batch",
-     "verify_kzg_proof"]
+    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_challenge",
+     "compute_kzg_proof", "verify_blob_kzg_proof",
+     "verify_blob_kzg_proof_batch", "verify_kzg_proof"]
 
   block:
     let testsDir = suitePath/"blob_to_kzg_commitment"/"kzg-mainnet"
@@ -523,9 +524,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_verify_cell_kzg_proof_batch_challenge` isn't provided by
+  # nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs",
+     "compute_verify_cell_kzg_proof_batch_challenge",
      "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
 
   block:

@@ -262,6 +262,7 @@ proc processSignedBeaconBlock*(
         if bres.isSome():
           bres
         else:
+          debug "FOOB4 added sidecarless", block_root = signedBlock.root
           self.quarantine[].addSidecarless(signedBlock)
           return v
       else:
@@ -275,6 +276,7 @@ proc processSignedBeaconBlock*(
         if cres.isSome():
           cres
         else:
+          debug "FOOB5 added sidecarless", block_root = signedBlock.root
           discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
                                                   signedBlock)
           return v
@@ -340,6 +342,7 @@ proc processBlobSidecar*(
           self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
             Opt.none(DataColumnSidecars))
         else:
+          debug "FOOB6 added sidecarless", block_root = forkyBlck.root
           self.quarantine[].addSidecarless(forkyBlck)
       else:
         raiseAssert "Could not be added as blobless"
@@ -376,7 +379,8 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and 
+          consensusFork < ConsensusFork.Gloas:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():
@@ -385,6 +389,7 @@ proc processDataColumnSidecar*(
             Opt.none(BlobSidecars),
             cres)
         else:
+          debug "FOOB7 added sidecarless", block_root = forkyBlck.root
           discard self.quarantine[].addSidecarless(
             self.dag.finalizedHead.slot, forkyBlck)
       else:

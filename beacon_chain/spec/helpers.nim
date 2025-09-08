@@ -19,9 +19,6 @@ import
   # Internal
   "."/[eth2_merkleization, forks, ssz_codec]
 
-debugGloasComment ""
-import ./datatypes/gloas
-
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
@@ -396,7 +393,10 @@ func is_merge_transition_complete*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind >= ConsensusFork.Bellatrix:
+  when typeof(body).kind == ConsensusFork.Gloas:
+    debugGloasComment ""
+    false
+  elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
   else:
@@ -444,8 +444,7 @@ template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount)))
 
-proc computeTransactionsTrieRoot(
-    payload: ForkyExecutionPayload): EthHash32 =
+func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-7685
@@ -472,9 +471,9 @@ func computeRequestsHash(
 
   requestsHash.to(EthHash32)
 
-proc toExecutionBlockHeader(
+func toExecutionBlockHeader(
     payload: ForkyExecutionPayload,
-    parentRoot: Eth2Digest,
+    parentRoot: Opt[Eth2Digest],
     requestsHash = Opt.none(EthHash32)): EthHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
@@ -483,23 +482,23 @@ proc toExecutionBlockHeader(
   let
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
-      when typeof(payload).kind >= ConsensusFork.Capella:
+      when compiles(payload.withdrawals):
         Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
         Opt.none(EthHash32)
     blobGasUsed =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
+      when compiles(payload.blob_gas_used):
         Opt.some payload.blob_gas_used
       else:
         Opt.none(uint64)
     excessBlobGas =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
+      when compiles(payload.excess_blob_gas):
         Opt.some payload.excess_blob_gas
       else:
         Opt.none(uint64)
     parentBeaconBlockRoot =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some EthHash32(parentRoot.data)
+      if parentRoot.isSome():
+        Opt.some(parentRoot.get().to(EthHash32))
       else:
         Opt.none(EthHash32)
 
@@ -526,39 +525,35 @@ proc toExecutionBlockHeader(
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
     requestsHash          : requestsHash)          # EIP-7685
 
-proc compute_execution_block_hash*(
+func compute_execution_block_hash*(
     body: ForkyBeaconBlockBody,
     parentRoot: Eth2Digest): Eth2Digest =
   when typeof(body).kind >= ConsensusFork.Electra:
     body.execution_payload.toExecutionBlockHeader(
-        parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+        Opt.some parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+      .computeRlpHash().to(Eth2Digest)
+  elif typeof(body).kind >= ConsensusFork.Deneb:
+    body.execution_payload.toExecutionBlockHeader(
+        Opt.some parentRoot)
       .computeRlpHash().to(Eth2Digest)
   else:
-    body.execution_payload.toExecutionBlockHeader(parentRoot)
+    body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
       .computeRlpHash().to(Eth2Digest)
 
-proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
+func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
-from std/math import exp, ln
-from std/sequtils import foldl
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
+func is_builder_payment_withdrawable*(
+    state: gloas.BeaconState, 
+    withdrawal: BuilderPendingWithdrawal): bool =
+  ## Check if the builder is slashed and not yet withdrawable.
+  let 
+    builder = state.validators[withdrawal.builder_index]
+    current_epoch = state.slot.epoch
+  
+  builder.withdrawable_epoch >= current_epoch or not builder.slashed
 
-func ln_binomial(n, k: int): float64 =
-  if k > n:
-    low(float64)
-  else:
-    template ln_factorial(n: int): float64 =
-      (2 .. n).foldl(a + ln(b.float64), 0.0)
-    ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k)
-
-func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
-    float64 =
-  if k < draws + successes - population:
-    0.0
-  elif k >= min(successes, draws):
-    1.0
-  else:
-    let ln_denom = ln_binomial(population, draws)
-    (0 .. k).foldl(a + exp(
-      ln_binomial(successes, b) +
-      ln_binomial(population - successes, draws - b) - ln_denom), 0.0)
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
+func is_parent_block_full*(state: gloas.BeaconState): bool =
+  state.latest_execution_payload_header.block_hash == state.latest_block_hash

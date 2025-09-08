@@ -471,7 +471,9 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Fulu:
+        when consensusFork >= ConsensusFork.Fulu and
+            consensusFork < ConsensusFork.Gloas:
+          debugGloasComment "no blob_kzg_commitments field for gloas"
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
@@ -480,6 +482,7 @@ proc initFullNode(
           else:
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
+            debug "FOOB1 added sidecarless", block_root = forkyBlck.root
             if not quarantine[].addSidecarless(
               dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
@@ -514,12 +517,12 @@ proc initFullNode(
       else:
         Opt.none(ref BlobSidecar)
     rmanDataColumnLoader = proc(
-        columnId: DataColumnIdentifier): Opt[ref DataColumnSidecar] =
-      var data_column_sidecar = DataColumnSidecar.new()
+        columnId: DataColumnIdentifier): Opt[ref fulu.DataColumnSidecar] =
+      var data_column_sidecar = fulu.DataColumnSidecar.new()
       if dag.db.getDataColumnSidecar(columnId.block_root, columnId.index, data_column_sidecar[]):
         Opt.some data_column_sidecar
       else:
-        Opt.none(ref DataColumnSidecar)
+        Opt.none(ref fulu.DataColumnSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -1676,7 +1679,8 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
+        debugGloasComment " "
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
         else:
           node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
@@ -1715,12 +1719,12 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     when consensusFork >= ConsensusFork.Fulu:
       let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
       var
-        columns: seq[ref DataColumnSidecar]
+        columns: seq[ref fulu.DataColumnSidecar]
         indices: HashSet[uint64]
 
       # Get columns from database
       for i in 0 ..< maxColCount:
-        var colData: DataColumnSidecar
+        var colData: fulu.DataColumnSidecar
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
@@ -1750,7 +1754,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         for j in 0 ..< rowCount:
           cells[j] = recovered[j].cells[i]
           proofs[j] = recovered[j].proofs[i]
-        let dataColumn = DataColumnSidecar(
+        let dataColumn = fulu.DataColumnSidecar(
           index: ColumnIndex(i),
           column: DataColumn(cells),
           kzg_proofs: deneb.KzgProofs(proofs),
@@ -1939,9 +1943,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
-  debug "Custody column count before validator custody detection attempt",
-    custody_columns = node.dataColumnQuarantine.custodyColumns.len
-
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1:
     # Detect new validator custody at the last slot of every epoch
@@ -1964,8 +1965,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
                                               node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
-  debug "Custody column count after validator custody detection attempt",
-    custody_columns = node.dataColumnQuarantine.custodyColumns.len
+      info "New validator custody count detected",
+        custody_columns = node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let
@@ -2098,7 +2099,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-
+  node.requestManager.switchToColumnLoop()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -2454,9 +2455,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
-  if node.network.getBeaconTime().slotOrZero.epoch >=
-      node.network.cfg.FULU_FORK_EPOCH:
-    node.validatorCustody.start()
+  node.validatorCustody.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)

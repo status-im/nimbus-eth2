@@ -38,7 +38,7 @@ export
   uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  el_conf, network, BlockHashOrNumber,
+  el_conf, network,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
   LightClientDataImportMode, slashing_protection_common, nimbus_binary_common
 
@@ -1251,13 +1251,6 @@ func parseCmdArg*(T: type GraffitiBytes, input: string): T
   GraffitiBytes.init(input)
 
 func completeCmdArg*(T: type GraffitiBytes, input: string): seq[string] =
-  return @[]
-
-func parseCmdArg*(T: type BlockHashOrNumber, input: string): T
-                 {.raises: [ValueError].} =
-  init(BlockHashOrNumber, input)
-
-func completeCmdArg*(T: type BlockHashOrNumber, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Uri, input: string): T
