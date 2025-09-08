@@ -153,7 +153,7 @@ proc recover_cells_and_proofs_parallel*(
     dataColumns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## This helper recovers blobs from the data column sidecars parallelly
-  if data_columns.len == 0:
+  if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
 
   let
