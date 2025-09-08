@@ -2022,7 +2022,7 @@ proc attemptGetBlobs(node: BeaconNode,
             await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
-          # check lengths of array[BlobAndProofV2 with blobs
+          # check lengths of array[BlobAndProofV2] with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             # we have received all columns from the EL
