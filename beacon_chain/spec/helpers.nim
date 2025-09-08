@@ -542,3 +542,18 @@ func compute_execution_block_hash*(
 
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
+func is_builder_payment_withdrawable*(
+    state: gloas.BeaconState, 
+    withdrawal: BuilderPendingWithdrawal): bool =
+  ## Check if the builder is slashed and not yet withdrawable.
+  let 
+    builder = state.validators[withdrawal.builder_index]
+    current_epoch = state.slot.epoch
+  
+  builder.withdrawable_epoch >= current_epoch or not builder.slashed
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
+func is_parent_block_full*(state: gloas.BeaconState): bool =
+  state.latest_execution_payload_header.block_hash == state.latest_block_hash

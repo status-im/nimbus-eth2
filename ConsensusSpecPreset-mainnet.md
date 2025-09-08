@@ -3832,6 +3832,55 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Withdrawal Request - pending_withdrawals_consume_all_e OK
 + [Valid]   EF - Gloas - Operations - Withdrawal Request - unknown_pubkey                    OK
 ```
+## EF - Gloas - Operations - Withdrawals  [Preset: mainnet]
+```diff
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_at_max               OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_at_max_mixed_with_sw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_exiting_validator    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_low_effective_balanc OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_mixed_with_sweep_and OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_next_epoch           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_no_excess_balance    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_effective_sweep OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_ineffective_swe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_ineffective_swe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_sweep_different OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_0                                 OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_1             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_2             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_3             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_4             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_5             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_max_partial_withdrawable         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance                OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance_compounding    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_active_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited  OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_in_exit OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_not_yet OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_two_partial_withdrawable         OK
+```
 ## EF - Gloas - Rewards  [Preset: mainnet]
 ```diff
 + EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                   OK

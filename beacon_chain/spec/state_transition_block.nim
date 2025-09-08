@@ -1076,7 +1076,7 @@ proc process_execution_payload*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState | gloas.BeaconState),
+                fulu.BeaconState),
     payload: ForkyExecutionPayloadOrHeader):
     Result[void, cstring] =
   const consensusFork = typeof(state).kind
@@ -1129,6 +1129,73 @@ func process_withdrawals*(
     let next_validator_index = next_index mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_withdrawals
+func process_withdrawals*(state: var gloas.BeaconState):
+    Result[void, cstring] =
+  # return early if the parent block was empty
+  if not is_parent_block_full(state):
+    return ok()
+  
+  let (expected_withdrawals, processed_builder_withdrawals_count, processed_partial_withdrawals_count) = 
+    get_expected_withdrawals(state)
+  
+  let withdrawals_list = 
+    List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(expected_withdrawals)
+  state.latest_withdrawals_root = hash_tree_root(withdrawals_list)
+  
+  for withdrawal in expected_withdrawals:
+    let validator_index = ValidatorIndex.init(withdrawal.validator_index).valueOr:
+      return err("process_withdrawals: invalid validator index")
+    decrease_balance(state, validator_index, withdrawal.amount)
+  
+  # Update the pending builder withdrawals
+  var new_builder_withdrawals: seq[BuilderPendingWithdrawal]
+
+  let processed_count = min(
+    processed_builder_withdrawals_count, 
+    state.builder_pending_withdrawals.lenu64).int
+
+  for i in 0 ..< processed_count:
+    let withdrawal = state.builder_pending_withdrawals.item(i)
+    if not is_builder_payment_withdrawable(state, withdrawal):
+      new_builder_withdrawals.add(withdrawal)
+
+  for i in processed_count ..< state.builder_pending_withdrawals.len:
+    new_builder_withdrawals.add(
+      state.builder_pending_withdrawals.item(i))
+  
+  state.builder_pending_withdrawals = 
+    HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+      .init(new_builder_withdrawals)
+  
+  # Update pending partial withdrawals
+  state.pending_partial_withdrawals =
+    HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT].init(
+      state.pending_partial_withdrawals.asSeq[processed_partial_withdrawals_count .. ^1])
+  
+  # Update the next withdrawal index if this block contained withdrawals
+  if len(expected_withdrawals) != 0:
+    let latest_withdrawal = expected_withdrawals[^1]
+    state.next_withdrawal_index = WithdrawalIndex(latest_withdrawal.index + 1)
+  
+  # Update the next validator index to start the next withdrawal sweep
+  if len(expected_withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+    # Next sweep starts after the latest withdrawal's validator index
+    let next_validator_index =
+      (expected_withdrawals[^1].validator_index + 1) mod 
+      lenu64(state.validators)
+    state.next_withdrawal_validator_index = next_validator_index
+  else:
+    # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
+    let 
+      next_index =
+        state.next_withdrawal_validator_index + 
+        MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP
+      next_validator_index = next_index mod lenu64(state.validators)
+    state.next_withdrawal_validator_index = next_validator_index
+  
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash

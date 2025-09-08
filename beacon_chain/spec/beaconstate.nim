@@ -1483,10 +1483,10 @@ func get_expected_withdrawals*(
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
 template get_expected_withdrawals_with_partial_count_aux*(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
-  doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
+  doAssert epoch == get_current_epoch(state)
 
   var
     withdrawal_index = state.next_withdrawal_index
@@ -1585,16 +1585,156 @@ template get_expected_withdrawals_with_partial_count_aux*(
   (withdrawals, processed_partial_withdrawals_count)
 
 template get_expected_withdrawals_with_partial_count*(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    state: electra.BeaconState | fulu.BeaconState):
     (seq[Withdrawal], uint64) =
   get_expected_withdrawals_with_partial_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
 
 func get_expected_withdrawals*(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    state: electra.BeaconState | fulu.BeaconState):
     seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-get_expected_withdrawals
+template get_expected_withdrawals_with_builder_count_aux(
+    state: gloas.BeaconState,
+    epoch: Epoch, fetch_balance: untyped):
+    (seq[Withdrawal], uint64, uint64) =
+  doAssert epoch == get_current_epoch(state)
+
+  var
+    withdrawal_index = state.next_withdrawal_index
+    validator_index {.inject.} = state.next_withdrawal_validator_index
+    withdrawals = newSeqOfCap[Withdrawal](MAX_WITHDRAWALS_PER_PAYLOAD)
+    processed_partial_withdrawals_count = 0'u64
+    processed_builder_withdrawals_count = 0'u64
+
+  # [New in Gloas:EIP7732] 
+  # Sweep for builder payments
+  for withdrawal in state.builder_pending_withdrawals:
+    if  withdrawal.withdrawable_epoch > epoch or 
+        len(withdrawals) + 1 == MAX_WITHDRAWALS_PER_PAYLOAD:
+      break
+    
+    if is_builder_payment_withdrawable(state, withdrawal):
+      let
+        total_withdrawn = block:
+          var res: Gwei
+          for w in withdrawals:
+            if w.validator_index == withdrawal.builder_index:
+              res += w.amount
+          res
+        balance = fetch_balance - total_withdrawn
+        builder = state.validators.item(withdrawal.builder_index)
+      
+      let withdrawable_balance = 
+        if builder.slashed:
+          min(balance, withdrawal.amount)
+        elif balance > static(MIN_ACTIVATION_BALANCE.Gwei):
+          min(balance - static(MIN_ACTIVATION_BALANCE.Gwei), withdrawal.amount)
+        else:
+          0.Gwei
+
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: withdrawal.builder_index,
+        amount: withdrawable_balance)
+      w.address = withdrawal.fee_recipient
+      withdrawals.add w
+      withdrawal_index += 1
+
+    processed_builder_withdrawals_count += 1
+
+  # Sweep for pending partial withdrawals
+  let bound = min(
+    len(withdrawals) + MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
+    MAX_WITHDRAWALS_PER_PAYLOAD - 1)
+  
+  for withdrawal in state.pending_partial_withdrawals:
+    if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == bound:
+      break
+
+    let
+      validator = state.validators.item(withdrawal.validator_index)
+      validator_index {.inject.} = withdrawal.validator_index
+      has_sufficient_effective_balance = 
+        validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
+      total_withdrawn = block:
+        var res: Gwei
+        for w in withdrawals:
+          if w.validator_index == validator_index:
+            res += w.amount
+        res
+      balance = fetch_balance - total_withdrawn
+      has_excess_balance = balance > static(MIN_ACTIVATION_BALANCE.Gwei)
+
+    if validator.exit_epoch == FAR_FUTURE_EPOCH and
+       has_sufficient_effective_balance and has_excess_balance:
+      let withdrawable_balance = min(
+        balance - static(MIN_ACTIVATION_BALANCE.Gwei),
+        withdrawal.amount)
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: withdrawal.validator_index,
+        amount: withdrawable_balance)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index += 1
+
+    processed_partial_withdrawals_count += 1
+
+  # Sweep for remaining
+  let 
+    sweep_bound = min(len(state.validators), 
+      MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
+    num_validators = lenu64(state.validators)
+  validator_index = state.next_withdrawal_validator_index
+
+  for _ in 0 ..< sweep_bound:
+    let
+      validator = state.validators.item(validator_index)
+      total_withdrawn = block:
+        var subtot: Gwei
+        for withdrawal in withdrawals:
+          if withdrawal.validator_index == validator_index:
+            subtot += withdrawal.amount
+        subtot
+      balance = fetch_balance - total_withdrawn
+
+    if is_fully_withdrawable_validator(
+        typeof(state).kind, validator, balance, epoch):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    elif is_partially_withdrawable_validator(
+        typeof(state).kind, validator, balance):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance - get_max_effective_balance(validator))
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    
+    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+      break
+    validator_index = (validator_index + 1) mod num_validators
+
+  (withdrawals, 
+   processed_builder_withdrawals_count, 
+   processed_partial_withdrawals_count)
+
+template get_expected_withdrawals*(
+    state: gloas.BeaconState):
+    (seq[Withdrawal], uint64, uint64) =
+  get_expected_withdrawals_with_builder_count_aux(
+      state, get_current_epoch(state)) do:
+    state.balances.item(validator_index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(

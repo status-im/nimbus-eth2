@@ -26,20 +26,22 @@ from ../../../beacon_chain/spec/beaconstate import
   get_total_active_balance, latest_block_root, process_attestation
 
 const
-  OpDir                     = SszTestsDir/const_preset/"gloas"/"operations"
-  OpAttestationsDir         = OpDir/"attestation"
-  OpAttSlashingDir          = OpDir/"attester_slashing"
-  OpBlockHeaderDir          = OpDir/"block_header"
-  OpBlsToExecutionChangeDir = OpDir/"bls_to_execution_change"
-  OpConsolidationRequestDir = OpDir/"consolidation_request"
-  OpDepositRequestDir       = OpDir/"deposit_request"
-  OpDepositsDir             = OpDir/"deposit"
-  OpWithdrawalRequestDir    = OpDir/"withdrawal_request"
-  OpExecutionPayloadDir     = OpDir/"execution_payload"
-  OpProposerSlashingDir     = OpDir/"proposer_slashing"
-  OpSyncAggregateDir        = OpDir/"sync_aggregate"
-  OpVoluntaryExitDir        = OpDir/"voluntary_exit"
-  OpWithdrawalsDir          = OpDir/"withdrawals"
+  OpDir                       = SszTestsDir/const_preset/"gloas"/"operations"
+  OpAttestationsDir           = OpDir/"attestation"
+  OpAttSlashingDir            = OpDir/"attester_slashing"
+  OpBlockHeaderDir            = OpDir/"block_header"
+  OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
+  OpConsolidationRequestDir   = OpDir/"consolidation_request"
+  OpDepositRequestDir         = OpDir/"deposit_request"
+  OpDepositsDir               = OpDir/"deposit"
+  OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
+  OpExecutionPayloadDir       = OpDir/"execution_payload"
+  OpExecutionPayloadHeaderDir = OpDir/"execution_payload_header"
+  OpPayloadAttestationDir     = OpDir/"payload_attestation"
+  OpProposerSlashingDir       = OpDir/"proposer_slashing"
+  OpSyncAggregateDir          = OpDir/"sync_aggregate"
+  OpVoluntaryExitDir          = OpDir/"voluntary_exit"
+  OpWithdrawalsDir            = OpDir/"withdrawals"
 
   baseDescription = "EF - Gloas - Operations - "
 
@@ -47,12 +49,12 @@ const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
-  OpWithdrawalsDir])
+  OpExecutionPayloadHeaderDir, OpPayloadAttestationDir, OpProposerSlashingDir,
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
+])
 
-debugGloasComment "ensure everything is being tested"
-#doAssert toHashSet(
-#  mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
+doAssert toHashSet(
+  mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
 
 proc runTest[T, U](
     testSuiteDir, suiteName, opName, applyFile: string,
@@ -192,6 +194,12 @@ suite baseDescription & "Deposit Request " & preset():
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
+suite baseDescription & "Execution Payload Header " & preset():
+  debugGloasComment "execution payload header operations not yet implemented"
+
+suite baseDescription & "Payload Attestation " & preset():
+  debugGloasComment "payload attestation operations not yet implemented"
+
 suite baseDescription & "Withdrawal Request " & preset():
   func applyWithdrawalRequest(
       preState: var gloas.BeaconState, withdrawalRequest: WithdrawalRequest):
@@ -259,11 +267,9 @@ suite baseDescription & "Withdrawals " & preset():
   func applyWithdrawals(
       preState: var gloas.BeaconState,
       executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
-    process_withdrawals(preState, executionPayload)
+    process_withdrawals(preState)
 
   for path in walkTests(OpWithdrawalsDir):
-    debugGloasComment "do withdrawals operations fixture"
-    if true: continue
     runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
       OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
       applyWithdrawals, path)
