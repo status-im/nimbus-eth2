@@ -120,13 +120,16 @@ proc main() {.noinline, raises: [CatchableError].} =
   for consensusFork in ConsensusFork:
     for forkDigest in consensusFork.forkDigests(forkDigests[]):
       withConsensusFork(consensusFork):
-        network.addValidator(
-          getBeaconBlocksTopic(forkDigest), proc (
-              signedBlock: consensusFork.SignedBeaconBlock,
-              src: PeerId
-          ): ValidationResult =
-            toValidationResult(
-              optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+        when consensusFork >= ConsensusFork.Gloas:
+          debugGloasComment "consensusFork.SignedBeaconBlock support missing"
+        else:
+          network.addValidator(
+            getBeaconBlocksTopic(forkDigest), proc (
+                signedBlock: consensusFork.SignedBeaconBlock,
+                src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
