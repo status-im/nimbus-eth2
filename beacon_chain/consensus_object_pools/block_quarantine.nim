@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles, chronos,
-  ../spec/[presets, forks, block_id]
+  ../spec/[block_id, forks, presets]
 
 export tables, forks
 
