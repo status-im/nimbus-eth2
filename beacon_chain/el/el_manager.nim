@@ -927,13 +927,13 @@ proc sendNewPayload*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return Opt.some PayloadExecutionStatus.syncing
+          return Opt.none(PayloadExecutionStatus)
 
         if len(pendingRequests) == 0:
           # All requests failed.
           inc(retriesCount)
           if retriesCount == maxRetriesCount:
-            return Opt.some PayloadExecutionStatus.syncing
+            return Opt.none(PayloadExecutionStatus)
 
           # To avoid continous spam of requests when EL node is offline we
           # going to sleep until next attempt.
