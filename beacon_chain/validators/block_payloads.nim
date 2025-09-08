@@ -249,8 +249,11 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
-  template getFuluBlobsBundle(bb: fulu.BlobsBundle): fulu.BlobsBundle = bb
-  template getFuluBlobsBundle(bb: deneb.BlobsBundle): fulu.BlobsBundle =
+  template getFuluBlobsBundle(bb: fulu.BlobsBundle):
+      fulu.BlobsBundle {.used.} =
+    bb
+  template getFuluBlobsBundle(bb: deneb.BlobsBundle):
+      fulu.BlobsBundle {.used.} =
     fulu.BlobsBundle(
       commitments: bb.commitments,
       proofs: fulu.KzgProofs(bb.proofs),

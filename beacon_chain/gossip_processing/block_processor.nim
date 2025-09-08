@@ -26,8 +26,7 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addBlobless, addSidecarless, addColumnless, addOrphan, addUnviable,
-  pop, removeOrphan, removeSidecarless
+  addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
