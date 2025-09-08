@@ -819,6 +819,10 @@ func new*(T: type ForkedHashedBeaconState, data: fulu.BeaconState):
     ref ForkedHashedBeaconState =
   (ref T)(kind: ConsensusFork.Fulu, fuluData: fulu.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: gloas.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: ConsensusFork.Gloas, gloasData: gloas.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
@@ -1980,7 +1984,7 @@ template init*(T: type ForkedAggregateAndProof,
   of ConsensusFork.Gloas:
     ForkedAggregateAndProof(kind: ConsensusFork.Gloas, gloasData: proof)
 
-proc kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
+func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
   when typeof(eps).kind >= ConsensusFork.Deneb:
     eps.blobsBundle.commitments
   else:

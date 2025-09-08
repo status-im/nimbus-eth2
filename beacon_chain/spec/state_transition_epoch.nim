@@ -29,6 +29,7 @@ import
 
 from std/math import sum, `^`
 from stew/bitops2 import setBit
+from stew/staticfor import staticFor
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
 
@@ -855,7 +856,7 @@ func process_rewards_and_penalties*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     info: var altair.EpochInfo) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -958,7 +959,8 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#modified-process_registry_updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     cache: var StateCache): Result[void, cstring] =
   # Process activation eligibility and ejections
   for index in 0 ..< state.validators.len:
@@ -1144,7 +1146,8 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
 func process_participation_flag_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState |
-                electra.BeaconState | fulu.BeaconState)) =
+                electra.BeaconState | fulu.BeaconState |
+                gloas.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
   const zero = 0.ParticipationFlags
@@ -1159,7 +1162,8 @@ func process_participation_flag_updates*(
 func process_sync_committee_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState |
-                electra.BeaconState | fulu.BeaconState)) =
+                electra.BeaconState | fulu.BeaconState |
+                gloas.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch.is_sync_committee_period():
     state.current_sync_committee = state.next_sync_committee
@@ -1223,7 +1227,7 @@ func process_inactivity_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#historical-summaries-updates
 func process_historical_summaries_update*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState)):
+                fulu.BeaconState | gloas.BeaconState)):
     Result[void, cstring] =
   # Set historical block root accumulator.
   let next_epoch = get_current_epoch(state) + 1
@@ -1243,7 +1247,8 @@ from ".."/validator_bucket_sort import
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
 func apply_pending_deposit(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     deposit: PendingDeposit, validator_index: Opt[ValidatorIndex]):
     Result[void, cstring] =
   ## Applies ``deposit`` to the ``state``.
@@ -1264,7 +1269,8 @@ func apply_pending_deposit(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
 func process_pending_deposits*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState) ,
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     cache: var StateCache): Result[void, cstring] =
   let
     next_epoch = get_current_epoch(state) + 1
@@ -1357,7 +1363,8 @@ func process_pending_deposits*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_consolidations
 func process_pending_consolidations*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState) ):
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState)):
     Result[void, cstring] =
   let next_epoch = get_current_epoch(state) + 1
   var next_pending_consolidation = 0
@@ -1395,9 +1402,9 @@ func process_pending_consolidations*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
-func process_proposer_lookahead*(state: var fulu.BeaconState,
-                                 cache: var StateCache):
-                                 Result[void, cstring] =
+func process_proposer_lookahead*(
+    state: var (fulu.BeaconState | gloas.BeaconState), cache: var StateCache):
+    Result[void, cstring] =
   let
     total_slots      = state.proposer_lookahead.data.lenu64
     last_epoch_start = total_slots - SLOTS_PER_EPOCH
@@ -1414,6 +1421,39 @@ func process_proposer_lookahead*(state: var fulu.BeaconState,
   for i in 0 ..< SLOTS_PER_EPOCH:
     if new_proposers[i].isSome():
       mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_builder_payment_quorum_threshold
+func get_builder_payment_quorum_threshold(state: gloas.BeaconState, cache: var StateCache): uint64 =
+  ## Calculate the quorum threshold for builder payments.
+  let quorum = (
+    get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
+  uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
+func process_builder_pending_payments*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState, cache: var StateCache):
+    Result[void, cstring] =
+  ## Processes the builder pending payments from the previous epoch.
+  let quorum = get_builder_payment_quorum_threshold(state, cache)
+
+  for index in 0 ..< min(
+      state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
+    var payment = state.builder_pending_payments.mitem(index)
+    if payment.weight.distinctBase > quorum:
+      let exit_queue_epoch = compute_exit_epoch_and_update_churn(
+        cfg, state, payment.withdrawal.amount, cache)
+      payment.withdrawal.withdrawable_epoch =
+        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+      if not state.builder_pending_withdrawals.add(payment.withdrawal):
+        return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
+
+  staticFor i, 0 ..< SLOTS_PER_EPOCH.int:
+    assign(
+      state.builder_pending_payments.mitem(i),
+      state.builder_pending_payments.item(i + SLOTS_PER_EPOCH))
+    state.builder_pending_payments.mitem(i + SLOTS_PER_EPOCH).reset()
 
   ok()
 
@@ -1484,8 +1524,6 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#justification-and-finalization
-  # [Modified in Altair]
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1499,16 +1537,9 @@ proc process_epoch*(
     doAssert state.finalized_checkpoint.epoch + 3 >= epoch
 
   process_inactivity_updates(cfg, state, info)  # [New in Altair]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)  # [Modified in Altair]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)  # [Modified in Altair]
-
   process_eth1_data_reset(state)
   process_effective_balance_updates(state)
   process_slashings_reset(state)
@@ -1528,7 +1559,6 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1543,16 +1573,9 @@ proc process_epoch*(
       quit 1
 
   process_inactivity_updates(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
-
   process_eth1_data_reset(state)
   process_effective_balance_updates(state)
   process_slashings_reset(state)
@@ -1571,7 +1594,6 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1586,16 +1608,9 @@ proc process_epoch*(
       quit 1
 
   process_inactivity_updates(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
-
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
   ? process_pending_consolidations(cfg, state)   # [New in Electra:EIP7251]
@@ -1616,7 +1631,6 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1631,16 +1645,9 @@ proc process_epoch*(
       quit 1
 
   process_inactivity_updates(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
-
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
   ? process_pending_consolidations(cfg, state)   # [New in Electra:EIP7251]
@@ -1654,12 +1661,44 @@ proc process_epoch*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
-  debugGloasComment "do epoch transition"
-  discard
+  let epoch = get_current_epoch(state)
+  info.init(state)
+
+  process_justification_and_finalization(state, info.balances, flags)
+
+  # state.slot hasn't been incremented yet.
+  if strictVerification in flags:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    if (epoch >= 2 and state.current_justified_checkpoint.epoch + 2 < epoch) or
+       (epoch >= 3 and state.finalized_checkpoint.epoch + 3 < epoch):
+      fatal "The network did not finalize",
+             epoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      quit 1
+
+  process_inactivity_updates(cfg, state, info)
+  process_rewards_and_penalties(cfg, state, info)
+  ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
+  process_slashings(state, info.balances.current_epoch)
+  process_eth1_data_reset(state)
+  ? process_pending_deposits(cfg, state, cache)
+  ? process_pending_consolidations(cfg, state)
+  process_effective_balance_updates(state)
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  ? process_historical_summaries_update(state)
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
+  ? process_proposer_lookahead(state, cache)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
+
+  ok()
 
 proc get_validator_balance_after_epoch*(
     cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState,

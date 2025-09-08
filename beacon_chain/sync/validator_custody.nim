@@ -196,7 +196,8 @@ proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
   while true:
     await sleepAsync(VALIDATOR_CUSTODY_POLL_INTERVAL)
-    if vcus.diff_set.len != 0:
+    let lhs = vcus.getLocalHeadSlot()
+    if vcus.diff_set.len != 0 and lhs.epoch() >= vcus.dag.cfg.FULU_FORK_EPOCH:
       info "Initiating validator custody columm backfill jobs"
       vcus.makeRefillList(vcus.diff_set)
       if vcus.global_refill_list.len != 0:

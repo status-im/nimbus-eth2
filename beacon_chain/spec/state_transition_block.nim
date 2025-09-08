@@ -370,7 +370,8 @@ proc process_deposit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_deposit_request
 func process_deposit_request*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
   # Set deposit request start index
@@ -465,7 +466,7 @@ proc process_voluntary_exit*(
 proc process_bls_to_execution_change*(
     cfg: RuntimeConfig,
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-    fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(
     cfg.genesisFork, state, signed_address_change, {})
@@ -484,7 +485,8 @@ proc process_bls_to_execution_change*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
 func process_withdrawal_request*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
   let
@@ -566,7 +568,7 @@ func process_withdrawal_request*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-is_valid_switch_to_compounding_request
 func is_valid_switch_to_compounding_request(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     consolidation_request: ConsolidationRequest,
     source_validator: Validator): bool =
   # Switch to compounding requires source and target be equal
@@ -597,7 +599,8 @@ func is_valid_switch_to_compounding_request(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-process_consolidation_request
 func process_consolidation_request*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     consolidation_request: ConsolidationRequest,
     cache: var StateCache) =
@@ -810,7 +813,7 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:
@@ -1073,7 +1076,7 @@ proc process_execution_payload*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-    fulu.BeaconState),
+                fulu.BeaconState | gloas.BeaconState),
     payload: ForkyExecutionPayloadOrHeader):
     Result[void, cstring] =
   const consensusFork = typeof(state).kind

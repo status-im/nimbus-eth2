@@ -185,9 +185,9 @@ func get_state_exit_queue_info*(
   ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
 
-func get_state_exit_queue_info*(state: electra.BeaconState |
-                                       fulu.BeaconState):
-                                ExitQueueInfo =
+func get_state_exit_queue_info*(
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    ExitQueueInfo =
   # Electra initiate_validator_exit doesn't have same quadratic aspect given
   # StateCache balance caching
   default(ExitQueueInfo)
@@ -237,8 +237,8 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 func get_balance_churn_limit(
-    cfg: RuntimeConfig, state: electra.BeaconState |
-    fulu.BeaconState,
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     cache: var StateCache): Gwei =
   ## Return the churn limit for the current epoch.
   let churn = max(
@@ -249,7 +249,9 @@ func get_balance_churn_limit(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 func get_activation_exit_churn_limit*(
-    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState, cache: var StateCache):
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    cache: var StateCache):
     Gwei =
   ## Return the churn limit for the current epoch dedicated to activations and
   ## exits.
@@ -259,14 +261,17 @@ func get_activation_exit_churn_limit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
-    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState, cache: var StateCache):
+    cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    cache: var StateCache):
     Gwei =
   get_balance_churn_limit(cfg, state, cache) -
     get_activation_exit_churn_limit(cfg, state, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
 func compute_exit_epoch_and_update_churn*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     exit_balance: Gwei,
     cache: var StateCache): Epoch =
   var earliest_exit_epoch = max(state.earliest_exit_epoch,
@@ -296,7 +301,8 @@ func compute_exit_epoch_and_update_churn*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn
 func compute_consolidation_epoch_and_update_churn*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     consolidation_balance: Gwei, cache: var StateCache): Epoch =
   var earliest_consolidation_epoch = max(state.earliest_consolidation_epoch,
     compute_activation_exit_epoch(get_current_epoch(state)))
@@ -326,7 +332,8 @@ func compute_consolidation_epoch_and_update_churn*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#modified-initiate_validator_exit
 func initiate_validator_exit*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: ValidatorIndex, exit_queue_info: ExitQueueInfo,
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
   ## Initiate the exit of the validator with index ``index``.
@@ -393,7 +400,8 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
        state is capella.BeaconState or state is deneb.BeaconState or
-       state is electra.BeaconState or state is fulu.BeaconState:
+       state is electra.BeaconState or state is fulu.BeaconState or
+       state is gloas.BeaconState:
     whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
     {.fatal: "invalid BeaconState type".}
@@ -1263,7 +1271,7 @@ func get_next_sync_committee_keys(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
 func get_next_sync_committee_keys(
-    state: electra.BeaconState | fulu.BeaconState):
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -1354,7 +1362,7 @@ func is_partially_withdrawable_validator(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
-    state: var (electra.BeaconState | fulu.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: uint64) =
   let balance = state.balances.item(index)
   if balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -1372,7 +1380,7 @@ func queue_excess_active_balance(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
 func switch_to_compounding_validator*(
-    state: var (electra.BeaconState | fulu.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
     index: ValidatorIndex) =
   let validator = addr state.validators.mitem(index)
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
@@ -1591,7 +1599,8 @@ func get_expected_withdrawals*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState):
+           deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+           gloas.BeaconState):
     SyncCommittee =
   ## Return the next sync committee, with possible pubkey duplicates.
   var res: SyncCommittee
@@ -2144,8 +2153,7 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
 func upgrade_to_electra*(
     cfg: RuntimeConfig, pre: deneb.BeaconState, cache: var StateCache):
     ref electra.BeaconState =
-  let
-    epoch = get_current_epoch(pre)
+  let epoch = get_current_epoch(pre)
 
   var earliest_exit_epoch =
     compute_activation_exit_epoch(get_current_epoch(pre))
@@ -2265,11 +2273,11 @@ func upgrade_to_electra*(
 
   post
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/fulu/fork.md#upgrading-the-state
 func upgrade_to_fulu*(
     cfg: RuntimeConfig, pre: electra.BeaconState, cache: var StateCache):
     ref fulu.BeaconState =
-  let
-    epoch = get_current_epoch(pre)
+  let epoch = get_current_epoch(pre)
 
   let post = (ref fulu.BeaconState)(
     # Versioning
@@ -2343,6 +2351,91 @@ func upgrade_to_fulu*(
     pending_partial_withdrawals: pre.pending_partial_withdrawals,
     pending_consolidations: pre.pending_consolidations,
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
+  )
+
+  post
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork.md#upgrading-the-state
+func upgrade_to_gloas*(
+    cfg: RuntimeConfig, pre: fulu.BeaconState): ref gloas.BeaconState =
+  let epoch = get_current_epoch(pre)
+
+  const full_execution_payload_availability = block:
+    var res: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    for i in 0 ..< res.len:
+      setBit(res, i)
+    res
+
+  let post = (ref gloas.BeaconState)(
+    # Versioning
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: cfg.GLOAS_FORK_VERSION,
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Participation
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: pre.inactivity_scores,
+
+    # Sync
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+
+    # [Modified in Gloas:EIP7732]
+    latest_execution_payload_header: gloas.ExecutionPayloadHeader(),
+    next_withdrawal_index: pre.next_withdrawal_index,
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
+    historical_summaries: pre.historical_summaries,
+    deposit_requests_start_index: pre.deposit_requests_start_index,
+    deposit_balance_to_consume: pre.deposit_balance_to_consume,
+    exit_balance_to_consume: pre.exit_balance_to_consume,
+    earliest_exit_epoch: pre.earliest_exit_epoch,
+    consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
+    earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
+    pending_deposits: pre.pending_deposits,
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations,
+    proposer_lookahead: pre.proposer_lookahead,
+
+    # [New in Gloas:EIP7732]
+    # builder_pending_payments, builder_pending_withdrawals, and
+    # latest_withdrawals_root are default() values; omit.
+    execution_payload_availability: full_execution_payload_availability,
+    latest_block_hash: pre.latest_execution_payload_header.block_hash
   )
 
   post

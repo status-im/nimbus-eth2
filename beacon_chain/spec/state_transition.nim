@@ -102,7 +102,10 @@ func noRollback*() =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
-    state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
+    state: var (phase0.BeaconState | altair.BeaconState |
+                bellatrix.BeaconState | capella.BeaconState |
+                deneb.BeaconState | electra.BeaconState | fulu.BeaconState),
+    pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -118,6 +121,31 @@ func process_slot*(
   # Cache block root
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.latest_block_header)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
+func process_slot*(
+    state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
+  # `process_slot` is the first stage of per-slot processing - it is run for
+  # every slot, including epoch slots - it does not however update the slot
+  # number! `pre_state_root` refers to the state root of the incoming
+  # state before any slot processing has been done.
+
+  # Cache state root
+  state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] = pre_state_root
+
+  # Cache latest block header state root
+  if state.latest_block_header.state_root == ZERO_HASH:
+    state.latest_block_header.state_root = pre_state_root
+
+  # Cache block root
+  state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    hash_tree_root(state.latest_block_header)
+
+  # [New in Gloas:EIP7732]
+  # Unset the next payload availability
+  clearBit(
+    state.execution_payload_availability,
+    (state.slot + 1) mod SLOTS_PER_HISTORICAL_ROOT)
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   cache.total_active_balance.del epoch
@@ -245,6 +273,18 @@ func maybeUpgradeStateToFulu(
       fuluData: fulu.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
+func maybeUpgradeStateToGloas(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.GLOAS_FORK_EPOCH and
+      state.kind == ConsensusFork.Fulu:
+    let newState = upgrade_to_gloas(cfg, state.fuluData.data)
+    state = (ref ForkedHashedBeaconState)(
+      kind: ConsensusFork.Gloas,
+      gloasData: gloas.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     cache: var StateCache) =
@@ -254,6 +294,7 @@ func maybeUpgradeState*(
   cfg.maybeUpgradeStateToDeneb(state)
   cfg.maybeUpgradeStateToElectra(state, cache)
   cfg.maybeUpgradeStateToFulu(state, cache)
+  cfg.maybeUpgradeStateToGloas(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
