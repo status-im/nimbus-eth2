@@ -1072,7 +1072,7 @@ proc process_execution_payload*(
 
   ok()
 
-# copy of datatypes/fulu.nim
+# copy of datatypes/gloas.nim
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock |
   gloas.TrustedBeaconBlock
