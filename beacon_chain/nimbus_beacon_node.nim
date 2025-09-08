@@ -2005,13 +2005,13 @@ when defined(windows):
 proc attemptGetBlobs(node: BeaconNode,
                      lastSlot: Slot) {.async.} =
   let
-    (block_root, latest_slot) = node.quarantine[].last_block_slot.valueOr:
+    block_id = node.quarantine[].last_block_slot.valueOr:
       return
-  if latest_slot != lastSlot + 1:
+  if block_id.slot != lastSlot + 1:
     return
   let
     elManager = node.blockProcessor[].consensusManager.elManager
-  if (let o = node.quarantine[].getColumnless(block_root); o.isSome):
+  if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
@@ -2039,7 +2039,7 @@ proc attemptGetBlobs(node: BeaconNode,
             # and add these columns to column quarantine
             for col in recovered_columns:
               if col.index in node.dataColumnQuarantine[].custodyColumns:
-                node.dataColumnQuarantine[].put(block_root, newClone(col))
+                node.dataColumnQuarantine[].put(forkyBlck.root, newClone(col))
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =

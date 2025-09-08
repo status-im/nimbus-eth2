@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles, chronos,
-  ../spec/[presets, forks]
+  ../spec/[presets, forks, block_id]
 
 export tables, forks
 
@@ -77,7 +77,7 @@ type
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
 
-    last_block_slot*: Opt[tuple[root: Eth2Digest, slot: Slot]]
+    last_block_slot*: Opt[BlockId]
       ## Stores the latest sidecarless block root and slot, in order to quickly
       ## fetch the latest info without having to traverse sidecarless
       ## quarantine.
@@ -387,7 +387,7 @@ proc addSidecarless(
   quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
   quarantine.last_block_slot =
-    Opt.some((signedBlock.root, signedBlock.message.slot))
+    Opt.some(BlockId(slot: signedBlock.message.slot, root: signedBlock.root))
   quarantine.missing.del(signedBlock.root)
   quarantine.sidecarlessEvent.fire()
   true
