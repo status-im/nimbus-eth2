@@ -20,6 +20,7 @@ import
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
 from std/sequtils import mapIt
+from stew/staticfor import staticFor
 
 export
   extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
@@ -1770,7 +1771,7 @@ func compute_fork_digest_fulu*(
   bpo_buf[8 .. 15] = toBytesLE(blob_parameters.MAX_BLOBS_PER_BLOCK)
   let bpo_digest = eth2digest(bpo_buf)
   var res: array[4, byte]
-  for i in 0 ..< static(len(res)):
+  staticFor i, 0 ..< len(res):
     res[i] = base_digest.data[i] xor bpo_digest.data[i]
   ForkDigest(res)
 

@@ -19,9 +19,6 @@ import
   # Internal
   "."/[eth2_merkleization, forks, ssz_codec]
 
-debugGloasComment ""
-import ./datatypes/gloas
-
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
@@ -447,8 +444,7 @@ template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount)))
 
-proc computeTransactionsTrieRoot(
-    payload: ForkyExecutionPayload): EthHash32 =
+func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-7685
@@ -475,7 +471,7 @@ func computeRequestsHash(
 
   requestsHash.to(EthHash32)
 
-proc toExecutionBlockHeader(
+func toExecutionBlockHeader(
     payload: ForkyExecutionPayload,
     parentRoot: Opt[Eth2Digest],
     requestsHash = Opt.none(EthHash32)): EthHeader =
@@ -529,7 +525,7 @@ proc toExecutionBlockHeader(
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
     requestsHash          : requestsHash)          # EIP-7685
 
-proc compute_execution_block_hash*(
+func compute_execution_block_hash*(
     body: ForkyBeaconBlockBody,
     parentRoot: Eth2Digest): Eth2Digest =
   when typeof(body).kind >= ConsensusFork.Electra:
@@ -544,28 +540,5 @@ proc compute_execution_block_hash*(
     body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
       .computeRlpHash().to(Eth2Digest)
 
-proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
+func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
-
-from std/math import exp, ln
-from std/sequtils import foldl
-
-func ln_binomial(n, k: int): float64 =
-  if k > n:
-    low(float64)
-  else:
-    template ln_factorial(n: int): float64 =
-      (2 .. n).foldl(a + ln(b.float64), 0.0)
-    ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k)
-
-func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
-    float64 =
-  if k < draws + successes - population:
-    0.0
-  elif k >= min(successes, draws):
-    1.0
-  else:
-    let ln_denom = ln_binomial(population, draws)
-    (0 .. k).foldl(a + exp(
-      ln_binomial(successes, b) +
-      ln_binomial(population - successes, draws - b) - ln_denom), 0.0)
