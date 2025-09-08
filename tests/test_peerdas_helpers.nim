@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -84,7 +84,6 @@ suite "EIP-7594 Unit Tests":
       var partial_matrix: seq[MatrixEntry]
       for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
         var blb_entry = blob_entries
-        rng.shuffle(blb_entry)
         partial_matrix.add(blb_entry[0..N_SAMPLES-1])
 
       # Given the partial matrix, recover the missing entries

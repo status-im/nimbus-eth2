@@ -127,6 +127,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Altair - Fork  [Preset: minimal]
 ```diff
++ EF - Altair - Fork - after_fork_deactivate_validators_from_phase0_to_altair [Preset: minim OK
++ EF - Altair - Fork - after_fork_deactivate_validators_wo_block_from_phase0_to_altair [Pres OK
++ EF - Altair - Fork - after_fork_new_validator_active_from_phase0_to_altair [Preset: minima OK
 + EF - Altair - Fork - altair_fork_random_0 [Preset: minimal]                                OK
 + EF - Altair - Fork - altair_fork_random_1 [Preset: minimal]                                OK
 + EF - Altair - Fork - altair_fork_random_2 [Preset: minimal]                                OK
@@ -562,6 +565,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Bellatrix - Fork  [Preset: minimal]
 ```diff
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_from_altair_to_bellatrix [Preset: OK
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_wo_block_from_altair_to_bellatrix OK
++ EF - Bellatrix - Fork - after_fork_new_validator_active_from_altair_to_bellatrix [Preset:  OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: minimal]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_1 [Preset: minimal]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_2 [Preset: minimal]                          OK
@@ -1027,6 +1033,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Capella - Fork  [Preset: minimal]
 ```diff
++ EF - Capella - Fork - after_fork_deactivate_validators_from_bellatrix_to_capella [Preset:  OK
++ EF - Capella - Fork - after_fork_deactivate_validators_wo_block_from_bellatrix_to_capella  OK
++ EF - Capella - Fork - after_fork_new_validator_active_from_bellatrix_to_capella [Preset: m OK
 + EF - Capella - Fork - capella_fork_random_0 [Preset: minimal]                              OK
 + EF - Capella - Fork - capella_fork_random_1 [Preset: minimal]                              OK
 + EF - Capella - Fork - capella_fork_random_2 [Preset: minimal]                              OK
@@ -1581,6 +1590,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Deneb - Fork  [Preset: minimal]
 ```diff
++ EF - Deneb - Fork - after_fork_deactivate_validators_from_capella_to_deneb [Preset: minima OK
++ EF - Deneb - Fork - after_fork_deactivate_validators_wo_block_from_capella_to_deneb [Prese OK
++ EF - Deneb - Fork - after_fork_new_validator_active_from_capella_to_deneb [Preset: minimal OK
 + EF - Deneb - Fork - deneb_fork_random_0 [Preset: minimal]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_1 [Preset: minimal]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_2 [Preset: minimal]                                  OK
@@ -2224,6 +2236,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Electra - Fork  [Preset: minimal]
 ```diff
++ EF - Electra - Fork - after_fork_deactivate_validators_from_deneb_to_electra [Preset: mini OK
++ EF - Electra - Fork - after_fork_deactivate_validators_wo_block_from_deneb_to_electra [Pre OK
++ EF - Electra - Fork - after_fork_new_validator_active_from_deneb_to_electra [Preset: minim OK
 + EF - Electra - Fork - electra_fork_random_0 [Preset: minimal]                              OK
 + EF - Electra - Fork - electra_fork_random_1 [Preset: minimal]                              OK
 + EF - Electra - Fork - electra_fork_random_2 [Preset: minimal]                              OK
@@ -3024,6 +3039,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Fork  [Preset: minimal]
 ```diff
++ EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: minimal] OK
++ EF - Fulu - Fork - after_fork_deactivate_validators_wo_block_from_electra_to_fulu [Preset: OK
++ EF - Fulu - Fork - after_fork_new_validator_active_from_electra_to_fulu [Preset: minimal]  OK
 + EF - Fulu - Fork - fork_base_state [Preset: minimal]                                       OK
 + EF - Fulu - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
 + EF - Fulu - Fork - fork_next_epoch [Preset: minimal]                                       OK

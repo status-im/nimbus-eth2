@@ -41,10 +41,7 @@ const
 type
   WithoutTimeout = distinct int
 
-  DeadlineObject* = object
-    # TODO (cheatfate): This object declaration could be removed when
-    # `Raising()` macro starts to support procedure arguments.
-    future*: Future[void].Raising([CancelledError])
+  DeadlineFuture* = Future[void].Raising([CancelledError])
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
@@ -134,9 +131,6 @@ declareCounter engine_api_timeouts,
 declareCounter engine_api_last_minute_forkchoice_updates_sent,
   "Number of last minute requests to the forkchoiceUpdated Engine API end-point just before block proposals",
   labels = ["url"]
-
-proc init*(t: typedesc[DeadlineObject], d: Duration): DeadlineObject =
-  DeadlineObject(future: sleepAsync(d))
 
 proc variedSleep(
     counter: var int,
@@ -835,11 +829,9 @@ proc sendGetBlobsV2*(
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int,
+    deadline: DeadlineFuture,
+    retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  doAssert maxRetriesCount > 0
-
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
       executionPayload = shortLog(blck.body.execution_payload)
@@ -849,7 +841,6 @@ proc sendNewPayload*(
 
   let
     startTime = Moment.now()
-    deadline = deadlineObj.future
     payload = blck.body.execution_payload.asEngineExecutionPayload
 
   when consensusFork >= ConsensusFork.Deneb:
@@ -863,7 +854,6 @@ proc sendNewPayload*(
   var
     responseProcessor = ELConsensusViolationDetector.init()
     sleepCounter = 0
-    retriesCount = 0
 
   while true:
     block mainLoop:
@@ -937,8 +927,7 @@ proc sendNewPayload*(
 
         if len(pendingRequests) == 0:
           # All requests failed.
-          inc(retriesCount)
-          if retriesCount == maxRetriesCount:
+          if not retry:
             return Opt.none(PayloadExecutionStatus)
 
           # To avoid continous spam of requests when EL node is offline we
@@ -974,13 +963,11 @@ proc forkchoiceUpdated*(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3],
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
+    deadline: DeadlineFuture,
+    retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
    async: (raises: [CancelledError]).} =
-
   doAssert not headBlockHash.isZero
-  doAssert maxRetriesCount > 0
 
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
   #
@@ -1036,7 +1023,6 @@ proc forkchoiceUpdated*(
       safeBlockHash: safeBlockHash.asBlockHash,
       finalizedBlockHash: finalizedBlockHash.asBlockHash)
     startTime = Moment.now
-    deadline = deadlineObj.future
 
   var
     responseProcessor = ELConsensusViolationDetector.init()
@@ -1122,7 +1108,7 @@ proc forkchoiceUpdated*(
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
           inc(retriesCount)
-          if retriesCount == maxRetriesCount:
+          if not retry:
             return (PayloadExecutionStatus.syncing, Opt.none Hash32)
 
           # To avoid continous spam of requests when EL node is offline we
@@ -1140,8 +1126,7 @@ proc forkchoiceUpdated*(
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
     m, headBlockHash, safeBlockHash, finalizedBlockHash,
-    payloadAttributes, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT),
-    high(int))
+    payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc checkChainIdWithSingleEL(
     m: ELManager,
