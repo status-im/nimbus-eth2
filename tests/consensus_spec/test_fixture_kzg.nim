@@ -364,7 +364,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
 
       # convert input into column
       var
-        colInput: seq[ref DataColumnSidecar]
+        colInput: seq[ref fulu.DataColumnSidecar]
         colEntries: Table[uint64, seq[MatrixEntry]]
 
       for entry in input:
@@ -374,7 +374,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
         var cells = newSeq[Cell](rowCount)
         for entry in entries:
           cells[entry.row_index] = entry.cell
-        let sidecar = DataColumnSidecar(
+        let sidecar = fulu.DataColumnSidecar(
           index: ColumnIndex(cIdx),
           column: DataColumn(cells))
         colInput.add(newClone(sidecar))
@@ -451,7 +451,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
         # convert input into column
         var
-          colInput: seq[ref DataColumnSidecar]
+          colInput: seq[ref fulu.DataColumnSidecar]
           colEntries: Table[uint64, seq[MatrixEntry]]
 
         for entry in input:
@@ -461,7 +461,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
           var cells = newSeq[Cell](rowCount)
           for entry in entries:
             cells[entry.row_index] = entry.cell
-          let sidecar = DataColumnSidecar(
+          let sidecar = fulu.DataColumnSidecar(
             index: ColumnIndex(cIdx),
             column: DataColumn(cells))
           colInput.add(newClone(sidecar))
