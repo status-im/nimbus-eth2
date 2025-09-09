@@ -16,7 +16,7 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/algorithm import sort, sorted
+from std/algorithm import sorted
 from std/sequtils import anyIt, filterIt, mapIt, toSeq
 from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
@@ -364,23 +364,18 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       ## verify the output from multi-thread version
 
       # convert input into column
-      var
-        colInput: seq[ref fulu.DataColumnSidecar]
-        colEntries: Table[uint64, seq[MatrixEntry]]
+      var colInput = newSeq[ref fulu.DataColumnSidecar](indices.len)
 
-      for entry in input:
-        colEntries.mgetOrPut(entry.column_index, @[]).add(entry)
-
-      for cIdx, entries in colEntries:
+      for i in 0 ..< indices.len:
         var cells = newSeq[Cell](rowCount)
-        for entry in entries:
-          cells[entry.row_index] = entry.cell
-        let sidecar = fulu.DataColumnSidecar(
-          index: ColumnIndex(cIdx),
+        let index = indices[i]
+        for j in 0 ..< rowCount:
+          let iIdx = j * (NUMBER_OF_COLUMNS div 2) + i
+          cells[j] = input[iIdx].cell
+        let dataColumn = fulu.DataColumnSidecar(
+          index: index,
           column: DataColumn(cells))
-        colInput.add(newClone(sidecar))
-
-      sort(colInput) do (x, y: auto) -> int: cmp(x[].index, y[].index)
+        colInput[i] = newClone(dataColumn)
 
       # check recovered cells and proofs
       # assuming columns are sorted
