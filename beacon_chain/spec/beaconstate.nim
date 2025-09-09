@@ -13,7 +13,7 @@ import
   chronicles,
   "."/[eth2_merkleization, forks, signatures, validator]
 
-from std/algorithm import fill, sort
+from std/algorithm import fill, sort, isSorted
 from std/sequtils import anyIt, mapIt, toSeq
 
 export extras, forks, validator, chronicles
@@ -2685,7 +2685,7 @@ func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
 
 func matches_block(
     state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
-  ## Return true iff the latest block applied to this state matches the given
+  ## Return true if the latest block applied to this state matches the given
   ## `block_root`
   block_root == state.latest_block_root
 
@@ -2695,7 +2695,7 @@ func matches_block*(
 
 func matches_block_slot(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
-  ## Return true iff the latest block applied to this state matches the given
+  ## Return true if the latest block applied to this state matches the given
   ## `block_root` and the state slot has been advanced to the given slot
   slot == state.data.slot and block_root == state.latest_block_root
 func matches_block_slot*(
@@ -2704,7 +2704,7 @@ func matches_block_slot*(
 
 func can_advance_slots(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
-  ## Return true iff we can reach the given block/slot combination simply by
+  ## Return true if we can reach the given block/slot combination simply by
   ## advancing 0 or more slots
   target_slot >= state.data.slot and block_root == state.latest_block_root
 func can_advance_slots*(
@@ -2730,8 +2730,8 @@ proc get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
     let committee = get_beacon_committee(state, slot, committee_index, cache)
     indices.add(committee)
 
-  compute_balance_weighted_selection(
-    state, indices, seed, size=PTC_SIZE, shuffle_indices=false)
+  toSeq(compute_balance_weighted_selection(
+    state, indices, seed, size=PTC_SIZE, shuffle_indices=false))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 proc get_indexed_payload_attestation*(
@@ -2741,20 +2741,44 @@ proc get_indexed_payload_attestation*(
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
   
   let ptc = get_ptc(state, slot, cache)
-  var attesting_indices_seq = newSeqOfCap[uint64](PTC_SIZE)
+  var attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
 
   for i, index in ptc:
     if payload_attestation.aggregation_bits[i]:
-      attesting_indices_seq.add(index.uint64)
+      attesting_indices.add(index.uint64)
 
-  attesting_indices_seq.sort()
-
-  var attesting_indices: List[uint64, Limit PTC_SIZE]
-  for idx in attesting_indices_seq:
-    discard attesting_indices.add(idx)
+  attesting_indices.sort()
 
   IndexedPayloadAttestation(
-    attesting_indices: attesting_indices,
+    attesting_indices: List[uint64, Limit PTC_SIZE].init(attesting_indices),
     data: payload_attestation.data,
     signature: payload_attestation.signature
   )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+proc is_valid_indexed_payload_attestation*(
+    state: gloas.BeaconState, 
+    indexed_payload_attestation: IndexedPayloadAttestation): bool =
+  ## Check if ``indexed_payload_attestation`` is not empty, has sorted 
+  ## and unique indices and has a valid aggregate signature.
+
+  # Verify indices are non-empty and sorted
+  if indexed_payload_attestation.attesting_indices.len == 0:
+    return false
+
+  if not toSeq(indexed_payload_attestation.attesting_indices).isSorted:
+    return false
+
+  # Verify aggregate signature
+  let 
+    pubkeys = mapIt(
+      indexed_payload_attestation.attesting_indices,
+      state.validators[it].pubkey)
+    domain = get_domain(
+      state.fork, DOMAIN_PTC_ATTESTER, 
+      GENESIS_EPOCH, state.genesis_validators_root)
+    signing_root = compute_signing_root(
+      indexed_payload_attestation.data, domain)
+
+  blsFastAggregateVerify(
+    pubkeys, signing_root.data, indexed_payload_attestation.signature)

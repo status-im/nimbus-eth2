@@ -12,6 +12,7 @@ import
   std/algorithm,
   "."/[crypto, helpers]
 from std/sequtils import mapIt
+from std/math import `^`
 export helpers
 
 const
@@ -465,10 +466,12 @@ func compute_balance_weighted_acceptance(
     seed: Eth2Digest, i: uint64): bool =
   ## Return whether to accept the selection of the validator ``index``, with probability
   ## proportional to its ``effective_balance``, and randomness given by ``seed`` and ``i``.
-  const MAX_RANDOM_VALUE = 65536 - 1
+  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
+
   var buffer {.noinit.}: array[40, byte]
   buffer[0..31] = seed.data
   buffer[32..39] = uint_to_bytes(i div 16)
+  
   let 
     random_bytes = eth2digest(buffer)
     offset = (i mod 16) * 2
@@ -484,10 +487,10 @@ func compute_balance_weighted_acceptance(
     MAX_EFFECTIVE_BALANCE_ELECTRA.uint64 * random_value
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
-func compute_balance_weighted_selection*(
+iterator compute_balance_weighted_selection*(
     state: gloas.BeaconState, indices: seq[ValidatorIndex], 
-    seed: Eth2Digest, size:uint64, 
-    shuffle_indices: bool): seq[ValidatorIndex] =  
+    seed: Eth2Digest, size: uint64, 
+    shuffle_indices: bool): ValidatorIndex =  
   ## Return ``size`` indices sampled by effective balance, using ``indices``
   ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
   ## are themselves sampled from ``indices`` by shuffling it, otherwise
@@ -496,20 +499,19 @@ func compute_balance_weighted_selection*(
   doAssert total > 0
 
   var 
-    selected = newSeqOfCap[ValidatorIndex](size)
     i = 0'u64
+    count = 0'u64
 
-  while selected.lenu64 < size:
+  while count < size:
     var next_index = i mod total
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
     let candidate_index = indices[next_index]
     if compute_balance_weighted_acceptance(state, candidate_index, seed, i):
-      selected.add(candidate_index)
+      yield candidate_index
+      inc count
     inc i
-  
-  selected
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-compute_proposer_indices
 func compute_proposer_indices*(
@@ -526,9 +528,10 @@ func compute_proposer_indices*(
     buffer[32..39] = uint_to_bytes(epochSlot.asUInt64)
     let slotSeed = eth2digest(buffer)
     
-    let proposer = compute_balance_weighted_selection(
-      state, indices, slotSeed, size=1, shuffle_indices=true)[0]
-    proposer_indices.add(proposer)
+    for proposer in compute_balance_weighted_selection(
+        state, indices, slotSeed, size=1, shuffle_indices=true):
+      proposer_indices.add(proposer)
+      break
   
   proposer_indices
 

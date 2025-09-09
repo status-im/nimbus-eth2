@@ -693,7 +693,8 @@ proc process_payload_attestation*(
     state: var gloas.BeaconState, payload_attestation: PayloadAttestation,
     cache: var StateCache): Result[void, cstring] = 
   # Check that the attestation is for the parent beacon block
-  let data = payload_attestation.data
+  template data: untyped = payload_attestation.data
+  
   if data.beacon_block_root != state.latest_block_header.parent_root:
     return err("process_payload_attestation: beacon block root mismatch")
 
