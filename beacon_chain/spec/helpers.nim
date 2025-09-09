@@ -557,4 +557,3 @@ func is_builder_payment_withdrawable*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_header.block_hash == state.latest_block_hash
-

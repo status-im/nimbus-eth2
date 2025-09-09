@@ -2685,7 +2685,7 @@ func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
 
 func matches_block(
     state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
-  ## Return true if the latest block applied to this state matches the given
+  ## Return true iff the latest block applied to this state matches the given
   ## `block_root`
   block_root == state.latest_block_root
 
@@ -2695,7 +2695,7 @@ func matches_block*(
 
 func matches_block_slot(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
-  ## Return true if the latest block applied to this state matches the given
+  ## Return true iff the latest block applied to this state matches the given
   ## `block_root` and the state slot has been advanced to the given slot
   slot == state.data.slot and block_root == state.latest_block_root
 func matches_block_slot*(
@@ -2704,7 +2704,7 @@ func matches_block_slot*(
 
 func can_advance_slots(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
-  ## Return true if we can reach the given block/slot combination simply by
+  ## Return true iff we can reach the given block/slot combination simply by
   ## advancing 0 or more slots
   target_slot >= state.data.slot and block_root == state.latest_block_root
 func can_advance_slots*(
