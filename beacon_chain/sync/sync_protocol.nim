@@ -431,7 +431,7 @@ p2pProtocol BeaconSync(version = 1,
           inc found
 
           # additional logging for devnets
-          debug "responsded to data column sidecar by root request",
+          trace "responsded to data column sidecar by root request",
             peer, blck = shortLog(requiredBid), columnIndex = id
 
     debug "Data column root request done",
@@ -499,7 +499,7 @@ p2pProtocol BeaconSync(version = 1,
           respondedCols.add(k)
 
           # additional logging for devnets
-          debug "responded to data column sidecar range request",
+          trace "responded to data column sidecar range request",
             peer, blck = shortLog(blockIds[i]), columns = respondedCols
 
     debug "Data column range request done",

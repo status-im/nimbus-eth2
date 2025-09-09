@@ -9,8 +9,7 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch,
-  peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -242,10 +241,9 @@ proc storeBackfillBlock(
     dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
-
   var
     columnsOk = true
-    malformed_cols: seq[int]
+    malformed_cols: HashSet[int]
 
   when signedBlock is gloas.SignedBeaconBlock:
     debugGloasComment "blob_kzg_commitments removed from BeaconBlockBody in Gloas"
@@ -264,28 +262,16 @@ proc storeBackfillBlock(
         for i in 0..<columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
           if r.isErr:
-            malformed_cols.add(i)
+            malformed_cols.incl(i)
             debug "backfill data column validation failed",
               blockRoot = shortLog(signedBlock.root),
               column_sidecar = shortLog(columns[i][]),
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
-          columnsOk = r.isOk()
 
-      # DataColumnSidecar repairing strategy attempt in case of
-      # malformed columns where 50%+ columns are legit
-      if dataColumnsOpt.get.lenu64 >
-          (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-           not columnsOk:
-        let
-          recovered_cps = recover_cells_and_proofs(columns)
-          recovered_columns = signedBlock.get_data_column_sidecars(recovered_cps.get)
-
-        for mc in malformed_cols:
-          # copy the healed columns only into the sidecar spaces
-          columns[mc][] = recovered_columns[mc]
-        columnsOk = true
+      columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >=
+        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
 
   if not columnsOk:
     return err(VerifierError.Invalid)
@@ -309,8 +295,10 @@ proc storeBackfillBlock(
 
   # Only store data columns after successfully establishing block viability.
   let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  for c in columns:
-    self.consensusManager.dag.db.putDataColumnSidecar(c[])
+  for i in 0..<columns.len:
+    if i in malformed_cols:
+      continue
+    self.consensusManager.dag.db.putDataColumnSidecar(columns[i][])
 
   res
 

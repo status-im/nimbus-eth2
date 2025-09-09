@@ -272,14 +272,14 @@ func pruneAfterFinalization*(
         # Because Quarantine could be used as temporary storage for blocks which
         # do not have sidecars yet, we should not prune blocks which are behind
         # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill this blocks properly.
+        # be able to backfill these blocks properly.
         if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
           Epoch(0)
         else:
           epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
       else:
         epoch
-    slot = (startEpoch + 1).start_slot()
+    slot = startEpoch.start_slot()
 
   quarantine.cleanupSidecarless(slot)
 
