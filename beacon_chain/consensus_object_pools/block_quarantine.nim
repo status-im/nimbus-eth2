@@ -81,7 +81,6 @@ type
       ## Stores the latest sidecarless block root and slot, in order to quickly
       ## fetch the latest info without having to traverse sidecarless
       ## quarantine.
-
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
@@ -167,7 +166,7 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-proc removeUnviableOrphanTree(
+func removeUnviableOrphanTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
@@ -193,15 +192,13 @@ proc removeUnviableOrphanTree(
 
     for k in toRemove:
       tbl.del k
-      info "FOO9 in removeUnviableOrphans",
-        blockRoot = shortLog(k[0])
       quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
 
   checked
 
-proc removeUnviableSidecarlessTree(
+func removeUnviableSidecarlessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
@@ -221,16 +218,11 @@ proc removeUnviableSidecarlessTree(
 
     for k in toRemove:
       tbl.del k
-      info "FOOA in removeUnviableSidecarlessTree",
-        blockRoot = shortLog(k)
       quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 
-# TODO revert to func when addUnviable logging gone
-proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
-  info "FOO8 in addUnviable", blockRoot = shortLog(root), st = getStackTrace()
-
+func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -244,8 +236,7 @@ proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 
   quarantine.unviable[root] = ()
 
-# TODO revert to func when addUnviable logging gone
-proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
@@ -256,8 +247,7 @@ proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
 
-# TODO revert to func when addUnviable logging gone
-proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
+func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.sidecarless:
@@ -275,8 +265,7 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.reset()
   quarantine.orphans.reset()
 
-# TODO revert to func when addUnviable logging gone
-proc pruneAfterFinalization*(
+func pruneAfterFinalization*(
     quarantine: var Quarantine,
     epoch: Epoch,
     needsBackfill: bool
