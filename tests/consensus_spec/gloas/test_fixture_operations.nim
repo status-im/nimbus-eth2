@@ -207,7 +207,16 @@ suite baseDescription & "Execution Payload Header " & preset():
       "block", applyExecutionPayloadHeader, path)
 
 suite baseDescription & "Payload Attestation " & preset():
-  debugGloasComment "payload attestation operations not yet implemented"
+  proc applyPayloadAttestation(
+      preState: var gloas.BeaconState,
+      payloadAttestation: PayloadAttestation): Result[void, cstring] =
+    var cache: StateCache
+    process_payload_attestation(preState, payload_attestation, cache)
+
+  for path in walkTests(OpPayloadAttestationDir):
+    runTest[PayloadAttestation, typeof applyPayloadAttestation](
+      OpPayloadAttestationDir, suiteName, "Payload Attestation",
+      "payload_attestation", applyPayloadAttestation, path)
 
 suite baseDescription & "Withdrawal Request " & preset():
   func applyWithdrawalRequest(

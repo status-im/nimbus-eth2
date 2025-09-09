@@ -60,6 +60,7 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#domain-types
   DOMAIN_BEACON_BUILDER* = DomainType([byte 0x1b, 0x00, 0x00, 0x00])
+  DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40

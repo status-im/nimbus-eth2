@@ -19,6 +19,9 @@ import
   # Internal
   "."/[eth2_merkleization, forks, ssz_codec]
 
+# Standard libraries
+from std/sequtils import mapIt
+
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
@@ -557,3 +560,39 @@ func is_builder_payment_withdrawable*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_header.block_hash == state.latest_block_hash
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+proc is_valid_indexed_payload_attestation*(
+    state: gloas.BeaconState, 
+    indexed_payload_attestation: IndexedPayloadAttestation): bool =
+  ## Check if ``indexed_payload_attestation`` is not empty, has sorted and unique indices and has
+  ## a valid aggregate signature.
+  
+  template is_sorted(s: untyped): bool =
+    var res = true
+    for i in 1 ..< s.len:
+      if s[i - 1] > s[i]:
+        res = false
+        break
+    res
+
+  # Verify indices are non-empty and sorted
+  if indexed_payload_attestation.attesting_indices.len == 0:
+    return false
+
+  if not is_sorted(indexed_payload_attestation.attesting_indices):
+    return false
+
+  # Verify aggregate signature
+  let 
+    pubkeys = mapIt(
+      indexed_payload_attestation.attesting_indices,
+      state.validators[it].pubkey)
+    domain = get_domain(
+      state.fork, DOMAIN_PTC_ATTESTER, 
+      GENESIS_EPOCH, state.genesis_validators_root)
+    signing_root = compute_signing_root(
+      indexed_payload_attestation.data, domain)
+
+  blsFastAggregateVerify(
+    pubkeys, signing_root.data, indexed_payload_attestation.signature)
