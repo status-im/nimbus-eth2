@@ -13,7 +13,7 @@ import
   chronicles,
   "."/[eth2_merkleization, forks, signatures, validator]
 
-from std/algorithm import fill, sort, sorted
+from std/algorithm import fill, sort
 from std/sequtils import anyIt, mapIt, toSeq
 
 export extras, forks, validator, chronicles
