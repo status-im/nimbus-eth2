@@ -195,7 +195,16 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 suite baseDescription & "Execution Payload Header " & preset():
-  debugGloasComment "execution payload header operations not yet implemented"
+  proc applyExecutionPayloadHeader(
+      preState: var gloas.BeaconState, 
+      blck: gloas.BeaconBlock): Result[void, cstring] =
+    process_execution_payload_header(
+      defaultRuntimeConfig, preState, blck)
+
+  for path in walkTests(OpExecutionPayloadHeaderDir):
+    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadHeader](
+      OpExecutionPayloadHeaderDir, suiteName, "Execution Payload Header",
+      "block", applyExecutionPayloadHeader, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   debugGloasComment "payload attestation operations not yet implemented"

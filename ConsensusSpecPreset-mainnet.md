@@ -3735,6 +3735,27 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
 ```
+## EF - Gloas - Operations - Execution Payload Header  [Preset: mainnet]
+```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
+```
 ## EF - Gloas - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_different_proposer_indices OK

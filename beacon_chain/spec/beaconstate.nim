@@ -1323,6 +1323,11 @@ func has_execution_withdrawal_credential*(validator: Validator): bool =
   has_compounding_withdrawal_credential(validator) or
     has_eth1_withdrawal_credential(validator)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-has_builder_withdrawal_credential
+func has_builder_withdrawal_credential*(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x03 prefixed "builder" withdrawal credential.
+  validator.withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(

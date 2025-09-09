@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -273,3 +273,37 @@ suite "Message signatures":
         load(pubkey0).get, get_sync_committee_selection_proof(
           fork0, genesis_validators_root1, slot,
           subcommittee_index, privkey0).toValidatorSig)
+
+  test "execution payload header signatures":
+    let 
+      msg = gloas.SignedExecutionPayloadHeader.new()
+      state = gloas.BeaconState.new()
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root0, msg[],
+          state[], privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root0, msg[],
+          state[], privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork1, genesis_validators_root0, msg[],
+          state[], privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root1, msg[],
+          state[], privkey0).toValidatorSig)

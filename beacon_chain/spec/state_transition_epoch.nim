@@ -789,45 +789,6 @@ iterator get_flag_and_inactivity_deltas*(
       active_increments, penalty_denominator, epoch_participation,
       participating_increments, info, vidx, state.inactivity_scores[vidx])
 
-func get_flag_and_inactivity_delta_for_validator(
-    cfg: RuntimeConfig,
-    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
-    base_reward_per_increment: Gwei, info: var altair.EpochInfo,
-    finality_delay: uint64, vidx: ValidatorIndex, inactivity_score: Gwei):
-    Opt[(ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei)] =
-  ## Return the deltas for a given ``flag_index`` by scanning through the
-  ## participation flags.
-  const INACTIVITY_PENALTY_QUOTIENT =
-    when state is altair.BeaconState:
-      INACTIVITY_PENALTY_QUOTIENT_ALTAIR
-    else:
-      INACTIVITY_PENALTY_QUOTIENT_BELLATRIX
-
-  static: doAssert ord(high(TimelyFlag)) == 2
-
-  let
-    previous_epoch = get_previous_epoch(state)
-    active_increments = get_active_increments(info)
-    penalty_denominator =
-      cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT
-    epoch_participation =
-      if previous_epoch == get_current_epoch(state):
-        unsafeAddr state.current_epoch_participation
-      else:
-        unsafeAddr state.previous_epoch_participation
-    participating_increments = [
-      get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
-      get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
-      get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
-
-  if not is_eligible_validator(info.validators[vidx]):
-    return Opt.none((ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei))
-
-  Opt.some get_flag_and_inactivity_delta(
-    state, base_reward_per_increment, finality_delay, previous_epoch,
-    active_increments, penalty_denominator, epoch_participation,
-    participating_increments, info, vidx, inactivity_score.uint64)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties*(
     state: var phase0.BeaconState, info: var phase0.EpochInfo) =
@@ -1037,27 +998,6 @@ func get_slashing_penalty*(
     penalty_per_effective_balance_increment * effective_balance_increments
   else:
     static: doAssert false
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/bellatrix/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-process_slashings
-func get_slashing(
-    state: ForkyBeaconState, total_balance: Gwei, vidx: ValidatorIndex): Gwei =
-  # For efficiency reasons, it doesn't make sense to have process_slashings use
-  # this per-validator index version, but keep them parallel otherwise.
-  let
-    epoch = get_current_epoch(state)
-    adjusted_total_slashing_balance = get_adjusted_total_slashing_balance(
-      state, total_balance)
-
-  let validator = unsafeAddr state.validators.item(vidx)
-  if slashing_penalty_applies(validator[], epoch):
-    get_slashing_penalty(
-      typeof(state).kind, validator[], adjusted_total_slashing_balance,
-      total_balance)
-  else:
-    0.Gwei
 
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
   let
@@ -1699,99 +1639,3 @@ proc process_epoch*(
   ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
 
   ok()
-
-proc get_validator_balance_after_epoch*(
-    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState,
-    cache: var StateCache, info: var altair.EpochInfo,
-    index: ValidatorIndex): Gwei =
-  # Run a subset of process_epoch() which affects an individual validator,
-  # without modifying state itself
-  info.init(state)   # TODO avoid quadratic aspects here
-
-  # Can't use process_justification_and_finalization(), but use its helper
-  # function. Used to calculate inactivity_score.
-  let jf_info =
-    # process_justification_and_finalization() skips first two epochs
-    if get_current_epoch(state) <= GENESIS_EPOCH + 1:
-      JustificationAndFinalizationInfo(
-        previous_justified_checkpoint: state.previous_justified_checkpoint,
-        current_justified_checkpoint: state.current_justified_checkpoint,
-        finalized_checkpoint: state.finalized_checkpoint,
-        justification_bits: state.justification_bits)
-    else:
-      weigh_justification_and_finalization(
-        state, info.balances.current_epoch,
-        info.balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
-        info.balances.current_epoch_TIMELY_TARGET, {})
-
-  # Used as part of process_rewards_and_penalties
-  let inactivity_score =
-    # process_inactivity_updates skips GENESIS_EPOCH and ineligible validators
-    if  get_current_epoch(state) == GENESIS_EPOCH or
-        not is_eligible_validator(info.validators[index]):
-      0.Gwei
-    else:
-      let
-        finality_delay =
-          get_previous_epoch(state) - jf_info.finalized_checkpoint.epoch
-        not_in_inactivity_leak = not is_in_inactivity_leak(finality_delay)
-        pre_inactivity_score = state.inactivity_scores.asSeq()[index]
-
-      # This is a template which uses not_in_inactivity_leak and index
-      compute_inactivity_update(cfg, state, info, pre_inactivity_score).Gwei
-
-  # process_rewards_and_penalties for a single validator
-  let reward_and_penalties_balance = block:
-    # process_rewards_and_penalties doesn't run at GENESIS_EPOCH
-    if get_current_epoch(state) == GENESIS_EPOCH:
-      state.balances.item(index)
-    else:
-      let
-        total_active_balance = info.balances.current_epoch
-        base_reward_per_increment = get_base_reward_per_increment(
-          total_active_balance)
-        finality_delay = get_finality_delay(state)
-
-      var balance = state.balances.item(index)
-      let maybeDelta = get_flag_and_inactivity_delta_for_validator(
-        cfg, state, base_reward_per_increment, info, finality_delay, index,
-        inactivity_score)
-      if maybeDelta.isOk:
-        # Can't use isErrOr in generics
-        let (validator_index, reward0, reward1, reward2, penalty0, penalty1, penalty2) =
-          maybeDelta.get
-        info.validators[validator_index].delta.rewards += reward0 + reward1 + reward2
-        info.validators[validator_index].delta.penalties += penalty0 + penalty1 + penalty2
-        increase_balance(balance, info.validators[index].delta.rewards)
-        decrease_balance(balance, info.validators[index].delta.penalties)
-      balance
-
-  # The two directly balance-changing operations, from Altair through Deneb,
-  # are these. The rest is necessary to look past a single epoch transition,
-  # but that's not the use case here.
-  var post_epoch_balance = reward_and_penalties_balance
-  decrease_balance(
-    post_epoch_balance,
-    get_slashing(state, info.balances.current_epoch, index))
-
-  # Electra adds apply_pending_deposit as a potential balance-changing epoch
-  # operations. This should probably be cached, so its 16+ invocations, each
-  # time, e.g., withdrawals are calculated don't repeat, if it's empirically
-  # too expensive. Limits exist on how large this structure can get though.
-  #
-  # TODO withdrawals and consolidation request processing can also affect this
-  when type(state).kind >= ConsensusFork.Electra:
-    for deposit in state.pending_deposits:
-      discard
-
-  post_epoch_balance
-
-proc get_next_slot_expected_withdrawals*(
-    cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache,
-    info: var altair.EpochInfo): seq[Withdrawal] =
-  let (res, _) = get_expected_withdrawals_with_partial_count_aux(
-      state, (state.slot + 1).epoch) do:
-    # validator_index is defined by an injected symbol within the template
-    get_validator_balance_after_epoch(
-      cfg, state, cache, info, validator_index.ValidatorIndex)
-  res
