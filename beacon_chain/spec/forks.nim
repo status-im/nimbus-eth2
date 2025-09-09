@@ -367,14 +367,14 @@ type
   ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
 
   ForkDigests* = object
-    phase0*:    ForkDigest
-    altair*:    ForkDigest
-    bellatrix*: ForkDigest
-    capella*:   ForkDigest
-    deneb*:     ForkDigest
-    electra*:   ForkDigest
-    fuluInt:    ForkDigest
-    bpos*:      seq[(Epoch, ConsensusFork, ForkDigest)]
+    phase0*:   ForkDigest
+    altair*:   ForkDigest
+    bellatrix: ForkDigest
+    capella:   ForkDigest
+    deneb:     ForkDigest
+    electra:   ForkDigest
+    fuluInt:   ForkDigest
+    bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
 template kind*(
     x: typedesc[
