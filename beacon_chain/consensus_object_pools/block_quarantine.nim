@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles, chronos,
-  ../spec/[presets, forks]
+  ../spec/[block_id, forks, presets]
 
 export tables, forks
 
@@ -76,6 +76,11 @@ type
       ## table is not a complete directory of all unviable blocks circulating -
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
+
+    last_block_slot*: Opt[BlockId]
+      ## Stores the latest sidecarless block root and slot, in order to quickly
+      ## fetch the latest info without having to traverse sidecarless
+      ## quarantine.
 
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
@@ -162,7 +167,7 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func removeUnviableOrphanTree(
+proc removeUnviableOrphanTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
@@ -188,13 +193,15 @@ func removeUnviableOrphanTree(
 
     for k in toRemove:
       tbl.del k
+      info "FOO9 in removeUnviableOrphans",
+        blockRoot = shortLog(k[0])
       quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
 
   checked
 
-func removeUnviableSidecarlessTree(
+proc removeUnviableSidecarlessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
     tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
@@ -214,11 +221,16 @@ func removeUnviableSidecarlessTree(
 
     for k in toRemove:
       tbl.del k
+      info "FOOA in removeUnviableSidecarlessTree",
+        blockRoot = shortLog(k)
       quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+# TODO revert to func when addUnviable logging gone
+proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  info "FOO8 in addUnviable", blockRoot = shortLog(root), st = getStackTrace()
+
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -232,7 +244,8 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 
   quarantine.unviable[root] = ()
 
-func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
@@ -243,7 +256,8 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
 
-func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
+# TODO revert to func when addUnviable logging gone
+proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.sidecarless:
@@ -261,7 +275,8 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.reset()
   quarantine.orphans.reset()
 
-func pruneAfterFinalization*(
+# TODO revert to func when addUnviable logging gone
+proc pruneAfterFinalization*(
     quarantine: var Quarantine,
     epoch: Epoch,
     needsBackfill: bool
@@ -371,6 +386,8 @@ proc addSidecarless(
         block_root = shortLog(signedBlock.root)
   quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.last_block_slot =
+    Opt.some(BlockId(slot: signedBlock.message.slot, root: signedBlock.root))
   quarantine.missing.del(signedBlock.root)
   quarantine.sidecarlessEvent.fire()
   true
