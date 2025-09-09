@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles, chronos,
-  ../spec/[presets, forks]
+  ../spec/[block_id, forks, presets]
 
 export tables, forks
 
@@ -76,6 +76,11 @@ type
       ## table is not a complete directory of all unviable blocks circulating -
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
+
+    last_block_slot*: Opt[BlockId]
+      ## Stores the latest sidecarless block root and slot, in order to quickly
+      ## fetch the latest info without having to traverse sidecarless
+      ## quarantine.
 
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
@@ -218,7 +223,7 @@ proc removeUnviableSidecarlessTree(
       tbl.del k
       info "FOOA in removeUnviableSidecarlessTree",
         blockRoot = shortLog(k)
-      #quarantine.unviable[k] = ()
+      quarantine.unviable[k] = ()
 
     toRemove.setLen(0)
 
@@ -381,6 +386,8 @@ proc addSidecarless(
         block_root = shortLog(signedBlock.root)
   quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.last_block_slot =
+    Opt.some(BlockId(slot: signedBlock.message.slot, root: signedBlock.root))
   quarantine.missing.del(signedBlock.root)
   quarantine.sidecarlessEvent.fire()
   true
