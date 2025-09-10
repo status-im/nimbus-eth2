@@ -206,24 +206,24 @@ proc loadChainDag(
     if dag == nil: return
     withForkyFinalityUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+        let
+          contextEpoch = forkyFinalityUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.finUpdateQueue.emit(
           RestVersioned[ForkedLightClientFinalityUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+        let
+          contextEpoch = forkyOptimisticUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.optUpdateQueue.emit(
           RestVersioned[ForkedLightClientOptimisticUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
 
   let
     chainDagFlags =

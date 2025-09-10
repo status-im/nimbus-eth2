@@ -367,14 +367,14 @@ type
   ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
 
   ForkDigests* = object
-    phase0*:    ForkDigest
-    altair*:    ForkDigest
-    bellatrix*: ForkDigest
-    capella*:   ForkDigest
-    deneb*:     ForkDigest
-    electra*:   ForkDigest
-    fuluInt:    ForkDigest
-    bpos*:      seq[(Epoch, ConsensusFork, ForkDigest)]
+    phase0*:   ForkDigest
+    altair*:   ForkDigest
+    bellatrix: ForkDigest
+    capella:   ForkDigest
+    deneb:     ForkDigest
+    electra:   ForkDigest
+    fuluInt:   ForkDigest
+    bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
 template kind*(
     x: typedesc[
@@ -1208,6 +1208,14 @@ template atEpoch*(
       forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
   else:
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
+
+iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
+  yield forkDigests.atConsensusFork(consensusFork)
+
+  if consensusFork >= ConsensusFork.Fulu:
+    for (_, consensusFork, forkDigest) in forkDigests.bpos:
+      if consensusFork == consensusFork:
+        yield forkDigest
 
 template asSigned*(
     x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
