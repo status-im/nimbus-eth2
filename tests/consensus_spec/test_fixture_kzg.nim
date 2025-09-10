@@ -390,86 +390,61 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
           check data[k].kzg_proof.bytes == val[i].proofs[j].bytes
 
 proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string) =
-  try:
+  test "KZG - Recover Cells And Kzg Proofs Parallel - invalid":
     # Preload data of valid cases
     let
       validData = loadCellsAndKzgProofsValidCases(suitePath)
-      validCount = validData[validData.len - 1].row_index + 1
+      validRowCount = validData[validData.len - 1].row_index + 1
 
     for kind, path in walkDir(suitePath, relative = true, checkDir = true):
       if not path.contains("_case_invalid_"):
         continue
 
       let
-        rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
-        inputCells = rowData["input"]["cells"]
-        inputIndices = rowData["input"]["cell_indices"]
+        invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+        invalidCells = invalidData["input"]["cells"]
+        invalidIndices = invalidData["input"]["cell_indices"]
 
-      # skip case of different length of inputs as it should have covered in
-      # the single thread tests, and it is not compatible with
-      # `seq[DataColumnSidecar]`
-      if inputCells.len != inputIndices.len:
-        continue
-      # skip case of invalid length
-      if inputCells.len > fulu.CELLS_PER_EXT_BLOB or inputCells.len == 0:
+      # skip when there are more cells than indices as with seq[DataColumnSidecar]
+      # length of indices is always >= length of cells for each row
+      if invalidCells.len > invalidIndices.len:
         continue
 
       var
         shouldSkip = false
-        invalidData: seq[MatrixEntry]
-        indices: seq[ColumnIndex]
+        colInput = newSeq[ref fulu.DataColumnSidecar](invalidIndices.len)
+      for i in 0 ..< colInput.lenu64:
+        let cIdx = invalidIndices[i.int].getInt.toUInt64.get
+        var cells: seq[Cell]
 
-      for i in 0..<inputCells.len:
-        let
-          cellBytes = fromHex[2048](inputCells[i].getStr).valueOr:
-            # skip case of cell has length != 2048
-            # TODO: support dynamic length for future-proof
+        # insert rows from data of valid cases if it is a valid index
+        if cIdx < NUMBER_OF_COLUMNS:
+          for j in 0 ..< validRowCount:
+            let vIdx = NUMBER_OF_COLUMNS * j + cIdx
+            cells.add(Cell(bytes: validData[vIdx].cell.bytes))
+
+        # insert the invalid data as the last cell
+        if i < invalidCells.lenu64:
+          let cellBytes = fromHex[2048](invalidCells[i.int].getStr).valueOr:
+            # when cell is not in 2048-length, it will be in default value and
+            # recover without any failures
             shouldSkip = true
             break
-          columnIdx = ColumnIndex(inputIndices[i].getInt.toUInt64.get)
+          cells.add(Cell(bytes: cellBytes))
 
-        # Duplicate index is not compatible with `seq[DataColumnSidecar]`
-        if columnIdx in indices:
-          shouldSkip = true
-          break
-
-        indices.add(columnIdx)
-        invalidData.add(MatrixEntry(
-          cell: Cell(bytes: cellBytes),
-          column_index: columnIdx,
-          row_index: RowIndex(validCount)))
+        # set data column
+        let dataColumn = fulu.DataColumnSidecar(
+          index: ColumnIndex(cIdx),
+          column: DataColumn(cells))
+        colInput[i] = newClone(dataColumn)
 
       if shouldSkip:
         continue
 
-      test "KZG - Recover Cells And Kzg Proofs Parallel - invalid - " & path.rsplit("_case_invalid_", 1)[1]:
-        let
-          input = validData.filterIt(it.column_index in indices) & invalidData
-          rowCount = validCount + 1
-
-        # convert input into column
-        var
-          colInput: seq[ref DataColumnSidecar]
-          colEntries: Table[uint64, seq[MatrixEntry]]
-
-        for entry in input:
-          colEntries.mgetOrPut(entry.column_index, @[]).add(entry)
-
-        for cIdx, entries in colEntries:
-          var cells = newSeq[Cell](rowCount)
-          for entry in entries:
-            cells[entry.row_index] = entry.cell
-          let sidecar = DataColumnSidecar(
-            index: ColumnIndex(cIdx),
-            column: DataColumn(cells))
-          colInput.add(newClone(sidecar))
-
-        # check recovered cells and proofs
-        var tp = Taskpool.new()
-        let v = tp.recover_cells_and_proofs_parallel(colInput)
-        check v.isErr
-  except Exception:
-    debugEcho "Problem in loading KZG invalid case data"
+      # check error
+      var tp = Taskpool.new()
+      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      check v.isErr
 
 var suiteName = "EF - KZG"
 
