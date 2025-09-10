@@ -716,6 +716,10 @@ else:
 
   # createConstantsFromPreset const_preset
 
+const
+  minSecondsPerSlot* = 1'u64
+  maxSecondsPerSlot* = int64.high.uint64 div 1_000_000_000'u64
+
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
@@ -900,7 +904,9 @@ proc readRuntimeConfig*(
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
 
-  checkCompatibility SECONDS_PER_SLOT
+  checkCompatibility minSecondsPerSlot .. maxSecondsPerSlot,
+                     "SECONDS_PER_SLOT", `in`
+  checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
