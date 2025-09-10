@@ -150,7 +150,7 @@ proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
-    dataColumns: seq[ref DataColumnSidecar]):
+    dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## This helper recovers blobs from the data column sidecars parallelly
   if dataColumns.len == 0:

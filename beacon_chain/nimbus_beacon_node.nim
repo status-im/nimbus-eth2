@@ -1715,12 +1715,12 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     when consensusFork >= ConsensusFork.Fulu:
       let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
       var
-        columns: seq[ref DataColumnSidecar]
+        columns: seq[ref fulu.DataColumnSidecar]
         indices: HashSet[uint64]
 
       # Get columns from database
       for i in 0 ..< maxColCount:
-        var colData: DataColumnSidecar
+        var colData: fulu.DataColumnSidecar
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
@@ -1750,7 +1750,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         for j in 0 ..< rowCount:
           cells[j] = recovered[j].cells[i]
           proofs[j] = recovered[j].proofs[i]
-        let dataColumn = DataColumnSidecar(
+        let dataColumn = fulu.DataColumnSidecar(
           index: ColumnIndex(i),
           column: DataColumn(cells),
           kzg_proofs: deneb.KzgProofs(proofs),
