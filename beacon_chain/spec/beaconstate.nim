@@ -13,7 +13,7 @@ import
   chronicles,
   "."/[eth2_merkleization, forks, signatures, validator]
 
-from std/algorithm import fill, sort, isSorted
+from std/algorithm import fill, isSorted, sort
 from std/sequtils import anyIt, mapIt, toSeq
 
 export extras, forks, validator, chronicles
@@ -2712,10 +2712,9 @@ func can_advance_slots*(
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
-proc get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache): 
-    seq[ValidatorIndex] =
+iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache): 
+    ValidatorIndex =
   ## Get the payload timeliness committee for the given ``slot``
-  
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]
   buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
@@ -2730,22 +2729,24 @@ proc get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
     let committee = get_beacon_committee(state, slot, committee_index, cache)
     indices.add(committee)
 
-  toSeq(compute_balance_weighted_selection(
-    state, indices, seed, size=PTC_SIZE, shuffle_indices=false))
+  for candidate_index in compute_balance_weighted_selection(
+      state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
+    yield candidate_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
-proc get_indexed_payload_attestation*(
+func get_indexed_payload_attestation*(
     state: gloas.BeaconState, slot: Slot, 
     payload_attestation: PayloadAttestation, 
     cache: var StateCache): IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
-  
-  let ptc = get_ptc(state, slot, cache)
-  var attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
+  var 
+    attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
+    i = 0
 
-  for i, index in ptc:
+  for index in get_ptc(state, slot, cache):
     if payload_attestation.aggregation_bits[i]:
       attesting_indices.add(index.uint64)
+    inc i
 
   attesting_indices.sort()
 
