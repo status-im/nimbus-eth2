@@ -94,7 +94,8 @@ proc main() {.noinline, raises: [CatchableError].} =
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Bellatrix:
+        debugGloasComment ""
+        when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if elManager != nil and not payload.block_hash.isZero:
@@ -116,15 +117,19 @@ proc main() {.noinline, raises: [CatchableError].} =
     PeerSync, PeerSync.NetworkState.init(
       cfg, forkDigests, genesisBlockRoot, getBeaconTime))
 
-  withAll(ConsensusFork):
-    let forkDigest = forkDigests[].atConsensusFork(consensusFork)
-    network.addValidator(
-      getBeaconBlocksTopic(forkDigest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock,
-          src: PeerId
-      ): ValidationResult =
-        toValidationResult(
-          optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  for consensusFork in ConsensusFork:
+    for forkDigest in consensusFork.forkDigests(forkDigests[]):
+      withConsensusFork(consensusFork):
+        when consensusFork >= ConsensusFork.Gloas:
+          debugGloasComment "consensusFork.SignedBeaconBlock support missing"
+        else:
+          network.addValidator(
+            getBeaconBlocksTopic(forkDigest), proc (
+                signedBlock: consensusFork.SignedBeaconBlock,
+                src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()

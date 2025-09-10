@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,8 +10,9 @@
 import
   ./mainnet/[
     phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset, electra_preset]
+    deneb_preset, electra_preset, gloas_preset
+  ]
 
 export
   phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset, electra_preset
+  deneb_preset, electra_preset, gloas_preset

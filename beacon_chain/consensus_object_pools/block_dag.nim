@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
@@ -73,9 +73,23 @@ func init*(
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
           fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Opt.some blck.body.execution_payload.block_hash,
+    root,
+    Opt.some blck.body.execution_payload.block_hash,
     executionValid =
       executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
+    blck.slot
+  )
+
+func init*(
+    T: type BlockRef, root: Eth2Digest, executionValid: bool,
+    blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(
+    root,
+    Opt.some blck.body.signed_execution_payload_header.message.block_hash,
+    executionValid =
+      executionValid or
+      blck.body.signed_execution_payload_header.message.block_hash ==
+      ZERO_HASH,
     blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =

@@ -47,8 +47,8 @@ func genDataColumnSidecar(
     index: int,
     slot: int,
     proposer_index: int
-): DataColumnSidecar =
-  DataColumnSidecar(
+): fulu.DataColumnSidecar =
+  fulu.DataColumnSidecar(
     index: ColumnIndex(index),
     signed_block_header: SignedBeaconBlockHeader(
       message: BeaconBlockHeader(
@@ -90,7 +90,7 @@ func genFuluSignedBeaconBlock(
     root: blockRoot)
 
 func compareSidecars(
-    a, b: openArray[ref BlobSidecar|ref DataColumnSidecar]
+    a, b: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar]
 ): bool =
   if len(a) != len(b):
     return false
@@ -102,7 +102,7 @@ func compareSidecars(
   true
 
 func compareSidecarsByValue(
-    a, b: openArray[ref BlobSidecar|ref DataColumnSidecar]
+    a, b: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar]
 ): bool =
   if len(a) != len(b):
     return false
@@ -129,7 +129,7 @@ func compareSidecars(
 
 func compareSidecars(
     blockRoot: Eth2Digest,
-    a: openArray[ref DataColumnSidecar],
+    a: openArray[ref fulu.DataColumnSidecar],
     b: DataColumnsByRootIdentifier
 ): bool =
   if len(a) != len(b.indices):
@@ -1324,14 +1324,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot2 = genBlockRoot(2)
       sidecars1 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
@@ -1409,14 +1409,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot2 = genBlockRoot(2)
       sidecars1 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
@@ -1523,14 +1523,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       ]
       sidecars1 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
@@ -1587,14 +1587,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot2 = genBlockRoot(2)
       sidecars1 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
@@ -1703,7 +1703,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     var
       bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
-      sidecars: seq[tuple[sidecar: ref DataColumnSidecar,
+      sidecars: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
                           blockRoot: Eth2Digest]]
 
     let maxSidecars = int(NUMBER_OF_COLUMNS * SLOTS_PER_EPOCH) * 3
@@ -1771,7 +1771,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     let
       msidecars =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             let sidecar =
               newClone(genDataColumnSidecar(index = int(custodyColumns[i]),
@@ -1823,10 +1823,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
       bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
-      sidecars1: seq[ref DataColumnSidecar]
-      sidecars1d: seq[ref DataColumnSidecar]
-      sidecars2: seq[ref DataColumnSidecar]
-      sidecars2d: seq[ref DataColumnSidecar]
+      sidecars1: seq[ref fulu.DataColumnSidecar]
+      sidecars1d: seq[ref fulu.DataColumnSidecar]
+      sidecars2: seq[ref fulu.DataColumnSidecar]
+      sidecars2d: seq[ref fulu.DataColumnSidecar]
 
     for index in custodyColumns:
       let
@@ -2006,7 +2006,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     var
       bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 2, nil)
-      sidecars: seq[tuple[sidecar: ref DataColumnSidecar,
+      sidecars: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
                           blockRoot: Eth2Digest]]
 
     let maxSidecars = int(NUMBER_OF_COLUMNS * SLOTS_PER_EPOCH) * 3
@@ -2029,7 +2029,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       len(bq) == maxSidecars
       lenMemory(bq) == maxSidecars
       lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == 0
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
     for i in 0 ..< len(custodyColumns):
       check:
@@ -2059,7 +2059,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == len(sidecars) + 1
       lenDisk(bq) == len(custodyColumns)
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) ==
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
         len(custodyColumns)
       lenMemory(bq) == len(sidecars) - len(custodyColumns) + 1
       bq.hasSidecar(
@@ -2095,14 +2095,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       compareSidecarsByValue(dres.get(), sidecars2) == true
       len(bq) == len(sidecars) - len(custodyColumns) + 1
       lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == 0
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
     # put(openArray[sidecar]) test
 
     let
       msidecars =
         block:
-          var res: seq[ref DataColumnSidecar]
+          var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             let sidecar =
               newClone(
@@ -2127,7 +2127,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       lenDisk(bq) == len(custodyColumns)
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) ==
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
         len(custodyColumns)
       len(bq) == len(sidecars) + 1
 
@@ -2170,7 +2170,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       compareSidecarsByValue(dres3.get(), sidecars3) == true
       len(bq) == len(sidecars) - len(custodyColumns) + 1
       lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == 0
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
   test "database and memory overfill protection and pruning test":
     let
@@ -2178,9 +2178,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
       bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 1, nil)
-      sidecars1: seq[tuple[sidecar: ref DataColumnSidecar,
+      sidecars1: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
                            blockRoot: Eth2Digest]]
-      sidecars2: seq[tuple[sidecar: ref DataColumnSidecar,
+      sidecars2: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
                            blockRoot: Eth2Digest]]
       epochs1: seq[Epoch]
       epochs2: seq[Epoch]
@@ -2215,7 +2215,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == len(sidecars1)
       lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == 0
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
     for i in 0 ..< (maxSidecars div len(custodyColumns)):
       let
@@ -2228,7 +2228,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == len(sidecars1) + len(sidecars2)
       lenDisk(bq) == len(sidecars1)
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) ==
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
         len(sidecars1)
       lenMemory(bq) == len(sidecars2)
 
@@ -2274,7 +2274,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == len(sidecars1) + len(sidecars2) - len(custodyColumns) + 1
       lenDisk(bq) == len(sidecars1)
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == len(sidecars1)
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == len(sidecars1)
       lenMemory(bq) == len(sidecars2) - len(custodyColumns) + 1
       bq.hasSidecar(
         blockRoot = blockRoot, slot = Slot(1000000),
@@ -2332,4 +2332,4 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       len(bq) == 0
-      quarantine.sidecarsCount(typedesc[DataColumnSidecar]) == 0
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0

@@ -24,6 +24,9 @@ const
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#withdrawal-prefixes
+  BUILDER_WITHDRAWAL_PREFIX*: byte = 3
+
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
 
@@ -38,6 +41,9 @@ const
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
 type
+  TimeConfig* = object
+    SECONDS_PER_SLOT*: uint64
+
   Version* = distinct array[4, byte]
 
   Eth1Address* = eth.Address
@@ -76,9 +82,11 @@ type
     ELECTRA_FORK_EPOCH*: Epoch
     FULU_FORK_VERSION*: Version
     FULU_FORK_EPOCH*: Epoch
+    GLOAS_FORK_VERSION*: Version
+    GLOAS_FORK_EPOCH*: Epoch
 
     # Time parameters
-    # TODO SECONDS_PER_SLOT*: uint64
+    time*: TimeConfig
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
@@ -235,11 +243,15 @@ when const_preset == "mainnet":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x00],
     FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x00],
+    GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
-    # 12 seconds
-    # TODO SECONDS_PER_SLOT: 12,
+    time: TimeConfig(
+      # 12 seconds
+      SECONDS_PER_SLOT: 12),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
@@ -403,11 +415,15 @@ elif const_preset == "gnosis":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x64],
     FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x64],
+    GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
-    # 5 seconds
-    # TODO SECONDS_PER_SLOT: 5,
+    time: TimeConfig(
+      # 5 seconds
+      SECONDS_PER_SLOT: 5),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
@@ -568,11 +584,15 @@ elif const_preset == "minimal":
     # Fulu
     FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x01],
     FULU_FORK_EPOCH: Epoch(uint64.high),
+    # Gloas
+    GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x01],
+    GLOAS_FORK_EPOCH: Epoch(uint64.high),
 
     # Time parameters
     # ---------------------------------------------------------------
-    # [customized] Faster for testing purposes
-    # TODO SECONDS_PER_SLOT: 6,
+    time: TimeConfig(
+      # [customized] Faster for testing purposes
+      SECONDS_PER_SLOT: 6),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs
@@ -746,6 +766,9 @@ template parse(T: type UInt256, input: string): T =
 func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
+
+func parse(T: typedesc[TimeConfig], input: string): T {.raises: [ValueError].} =
+  raise (ref ValueError)(msg: "Unexpected TimeConfig value")
 
 func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
@@ -962,7 +985,7 @@ proc readRuntimeConfig*(
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
   checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
-  for name, field in cfg.fieldPairs():
+  template assignValue(name: static string, field: untyped): untyped =
     if values.hasKey(name):
       when field is seq[BlobParameters]:
         field = blobScheduleEntries
@@ -975,6 +998,11 @@ proc readRuntimeConfig*(
     elif name == "BLOB_SCHEDULE":
       when field is seq[BlobParameters]:
         field = blobScheduleEntries
+
+  for name, field in cfg.fieldPairs():
+    assignValue(name, field)
+  for name, field in cfg.time.fieldPairs():
+    assignValue(name, field)
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(

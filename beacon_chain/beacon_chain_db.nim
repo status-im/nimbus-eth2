@@ -519,6 +519,8 @@ proc new*(T: type BeaconChainDB,
     if db.exec("DROP TABLE IF EXISTS ``;").isErr:
       debug "Failed to drop the `` table"
 
+  debugGloasComment "use actual names when closer"
+
   var
     genesisDepositsSeq =
       DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
@@ -537,6 +539,10 @@ proc new*(T: type BeaconChainDB,
       if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("fulu_blocks").expectDb()
       else:
+        nil,
+      if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("foobar_not_real_name").expectDb()
+      else:
         nil
     ]
 
@@ -551,6 +557,10 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
       if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()
+      else:
+        nil,
+      if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("more_intentional_gibberish___").expectDb()
       else:
         nil
     ]
@@ -842,7 +852,7 @@ proc delBlobSidecar*(
 
 proc putDataColumnSidecar*(
     db: BeaconChainDB,
-    value: DataColumnSidecar) =
+    value: fulu.DataColumnSidecar) =
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns.putSZSSZ(columnkey(block_root, value.index), value)
 
@@ -866,7 +876,9 @@ proc updateImmutableValidators*(
     db.immutableValidators.add immutableValidator
 
 template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Fulu:
+  when kind == ConsensusFork.Gloas:
+    typedesc[GloasBeaconStateNoImmutableValidators]
+  elif kind == ConsensusFork.Fulu:
     typedesc[FuluBeaconStateNoImmutableValidators]
   elif kind == ConsensusFork.Electra:
     typedesc[ElectraBeaconStateNoImmutableValidators]
@@ -1056,7 +1068,7 @@ proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
   db.columns.get(columnkey(root, index), decode).expectDb()
 
 proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
-                           value: var DataColumnSidecar): bool =
+                           value: var fulu.DataColumnSidecar): bool =
   if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
     return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found

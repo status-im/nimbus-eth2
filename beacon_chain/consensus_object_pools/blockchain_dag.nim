@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils, tables, sets],
@@ -47,6 +47,8 @@ declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_da
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
 declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
+
+declareGauge beacon_head_execution_number, "Execuction block number of the beacon head block"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -266,8 +268,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
@@ -898,6 +903,15 @@ proc updateBeaconMetrics(
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
 
+    beacon_head_execution_number.set(
+      when consensusFork >= ConsensusFork.Bellatrix and
+          consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
+        forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
+      else:
+        0.toGaugeValue
+    )
+
 import blockchain_dag_light_client
 
 export
@@ -1015,6 +1029,12 @@ proc applyBlock(
       updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Fulu:
     let data = getBlock(dag, bid, fulu.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Gloas:
+    let data = getBlock(dag, bid, gloas.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
@@ -1181,6 +1201,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
+      of ConsensusFork.Gloas:     gloasFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -1362,6 +1383,9 @@ template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
 proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
   dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")
 
+func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  dag.forkDigests[].atEpoch(epoch, dag.cfg)
+
 func getEpochRef*(
     dag: ChainDAGRef, state: ForkedHashedBeaconState, cache: var StateCache): EpochRef =
   ## Get a cached `EpochRef` or construct one based on the given state - always
@@ -1461,7 +1485,10 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment ""
+    when consensusFork == ConsensusFork.Gloas:
+      return Opt.none(Eth2Digest)
+    elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:
         var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
         mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
@@ -2309,7 +2336,10 @@ proc loadExecutionBlockHash*(
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment " "
+    when consensusFork == ConsensusFork.Gloas:
+      Opt.some ZERO_HASH
+    elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
       Opt.some ZERO_HASH

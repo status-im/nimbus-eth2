@@ -27,7 +27,6 @@ import
 
 from std/sequtils import mapIt
 from std/strutils import join
-from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
@@ -35,7 +34,8 @@ from ./altair import
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, KzgCommitments, KzgProofs
+from ./deneb import
+  Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
@@ -147,80 +147,18 @@ type
     syncnets*: SyncnetBits
     custody_group_count*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
-    # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-      ## 'beneficiary' in the yellow paper
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-      ## 'difficulty' in the yellow paper
-    block_number*: uint64
-      ## 'number' in the yellow paper
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
-    block_hash*: Eth2Digest # Hash of execution block
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
-
   ExecutionPayloadForSigning* = object
-    executionPayload*: ExecutionPayload
+    executionPayload*: deneb.ExecutionPayload
     blockValue*: Wei
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
-    # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-    block_number*: uint64
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
-    block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
-
-  ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
-
-  FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
-
-  CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
-
-  NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
 
-    execution*: ExecutionPayloadHeader
+    execution*: deneb.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
@@ -231,7 +169,7 @@ type
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+    current_sync_committee_branch*: electra.CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
@@ -241,11 +179,11 @@ type
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
       ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: NextSyncCommitteeBranch
+    next_sync_committee_branch*: electra.NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: FinalityBranch
+    finality_branch*: electra.FinalityBranch
 
     sync_aggregate*: SyncAggregate
       ## Sync committee aggregate signature
@@ -259,7 +197,7 @@ type
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: FinalityBranch
+    finality_branch*: electra.FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
@@ -369,8 +307,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: ExecutionPayloadHeader
-      ## [Modified in Electra:EIP6110:EIP7002]
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -491,7 +428,7 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: fulu.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -531,7 +468,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -559,7 +496,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests  # [New in Electra]
@@ -590,12 +527,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
@@ -605,7 +536,6 @@ type
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
     TrustedSignedBeaconBlock
   SomeBeaconBlock* =
     BeaconBlock |
@@ -680,56 +610,13 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: ExecutionPayload): auto =
-  (
-    parent_hash: shortLog(v.parent_hash),
-    fee_recipient: $v.fee_recipient,
-    state_root: shortLog(v.state_root),
-    receipts_root: shortLog(v.receipts_root),
-    prev_randao: shortLog(v.prev_randao),
-    block_number: v.block_number,
-    gas_limit: v.gas_limit,
-    gas_used: v.gas_used,
-    timestamp: v.timestamp,
-    extra_data: toPrettyString(distinctBase v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
-    block_hash: shortLog(v.block_hash),
-    num_transactions: len(v.transactions),
-    num_withdrawals: len(v.withdrawals),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
-  )
-
-
-func shortLog*(v: ExecutionPayloadHeader): auto =
-  (
-    parent_hash: shortLog(v.parent_hash),
-    fee_recipient: $v.fee_recipient,
-    state_root: shortLog(v.state_root),
-    receipts_root: shortLog(v.receipts_root),
-    prev_randao: shortLog(v.prev_randao),
-    block_number: v.block_number,
-    gas_limit: v.gas_limit,
-    gas_used: v.gas_used,
-    timestamp: v.timestamp,
-    extra_data: toPrettyString(distinctBase v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
-    block_hash: shortLog(v.block_hash),
-    transactions_root: shortLog(v.transactions_root),
-    withdrawals_root: shortLog(v.withdrawals_root),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
-  )
-
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
@@ -737,14 +624,7 @@ template asSigVerified*(
     x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
-
 template asTrusted*(
     x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

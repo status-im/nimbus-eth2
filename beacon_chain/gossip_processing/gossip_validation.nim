@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status
@@ -210,7 +210,7 @@ func check_blob_sidecar_inclusion_proof(
   ok()
 
 func check_data_column_sidecar_inclusion_proof(
-    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: fulu.DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
@@ -218,7 +218,7 @@ func check_data_column_sidecar_inclusion_proof(
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: fulu.DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
@@ -301,8 +301,9 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   else:
     cfg.MAX_BLOBS_PER_BLOCK
 
+debugGloasComment ""
 template validateBeaconBlockBellatrix(
-    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BlockRef): untyped =
   discard
 
@@ -360,11 +361,12 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
+debugGloasComment ""
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
     _:
       phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BeaconTime): untyped =
   discard
 
@@ -584,7 +586,7 @@ proc validateBlobSidecar*(
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
-    data_column_sidecar: DataColumnSidecar,
+    data_column_sidecar: fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
 

@@ -426,7 +426,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(
+          Http500, "Unsupported fork for block production: " & $consensusFork)
+      elif consensusFork >= ConsensusFork.Electra:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
@@ -700,7 +704,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         addDecodedProofs(phase0.SignedAggregateAndProof)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)

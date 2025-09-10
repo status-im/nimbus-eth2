@@ -347,8 +347,8 @@ proc runProposalForkchoiceUpdated*(
     # If the current head block still forms the basis of the eventual proposal
     # state, then its `get_randao_mix` will remain unchanged as well, as it is
     # constant until the next block.
-    randomData = withState(self.dag.headState):
-      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
+    prevRandao = withState(self.dag.headState):
+      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
@@ -367,13 +367,15 @@ proc runProposalForkchoiceUpdated*(
         payloadAttributes = Opt.some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-    when consensusFork >= ConsensusFork.Deneb:
+    static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+    when consensusFork >= ConsensusFork.Gloas:
+      debugGloasComment "well, likely can't keep reusing V3 much longer"
+    elif consensusFork >= ConsensusFork.Deneb:
       # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
       # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
       callForkchoiceUpdated(PayloadAttributesV3(
         timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
+        prevRandao: Bytes32 prevRandao.to(Hash32),
         suggestedFeeRecipient: feeRecipient,
         withdrawals:
           toEngineWithdrawals get_expected_withdrawals(forkyState.data),
@@ -381,14 +383,14 @@ proc runProposalForkchoiceUpdated*(
     elif consensusFork >= ConsensusFork.Capella:
       callForkchoiceUpdated(PayloadAttributesV2(
         timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
+        prevRandao: Bytes32 prevRandao.to(Hash32),
         suggestedFeeRecipient: feeRecipient,
         withdrawals:
           toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
     else:
       callForkchoiceUpdated(PayloadAttributesV1(
         timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
+        prevRandao: Bytes32 prevRandao.to(Hash32),
         suggestedFeeRecipient: feeRecipient))
 
   ok()

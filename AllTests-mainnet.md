@@ -502,6 +502,9 @@ AllTests-mainnet
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_than_h OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_ha OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_no OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_on OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
@@ -768,6 +771,7 @@ AllTests-mainnet
 + Sync committee selection proof signatures                                                  OK
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
++ execution payload header signatures                                                        OK
 ```
 ## Network metadata
 ```diff
@@ -801,10 +805,6 @@ AllTests-mainnet
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
-```
-## PeerDAS Sampling Tests
-```diff
-+ PeerDAS: Extended Sample Count                                                             OK
 ```
 ## PeerPool testing suite
 ```diff
@@ -951,7 +951,6 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
-+ hypergeom_cdf                                                                              OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types

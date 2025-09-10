@@ -130,7 +130,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
-          of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
+          of "DataColumnSidecar": checkSSZ(fulu.DataColumnSidecar, path, hash)
           of "DataColumnsByRootIdentifier":
             checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
@@ -140,9 +140,9 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(electra.ExecutionPayload, path, hash)
+            checkSSZ(deneb.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+            checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)

@@ -14,8 +14,8 @@ import std/strutils, metrics, ./buildinfo
 
 const
   versionMajor* = 25
-  versionMinor* = 7
-  versionBuild* = 1
+  versionMinor* = 9
+  versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 

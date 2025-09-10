@@ -10,8 +10,6 @@
 import
   std/os,
   stew/byteutils, stew/shims/macros,
-  web3/[conversions],
-  web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
@@ -34,8 +32,7 @@ from std/strutils import
 # compilation, so a host OS specific separator can be used when deriving paths
 # from `currentSourcePath`.
 
-export
-  web3types, conversions, RuntimeConfig
+export RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
@@ -43,8 +40,6 @@ const
   incbinEnabled* = sizeof(pointer) == 8
 
 type
-  Eth1BlockHash* = web3types.Hash32
-
   Eth1Network* = enum
     mainnet
     sepolia
@@ -249,8 +244,8 @@ when const_preset == "gnosis":
       checkForkConsistency(network.cfg)
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Fulu
-
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Gloas
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -334,7 +329,8 @@ elif const_preset == "mainnet":
       checkForkConsistency(network.cfg)
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Fulu
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Gloas
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =

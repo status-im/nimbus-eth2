@@ -333,7 +333,8 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          when consensusFork >= ConsensusFork.Bellatrix:
+          debugGloasComment ""
+          when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork

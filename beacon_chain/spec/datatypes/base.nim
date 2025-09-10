@@ -79,7 +79,7 @@ export
   digest, presets, eth, eth_types_json_serialization.readValue,
   eth_types_json_serialization.writeValue
 
-const SPEC_VERSION* = "1.6.0-alpha.5"
+const SPEC_VERSION* = "1.6.0-alpha.6"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -950,7 +950,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
      cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.FULU_FORK_VERSION]
+     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -970,6 +970,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
+  assertForkEpochOrder(cfg.FULU_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH)
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
@@ -979,5 +980,5 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
-# Specifically has the `Fulu` naming, for easy debugging.
-template debugFuluComment* (s: string) = discard
+template debugFuluComment*(s: string) = discard
+template debugGloasComment*(s: string) = discard

@@ -259,6 +259,9 @@ proc installApiHandlers*(node: SigningNodeRef) =
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
           of ConsensusFork.Fulu:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
+          of ConsensusFork.Gloas:
+            debugGloasComment "do not this"
+            return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

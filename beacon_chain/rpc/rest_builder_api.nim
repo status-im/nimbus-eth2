@@ -1,9 +1,11 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [], gcsafe.}
 
 import
   ./rest_utils,
@@ -34,7 +36,11 @@ proc installBuilderApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlotId(bslot):
       withState(state):
-        when consensusFork >= ConsensusFork.Capella:
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment ""
+          return RestApiResponse.jsonError(
+            Http400, "The specified state is not a capella state")
+        elif consensusFork >= ConsensusFork.Capella:
           return RestApiResponse.jsonResponseWOpt(
             get_expected_withdrawals(forkyState.data),
             node.getStateOptimistic(state))

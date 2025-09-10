@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[macros, strformat, strutils],
@@ -61,11 +61,12 @@ RestJson.useDefaultSerializationFor(
   BeaconBlockHeader,
   BlobSidecar,
   BlobSidecarInfoObject,
+  BuilderPendingPayment,
+  BuilderPendingWithdrawal,
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
   DataColumnSidecarInfoObject,
-  DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,
@@ -85,6 +86,7 @@ RestJson.useDefaultSerializationFor(
   Eth1Data,
   EventBeaconBlockObject,
   EventBeaconBlockGossipObject,
+  ExecutionPayloadEnvelope, 
   ExecutionRequests,
   FinalizationInfoObject,
   Fork,
@@ -115,16 +117,21 @@ RestJson.useDefaultSerializationFor(
   GetStateValidatorResponse,
   GetStateValidatorsResponse,
   GetValidatorGasLimitResponse,
+  GloasSignedBlockContents,
   HeadChangeInfoObject,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
+  IndexedPayloadAttestation,
   KeymanagerGenericError,
   KeystoreInfo,
   ListFeeRecipientResponse,
   ListGasLimitResponse,
   GetGraffitiResponse,
   GraffitiResponse,
+  PayloadAttestation,
+  PayloadAttestationData,
+  PayloadAttestationMessage,
   PendingAttestation,
   PendingConsolidation,
   PendingDeposit,
@@ -187,6 +194,8 @@ RestJson.useDefaultSerializationFor(
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
+  SignedExecutionPayloadEnvelope,
+  SignedExecutionPayloadHeader,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
   SyncAggregate,
@@ -260,8 +269,6 @@ RestJson.useDefaultSerializationFor(
   electra.BeaconState,
   electra.BeaconBlockBody,
   electra.BlockContents,
-  electra.ExecutionPayload,
-  electra.ExecutionPayloadHeader,
   electra.IndexedAttestation,
   electra.LightClientBootstrap,
   electra.LightClientFinalityUpdate,
@@ -282,13 +289,18 @@ RestJson.useDefaultSerializationFor(
   fulu.BeaconState,
   fulu.BlobsBundle,
   fulu.BlockContents,
-  fulu.ExecutionPayload,
-  fulu.ExecutionPayloadHeader,
+  fulu.DataColumnSidecar,
   fulu_mev.BlindedBeaconBlock,
   fulu_mev.BlindedBeaconBlockBody,
   fulu_mev.BuilderBid,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
+  gloas.BeaconBlock,
+  gloas.BeaconBlockBody,
+  gloas.BeaconState,
+  gloas.BlockContents,
+  gloas.DataColumnSidecar,
+  gloas.ExecutionPayloadHeader,
   phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
@@ -557,8 +569,6 @@ type
     version: ConsensusFork
     data: JsonString
 
-  VersionedBlindedBeaconBlock = VersionedData
-
 RestJson.useDefaultSerializationFor VersionedData
 
 type Web3SignerVersionedBeaconBlock = object
@@ -655,6 +665,8 @@ proc readValue*(r: var RestJsonReader, value: var ForkedHashedBeaconState) {.rea
       toValue(electraData)
     of ConsensusFork.Fulu:
       toValue(fuluData)
+    of ConsensusFork.Gloas:
+      toValue(gloasData)
   except SerializationError:
     r.raiseUnexpectedValue(&"Incorrect {v.version} beacon state format")
 
@@ -1233,8 +1245,17 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
+    debugGloasComment "re-add gloas mev"
     value =
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Gloas:
+        if v.execution_payload_blinded:
+          r.raiseUnexpectedValue(
+            &"`execution_payload_blinded` unsupported for {v.version}"
+          )
+        ForkedMaybeBlindedBeaconBlock.init(
+          RestJson.decode(string(v.data), consensusFork.BlockContents)
+        )
+      elif consensusFork >= ConsensusFork.Electra:
         if v.execution_payload_blinded:
           ForkedMaybeBlindedBeaconBlock.init(
             RestJson.decode(string(v.data), consensusFork.BlindedBlockContents),

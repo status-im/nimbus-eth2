@@ -156,6 +156,7 @@ type
     denebIndex*: GeneralizedIndex
     electraIndex*: GeneralizedIndex
     fuluIndex*: GeneralizedIndex
+    gloasIndex*: GeneralizedIndex
 
   KeystoreData* = object
     version*: uint64
@@ -729,17 +730,21 @@ template writeValue*(w: var JsonWriter,
 
 func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
   if propertyPath == ".execution_payload.fee_recipient":
+    debugGloasComment "almost certainly not correct anymore, execution payload position changes substantially"
     ok ProvenProperty(
       path: propertyPath,
       denebIndex: GeneralizedIndex(801),
       electraIndex: GeneralizedIndex(801),
-      fuluIndex: GeneralizedIndex(801))
+      fuluIndex: GeneralizedIndex(801),
+      gloasIndex: GeneralizedIndex(801))
   elif propertyPath == ".graffiti":
+    debugGloasComment "check if graffiti is still generalizedindex 18"
     ok ProvenProperty(
       path: propertyPath,
       denebIndex: GeneralizedIndex(18),
       electraIndex: GeneralizedIndex(18),
-      fuluIndex: GeneralizedIndex(18))
+      fuluIndex: GeneralizedIndex(18),
+      gloasIndex: GeneralizedIndex(18))
   else:
     err("Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
@@ -846,13 +851,17 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
+          debugGloasComment "nearly certainly incorrect fee recipient generalizedindex"
           prop.denebIndex = GeneralizedIndex(801)
           prop.electraIndex = GeneralizedIndex(801)
           prop.fuluIndex = GeneralizedIndex(801)
+          prop.gloasIndex = GeneralizedIndex(801)
         elif prop.path == ".graffiti":
+          debugGloasComment "check if graffiti is still generalizedindex 18"
           prop.denebIndex = GeneralizedIndex(18)
           prop.electraIndex = GeneralizedIndex(18)
           prop.fuluIndex = GeneralizedIndex(18)
+          prop.gloasIndex = GeneralizedIndex(18)
         else:
           reader.raiseUnexpectedValue("Keystores with proven properties different than " &
                                       "`.execution_payload.fee_recipient` and `.graffiti` " &

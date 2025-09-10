@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -102,10 +102,9 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             continue
         contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
+        contextBytes = node.dag.forkDigestAtEpoch(contextEpoch)
       updates.add RestVersioned[ForkedLightClientUpdate](
-        data: update,
-        jsonVersion: contextFork,
-        sszContext: node.dag.forkDigests[].atConsensusFork(contextFork))
+        data: update, jsonVersion: contextFork, sszContext: contextBytes)
 
     return
       if contentType == sszMediaType:

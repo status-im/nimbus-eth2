@@ -22,7 +22,6 @@ import
   metrics,
   chronicles,
   json_serialization/std/[sets, net],
-  web3/primitives,
 
   # Local modules
   ../spec/[
@@ -586,7 +585,7 @@ proc proposeBlockAux(
           engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
           @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
       else:
-        Opt.none(seq[DataColumnSidecar])
+        Opt.none(seq[fulu.DataColumnSidecar])
     newBlockRef = await(
       node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
         columnsOpt, checkValidator = false)
@@ -624,7 +623,10 @@ proc proposeBlock(
       return head
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork == ConsensusFork.Gloas:
+      debugGloasComment "block proposals not yet supported for gloas"
+      head
+    elif consensusFork >= ConsensusFork.Bellatrix:
       await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork

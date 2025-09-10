@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
   chronicles, chronos,
-  ../spec/[presets, forks]
+  ../spec/[block_id, forks, presets]
 
 export tables, forks
 
@@ -77,6 +77,10 @@ type
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
 
+    last_block_slot*: Opt[BlockId]
+      ## Stores the latest sidecarless block root and slot, in order to quickly
+      ## fetch the latest info without having to traverse sidecarless
+      ## quarantine.
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
@@ -144,13 +148,9 @@ func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
-func removeBlobless*(
+func removeSidecarless*(
   quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.blobless.del(signedBlock.root)
-
-func removeColumnless*(
-  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.columnless.del(signedBlock.root)
+  quarantine.sidecarless.del(signedBlock.root)
 
 func isViable(
     finalizedSlot: Slot, slot: Slot): bool =
@@ -276,14 +276,14 @@ func pruneAfterFinalization*(
         # Because Quarantine could be used as temporary storage for blocks which
         # do not have sidecars yet, we should not prune blocks which are behind
         # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill this blocks properly.
+        # be able to backfill these blocks properly.
         if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
           Epoch(0)
         else:
           epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
       else:
         epoch
-    slot = (startEpoch + 1).start_slot()
+    slot = startEpoch.start_slot()
 
   quarantine.cleanupSidecarless(slot)
 
@@ -357,7 +357,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
 proc addSidecarless(
     quarantine: var Quarantine, finalizedSlot: Opt[Slot],
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                 fulu.SignedBeaconBlock
+                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool =
   if finalizedSlot.isSome():
     if not isViable(finalizedSlot.get(), signedBlock.message.slot):
@@ -375,6 +375,8 @@ proc addSidecarless(
         block_root = shortLog(signedBlock.root)
   quarantine.sidecarless[signedBlock.root] =
     ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.last_block_slot =
+    Opt.some(BlockId(slot: signedBlock.message.slot, root: signedBlock.root))
   quarantine.missing.del(signedBlock.root)
   quarantine.sidecarlessEvent.fire()
   true
@@ -382,20 +384,20 @@ proc addSidecarless(
 proc addSidecarless*(
   quarantine: var Quarantine, finalizedSlot: Slot,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool =
   quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
 
 proc addSidecarless*(
   quarantine: var Quarantine,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 
 proc addColumnless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: fulu.SignedBeaconBlock
+    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): bool {.deprecated.} =
   quarantine.addSidecarless(finalizedSlot, signedBlock)
 

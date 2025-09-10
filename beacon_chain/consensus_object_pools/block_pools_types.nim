@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -18,9 +18,6 @@ import
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
-
-from ../spec/datatypes/capella import TrustedSignedBeaconBlock
-from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
@@ -312,11 +309,12 @@ type
   OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
   OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
   OnFuluBlockAdded* = OnBlockAdded[fulu.TrustedSignedBeaconBlock]
+  OnGloasBlockAdded* = OnBlockAdded[gloas.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
     OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded |
-    OnFuluBlockAdded
+    OnFuluBlockAdded | OnGloasBlockAdded
 
   OnForkedBlockAdded* = proc(
     blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
@@ -359,7 +357,9 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Fulu:
+  when kind == ConsensusFork.Gloas:
+    typedesc[OnGloasBlockAdded]
+  elif kind == ConsensusFork.Fulu:
     typedesc[OnFuluBlockAdded]
   elif kind == ConsensusFork.Electra:
     typedesc[OnElectraBlockAdded]

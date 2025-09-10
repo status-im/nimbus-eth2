@@ -5,18 +5,21 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/bitops2,
   std/[sets, tables],
   results, metrics,
-  ../spec/datatypes/[deneb, electra, fulu],
   ../spec/[presets, helpers],
   ../beacon_chain_db_quarantine
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
+from ../spec/datatypes/deneb import SignedBeaconBlock
+from ../spec/datatypes/electra import SignedBeaconBlock
+from ../spec/datatypes/fulu import SignedBeaconBlock
+from ../spec/datatypes/gloas import SignedBeaconBlock
 
 export results
 
@@ -77,7 +80,7 @@ type
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
-    SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
+    SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
 
 func isEmpty[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Empty
@@ -233,10 +236,10 @@ func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
 func getIndex(quarantine: ColumnQuarantine, index: ColumnIndex): int =
   quarantine.indexMap[int(index)]
 
-template slot(b: BlobSidecar|DataColumnSidecar): Slot =
+template slot(b: BlobSidecar|fulu.DataColumnSidecar): Slot =
   b.signed_block_header.message.slot
 
-template proposer_index(b: BlobSidecar|DataColumnSidecar): uint64 =
+template proposer_index(b: BlobSidecar|fulu.DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
 func unload[A](holder: var SidecarHolder[A]): ref A =
@@ -490,12 +493,18 @@ proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
   ## block ``blck``.
   ## If some of the blob sidecars are missing Opt.none() is returned.
   ## If block do not have any blob sidecars Opt.some([]) is returned.
+  
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "no blob_kzg_commitments field for gloas beacon block"
+    quarantine.remove(blockRoot)
+    return Opt.some(default(seq[ref BlobSidecar]))
+
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
@@ -532,7 +541,7 @@ proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
+): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``
   ## and block ``blck``.
   ## If some of the column sidecars are missing Opt.none() is returned.
@@ -541,12 +550,12 @@ proc popSidecars*(
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
     quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref DataColumnSidecar]))
+    return Opt.some(default(seq[ref fulu.DataColumnSidecar]))
 
   var record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not allocated.
-    return Opt.none(seq[ref DataColumnSidecar])
+    return Opt.none(seq[ref fulu.DataColumnSidecar])
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -558,13 +567,13 @@ proc popSidecars*(
 
   if record.count < columnsCount:
     # Quarantine does not hold enough column sidecars.
-    return Opt.none(seq[ref DataColumnSidecar])
+    return Opt.none(seq[ref fulu.DataColumnSidecar])
 
   if record.unloaded > 0:
     # Quarantine unloaded some blobs to disk, we should load it back.
     quarantine.loadRoot(blockRoot, record)
 
-  var sidecars: seq[ref DataColumnSidecar]
+  var sidecars: seq[ref fulu.DataColumnSidecar]
   if supernode:
     for sidecar in record.sidecars:
       # Supernode could have some of the columns not filled.
@@ -596,7 +605,7 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var BlobQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
@@ -604,15 +613,14 @@ proc popSidecars*(
 proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blck: fulu.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
+): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
 
 func fetchMissingSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
 ): seq[BlobIdentifier] =
   ## Function returns sequence of BlobIdentifiers for blobs which are missing
   ## for block root ``blockRoot`` and block ``blck``.
@@ -634,7 +642,7 @@ func fetchMissingSidecars*(
 func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns

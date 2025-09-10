@@ -72,6 +72,7 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
+    GloasSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
@@ -309,7 +310,7 @@ proc jsonResponseBlock*(_: typedesc[RestApiResponse],
 
 proc jsonResponseDataSidecars*(
     _: typedesc[RestApiResponse],
-    data: openArray[BlobSidecar | DataColumnSidecar],
+    data: openArray[BlobSidecar | fulu.DataColumnSidecar],
     version: ConsensusFork,
     execOpt: Opt[bool],
     finalized: bool
@@ -847,7 +848,10 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Electra:
+      debugGloasComment ""
+      when consensusFork == ConsensusFork.Gloas:
+        return err("gloas produceblockv3 not available yet")
+      elif consensusFork >= ConsensusFork.Electra:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

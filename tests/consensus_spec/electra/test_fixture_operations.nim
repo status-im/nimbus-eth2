@@ -209,7 +209,7 @@ suite baseDescription & "Execution Payload " & preset():
           body.compute_execution_block_hash(
             preState.latest_block_root(
               assignClone(preState)[].hash_tree_root())))
-      func executePayload(_: electra.ExecutionPayload): bool = payloadValid
+      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
       process_execution_payload(
         defaultRuntimeConfig, preState, body, executePayload)
 
@@ -285,10 +285,10 @@ suite baseDescription & "Voluntary Exit " & preset():
 suite baseDescription & "Withdrawals " & preset():
   func applyWithdrawals(
       preState: var electra.BeaconState,
-      executionPayload: electra.ExecutionPayload): Result[void, cstring] =
+      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)
 
   for path in walkTests(OpWithdrawalsDir):
-    runTest[electra.ExecutionPayload, typeof applyWithdrawals](
+    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
       OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
       applyWithdrawals, path)

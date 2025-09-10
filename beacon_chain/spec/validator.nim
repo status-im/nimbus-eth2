@@ -391,7 +391,7 @@ template compute_proposer_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#modified-compute_proposer_index
 template compute_proposer_index(
-    state: electra.BeaconState | fulu.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
     unshuffleTransform: untyped): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.

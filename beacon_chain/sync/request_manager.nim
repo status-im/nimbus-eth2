@@ -32,13 +32,13 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 32
+  PARALLEL_REQUESTS_DATA_COLUMNS = 3
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
-    ## How long to wait for blobs to arri ve over gossip before fetching.
+    ## How long to wait for data columns to arrive over gossip before fetching.
 
   POLL_INTERVAL = 1.seconds
 
@@ -57,7 +57,7 @@ type
 
   DataColumnLoaderFn = proc(
       columnId: DataColumnIdentifier):
-      Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
+      Opt[ref fulu.DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
 
@@ -67,7 +67,7 @@ type
 
   DataColumnResponseRecord* = object
     block_root*: Eth2Digest
-    sidecar*: ref DataColumnSidecar
+    sidecar*: ref fulu.DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -134,10 +134,10 @@ func checkResponse(roots: openArray[Eth2Digest],
   true
 
 func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
-                          y: ref BlobSidecar | ref DataColumnSidecar): int =
+                          y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x.index, y[].index)
 
-func cmpColumnIndex(x: ColumnIndex, y: ref DataColumnSidecar): int =
+func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
 func checkResponseSanity(
@@ -170,7 +170,7 @@ func checkResponseSanity(
   Opt.some(records)
 
 func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
-                          columns: openArray[ref DataColumnSidecar]):
+                          columns: openArray[ref fulu.DataColumnSidecar]):
                           Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
@@ -260,7 +260,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
+func cmpSidecarIndexes(x, y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
@@ -318,17 +318,15 @@ proc checkPeerCustody(rman: RequestManager,
     # too many full nodes that have a subset of the custody
     # columns
     if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       return true
 
   else:
     if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
+        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       return true
 
-    elif peer.lookupCgcFromPeer() ==
-        CUSTODY_REQUIREMENT.uint64:
-
+    else:
       # Fetch the remote custody count
       let remoteCustodyGroupCount =
         peer.lookupCgcFromPeer()
@@ -340,16 +338,12 @@ proc checkPeerCustody(rman: RequestManager,
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
-            max(rman.network.cfg.SAMPLES_PER_SLOT.uint64,
+            max(rman.network.cfg.SAMPLES_PER_SLOT,
                 remoteCustodyGroupCount))
-
       for local_column in rman.custody_columns_set:
-        if local_column notin remoteCustodyColumns:
-          return false
-
-      return true
-
-    else:
+        if local_column in remoteCustodyColumns:
+          return true
+      peer.updateScore(PeerScoreBadColumnIntersection)
       return false
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
@@ -462,7 +456,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekSidecarless():
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"
@@ -576,7 +570,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
 
   for columnless in rman.quarantine[].peekSidecarless():
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Fulu and consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"
@@ -587,7 +582,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
             columnless.root, forkyBlck)
 
-        if len(ident.indices) > 0:
+        if len(ident.indices) > 0 and ident notin fetches:
           fetches.add(ident)
         else:
           if commitmentsCount == 0:
@@ -683,7 +678,18 @@ proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
-  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
+
+proc switchToColumnLoop*(rman: var RequestManager) =
+  let currentEpoch =
+      rman.getBeaconTime().slotOrZero().epoch()
+
+  if currentEpoch >= rman.network.cfg.FULU_FORK_EPOCH and
+     isNil(rman.dataColumnLoopFuture):
+    if not(isNil(rman.blobLoopFuture)):
+      rman.blobLoopFuture.cancelSoon()
+
+    rman.dataColumnLoopFuture =
+      rman.requestManagerDataColumnLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
