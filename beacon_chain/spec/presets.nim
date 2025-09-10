@@ -886,13 +886,14 @@ proc readRuntimeConfig*(
           if not operator(distinctBase(value), distinctBase(constValue)):
             raise (ref PresetFileError)(msg:
               "Cannot override config" &
-              " (required: " & name & opDesc & $distinctBase(constValue) &
+              " (required: " & name & " " &
+              opDesc & " " & $distinctBase(constValue) &
               " - config: " & name & "=" & values[name] & ")")
         else:
           if not operator(value, constValue):
             raise (ref PresetFileError)(msg:
               "Cannot override config" &
-              " (required: " & name & opDesc & $constValue &
+              " (required: " & name & " " & opDesc & " " & $constValue &
               " - config: " & name & "=" & values[name] & ")")
         values.del name
       except ValueError:
