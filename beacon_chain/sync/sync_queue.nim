@@ -871,7 +871,12 @@ proc push*[T](
             raise exc
         pos
 
-  await sq.lock.acquire()
+  try:
+    await sq.lock.acquire()
+  except CancelledError as exc:
+    sq.del(sr)
+    raise exc
+
   try:
     position = sq.findPosition(sr)
 

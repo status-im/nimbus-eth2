@@ -716,6 +716,15 @@ proc syncStep[A, B](
     man.queue.push(requests)
     # Cancelling all verification jobs
     let pending = jobs.filterIt(not(it.finished)).mapIt(cancelAndWait(it))
+    debug "Cancelling sync step",
+          peer = peer,
+          peer_score = peer.getScore(),
+          peer_speed = peer.netKbps(),
+          index = index,
+          num_pending = pending.len,
+          sync_ident = man.ident,
+          direction = man.direction,
+          topics = "syncman"
     await noCancel allFutures(pending)
     raise exc
 
