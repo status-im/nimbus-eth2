@@ -364,16 +364,16 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       ## verify the output from multi-thread version
 
       # convert input into column
-      var colInput = newSeq[ref fulu.DataColumnSidecar](indices.len)
+      let colCount = indices.len
+      var colInput = newSeq[ref fulu.DataColumnSidecar](colCount)
 
-      for i in 0 ..< indices.len:
+      for i in 0 ..< colCount:
         var cells = newSeq[Cell](rowCount)
-        let index = indices[i]
         for j in 0 ..< rowCount:
-          let iIdx = j * (NUMBER_OF_COLUMNS div 2) + i
+          let iIdx = j * colCount + i
           cells[j] = input[iIdx].cell
         let dataColumn = fulu.DataColumnSidecar(
-          index: index,
+          index: indices[i],
           column: DataColumn(cells))
         colInput[i] = newClone(dataColumn)
 
