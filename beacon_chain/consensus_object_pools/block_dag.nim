@@ -14,6 +14,13 @@ import
 export chronicles, forks
 
 type
+  OptimisticStatus* {.pure.} = enum
+    # A simplified version of `PayloadStatusV1`
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#helpers
+    notValidated = "NOT_VALIDATED"
+    valid = "VALID"
+    invalidated = "INVALIDATED"
+
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to finalized head, and to
     ## have a corresponding entry in database.
@@ -31,7 +38,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
-    executionValid*: bool
+    optimisticStatus*: OptimisticStatus
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head
@@ -50,47 +57,50 @@ template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
-    T: type BlockRef, root: Eth2Digest,
-    executionBlockHash: Opt[Eth2Digest], executionValid: bool, slot: Slot):
-    BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    executionBlockHash: Opt[Eth2Digest],
+    optimisticStatus: OptimisticStatus,
+    slot: Slot,
+): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockHash: executionBlockHash, executionValid: executionValid)
+    executionBlockHash: executionBlockHash,
+    optimisticStatus: optimisticStatus,
+  )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionValid: bool,
+    T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
-  BlockRef.init(root, Opt.some ZERO_HASH, executionValid = true, blck.slot)
+  BlockRef.init(root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.slot)
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionValid: bool,
+    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
           fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root,
-    Opt.some blck.body.execution_payload.block_hash,
-    executionValid =
-      executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
-    blck.slot
+    root, Opt.some blck.body.execution_payload.block_hash, optimisticStatus, blck.slot
   )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionValid: bool,
+    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root,
     Opt.some blck.body.signed_execution_payload_header.message.block_hash,
-    executionValid =
-      executionValid or
-      blck.body.signed_execution_payload_header.message.block_hash ==
-      ZERO_HASH,
-    blck.slot)
+    if optimisticStatus == OptimisticStatus.valid or
+        blck.body.signed_execution_payload_header.message.block_hash.isZero:
+      OptimisticStatus.valid
+    else:
+      optimisticStatus,
+    blck.slot,
+  )
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -241,6 +251,24 @@ func shortLog*(v: BlockSlot): string =
     shortLog(v.blck)
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
+
+func executionValid*(blck: BlockRef): bool =
+  blck.optimisticStatus == OptimisticStatus.valid
+
+proc markExecutionValid*(blck: BlockRef, valid: bool) =
+  ## Mark a block as having a valid or invalid excecution payload
+  if not valid:
+    blck.optimisticStatus = OptimisticStatus.invalidated
+    debug "Optimistic status updated", blck = shortLog(blck), valid
+  else:
+    # Being valid implies that the ancestors are also valid
+    var cur = blck
+
+    while cur != nil and cur.optimisticStatus == OptimisticStatus.notValidated:
+      cur.optimisticStatus = OptimisticStatus.valid
+      debug "Optimistic status updated", blck = shortLog(cur), valid
+
+      cur = cur.parent
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)

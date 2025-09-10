@@ -1114,11 +1114,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for blck in db.getAncestorSummaries(head.root):
     # The execution block root gets filled in as needed. Nonfinalized Bellatrix
     # and later blocks are loaded as optimistic, which gets adjusted that first
-    # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
+    # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
     # marked as `VALID`.
-    let newRef = BlockRef.init(
-      blck.root, Opt.none Eth2Digest, executionValid = false,
-      blck.summary.slot)
+    let newRef =
+      if cfg.consensusForkAtEpoch(blck.summary.slot.epoch) >= ConsensusFork.Bellatrix:
+        BlockRef.init(
+          blck.root,
+          Opt.none Eth2Digest,
+          OptimisticStatus.notValidated,
+          blck.summary.slot,
+        )
+      else:
+        BlockRef.init(
+          blck.root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.summary.slot
+        )
+
     if headRef == nil:
       headRef = newRef
 
@@ -1960,7 +1970,6 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     # Update light client data
     dag.deleteLightClientData(bs.blck.bid)
 
-    bs.blck.executionValid = true
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
     discard dag.db.delBlock(
       dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
@@ -2020,26 +2029,7 @@ func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
         # it could have been orphaned or the DB is slightly inconsistent.
         # Report it as optimistic until it becomes reachable or gets deleted
         return true
-  not blck.executionValid
-
-proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
-  var cur = blck
-
-  while true:
-    cur.executionValid = true
-
-    debug "markBlockVerified", blck = shortLog(cur)
-
-    if cur.parent.isNil:
-      break
-
-    cur = cur.parent
-
-    # Always check at least as far back as the parent so that when a new block
-    # is added with executionValid already set, it stil sets the ancestors, to
-    # the next valid in the chain.
-    if cur.executionValid:
-      return
+  blck.optimisticStatus != OptimisticStatus.valid
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
@@ -2327,8 +2317,7 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(
-    dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
     # The initial `BlockRef` is created before the checkpoint block is loaded.
@@ -2344,10 +2333,21 @@ proc loadExecutionBlockHash*(
     else:
       Opt.some ZERO_HASH
 
-proc loadExecutionBlockHash*(
-    dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
+proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:
+    # Execution block hashes are loaded lazily during startup
     blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
+
+    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
+      # The block belongs to Bellatrix+ but the merge has not yet happened
+      # meaning that its ancestors are also pre-merge
+      blck.markExecutionValid(true)
+
+      var cur = blck.parent
+      while cur != nil and cur.executionBlockHash.isNone:
+        cur.executionBlockHash = blck.executionBlockHash
+        cur = cur.parent
+
   blck.executionBlockHash
 
 from std/packedsets import PackedSet, incl, items
@@ -2536,7 +2536,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = not newHead.executionValid
+      optStatus = newHead.optimisticStatus
 
     if not(isNil(dag.onReorgHappened)):
       let
@@ -2558,7 +2558,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = not newHead.executionValid
+      optStatus = newHead.optimisticStatus
 
     if not(isNil(dag.onHeadChanged)):
       let

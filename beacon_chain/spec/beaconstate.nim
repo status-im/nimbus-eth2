@@ -13,7 +13,7 @@ import
   chronicles,
   "."/[eth2_merkleization, forks, signatures, validator]
 
-from std/algorithm import fill, sort
+from std/algorithm import fill, isSorted, sort
 from std/sequtils import anyIt, mapIt, toSeq
 
 export extras, forks, validator, chronicles
@@ -1441,20 +1441,20 @@ template get_updated_effective_balance*(
     balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-template get_expected_withdrawals_aux*(
-    state: capella.BeaconState | deneb.BeaconState, epoch: Epoch,
-    fetch_balance: untyped): seq[Withdrawal] =
+proc get_expected_withdrawals*(
+    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
   let
+    epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
   var
     withdrawal_index = state.next_withdrawal_index
-    validator_index {.inject.} = state.next_withdrawal_validator_index
+    validator_index = state.next_withdrawal_validator_index
     withdrawals: seq[Withdrawal] = @[]
   for _ in 0 ..< bound:
     let
       validator = state.validators[validator_index]
-      balance = fetch_balance
+      balance = state.balances[validator_index]
     if is_fully_withdrawable_validator(
         typeof(state).kind, validator, balance, epoch):
       var w = Withdrawal(
@@ -1477,11 +1477,6 @@ template get_expected_withdrawals_aux*(
       break
     validator_index = (validator_index + 1) mod num_validators
   withdrawals
-
-func get_expected_withdrawals*(
-    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
-  get_expected_withdrawals_aux(state, get_current_epoch(state)) do:
-    state.balances[validator_index]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 # This partials count is used in exactly one place, while in general being able
@@ -2710,3 +2705,76 @@ func can_advance_slots(
 func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
+iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache): 
+    ValidatorIndex =
+  ## Get the payload timeliness committee for the given ``slot``
+  let epoch = slot.epoch()
+  var buffer {.noinit.}: array[40, byte]
+  buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
+  buffer[32..39] = uint_to_bytes(slot.uint64)
+  let seed = eth2digest(buffer)
+  
+  var indices = newSeqOfCap[ValidatorIndex](PTC_SIZE)
+
+  # Concatenate all committees for this slot in order
+  let committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+  for committee_index in get_committee_indices(committees_per_slot):
+    let committee = get_beacon_committee(state, slot, committee_index, cache)
+    indices.add(committee)
+
+  for candidate_index in compute_balance_weighted_selection(
+      state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
+    yield candidate_index
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
+func get_indexed_payload_attestation*(
+    state: gloas.BeaconState, slot: Slot, 
+    payload_attestation: PayloadAttestation, 
+    cache: var StateCache): IndexedPayloadAttestation =
+  ## Return the indexed payload attestation corresponding to ``payload_attestation``.
+  var 
+    attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
+    i = 0
+
+  for index in get_ptc(state, slot, cache):
+    if payload_attestation.aggregation_bits[i]:
+      attesting_indices.add(index.uint64)
+    inc i
+
+  attesting_indices.sort()
+
+  IndexedPayloadAttestation(
+    attesting_indices: List[uint64, Limit PTC_SIZE].init(attesting_indices),
+    data: payload_attestation.data,
+    signature: payload_attestation.signature
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+proc is_valid_indexed_payload_attestation*(
+    state: gloas.BeaconState, 
+    indexed_payload_attestation: IndexedPayloadAttestation): bool =
+  ## Check if ``indexed_payload_attestation`` is not empty, has sorted 
+  ## and unique indices and has a valid aggregate signature.
+
+  # Verify indices are non-empty and sorted
+  if indexed_payload_attestation.attesting_indices.len == 0:
+    return false
+
+  if not toSeq(indexed_payload_attestation.attesting_indices).isSorted:
+    return false
+
+  # Verify aggregate signature
+  let 
+    pubkeys = mapIt(
+      indexed_payload_attestation.attesting_indices,
+      state.validators[it].pubkey)
+    domain = get_domain(
+      state.fork, DOMAIN_PTC_ATTESTER, 
+      GENESIS_EPOCH, state.genesis_validators_root)
+    signing_root = compute_signing_root(
+      indexed_payload_attestation.data, domain)
+
+  blsFastAggregateVerify(
+    pubkeys, signing_root.data, indexed_payload_attestation.signature)

@@ -11,6 +11,8 @@
 import
   std/algorithm,
   "."/[crypto, helpers]
+from std/sequtils import mapIt
+from std/math import `^`
 export helpers
 
 const
@@ -458,6 +460,81 @@ func compute_proposer_indices*(
 
   proposerIndices
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_acceptance
+func compute_balance_weighted_acceptance(
+    state: gloas.BeaconState, index: ValidatorIndex, 
+    seed: Eth2Digest, i: uint64): bool =
+  ## Return whether to accept the selection of the validator ``index``, with probability
+  ## proportional to its ``effective_balance``, and randomness given by ``seed`` and ``i``.
+  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
+
+  var buffer {.noinit.}: array[40, byte]
+  buffer[0..31] = seed.data
+  buffer[32..39] = uint_to_bytes(i div 16)
+  
+  let 
+    random_bytes = eth2digest(buffer)
+    offset = (i mod 16) * 2
+  
+  var random_bytes_8: array[8, byte]
+  random_bytes_8[0..1] = random_bytes.data.toOpenArray(offset, offset + 1)
+
+  let
+    random_value = bytes_to_uint64(random_bytes_8)
+    effective_balance = state.validators[index].effective_balance
+
+  effective_balance.uint64 * MAX_RANDOM_VALUE >= 
+    MAX_EFFECTIVE_BALANCE_ELECTRA.uint64 * random_value
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+iterator compute_balance_weighted_selection*(
+    state: gloas.BeaconState, indices: seq[ValidatorIndex], 
+    seed: Eth2Digest, size: uint64, 
+    shuffle_indices: bool): ValidatorIndex =  
+  ## Return ``size`` indices sampled by effective balance, using ``indices``
+  ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
+  ## are themselves sampled from ``indices`` by shuffling it, otherwise
+  ## ``indices`` is traversed in order.
+  let total = indices.lenu64 
+  doAssert total > 0
+
+  var 
+    i = 0'u64
+    count = 0'u64
+
+  while count < size:
+    var next_index = i mod total
+    if shuffle_indices:
+      next_index = compute_shuffled_index(next_index, total, seed)
+
+    let candidate_index = indices[next_index]
+    if compute_balance_weighted_acceptance(state, candidate_index, seed, i):
+      yield candidate_index
+      inc count
+    inc i
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-compute_proposer_indices
+func compute_proposer_indices*(
+    state: gloas.BeaconState,
+    epoch: Epoch, seed: Eth2Digest,
+    indices: seq[ValidatorIndex]
+): seq[ValidatorIndex] =
+  ## Return the proposer indices for the given ``epoch`` using balance-weighted selection.
+  var proposer_indices: seq[ValidatorIndex]
+  
+  for epochSlot in epoch.slots():
+    var buffer: array[32 + 8, byte]
+    buffer[0..31] = seed.data
+    buffer[32..39] = uint_to_bytes(epochSlot.asUInt64)
+    let slotSeed = eth2digest(buffer)
+    
+    for proposer in compute_balance_weighted_selection(
+        state, indices, slotSeed, size=1, shuffle_indices=true):
+      proposer_indices.add(proposer)
+      break
+  
+  proposer_indices
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
@@ -499,7 +576,13 @@ func get_beacon_proposer_indices*(
   ## Return the proposer indices for the given `epoch`.
   let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
-  compute_proposer_indices(state, epoch, seed, indices)
+
+  debugGloasComment "temporary workaround for Gloas"
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    let proposers = compute_proposer_indices(state, epoch, seed, indices)
+    proposers.mapIt(Opt.some(it))
+  else:
+    compute_proposer_indices(state, epoch, seed, indices)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(

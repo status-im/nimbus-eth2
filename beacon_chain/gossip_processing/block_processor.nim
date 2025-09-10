@@ -15,14 +15,13 @@ import
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import anyIt, mapIt
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, checkNextProposer, optimisticExecutionBlockHash,
-  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
-  updateHeadWithExecution
+  ConsensusManager, to, updateHead, updateExecutionHead
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
-  markBlockVerified, validatorKey, is_optimistic
+  markExecutionValid, validatorKey, is_optimistic
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
-from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
+from ../consensus_object_pools/block_dag import
+  BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
@@ -110,12 +109,6 @@ type
     lastPayload: Slot
       ## The slot at which we sent a payload to the execution client the last
       ## time
-
-  NewPayloadStatus* {.pure.} = enum
-    valid
-    notValid
-    invalid
-    noResponse
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -355,8 +348,7 @@ proc expectValidForkchoiceUpdated(
       safeBlockHash, finalizedBlockHash,
       receivedBlock = shortLog(receivedBlock)
 
-from ../consensus_object_pools/attestation_pool import
-  addForkChoice, selectOptimisticHead, BeaconHead
+from ../consensus_object_pools/attestation_pool import addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
@@ -395,30 +387,26 @@ proc getExecutionValidity(
           fulu.SignedBeaconBlock,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
+): Future[Opt[OptimisticStatus]] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
-    return NewPayloadStatus.valid  # vacuously
+    return Opt.some(OptimisticStatus.valid) # vacuously
 
-  let executionPayloadStatus = (
-    await elManager.newExecutionPayload(blck.message, deadline, retry)
-  ).valueOr:
-    return NewPayloadStatus.noResponse
+  let status = (await elManager.newExecutionPayload(blck.message, deadline, retry)).valueOr:
+    return Opt.none(OptimisticStatus)
 
-  case executionPayloadStatus
-  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+  let optimisticStatus = status.to(OptimisticStatus)
+
+  if optimisticStatus == OptimisticStatus.invalidated:
     # Blocks come either from gossip or request manager requests. In the
     # former case, they've passed libp2p gossip validation which implies
     # correct signature for correct proposer,which makes spam expensive,
     # while for the latter, spam is limited by the request manager.
     info "execution payload invalid from EL client newPayload",
-      executionPayloadStatus,
+      executionPayloadStatus = status,
       executionPayload = shortLog(blck.message.body.execution_payload),
       blck = shortLog(blck)
-    NewPayloadStatus.invalid
-  of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
-    NewPayloadStatus.notValid
-  of PayloadExecutionStatus.valid:
-    NewPayloadStatus.valid
+
+  Opt.some(optimisticStatus)
 
 proc checkBlobOrColumnlessSignature(
     self: BlockProcessor,
@@ -469,22 +457,6 @@ proc enqueueBlock*(
       src: src))
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
-
-proc updateHead*(
-    consensusManager: ref ConsensusManager,
-    getBeaconTimeFn: GetBeaconTimeFn,
-): Result[void, string] =
-  let
-    attestationPool = consensusManager.attestationPool
-    wallTime = getBeaconTimeFn()
-    wallSlot = wallTime.slotOrZero()
-    newHead =
-      attestationPool[].selectOptimisticHead(wallSlot.start_beacon_time)
-  if newHead.isOk():
-    consensusManager[].updateHead(newHead.get.blck)
-    ok()
-  else:
-    err("Head selection failed, using previous head")
 
 proc enqueueQuarantine(self: var BlockProcessor, root: Eth2Digest) =
   ## Enqueue blocks whose parent is `root` - ie when `root` has been added to
@@ -684,7 +656,7 @@ proc storeBlock(
 
   const consensusFork = typeof(signedBlock).kind
   let
-    payloadStatus =
+    optimisticStatusRes =
       if maybeFinalized and
           (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
           (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
@@ -695,22 +667,18 @@ proc storeBlock(
         # from an honest source (or when we're close to head).
         # Occasionally we also send a payload to the EL so that it can
         # progress in its own sync.
-        NewPayloadStatus.noResponse
+        Opt.none(OptimisticStatus)
       else:
         when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "need getExecutionValidity on gloas blocks"
-          NewPayloadStatus.valid
+          Opt.some OptimisticStatus.valid
         elif consensusFork >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadline, shouldRetry())
         else:
-          NewPayloadStatus.valid # vacuously
-    payloadValid = payloadStatus == NewPayloadStatus.valid
+          Opt.some(OptimisticStatus.valid) # vacuously
 
-  if NewPayloadStatus.invalid == payloadStatus:
-    return err(VerifierError.Invalid)
-
-  if NewPayloadStatus.noResponse == payloadStatus:
+  let optimisticStatus = optimisticStatusRes.valueOr:
     # When the execution layer is not available to verify the payload, we do the
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
@@ -751,6 +719,13 @@ proc storeBlock(
         if signedBlock.root in self.invalidBlockRoots:
           returnWithError "Block root treated as invalid via config",
             $signedBlock.root
+
+      OptimisticStatus.notValidated
+    else:
+      OptimisticStatus.valid
+
+  if OptimisticStatus.invalidated == optimisticStatus:
+    return err(VerifierError.Invalid)
 
   let newPayloadTick = Moment.now()
 
@@ -800,7 +775,7 @@ proc storeBlock(
 
   let
     blckRes = dag.addHeadBlockWithParent(
-        self.verifier, signedBlock, parent.value(), payloadValid) do (
+        self.verifier, signedBlock, parent.value(), optimisticStatus) do (
       blckRef: BlockRef, trustedBlock: Trusted,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
       # Callback add to fork choice if valid
@@ -843,119 +818,33 @@ proc storeBlock(
 
   let addHeadBlockTick = Moment.now()
 
-  # Eagerly update head: the incoming block "should" get selected.
+  # Update consensus head - in the happy case where we are in sync and the
+  # execution client has validated the block, this will allow validators to
+  # start attesting via the `checkExpectedBlock` mechanism - notably, this can
+  # be done without waiting for `forkchoiceUpdated` as the execution client
+  # already validated the payload.
   #
-  # storeBlock gets called from validator_duties, which depends on its not
-  # blocking progress any longer than necessary, and processBlock here, in
-  # which case it's fine to await for a while on engine API results.
+  # In the unhappy case, the head update kickstarts any pruning and cleanup work
+  # which helps conserve resources, ie also a good thing to be doing just after
+  # having added a block.
+  let previousExecutionValid = dag.head.executionValid
+  self.consensusManager[].updateHead(wallSlot)
+
+  # After producing attestations, we might be asked to produce a block for the
+  # next slot, for which there is a hard requirement on the execution client
+  # fork choice being up to date - there's also a soft requirement that the
+  # execution head follows the consensus head as closely as possible as this
+  # keeps the execution client healthy and up to date with finality, so as soon
+  # as we've updated the consensus head we'll do the same for execution.
   #
-  # Three general scenarios: (1) pre-merge; (2) merge, already `VALID` by way
-  # of `newPayload`; (3) optimistically imported, need to call fcU before DAG
-  # updateHead. Because in a non-finalizing network, completing sync isn't as
-  # useful because regular reorgs likely still occur, and when finalizing the
-  # EL is only called every SLOTS_PER_PAYLOAD slots regardless, await, rather
-  # than asyncSpawn forkchoiceUpdated calls.
-  #
-  # This reduces in-flight fcU spam, which both reduces EL load and decreases
-  # otherwise somewhat unpredictable CL head movement.
-
-  # Grab the new head according to our latest attestation data; determines how
-  # async this needs to be.
-  let newHead = attestationPool[].selectOptimisticHead(
-    wallSlot.start_beacon_time)
-
-  if newHead.isOk:
-    template elManager(): auto = self.consensusManager.elManager
-    if self.consensusManager[].shouldSyncOptimistically(wallSlot):
-      # Optimistic head is far in the future; report it as head block to EL.
-
-      # Note that the specification allows an EL client to skip fcU processing
-      # if an update to an ancestor is requested.
-      # > Client software MAY skip an update of the forkchoice state and MUST
-      #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
-      #   references an ancestor of the head of canonical chain.
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-1
-      #
-      # However, in practice, an EL client may not have completed importing all
-      # block headers, so may be unaware of a block's ancestor status.
-      # Therefore, hopping back and forth between the optimistic head and the
-      # chain DAG head does not work well in practice, e.g., Geth:
-      # - "Beacon chain gapped" from DAG head to optimistic head,
-      # - followed by "Beacon chain reorged" from optimistic head back to DAG.
-      self.consensusManager[].updateHead(newHead.get.blck)
-
-      template callForkchoiceUpdated(attributes: untyped) =
-        if  NewPayloadStatus.noResponse != payloadStatus and
-            not self.consensusManager[].optimisticExecutionBlockHash.isZero:
-          discard await elManager.forkchoiceUpdated(
-            headBlockHash =
-              self.consensusManager[].optimisticExecutionBlockHash,
-            safeBlockHash = newHead.get.safeExecutionBlockHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = Opt.none attributes,
-            deadline = deadline,
-            retry = shouldRetry())
-
-      let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
-        newHead.get.blck.bid.slot.epoch)
-      withConsensusFork(consensusFork):
-        when consensusFork >= ConsensusFork.Bellatrix:
-          callForkchoiceUpdated(consensusFork.PayloadAttributes)
-    else:
-      let
-        headExecutionBlockHash =
-          dag.loadExecutionBlockHash(newHead.get.blck).get(ZERO_HASH)
-        wallSlot = self.getBeaconTime().slotOrZero
-      if  headExecutionBlockHash.isZero or
-          NewPayloadStatus.noResponse == payloadStatus:
-        # Blocks without execution payloads can't be optimistic, and don't try
-        # to fcU to a block the EL hasn't seen
-        self.consensusManager[].updateHead(newHead.get.blck)
-      elif newHead.get.blck.executionValid:
-        # `forkchoiceUpdated` necessary for EL client only.
-        self.consensusManager[].updateHead(newHead.get.blck)
-
-        template callExpectValidFCU(payloadAttributeType: untyped): auto =
-          await elManager.expectValidForkchoiceUpdated(
-            headBlockPayloadAttributesType = payloadAttributeType,
-            headBlockHash = headExecutionBlockHash,
-            safeBlockHash = newHead.get.safeExecutionBlockHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            receivedBlock = signedBlock,
-            deadline = deadline,
-            retry = shouldRetry())
-
-        template callForkChoiceUpdated: auto =
-          case self.consensusManager.dag.cfg.consensusForkAtEpoch(
-              newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Gloas:
-            debugGloasComment ""
-          of ConsensusFork.Deneb, ConsensusFork.Electra, ConsensusFork.Fulu:
-            # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
-            # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
-          of ConsensusFork.Capella:
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
-          of  ConsensusFork.Phase0, ConsensusFork.Altair,
-              ConsensusFork.Bellatrix:
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
-
-        if self.consensusManager.checkNextProposer(wallSlot).isNone:
-          # No attached validator is next proposer, so use non-proposal fcU
-          callForkChoiceUpdated()
-        else:
-          # Some attached validator is next proposer, so prepare payload. As
-          # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
-          # which needs the state corresponding to that head block, can run.
-          if (await self.consensusManager.runProposalForkchoiceUpdated(
-              wallSlot)).isNone:
-            callForkChoiceUpdated()
-      else:
-        await self.consensusManager.updateHeadWithExecution(
-          newHead.get, self.getBeaconTime)
-  else:
-    warn "Head selection failed, using previous head",
-      head = shortLog(dag.head), wallSlot
+  # In the case that the execution client is not responding to payloads or
+  # that we skipped sending the payload altogether per the above
+  # `SLOTS_PER_PAYLOAD` logic, we will skip the execution client update.
+  if optimisticStatusRes.isSome():
+    # retry fcU until the deadline expires, in case the previous payload was
+    # valid to increase chances of leaving this function with a still-valid head
+    await self.consensusManager.updateExecutionHead(
+      deadline, retry = previousExecutionValid, self.getBeaconTime)
 
   let
     updateHeadTick = Moment.now()
