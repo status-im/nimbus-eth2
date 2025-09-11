@@ -138,17 +138,17 @@ proc initTimeConfig(
       let resp = fut.value
       if resp.status == 200:
         if checkConfig(resp.data.data):
-          let timeCfg = resp.data.data.time
-          if timeCfg.isSome:
+          let timeConfig = resp.data.data.time
+          if timeConfig.isSome:
             debug "Received time config", endpoint = nodes[i],
-                  seconds_per_slot = timeCfg.get.SECONDS_PER_SLOT
+                  seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT
             if res.isNone:
-              res = timeCfg
-            elif timeCfg.get == res.get:
+              res = timeConfig
+            elif timeConfig.get == res.get:
               discard  # Duplicate
             else:
               warn "Received incompatible time config", endpoint = nodes[i],
-                    seconds_per_slot = timeCfg.get.SECONDS_PER_SLOT,
+                    seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT,
                     expected_seconds_per_slot = res.get.SECONDS_PER_SLOT
               didEncounterDisagreement = true
           else:
@@ -380,13 +380,13 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
       notice "Cannot initialize beacon node", node = node, status = node.status
 
   let (nodes, genesis) = await vc.initGenesis()
-  vc.timeCfg = (await nodes.initTimeConfig()).valueOr:
+  vc.timeConfig = (await nodes.initTimeConfig()).valueOr:
     raise newException(ValidatorClientError, "Could not obtain time config")
   vc.beaconGenesis = genesis
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
        genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
        genesis_root = vc.beaconGenesis.genesis_validators_root,
-       seconds_per_slot = vc.timeCfg.SECONDS_PER_SLOT
+       seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
 
   vc.beaconClock = await vc.initClock()
 

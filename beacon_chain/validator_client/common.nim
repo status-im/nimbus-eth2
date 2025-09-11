@@ -233,7 +233,7 @@ type
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     syncCommitteeProofs*: SyncCommitteeProofsMap
-    timeCfg*: TimeConfig
+    timeConfig*: TimeConfig
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
@@ -557,8 +557,8 @@ func checkConfig*(c: VCRuntimeConfig): bool =
   c.hasKey("ALTAIR_FORK_VERSION") and c.hasKey("ALTAIR_FORK_EPOCH") and
   not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
 
-func checkConfig*(c: VCRuntimeConfig, timeCfg: TimeConfig): bool =
-  c.checkConfig and c.equals("SECONDS_PER_SLOT", timeCfg.SECONDS_PER_SLOT)
+func checkConfig*(c: VCRuntimeConfig, timeConfig: TimeConfig): bool =
+  c.checkConfig and c.equals("SECONDS_PER_SLOT", timeConfig.SECONDS_PER_SLOT)
 
 func time*(c: VCRuntimeConfig): Opt[TimeConfig] =
   let SECONDS_PER_SLOT = block:
