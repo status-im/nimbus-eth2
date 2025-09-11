@@ -171,7 +171,6 @@ proc initTimeConfig(
 
   if didEncounterDisagreement:
     res.reset()
-  res.reset()
   res
 
 proc addValidatorsFromWeb3Signer(
