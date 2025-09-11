@@ -389,8 +389,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
   vc.beaconGenesis = genesis
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
        genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
-       genesis_root = vc.beaconGenesis.genesis_validators_root,
-       seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
+       genesis_root = vc.beaconGenesis.genesis_validators_root
 
   vc.beaconClock = await vc.initClock()
 
