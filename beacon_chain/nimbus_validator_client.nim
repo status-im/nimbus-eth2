@@ -221,11 +221,13 @@ proc initClock(
   if genesisTime.inFuture:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
+         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT,
          current_slot = "<n/a>", current_epoch = "<n/a>",
          time_to_genesis = genesisTime.offset
   else:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
+         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT,
          current_slot = currentSlot, current_epoch = currentEpoch
   res
 
@@ -382,7 +384,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
 
   let (nodes, genesis) = await vc.initGenesis()
   vc.timeConfig = (await nodes.initTimeConfig()).valueOr:
-    raise newException(ValidatorClientError, "Could not obtain time config")
+    raise newException(ValidatorClientError,
+                       "Could not obtain time configuration settings")
   vc.beaconGenesis = genesis
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
        genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
