@@ -307,54 +307,61 @@ proc fetchBlobsFromNetwork(self: RequestManager,
       self.network.peerPool.release(peer)
 
 proc checkPeerCustody(rman: RequestManager,
-                      peer: Peer):
-                      bool =
-  # Returns true if the peer custodies atleast
-  # ONE of the common custody columns, straight
-  # away returns true if the peer is a supernode.
+                      peer: Peer): DataColumnIndices =
+  ## Returns the intersection of custody columns
+  ## with the peer. Caller can check .len > 0
+  ## for the boolean outcome.
+  var intersection: DataColumnIndices
+
   if rman.supernode:
-    # For a supernode, it is always best/optimistic
-    # to filter other supernodes, rather than filter
-    # too many full nodes that have a subset of the custody
-    # columns
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      return true
+      # full custody → return all columns
+      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+        discard intersection.add(ColumnIndex col)
+      return intersection
 
   else:
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      return true
+      # full custody → return all columns
+      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+        discard intersection.add(ColumnIndex col)
+      return intersection
 
     else:
-      # Fetch the remote custody count
-      let remoteCustodyGroupCount =
-        peer.lookupCgcFromPeer()
-
-      # Extract remote peer's nodeID from peerID
-      # Fetch custody columns from remote peer
       let
+        remoteCustodyGroupCount = peer.lookupCgcFromPeer()
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
             max(rman.network.cfg.SAMPLES_PER_SLOT,
                 remoteCustodyGroupCount))
+
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
-          return true
-      peer.updateScore(PeerScoreBadColumnIntersection)
-      return false
+          discard intersection.add(local_column)
+
+      if intersection.len == 0:
+        peer.updateScore(PeerScoreBadColumnIntersection)
+
+  return intersection
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
                                  {.async: (raises: [CancelledError]).} =
   var peer = await rman.network.peerPool.acquire()
   try:
-    if rman.checkPeerCustody(peer):
-      debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
+    let intersection = rman.checkPeerCustody(peer)
+    if intersection.len > 0:
+      let intColIdList = colIdList.mapIt(DataColumnsByRootIdentifier(
+        block_root: it.block_root,
+        indices: DataColumnIndices(filterIt(
+          it.indices.asSeq, it in intersection))))
+      debug "Requesting data columns by root", peer = peer, columns = shortLog(intColIdList),
                                                       peer_score = peer.getScore()
-      let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList colIdList)
+      let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
 
       if columns.isOk:
         var ucolumns = columns.get().asSeq()
@@ -625,13 +632,15 @@ proc requestManagerDataColumnLoop(
       for columnId in missingColumnIds:
         if columnId.block_root != curRoot:
           curRoot = columnId.block_root
-          blockRoots.add curRoot
+          if curRoot notin blockRoots:
+            blockRoots.add curRoot
         for index in columnId.indices:
           let loaderElem = DataColumnIdentifier(
             block_root: columnId.block_root,
             index: index)
           let data_column_sidecar = rman.dataColumnLoader(loaderElem).valueOr:
-            columnIds.add columnId
+            if columnId notin columnIds:
+              columnIds.add columnId
             if blockRoots.len > 0 and blockRoots[^1] == curRoot:
               # A data column is missing, remove from list of fully available data columns
               discard blockRoots.pop()
