@@ -438,6 +438,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
             # this is an invalid case. However, this is a limitation by design that
             # when the cell is not in 2048-length, it will be in default value and
             # recover without any failures
+            check invalidData["output"].kind == JNull
             shouldSkip = true
             break
           cells.add(Cell(bytes: cellBytes))
