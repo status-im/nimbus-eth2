@@ -221,14 +221,14 @@ proc initClock(
   if genesisTime.inFuture:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
-         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT,
          current_slot = "<n/a>", current_epoch = "<n/a>",
-         time_to_genesis = genesisTime.offset
+         time_to_genesis = genesisTime.offset,
+         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
   else:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
-         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT,
-         current_slot = currentSlot, current_epoch = currentEpoch
+         current_slot = currentSlot, current_epoch = currentEpoch,
+         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
   res
 
 proc shutdownSlashingProtection(vc: ValidatorClientRef) =
