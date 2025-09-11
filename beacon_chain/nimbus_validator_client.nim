@@ -116,14 +116,14 @@ proc initTimeConfig(
 ): Future[Opt[TimeConfig]] {.async: (raises: [CancelledError]).} =
   var pendingRequests: seq[Future[RestResponse[GetSpecVCResponse]]]
   for node in nodes:
-    debug "Requesting time config", node = node
+    debug "Requesting time configuration settings", node = node
     pendingRequests.add(node.client.getSpecVC())
 
   try:
     await allFutures(pendingRequests)
   except CancelledError as exc:
     var pending: seq[Future[void]]
-    debug "Time config request was interrupted"
+    debug "Time configuration settings request was interrupted"
     for future in pendingRequests:
       if not(future.finished()):
         pending.add(future.cancelAndWait())
@@ -140,33 +140,34 @@ proc initTimeConfig(
         if checkConfig(resp.data.data):
           let timeConfig = resp.data.data.time
           if timeConfig.isSome:
-            debug "Received time config", endpoint = nodes[i],
+            debug "Received time configuration settings", endpoint = nodes[i],
                   seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT
             if res.isNone:
               res = timeConfig
             elif timeConfig.get == res.get:
               discard  # Duplicate
             else:
-              warn "Received incompatible time config", endpoint = nodes[i],
+              warn "Received incompatible time configuration settings",
+                    endpoint = nodes[i],
                     seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT,
                     expected_seconds_per_slot = res.get.SECONDS_PER_SLOT
               didEncounterDisagreement = true
           else:
-            debug "Received invalid time config", endpoint = nodes[i],
-                  config = resp.data.data
+            debug "Received invalid time configuration settings",
+                  endpoint = nodes[i], config = resp.data.data
         else:
-          debug "Received incompatible config", endpoint = nodes[i],
-                config = resp.data.data
+          debug "Received incompatible time configuration settings",
+                endpoint = nodes[i], config = resp.data.data
       else:
-        debug "Received unsuccessful response code", endpoint = nodes[i],
-              response_code = resp.status
+        debug "Received unsuccessful time configuration settings response code",
+              endpoint = nodes[i], response_code = resp.status
     elif fut.failed():
       let error = fut.error
-      debug "Could not obtain time config from beacon node",
+      debug "Could not obtain time configuration settings from beacon node",
             endpoint = nodes[i], error_name = error.name,
             reason = error.msg
     else:
-      debug "Interrupted while requesting time config from beacon node",
+      debug "Interrupted while requesting time configuration from beacon node",
             endpoint = nodes[i]
 
   if didEncounterDisagreement:
