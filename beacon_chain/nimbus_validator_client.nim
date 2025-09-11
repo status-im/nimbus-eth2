@@ -138,7 +138,7 @@ proc initTimeConfig(
       let resp = fut.value
       if resp.status == 200:
         if checkConfig(resp.data.data):
-          let timeConfig = resp.data.data.time
+          let timeConfig = resp.data.data.getTimeConfig()
           if timeConfig.isSome:
             debug "Received time configuration settings", endpoint = nodes[i],
                   seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT

@@ -560,12 +560,12 @@ func checkConfig*(c: VCRuntimeConfig): bool =
 func checkConfig*(c: VCRuntimeConfig, timeConfig: TimeConfig): bool =
   c.checkConfig and c.equals("SECONDS_PER_SLOT", timeConfig.SECONDS_PER_SLOT)
 
-func time*(c: VCRuntimeConfig): Opt[TimeConfig] =
+func getTimeConfig*(c: VCRuntimeConfig): Opt[TimeConfig] =
   let SECONDS_PER_SLOT = block:
     const defaultStr = Base10.toString(
       defaultRuntimeConfig.time.SECONDS_PER_SLOT)
     ? uint64.parseConfigValue c.getOrDefault("SECONDS_PER_SLOT", defaultStr)
-  if SECONDS_PER_SLOT notin minSecondsPerSlot .. maxSecondsPerSlot:
+  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT:
     return Opt.none TimeConfig
   if SECONDS_PER_SLOT != presets.SECONDS_PER_SLOT:
     return Opt.none TimeConfig  # Temporary, until removed from presets
