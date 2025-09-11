@@ -21,16 +21,12 @@ declareGauge validator_client_node_counts,
   "Number of connected beacon nodes and their status",
   labels = ["status"]
 
-type GenesisInfo = tuple[timeCfg: TimeConfig, beaconGenesis: RestGenesis]
-
-proc initGenesis(vc: ValidatorClientRef): Future[GenesisInfo] {.
+proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.
      async: (raises: [CancelledError]).} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
-    var
-      pendingConfigRequests: seq[Future[RestResponse[GetSpecVCResponse]]]
-      pendingGenesisRequests: seq[Future[RestResponse[GetGenesisResponse]]]
+    var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
     let offlineNodes = vc.offlineNodes()
     if len(offlineNodes) == 0:
       let sleepDuration = 2.seconds
@@ -46,82 +42,50 @@ proc initGenesis(vc: ValidatorClientRef): Future[GenesisInfo] {.
 
     for node in offlineNodes:
       debug "Requesting genesis information", node = node
-      pendingConfigRequests.add(node.client.getSpecVC())
-      pendingGenesisRequests.add(node.client.getGenesis())
+      pendingRequests.add(node.client.getGenesis())
 
     try:
-      await allFutures(pendingConfigRequests)
-      await allFutures(pendingGenesisRequests)
+      await allFutures(pendingRequests)
     except CancelledError as exc:
       var pending: seq[Future[void]]
       debug "Genesis information request was interrupted"
-      for future in pendingConfigRequests:
-        if not(future.finished()):
-          pending.add(future.cancelAndWait())
-      for future in pendingGenesisRequests:
+      for future in pendingRequests:
         if not(future.finished()):
           pending.add(future.cancelAndWait())
       await allFutures(pending)
       raise exc
 
-    let (errorNodes, resCandidates) = block:
-      var
-        errorNodes: seq[BeaconNodeServerRef]
-        resCandidates: seq[GenesisInfo]
-      doAssert len(pendingConfigRequests) == len(pendingGenesisRequests)
-      let numRequests = len(pendingConfigRequests)
-      for i in 0 ..< numRequests:
-        let
-          configFut = pendingConfigRequests[i]
-          genesisFut = pendingGenesisRequests[i]
-        if configFut.completed() and genesisFut.completed():
-          let
-            configResp = configFut.value
-            genesisResp = genesisFut.value
-          if configResp.status == 200 and genesisResp.status == 200:
-            template configData: untyped = configResp.data.data
-            template genesisData: untyped = genesisResp.data.data
-            if checkConfig(configData):
-              let timeCfg = configData.time
-              if timeCfg.isSome:
-                debug "Received genesis information", endpoint = nodes[i],
-                      seconds_per_slot = timeCfg.get.SECONDS_PER_SLOT,
-                      genesis_time = genesisData.genesis_time,
-                      genesis_fork_version = genesisData.genesis_fork_version,
-                      genesis_root = genesisData.genesis_validators_root
-                resCandidates.add((
-                  timeCfg: timeCfg.get, beaconGenesis: genesisData))
-              else:
-                debug "Received invalid time config", endpoint = nodes[i],
-                      config = configData
-                errorNodes.add(nodes[i])
+    let (errorNodes, genesisList) =
+      block:
+        var gres: seq[RestGenesis]
+        var bres: seq[BeaconNodeServerRef]
+        for i in 0 ..< len(pendingRequests):
+          let fut = pendingRequests[i]
+          if fut.completed():
+            let resp = fut.value
+            if resp.status == 200:
+              debug "Received genesis information", endpoint = nodes[i],
+                    genesis_time = resp.data.data.genesis_time,
+                    genesis_fork_version = resp.data.data.genesis_fork_version,
+                    genesis_root = resp.data.data.genesis_validators_root
+              gres.add(resp.data.data)
             else:
-              debug "Received incompatible config", endpoint = nodes[i],
-                    config = configData
-              errorNodes.add(nodes[i])
+              debug "Received unsuccessful response code", endpoint = nodes[i],
+                    response_code = resp.status
+              bres.add(nodes[i])
+          elif fut.failed():
+            let error = fut.error
+            debug "Could not obtain genesis information from beacon node",
+                  endpoint = nodes[i], error_name = error.name,
+                  reason = error.msg
+            bres.add(nodes[i])
           else:
-            debug "Received unsuccessful response code", endpoint = nodes[i],
-                  response_code = (configResp.status, genesisResp.status)
-            errorNodes.add(nodes[i])
-        elif configFut.failed():
-          let error = configFut.error
-          debug "Could not obtain genesis config from beacon node",
-                endpoint = nodes[i], error_name = error.name,
-                reason = error.msg
-          errorNodes.add(nodes[i])
-        elif genesisFut.failed():
-          let error = genesisFut.error
-          debug "Could not obtain genesis information from beacon node",
-                endpoint = nodes[i], error_name = error.name,
-                reason = error.msg
-          errorNodes.add(nodes[i])
-        else:
-          debug "Interrupted while requesting information from beacon node",
-                endpoint = nodes[i]
-          errorNodes.add(nodes[i])
-      (errorNodes, resCandidates)
+            debug "Interrupted while requesting information from beacon node",
+                  endpoint = nodes[i]
+            bres.add(nodes[i])
+        (bres, gres)
 
-    if len(resCandidates) == 0:
+    if len(genesisList) == 0:
       let sleepDuration = 2.seconds
       info "Could not obtain network genesis information from nodes, repeating",
            sleep_time = sleepDuration
@@ -129,9 +93,9 @@ proc initGenesis(vc: ValidatorClientRef): Future[GenesisInfo] {.
       nodes = errorNodes
     else:
       # Boyer-Moore majority vote algorithm
-      var melem: GenesisInfo
+      var melem: RestGenesis
       var counter = 0
-      for item in resCandidates:
+      for item in genesisList:
         if counter == 0:
           melem = item
           inc(counter)
@@ -348,9 +312,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
     else:
       notice "Cannot initialize beacon node", node = node, status = node.status
 
-  (vc.timeCfg, vc.beaconGenesis) = await vc.initGenesis()
-  info "Genesis information", seconds_per_slot = vc.timeCfg.SECONDS_PER_SLOT,
-       genesis_time = vc.beaconGenesis.genesis_time,
+  vc.beaconGenesis = await vc.initGenesis()
+  info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
        genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
        genesis_root = vc.beaconGenesis.genesis_validators_root
 
