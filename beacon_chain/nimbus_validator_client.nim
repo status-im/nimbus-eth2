@@ -71,7 +71,7 @@ proc initGenesis(
                     genesis_root = resp.data.data.genesis_validators_root
               gres.add((nodes[i], resp.data.data))
             else:
-              debug "Received unsuccessful response code", endpoint = nodes[i],
+              debug "Received unexpected response code", endpoint = nodes[i],
                     response_code = resp.status
               bres.add(nodes[i])
           elif fut.failed():
@@ -159,7 +159,7 @@ proc initTimeConfig(
           debug "Received incompatible time configuration settings",
                 endpoint = nodes[i], config = resp.data.data
       else:
-        debug "Received unsuccessful time configuration settings response code",
+        debug "Received unexpected time configuration settings response code",
               endpoint = nodes[i], response_code = resp.status
     elif fut.failed():
       let error = fut.error
