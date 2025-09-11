@@ -73,7 +73,9 @@ jobs:
 
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: | 
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Clean workspace (very aggressive)
         if: contains(matrix.builder, 'self-hosted')
@@ -216,7 +218,9 @@ jobs:
     runs-on: ['self-hosted','ubuntu-22.04']
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Clean workspace (very aggressive)
         run: rm -rf "$GITHUB_WORKSPACE"/*

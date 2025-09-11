@@ -22,7 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,7 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Install packages
         env:
@@ -128,7 +132,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Install packages
         env:
@@ -185,7 +191,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -234,7 +242,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -283,7 +293,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fix nim cache conflicts
-        run: echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Checkout code
         uses: actions/checkout@v4
