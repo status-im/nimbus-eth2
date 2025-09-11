@@ -348,33 +348,17 @@ proc checkPeerCustody(rman: RequestManager,
 
   return intersection
 
-proc updateCustodyIntersection*(
-    colIdList: seq[DataColumnsByRootIdentifier],
-    intersection: DataColumnIndices
-): seq[DataColumnsByRootIdentifier] =
-  ## Return a new sequence where each indices field is replaced
-  ## with its intersection against `intersection`.
-  result = @[]
-  result.setLen(colIdList.len)
-
-  for i, elem in colIdList:
-    var newIndices: DataColumnIndices
-    for idx in elem.indices:
-      if idx in intersection:
-        discard newIndices.add(idx)
-
-    result[i] = DataColumnsByRootIdentifier(
-      block_root: elem.block_root,
-      indices: newIndices)
-
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
                                  {.async: (raises: [CancelledError]).} =
   var peer = await rman.network.peerPool.acquire()
   try:
     let intersection = rman.checkPeerCustody(peer)
-    if intersection.len>0:
-      let intColIdList = colIdList.updateCustodyIntersection(intersection)
+    if intersection.len > 0:
+      let intColIdList = colIdList.mapIt(DataColumnsByRootIdentifier(
+        block_root: it.block_root,
+        indices: DataColumnIndices(filterIt(
+          it.indices.asSeq, it in intersection))))
       debug "Requesting data columns by root", peer = peer, columns = shortLog(intColIdList),
                                                       peer_score = peer.getScore()
       let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
