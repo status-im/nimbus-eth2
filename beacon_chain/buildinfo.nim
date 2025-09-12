@@ -31,6 +31,8 @@ const
 
   GitRevisionOverride {.strdefine.} = ""
 
+  nimFullBanner* = staticExec("nim --version")
+
 template generateGitRevision*(repoPath: string): untyped =
   # strip: remove spaces
   # --short=8: ensure we get 8 chars of commit hash
@@ -58,12 +60,7 @@ template generateGitRevision*(repoPath: string): untyped =
     else:
       # otherwise we use revision number given by build system.
       # e.g. user download from release tarball, or Github zip download.
-      "00000000"
-
-const
-  sourcePath* = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-
-  nimFullBanner* = staticExec("nim --version")
+      "00000000"  
 
 func getNimGitHash(): string =
   const gitPrefix = "git hash: "
