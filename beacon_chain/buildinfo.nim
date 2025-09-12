@@ -86,5 +86,3 @@ func nimBanner*(): string =
 
 declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
 nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
-
-echo GitRevision
