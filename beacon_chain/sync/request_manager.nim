@@ -323,6 +323,9 @@ proc checkPeerCustody(rman: RequestManager,
       for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
+      debug "Peer is supernode",
+        peer = peer, score = peer.getScore(),
+        remote_custody = peer.lookupCgcFromPeer()
       return intersection
 
   else:
@@ -332,6 +335,9 @@ proc checkPeerCustody(rman: RequestManager,
       for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
+      debug "Peer is supernode",
+        peer = peer, score = peer.getScore(),
+        remote_custody = peer.lookupCgcFromPeer()
       return intersection
 
     else:
@@ -348,13 +354,24 @@ proc checkPeerCustody(rman: RequestManager,
         if local_column in remoteCustodyColumns:
           discard intersection.add(local_column)
 
-      # Apply scoring logic
+      # Apply scoring logic + logs
       if intersection.len == 0:
         peer.updateScore(PeerScoreBadColumnIntersection)
+        debug "Peer has no custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount
       elif intersection.len < (rman.custody_columns_set.len div 2):
         peer.updateScore(PeerScoreScantyColumnIntersection)
+        debug "Peer has scanty custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount,
+          overlap = intersection.len, local = rman.custody_columns_set.len
       else:
         peer.updateScore(PeerScoreDecentColumnIntersection)
+        debug "Peer has decent custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount,
+          overlap = intersection.len, local = rman.custody_columns_set.len
 
   return intersection
 
@@ -374,8 +391,9 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
 
       if intColIdList.len == 0:
         debug "No intersecting custody columns to request",
-          peer = peer, columns = shortLog(colIdList),
+          peer = peer, columns = shortLog(intColIdList),
           peer_score = peer.getScore()
+        peer.updateScore(PeerScoreIrrelevantColumnIntersection)
         rman.network.peerPool.release(peer)
         return
 
