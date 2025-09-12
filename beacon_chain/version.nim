@@ -19,7 +19,7 @@ const
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
-  gitRevision* = strip(buildinfo.GitRevision)[0..5]
+  gitRevision* = strip(generateGitRevision(buildinfo.sourcePath))[0..5]
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild

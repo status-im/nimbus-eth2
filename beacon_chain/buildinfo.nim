@@ -12,8 +12,6 @@
 
 import std/[os, strutils], metrics
 
-const sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-
 proc gitFolderExists(path: string): bool {.compileTime.} =
   # walk up parent folder to find `.git` folder
   var currPath = path
@@ -34,6 +32,9 @@ const
   GitRevisionOverride {.strdefine.} = ""
 
 template generateGitRevision*(repoPath: string): untyped =
+  # strip: remove spaces
+  # --short=8: ensure we get 8 chars of commit hash
+  # -C sourcePath: get the correct git hash no matter where the current dir is.
   when GitRevisionOverride.len > 0:
     static:
       doAssert(
@@ -60,10 +61,7 @@ template generateGitRevision*(repoPath: string): untyped =
       "00000000"
 
 const
-  # strip: remove spaces
-  # --short=8: ensure we get 8 chars of commit hash
-  # -C sourcePath: get the correct git hash no matter where the current dir is.
-  GitRevision* = generateGitRevision(sourcePath)
+  sourcePath* = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
 
   nimFullBanner* = staticExec("nim --version")
 
