@@ -32,7 +32,9 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 3
+  PARALLEL_DATA_COLUMNS = 8
+
+  PARALLEL_DATA_COLUMNS_SUPER = 10
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
@@ -41,6 +43,8 @@ const
     ## How long to wait for data columns to arrive over gossip before fetching.
 
   POLL_INTERVAL = 1.seconds
+
+  POLL_INTERVAL_COLUMNS = 250.milliseconds
 
 type
   BlockVerifierFn = proc(
@@ -309,8 +313,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 proc checkPeerCustody(rman: RequestManager,
                       peer: Peer): DataColumnIndices =
   ## Returns the intersection of custody columns
-  ## with the peer. Caller can check .len > 0
-  ## for the boolean outcome.
+  ## with the peer. Also applies peer scoring.
   var intersection: DataColumnIndices
 
   if rman.supernode:
@@ -319,6 +322,7 @@ proc checkPeerCustody(rman: RequestManager,
       # full custody → return all columns
       for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
         discard intersection.add(ColumnIndex col)
+      peer.updateScore(PeerScoreSupernode)
       return intersection
 
   else:
@@ -327,6 +331,7 @@ proc checkPeerCustody(rman: RequestManager,
       # full custody → return all columns
       for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
         discard intersection.add(ColumnIndex col)
+      peer.updateScore(PeerScoreSupernode)
       return intersection
 
     else:
@@ -343,8 +348,13 @@ proc checkPeerCustody(rman: RequestManager,
         if local_column in remoteCustodyColumns:
           discard intersection.add(local_column)
 
+      # Apply scoring logic
       if intersection.len == 0:
         peer.updateScore(PeerScoreBadColumnIntersection)
+      elif intersection.len < (rman.custody_columns_set.len div 2):
+        peer.updateScore(PeerScoreScantyColumnIntersection)
+      else:
+        peer.updateScore(PeerScoreDecentColumnIntersection)
 
   return intersection
 
@@ -361,8 +371,19 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
           indices: DataColumnIndices(
             filterIt(it.indices.asSeq, it in intersection))))
         .filterIt(it.indices.len > 0)
-      debug "Requesting data columns by root", peer = peer, columns = shortLog(intColIdList),
-                                                      peer_score = peer.getScore()
+
+      if intColIdList.len == 0:
+        debug "No intersecting custody columns to request",
+          peer = peer, columns = shortLog(colIdList),
+          peer_score = peer.getScore()
+        rman.network.peerPool.release(peer)
+        return
+
+      debug "Requesting data columns by root",
+        peer = peer,
+        columns = shortLog(intColIdList),
+        peer_score = peer.getScore()
+
       let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
 
       if columns.isOk:
@@ -373,8 +394,10 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
-
         for col in records:
+          debug "Received column responses",
+            peer = peer, column_sidecars = shortLog(col.sidecar),
+            peer_score = peer.getScore()
           rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
 
         var curRoot: Eth2Digest
@@ -392,6 +415,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
   finally:
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
+
 
 proc requestManagerBlockLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
@@ -616,7 +640,7 @@ proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
 
-    await sleepAsync(POLL_INTERVAL)
+    await sleepAsync(POLL_INTERVAL_COLUMNS)
     if rman.inhibit():
       continue
 
@@ -670,9 +694,9 @@ proc requestManagerDataColumnLoop(
       let workerCount =
         if rman.custody_columns_set.lenu64 >
             rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
-          PARALLEL_REQUESTS
+          PARALLEL_DATA_COLUMNS_SUPER
         else:
-          PARALLEL_REQUESTS_DATA_COLUMNS
+          PARALLEL_DATA_COLUMNS
       var workers =
         newSeq[Future[void].Raising([CancelledError])](workerCount)
       for i in 0..<workerCount:
