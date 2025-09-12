@@ -103,7 +103,7 @@ suite baseDescription & "Attestation " & preset():
 
   for path in walkTests(OpAttestationsDir):
     debugGloasComment "do attestations operations fixture"
-    if true: continue
+
     runTest[electra.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
