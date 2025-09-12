@@ -355,10 +355,12 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
   try:
     let intersection = rman.checkPeerCustody(peer)
     if intersection.len > 0:
-      let intColIdList = colIdList.mapIt(DataColumnsByRootIdentifier(
-        block_root: it.block_root,
-        indices: DataColumnIndices(filterIt(
-          it.indices.asSeq, it in intersection))))
+      let intColIdList = colIdList
+        .mapIt(DataColumnsByRootIdentifier(
+          block_root: it.block_root,
+          indices: DataColumnIndices(
+            filterIt(it.indices.asSeq, it in intersection))))
+        .filterIt(it.indices.len > 0)
       debug "Requesting data columns by root", peer = peer, columns = shortLog(intColIdList),
                                                       peer_score = peer.getScore()
       let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
