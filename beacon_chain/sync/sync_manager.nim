@@ -27,7 +27,7 @@ const
   StatusExpirationTime* = chronos.minutes(2)
     ## Time time it takes for the peer's status information to expire.
 
-  ConcurrentRequestsCount* = 3
+  ConcurrentRequestsCount* = 1  # Higher values require reviewing `pending == 0`
     ## Number of requests performed by one peer in single syncing step
 
   RepeatingFailuresCount* = 2
