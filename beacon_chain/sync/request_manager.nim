@@ -319,7 +319,7 @@ proc checkPeerCustody(rman: RequestManager,
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       # full custody → return all columns
-      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+      for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
@@ -330,7 +330,7 @@ proc checkPeerCustody(rman: RequestManager,
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       # full custody → return all columns
-      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+      for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
