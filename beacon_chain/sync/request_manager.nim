@@ -96,7 +96,7 @@ func shortLog*(x: seq[Eth2Digest]): string =
 func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
-proc init*(T: type RequestManager, network: Eth2Node,
+func init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
               custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
@@ -371,7 +371,7 @@ proc checkPeerCustody(rman: RequestManager,
 
   return intersection
 
-proc matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
+func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
   return proc(peer: Peer): bool =
     let
       remoteCustodyGroupCount = peer.lookupCgcFromPeer()
@@ -400,7 +400,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       overlap = intersection.len,
       local = rman.custody_columns_set.len
     if intersection.len == 0:
-      debug "Peer has no usable custody overlap, releasing",
+      debug "Peer has no usable custody overlap",
         peer = peer
       return
     let intColIdList = colIdList
@@ -451,7 +451,6 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
   finally:
     if not isNil(peer):
       rman.network.peerPool.release(peer)
-
 
 proc requestManagerBlockLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
