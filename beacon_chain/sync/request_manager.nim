@@ -44,7 +44,7 @@ const
 
   POLL_INTERVAL = 1.seconds
 
-  POLL_INTERVAL_COLUMNS = 250.milliseconds
+  POLL_INTERVAL_COLUMNS = 500.milliseconds
 
 type
   BlockVerifierFn = proc(
@@ -396,7 +396,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
           return
         for col in records:
           debug "Received column responses",
-            peer = peer, column_sidecars = shortLog(col.sidecar),
+            peer = peer, column_sidecars = shortLog(col.sidecar[]),
             peer_score = peer.getScore()
           rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
 
