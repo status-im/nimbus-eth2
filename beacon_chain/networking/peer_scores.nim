@@ -35,9 +35,9 @@ const
     ## Peer's answer to our request is fine.
   PeerScoreBadValues* = -1000
     ## Peer's response contains incorrect data.
-  PeerScoreBadColumnIntersection* = -10
+  PeerScoreBadColumnIntersection* = -500
     ## Peer custodies irrelevant custody columns
-  PeerScoreIrrelevantColumnIntersection* = -100
+  PeerScoreIrrelevantColumnIntersection* = -500
     ## Peer custody does not match with what we need while requesting.
   PeerScoreScantyColumnIntersection* = -3
     ## Peer custody overlaps less than 50% of our custody.
