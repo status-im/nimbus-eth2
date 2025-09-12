@@ -16,7 +16,7 @@ const sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
 
 proc gitFolderExists(path: string): bool {.compileTime.} =
   # walk up parent folder to find `.git` folder
-  var currPath = sourcePath
+  var currPath = path
   while true:
     if dirExists(currPath & "/.git"):
       return true
@@ -33,34 +33,37 @@ const
 
   GitRevisionOverride {.strdefine.} = ""
 
+template generateGitRevision*(repoPath: string): untyped =
+  when GitRevisionOverride.len > 0:
+    static:
+      doAssert(
+        GitRevisionOverride.len == 8,
+        "GitRevisionOverride must consist of 8 characters",
+      )
+      doAssert(
+        GitRevisionOverride.allIt(it in HexDigits),
+        "GitRevisionOverride should contains only hex chars",
+      )
+
+    GitRevisionOverride
+  else:
+    if gitFolderExists(repoPath):
+      # only using git if the parent dir is a git repo.
+      strip(
+        staticExec(
+          "git -C " & strutils.escape(repoPath) & " rev-parse --short=8 HEAD"
+        )
+      )
+    else:
+      # otherwise we use revision number given by build system.
+      # e.g. user download from release tarball, or Github zip download.
+      "00000000"
+
+const
   # strip: remove spaces
   # --short=8: ensure we get 8 chars of commit hash
   # -C sourcePath: get the correct git hash no matter where the current dir is.
-  GitRevision* =
-    when GitRevisionOverride.len > 0:
-      static:
-        doAssert(
-          GitRevisionOverride.len == 8,
-          "GitRevisionOverride must consist of 8 characters",
-        )
-        doAssert(
-          GitRevisionOverride.allIt(it in HexDigits),
-          "GitRevisionOverride should contains only hex chars",
-        )
-
-      GitRevisionOverride
-    else:
-      if gitFolderExists(sourcePath):
-        # only using git if the parent dir is a git repo.
-        strip(
-          staticExec(
-            "git -C " & strutils.escape(sourcePath) & " rev-parse --short=8 HEAD"
-          )
-        )
-      else:
-        # otherwise we use revision number given by build system.
-        # e.g. user download from release tarball, or Github zip download.
-        "00000000"
+  GitRevision* = generateGitRevision(sourcePath)
 
   nimFullBanner* = staticExec("nim --version")
 
@@ -83,3 +86,5 @@ func nimBanner*(): string =
 
 declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
 nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
+
+echo GitRevision
