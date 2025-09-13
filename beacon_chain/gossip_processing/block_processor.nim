@@ -393,7 +393,7 @@ proc enqueueBlock*(
       when consensusFork >= ConsensusFork.Fulu:
         resfut.complete(self.storeBackfillBlock(forkyBlck, data_columns))
       else:
-        resFut.complete(self.storeBackfillBlock(forkyBlck, blobs))
+        resfut.complete(self.storeBackfillBlock(forkyBlck, blobs))
       return
   try:
     self.blockQueue.addLastNoWait(BlockEntry(

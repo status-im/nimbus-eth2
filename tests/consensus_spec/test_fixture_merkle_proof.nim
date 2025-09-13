@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -68,11 +68,9 @@ suite "EF - Merkle proof" & preset():
         continue
       let objName = path
       withConsensusFork(fork):
-        debugGloasComment ""
-        when consensusFork != ConsensusFork.Gloas:
-          for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-            case objName
-            of "BeaconBlockBody":
-              runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
-            else:
-              raiseAssert "Unknown test object: " & suitePath/path
+        for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+          case objName
+          of "BeaconBlockBody":
+            runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
+          else:
+            raiseAssert "Unknown test object: " & suitePath/path

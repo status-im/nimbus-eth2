@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -242,6 +242,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
+  debugGloasComment "presumably gloasIndex shouldn't be 801"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
@@ -257,9 +258,9 @@ func getRemoteKeystoreData(data: string, basePort: int,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
+            gloasIndex: GeneralizedIndex(801),
             fuluIndex: GeneralizedIndex(801),
             electraIndex: GeneralizedIndex(801),
-            denebIndex: GeneralizedIndex(801)
           )
         ],
         version: uint64(4),

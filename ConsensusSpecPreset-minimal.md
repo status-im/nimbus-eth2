@@ -4442,6 +4442,10 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
 ```
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff

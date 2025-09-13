@@ -368,7 +368,6 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    debugGloasComment ""
     when consensusFork == type(signedBlock).kind:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:

@@ -153,7 +153,6 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    denebIndex*: GeneralizedIndex
     electraIndex*: GeneralizedIndex
     fuluIndex*: GeneralizedIndex
     gloasIndex*: GeneralizedIndex
@@ -733,7 +732,6 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
     debugGloasComment "almost certainly not correct anymore, execution payload position changes substantially"
     ok ProvenProperty(
       path: propertyPath,
-      denebIndex: GeneralizedIndex(801),
       electraIndex: GeneralizedIndex(801),
       fuluIndex: GeneralizedIndex(801),
       gloasIndex: GeneralizedIndex(801))
@@ -741,7 +739,6 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
     debugGloasComment "check if graffiti is still generalizedindex 18"
     ok ProvenProperty(
       path: propertyPath,
-      denebIndex: GeneralizedIndex(18),
       electraIndex: GeneralizedIndex(18),
       fuluIndex: GeneralizedIndex(18),
       gloasIndex: GeneralizedIndex(18))
@@ -852,13 +849,11 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
           debugGloasComment "nearly certainly incorrect fee recipient generalizedindex"
-          prop.denebIndex = GeneralizedIndex(801)
           prop.electraIndex = GeneralizedIndex(801)
           prop.fuluIndex = GeneralizedIndex(801)
           prop.gloasIndex = GeneralizedIndex(801)
         elif prop.path == ".graffiti":
           debugGloasComment "check if graffiti is still generalizedindex 18"
-          prop.denebIndex = GeneralizedIndex(18)
           prop.electraIndex = GeneralizedIndex(18)
           prop.fuluIndex = GeneralizedIndex(18)
           prop.gloasIndex = GeneralizedIndex(18)

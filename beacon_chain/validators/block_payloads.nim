@@ -201,7 +201,7 @@ func decodePayloadRequests(
         return err("Execution layer invalid request type")
 
     ok execution_requests_buffer
-  except SerializationError as exc:
+  except SerializationError:
     err("Failed to deserialize execution requests")
 
 proc makeEngineBlock*(

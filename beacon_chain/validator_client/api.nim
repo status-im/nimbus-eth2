@@ -2639,8 +2639,7 @@ proc publishBlockV2*(
         of ConsensusFork.Fulu:
           publishBlockV2(it, some(broadcast_validation), data.fuluData)
         of ConsensusFork.Gloas:
-          debugGloasComment ""
-          return false
+          publishBlockV2(it, some(broadcast_validation), data.gloasData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2695,8 +2694,7 @@ proc publishBlockV2*(
       of ConsensusFork.Fulu:
         publishBlockV2(it, some(broadcast_validation), data.fuluData)
       of ConsensusFork.Gloas:
-        debugGloasComment ""
-        return false
+        publishBlockV2(it, some(broadcast_validation), data.gloasData)
 
     do:
       if apiResponse.isErr():

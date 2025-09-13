@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos, presto/client, chronicles,
@@ -20,14 +20,15 @@ from ../mev/deneb_mev import SignedBlindedBeaconBlock
 export chronos, client, rest_types, eth2_rest_serialization
 
 type
-  ForkySignedBlockContents* =
+  ForkySignedBlockContents =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
-    FuluSignedBlockContents
+    FuluSignedBlockContents |
+    GloasSignedBlockContents
 
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      rest, endpoint: "/eth/v1/beacon/genesis",
@@ -183,6 +184,12 @@ proc publishBlockV2(
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
+proc publishBlockV2(
+    broadcast_validation: Option[BroadcastValidationType],
+    body: GloasSignedBlockContents
+): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
+   meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
 proc publishBlockV2*(
     client: RestClientRef,
@@ -198,6 +205,8 @@ proc publishBlockV2*(
       ConsensusFork.Electra.toString()
     elif blck is FuluSignedBlockContents:
       ConsensusFork.Fulu.toString()
+    elif blck is GloasSignedBlockContents:
+      ConsensusFork.Gloas.toString()
     else:
       typeof(blck).kind.toString()
   client.publishBlockV2(
