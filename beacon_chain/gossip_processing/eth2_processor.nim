@@ -357,8 +357,8 @@ proc processDataColumnSidecar*(
     dataColumnSidecar: fulu.DataColumnSidecar | gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
-  let block_root = hash_tree_root(block_header)
   let
+    block_root = hash_tree_root(block_header)
     wallTime = self.getCurrentBeaconTime()
     (_, wallSlot) = wallTime.toSlot()
   logScope:
@@ -380,7 +380,7 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and 
+      when consensusFork >= ConsensusFork.Fulu and
           consensusFork < ConsensusFork.Gloas:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)

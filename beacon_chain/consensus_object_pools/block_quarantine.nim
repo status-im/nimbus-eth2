@@ -81,7 +81,6 @@ type
       ## Stores the latest sidecarless block root and slot, in order to quickly
       ## fetch the latest info without having to traverse sidecarless
       ## quarantine.
-
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
