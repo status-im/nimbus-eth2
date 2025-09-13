@@ -1277,7 +1277,7 @@ proc process_attestation*(
   ok(proposer_reward)
 
 proc process_attestation*(
-    state: var ForkyBeaconState,
+    state: var (electra.BeaconState | fulu.BeaconState),
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
@@ -1286,75 +1286,89 @@ proc process_attestation*(
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
 
-  when state is gloas.BeaconState:
-    # [Modified in Gloas:EIP7732]
-    let 
-      current_epoch_target = 
-        attestation.data.target.epoch == get_current_epoch(state)
-      payment_index = 
-        if current_epoch_target:
-          SLOTS_PER_EPOCH + (attestation.data.slot mod SLOTS_PER_EPOCH)
-        else:
-          attestation.data.slot mod SLOTS_PER_EPOCH
-      participation_flag_indices = get_attestation_participation_flag_indices(
-        state, attestation.data, state.slot - attestation.data.slot)
-    
-    var payment = state.builder_pending_payments.item(payment_index.int)
-    
-    template updateParticipationFlagsGloas(epoch_participation: untyped): Gwei =
-      var proposer_reward_numerator = 0.Gwei
-      for index in get_attesting_indices_iter(
-          state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
-        # [New in Gloas:EIP7732]
-        # For same-slot attestations, check if we're setting any new flags
-        # If we are, this validator hasn't contributed to this slot's quorum yet
-        var will_set_new_flag = false  
-        for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-          if flag_index in participation_flag_indices and
-             not has_flag(epoch_participation.item(index), flag_index):
-            asList(epoch_participation)[index] =
-              add_flag(epoch_participation.item(index), flag_index)
-            proposer_reward_numerator += 
-              get_base_reward(
-                state, index, base_reward_per_increment) * weight.uint64
-            will_set_new_flag = true
-        
-        # [New in Gloas:EIP7732]
-        # Add weight for same-slot attestations when any new flag is set
-        # This ensures each validator contributes exactly once per slot
-        if will_set_new_flag and
-            is_attestation_same_slot(state, attestation.data):
-          payment.weight += state.validators.item(index).effective_balance
+  template updateParticipationFlags(epoch_participation: untyped): Gwei =
+    let proposer_reward = get_proposer_reward(
+      state, attestation, base_reward_per_increment, cache, epoch_participation)
+    increase_balance(state, proposer_index, proposer_reward)
+    proposer_reward
 
-      let proposer_reward_denominator =
-        (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
-        WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
-      let proposer_reward = proposer_reward_numerator div proposer_reward_denominator
-      increase_balance(state, proposer_index, proposer_reward)
-      proposer_reward
+  doAssert base_reward_per_increment > 0.Gwei
+  let proposer_reward =
+    if attestation.data.target.epoch == get_current_epoch(state):
+      updateParticipationFlags(state.current_epoch_participation)
+    else:
+      updateParticipationFlags(state.previous_epoch_participation)
 
-    doAssert base_reward_per_increment > 0.Gwei
-    let proposer_reward =
+  ok(proposer_reward)
+
+proc process_attestation*(
+    state: var gloas.BeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    flags: UpdateFlags, base_reward_per_increment: Gwei,
+    cache: var StateCache): Result[Gwei, cstring] =
+  ? check_attestation(state, attestation, flags, cache, true)
+
+  let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+    return err("process_attestation: no beacon proposer index and probably no active validators")
+
+  # [Modified in Gloas:EIP7732]
+  let 
+    current_epoch_target = 
+      attestation.data.target.epoch == get_current_epoch(state)
+    payment_index = 
       if current_epoch_target:
-        updateParticipationFlagsGloas(state.current_epoch_participation)
+        SLOTS_PER_EPOCH + (attestation.data.slot mod SLOTS_PER_EPOCH)
       else:
-        updateParticipationFlagsGloas(state.previous_epoch_participation)
-    
-    # Update builder payment weight
-    state.builder_pending_payments[payment_index.int] = payment
-  else:
-    template updateParticipationFlags(epoch_participation: untyped): Gwei =
-      let proposer_reward = get_proposer_reward(
-        state, attestation, base_reward_per_increment, cache, epoch_participation)
-      increase_balance(state, proposer_index, proposer_reward)
-      proposer_reward
+        attestation.data.slot mod SLOTS_PER_EPOCH
+    participation_flag_indices = get_attestation_participation_flag_indices(
+      state, attestation.data, state.slot - attestation.data.slot)
+  
+  var payment = state.builder_pending_payments.item(payment_index.int)
+  
+  template updateParticipationFlags(epoch_participation: untyped): Gwei =
+    var proposer_reward_numerator = 0.Gwei
+    for index in get_attesting_indices_iter(
+        state, attestation.data, attestation.aggregation_bits,
+        attestation.committee_bits, cache):
+      # [New in Gloas:EIP7732]
+      # For same-slot attestations, check if we're setting any new flags
+      # If we are, this validator hasn't contributed to this slot's quorum yet
+      var will_set_new_flag = false  
+      for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
+        if flag_index in participation_flag_indices and
+           not has_flag(epoch_participation.item(index), flag_index):
+          asList(epoch_participation)[index] =
+            add_flag(epoch_participation.item(index), flag_index)
+          proposer_reward_numerator += 
+            get_base_reward(
+              state, index, base_reward_per_increment) * weight.uint64
+          will_set_new_flag = true
+      
+      # [New in Gloas:EIP7732]
+      # Add weight for same-slot attestations when any new flag is set
+      # This ensures each validator contributes exactly once per slot
+      if will_set_new_flag and
+          is_attestation_same_slot(state, attestation.data):
+        payment.weight += state.validators.item(index).effective_balance
 
-    doAssert base_reward_per_increment > 0.Gwei
-    let proposer_reward =
-      if attestation.data.target.epoch == get_current_epoch(state):
-        updateParticipationFlags(state.current_epoch_participation)
-      else:
-        updateParticipationFlags(state.previous_epoch_participation)
+    let 
+      proposer_reward_denominator =
+        (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
+          WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
+      proposer_reward = 
+        proposer_reward_numerator div proposer_reward_denominator
+    increase_balance(state, proposer_index, proposer_reward)
+    proposer_reward
+
+  doAssert base_reward_per_increment > 0.Gwei
+  let proposer_reward =
+    if current_epoch_target:
+      updateParticipationFlags(state.current_epoch_participation)
+    else:
+      updateParticipationFlags(state.previous_epoch_participation)
+  
+  # Update builder payment weight
+  state.builder_pending_payments[payment_index.int] = payment
 
   ok(proposer_reward)
 
