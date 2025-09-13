@@ -519,10 +519,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Capella:
-          const historicalSummariesFork = historicalSummariesForkAtConsensusFork(
-              consensusFork
-            )
-            .expect("HistoricalSummariesFork for Capella onwards")
+          const historicalSummariesFork =
+            historicalSummariesForkAtConsensusFork(consensusFork)
+              .expect("HistoricalSummariesFork for Capella onwards")
 
           let response = getHistoricalSummariesResponse(historicalSummariesFork)(
             historical_summaries: forkyState.data.historical_summaries,
@@ -537,11 +536,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
               response,
               node.getStateOptimistic(state),
               node.dag.isFinalized(bslot.bid),
-              consensusFork,
-            )
+              consensusFork, node.hasRestAllowedOrigin)
           elif contentType == sszMediaType:
-            let headers = [("eth-consensus-version", consensusFork.toString())]
-            RestApiResponse.sszResponse(response, headers)
+            RestApiResponse.sszResponse(
+              response, consensusFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
         else:

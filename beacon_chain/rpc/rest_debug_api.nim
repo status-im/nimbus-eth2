@@ -45,8 +45,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet, "/eth/v2/debug/beacon/states/{state_id}",
     {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
+    let
+      bslot = block:
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
@@ -55,8 +55,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
-    let contentType =
-      block:
+      contentType = block:
         let res = preferredContentType(jsonMediaType,
                                        sszMediaType)
         if res.isErr():
@@ -68,11 +67,12 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentType == jsonMediaType:
           RestApiResponse.jsonResponseState(
             state, node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            node.hasRestAllowedOrigin)
         elif contentType == sszMediaType:
-          let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
-            RestApiResponse.sszResponse(forkyState.data, headers)
+            RestApiResponse.sszResponse(
+              forkyState.data, state.kind, node.hasRestAllowedOrigin)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
@@ -150,6 +150,6 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           u_justified_checkpoint: u_justified_checkpoint,
           u_finalized_checkpoint: u_finalized_checkpoint,
           best_child: item.bestChild,
-          bestDescendant: item.bestDescendant))
+          best_descendant: item.bestDescendant))
 
     RestApiResponse.jsonResponsePlain(response)

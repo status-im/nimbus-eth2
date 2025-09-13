@@ -145,6 +145,32 @@ type
                     fulu.BlockContents | electra_mev.BlindedBeaconBlock |
                     fulu_mev.BlindedBeaconBlock
 
+func ethHeaders(
+    consensusFork: ConsensusFork,
+    hasRestAllowedOrigin: bool): HttpTable =
+  var headers = HttpTable.init [
+    ("eth-consensus-version", consensusFork.toString())]
+  if hasRestAllowedOrigin:
+    headers.add("access-control-expose-headers", "eth-consensus-version")
+  headers
+
+func ethHeaders(
+    consensusFork: ConsensusFork,
+    isBlinded: bool,
+    executionValue: UInt256,
+    consensusValue: UInt256,
+    hasRestAllowedOrigin: bool): HttpTable =
+  var headers = HttpTable.init [
+    ("eth-consensus-version", consensusFork.toString()),
+    ("eth-execution-payload-blinded", if isBlinded: "true" else: "false"),
+    ("eth-execution-payload-value", toString(executionValue, 10)),
+    ("eth-consensus-block-value", toString(consensusValue, 10))]
+  if hasRestAllowedOrigin:
+    headers.add("access-control-expose-headers", static(
+      "eth-consensus-version, eth-execution-payload-blinded, " &
+      "eth-execution-payload-value, eth-consensus-block-value"))
+  headers
+
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
   ## Converts an hex char to an int
   const
@@ -276,13 +302,15 @@ proc jsonResponse*(_: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonResponseBlock*(_: typedesc[RestApiResponse],
-                        data: ForkySignedBlindedBeaconBlock,
-                        consensusFork: ConsensusFork,
-                        execOpt: Opt[bool],
-                        finalized: bool): RestApiResponse =
+proc jsonResponseBlock*(
+    _: typedesc[RestApiResponse],
+    data: ForkySignedBlindedBeaconBlock,
+    execOpt: Opt[bool],
+    finalized: bool,
+    consensusFork: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
   let
-    headers = [("eth-consensus-version", consensusFork.toString())]
+    headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
       w.writeObject:
         w.writeField("version", consensusFork)
@@ -292,12 +320,14 @@ proc jsonResponseBlock*(_: typedesc[RestApiResponse],
 
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseBlock*(_: typedesc[RestApiResponse],
-                        data: ForkedSignedBeaconBlock,
-                        execOpt: Opt[bool],
-                        finalized: bool): RestApiResponse =
+proc jsonResponseBlock*(
+    _: typedesc[RestApiResponse],
+    data: ForkedSignedBeaconBlock,
+    execOpt: Opt[bool],
+    finalized: bool,
+    hasRestAllowedOrigin: bool): RestApiResponse =
   let
-    headers = [("eth-consensus-version", data.kind.toString())]
+    headers = data.kind.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
       w.writeObject:
         w.writeField("version", data.kind)
@@ -308,30 +338,14 @@ proc jsonResponseBlock*(_: typedesc[RestApiResponse],
 
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseDataSidecars*(
+proc jsonResponseState*(
     _: typedesc[RestApiResponse],
-    data: openArray[BlobSidecar | fulu.DataColumnSidecar],
-    version: ConsensusFork,
+    data: ForkedHashedBeaconState,
     execOpt: Opt[bool],
-    finalized: bool
-): RestApiResponse =
+    finalized: bool,
+    hasRestAllowedOrigin: bool): RestApiResponse =
   let
-    headers = [("eth-consensus-version", version.toString())]
-    res = withRestJsonWriter(w, seq[byte]):
-      w.writeObject:
-        w.writeField("version", version)
-        w.writeField("execution_optimistic", execOpt)
-        w.writeField("finalized", finalized)
-        w.writeField("data", data)
-
-  RestApiResponse.response(res, Http200, "application/json", headers = headers)
-
-proc jsonResponseState*(_: typedesc[RestApiResponse],
-                        data: ForkedHashedBeaconState,
-                        execOpt: Opt[bool],
-                        finalized: bool): RestApiResponse =
-  let
-    headers = [("eth-consensus-version", data.kind.toString())]
+    headers = data.kind.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
       w.writeObject:
         w.writeField("version", data.kind)
@@ -367,27 +381,31 @@ proc jsonResponseFinalized*(_: typedesc[RestApiResponse], data: auto,
   let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonResponseFinalizedWVersion*(_: typedesc[RestApiResponse],
-                            data: auto,
-                            exec: Opt[bool],
-                            finalized: bool,
-                            version: ConsensusFork): RestApiResponse =
+proc jsonResponseFinalizedWVersion*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    exec: Opt[bool],
+    finalized: bool,
+    version: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
   let
-    headers = [("eth-consensus-version", version.toString())]
+    headers = version.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
       w.writeObject:
         w.writeField("version", version)
         w.writeField("execution_optimistic", exec)
         w.writeField("finalized", finalized)
         w.writeField("data", data)
-        w.endRecord()
 
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseWVersion*(_: typedesc[RestApiResponse], data: auto,
-                           version: ConsensusFork): RestApiResponse =
+proc jsonResponseWVersion*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    version: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
   let
-    headers = [("eth-consensus-version", version.toString())]
+    headers = version.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
       w.writeObject:
         w.writeField("version", version)
@@ -408,18 +426,37 @@ proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
 
   RestApiResponse.response(res, Http200, "application/json")
 
+proc jsonPlainEncoded(data: auto): seq[byte] =
+  withRestJsonWriter(w, seq[byte]):
+    w.writeValue(data)
+
 proc jsonResponsePlain*(_: typedesc[RestApiResponse],
                         data: auto): RestApiResponse =
-  let res = withRestJsonWriter(w, seq[byte]):
-    w.writeValue(data)
-
+  let res = data.jsonPlainEncoded()
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonResponsePlain*(_: typedesc[RestApiResponse],
-                        data: auto, headers: HttpTable): RestApiResponse =
-  let res = withRestJsonWriter(w, seq[byte]):
-    w.writeValue(data)
+proc jsonResponsePlain*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    consensusFork: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let
+    res = data.jsonPlainEncoded()
+    headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
+proc jsonResponsePlain*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    consensusFork: ConsensusFork,
+    isBlinded: bool,
+    executionValue: UInt256,
+    consensusValue: UInt256,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let
+    res = data.jsonPlainEncoded()
+    headers = consensusFork.ethHeaders(
+      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin)
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWMeta*(_: typedesc[RestApiResponse],
@@ -512,24 +549,40 @@ proc sszResponseVersioned*[T: SomeForkedLightClientObject](
       default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream")
 
-proc sszResponsePlain*(_: typedesc[RestApiResponse], res: seq[byte],
-                       headers: openArray[RestKeyValueTuple] = []
-                      ): RestApiResponse =
-  RestApiResponse.response(res, Http200, "application/octet-stream",
-                           headers = headers)
+proc sszResponsePlain*(
+    _: typedesc[RestApiResponse],
+    res: seq[byte],
+    consensusFork: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
+  RestApiResponse.response(
+    res, Http200, "application/octet-stream", headers = headers)
 
-proc sszResponse*(_: typedesc[RestApiResponse], data: auto,
-                  headers: openArray[RestKeyValueTuple] = []
-                 ): RestApiResponse =
-  let res = SSZ.encode(data)
-  RestApiResponse.response(res, Http200, "application/octet-stream",
-                           headers = headers)
+proc sszResponse*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    consensusFork: ConsensusFork,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let
+    res = SSZ.encode(data)
+    headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
+  RestApiResponse.response(
+    res, Http200, "application/octet-stream", headers = headers)
 
-proc sszResponse*(_: typedesc[RestApiResponse], data: auto,
-                  headers: HttpTable): RestApiResponse =
-  let res = SSZ.encode(data)
-  RestApiResponse.response(res, Http200, "application/octet-stream",
-                           headers = headers)
+proc sszResponse*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    consensusFork: ConsensusFork,
+    isBlinded: bool,
+    executionValue: UInt256,
+    consensusValue: UInt256,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let
+    res = SSZ.encode(data)
+    headers = consensusFork.ethHeaders(
+      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin)
+  RestApiResponse.response(
+    res, Http200, "application/octet-stream", headers = headers)
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

@@ -41,10 +41,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyBootstrap, headers)
+            RestApiResponse.sszResponse(
+              forkyBootstrap, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponseWVersion(forkyBootstrap, contextFork)
+            RestApiResponse.jsonResponseWVersion(
+              forkyBootstrap, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
@@ -135,11 +136,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyFinalityUpdate, headers)
+            RestApiResponse.sszResponse(
+              forkyFinalityUpdate, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
             RestApiResponse.jsonResponseWVersion(
-              forkyFinalityUpdate, contextFork)
+              forkyFinalityUpdate, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
@@ -166,11 +167,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyOptimisticUpdate, headers)
+            RestApiResponse.sszResponse(
+              forkyOptimisticUpdate, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
             RestApiResponse.jsonResponseWVersion(
-              forkyOptimisticUpdate, contextFork)
+              forkyOptimisticUpdate, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:

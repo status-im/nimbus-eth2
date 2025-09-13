@@ -12,11 +12,9 @@
 
 import std/[os, strutils], metrics
 
-const sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-
 proc gitFolderExists(path: string): bool {.compileTime.} =
   # walk up parent folder to find `.git` folder
-  var currPath = sourcePath
+  var currPath = path
   while true:
     if dirExists(currPath & "/.git"):
       return true
@@ -33,36 +31,36 @@ const
 
   GitRevisionOverride {.strdefine.} = ""
 
+  nimFullBanner* = staticExec("nim --version")
+
+template generateGitRevision*(repoPath: string): untyped =
   # strip: remove spaces
   # --short=8: ensure we get 8 chars of commit hash
   # -C sourcePath: get the correct git hash no matter where the current dir is.
-  GitRevision* =
-    when GitRevisionOverride.len > 0:
-      static:
-        doAssert(
-          GitRevisionOverride.len == 8,
-          "GitRevisionOverride must consist of 8 characters",
-        )
-        doAssert(
-          GitRevisionOverride.allIt(it in HexDigits),
-          "GitRevisionOverride should contains only hex chars",
-        )
+  when GitRevisionOverride.len > 0:
+    static:
+      doAssert(
+        GitRevisionOverride.len == 8,
+        "GitRevisionOverride must consist of 8 characters",
+      )
+      doAssert(
+        GitRevisionOverride.allIt(it in HexDigits),
+        "GitRevisionOverride should contains only hex chars",
+      )
 
-      GitRevisionOverride
+    GitRevisionOverride
+  else:
+    if gitFolderExists(repoPath):
+      # only using git if the parent dir is a git repo.
+      strip(
+        staticExec(
+          "git -C " & strutils.escape(repoPath) & " rev-parse --short=8 HEAD"
+        )
+      )
     else:
-      if gitFolderExists(sourcePath):
-        # only using git if the parent dir is a git repo.
-        strip(
-          staticExec(
-            "git -C " & strutils.escape(sourcePath) & " rev-parse --short=8 HEAD"
-          )
-        )
-      else:
-        # otherwise we use revision number given by build system.
-        # e.g. user download from release tarball, or Github zip download.
-        "00000000"
-
-  nimFullBanner* = staticExec("nim --version")
+      # otherwise we use revision number given by build system.
+      # e.g. user download from release tarball, or Github zip download.
+      "00000000"  
 
 func getNimGitHash(): string =
   const gitPrefix = "git hash: "

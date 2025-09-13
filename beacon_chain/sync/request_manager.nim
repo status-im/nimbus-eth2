@@ -32,7 +32,9 @@ const
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS = 3
+  PARALLEL_DATA_COLUMNS = 8
+
+  PARALLEL_DATA_COLUMNS_SUPER = 10
 
   BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
@@ -41,6 +43,8 @@ const
     ## How long to wait for data columns to arrive over gossip before fetching.
 
   POLL_INTERVAL = 1.seconds
+
+  POLL_INTERVAL_COLUMNS = 500.milliseconds
 
 type
   BlockVerifierFn = proc(
@@ -92,7 +96,7 @@ func shortLog*(x: seq[Eth2Digest]): string =
 func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
-proc init*(T: type RequestManager, network: Eth2Node,
+func init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
               custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
@@ -309,26 +313,30 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 proc checkPeerCustody(rman: RequestManager,
                       peer: Peer): DataColumnIndices =
   ## Returns the intersection of custody columns
-  ## with the peer. Caller can check .len > 0
-  ## for the boolean outcome.
+  ## with the peer. Also applies peer scoring.
   var intersection: DataColumnIndices
-
   if rman.supernode:
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       # full custody → return all columns
-      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+      for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
+      peer.updateScore(PeerScoreSupernode)
+      debug "Peer is supernode",
+        peer = peer, score = peer.getScore(),
+        remote_custody = peer.lookupCgcFromPeer()
       return intersection
-
   else:
     if peer.lookupCgcFromPeer() ==
         rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       # full custody → return all columns
-      for col in 0 ..< (rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+      for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
+      peer.updateScore(PeerScoreSupernode)
+      debug "Peer is supernode",
+        peer = peer, score = peer.getScore(),
+        remote_custody = peer.lookupCgcFromPeer()
       return intersection
-
     else:
       let
         remoteCustodyGroupCount = peer.lookupCgcFromPeer()
@@ -342,53 +350,106 @@ proc checkPeerCustody(rman: RequestManager,
       for local_column in rman.custody_columns_set:
         if local_column in remoteCustodyColumns:
           discard intersection.add(local_column)
-
+      # Apply scoring logic + logs
       if intersection.len == 0:
         peer.updateScore(PeerScoreBadColumnIntersection)
+        debug "Peer has no custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount
+      elif intersection.len < (rman.custody_columns_set.len div 2):
+        peer.updateScore(PeerScoreScantyColumnIntersection)
+        debug "Peer has scanty custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount,
+          overlap = intersection.len, local = rman.custody_columns_set.len
+      else:
+        peer.updateScore(PeerScoreDecentColumnIntersection)
+        debug "Peer has decent custody overlap",
+          peer = peer, score = peer.getScore(),
+          remote_custody = remoteCustodyGroupCount,
+          overlap = intersection.len, local = rman.custody_columns_set.len
 
   return intersection
+
+func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
+  return proc(peer: Peer): bool =
+    let
+      remoteCustodyGroupCount = peer.lookupCgcFromPeer()
+      remoteNodeId = fetchNodeIdFromPeerId(peer)
+      remoteCustodyColumns =
+        rman.network.cfg.resolve_columns_from_custody_groups(
+          remoteNodeId,
+          max(rman.network.cfg.SAMPLES_PER_SLOT, remoteCustodyGroupCount))
+      overlap = rman.custody_columns_set.countIt(it in remoteCustodyColumns)
+    return overlap > (rman.custody_columns_set.len div 2)
+
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
                                  {.async: (raises: [CancelledError]).} =
-  var peer = await rman.network.peerPool.acquire()
+  var peer: Peer
+  peer = await rman.network.peerPool.acquire(
+    filter = {Incoming, Outgoing},
+    customFilter = matchIntersection(rman))
   try:
     let intersection = rman.checkPeerCustody(peer)
-    if intersection.len > 0:
-      let intColIdList = colIdList.mapIt(DataColumnsByRootIdentifier(
+
+    debug "Acquired peer after custody check",
+      peer = peer,
+      peer_score = peer.getScore(),
+      overlap = intersection.len,
+      local = rman.custody_columns_set.len
+    if intersection.len == 0:
+      debug "Peer has no usable custody overlap",
+        peer = peer
+      return
+    let intColIdList = colIdList
+      .mapIt(DataColumnsByRootIdentifier(
         block_root: it.block_root,
-        indices: DataColumnIndices(filterIt(
-          it.indices.asSeq, it in intersection))))
-      debug "Requesting data columns by root", peer = peer, columns = shortLog(intColIdList),
-                                                      peer_score = peer.getScore()
-      let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
-
-      if columns.isOk:
-        var ucolumns = columns.get().asSeq()
-        ucolumns.sort(cmpSidecarIndexes)
-        let records = checkColumnResponse(colIdList, ucolumns).valueOr:
-          debug "Response to columns by root is not a subset",
-            peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
-          peer.updateScore(PeerScoreBadResponse)
-          return
-
-        for col in records:
-          rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
-
-        var curRoot: Eth2Digest
-        for col in records:
-          if col.block_root != curRoot:
-            curRoot = col.block_root
-            if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
-              let col = o.unsafeGet()
-              discard await rman.blockVerifier(col, false)
-      else:
-        debug "Data columns by root request not done, peer doesn't have custody column",
-          peer = peer, columns = shortLog(colIdList), err = columns.error()
-        peer.updateScore(PeerScoreNoValues)
+        indices: DataColumnIndices(
+          filterIt(it.indices.asSeq, it in intersection))))
+      .filterIt(it.indices.len > 0)
+    if intColIdList.len == 0:
+      debug "No intersecting custody columns to request",
+        peer = peer,
+        peer_score = peer.getScore()
+      return
+    debug "Requesting data columns by root",
+      peer = peer,
+      columns = shortLog(intColIdList),
+      peer_score = peer.getScore()
+    let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
+    if columns.isOk:
+      var ucolumns = columns.get().asSeq()
+      ucolumns.sort(cmpSidecarIndexes)
+      let records = checkColumnResponse(colIdList, ucolumns).valueOr:
+        debug "Response to columns by root is not a subset",
+          peer = peer,
+          columns = shortLog(colIdList),
+          ucolumns = len(ucolumns)
+        peer.updateScore(PeerScoreBadResponse)
+        return
+      for col in records:
+        debug "Received column responses",
+          peer = peer,
+          column_sidecars = shortLog(col.sidecar[]),
+          peer_score = peer.getScore()
+        rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
+      var curRoot: Eth2Digest
+      for col in records:
+        if col.block_root != curRoot:
+          curRoot = col.block_root
+          if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
+            let col = o.unsafeGet()
+            discard await rman.blockVerifier(col, false)
+    else:
+      debug "Data columns by root request failed or peer missing custody columns",
+        peer = peer,
+        err = columns.error()
+      peer.updateScore(PeerScoreNoValues)
 
   finally:
-    if not(isNil(peer)):
+    if not isNil(peer):
       rman.network.peerPool.release(peer)
 
 proc requestManagerBlockLoop(
@@ -614,7 +675,7 @@ proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
 
-    await sleepAsync(POLL_INTERVAL)
+    await sleepAsync(POLL_INTERVAL_COLUMNS)
     if rman.inhibit():
       continue
 
@@ -668,9 +729,9 @@ proc requestManagerDataColumnLoop(
       let workerCount =
         if rman.custody_columns_set.lenu64 >
             rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
-          PARALLEL_REQUESTS
+          PARALLEL_DATA_COLUMNS_SUPER
         else:
-          PARALLEL_REQUESTS_DATA_COLUMNS
+          PARALLEL_DATA_COLUMNS
       var workers =
         newSeq[Future[void].Raising([CancelledError])](workerCount)
       for i in 0..<workerCount:
