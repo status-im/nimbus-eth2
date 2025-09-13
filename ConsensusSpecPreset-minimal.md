@@ -5301,11 +5301,13 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minima OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: minim OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minimal OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
@@ -5353,6 +5355,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
 + [Valid]   EF - fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - max_blobs_per_block [Preset: minimal]              OK
 + [Valid]   EF - fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]      OK
 + [Valid]   EF - fulu - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minimal]  OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
@@ -5360,6 +5363,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK

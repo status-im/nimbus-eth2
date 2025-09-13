@@ -137,7 +137,7 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      debugGloasComment "check gloas fee recipient generalizedindex"
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(801)
 
   test "Verifying Signer / Many remotes":
     for version in [3]:
@@ -186,4 +186,4 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      debugGloasComment "check gloas fee recipient generalizedindex"
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(801)

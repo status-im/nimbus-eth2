@@ -194,7 +194,7 @@ suite baseDescription & "Deposit Request " & preset():
 
 suite baseDescription & "Execution Payload Header " & preset():
   proc applyExecutionPayloadHeader(
-      preState: var gloas.BeaconState, 
+      preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
     process_execution_payload_header(
       defaultRuntimeConfig, preState, blck)
@@ -209,7 +209,7 @@ suite baseDescription & "Payload Attestation " & preset():
       preState: var gloas.BeaconState,
       payloadAttestation: PayloadAttestation): Result[void, cstring] =
     var cache: StateCache
-    process_payload_attestation(preState, payload_attestation, cache)
+    process_payload_attestation(preState, payloadAttestation, cache)
 
   for path in walkTests(OpPayloadAttestationDir):
     runTest[PayloadAttestation, typeof applyPayloadAttestation](

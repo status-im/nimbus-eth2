@@ -4943,11 +4943,13 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: main OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: mainne OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]      OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: mainne OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mainn OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mainnet OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
@@ -4987,12 +4989,14 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
 + [Valid]   EF - fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - max_blobs_per_block [Preset: mainnet]              OK
 + [Valid]   EF - fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]      OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob [Preset: mainnet]                         OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_max_txs [Preset: mainnet]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK

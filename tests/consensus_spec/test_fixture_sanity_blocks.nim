@@ -82,13 +82,6 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
   when consensusFork != ConsensusFork.Gloas or const_preset == "mainnet":
     suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
       for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-        # TODO Fulu not in critical path yet so to start with only flag remaining
-        # issues where it needs MAX_BLOBS_PER_BLOCK_FULU (not yet present), so in
-        # process_execution_payload() it doesn't falsely reject two test cases.
-        when consensusFork == ConsensusFork.Fulu:
-          if  path.contains("max_blobs_per_block") or
-              path.contains("one_blob_max_txs"):
-            continue
         consensusFork.runTest(
           "EF - " & forkHumanName & " - Sanity - Blocks",
           SanityBlocksDir, suiteName, path)

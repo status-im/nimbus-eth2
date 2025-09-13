@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # `block_sim` is a block, attestation, and sync committee simulator, whose task
 # is to run the beacon chain without considering the network or the wall clock.
@@ -333,8 +333,7 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          debugGloasComment ""
-          when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Bellatrix:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork
