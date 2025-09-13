@@ -688,6 +688,30 @@ func process_consolidation_request*(
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payload-attestations
+proc process_payload_attestation*(
+    state: var gloas.BeaconState, payload_attestation: PayloadAttestation,
+    cache: var StateCache): Result[void, cstring] = 
+  # Check that the attestation is for the parent beacon block
+  template data: untyped = payload_attestation.data
+  
+  if data.beacon_block_root != state.latest_block_header.parent_root:
+    return err("process_payload_attestation: beacon block root mismatch")
+
+  # Check that the attestation is for the previous slot
+  if data.slot + 1 != state.slot:
+    return err("process_payload_attestation: slot mismatch")
+
+  # Verify signature
+  let indexed_payload_attestation = get_indexed_payload_attestation(
+    state, data.slot, payload_attestation, cache
+  )
+
+  if not is_valid_indexed_payload_attestation(state, indexed_payload_attestation):
+    return err("process_payload_attestation: invalid signature")
+
+  ok()
+
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
   BlockRewards* = object

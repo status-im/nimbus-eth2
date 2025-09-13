@@ -265,9 +265,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
               bchunk.resfut.complete(Result[void, string].err(msg))
               break innerLoop
 
-          consensusManager.updateHead(overseer.getBeaconTimeFn).isOkOr:
-            bchunk.resfut.complete(Result[void, string].err(error))
-            break innerLoop
+          consensusManager[].updateHead(overseer.getBeaconTimeFn().slotOrZero())
 
         bchunk.resfut.complete(Result[void, string].ok())
 

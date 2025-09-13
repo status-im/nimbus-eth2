@@ -10,13 +10,12 @@
 import
   chronicles, chronos,
   ../spec/datatypes/base,
+  ../spec/beaconstate,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
   ../beacon_clock,
   ./common_tools
 
-from ../spec/beaconstate import
-  get_expected_withdrawals
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
@@ -55,6 +54,11 @@ type
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
     optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
+    optimisticHeadStatus: OptimisticStatus
+      ## forkchoiceUpdated response about the optimistic head
+
+    forkchoiceInflight: bool
+      ## True when there's an async `forkchoiceUpdated` in flight
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -85,11 +89,23 @@ func new*(T: type ConsensusManager,
 # Consensus Management
 # -----------------------------------------------------------------------------------
 
+func to*(v: PayloadExecutionStatus, T: type OptimisticStatus): T =
+  case v
+  of PayloadExecutionStatus.valid:
+    OptimisticStatus.valid
+  of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
+    OptimisticStatus.notValidated
+  of invalid, invalid_block_hash:
+    OptimisticStatus.invalidated
+
 proc checkExpectedBlock(self: var ConsensusManager) =
   if self.expectedBlockReceived == nil:
     return
 
-  if self.dag.head.slot < self.expectedSlot:
+  if self.dag.head.slot < self.expectedSlot or not self.dag.head.executionValid:
+    # Don't trigger `expectBlock` if the head is optimistic - this gives the
+    # `forkchoiceUpdated` call time to maybe update the optimistic status before
+    # it's time to validate
     return
 
   self.expectedBlockReceived.complete(true)
@@ -132,7 +148,8 @@ func shouldSyncOptimistically*(
   true
 
 func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
-  if self.optimisticHead.execution_block_hash.isZero:
+  if self.optimisticHeadStatus == OptimisticStatus.invalidated or
+      self.optimisticHead.execution_block_hash.isZero:
     return false
 
   shouldSyncOptimistically(
@@ -146,73 +163,20 @@ func optimisticHead*(self: ConsensusManager): BlockId =
 func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
   self.optimisticHead.execution_block_hash
 
-func setOptimisticHead*(
+proc setOptimisticHead*(
     self: var ConsensusManager,
     bid: BlockId, execution_block_hash: Eth2Digest) =
-  self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
-
-proc updateExecutionClientHead*(
-    self: ref ConsensusManager,
-    newHead: BeaconHead
-): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let headExecutionBlockHash =
-    self.dag.loadExecutionBlockHash(newHead.blck).valueOr:
-      # `BlockRef` are only created for blocks that have passed
-      # execution block hash validation, either explicitly in
-      # `block_processor.storeBlock`, or implicitly, e.g., through
-      # checkpoint sync. With checkpoint sync, the checkpoint block
-      # is initially not available, so if there is a reorg to it,
-      # this may be triggered. Such a reorg could happen if the first
-      # imported chain is completely invalid (after the checkpoint block)
-      # and is subsequently pruned, in which case checkpoint block is head.
-      # Because execution block hash validation has already passed,
-      # we can treat this as `SYNCING`.
-      warn "Failed to load head execution block hash", head = newHead.blck
-      return Opt[void].ok()
-
-  if headExecutionBlockHash.isZero:
-    # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(newHead.blck)
-    return Opt[void].ok()
-
-  template callForkchoiceUpdated(attributes: untyped): auto =
-    await self.elManager.forkchoiceUpdated(
-      headBlockHash = headExecutionBlockHash,
-      safeBlockHash = newHead.safeExecutionBlockHash,
-      finalizedBlockHash = newHead.finalizedExecutionBlockHash,
-      payloadAttributes = Opt.none attributes)
-
-  # Can't use dag.head here because it hasn't been updated yet
-  let
-    consensusFork =
-      self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
-    (payloadExecutionStatus, _) = withConsensusFork(consensusFork):
-      when consensusFork >= ConsensusFork.Bellatrix:
-        callForkchoiceUpdated(consensusFork.PayloadAttributes)
-      else:
-        callForkchoiceUpdated(PayloadAttributesV1)
-
-  case payloadExecutionStatus
-  of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(newHead.blck)
-  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
-    self.quarantine[].addUnviable(newHead.blck.root)
-    return Opt.none(void)
-  of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    # Don't do anything. Either newHead.blck.executionValid was already false,
-    # in which case it'd be superfluous to set it to false again, or the block
-    # was marked as `VALID` in the `newPayload` path already, in which case it
-    # is fine to keep it as valid here. Conceptually, were this to be lines of
-    # code, it'd be something like
-    # if newHead.blck.executionValid:
-    #   do nothing because of latter case
-    # else:
-    #   do nothing because it's a no-op
-    # So, either way, do nothing.
-    discard
-
-  return Opt[void].ok()
+  if self.optimisticHeadStatus == OptimisticStatus.invalidated:
+    # If the light client was wrong in the past, either the execution client or
+    # the light client has been compromised and we shouldn't trust either until
+    # a restart
+    warn "Ignoring optimistic head update due to previous invalidity",
+      bid, execution_block_hash
+  else:
+    let newHead = (bid: bid, execution_block_hash: execution_block_hash)
+    if self.optimisticHead != newHead:
+      self.optimisticHead = newHead
+      self.optimisticHeadStatus = OptimisticStatus.notValidated
 
 func getKnownValidatorsForBlsChangeTracking(
     self: ConsensusManager, newHead: BlockRef): seq[ValidatorIndex] =
@@ -253,11 +217,6 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
-    executionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
-
-  if executionBlockHash.isSome and executionBlockHash.unsafeGet.isZero:
-    # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 
@@ -323,129 +282,259 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
-proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let
-    nextWallSlot = wallSlot + 1
-    (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
-      return err()
-  debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
-    nextWallSlot, validatorIndex, nextProposer
+proc proposalForkchoiceUpdated*(
+    self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
+) {.async: (raises: [CancelledError]).} =
+  ## Send a "warm-up" forkchoiceUpdated to the execution client, assuming that
+  ## `clearanceState` has been updated to the expected epoch of the proposal
+  if self.forkchoiceInflight:
+    debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
+    return
 
-  # In Capella and later, computing correct withdrawals would mean creating a
-  # proposal state. Instead, only do that at proposal time.
-  if nextWallSlot.is_epoch:
-    debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
-      nextWallSlot, validatorIndex, nextProposer
-    return err()
+  let head = self.dag.head
+
+  # Sending the proposal fcU requires that the state epoch matches the proposal
+  # epoch so that the withdrawals can be computed correctly
+  if self.dag.clearanceState.matches_block_slot(head.root, proposalSlot):
+    debug "Skipping proposal fcU, clearance state not prepared", head, proposalSlot
+
+    return
+
+  let
+    preSlot = proposalSlot - 1
+    (validatorIndex, nextProposer) = self.checkNextProposer(preSlot).valueOr:
+      debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
+      return
+
+  self.forkchoiceInflight = true
+  defer:
+    self.forkchoiceInflight = false
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
-  let
-    timestamp = withState(self.dag.headState):
-      compute_timestamp_at_slot(forkyState.data, nextWallSlot)
-    # If the current head block still forms the basis of the eventual proposal
-    # state, then its `get_randao_mix` will remain unchanged as well, as it is
-    # constant until the next block.
-    prevRandao = withState(self.dag.headState):
-      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
-    feeRecipient = self[].getFeeRecipient(
-      nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
-    beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockHash = ? self.dag.loadExecutionBlockHash(beaconHead.blck)
-
-  if headBlockHash.isZero:
-    return err()
-
-  let safeBlockHash = beaconHead.safeExecutionBlockHash
-
-  withState(self.dag.headState):
-    template callForkchoiceUpdated(fcPayloadAttributes: auto) =
-      let (status, _) = await self.elManager.forkchoiceUpdated(
-        headBlockHash, safeBlockHash,
-        beaconHead.finalizedExecutionBlockHash,
-        payloadAttributes = Opt.some fcPayloadAttributes)
-      debug "Fork-choice updated for proposal", status
-
-    static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-    when consensusFork >= ConsensusFork.Gloas:
+  withState(self.dag.clearanceState):
+    when consensusFork == ConsensusFork.Gloas:
       debugGloasComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork >= ConsensusFork.Deneb:
-      # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
-      # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-      callForkchoiceUpdated(PayloadAttributesV3(
-        timestamp: Quantity timestamp,
-        prevRandao: Bytes32 prevRandao.to(Hash32),
-        suggestedFeeRecipient: feeRecipient,
-        withdrawals:
-          toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-        parentBeaconBlockRoot: beaconHead.blck.bid.root.to(Hash32)))
-    elif consensusFork >= ConsensusFork.Capella:
-      callForkchoiceUpdated(PayloadAttributesV2(
-        timestamp: Quantity timestamp,
-        prevRandao: Bytes32 prevRandao.to(Hash32),
-        suggestedFeeRecipient: feeRecipient,
-        withdrawals:
-          toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
-    else:
-      callForkchoiceUpdated(PayloadAttributesV1(
-        timestamp: Quantity timestamp,
-        prevRandao: Bytes32 prevRandao.to(Hash32),
-        suggestedFeeRecipient: feeRecipient))
-
-  ok()
-
-proc updateHeadWithExecution*(
-    self: ref ConsensusManager, initialNewHead: BeaconHead,
-    getBeaconTimeFn: GetBeaconTimeFn) {.async: (raises: [CancelledError]).} =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
-
-  # Grab the new head according to our latest attestation data
-  try:
-    # Ensure dag.updateHead has most current information
-    var
-      attempts = 0
-      newHead = initialNewHead
-    while (await self.updateExecutionClientHead(newHead)).isErr:
-      # This proc is called on every new block; guarantee timely return
-      inc attempts
-      const maxAttempts = 5
-      if attempts >= maxAttempts:
-        warn "updateHeadWithExecution: too many attempts to recover from invalid payload",
-          attempts, maxAttempts, newHead, initialNewHead
-        break
-
-      # Select new head for next attempt
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
-        wallTime = getBeaconTimeFn()
-        nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
-          warn "Head selection failed after invalid block, using previous head",
-            newHead, wallSlot = wallTime.slotOrZero
-          break
-      warn "updateHeadWithExecution: attempting to recover from invalid payload",
-        attempts, maxAttempts, newHead, initialNewHead, nextHead
-      newHead = nextHead
+        timestamp = compute_timestamp_at_slot(forkyState.data, proposalSlot)
+        # If the current head block still forms the basis of the eventual proposal
+        # state, then its `get_randao_mix` will remain unchanged as well, as it is
+        # constant until the next block.
+        prevRandao = get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
+        feeRecipient = self[].getFeeRecipient(
+          nextProposer, Opt.some(validatorIndex), proposalSlot.epoch
+        )
+        beaconHead = self.attestationPool[].getBeaconHead(head)
+        headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
+          return
+
+      if headBlockHash.isZero:
+        return
+
+      when consensusFork >= ConsensusFork.Deneb:
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
+        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+        let attributes = PayloadAttributesV3(
+          timestamp: Quantity timestamp,
+          prevRandao: Bytes32 prevRandao.to(Hash32),
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          parentBeaconBlockRoot: beaconHead.blck.bid.root.to(Hash32),
+        )
+      elif consensusFork >= ConsensusFork.Capella:
+        let attributes = PayloadAttributesV2(
+          timestamp: Quantity timestamp,
+          prevRandao: Bytes32 prevRandao.to(Hash32),
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+        )
+      else:
+        let attributes = PayloadAttributesV1(
+          timestamp: Quantity timestamp,
+          prevRandao: Bytes32 prevRandao.to(Hash32),
+          suggestedFeeRecipient: feeRecipient,
+        )
+
+      let (status, _) = await self.elManager.forkchoiceUpdated(
+        headBlockHash,
+        beaconHead.safeExecutionBlockHash,
+        beaconHead.finalizedExecutionBlockHash,
+        Opt.some(attributes),
+        deadline,
+        false,
+      )
+      debug "Fork-choice updated for proposal", status, headBlockHash, attributes
+    elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Altair:
+      discard
+    else:
+      {.error: "Unknown consensus fork " & $consensusFork.}
+
+proc forkchoiceUpdated*(
+    self: ref ConsensusManager,
+    slot: Slot,
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
+  ## Call non-proposer version of forkchoiceUpdated using the given slot to
+  ## select the correct PayloadAttributes version
+  withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(slot.epoch)):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      if headBlockHash.isZero:
+        # Merge not yet activated
+        PayloadExecutionStatus.valid
+      else:
+        let (status, _) = await self.elManager.forkchoiceUpdated(
+          headBlockHash,
+          safeBlockHash,
+          finalizedBlockHash,
+          Opt.none consensusFork.PayloadAttributes,
+          deadline,
+          retry,
+        )
+        status
+    else:
+      PayloadExecutionStatus.valid
+
+proc forkchoiceUpdated(
+    self: ref ConsensusManager,
+    head: BeaconHead,
+    wallSlot: Slot,
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  ## Send forkchoiceUpdated to the client, return false iff the head was invalid
+  ## and true otherwise
+
+  if self[].shouldSyncOptimistically(wallSlot):
+    # No point retrying for optimistic slots since there will be a new attempt
+    # "soon"
+    # However, we will make the call even if the optimistic head hasn't changed
+    # since the last slot since the finalized / safe blocks might have changed
+    let status = await self.forkchoiceUpdated(
+      self.optimisticHead.bid.slot, self.optimisticHead.execution_block_hash,
+      head.safeExecutionBlockHash, head.finalizedExecutionBlockHash, deadline, false,
+    )
+
+    self.optimisticHeadStatus = status.to(OptimisticStatus)
+
+    case self.optimisticHeadStatus
+    of OptimisticStatus.valid, OptimisticStatus.notValidated:
+      true
+    of OptimisticStatus.invalidated:
+      warn "Light execution payload invalid - the execution client or the light client data is faulty",
+        payloadExecutionStatus = status,
+        optimisticBlockHash = self.optimisticHead.execution_block_hash
+      false
+  else:
+    let
+      headExecutionBlockHash = self.dag.loadExecutionBlockHash(head.blck).valueOr:
+        # `BlockRef` are only created for blocks that have passed
+        # execution block hash validation, either explicitly in
+        # `block_processor.storeBlock`, or implicitly, e.g., through
+        # checkpoint sync. With checkpoint sync, the checkpoint block
+        # is initially not available, so if there is a reorg to it,
+        # this may be triggered. Such a reorg could happen if the first
+        # imported chain is completely invalid (after the checkpoint block)
+        # and is subsequently pruned, in which case checkpoint block is head.
+        # Because execution block hash validation has already passed,
+        # we can treat this as `SYNCING`.
+        warn "Failed to load head execution block hash", head = head.blck
+        return true
+      status = await self.forkchoiceUpdated(
+        head.blck.slot, headExecutionBlockHash, head.safeExecutionBlockHash,
+        head.finalizedExecutionBlockHash, deadline, retry,
+      )
+
+    case status.to(OptimisticStatus)
+    of OptimisticStatus.valid:
+      head.blck.markExecutionValid(true)
+      true
+    of OptimisticStatus.notValidated:
+      if head.blck.optimisticStatus != OptimisticStatus.notValidated:
+        info "Previously validated block not accepted as new head by execution client",
+          blck = head.blck,
+          prevStatus = head.blck.optimisticStatus,
+          payloadExecutionStatus = status
+      true
+    of OptimisticStatus.invalidated:
+      if head.blck.executionValid:
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
+        warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
+          blck = head.blck,
+          prevStatus = head.blck.optimisticStatus,
+          payloadExecutionStatus = status
+
+      head.blck.markExecutionValid(false)
+      self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
+      self.quarantine[].addUnviable(head.blck.root)
+      false
+
+proc updateExecutionHead*(
+    self: ref ConsensusManager,
+    deadline: DeadlineFuture,
+    retry: bool,
+    getBeaconTimeFn: GetBeaconTimeFn,
+) {.async: (raises: [CancelledError]).} =
+  ## Update the execution client with consensus information from the latest
+  ## head selection.
+  ##
+  ## In the case that we were optimistically synced and the execution client has
+  ## determined that the payload was invalid, we will also attempt to update
+  ## the consensus head towards a valid / nonValidated block by rerunning
+  ## fork choice with the new information about invalid blocks in mind.
+
+  if self.forkchoiceInflight:
+    return
+
+  self.forkchoiceInflight = true
+  defer:
+    self.forkchoiceInflight = false
+
+  var
+    attempts = 0
+    wallTime = getBeaconTimeFn()
+    head = self.attestationPool[].getBeaconHead(self.dag.head)
+
+  while not (await self.forkchoiceUpdated(head, wallTime.slotOrZero(), deadline, retry)):
+    # Each failed call to forkchoiceUpdated that fails should reveal new
+    # information about the suggested new head - a side effect of the failure is
+    # that the block should be marked as invalid and removed from fork choice
+    # consideration, meaning that a new fork choice should select either an
+    # earlier block or a different fork (as attestations keep coming in).
+    #
+    # When light client data is available, we might also run into the case where
+    # the optimistic head is broken - this is very bad and light client head
+    # will simply be ignored until the next restart.
+
+    if deadline.finished:
+      # We will try again soon .. hopefully with a new head
+      warn "Deadline expired while looking for valid payload", attempts, head
+      break
+
+    # Select new head for next attempt
+    wallTime = getBeaconTimeFn()
+    let nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+      warn "Head selection failed after invalid block, using previous head",
+        head, wallSlot = wallTime.slotOrZero
+      break
+
+    warn "updateHeadWithExecution: attempting to recover from invalid payload",
+      attempts, head, nextHead
+
+    head = nextHead
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
     self.dag.updateHead(
-      newHead.blck, self.quarantine[],
-      self[].getKnownValidatorsForBlsChangeTracking(newHead.blck))
+      head.blck,
+      self.quarantine[],
+      self[].getKnownValidatorsForBlsChangeTracking(head.blck),
+    )
 
-    # If this node should propose next slot, start preparing payload. Both
-    # fcUs are useful: the updateExecutionClientHead(newHead) call updates
-    # the head state (including optimistic status) that self.dagUpdateHead
-    # needs while runProposalForkchoiceUpdated requires RANDAO information
-    # from the head state corresponding to the `newHead` block, which only
-    # self.dag.updateHead(...) sets up.
-    discard await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
-
-    self[].checkExpectedBlock()
-  except CatchableError as exc:
-    debug "updateHeadWithExecution error",
-      error = exc.msg
+    attempts += 1
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization

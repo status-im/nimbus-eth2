@@ -3756,6 +3756,17 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
 ```
+## EF - Gloas - Operations - Payload Attestation  [Preset: mainnet]
+```diff
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_futu OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_no_a OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_too_ OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
+```
 ## EF - Gloas - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_different_proposer_indices OK
