@@ -295,59 +295,8 @@ proc storeBackfillBlock(
 
   res
 
-from web3/engine_api_types import
-  PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
-  PayloadExecutionStatus, PayloadStatusV1
-from ../el/el_manager import
-  ELManager, DeadlineFuture, forkchoiceUpdated, hasConnection,
-  sendNewPayload, init
-
-proc expectValidForkchoiceUpdated(
-    elManager: ELManager, headBlockPayloadAttributesType: typedesc,
-    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    receivedBlock: ForkySignedBeaconBlock,
-    deadline: DeadlineFuture,
-    retry: bool
-): Future[void] {.async: (raises: [CancelledError]).} =
-  let
-    (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
-      headBlockHash = headBlockHash,
-      safeBlockHash = safeBlockHash,
-      finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = Opt.none headBlockPayloadAttributesType,
-      deadline = deadline,
-      retry = retry)
-    receivedExecutionBlockHash =
-      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix and
-          typeof(receivedBlock).kind < ConsensusFork.Gloas:
-        debugGloasComment "no execution payload field for gloas"
-        receivedBlock.message.body.execution_payload.block_hash
-      else:
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(Eth2Digest)))
-
-  # Only called when expecting this to be valid because `newPayload` or some
-  # previous `forkchoiceUpdated` had already marked it as valid. However, if
-  # it's not the block that was received, don't info/warn either way given a
-  # relative lack of immediate evidence.
-  if receivedExecutionBlockHash != headBlockHash:
-    return
-
-  case payloadExecutionStatus
-  of PayloadExecutionStatus.valid:
-    # situation nominal
-    discard
-  of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    info "execution payload forkChoiceUpdated status ACCEPTED/SYNCING, but was previously VALID",
-      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
-      safeBlockHash, finalizedBlockHash,
-      receivedBlock = shortLog(receivedBlock)
-  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    warn "execution payload forkChoiceUpdated status INVALID, but was previously VALID",
-      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
-      safeBlockHash, finalizedBlockHash,
-      receivedBlock = shortLog(receivedBlock)
-
+from web3/engine_api_types import PayloadExecutionStatus
+from ../el/el_manager import ELManager, DeadlineFuture, sendNewPayload
 from ../consensus_object_pools/attestation_pool import addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
@@ -559,9 +508,6 @@ proc storeBlock(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  func shouldRetry(): bool =
-    not dag.is_optimistic(dag.head.bid)
-
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
   self.consensusManager.quarantine[].removeSidecarless(signedBlock)
@@ -673,6 +619,8 @@ proc storeBlock(
           debugGloasComment "need getExecutionValidity on gloas blocks"
           Opt.some OptimisticStatus.valid
         elif consensusFork >= ConsensusFork.Bellatrix:
+          func shouldRetry(): bool =
+            not dag.is_optimistic(dag.head.bid)
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadline, shouldRetry())
         else:
