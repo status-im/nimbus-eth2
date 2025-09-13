@@ -18,7 +18,7 @@ import
 
 from std/algorithm import sorted
 from std/sequtils import anyIt, filterIt, mapIt, toSeq
-from std/strutils import contains, rsplit
+from std/strutils import rsplit
 from stew/byteutils import fromHex
 from ../../beacon_chain/spec/peerdas_helpers import
   recover_matrix, recover_cells_and_proofs_parallel
@@ -309,27 +309,31 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
-proc loadCellsAndKzgProofsValidCases(suitePath: string): seq[MatrixEntry] =
-  try:
-    var
-      data: seq[MatrixEntry]
-      rowCount = 0
-    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-      if not path.contains("_case_valid_"):
-        continue
-      let
-        rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
-        output = rowData["output"]
-      for i in 0..<output[0].len:
-        data.add(MatrixEntry(
-          cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
-          kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
-          column_index: ColumnIndex(i),
-          row_index: RowIndex(rowCount)))
-      rowCount += 1
-    return data
-  except Exception:
-    debugEcho "Problem in loading KZG valid case data"
+proc loadCellsAndKzgProofsValidCases(
+    suitePath: string): seq[MatrixEntry]
+    {.raises: [KeyError, OSError, YamlParserError, YamlConstructionError].} =
+  var
+    data: seq[MatrixEntry]
+    rowCount = 0
+  for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+    let
+      rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+      output = rowData["output"]
+
+    # As per
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+    # ensuring it is valid case
+    if output.kind == JNull:
+      continue
+
+    for i in 0..<output[0].len:
+      data.add(MatrixEntry(
+        cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
+        kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
+        column_index: ColumnIndex(i),
+        row_index: RowIndex(rowCount)))
+    rowCount += 1
+  data
 
 proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) =
   test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
@@ -372,10 +376,9 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
         for j in 0 ..< rowCount:
           let iIdx = j * colCount + i
           cells[j] = input[iIdx].cell
-        let dataColumn = fulu.DataColumnSidecar(
+        colInput[i] = (ref fulu.DataColumnSidecar)(
           index: indices[i],
           column: DataColumn(cells))
-        colInput[i] = newClone(dataColumn)
 
       # check recovered cells and proofs
       # assuming columns are sorted
@@ -397,11 +400,15 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
       validRowCount = validData[validData.len - 1].row_index + 1
 
     for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-      if not path.contains("_case_invalid_"):
+      let invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+
+      # As per
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+      # ensuring it is invalid case
+      if invalidData["output"].kind != JNull:
         continue
 
       let
-        invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
         invalidCells = invalidData["input"]["cells"]
         invalidIndices = invalidData["input"]["cell_indices"]
 
@@ -426,17 +433,20 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
         # insert the invalid data as the last cell
         if i < invalidCells.lenu64:
           let cellBytes = fromHex[2048](invalidCells[i.int].getStr).valueOr:
-            # when cell is not in 2048-length, it will be in default value and
+            # As per
+            # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+            # this is an invalid case. However, this is a limitation by design that
+            # when the cell is not in 2048-length, it will be in default value and
             # recover without any failures
+            check invalidData["output"].kind == JNull
             shouldSkip = true
             break
           cells.add(Cell(bytes: cellBytes))
 
         # set data column
-        let dataColumn = fulu.DataColumnSidecar(
+        colInput[i] = (ref fulu.DataColumnSidecar)(
           index: ColumnIndex(cIdx),
           column: DataColumn(cells))
-        colInput[i] = newClone(dataColumn)
 
       if shouldSkip:
         continue
