@@ -946,7 +946,7 @@ func get_attestation_participation_flag_indices(
 func get_attestation_participation_flag_indices(
     state: gloas.BeaconState, data: AttestationData, 
     inclusion_delay: uint64): set[TimelyFlag] =
-  ## Return the flag indices that are satisfied by an attestation
+  ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint = 
     if data.target.epoch == get_current_epoch(state):
       state.current_justified_checkpoint
@@ -1301,6 +1301,7 @@ proc process_attestation*(
 
   ok(proposer_reward)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
 proc process_attestation*(
     state: var gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
