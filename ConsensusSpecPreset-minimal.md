@@ -3849,6 +3849,58 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
 + EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: minimal]   OK
 ```
+## EF - Gloas - Operations - Attestation  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_after_max_inclusion_slot         OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_not_zero  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_signature            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_bad_source_root                  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_before_inclusion_delay           OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_committee_index                  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_correct_attestation_included_aft OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_current_source_root              OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_empty_participants_seemingly_val OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_empty_participants_zeroes_sig    OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_future_target_epoch              OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_head_and_target_includ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_head_included_after_ma OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_target_included_after_ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_index                            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_mismatched_target_and_slot       OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_new_source_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_bits_for_one_committee    OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_committee_bits            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_multiple_committee_bits   OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_old_source_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_committee_bits          OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_committee_signat OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_0           OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_1           OK
++ [Valid]   EF - Gloas - Operations - Attestation - at_max_inclusion_slot                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_max_incl OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_min_incl OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_one_epoc OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_sqrt_epo OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_included_at_ep OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_included_at_sq OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_min_inclusion_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_max_inclusion OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_min_inclusion OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_sqrt_epoch_de OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_epoch_delay OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_min_inclusi OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
++ [Valid]   EF - Gloas - Operations - Attestation - multiple_committees                      OK
++ [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - one_committee_with_gap                   OK
++ [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
+```
 ## EF - Gloas - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_all_empty_indices          OK
@@ -4390,6 +4442,10 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
 ```
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
@@ -5245,11 +5301,13 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minima OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: minim OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minimal OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
@@ -5297,6 +5355,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
 + [Valid]   EF - fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - max_blobs_per_block [Preset: minimal]              OK
 + [Valid]   EF - fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]      OK
 + [Valid]   EF - fulu - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minimal]  OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
@@ -5304,6 +5363,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
 + [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK

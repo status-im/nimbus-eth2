@@ -721,7 +721,8 @@ func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
            capella.HashedBeaconState | deneb.HashedBeaconState |
-           electra.HashedBeaconState | fulu.HashedBeaconState,
+           electra.HashedBeaconState | fulu.HashedBeaconState |
+           gloas.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -935,7 +936,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
 proc getAttestationsForBlock*(
     pool: var AttestationPool,
-    state: electra.HashedBeaconState | fulu.HashedBeaconState,
+    state: electra.HashedBeaconState | fulu.HashedBeaconState |
+           gloas.HashedBeaconState,
     cache: var StateCache,
 ): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64
@@ -1096,8 +1098,7 @@ proc getElectraAttestationsForBlock*(
     pool: var AttestationPool, state: ForkedHashedBeaconState,
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
-    debugGloasComment ""
-    when consensusFork >= ConsensusFork.Electra and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Electra:
       pool.getAttestationsForBlock(forkyState, cache)
     else:
       default(seq[electra.Attestation])

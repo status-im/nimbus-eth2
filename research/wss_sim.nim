@@ -251,9 +251,7 @@ cli do(validatorsDir: string, secretsDir: string,
                   executionHead =
                     forkyState.data.latest_execution_payload_header.block_hash
                   withdrawals =
-                    when consensusFork >= ConsensusFork.Capella and 
-                        consensusFork < ConsensusFork.Gloas:
-                      debugGloasComment "do this correct for Gloas"
+                    when consensusFork >= ConsensusFork.Capella:
                       get_expected_withdrawals(forkyState.data)
                     else:
                       newSeq[capella.Withdrawal]()

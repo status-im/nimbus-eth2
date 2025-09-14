@@ -852,6 +852,23 @@ func check_attestation_index(
     Result[CommitteeIndex, cstring] =
   check_attestation_index(data.index, committees_per_slot)
 
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_attestation_same_slot
+func is_attestation_same_slot*(
+    state: gloas.BeaconState, data: AttestationData): bool =
+  ## Checks if the attestation was for the block 
+  ## proposed at the attestation slot.
+  if data.slot == 0:
+    return true
+  
+  let 
+    is_matching_blockroot = 
+      data.beacon_block_root == get_block_root_at_slot(state, data.slot)
+    is_current_blockroot = 
+      data.beacon_block_root != get_block_root_at_slot(state, data.slot - 1)
+
+  is_matching_blockroot and is_current_blockroot
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
@@ -889,8 +906,7 @@ func get_attestation_participation_flag_indices(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState,
+    state: deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -925,6 +941,52 @@ func get_attestation_participation_flag_indices(
 # TODO these aren't great here
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_attestation_participation_flag_indices
+func get_attestation_participation_flag_indices(
+    state: gloas.BeaconState, data: AttestationData, 
+    inclusion_delay: uint64): set[TimelyFlag] =
+  ## Return the flag indices that are satisfied by an attestation.
+  let justified_checkpoint = 
+    if data.target.epoch == get_current_epoch(state):
+      state.current_justified_checkpoint
+    else:
+      state.previous_justified_checkpoint
+  
+  # Matching roots
+  let
+    is_matching_source = data.source == justified_checkpoint
+    is_matching_target = is_matching_source and 
+      data.target.root == get_block_root(state, data.target.epoch)
+    is_matching_blockroot = is_matching_target and 
+      data.beacon_block_root == get_block_root_at_slot(state, data.slot)
+  
+  var is_matching_payload = false
+  if is_attestation_same_slot(state, data):
+    doAssert data.index == 0
+    is_matching_payload = true
+  else:
+    let availability_bit = 
+      if state.execution_payload_availability[
+        data.slot mod SLOTS_PER_HISTORICAL_ROOT]: 1'u64
+      else: 0'u64
+    is_matching_payload = (data.index == availability_bit)
+  
+  let is_matching_head = is_matching_blockroot and is_matching_payload
+  
+  # Checked by check_attestation
+  doAssert is_matching_source
+  
+  var participation_flag_indices: set[TimelyFlag]  
+  if is_matching_source and inclusion_delay <=
+      integer_squareroot(SLOTS_PER_EPOCH):
+    participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
+  if is_matching_target and inclusion_delay <= SLOTS_PER_EPOCH:
+    participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
+  if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
+    participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)
+  
+  participation_flag_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
@@ -1002,6 +1064,7 @@ proc check_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
@@ -1018,9 +1081,16 @@ proc check_attestation*(
 
   ? check_attestation_inclusion((typeof state).kind, slot, state.slot)
 
-  # [Modified in Electra:EIP7549]
-  if not (data.index == 0):
-    return err("Electra attestation data index not 0")
+  # [Modified in Gloas:EIP7732]
+  when state is gloas.BeaconState:
+    if not (data.index < 2):
+      return err("Gloas attestation data index must be less than 2")
+    if is_attestation_same_slot(state, data) and data.index != 0:
+      return err("Same-slot attestation must have index 0")
+  else:
+    # [Modified in Electra:EIP7549]
+    if not (data.index == 0):
+      return err("Electra attestation data index not 0")
 
   when on_chain:
     var committee_offset = 0
@@ -1207,7 +1277,7 @@ proc process_attestation*(
   ok(proposer_reward)
 
 proc process_attestation*(
-    state: var ForkyBeaconState,
+    state: var (electra.BeaconState | fulu.BeaconState),
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
@@ -1228,6 +1298,78 @@ proc process_attestation*(
       updateParticipationFlags(state.current_epoch_participation)
     else:
       updateParticipationFlags(state.previous_epoch_participation)
+
+  ok(proposer_reward)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
+proc process_attestation*(
+    state: var gloas.BeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    flags: UpdateFlags, base_reward_per_increment: Gwei,
+    cache: var StateCache): Result[Gwei, cstring] =
+  ? check_attestation(state, attestation, flags, cache, true)
+
+  let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+    return err("process_attestation: no beacon proposer index and probably no active validators")
+
+  # [Modified in Gloas:EIP7732]
+  let 
+    current_epoch_target = 
+      attestation.data.target.epoch == get_current_epoch(state)
+    payment_index = 
+      if current_epoch_target:
+        SLOTS_PER_EPOCH + (attestation.data.slot mod SLOTS_PER_EPOCH)
+      else:
+        attestation.data.slot mod SLOTS_PER_EPOCH
+    participation_flag_indices = get_attestation_participation_flag_indices(
+      state, attestation.data, state.slot - attestation.data.slot)
+  
+  var payment = state.builder_pending_payments.item(payment_index.int)
+  
+  template updateParticipationFlags(epoch_participation: untyped): Gwei =
+    var proposer_reward_numerator = 0.Gwei
+    for index in get_attesting_indices_iter(
+        state, attestation.data, attestation.aggregation_bits,
+        attestation.committee_bits, cache):
+      # [New in Gloas:EIP7732]
+      # For same-slot attestations, check if we're setting any new flags
+      # If we are, this validator hasn't contributed to this slot's quorum yet
+      var will_set_new_flag = false  
+      for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
+        if flag_index in participation_flag_indices and
+           not has_flag(epoch_participation.item(index), flag_index):
+          asList(epoch_participation)[index] =
+            add_flag(epoch_participation.item(index), flag_index)
+          proposer_reward_numerator += 
+            get_base_reward(
+              state, index, base_reward_per_increment) * weight.uint64
+          will_set_new_flag = true
+      
+      # [New in Gloas:EIP7732]
+      # Add weight for same-slot attestations when any new flag is set
+      # This ensures each validator contributes exactly once per slot
+      if will_set_new_flag and
+          is_attestation_same_slot(state, attestation.data):
+        payment.weight += state.validators.item(index).effective_balance
+
+    let 
+      proposer_reward_denominator =
+        (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
+          WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
+      proposer_reward = 
+        proposer_reward_numerator div proposer_reward_denominator
+    increase_balance(state, proposer_index, proposer_reward)
+    proposer_reward
+
+  doAssert base_reward_per_increment > 0.Gwei
+  let proposer_reward =
+    if current_epoch_target:
+      updateParticipationFlags(state.current_epoch_participation)
+    else:
+      updateParticipationFlags(state.previous_epoch_participation)
+  
+  # Update builder payment weight
+  state.builder_pending_payments[payment_index.int] = payment
 
   ok(proposer_reward)
 

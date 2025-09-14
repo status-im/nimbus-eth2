@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[tables, json, streams, sequtils, uri, sets],
@@ -539,10 +539,8 @@ proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBli
   Web3SignerForkedBeaconBlock(kind: typeof(blck).kind, data: blck.toBeaconBlockHeader())
 
 proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedIndex =
-  when fork < ConsensusFork.Deneb:
+  when fork < ConsensusFork.Electra:
     static: raiseAssert "Unsupported fork " & $fork
-  elif fork == ConsensusFork.Deneb:
-    prop.denebIndex
   elif fork == ConsensusFork.Electra:
     prop.electraIndex
   elif fork == ConsensusFork.Fulu:
@@ -575,7 +573,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of RemoteSignerType.Web3Signer:
             Web3SignerRequest.init(fork, genesis_validators_root, fbb)
           of RemoteSignerType.VerifyingWeb3Signer:
-            when typeof(blck).kind >= ConsensusFork.Deneb:
+            when typeof(blck).kind >= ConsensusFork.Electra:
               template blockPropertiesProofs(): seq[Web3SignerMerkleProof] =
                 var proofs: seq[Web3SignerMerkleProof]
 

@@ -687,8 +687,10 @@ template Forky*(
 
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
-  debugGloasComment "don't add gloas here yet"
   static: doAssert ConsensusFork.high == ConsensusFork.Gloas
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Gloas
+    body
   block:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
     body
