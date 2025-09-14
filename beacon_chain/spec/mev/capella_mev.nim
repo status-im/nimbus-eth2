@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import ".."/datatypes/[altair, capella]
 from ".."/datatypes/phase0 import Attestation, AttesterSlashing
@@ -14,7 +14,7 @@ from stew/byteutils import to0xHex
 from ../eth2_merkleization import fromSszBytes, hash_tree_root, toSszType
 
 type
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/capella/builder.md#blindedbeaconblockbody
   BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -31,8 +31,8 @@ type
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/bellatrix/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/capella/builder.md#blindedbeaconblockbody
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -40,8 +40,8 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Capella]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedblindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/bellatrix/builder.md#signedblindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig

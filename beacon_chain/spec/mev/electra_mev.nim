@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import ".."/datatypes/[altair, bellatrix, electra]
 
@@ -110,11 +110,6 @@ type
   ExecutionPayloadAndBlobsBundle* = object
     execution_payload*: deneb.ExecutionPayload
     blobs_bundle*: BlobsBundle
-
-  # Not spec, but suggested by spec
-  BlindedExecutionPayloadAndBlobsBundle* = object
-    execution_payload_header*: deneb.ExecutionPayloadHeader
-    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
 const
   # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#domain-types

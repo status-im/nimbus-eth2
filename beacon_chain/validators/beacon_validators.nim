@@ -405,7 +405,10 @@ proc proposeBlockAux(
     validator_index = validator.index.expect("index set for proposer")
 
     engineBid =
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment "when need to getExecutionPayload/getPayload"
+        default(Opt[EngineBid[gloas.ExecutionPayloadForSigning]])
+      elif consensusFork >= ConsensusFork.Electra:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -623,10 +626,7 @@ proc proposeBlock(
       return head
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork == ConsensusFork.Gloas:
-      debugGloasComment "block proposals not yet supported for gloas"
-      head
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork

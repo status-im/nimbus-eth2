@@ -769,8 +769,6 @@ proc sendGetBlobsV2*(
     debugGloasComment "handle correctly for Gloas?"
     return err()
   else:
-    debugGloasComment "handle correctly for other forks"
-
     let deadline = sleepAsync(GETBLOBS_TIMEOUT)
 
     var bestIdx: Opt[int]

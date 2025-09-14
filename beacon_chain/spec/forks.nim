@@ -475,8 +475,7 @@ template kind*(
       electra_mev.BlindedBeaconBlock |
       electra_mev.SignedBlindedBeaconBlock |
       electra_mev.SignedBuilderBid |
-      electra_mev.ExecutionPayloadAndBlobsBundle|
-      electra_mev.BlindedExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(

@@ -239,8 +239,6 @@ proc storeBackfillBlock(
     malformed_cols: HashSet[int]
 
   when signedBlock is gloas.SignedBeaconBlock:
-    debugGloasComment "blob_kzg_commitments removed from BeaconBlockBody in Gloas"
-
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
     if dataColumnsOpt.isSome:
@@ -549,7 +547,6 @@ proc storeBlock(
         var columnsOk = true
         let columns =
           withBlck(parentBlck.get()):
-            debugGloasComment " "
             when consensusFork >= ConsensusFork.Fulu:
               var data_column_sidecars: fulu.DataColumnSidecars
               for i in self.dataColumnQuarantine[].custodyColumns:

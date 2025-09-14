@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import ".."/datatypes/[altair, bellatrix, fulu]
 
@@ -93,11 +93,6 @@ type
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
-
-  # Not spec, but suggested by spec
-  BlindedExecutionPayloadAndBlobsBundle* = object
-    execution_payload_header*: deneb.ExecutionPayloadHeader
-    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
