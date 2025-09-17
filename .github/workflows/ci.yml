@@ -79,7 +79,14 @@ jobs:
 
       - name: Clean workspace (very aggressive)
         if: contains(matrix.builder, 'self-hosted')
-        run: rm -rf "$GITHUB_WORKSPACE"/*
+        run: |
+          rm -rf "$GITHUB_WORKSPACE"/*
+          echp "show everything in gh workspace after nuking"
+          ls -la "${GITHUB_WORKSPACE}"
+          echo "show everything in CI_CACHE dir"
+          ls -la "${CI_CACHE}"
+          echo "show everything in XDG_CACHE_HOME"
+          ls -la "${XDG_CACHE_HOME}"
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -223,7 +230,14 @@ jobs:
           echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
       - name: Clean workspace (very aggressive)
-        run: rm -rf "$GITHUB_WORKSPACE"/*
+        run: |
+          rm -rf "$GITHUB_WORKSPACE"/*
+          echp "show everything in gh workspace after nuking"
+          ls -la "${GITHUB_WORKSPACE}"
+          echo "show everything in CI_CACHE dir"
+          ls -la "${CI_CACHE}"
+          echo "show everything in XDG_CACHE_HOME"
+          ls -la "${XDG_CACHE_HOME}"
 
       - name: Checkout
         uses: actions/checkout@v4
