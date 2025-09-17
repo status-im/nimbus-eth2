@@ -51,7 +51,7 @@ jobs:
             nimflags-extra: --mm:refc
           - target:
               os: linux
-            builder: ['self-hosted','ubuntu-22.04']
+            builder: ['self-hosted', 'runner-node-02-linux-01-eu-hel1']
           - target:
               os: macos
               cpu: amd64
@@ -222,7 +222,7 @@ jobs:
 
   devbuild:
     name: "Developer builds"
-    runs-on: ['self-hosted','ubuntu-22.04']
+    runs-on: ['self-hosted', 'runner-node-02-linux-01-eu-hel1']
     steps:
       - name: Fix nim cache conflicts
         run: |
