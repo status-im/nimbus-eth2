@@ -81,7 +81,7 @@ jobs:
         if: contains(matrix.builder, 'self-hosted')
         run: |
           rm -rf "$GITHUB_WORKSPACE"/*
-          echp "show everything in gh workspace after nuking"
+          echo "show everything in gh workspace after nuking"
           ls -la "${GITHUB_WORKSPACE}"
           echo "show everything in CI_CACHE dir"
           ls -la "${CI_CACHE}"
@@ -232,7 +232,7 @@ jobs:
       - name: Clean workspace (very aggressive)
         run: |
           rm -rf "$GITHUB_WORKSPACE"/*
-          echp "show everything in gh workspace after nuking"
+          echo "show everything in gh workspace after nuking"
           ls -la "${GITHUB_WORKSPACE}"
           echo "show everything in CI_CACHE dir"
           ls -la "${CI_CACHE}"
