@@ -180,7 +180,7 @@ proc routeSignedBeaconBlock*(
         metadata = router[].network.metadata.custody_group_count
         custody_columns =
           router[].network.cfg.resolve_columns_from_custody_groups(
-            router[].network.nodeId, metadata))
+            router[].network.nodeId, metadata)
 
       var final_columns: seq[ref fulu.DataColumnSidecar]
       for dc in dataColumns:
