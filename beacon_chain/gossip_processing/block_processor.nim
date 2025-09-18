@@ -926,10 +926,11 @@ proc processBlock(
           blck = shortLog(entry.blck),
           signature = shortLog(entry.blck.signature)
 
-    of VerifierError.UnviableFork, VerifierError.Invalid:
+    of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
       # TODO Invalid and unviable should be treated separately, to correctly
       #      respond when a descendant of an invalid block is validated
+      # TODO re-add VeriferError.Invalid handling
       self.consensusManager.quarantine[].addUnviable(root)
     else:
       discard

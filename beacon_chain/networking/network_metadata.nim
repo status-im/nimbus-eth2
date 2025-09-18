@@ -351,8 +351,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       fatal "config.yaml not found for network", networkName
       quit 1
 
-  if networkName in ["goerli", "prater"]:
-    warn "Goerli is deprecated and unsupported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
+  if networkName == "holesky":
+    warn "https://blog.ethereum.org/2025/09/01/holesky-shutdown-announcement suggests migrating to Hoodi or Sepolia"
 
   let metadata =
     when const_preset == "gnosis":
