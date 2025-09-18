@@ -236,7 +236,6 @@ proc storeBackfillBlock(
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
   var
     columnsOk = true
-    malformed_cols: HashSet[int]
 
   when signedBlock is gloas.SignedBeaconBlock:
     # For Gloas, we still need to store the columns if they're provided
@@ -252,17 +251,14 @@ proc storeBackfillBlock(
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0..<columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            malformed_cols.incl(i)
+          if r.isErr():
             debug "backfill data column validation failed",
               blockRoot = shortLog(signedBlock.root),
               column_sidecar = shortLog(columns[i][]),
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
-
-      columnsOk = (dataColumnsOpt.get.lenu64 - malformed_cols.lenu64) >=
-        (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2)
+          columnsOk = r.isOk()
 
   if not columnsOk:
     return err(VerifierError.Invalid)
@@ -286,9 +282,9 @@ proc storeBackfillBlock(
 
   # Only store data columns after successfully establishing block viability.
   let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  debug "Inserting columns into database (backfill)",
+    indices = columns.mapIt($it[].index)
   for i in 0..<columns.len:
-    if i in malformed_cols:
-      continue
     self.consensusManager.dag.db.putDataColumnSidecar(columns[i][])
 
   res
@@ -758,6 +754,8 @@ proc storeBlock(
 
   # write data columns now that block has been written
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  debug "Inserting columns into database ",
+    indices = data_columns.mapIt($it.index)
   for col in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(col[])
 

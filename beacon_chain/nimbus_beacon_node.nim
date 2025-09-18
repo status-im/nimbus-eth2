@@ -427,9 +427,7 @@ proc initFullNode(
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
       dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId,
-        max(dag.cfg.SAMPLES_PER_SLOT.uint64,
-            localCustodyGroups))
+        node.network.nodeId, localCustodyGroups)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
@@ -606,8 +604,7 @@ proc initFullNode(
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(max(dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                          dag.cfg.CUSTODY_REQUIREMENT.uint8))
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1345,7 +1342,7 @@ proc addFuluMessageHandlers(
     targetSubnets = node.readCustodyGroupSubnets()
     custody = node.dag.cfg.get_custody_groups(
       node.network.nodeId,
-      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+      targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1392,8 +1389,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   let
     targetSubnets = node.readCustodyGroupSubnets()
     custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId,
-      max(node.dag.cfg.SAMPLES_PER_SLOT, targetSubnets.uint64))
+      node.network.nodeId, targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1974,11 +1970,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # Update CGC and metadata with respect to the new detected validator custody
       let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
 
-      if new_vcus > node.dag.cfg.SAMPLES_PER_SLOT.uint8:
+      if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
         node.network.loadCgcnetMetadataAndEnr(new_vcus)
       else:
-        node.network.loadCgcnetMetadataAndEnr(max(node.dag.cfg.SAMPLES_PER_SLOT.uint8,
-                                              node.dag.cfg.CUSTODY_REQUIREMENT.uint8))
+        node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
       info "New validator custody count detected",
         custody_columns = node.dataColumnQuarantine.custodyColumns.len
