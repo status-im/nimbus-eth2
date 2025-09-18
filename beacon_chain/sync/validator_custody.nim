@@ -73,7 +73,7 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
     newer_columns =
       vcus.dag.cfg.resolve_columns_from_custody_groups(
         vcus.network.nodeId,
-        max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
+        max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64,
         vcustody))
 
   debug "New validator custody count detected",
