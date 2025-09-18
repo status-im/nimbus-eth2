@@ -754,7 +754,7 @@ proc storeBlock(
 
   # write data columns now that block has been written
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  debug "Inserting columns into database ",
+  debug "Inserting columns into database",
     indices = data_columns.mapIt($it.index)
   for col in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(col[])
