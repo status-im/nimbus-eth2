@@ -502,6 +502,9 @@ AllTests-mainnet
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_than_h OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_ha OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_no OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_shuffled_on OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
 + KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK

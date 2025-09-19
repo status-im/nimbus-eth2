@@ -18,7 +18,7 @@ import
 
 from std/algorithm import sorted
 from std/sequtils import anyIt, filterIt, mapIt, toSeq
-from std/strutils import contains, rsplit
+from std/strutils import rsplit
 from stew/byteutils import fromHex
 from ../../beacon_chain/spec/peerdas_helpers import
   recover_matrix, recover_cells_and_proofs_parallel
@@ -400,7 +400,6 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
       validRowCount = validData[validData.len - 1].row_index + 1
 
     for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-      if path.contains("recover_cells_and_kzg_proofs_case_invalid_shuffled_"): continue
       let invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
 
       # As per
@@ -527,7 +526,6 @@ suite suiteName:
   block:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      if path.contains("recover_cells_and_kzg_proofs_case_invalid_shuffled_"): continue
       runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
 
   block:
