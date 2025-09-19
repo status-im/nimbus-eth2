@@ -122,7 +122,10 @@ func compute_subnet_for_blob_sidecar*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
-    uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
+  # Parts of Nimbus use the subnet number and column ID semi-interchangeably
+  static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
+
+  column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
