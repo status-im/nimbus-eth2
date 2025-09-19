@@ -891,7 +891,7 @@ proc processBlock(
   let
     res = withBlck(entry.blck):
       let res = await self.storeBlock(
-        entry.src, wallTime, forkyBlck, entry.blobs, Opt.none(DataColumnSidecars),
+        entry.src, wallTime, forkyBlck, entry.blobs, entry.columns,
         entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
       self[].dumpBlock(forkyBlck, res)
