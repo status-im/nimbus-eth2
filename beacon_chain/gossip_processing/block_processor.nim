@@ -258,6 +258,7 @@ proc storeBackfillBlock(
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
+            columnsOk = false
             break
           columnsOk = r.isOk()
 
