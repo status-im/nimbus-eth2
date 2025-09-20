@@ -186,54 +186,6 @@ proc recover_cells_and_proofs_parallel*(
     res[i] = futRes.get
   ok(res)
 
-proc recover_cells_and_proofs*(
-    data_columns: seq[ref fulu.DataColumnSidecar]):
-    Result[seq[CellsAndProofs], cstring] =
-  ## This helper recovers blobs from the data column sidecars
-  if data_columns.len == 0:
-    return err("DataColumnSidecar: Length should not be 0")
-
-  let start = Moment.now()
-
-  let
-    columnCount = data_columns.len
-    blobCount = data_columns[0].column.len
-
-  for data_column in data_columns:
-    if not (blobCount == data_column.column.len):
-      return err ("DataColumns do not have the same length")
-
-  var
-    recovered_cps =
-      newSeq[CellsAndProofs](blobCount)
-
-  for blobIdx in 0..<blobCount:
-    var
-      bIdx = blobIdx
-      cell_ids = newSeqOfCap[CellIndex](columnCount)
-      ckzgCells = newSeqOfCap[KzgCell](columnCount)
-
-    for col in data_columns:
-      cell_ids.add col[].index
-
-      let
-        column = col[].column
-        cell = column[bIdx]
-
-      ckzgCells.add cell
-
-    # Recovering the cells and proofs
-    let recovered_cells_and_proofs =
-      recoverCellsAndKzgProofs(cell_ids, ckzgCells)
-    if not recovered_cells_and_proofs.isOk:
-      return err("Failed to compute cells and proofs")
-
-    recovered_cps[bIdx] =
-      recovered_cells_and_proofs.get
-  let finish = Moment.now()
-  debug "Time taken to reconstruct sequentially", time = finish-start
-  ok(recovered_cps)
-
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
