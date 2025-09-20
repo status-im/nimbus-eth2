@@ -789,6 +789,7 @@ AllTests-mainnet
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
