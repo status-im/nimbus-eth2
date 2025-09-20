@@ -187,9 +187,6 @@ switch("hintAsError", "DuplicateModuleImport:on")
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
 
-# Transitional for Nim v2.2, due to newSeqUninit replacing newSeqUninitialized.
-switch("warning", "Deprecated:off")
-
 #   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 28) Hint: 'sszCheck' cannot raise 'YamlConstructionError' [XCannotRaiseY]
 #   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 51) Hint: 'sszCheck' cannot raise 'YamlParserError' [XCannotRaiseY]
 #   1 nimbus-eth2/vendor/nim-testutils/testutils/moduletests.nim(17, 24) Hint: 'main' cannot raise 'CatchableError' [XCannotRaiseY]

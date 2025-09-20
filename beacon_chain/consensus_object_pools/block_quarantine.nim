@@ -401,13 +401,6 @@ proc addColumnless*(
 ): bool {.deprecated.} =
   quarantine.addSidecarless(finalizedSlot, signedBlock)
 
-proc addBlobless*(
-    quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                 fulu.SignedBeaconBlock
-): bool {.deprecated.} =
-  quarantine.addSidecarless(finalizedSlot, signedBlock)
-
 func popSidecarless*(
     quarantine: var Quarantine,
     root: Eth2Digest
@@ -424,12 +417,6 @@ func popColumnless*(
 ): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
   quarantine.popSidecarless(root)
 
-func popBlobless*(
-    quarantine: var Quarantine,
-    root: Eth2Digest
-): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
-  quarantine.popSidecarless(root)
-
 func getColumnless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
@@ -441,17 +428,5 @@ func getColumnless*(
 iterator peekSidecarless*(
     quarantine: var Quarantine
 ): ForkedSignedBeaconBlock =
-  for k, v in quarantine.sidecarless.mpairs():
-    yield v
-
-iterator peekBlobless*(
-    quarantine: var Quarantine
-): ForkedSignedBeaconBlock {.deprecated.} =
-  for k, v in quarantine.sidecarless.mpairs():
-    yield v
-
-iterator peekColumnless*(
-    quarantine: var Quarantine
-): ForkedSignedBeaconBlock {.deprecated.} =
   for k, v in quarantine.sidecarless.mpairs():
     yield v

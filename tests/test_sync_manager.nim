@@ -938,7 +938,7 @@ suite "SyncManager test suite":
         # response should not be taken into account.
         r14 = sq.pop(Slot(159), peer1)
 
-      expect AssertionError:
+      expect AssertionDefect:
         let r1e {.used.} = sq.pop(Slot(159), peer1)
 
       check:

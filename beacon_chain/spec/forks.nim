@@ -1176,7 +1176,7 @@ func consensusForkForDigest*(
     err()
 
 func atConsensusFork*(
-    forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest {.deprecated.} =
+    forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   debugGloasComment "atConsensusFork is deprecated anyway, should be gone before we need it for gloas, otherwise look at again"
   case consensusFork
   of ConsensusFork.Gloas:
