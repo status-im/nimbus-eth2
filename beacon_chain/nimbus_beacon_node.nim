@@ -1351,6 +1351,13 @@ proc addFuluMessageHandlers(
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addFuluMessageHandlers(forkDigest, slot)
+  debugGloasComment "default gossipsub config"
+  node.network.subscribe(
+    getExecutionPayloadHeaderTopic(forkDigest), basicParams())
+  node.network.subscribe(
+    getExecutionPayloadTopic(forkDigest), basicParams())
+  node.network.subscribe(
+    getPayloadAttestationMessageTopic(forkDigest), basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1397,6 +1404,9 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
+  node.network.unsubscribe(getExecutionPayloadHeaderTopic(forkDigest))
+  node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
+  node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =

@@ -18,12 +18,16 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
   topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
+  topicExecutionPayloadHeaderSuffix = "execution_payload_header/ssz_snappy"
+  topicExecutionPayloadSuffix = "execution_payload/ssz_snappy" 
+  topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -70,6 +74,18 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload_header
+func getExecutionPayloadHeaderTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicExecutionPayloadHeaderSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload
+func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicExecutionPayloadSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#payload_attestation_message
+func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicPayloadAttestationMessageSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
