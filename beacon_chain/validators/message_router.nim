@@ -155,7 +155,7 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Fulu:
     var dataColumnRefs = Opt.none(fulu.DataColumnSidecars)
     let dataColumns = dataColumnsOpt.get()
-    if dataColumnsOpt.isSome() and dataColumns.len != 0:
+    if dataColumnsOpt.isSome():
       var das_workers =
         newSeq[Future[SendResult]](len(dataColumns))
       for i in 0..<dataColumns.lenu64:
