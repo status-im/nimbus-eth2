@@ -439,7 +439,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       for col in records:
         if col.block_root != curRoot:
           curRoot = col.block_root
-          if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
+          if (let o = rman.quarantine[].popSidecarless(curRoot); o.isSome):
             let col = o.unsafeGet()
             discard await rman.blockVerifier(col, false)
     else:

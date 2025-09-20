@@ -275,8 +275,8 @@ proc processSignedBeaconBlock*(
         if cres.isSome():
           cres
         else:
-          discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
-                                                  signedBlock)
+          discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot,
+                                                   signedBlock)
           return v
       else:
         Opt.none(DataColumnSidecars)
@@ -374,10 +374,10 @@ proc processDataColumnSidecar*(
     return v
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
-  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and 
+      when consensusFork >= ConsensusFork.Fulu and
           consensusFork < ConsensusFork.Gloas:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)

@@ -395,12 +395,6 @@ proc addSidecarless*(
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 
-proc addColumnless*(
-    quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
-): bool {.deprecated.} =
-  quarantine.addSidecarless(finalizedSlot, signedBlock)
-
 func popSidecarless*(
     quarantine: var Quarantine,
     root: Eth2Digest
@@ -410,12 +404,6 @@ func popSidecarless*(
     Opt.some(blck)
   else:
     Opt.none(ForkedSignedBeaconBlock)
-
-func popColumnless*(
-    quarantine: var Quarantine,
-    root: Eth2Digest
-): Opt[ForkedSignedBeaconBlock] {.deprecated.} =
-  quarantine.popSidecarless(root)
 
 func getColumnless*(
     quarantine: var Quarantine,

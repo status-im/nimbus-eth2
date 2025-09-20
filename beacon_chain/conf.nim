@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[options, os, unicode, uri],
@@ -14,8 +14,8 @@ import
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net,
   confutils/toml/defs as confTomlDefs,
-  confutils/toml/std/net as confTomlNet,
-  confutils/toml/std/uri as confTomlUri,
+  toml_serialization/std/net as confTomlNet,
+  toml_serialization/std/uri as confTomlUri,
   serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/net/nat,
