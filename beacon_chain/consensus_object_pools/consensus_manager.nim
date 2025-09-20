@@ -295,7 +295,7 @@ proc proposalForkchoiceUpdated*(
 
   # Sending the proposal fcU requires that the state epoch matches the proposal
   # epoch so that the withdrawals can be computed correctly
-  if self.dag.clearanceState.matches_block_slot(head.root, proposalSlot):
+  if not self.dag.clearanceState.matches_block_slot(head.root, proposalSlot):
     debug "Skipping proposal fcU, clearance state not prepared", head, proposalSlot
 
     return
