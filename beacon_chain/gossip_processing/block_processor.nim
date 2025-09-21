@@ -110,6 +110,9 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+  NoSidecars = typeof(())
+  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DatacolumnSidecars]
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -171,29 +174,41 @@ proc dumpBlock[T](
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlockWithParent, checkHeadBlock
 
+template selectSidecars(
+    consensusFork: static ConsensusFork,
+    blobsOpt: Opt[BlobSidecars],
+    columnsOpt: Opt[DataColumnSidecars],
+): untyped =
+  # The when jungle here must be kept consistent with `verifySidecars`
+  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    doAssert blobsOpt.isNone(), "No blobs in " & $consensusFork
+    columnsOpt
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    doAssert columnsOpt.isNone(), "No columns in " & $consensusFork
+    blobsOpt
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    doAssert blobsOpt.isNone and columnsOpt.isNone(),
+      "No blobs/columns in " & $consensusFork
+    default(NoSidecars)
+  else:
+    {.error: "Unkown fork " & $consensusFork.}
+
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars],
+    sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork == ConsensusFork.Gloas:
-    if blobsOpt.isSome():
-      return err(VerifierError.Invalid)
-
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
-    if dataColumnsOpt.isSome:
+    if sidecarsOpt.isSome:
       debugGloasComment "potentially validate against payload envelope"
-      let columns = dataColumnsOpt.get()
+      let columns = sidecarsOpt.get()
       discard
   elif consensusFork == ConsensusFork.Fulu:
-    if blobsOpt.isSome():
-      return err(VerifierError.Invalid)
-
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
+    if sidecarsOpt.isSome:
+      let columns = sidecarsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
@@ -207,11 +222,8 @@ proc verifySidecars(
               msg = r.error()
             return err(VerifierError.Invalid)
   elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-    if dataColumnsOpt.isSome():
-      return err(VerifierError.Invalid)
-
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
+    if sidecarsOpt.isSome:
+      let blobs = sidecarsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
         let r = validate_blobs(
@@ -227,41 +239,36 @@ proc verifySidecars(
             msg = r.error()
           return err(VerifierError.Invalid)
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    if blobsOpt.isSome() or dataColumnsOpt.isSome():
-      return err(VerifierError.Invalid)
+    static: doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
   ok()
 
-proc storeSidecars(
-    self: BlockProcessor,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars],
-) =
-  doAssert not (blobsOpt.isSome and dataColumnsOpt.isSome),
-    "At most one of these present, depending on the fork"
-
-  if blobsOpt.isSome():
-    debug "Inserting blobs into database", blobs = blobsOpt[].len
-    for b in blobsOpt[]:
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
+  if sidecarsOpt.isSome():
+    debug "Inserting blobs into database", blobs = sidecarsOpt[].len
+    for b in sidecarsOpt[]:
       self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  if dataColumnsOpt.isSome():
-    debug "Inserting columns into database", columns = dataColumnsOpt[].len
-    for c in dataColumnsOpt[]:
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[DataColumnSidecars]) =
+  if sidecarsOpt.isSome():
+    debug "Inserting columns into database", columns = sidecarsOpt[].len
+    for c in sidecarsOpt[]:
       self.consensusManager.dag.db.putDataColumnSidecar(c[])
+
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
+  discard
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars],
+    sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
-  ?verifySidecars(signedBlock, blobsOpt, dataColumnsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -281,7 +288,7 @@ proc storeBackfillBlock(
     return res
 
   # Only store side cars after successfully establishing block viability.
-  self.storeSidecars(blobsOpt, dataColumnsOpt)
+  self.storeSidecars(sidecarsOpt)
 
   res
 
@@ -380,8 +387,10 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      resfut.complete(self.storeBackfillBlock(forkyBlck, blobs, data_columns))
+      let sidecars = selectSidecars(consensusFork, blobs, data_columns)
+      resfut.complete(self.storeBackfillBlock(forkyBlck, sidecars))
       return
+
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
@@ -555,8 +564,7 @@ proc storeBlock(
     src: MsgSource,
     wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars],
+    sidecarsOpt: SomeOptSidecars,
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
@@ -702,7 +710,7 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  ?verifySidecars(signedBlock, blobsOpt, dataColumnsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   let blck =
     ?dag.addHeadBlockWithParent(
@@ -720,7 +728,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  self[].storeSidecars(blobsOpt, dataColumnsOpt)
+  self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
 
@@ -853,9 +861,11 @@ proc processBlock(
 
   let
     res = withBlck(entry.blck):
-      let res = await self.storeBlock(
-        entry.src, wallTime, forkyBlck, entry.blobs, entry.columns,
-        entry.maybeFinalized, entry.queueTick, entry.validationDur)
+      let
+        sidecars = selectSidecars(consensusFork, entry.blobs, entry.columns)
+        res = await self.storeBlock(
+          entry.src, wallTime, forkyBlck, sidecars,
+          entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
       self[].dumpBlock(forkyBlck, res)
 
