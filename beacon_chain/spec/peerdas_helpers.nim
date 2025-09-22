@@ -47,7 +47,8 @@ func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
     custody_groups: HashSet[CustodyIndex]
     current_id = node_id
 
-  while custody_groups.lenu64 < custody_group_count:
+  let safe_count = min(custody_group_count, cfg.NUMBER_OF_CUSTODY_GROUPS)
+  while custody_groups.lenu64 < safe_count:
     var hashed_bytes: array[8, byte]
 
     let

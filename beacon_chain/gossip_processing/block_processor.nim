@@ -285,7 +285,7 @@ proc storeBackfillBlock(
   # Only store data columns after successfully establishing block viability.
   let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   debug "Inserting columns into database (backfill)",
-    indices = columns.mapIt($it[].index)
+    indices = columns.mapIt($it[].index).len
   for i in 0..<columns.len:
     self.consensusManager.dag.db.putDataColumnSidecar(columns[i][])
 
@@ -757,7 +757,7 @@ proc storeBlock(
   # write data columns now that block has been written
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   debug "Inserting columns into database",
-    indices = data_columns.mapIt($it.index)
+    indices = data_columns.mapIt($it.index).len
   for col in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(col[])
 

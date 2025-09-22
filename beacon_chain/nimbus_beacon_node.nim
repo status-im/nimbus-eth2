@@ -1730,7 +1730,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "Stored data columns", indices
+      debug "Stored data columns", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
@@ -1747,6 +1747,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
           error "Error in data column reconstruction"
           return
       let rowCount = recovered.len
+      var reconCounter = 0
       for i in 0 ..< maxColCount:
         if i in indices:
           continue
@@ -1758,13 +1759,17 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
           proofs[j] = recovered[j].proofs[i]
         let dataColumn = fulu.DataColumnSidecar(
           index: ColumnIndex(i),
-          column: DataColumn(cells),
-          kzg_proofs: deneb.KzgProofs(proofs),
-          signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader())
+          column: DataColumn.init(cells),
+          kzg_commitments: columns[0].kzg_commitments,
+          kzg_proofs: deneb.KzgProofs.init(proofs),
+          signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader(),
+          kzg_commitments_inclusion_proof:
+            columns[0].kzg_commitments_inclusion_proof)
         node.dag.db.putDataColumnSidecar(dataColumn)
+        inc reconCounter
 
-      debug "Column reconstructed",
-        len = maxColCount - indices.lenu64
+      debug "Columns reconstructed",
+        columns = reconCounter
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
