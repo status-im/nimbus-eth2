@@ -2511,8 +2511,10 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
 
   let metadata = peer.metadata
   if metadata.isOk:
-    return metadata.get.custody_group_count
-
+    return (if metadata.get.custody_group_count > NUMBER_OF_COLUMNS:
+              0'u64
+            else:
+              metadata.get.custody_group_count)
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
         peer_id = peer.peerId
