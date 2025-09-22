@@ -2526,7 +2526,6 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          peer.updateScore(PeerScoreBadValues)
           return 0'u64
         return cgc.uint64
       except SszError, SerializationError:
