@@ -365,9 +365,11 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
     raiseAssert exc.msg
 
   try:
-    let metadata =
-      loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-    await BeaconNode.init(rng, runNodeConf, metadata)
+    let
+      metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
+      taskpool = Taskpool.new()
+
+    await BeaconNode.init(rng, runNodeConf, metadata, taskpool)
   except CatchableError as exc:
     raiseAssert exc.msg
 
@@ -2054,7 +2056,7 @@ proc main(basePort: int) {.async.} =
   asyncSpawn delayedTests(basePort, node.attachedValidators,
                           node.keymanagerHost)
 
-  node.start()
+  node.run(nil)
 
 let
   basePortStr = os.getEnv("NIMBUS_TEST_KEYMANAGER_BASE_PORT", $defaultBasePort)

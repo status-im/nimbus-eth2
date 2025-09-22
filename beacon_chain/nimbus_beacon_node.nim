@@ -8,7 +8,8 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  system/ansi_c,
+  std/[os, random, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -25,11 +26,8 @@ import
   ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
-    beacon_node, beacon_node_light_client, deposits,
+    beacon_node, beacon_node_light_client, buildinfo, deposits,
     nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
-
-when defined(posix):
-  import system/ansi_c
 
 from std/algorithm import sort
 from std/sequtils import filterIt, mapIt, toSeq
@@ -706,16 +704,17 @@ const
   SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
-proc init*(T: type BeaconNode,
-           rng: ref HmacDrbgContext,
-           config: BeaconNodeConf,
-           metadata: Eth2NetworkMetadata): Future[BeaconNode]
-          {.async.} =
+proc init*(
+    T: type BeaconNode,
+    rng: ref HmacDrbgContext,
+    config: BeaconNodeConf,
+    metadata: Eth2NetworkMetadata,
+    taskpool: Taskpool,
+): Future[BeaconNode] {.async.} =
   var
     genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
-  template eth1Network: auto = metadata.eth1Network
 
   if not(isDir(config.databaseDir)):
     # If database directory missing, we going to use genesis state to check
@@ -746,21 +745,6 @@ proc init*(T: type BeaconNode,
           fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
           quit 1
-
-  let taskpool =
-    try:
-      if config.numThreads < 0:
-        fatal "The number of threads --num-threads cannot be negative."
-        quit QuitFailure
-      elif config.numThreads == 0:
-        Taskpool.new(numThreads = min(countProcessors(), 16))
-      else:
-        Taskpool.new(numThreads = config.numThreads)
-    except CatchableError as e:
-      fatal "Cannot start taskpool", err = e.msg
-      quit QuitFailure
-
-  info "Threadpool started", numThreads = taskpool.numThreads
 
   if metadata.genesis.kind == BakedIn:
     if config.genesisState.isSome:
@@ -837,9 +821,6 @@ proc init*(T: type BeaconNode,
         backfill = false,
         reindex = false,
         genesisState)
-
-  if config.finalizedCheckpointBlock.isSome:
-    warn "--finalized-checkpoint-block has been deprecated, ignoring"
 
   let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -971,10 +952,7 @@ proc init*(T: type BeaconNode,
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
 
-  let elManager = ELManager.new(engineApiUrls, eth1Network)
-
-  if config.rpcEnabled.isSome:
-    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
+  let elManager = ELManager.new(engineApiUrls, metadata.eth1Network)
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
@@ -2466,7 +2444,51 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc run(node: BeaconNode) {.raises: [CatchableError].} =
+proc initializeNetworking(node: BeaconNode) {.async.} =
+  node.installMessageValidators()
+
+  info "Listening to incoming network requests"
+  await node.network.startListening()
+
+  let addressFile = node.config.dataDir / "beacon_node.enr"
+  writeFile(addressFile, node.network.announcedENR.toURI)
+
+  await node.network.start()
+
+type StopFuture = Future[void].Raising([CancelledError])
+
+proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
+  let
+    head = node.dag.head
+    finalizedHead = node.dag.finalizedHead
+    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
+
+  notice "Starting beacon node",
+    version = fullVersionStr,
+    nimVersion = NimVersion,
+    enr = node.network.announcedENR.toURI,
+    peerId = $node.network.switch.peerInfo.peerId,
+    timeSinceFinalization =
+      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
+    head = shortLog(head),
+    justified = shortLog(getStateField(
+      node.dag.headState, current_justified_checkpoint)),
+    finalized = shortLog(getStateField(
+      node.dag.headState, finalized_checkpoint)),
+    finalizedHead = shortLog(finalizedHead),
+    SLOTS_PER_EPOCH,
+    SECONDS_PER_SLOT,
+    SPEC_VERSION,
+    dataDir = node.config.dataDir.string,
+    validators = node.attachedValidators[].count
+
+  if genesisTime.inFuture:
+    notice "Waiting for genesis", genesisIn = genesisTime.offset
+
+  waitFor node.initializeNetworking()
+
+  node.elManager.start()
+
   ProcessState.notifyRunning()
 
   if not isNil(node.restServer):
@@ -2506,61 +2528,13 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  while not ProcessState.stopIt(notice("Shutting down", reason = it)):
+  while not ProcessState.stopIt(notice("Shutting down", reason = it)) and
+      (stopper == nil or not stopper.finished):
     poll()
 
   # time to say goodbye
   node.stop()
 
-var gPidFile: string
-proc createPidFile(filename: string) {.raises: [IOError].} =
-  writeFile filename, $os.getCurrentProcessId()
-  gPidFile = filename
-  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
-
-proc initializeNetworking(node: BeaconNode) {.async.} =
-  node.installMessageValidators()
-
-  info "Listening to incoming network requests"
-  await node.network.startListening()
-
-  let addressFile = node.config.dataDir / "beacon_node.enr"
-  writeFile(addressFile, node.network.announcedENR.toURI)
-
-  await node.network.start()
-
-proc start*(node: BeaconNode) {.raises: [CatchableError].} =
-  let
-    head = node.dag.head
-    finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
-
-  notice "Starting beacon node",
-    version = fullVersionStr,
-    nimVersion = NimVersion,
-    enr = node.network.announcedENR.toURI,
-    peerId = $node.network.switch.peerInfo.peerId,
-    timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
-    head = shortLog(head),
-    justified = shortLog(getStateField(
-      node.dag.headState, current_justified_checkpoint)),
-    finalized = shortLog(getStateField(
-      node.dag.headState, finalized_checkpoint)),
-    finalizedHead = shortLog(finalizedHead),
-    SLOTS_PER_EPOCH,
-    SECONDS_PER_SLOT,
-    SPEC_VERSION,
-    dataDir = node.config.dataDir.string,
-    validators = node.attachedValidators[].count
-
-  if genesisTime.inFuture:
-    notice "Waiting for genesis", genesisIn = genesisTime.offset
-
-  waitFor node.initializeNetworking()
-
-  node.elManager.start()
-  node.run()
 
 func formatGwei(amount: Gwei): string =
   # TODO This is implemented in a quite a silly way.
@@ -2705,25 +2679,19 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
+proc doRunBeaconNode*(
+    config: var BeaconNodeConf,
+    rng: ref HmacDrbgContext,
+    taskpool: Taskpool,
+    stopper: StopFuture,
+) {.raises: [CatchableError], gcsafe.} =
+  doAssert taskpool != nil
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
       const_preset,
       cmdParams = commandLineParams(),
       config
-
-  template ignoreDeprecatedOption(option: untyped): untyped =
-    if config.option.isSome:
-      warn "Config option is deprecated",
-        option = config.option.get
-  ignoreDeprecatedOption requireEngineAPI
-  ignoreDeprecatedOption safeSlotsToImportOptimistically
-  ignoreDeprecatedOption terminalTotalDifficultyOverride
-  ignoreDeprecatedOption optimistic
-  ignoreDeprecatedOption validatorMonitorTotals
-  ignoreDeprecatedOption web3ForcePolling
-  ignoreDeprecatedOption finalizedDepositTreeSnapshot
 
   config.createDumpDirs()
 
@@ -2749,16 +2717,14 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
 
-  let node = waitFor BeaconNode.init(rng, config, metadata)
-
-  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
-    return
+  let node = waitFor BeaconNode.init(rng, config, metadata, taskpool)
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
   setSystemMetricsAutomaticUpdate(false)
 
-  node.metricsServer = metricsServer
+  node.metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
@@ -2769,9 +2735,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     initStatusBar(node)
 
   if node.nickname != "":
-    dynamicLogScope(node = node.nickname): node.start()
+    dynamicLogScope(node = node.nickname): node.run(stopper)
   else:
-    node.start()
+    node.run(stopper)
 
 proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [CatchableError].} =
@@ -2871,7 +2837,25 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
     createPidFile(config.dataDir.string / "beacon_node.pid")
     ProcessState.setupStopHandlers()
 
-    doRunBeaconNode(config, rng)
+    if config.rpcEnabled.isSome:
+      warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
+
+    template ignoreDeprecatedOption(option: untyped): untyped =
+      if config.option.isSome:
+        warn "Ignoring deprecated configuration option",
+          option = config.option.get
+    ignoreDeprecatedOption requireEngineAPI
+    ignoreDeprecatedOption safeSlotsToImportOptimistically
+    ignoreDeprecatedOption terminalTotalDifficultyOverride
+    ignoreDeprecatedOption optimistic
+    ignoreDeprecatedOption validatorMonitorTotals
+    ignoreDeprecatedOption web3ForcePolling
+    ignoreDeprecatedOption finalizedDepositTreeSnapshot
+    ignoreDeprecatedOption finalizedCheckpointBlock
+
+    let taskpool = setupTaskpool(config.numThreads)
+
+    doRunBeaconNode(config, rng, taskpool, nil)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
@@ -2899,8 +2883,13 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
     db.close()
 
 # noinline to keep it in stack traces
-proc main() {.noinline, raises: [CatchableError].} =
-  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+proc main*() {.noinline, raises: [CatchableError].} =
+  const copyright =
+    "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
+
+  var config = BeaconNodeConf.loadWithBanners(clientId, copyright, [specBanner]).valueOr:
+    stderr.writeLine error # Logging not yet set up
+    quit QuitFailure
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
@@ -2910,36 +2899,30 @@ proc main() {.noinline, raises: [CatchableError].} =
     # permissions are insecure.
     quit QuitFailure
 
-
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such
   ## as `wallets *` and `deposits *`. In a regular beacon node
   ## run, it will be overwritten later with a different handler
   ## performing a graceful exit.
   proc exitImmediatelyOnCtrlC() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    # in case a password prompt disabled echoing
-    resetStdin()
-    echo "" # If we interrupt during an interactive prompt, this
-            # will move the cursor to the next line
-    notice "Shutting down after having received SIGINT"
-    quit 0
+    # No allocations in signal handler
+    cstdout.rawWrite("Shutting down after having received SIGINT / ctrl-c")
+    quit QuitSuccess
   setControlCHook(exitImmediatelyOnCtrlC)
+
   # equivalent SIGTERM handler
-  when defined(posix):
+  when declared(ansi_c.SIGTERM):
     proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      quit 0
+      # No allocations in signal handler
+      cstdout.rawWrite("Shutting down after having received SIGTERM")
+      quit QuitSuccess
     c_signal(ansi_c.SIGTERM, exitImmediatelyOnSIGTERM)
 
   when defined(windows):
     if config.runAsService:
       proc exitService() =
         ProcessState.scheduleStop("exitService")
-      establishWindowsService(clientId,
-                              ["Ethereum consensus spec v" & SPEC_VERSION],
+      establishWindowsService(clientId, copyright, [specBanner],
                               "nimbus_beacon_node", BeaconNodeConf,
                               handleStartUpCmd, exitService)
     else:

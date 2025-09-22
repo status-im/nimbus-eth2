@@ -264,9 +264,9 @@ const
 
   KeystoreCachePruningTime* = 5.minutes
 
-UUID.serializesAsBaseIn Json
-KeyPath.serializesAsBaseIn Json
-WalletName.serializesAsBaseIn Json
+UUID.serializesAsBase Json
+KeyPath.serializesAsBase Json
+WalletName.serializesAsBase Json
 
 ChecksumFunctionKind.serializesAsTextInJson
 CipherFunctionKind.serializesAsTextInJson

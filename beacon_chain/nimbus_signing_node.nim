@@ -1,5 +1,5 @@
 # nimbus_signing_node
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures, forks],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
        "."/rpc/rest_constants,
-       "."/[conf, version, nimbus_binary_common],
+       "."/[buildinfo, conf, version, nimbus_binary_common],
        "."/validators/[keystore_management, validator_pool]
 
 const
@@ -495,9 +495,17 @@ proc runSigningNode(config: SigningNodeConf) {.async: (raises: []).} =
 
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
-  let config =
-    makeBannerAndConfig("Nimbus signing node " & fullVersionStr, SigningNodeConf)
+  const
+    banner = "Nimbus signing node " & fullVersionStr
+    copyright =
+      "Copyright (c) 2021-" & compileYear & " Status Research & Development GmbH"
+
+  let config = SigningNodeConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    stderr.writeLine error # Logging not yet set up
+    quit QuitFailure
+
   setupLogging(config.logLevel, config.logStdout, config.logFile)
+
   waitFor runSigningNode(config)
 
 when isMainModule:

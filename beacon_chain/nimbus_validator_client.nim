@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,8 @@ import
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
-    doppelganger_service, attestation_service, sync_committee_service]
+    doppelganger_service, attestation_service, sync_committee_service],
+  ./buildinfo
 
 const
   PREGENESIS_EPOCHS_COUNT = 1
@@ -638,9 +639,15 @@ proc runValidatorClient*(
 
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
+  const
+    banner = "Nimbus validator client " & fullVersionStr
+    copyright =
+      "Copyright (c) 2020-" & compileYear & " Status Research & Development GmbH"
+
   let
-    config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
-                                 ValidatorClientConf)
+    config = ValidatorClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+      stderr.writeLine error # Logging not yet set up
+      quit QuitFailure
 
     # Single RNG instance for the application - will be seeded on construction
     # and avoid using system resources (such as urandom) after that
@@ -648,6 +655,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
+
   waitFor runValidatorClient(config, rng)
 
 when isMainModule:

@@ -27,9 +27,15 @@ from ./gossip_processing/eth2_processor import toValidationResult
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
   ProcessState.setupStopHandlers()
+  const
+    banner = "Nimbus light client " & fullVersionStr
+    copyright =
+      "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
 
-  var config = makeBannerAndConfig(
-    "Nimbus light client " & fullVersionStr, LightClientConf)
+  var config = LightClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    stderr.writeLine error # Logging not yet set up
+    quit QuitFailure
+
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   notice "Launching light client",
