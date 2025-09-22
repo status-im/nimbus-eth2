@@ -1713,7 +1713,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
   logScope:
     slot = slot
 
-  let blck = node.dag.getForkedBlock(node.dag.finalizedHead.blck.bid).valueOr:
+  let blck = node.dag.getForkedBlock(node.dag.head.bid).valueOr:
     warn "Failed to get the current slot head"
     return
 
