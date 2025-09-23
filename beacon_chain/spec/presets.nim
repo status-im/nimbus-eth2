@@ -8,15 +8,15 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[strutils, parseutils, tables, typetraits],
+  std/[parseutils, tables, typetraits],
   chronos/timer,
   stew/[byteutils], stint, eth/common/addresses as eth,
   ./datatypes/constants
 
 from std/algorithm import sort
+from std/strutils import split, splitLines, startsWith, strip, `%`
 
 export constants
-
 export stint, eth
 
 const
@@ -39,6 +39,20 @@ const
   MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/beacon-chain.md#time-parameters-1
+  SLOT_DURATION_MS: uint64 = 12000
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/validator.md#time-parameters
+  ATTESTATION_DUE_BPS: uint64 = 3333
+  AGGREGATE_DUE_BPS: uint64 = 6667
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/altair/validator.md#time-parameters
+  SYNC_MESSAGE_DUE_BPS: uint64 = 3333
+  CONTRIBUTION_DUE_BPS: uint64 = 6667
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/fork-choice.md#time-parameters
+  PROPOSER_REORG_CUTOFF_BPS: uint64 = 1667
 
 type
   TimeConfig* = object
@@ -164,11 +178,13 @@ type
 const
   const_preset* {.strdefine.} = "mainnet"
 
-  # No-longer used values from legacy config files
+  # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
+    "    MAX_BLOBS_PER_BLOCK",         # parsed separately
+    "  - EPOCH",                       # parsed separately
   ]
 
 when const_preset == "mainnet":
@@ -809,6 +825,7 @@ proc readRuntimeConfig*(
     if lineParts[0] in ignoredValues: continue
 
     values[lineParts[0]] = lineParts[1].strip
+
   # Accumulate BLOB_SCHEDULE entries
   var
     blobScheduleEntries: seq[BlobParameters]
@@ -991,6 +1008,13 @@ proc readRuntimeConfig*(
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
   checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
+
+  checkCompatibility SLOT_DURATION_MS
+  checkCompatibility ATTESTATION_DUE_BPS
+  checkCompatibility AGGREGATE_DUE_BPS
+  checkCompatibility SYNC_MESSAGE_DUE_BPS
+  checkCompatibility CONTRIBUTION_DUE_BPS
+  checkCompatibility PROPOSER_REORG_CUTOFF_BPS
 
   template assignValue(name: static string, field: untyped): untyped =
     if values.hasKey(name):

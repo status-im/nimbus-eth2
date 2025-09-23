@@ -22,7 +22,7 @@ import
 
 from std/algorithm import sort
 from std/sequtils import toSeq
-from stew/staticfor import staticfor
+from stew/staticfor import staticFor
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]

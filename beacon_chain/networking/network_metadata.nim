@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/os,
@@ -327,10 +327,15 @@ elif const_preset == "mainnet":
     for network in [
         mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
+
+    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert mainnetMetadata.cfg.BLOB_SCHEDULE.len == 0
+
+    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
+      doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
