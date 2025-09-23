@@ -40,9 +40,6 @@ const
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/beacon-chain.md#time-parameters-1
-  SLOT_DURATION_MS: uint64 = 12000
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/validator.md#time-parameters
   ATTESTATION_DUE_BPS: uint64 = 3333
   AGGREGATE_DUE_BPS: uint64 = 6667
@@ -735,6 +732,7 @@ else:
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
   MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
+  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
