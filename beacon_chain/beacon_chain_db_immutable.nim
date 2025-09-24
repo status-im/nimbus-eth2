@@ -566,7 +566,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: gloas.ExecutionPayloadBid
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
       ## [Modified in Gloas:EIP7732]
 
     # Withdrawals
