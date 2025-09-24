@@ -201,7 +201,7 @@ proc loadCompileTimeNetworkMetadata(
   else:
     macros.error "config.yaml not found for network '" & path
 
-when const_preset == "gnosis":
+when IsGnosisSupported:
   when incbinEnabled:
     let
       gnosisGenesisVar {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
@@ -247,7 +247,7 @@ when const_preset == "gnosis":
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
 
-elif const_preset == "mainnet":
+elif IsMainnetSupported:
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
@@ -360,7 +360,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     warn "https://blog.ethereum.org/2025/09/01/holesky-shutdown-announcement suggests migrating to Hoodi or Sepolia"
 
   let metadata =
-    when const_preset == "gnosis":
+    when IsGnosisSupported:
       case toLowerAscii(networkName)
       of "gnosis":
         gnosisMetadata
@@ -373,7 +373,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       else:
         loadRuntimeMetadata()
 
-    elif const_preset == "mainnet":
+    elif IsMainnetSupported:
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
@@ -404,9 +404,9 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
     if eth2Network.isSome:
       getMetadataForNetwork(eth2Network.get)
     else:
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         mainnetMetadata
-      elif const_preset == "gnosis":
+      elif IsGnosisSupported:
         gnosisMetadata
       else:
         # This is a non-standard build (i.e. minimal), and the function was
@@ -416,7 +416,7 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
 
   metadata.cfg
 
-when const_preset in ["mainnet", "gnosis"]:
+when IsMainnetSupported or IsGnosisSupported:
   template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
     when incbinEnabled:
       `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
@@ -435,22 +435,22 @@ when const_preset in ["mainnet", "gnosis"]:
   template bakedBytes*(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         bakedInGenesisStateAsBytes mainnet
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "sepolia":
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         bakedInGenesisStateAsBytes sepolia
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "gnosis":
-      when const_preset == "gnosis":
+      when IsGnosisSupported:
         bakedInGenesisStateAsBytes gnosis
       else:
         raiseAssert availableOnlyInGnosisBuild
     of "chiado":
-      when const_preset == "gnosis":
+      when IsGnosisSupported:
         bakedInGenesisStateAsBytes chiado
       else:
         raiseAssert availableOnlyInGnosisBuild
