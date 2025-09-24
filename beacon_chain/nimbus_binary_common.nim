@@ -85,7 +85,7 @@ proc setupFileLimits*() =
         warn "Cannot increase open file limit", err = osErrorMsg(error)
 
 proc setupLogging*(
-    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
+    logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
   # Here, we either write those logs to an output, or not, depending on the
   # given configuration.

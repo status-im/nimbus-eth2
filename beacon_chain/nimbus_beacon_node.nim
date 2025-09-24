@@ -2894,7 +2894,7 @@ proc main*() {.noinline, raises: [CatchableError].} =
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
 
-  if not(checkAndCreateDataDir(string(config.dataDir))):
+  if not (checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
     quit QuitFailure

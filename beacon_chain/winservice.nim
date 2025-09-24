@@ -153,6 +153,8 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
 
+      setupLogging(config.logLevel, config.logStdout, config.logFile)
+
       try:
         argEntryPoint(config)
         info "Service thread stopped"
