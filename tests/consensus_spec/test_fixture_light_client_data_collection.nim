@@ -154,7 +154,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       of TestStepKind.NewBlock:
         checkpoint $i & " new_block: " & $shortLog(step.blck.toBlockId())
         let added = withBlck(step.blck):
-          const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+          const nilCallback = OnBlockAdded[consensusFork](nil)
           dag.addHeadBlock(verifier, forkyBlck, nilCallback)
         check: added.isOk()
       of TestStepKind.NewHead:

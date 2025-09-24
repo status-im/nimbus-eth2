@@ -84,6 +84,7 @@ suite "Gossip validation " & preset():
         dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -218,7 +219,7 @@ suite "Gossip validation - Altair":
         dag.headState, cache, blocks = 1,
         attested = false, cfg = cfg):
       let added = withBlck(blck):
-        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        const nilCallback = OnBlockAdded[consensusFork](nil)
         dag.addHeadBlock(verifier, forkyBlck, nilCallback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])

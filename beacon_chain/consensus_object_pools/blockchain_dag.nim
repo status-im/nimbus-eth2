@@ -990,53 +990,10 @@ proc applyBlock(
     updateFlags: UpdateFlags): Result[void, cstring] =
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  discard case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  of ConsensusFork.Phase0:
-    let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
+  withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch)):
+    let data = getBlock(dag, bid, consensusFork.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Altair:
-    let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Bellatrix:
-    let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Capella:
-    let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Deneb:
-    let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Electra:
-    let data = getBlock(dag, bid, electra.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Fulu:
-    let data = getBlock(dag, bid, fulu.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
-      dag.cfg, state, data, cache, info,
-      updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.Gloas:
-    let data = getBlock(dag, bid, gloas.TrustedSignedBeaconBlock).valueOr:
-      return err("Block load failed")
-    ? state_transition(
+    discard ? state_transition(
       dag.cfg, state, data, cache, info,
       updateFlags + {slotProcessed}, noRollback)
 

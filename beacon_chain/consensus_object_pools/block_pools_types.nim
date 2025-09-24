@@ -299,25 +299,9 @@ type
     blck*: ForkedSignedBeaconBlock
     blob*: Opt[BlobSidecars]
 
-  OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
-    blckRef: BlockRef, blck: T, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
-  OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
-  OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
-  OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
-  OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
-  OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
-  OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
-  OnFuluBlockAdded* = OnBlockAdded[fulu.TrustedSignedBeaconBlock]
-  OnGloasBlockAdded* = OnBlockAdded[gloas.TrustedSignedBeaconBlock]
-
-  OnForkyBlockAdded* =
-    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded |
-    OnFuluBlockAdded | OnGloasBlockAdded
-
-  OnForkedBlockAdded* = proc(
-    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+  OnBlockAdded*[consensusFork: static ConsensusFork] = proc(
+    blckRef: BlockRef, blck: consensusFork.TrustedSignedBeaconBlock,
+    state: consensusFork.BeaconState, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
 
   OnStateUpdated* = proc(
@@ -355,26 +339,6 @@ type
   EventBeaconBlockGossipObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
-
-template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Gloas:
-    typedesc[OnGloasBlockAdded]
-  elif kind == ConsensusFork.Fulu:
-    typedesc[OnFuluBlockAdded]
-  elif kind == ConsensusFork.Electra:
-    typedesc[OnElectraBlockAdded]
-  elif kind == ConsensusFork.Deneb:
-    typedesc[OnDenebBlockAdded]
-  elif kind == ConsensusFork.Capella:
-    typedesc[OnCapellaBlockAdded]
-  elif kind == ConsensusFork.Bellatrix:
-    typedesc[OnBellatrixBlockAdded]
-  elif kind == ConsensusFork.Altair:
-    typedesc[OnAltairBlockAdded]
-  elif kind == ConsensusFork.Phase0:
-    typedesc[OnPhase0BlockAdded]
-  else:
-    static: raiseAssert "Unreachable"
 
 func proposer_dependent_slot*(epochRef: EpochRef): Slot =
   epochRef.key.epoch.proposer_dependent_slot()

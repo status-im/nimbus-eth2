@@ -303,9 +303,10 @@ cli do(
       .toValidatorSig()
 
     # TODO without the OnBlockAdded cast, Nim can't figure out the type (?)
-    let onAdded: OnBlockAdded[consensusFork.TrustedSignedBeaconBlock] = proc(
+    let onAdded: OnBlockAdded[consensusFork] = proc(
         blckRef: BlockRef,
         signedBlock: consensusFork.TrustedSignedBeaconBlock,
+        state: consensusFork.BeaconState,
         epochRef: EpochRef,
         unrealized: FinalityCheckpoints,
     ) =

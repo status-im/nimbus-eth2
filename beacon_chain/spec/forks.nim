@@ -1020,6 +1020,7 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
 template forky*(
     x:
       ForkedBeaconBlock |
+      ForkedSignedBeaconBlock |
       ForkedHashedBeaconState,
     kind: static ConsensusFork): untyped =
   when kind == ConsensusFork.Gloas:

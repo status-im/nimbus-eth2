@@ -282,22 +282,39 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
-proc proposalForkchoiceUpdated*(
+proc prepareNextSlot*(
     self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
 ) {.async: (raises: [CancelledError]).} =
   ## Send a "warm-up" forkchoiceUpdated to the execution client, assuming that
-  ## `clearanceState` has been updated to the expected epoch of the proposal
-  if self.forkchoiceInflight:
-    debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
+  ## `clearanceState` has been updated to the expected epoch of the proposal -
+  ## at the same time, ensure that the clearance state is ready for the next
+  ## block
+
+  # When the chain is synced, the most likely block to be produced is the block
+  # right after head - we can exploit this assumption and advance the state
+  # to that slot before the block arrives, thus allowing us to do the expensive
+  # epoch transition ahead of time.
+  # Notably, we use the clearance state here because that's what the clearance
+  # function uses to validate the incoming block (or the one that's about to be
+  # produced)
+  let
+    dag = self.dag
+    head = dag.head
+    nextBsi = BlockSlotId.init(head.bid, proposalSlot)
+    startTick = Moment.now()
+
+  var cache = StateCache()
+  if not dag.updateState(dag.clearanceState, nextBsi, true, cache, dag.updateFlags):
+    # This should never happen since we're basically advancing the slots of the
+    # head state
+    warn "Cannot prepare clearance state for next block - bug?"
     return
 
-  let head = self.dag.head
+  debug "Prepared clearance state for next block",
+    nextBsi, updateStateDur = Moment.now() - startTick
 
-  # Sending the proposal fcU requires that the state epoch matches the proposal
-  # epoch so that the withdrawals can be computed correctly
-  if not self.dag.clearanceState.matches_block_slot(head.root, proposalSlot):
-    debug "Skipping proposal fcU, clearance state not prepared", head, proposalSlot
-
+  if self.forkchoiceInflight:
+    debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
     return
 
   let
@@ -312,7 +329,7 @@ proc proposalForkchoiceUpdated*(
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
-  withState(self.dag.clearanceState):
+  withState(dag.clearanceState):
     when consensusFork == ConsensusFork.Gloas:
       debugGloasComment "well, likely can't keep reusing V3 much longer"
     elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
@@ -327,7 +344,7 @@ proc proposalForkchoiceUpdated*(
           nextProposer, Opt.some(validatorIndex), proposalSlot.epoch
         )
         beaconHead = self.attestationPool[].getBeaconHead(head)
-        headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
+        headBlockHash = dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
           return
 
       if headBlockHash.isZero:
