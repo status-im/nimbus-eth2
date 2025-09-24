@@ -16,8 +16,9 @@ import
 
 from std/base64 import encode
 from std/json import JsonNode, `$`, `%*`
-from std/os import `/`
+from std/os import `/`, splitFile
 from std/strutils import replace
+from ../filepath import secureCreatePath, secureWriteFile
 
 export rand, results
 
@@ -100,14 +101,15 @@ proc checkJwtSecret*(
     let jwtSecretPath = dataDir / jwtSecretFilename
 
     let newSecret = rng.generateBytes(JWT_SECRET_LEN)
-    try:
-      writeFile(jwtSecretPath, newSecret.to0xHex())
-    except IOError as exc:
+    # Write JWT secret with restrictive permissions (0600 on Unix, user-only ACL on Windows)
+    let (dirPath, _, _) = splitFile(jwtSecretPath)
+    discard secureCreatePath(dirPath)
+    let wres = secureWriteFile(jwtSecretPath, newSecret.to0xHex())
+    if wres.isErr():
       # Allow continuing to run, though this is effectively fatal for a merge
       # client using authentication. This keeps it lower-risk initially.
       warn "Could not write JWT secret to data directory",
-        jwtSecretPath,
-        err = exc.msg
+        jwtSecretPath
     return ok(newSecret)
 
   loadJwtSecretFile(jwtSecret.get)
