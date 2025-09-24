@@ -281,6 +281,7 @@ proc getExecutionPayload*(
     async: (raises: [CancelledError])
 .} =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
+
   let
     slot = withState(proposalState[]):
       forkyState.data.slot
@@ -289,8 +290,11 @@ proc getExecutionPayload*(
     )
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix and
+          consensusFork < ConsensusFork.Gloas:
         forkyState.data.latest_execution_payload_header.block_hash
+      elif consensusFork >= ConsensusFork.Gloas:
+        forkyState.data.latest_execution_payload_bid.block_hash
       else:
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash

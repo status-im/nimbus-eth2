@@ -1353,7 +1353,7 @@ proc addGloasMessageHandlers(
   node.addFuluMessageHandlers(forkDigest, slot)
   debugGloasComment "default gossipsub config"
   node.network.subscribe(
-    getExecutionPayloadHeaderTopic(forkDigest), basicParams())
+    getExecutionPayloadBidTopic(forkDigest), basicParams())
   node.network.subscribe(
     getExecutionPayloadTopic(forkDigest), basicParams())
   node.network.subscribe(
@@ -1404,7 +1404,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
-  node.network.unsubscribe(getExecutionPayloadHeaderTopic(forkDigest))
+  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
 

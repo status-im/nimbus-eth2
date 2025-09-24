@@ -36,7 +36,7 @@ const
   OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
   OpExecutionPayloadDir       = OpDir/"execution_payload"
-  OpExecutionPayloadHeaderDir = OpDir/"execution_payload_header"
+  OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
   OpPayloadAttestationDir     = OpDir/"payload_attestation"
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
   OpSyncAggregateDir          = OpDir/"sync_aggregate"
@@ -49,7 +49,7 @@ const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpExecutionPayloadHeaderDir, OpPayloadAttestationDir, OpProposerSlashingDir,
+  OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
 ])
 
@@ -192,17 +192,17 @@ suite baseDescription & "Deposit Request " & preset():
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
-suite baseDescription & "Execution Payload Header " & preset():
-  proc applyExecutionPayloadHeader(
+suite baseDescription & "Execution Payload Bid " & preset():
+  proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
-    process_execution_payload_header(
+    process_execution_payload_bid(
       defaultRuntimeConfig, preState, blck)
 
-  for path in walkTests(OpExecutionPayloadHeaderDir):
-    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadHeader](
-      OpExecutionPayloadHeaderDir, suiteName, "Execution Payload Header",
-      "block", applyExecutionPayloadHeader, path)
+  for path in walkTests(OpExecutionPayloadBidDir):
+    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadBid](
+      OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
+      "block", applyExecutionPayloadBid, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(

@@ -2637,7 +2637,7 @@ func upgrade_to_fulu*(
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/fork.md#upgrading-the-state
 func upgrade_to_gloas*(
     cfg: RuntimeConfig, pre: fulu.BeaconState): ref gloas.BeaconState =
   let epoch = get_current_epoch(pre)
@@ -2698,7 +2698,7 @@ func upgrade_to_gloas*(
     next_sync_committee: pre.next_sync_committee,
 
     # [Modified in Gloas:EIP7732]
-    latest_execution_payload_header: gloas.ExecutionPayloadHeader(),
+    latest_execution_payload_bid: gloas.ExecutionPayloadBid(),
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,

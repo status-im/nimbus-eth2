@@ -25,7 +25,7 @@ const
   topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
-  topicExecutionPayloadHeaderSuffix = "execution_payload_header/ssz_snappy"
+  topicExecutionPayloadBidSuffix = "execution_payload_bid/ssz_snappy"
   topicExecutionPayloadSuffix = "execution_payload/ssz_snappy" 
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
 

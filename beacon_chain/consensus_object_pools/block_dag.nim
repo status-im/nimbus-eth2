@@ -93,9 +93,9 @@ func init*(
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root,
-    Opt.some blck.body.signed_execution_payload_header.message.block_hash,
+    Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
     if optimisticStatus == OptimisticStatus.valid or
-        blck.body.signed_execution_payload_header.message.block_hash.isZero:
+        blck.body.signed_execution_payload_bid.message.block_hash.isZero:
       OptimisticStatus.valid
     else:
       optimisticStatus,
