@@ -2532,7 +2532,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
     if (let reason = ProcessState.stopping(); reason.isSome()):
       notice "Shutting down", reason = reason[]
       break
-    if stopper != nil or stopper.finished():
+    if stopper != nil and stopper.finished():
       break
 
     chronos.poll()
