@@ -33,7 +33,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
 
   var config = LightClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
-    stderr.writeLine error # Logging not yet set up
+    writePanicLine error # Logging not yet set up
     quit QuitFailure
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)

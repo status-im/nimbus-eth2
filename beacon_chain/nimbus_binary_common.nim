@@ -84,6 +84,16 @@ proc setupFileLimits*() =
       setMaxOpenFiles2(16384).isOkOr:
         warn "Cannot increase open file limit", err = osErrorMsg(error)
 
+proc writePanicLine*(v: varargs[string, `$`]) =
+  ## Attempt writing text to stderr, ignoring errors if it fails - useful when
+  ## logging has not yet been set up
+  try:
+    for s in v:
+      stderr.write(s)
+    s.write("\p")
+  except IOError:
+    discard # Nothing to do..
+
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
