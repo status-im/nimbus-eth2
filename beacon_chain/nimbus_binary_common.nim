@@ -90,7 +90,7 @@ proc writePanicLine*(v: varargs[string, `$`]) =
   try:
     for s in v:
       stderr.write(s)
-    s.write("\p")
+    stderr.write("\p")
   except IOError:
     discard # Nothing to do..
 
