@@ -394,7 +394,7 @@ func is_merge_transition_complete*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-is_merge_transition_complete
 func is_merge_transition_complete*(state: gloas.BeaconState): bool =
   var bid = default(gloas.ExecutionPayloadBid)
-  let kzgs = default(KzgCommitments)
+  const kzgs = default(KzgCommitments)
   bid.blob_kzg_commitments_root = kzgs.hash_tree_root()
   state.latest_execution_payload_bid != bid
 
