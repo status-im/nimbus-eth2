@@ -79,7 +79,7 @@ export
   digest, presets, eth, eth_types_json_serialization.readValue,
   eth_types_json_serialization.writeValue
 
-const SPEC_VERSION* = "1.6.0-alpha.6"
+const SPEC_VERSION* = "1.6.0-beta.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const

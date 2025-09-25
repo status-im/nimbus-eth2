@@ -1106,35 +1106,34 @@ type SomeGloasBeaconBlock =
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     blck: SomeGloasBeaconBlock): Result[void, cstring] =
-
   template signed_bid: untyped = blck.body.signed_execution_payload_bid
   template bid: untyped = signed_bid.message
-
   let
     builder_index = ValidatorIndex.init(bid.builder_index).valueOr:
       return err("process_execution_payload_bid: invalid builder index")
     builder = addr state.validators.item(builder_index)
     amount = bid.value
 
-  # Verify the bid signature
-  if not verify_execution_payload_bid_signature(
-      state.fork, state.genesis_validators_root, signed_bid,
-      state, builder[].pubkey, signed_bid.signature):
-    return err("payload_bid: invalid bid signature")
+  # For self-builds, amount must be zero regardless of withdrawal credential prefix
+  if builder_index == blck.proposer_index:
+    if amount != 0.Gwei:
+      return err("process_execution_payload_bid: self-build must have zero amount")
+    if signed_bid.signature != ValidatorSig.infinity():
+      return err("process_execution_payload_bid: self-build signature must be infinity")
+  else:
+    # Non-self builds require builder withdrawal credential
+    if not has_builder_withdrawal_credential(builder[]):
+      return err("process_execution_payload_bid: builder missing withdrawal credential")
+    # Verify the bid signature for non-self builds
+    if not verify_execution_payload_bid_signature(
+        state.fork, state.genesis_validators_root, signed_bid,
+        state, builder[].pubkey, signed_bid.signature):
+      return err("payload_bid: invalid bid signature")
 
   if not is_active_validator(builder[], get_current_epoch(state)):
     return err("process_execution_payload_bid: builder not active")
   if builder[].slashed:
     return err("process_execution_payload_bid: builder is slashed")
-
-  # For self-builds, amount must be zero regardless of withdrawal credential prefix
-  if builder_index == blck.proposer_index:
-    if amount != 0.Gwei:
-      return err("process_execution_payload_bid: self-build must have zero amount")
-  else:
-    # Non-self builds require builder withdrawal credential
-    if not has_builder_withdrawal_credential(builder[]):
-      return err("process_execution_payload_bid: builder missing withdrawal credential")
 
   # Check that the builder is active, non-slashed, and has funds to cover the bid
   let
@@ -1144,14 +1143,12 @@ proc process_execution_payload_bid*(
         if payment.withdrawal.builder_index == builder_index:
           total += payment.withdrawal.amount
       total
-
     pending_withdrawals = block:
       var total: Gwei
       for withdrawal in state.builder_pending_withdrawals:
         if withdrawal.builder_index == builder_index:
           total += withdrawal.amount
       total
-
     required_balance =
       amount + pending_payments + pending_withdrawals +
       static(MIN_ACTIVATION_BALANCE.Gwei)
@@ -1180,13 +1177,11 @@ proc process_execution_payload_bid*(
         builder_index: builder_index.uint64
       )
     )
-
   state.builder_pending_payments.mitem(
     SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
   # Cache the signed execution payload bid
   state.latest_execution_payload_bid = bid
-
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
