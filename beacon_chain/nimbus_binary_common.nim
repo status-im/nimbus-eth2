@@ -206,7 +206,10 @@ proc loadWithBanners*(
 
     cmdLine =
       if len(environment) == 0:
-        commandLineParams()
+        try:
+          commandLineParams()
+        except OSError as exc:
+          return err(exc.msg)
       else:
         @environment
 
