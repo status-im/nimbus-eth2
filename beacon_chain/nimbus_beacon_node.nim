@@ -2528,9 +2528,14 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  while not ProcessState.stopIt(notice("Shutting down", reason = it)) and
-      (stopper == nil or not stopper.finished):
-    poll()
+  while true:
+    if (let reason = ProcessState.stopping(); reason.isSome()):
+      notice "Shutting down", reason = reason[]
+      break
+    if stopper != nil or stopper.finished():
+      break
+
+    chronos.poll()
 
   # time to say goodbye
   node.stop()
