@@ -5041,6 +5041,14 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
 + [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: mainnet]                        OK
 ```
+## EF - gloas - Finality  [Preset: mainnet]
+```diff
++ [Valid]   EF - gloas - Finality - finality_no_updates_at_genesis [Preset: mainnet]         OK
++ [Valid]   EF - gloas - Finality - finality_rule_1 [Preset: mainnet]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_2 [Preset: mainnet]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: mainnet]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: mainnet]                        OK
+```
 ## EF - gloas - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]          OK

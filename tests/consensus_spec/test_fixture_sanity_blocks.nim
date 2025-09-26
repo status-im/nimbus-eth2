@@ -78,22 +78,20 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
     SanityBlocksDir =
       SszTestsDir/const_preset/forkDirName/"sanity"/"blocks"/"pyspec_tests"
 
-  debugGloasComment "block sanity"
-  when consensusFork != ConsensusFork.Gloas or const_preset == "mainnet":
-    suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
-      for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-        consensusFork.runTest(
-          "EF - " & forkHumanName & " - Sanity - Blocks",
-          SanityBlocksDir, suiteName, path)
+  suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
+    for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Sanity - Blocks",
+        SanityBlocksDir, suiteName, path)
 
-  debugGloasComment "finality and random block sanity"
+  suite "EF - " & forkHumanName & " - Finality " & preset():
+    for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Finality",
+        FinalityDir, suiteName, path)
+
+  debugGloasComment "random block sanity"
   when consensusFork != ConsensusFork.Gloas:
-    suite "EF - " & forkHumanName & " - Finality " & preset():
-      for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-        consensusFork.runTest(
-          "EF - " & forkHumanName & " - Finality",
-          FinalityDir, suiteName, path)
-
     suite "EF - " & forkHumanName & " - Random " & preset():
       for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
         consensusFork.runTest(
