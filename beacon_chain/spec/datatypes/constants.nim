@@ -23,7 +23,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#constants
   NODE_ID_BITS* = 256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#configuration
   EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
   SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
@@ -58,6 +58,10 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#domain-types
+  DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
+  DOMAIN_BEACON_BUILDER* = DomainType([byte 0x1b, 0x00, 0x00, 0x00])
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
   REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
@@ -87,3 +91,7 @@ const
   DEPOSIT_REQUEST_TYPE* = 0x00'u8
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc
+  BUILDER_PAYMENT_THRESHOLD_NUMERATOR* = 6'u64
+  BUILDER_PAYMENT_THRESHOLD_DENOMINATOR* = 10'u64

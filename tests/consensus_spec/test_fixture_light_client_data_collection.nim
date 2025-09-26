@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -82,8 +82,7 @@ proc loadForked[T: not Opt](
 proc loadSteps(
     path: string,
     fork_digests: ForkDigests
-): seq[TestStep] {.raises: [
-    IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
+): seq[TestStep] {.raises: [KeyError, ValueError].} =
   template loadForked[T](t: typedesc[T], s: JsonNode): T =
     loadForked(t, s, path, fork_digests)
 
@@ -147,7 +146,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       taskpool = Taskpool.new()
     var
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
 
     let steps = loadSteps(path, dag.forkDigests[])
     for i, step in steps:

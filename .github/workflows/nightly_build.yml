@@ -21,6 +21,11 @@ jobs:
     name: Linux AMD64 release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -52,14 +57,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_amd64_checksum
+          name: Linux_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_amd64_checksum
+          name: Linux_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -67,6 +72,11 @@ jobs:
     name: Linux ARM64 release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Install packages
         env:
           DEBIAN_FRONTEND: "noninteractive"
@@ -106,14 +116,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm64_checksum
+          name: Linux_arm64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm64_checksum
+          name: Linux_arm64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -121,6 +131,11 @@ jobs:
     name: Linux ARM release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Install packages
         env:
           DEBIAN_FRONTEND: "noninteractive"
@@ -160,14 +175,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm_checksum
+          name: Linux_arm_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm_checksum
+          name: Linux_arm_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -175,6 +190,11 @@ jobs:
     name: Windows AMD64 release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -206,14 +226,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Windows_amd64_checksum
+          name: Windows_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Windows_amd64_checksum
+          name: Windows_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -221,6 +241,11 @@ jobs:
     name: macOS AMD64 release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -252,14 +277,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS_amd64_checksum
+          name: macOS_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS_amd64_checksum
+          name: macOS_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -267,6 +292,11 @@ jobs:
     name: macOS ARM64 release asset
     runs-on: ubuntu-latest
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -298,14 +328,14 @@ jobs:
       - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS_arm64_checksum
+          name: macOS_arm64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
       - name: Upload VC checksum artefact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS_arm64_checksum
+          name: macOS_arm64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
@@ -330,17 +360,23 @@ jobs:
           \`\`\`text
           EOF
           echo '# Linux AMD64' >> release_notes.md
-          cat Linux_amd64_checksum/* >> release_notes.md
+          cat Linux_amd64_checksum_bn/* >> release_notes.md
+          cat Linux_amd64_checksum_vc/* >> release_notes.md
           echo '# Linux ARM64' >> release_notes.md
-          cat Linux_arm64_checksum/* >> release_notes.md
+          cat Linux_arm64_checksum_bn/* >> release_notes.md
+          cat Linux_arm64_checksum_vc/* >> release_notes.md
           echo '# Linux ARM' >> release_notes.md
-          cat Linux_arm_checksum/* >> release_notes.md
+          cat Linux_arm_checksum_bn/* >> release_notes.md
+          cat Linux_arm_checksum_vc/* >> release_notes.md
           echo '# Windows AMD64' >> release_notes.md
-          cat Windows_amd64_checksum/* >> release_notes.md
+          cat Windows_amd64_checksum_bn/* >> release_notes.md
+          cat Windows_amd64_checksum_vc/* >> release_notes.md
           echo '# macOS AMD64' >> release_notes.md
-          cat macOS_amd64_checksum/* >> release_notes.md
+          cat macOS_amd64_checksum_bn/* >> release_notes.md
+          cat macOS_amd64_checksum_vc/* >> release_notes.md
           echo '# macOS ARM64' >> release_notes.md
-          cat macOS_arm64_checksum/* >> release_notes.md
+          cat macOS_arm64_checksum_bn/* >> release_notes.md
+          cat macOS_arm64_checksum_vc/* >> release_notes.md
           echo '```' >> release_notes.md
 
       - name: Delete tag
@@ -370,14 +406,20 @@ jobs:
           failOnError: false
           name: |
             Linux_amd64_archive
-            Linux_amd64_checksum
+            Linux_amd64_checksum_bn
+            Linux_amd64_checksum_vc
             Linux_arm64_archive
-            Linux_arm64_checksum
+            Linux_arm64_checksum_bn
+            Linux_arm64_checksum_vc
             Linux_arm_archive
-            Linux_arm_checksum
+            Linux_arm_checksum_bn
+            Linux_arm_checksum_vc
             Windows_amd64_archive
-            Windows_amd64_checksum
+            Windows_amd64_checksum_bn
+            Windows_amd64_checksum_vc
             macOS_amd64_archive
-            macOS_amd64_checksum
+            macOS_amd64_checksum_bn
+            macOS_amd64_checksum_vc
             macOS_arm64_archive
-            macOS_arm64_checksum
+            macOS_arm64_checksum_bn
+            macOS_arm64_checksum_vc

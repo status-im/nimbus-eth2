@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[typetraits, sequtils, sets],
@@ -15,8 +15,9 @@ import
   ./state_ttl_cache,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
-  ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/mev/[bellatrix_mev, capella_mev],
+  ../spec/[
+      peerdas_helpers, eth2_merkleization,
+      forks, network, validator],
   ../validators/message_router_mev
 
 export rest_utils
@@ -129,19 +130,69 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+proc handleDataSidecarRequest*[
+    InvalidIndexValueError: static string,
+    DataSidecarsType: typedesc[List];
+    getDataSidecar: static proc
+](
+    node: BeaconNode,
+    mediaType: Result[MediaType, cstring],
+    block_id: Result[BlockIdent, cstring],
+    indices: Result[seq[uint64], cstring],
+    maxDataSidecars: uint64): RestApiResponse =
+  let
+    contentType = mediaType.valueOr:
+      return RestApiResponse.jsonError(
+        Http406, ContentNotAcceptableError)
+    blockIdent = block_id.valueOr:
+      return RestApiResponse.jsonError(
+        Http400, InvalidBlockIdValueError, $error)
+    bid = node.getBlockId(blockIdent).valueOr:
+      return RestApiResponse.jsonError(
+        Http404, BlockNotFoundError)
+    indexFilter = (block: indices.valueOr:
+      return RestApiResponse.jsonError(
+        Http400, InvalidIndexValueError, $error)).toHashSet()
+
+    data = newClone(default(DataSidecarsType))
+  for dataIndex in 0'u64 ..< maxDataSidecars:
+    if indexFilter.len > 0 and dataIndex notin indexFilter:
+      continue
+    let dataSidecar = new DataSidecarsType.T
+    if getDataSidecar(node.dag.db, bid.root, dataIndex, dataSidecar[]):
+      discard data[].add dataSidecar[]
+  let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+
+  if contentType == sszMediaType:
+    RestApiResponse.sszResponse(
+      data[], consensusFork, node.hasRestAllowedOrigin)
+  elif contentType == jsonMediaType:
+    RestApiResponse.jsonResponseFinalizedWVersion(
+      data[].asSeq(),
+      Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid),
+      consensusFork, node.hasRestAllowedOrigin)
+  else:
+    RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+proc handleDataSidecarRequest*[
+    InvalidIndexValueError: static string,
+    DataSidecarsType: typedesc[List];
+    getDataSidecar: static proc
+](
+    node: BeaconNode,
+    mediaType: Result[MediaType, cstring],
+    block_id: Result[BlockIdent, cstring],
+    indices: Result[seq[uint64], cstring]): RestApiResponse =
+  handleDataSidecarRequest[
+    InvalidIndexValueError, DataSidecarsType, getDataSidecar
+  ](node, mediaType, block_id, indices, DataSidecarsType.maxLen.uint64)
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
     ) -> RestApiResponse:
-    let snapshot = node.db.getDepositContractSnapshot().valueOr:
-      # This can happen in a very short window after the client is started,
-      # but the snapshot record still haven't been upgraded in the database.
-      # Returning 404 should be easy to handle for the clients - they just need
-      # to retry.
-      return RestApiResponse.jsonError(Http404,
-                                       NoFinalizedSnapshotAvailableError)
-
-    RestApiResponse.jsonResponse(snapshot.getTreeSnapshot())
+    return RestApiResponse.jsonError(Http404,
+                                     NoFinalizedSnapshotAvailableError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -329,6 +380,44 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 if status in validatorsMask:
                   res.add(RestValidator.init(index, balance, toString(status),
                                              validator))
+            res
+      return RestApiResponse.jsonResponseFinalized(
+        response,
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
+      )
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  proc getValidatorIdentities(
+         node: BeaconNode,
+         bslot: BlockSlotId,
+         validatorIds: openArray[ValidatorIdent]
+       ): RestApiResponse =
+    node.withStateForBlockSlotId(bslot):
+      let
+        indices = node.getIndices(validatorIds, state).valueOr:
+          return RestApiResponse.jsonError(error)
+        response =
+          block:
+            var res: seq[RestValidatorIdentity]
+            if len(indices) == 0:
+              # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+              # that we can't find validator identifiers in state, so we should
+              # return empty response.
+              if len(validatorIds) == 0:
+                # There are no indices, so we're going to filter all the
+                # validators.
+                for index, validator in getStateField(state, validators):
+                  res.add(RestValidatorIdentity.init(ValidatorIndex(index),
+                                                     validator.pubkeyData.pubkey(),
+                                                     validator.activation_epoch))
+            else:
+              for index in indices:
+                let
+                  validator = getStateField(state, validators).item(index)
+                res.add(RestValidatorIdentity.init(index,
+                                                   validator.pubkeyData.pubkey(),
+                                                   validator.activation_epoch))
             res
       return RestApiResponse.jsonResponseFinalized(
         response,
@@ -561,6 +650,31 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
     getBalances(node, bslot, validatorIds)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidatorIdentities
+  router.metricsApi2(
+    MethodPost, "/eth/v1/beacon/states/{state_id}/validator_identities",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      validatorIds =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let body = contentBody.get()
+          decodeBody(seq[ValidatorIdent], body).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorIdValueError, $error)
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+    getValidatorIdentities(node, bslot, validatorIds)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/committees",
@@ -764,8 +878,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao
-  # https://github.com/ethereum/beacon-APIs/blob/b3c4defa238aaa74bf22aa602aa1b24b68a4c78e/apis/beacon/states/randao.yaml
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getStateRandao
+  # https://github.com/ethereum/beacon-APIs/blob/v3.1.0/apis/beacon/states/randao.yaml
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/randao",
     {RestServerMetricsType.Status, Response}) do (
@@ -808,9 +922,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if bsi.isSome:
       let mix = node.dag.computeRandaoMix(bsi.get.bid)
       if mix.isSome:
-        return RestApiResponse.jsonResponseWOpt(
+        let bid = bsi.get.bid
+        return RestApiResponse.jsonResponseFinalized(
           RestEpochRandao(randao: mix.get),
-          node.getBidOptimistic(bsi.get.bid)
+          node.getBidOptimistic(bid),
+          node.dag.isFinalized(bid)
         )
 
     # Fall back to full state computation
@@ -925,15 +1041,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
-              checkValidator = true)
+              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
-              checkValidator = true)
+              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -951,7 +1067,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let
           version = request.headers.getString("eth-consensus-version")
-          validation =
+          validation {.used.} =
             block:
               let res =
                 if broadcast_validation.isNone():
@@ -982,14 +1098,24 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              Opt.none(seq[fulu.DataColumnSidecar]),
+              checkValidator = true)
+          elif consensusFork >= ConsensusFork.Fulu:
+            let data_columns = assemble_data_column_sidecars(
+              forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
+              @(kzg_proofs.mapIt(kzg.KzgProof(it))))
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.some(data_columns),
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.none(seq[fulu.DataColumnSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -1024,20 +1150,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         signedMaybeBlindedBlck: auto, consensusFork: ConsensusFork): untyped =
       if contentType == sszMediaType:
         RestApiResponse.sszResponse(
-          signedMaybeBlindedBlck,
-          [("eth-consensus-version", consensusFork.toString())])
+          signedMaybeBlindedBlck, consensusFork, node.hasRestAllowedOrigin)
       elif contentType == jsonMediaType:
         RestApiResponse.jsonResponseBlock(
           signedMaybeBlindedBlck,
-          consensusFork,
           node.getBlockOptimistic(bdata),
-          node.dag.isFinalized(bid)
-        )
+          node.dag.isFinalized(bid),
+          consensusFork, node.hasRestAllowedOrigin)
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork <= ConsensusFork.Altair:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      elif consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
@@ -1078,7 +1205,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
@@ -1119,7 +1250,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
-            checkValidator = true)
+            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(
@@ -1140,7 +1271,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       currentEpochFork =
         node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
       version = request.headers.getString("eth-consensus-version")
-      validation =
+      validation {.used.} =
         if broadcast_validation.isNone():
           BroadcastValidationType.Gossip
         else:
@@ -1161,7 +1292,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     withConsensusFork(currentEpochFork):
       # TODO (cheatfate): handle broadcast_validation flag
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
@@ -1202,7 +1337,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
-            checkValidator = true)
+            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(
@@ -1228,24 +1363,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-    let contentType =
-      block:
+      contentType = block:
         let res = preferredContentType(jsonMediaType,
                                        sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
     if contentType == sszMediaType:
       var data: seq[byte]
       if not node.dag.getBlockSSZ(bid, data):
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-      let
-        fork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-        headers = [("eth-consensus-version", fork.toString())]
-
-      RestApiResponse.sszResponsePlain(data, headers)
+      RestApiResponse.sszResponsePlain(
+        data, consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
       let bdata = node.dag.getForkedBlock(bid).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
@@ -1253,8 +1385,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonResponseBlock(
         bdata.asSigned(),
         node.getBlockOptimistic(bdata),
-        node.dag.isFinalized(bid)
-      )
+        node.dag.isFinalized(bid),
+        node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
@@ -1314,8 +1446,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         forkyBlck.message.body.attestations.asSeq(),
         node.getBlockOptimistic(bdata),
         node.dag.isFinalized(bid),
-        consensusFork
-      )
+        consensusFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
   router.api2(MethodGet, "/eth/v1/beacon/pool/attestations") do (
@@ -1378,11 +1509,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if consensusFork < ConsensusFork.Electra:
       return RestApiResponse.jsonResponseWVersion(
         toSeq(node.attestationPool[].attestations(vslot, vindex)),
-        consensusFork)
+        consensusFork, node.hasRestAllowedOrigin)
     else:
       return RestApiResponse.jsonResponseWVersion(
         toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
-        consensusFork)
+        consensusFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
@@ -1432,7 +1563,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     let
-      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      headerVersion = request.headers.getString("eth-consensus-version")
       consensusVersion = ConsensusFork.init(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
@@ -1455,7 +1586,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttestations(phase0.Attestation)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttestations(electra.SingleAttestation)
 
     let failures =
@@ -1520,18 +1651,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork < ConsensusFork.Electra:
         RestApiResponse.jsonResponseWVersion(
           toSeq(node.validatorChangePool.phase0_attester_slashings),
-          contextFork)
+          contextFork, node.hasRestAllowedOrigin)
       else:
         RestApiResponse.jsonResponseWVersion(
           toSeq(node.validatorChangePool.electra_attester_slashings),
-          contextFork)
+          contextFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
   router.api(MethodPost, "/eth/v2/beacon/pool/attester_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     let
-      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      headerVersion = request.headers.getString("eth-consensus-version")
       consensusVersion = ConsensusFork.init(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
@@ -1555,7 +1686,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttesterSlashing(phase0.AttesterSlashing)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
@@ -1686,54 +1817,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlobSidecars
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blob_sidecars/blob_sidecars.yaml
   router.api2(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
-    block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
-    let
-      blockIdent = block_id.valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                         $error)
-      bid = node.getBlockId(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-      contentType = block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
-
+      block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
     # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
     # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
     # the serialization limit is configurable and is:
     # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
     # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
-    let data = newClone(default(
-      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]))
+    handleDataSidecarRequest[
+      InvalidBlobSidecarIndexValueError,
+      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK],
+      getBlobSidecar
+    ](
+      node, preferredContentType(jsonMediaType, sszMediaType),
+      block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
-    if indices.isErr:
-      return RestApiResponse.jsonError(Http400,
-                                       InvalidSidecarIndexValueError)
-
-    let indexFilter = indices.get.toHashSet
-
-    for blobIndex in 0'u64 ..< node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-      if indexFilter.len > 0 and blobIndex notin indexFilter:
-        continue
-
-      var blobSidecar = new BlobSidecar
-
-      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
-        discard data[].add blobSidecar[]
-
-    if contentType == sszMediaType:
-      RestApiResponse.sszResponse(
-        data[], headers = [("eth-consensus-version",
-          node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
-    elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponse(data)
-    else:
-      RestApiResponse.jsonError(Http500, InvalidAcceptError)
-
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingDeposits
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",
     {RestServerMetricsType.Status, Response}) do (
@@ -1753,17 +1851,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_deposits,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork, node.hasRestAllowedOrigin)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingPartialWithdrawals
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingPartialWithdrawals
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_partial_withdrawals",
     {RestServerMetricsType.Status, Response}) do (
@@ -1783,10 +1882,42 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_partial_withdrawals,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork, node.hasRestAllowedOrigin)
+        else:
+          RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                    $error)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingConsolidations
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/pending_consolidations",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Electra:
+          RestApiResponse.jsonResponseFinalizedWVersion(
+            forkyState.data.pending_consolidations,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid),
+            consensusFork, node.hasRestAllowedOrigin)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)

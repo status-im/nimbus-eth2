@@ -41,6 +41,8 @@ type
     BlobIdentifier, Limit MAX_SUPPORTED_REQUEST_BLOB_SIDECARS]
   DataColumnIdentifierList* = List[
     DataColumnIdentifier, Limit (MAX_REQUEST_DATA_COLUMN_SIDECARS)]
+  DataColumnsByRootIdentifierList* = List[
+    DataColumnsByRootIdentifier, Limit (MAX_REQUEST_BLOCKS_DENEB)]
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
@@ -85,7 +87,7 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type (ref DataColumnSidecar)):
+    conn: Connection, peer: Peer, MsgType: type (ref fulu.DataColumnSidecar)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
@@ -98,7 +100,7 @@ proc readChunkPayload*(
 
   withConsensusFork(contextFork):
     when consensusFork >= ConsensusFork.Fulu:
-      let res = await readChunkPayload(conn, peer, DataColumnSidecar)
+      let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
       if res.isOk:
         return ok newClone(res.get)
       else:
@@ -179,9 +181,6 @@ template getBlobSidecarsByRange(
   for i in startIndex..endIndex:
     for j in 0..<blobsPerBlock:
       if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-        if not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read blobs sidecar size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockIds[i])
@@ -254,13 +253,6 @@ p2pProtocol BeaconSync(version = 1,
 
     for i in startIndex..endIndex:
       if dag.getBlockSZ(blocks[i], bytes):
-        # In general, there is not much intermediate time between post-merge
-        # blocks all being optimistic and none of them being optimistic. The
-        # EL catches up, tells the CL the head is verified, and that's it.
-        if  blocks[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blocks[i])
@@ -321,13 +313,6 @@ p2pProtocol BeaconSync(version = 1,
           continue
 
       if dag.getBlockSZ(blockRef.bid, bytes):
-        # In general, there is not much intermediate time between post-merge
-        # blocks all being optimistic and none of them being optimistic. The
-        # EL catches up, tells the CL the head is verified, and that's it.
-        if  blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockRef)
@@ -390,19 +375,19 @@ p2pProtocol BeaconSync(version = 1,
       peer.networkState.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/b8b5fbb8d16f52d42a716fa93289062fe2124c7c/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
-      colIds: DataColumnIdentifierList,
+      colIds: DataColumnsByRootIdentifierList,
       response: MultipleChunksResponse[
-        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
+        ref fulu.DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
       {.async, libp2pProtocol("data_column_sidecars_by_root", 1).} =
 
     trace "got data column root request", peer, len = colIds.len
     if colIds.len == 0:
       raise newException(InvalidInputsError, "No data columns request for root")
 
-    if colIds.lenu64 > MAX_REQUEST_DATA_COLUMN_SIDECARS:
+    if colIds.lenu64 > MAX_REQUEST_BLOCKS_DENEB:
       raise newException(InvalidInputsError, "Exceeding data column request limit")
 
     let
@@ -414,28 +399,40 @@ p2pProtocol BeaconSync(version = 1,
       bytes: seq[byte]
 
     for i in 0..<count:
-      let blockRef =
-        dag.getBlockRef(colIds[i].block_root).valueOr:
+      var requiredBid: BlockId
+      let blockRefOpt =
+        dag.getBlockRef(colIds[i].block_root)
+      if blockRefOpt.isSome():
+        requiredBid = blockRefOpt.get.bid
+      else:
+        # If we cannot retrieve the block id from getBlockRef
+        # the block is probably of a finalized slot, we can now
+        # try using `blockSlotId`.
+        requiredBid = dag.getBlockId(colIds[i].block_root).valueOr:
           continue
-      let index =
-        colIds[i].index
-      if dag.db.getDataColumnSidecarSZ(blockRef.bid.root, index, bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read data column size, database corrupt?",
-            bytes = bytes.len, blck = shortLog(blockRef), columnIndex = index
+        let bsid = dag.getBlockIdAtSlot(requiredBid.slot).valueOr:
           continue
+        requiredBid = bsid.bid
+      let indices =
+        colIds[i].indices
+      for id in indices:
+        if dag.db.getDataColumnSidecarSZ(requiredBid.root, id, bytes):
+          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+            warn "Cannot read data column size, database corrupt?",
+              bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
+            continue
 
-        peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
-        peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
+          peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
+          peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
-          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
-        inc found
+          await response.writeBytesSZ(
+            uncompressedLen, bytes,
+            peer.network.forkDigestAtEpoch(requiredBid.slot.epoch).data)
+          inc found
 
-        # additional logging for devnets
-        debug "responsded to data column sidecar by root request",
-          peer, blck = shortLog(blockRef), columnIndex = index
+          # additional logging for devnets
+          trace "responsded to data column sidecar by root request",
+            peer, blck = shortLog(requiredBid), columnIndex = id
 
     debug "Data column root request done",
       peer, roots = colIds.len, count, found
@@ -447,7 +444,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqColumns: List[ColumnIndex, NUMBER_OF_COLUMNS],
       response: MultipleChunksResponse[
-        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
+        ref fulu.DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
       {.async, libp2pProtocol("data_column_sidecars_by_range", 1).} =
 
     trace "got data columns range request", peer, startSlot,
@@ -484,10 +481,6 @@ p2pProtocol BeaconSync(version = 1,
     for i in startIndex..endIndex:
       for k in reqColumns:
         if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
-          if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
-              not dag.head.executionValid:
-            continue
-
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column sidecar size, database corrup?",
               bytes = bytes.len, blck = shortLog(blockIds[i])
@@ -506,7 +499,7 @@ p2pProtocol BeaconSync(version = 1,
           respondedCols.add(k)
 
           # additional logging for devnets
-          debug "responded to data column sidecar range request",
+          trace "responded to data column sidecar range request",
             peer, blck = shortLog(blockIds[i]), columns = respondedCols
 
     debug "Data column range request done",

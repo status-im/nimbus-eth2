@@ -5,46 +5,22 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## This module implements the version tagging details of all binaries included
 ## in the Nimbus release process (i.e. beacon_node, validator_client, etc)
 
-import std/[strutils, compilesettings]
+import std/[os, strutils], ./buildinfo
 
 const
-  compileYear = CompileDate[0 ..< 4]  # YYYY-MM-DD (UTC)
-  copyrights* =
-    "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
-
   versionMajor* = 25
-  versionMinor* = 4
+  versionMinor* = 9
   versionBuild* = 1
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
-  ## You can override this if you are building the
-  ## sources outside the git tree of Nimbus:
-  git_revision_override* {.strdefine.} =
-    when querySetting(SingleValueSetting.command) == "check":
-      # The staticExec call below returns an empty string
-      # when `nim check` is used and this leads to a faux
-      # compile-time error.
-      # We work-around the problem with this override and
-      # save some time in executing the external command.
-      "123456"
-    else:
-      ""
-
-  gitRevisionLong* = when git_revision_override.len == 0:
-    staticExec "git rev-parse --short HEAD"
-  else:
-    git_revision_override
-
-  gitRevision* = strip(gitRevisionLong)[0..5]
-
-  nimFullBanner* = staticExec("nim --version")
-  nimBanner* = staticExec("nim --version | grep Version")
+  sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
+  gitRevision* = strip(generateGitRevision(sourcePath))[0..5]
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
@@ -53,19 +29,7 @@ const
 
   nimbusAgentStr* = "Nimbus/" & fullVersionStr
 
-func getNimGitHash*(): string =
-  const gitPrefix = "git hash: "
-  let tmp = splitLines(nimFullBanner)
-  if tmp.len == 0:
-    return
-  for line in tmp:
-    if line.startsWith(gitPrefix) and line.len > 8 + gitPrefix.len:
-      result = line[gitPrefix.len..<gitPrefix.len + 8]
-
-func shortNimBanner*(): string =
-  let gitHash = getNimGitHash()
-  let tmp = splitLines(nimFullBanner)
-  if gitHash.len > 0:
-    tmp[0] & " (" & gitHash & ")"
-  else:
-    tmp[0]
+when not defined(nimscript):
+  import metrics
+  declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+  versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])

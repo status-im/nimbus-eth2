@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -88,10 +88,8 @@ proc checkSSZ(
 
   # TODO check the value (requires YAML loader)
 
-proc loadExpectedHashTreeRoot(
-    dir: string
-): SSZHashTreeRoot {.raises: [
-    Exception, IOError, OSError, YamlConstructionError, YamlParserError].} =
+proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
+    {.raises: [IOError, OSError, YamlConstructionError, YamlParserError].} =
   let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
@@ -137,9 +135,9 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(electra.ExecutionPayload, path, hash)
+            checkSSZ(deneb.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+            checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionRequests": checkSSZ(ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)

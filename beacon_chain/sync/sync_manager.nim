@@ -27,7 +27,7 @@ const
   StatusExpirationTime* = chronos.minutes(2)
     ## Time time it takes for the peer's status information to expire.
 
-  ConcurrentRequestsCount* = 3
+  ConcurrentRequestsCount* = 1  # Higher values require reviewing `pending == 0`
     ## Number of requests performed by one peer in single syncing step
 
   RepeatingFailuresCount* = 2
@@ -43,7 +43,7 @@ const
 type
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Queueing,
-    Processing
+    Processing, Paused
 
   SyncManagerFlag* {.pure.} = enum
     NoMonitor, NoGenesisSync
@@ -69,12 +69,14 @@ type
     progressPivot: Slot
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
+    resumeSyncEvent: AsyncEvent
     shutdownEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
     queue: SyncQueue[A]
     syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
+    forkAtEpoch: ForkAtEpochCallback
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -121,7 +123,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
                                man.getSafeSlot, man.blockVerifier,
-                               man.ident)
+                               man.forkAtEpoch, man.ident)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -136,8 +138,8 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.chunkSize,
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
-                               man.getSafeSlot,
-                               man.blockVerifier, man.ident)
+                               man.getSafeSlot, man.blockVerifier,
+                               man.forkAtEpoch, man.ident)
 
 proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
@@ -154,6 +156,7 @@ proc newSyncManager*[A, B](
     weakSubjectivityPeriodCb: GetBoolCallback,
     progressPivot: Slot,
     blockVerifier: BlockVerifier,
+    forkAtEpochCb: ForkAtEpochCallback,
     shutdownEvent: AsyncEvent,
     maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
     chunkSize = uint64(SLOTS_PER_EPOCH),
@@ -185,7 +188,9 @@ proc newSyncManager*[A, B](
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
+    forkAtEpoch: forkAtEpochCb,
     notInSyncEvent: newAsyncEvent(),
+    resumeSyncEvent: newAsyncEvent(),
     direction: direction,
     shutdownEvent: shutdownEvent,
     ident: ident,
@@ -263,7 +268,7 @@ func groupBlobs*(
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
@@ -342,7 +347,7 @@ proc getSyncBlockData*[T](
 
   let (shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let res = len(forkyBlck.message.body.blob_kzg_commitments)
         if res > 0:
           (true, res)
@@ -433,7 +438,7 @@ proc getSyncBlockData[A, B](
         var hasBlobs = false
         for blck in blocks:
           withBlck(blck[]):
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
               if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
                 hasBlobs = true
                 break
@@ -638,7 +643,9 @@ proc syncStep[A, B](
   proc processCallback() =
     man.workers[index].status = SyncWorkerStatus.Processing
 
-  var jobs: seq[Future[void].Raising([CancelledError])]
+  var
+    jobs: seq[Future[void].Raising([CancelledError])]
+    requests: seq[SyncRequest[Peer]]
 
   try:
     for rindex in 0 ..< man.concurrentRequestsCount:
@@ -658,6 +665,7 @@ proc syncStep[A, B](
               peer_score = peer.getScore(),
               peer_speed = peer.netKbps(),
               index = index,
+              request_index = rindex,
               local_head_slot = headSlot,
               remote_head_slot = peerSlot,
               queue_input_slot = man.queue.inpSlot,
@@ -669,18 +677,22 @@ proc syncStep[A, B](
         await sleepAsync(RESP_TIMEOUT_DUR)
         break
 
+      requests.add(request)
       man.workers[index].status = SyncWorkerStatus.Downloading
+
       let data = (await man.getSyncBlockData(index, request)).valueOr:
         debug "Failed to get block data",
               peer = peer,
               peer_score = peer.getScore(),
               peer_speed = peer.netKbps(),
               index = index,
+              request_index = rindex,
               reason = error,
               direction = man.direction,
               sync_ident = man.ident,
               topics = "syncman"
-        man.queue.push(request)
+        # Mark all requests as failed
+        man.queue.push(requests)
         break
 
       # Scoring will happen in `syncUpdate`.
@@ -700,7 +712,19 @@ proc syncStep[A, B](
       await allFutures(jobs)
 
   except CancelledError as exc:
+    # Mark all requests as failed
+    man.queue.push(requests)
+    # Cancelling all verification jobs
     let pending = jobs.filterIt(not(it.finished)).mapIt(cancelAndWait(it))
+    debug "Cancelling sync step",
+          peer = peer,
+          peer_score = peer.getScore(),
+          peer_speed = peer.netKbps(),
+          index = index,
+          num_pending = pending.len,
+          sync_ident = man.ident,
+          direction = man.direction,
+          topics = "syncman"
     await noCancel allFutures(pending)
     raise exc
 
@@ -720,6 +744,11 @@ proc syncWorker[A, B](
   try:
     while true:
       man.workers[index].status = SyncWorkerStatus.Sleeping
+
+      if not(man.resumeSyncEvent.isSet()):
+        man.workers[index].status = SyncWorkerStatus.Paused
+      await man.resumeSyncEvent.wait()
+
       # This event is going to be set until we are not in sync with network
       await man.notInSyncEvent.wait()
       man.workers[index].status = SyncWorkerStatus.WaitingPeer
@@ -767,6 +796,9 @@ proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
       of SyncWorkerStatus.Processing:
         ch = 'P'
         inc(pending)
+      of SyncWorkerStatus.Paused:
+        ch = 'p'
+        inc(sleeping)
     map[i] = ch
   (map, sleeping, waiting, pending)
 
@@ -822,6 +854,8 @@ proc syncLoop[A, B](
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore
 
+  man.resumeSyncEvent.fire()
+
   # Update SyncQueue parameters, because callbacks used to calculate parameters
   # could provide different values at moment when syncLoop() started.
   man.initQueue()
@@ -840,6 +874,8 @@ proc syncLoop[A, B](
       # Reset sync speeds between each loss-of-sync event
       man.avgSyncSpeed = 0
       man.insSyncSpeed = 0
+
+      await man.resumeSyncEvent.wait()
 
       await man.notInSyncEvent.wait()
 
@@ -944,11 +980,12 @@ proc syncLoop[A, B](
           uint64(man.queue.outSlot) + 1'u64
       )
 
-    # Update status string
-    man.syncStatus = timeleft.toTimeLeftString() & " (" &
-                    (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
-                    man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                    "slots/s (" & map & ":" & currentSlot & ")"
+    if man.resumeSyncEvent.isSet():
+      # Update status string
+      man.syncStatus = timeleft.toTimeLeftString() & " (" &
+                      (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
+                      man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                      "slots/s (" & map & ":" & currentSlot & ")"
 
     if (man.queue.kind == SyncQueueKind.Forward) and
        (SyncManagerFlag.NoGenesisSync in man.flags):
@@ -1055,9 +1092,41 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
+proc pause*[A, B](man: SyncManager[A, B]) =
+  ## Pause all the workers
+  man.resumeSyncEvent.clear()
+  man.inProgress = false
+
+proc resume*[A, B](man: SyncManager[A, B]) =
+  ## Resume all workers
+  man.resumeSyncEvent.fire()
+  man.inProgress = true
+
+func isStarted*[A, B](man: SyncManager[A, B]): bool =
+  not(isNil(man.syncFut)) and not(man.syncFut.finished())
+
+func isPaused*[A, B](man: SyncManager[A, B]): bool =
+  not(man.resumeSyncEvent.isSet())
+
 proc updatePivot*[A, B](man: SyncManager[A, B], pivot: Slot) =
   ## Update progress pivot slot.
   man.progressPivot = pivot
+
+func getStatus*[A, B](man: SyncManager[A, B]): string =
+  var res: seq[string]
+  if man.isStarted():
+    res.add("started")
+  if man.isPaused():
+    res.add("paused")
+  else:
+    if man.inProgress:
+      res.add("running")
+    else:
+      res.add("stopped")
+  "(" & res.join(", ") & ")"
+
+func queueLen*[A, B](man: SyncManager[A, B]): uint64 =
+  len(man.queue)
 
 proc join*[A, B](
     man: SyncManager[A, B]

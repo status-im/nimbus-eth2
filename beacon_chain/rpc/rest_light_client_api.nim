@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -41,10 +41,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyBootstrap, headers)
+            RestApiResponse.sszResponse(
+              forkyBootstrap, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponseWVersion(forkyBootstrap, contextFork)
+            RestApiResponse.jsonResponseWVersion(
+              forkyBootstrap, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
@@ -102,10 +103,9 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             continue
         contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
+        contextBytes = node.dag.forkDigestAtEpoch(contextEpoch)
       updates.add RestVersioned[ForkedLightClientUpdate](
-        data: update,
-        jsonVersion: contextFork,
-        sszContext: node.dag.forkDigests[].atConsensusFork(contextFork))
+        data: update, jsonVersion: contextFork, sszContext: contextBytes)
 
     return
       if contentType == sszMediaType:
@@ -136,11 +136,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyFinalityUpdate, headers)
+            RestApiResponse.sszResponse(
+              forkyFinalityUpdate, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
             RestApiResponse.jsonResponseWVersion(
-              forkyFinalityUpdate, contextFork)
+              forkyFinalityUpdate, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
@@ -167,11 +167,11 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
           contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
-            let headers = [("eth-consensus-version", contextFork.toString())]
-            RestApiResponse.sszResponse(forkyOptimisticUpdate, headers)
+            RestApiResponse.sszResponse(
+              forkyOptimisticUpdate, contextFork, node.hasRestAllowedOrigin)
           elif contentType == jsonMediaType:
             RestApiResponse.jsonResponseWVersion(
-              forkyOptimisticUpdate, contextFork)
+              forkyOptimisticUpdate, contextFork, node.hasRestAllowedOrigin)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:

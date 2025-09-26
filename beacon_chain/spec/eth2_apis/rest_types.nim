@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
@@ -15,11 +15,11 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/primitives, httputils,
-  ".."/[deposit_snapshots, forks],
-  ".."/mev/[deneb_mev]
+  results,
+  stew/base10, httputils, stew/bitops2,
+  ../forks
 
-export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
+export forks, tables, httputils, results
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -57,7 +57,7 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, SingleAttestation,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate
 
@@ -224,6 +224,11 @@ type
     status*: string
     validator*: Validator
 
+  RestValidatorIdentity* = object
+    index*: ValidatorIndex
+    pubkey*: ValidatorPubKey
+    activation_epoch*: Epoch
+
   RestBlockHeader* = object
     slot*: Slot
     proposer_index*: ValidatorIndex
@@ -256,8 +261,8 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
-    is_optimistic*: Option[bool]
-    el_offline*: Option[bool]
+    is_optimistic*: Opt[bool]
+    el_offline*: Opt[bool]
 
   RestPeerCount* = object
     disconnected*: uint64
@@ -312,7 +317,12 @@ type
 
   FuluSignedBlockContents* = object
     signed_block*: fulu.SignedBeaconBlock
-    kzg_proofs*: deneb.KzgProofs
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: deneb.Blobs
+
+  GloasSignedBlockContents* = object
+    signed_block*: gloas.SignedBeaconBlock
+    kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
@@ -324,14 +334,11 @@ type
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
+    of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
   VCRuntimeConfig* = Table[string, string]
-
-  RestDepositContract* = object
-    chain_id*: string
-    address*: string
 
   RestBlockInfo* = object
     slot*: Slot
@@ -358,16 +365,16 @@ type
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
     data*: T
-    execution_optimistic*: Option[bool]
+    execution_optimistic*: Opt[bool]
 
   DataOptimisticObject*[T] = object
     data*: T
-    execution_optimistic*: Option[bool]
+    execution_optimistic*: Opt[bool]
 
   DataOptimisticAndFinalizedObject*[T] = object
     data*: T
-    execution_optimistic*: Option[bool]
-    finalized*: Option[bool]
+    execution_optimistic*: Opt[bool]
+    finalized*: Opt[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
@@ -410,10 +417,8 @@ type
 
   # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
   Web3SignerValidatorRegistration* = object
-    feeRecipient* {.
-      serializedFieldName: "fee_recipient".}: string
-    gasLimit* {.
-      serializedFieldName: "gas_limit".}: uint64
+    fee_recipient*: Eth1Address
+    gas_limit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
@@ -421,11 +426,20 @@ type
     index*: GeneralizedIndex
     proof*: seq[Eth2Digest]
 
+  # https://github.com/ethereum/remote-signing-api/blob/87a392deb4e43209ca896dde6b4ec40bef7ee02c/signing/paths/sign.yaml#L37
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, AggregateAndProofV2, Attestation,
-    BlockV2, Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
-    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
-    ValidatorRegistration
+    AggregationSlot = "AGGREGATION_SLOT"
+    AggregateAndProof = "AGGREGATE_AND_PROOF"
+    AggregateAndProofV2 = "AGGREGATE_AND_PROOF_V2"
+    Attestation = "ATTESTATION"
+    BlockV2 = "BLOCK_V2"
+    Deposit = "DEPOSIT"
+    RandaoReveal = "RANDAO_REVEAL"
+    VoluntaryExit = "VOLUNTARY_EXIT"
+    SyncCommitteeMessage = "SYNC_COMMITTEE_MESSAGE",
+    SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
+    SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
+    ValidatorRegistration = "VALIDATOR_REGISTRATION"
 
   Web3SignerRequest* = object
     signingRoot*: Opt[Eth2Digest]
@@ -514,8 +528,6 @@ type
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
-  GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
@@ -549,12 +561,9 @@ type
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
-  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseDeneb* = DataVersionEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
@@ -564,8 +573,8 @@ type
   RestNodeExtraData* = object
     justified_root*: Eth2Digest
     finalized_root*: Eth2Digest
-    u_justified_checkpoint*: Option[Checkpoint]
-    u_finalized_checkpoint*: Option[Checkpoint]
+    u_justified_checkpoint*: Opt[Checkpoint]
+    u_finalized_checkpoint*: Opt[Checkpoint]
     best_child*: Eth2Digest
     best_descendant*: Eth2Digest
 
@@ -578,7 +587,7 @@ type
     weight*: uint64
     validity*: RestNodeValidity
     execution_block_hash*: Eth2Digest
-    extra_data*: Option[RestNodeExtraData]
+    extra_data*: Opt[RestNodeExtraData]
 
   RestExtraData* = object
     discard
@@ -588,6 +597,8 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+  EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == GENESIS_SLOT) and
@@ -607,38 +618,52 @@ func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Gloas:
+    const consensusFork {.inject, used.} = ConsensusFork.Gloas
+    template forkyData: untyped {.inject, used.} = x.gloasData
+    template forkyBlck: untyped {.inject, used.} = x.gloasData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.gloasData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.gloasData.blobs
+    body
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
+    template forkyData: untyped {.inject, used.} = x.fuluData
     template forkyBlck: untyped {.inject, used.} = x.fuluData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.fuluData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.fuluData.blobs
     body
   of ConsensusFork.Electra:
     const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template forkyData: untyped {.inject, used.} = x.electraData
     template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.electraData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.electraData.blobs
     body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
     template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
     template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkyData: untyped {.inject, used.} = x.capellaData
     template forkyBlck: untyped {.inject, used.} = x.capellaData
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template forkyData: untyped {.inject, used.} = x.bellatrixData
     template forkyBlck: untyped {.inject, used.} = x.bellatrixData
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkyData: untyped {.inject, used.} = x.altairData
     template forkyBlck: untyped {.inject, used.} = x.altairData
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkyData: untyped {.inject, used.} = x.phase0Data
     template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
 
@@ -660,6 +685,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
     of ConsensusFork.Fulu:
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
+    of ConsensusFork.Gloas:
+      ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -749,6 +776,22 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     )
   )
 
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: gloas.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Gloas,
+    gloasData: GloasSignedBlockContents(
+      signed_block: gloas.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
@@ -783,6 +826,12 @@ func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
+
+func init*(t: typedesc[RestValidatorIdentity], index: ValidatorIndex,
+           pubkey: ValidatorPubKey,
+           activation_epoch: Epoch): RestValidatorIdentity =
+  RestValidatorIdentity(index: index, pubkey: pubkey,
+                        activation_epoch: activation_epoch)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
            balance: Gwei): RestValidatorBalance =
@@ -958,22 +1007,17 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     syncCommitteeContributionAndProof: data
   )
 
-from stew/byteutils import to0xHex
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+func init*(t: typedesc[Web3SignerRequest],
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
     signingRoot: signingRoot,
     validatorRegistration: Web3SignerValidatorRegistration(
-      feeRecipient: data.fee_recipient.data.to0xHex,
-      gasLimit: data.gas_limit,
+      fee_recipient: data.fee_recipient,
+      gas_limit: data.gas_limit,
       timestamp: data.timestamp,
       pubkey: data.pubkey)
   )
@@ -1078,3 +1122,185 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
+
+## Types and helpers for historical_summaries + proof endpoint
+const
+  # gIndex for historical_summaries field (27th field in BeaconState)
+  HISTORICAL_SUMMARIES_GINDEX* = GeneralizedIndex(59) # 32 + 27 = 59
+  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = GeneralizedIndex(91) # 64 + 27 = 91
+
+type
+  # Note: these could go in separate Capella/Electra spec files if they were
+  # part of the specification.
+  HistoricalSummariesProof* = array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
+  HistoricalSummariesProofElectra* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
+
+  # REST API types
+  GetHistoricalSummariesV1Response* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProof
+    slot*: Slot
+
+  GetHistoricalSummariesV1ResponseElectra* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProofElectra
+    slot*: Slot
+
+  ForkyGetHistoricalSummariesV1Response* =
+    GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra
+
+  HistoricalSummariesFork* {.pure.} = enum
+    Capella = 0,
+    Electra = 1
+
+  # REST client response type
+  ForkedHistoricalSummariesWithProof* = object
+    case kind*: HistoricalSummariesFork
+    of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
+    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+
+template historical_summaries_gindex*(
+    kind: static HistoricalSummariesFork): GeneralizedIndex =
+  case kind
+  of HistoricalSummariesFork.Electra:
+    HISTORICAL_SUMMARIES_GINDEX_ELECTRA
+  of HistoricalSummariesFork.Capella:
+    HISTORICAL_SUMMARIES_GINDEX
+
+template getHistoricalSummariesResponse*(
+    kind: static HistoricalSummariesFork): auto =
+  when kind >= HistoricalSummariesFork.Electra:
+    GetHistoricalSummariesV1ResponseElectra
+  elif kind >= HistoricalSummariesFork.Capella:
+    GetHistoricalSummariesV1Response
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1Response,
+): T =
+    ForkedHistoricalSummariesWithProof(
+      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
+    )
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1ResponseElectra,
+): T =
+    ForkedHistoricalSummariesWithProof(
+      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
+    )
+
+template withForkyHistoricalSummariesWithProof*(
+    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
+  case x.kind
+  of HistoricalSummariesFork.Electra:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
+    template forkySummaries: untyped {.inject, used.} = x.electraData
+    body
+  of HistoricalSummariesFork.Capella:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
+    template forkySummaries: untyped {.inject, used.} = x.capellaData
+    body
+
+func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
+  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+  if consensusFork >= ConsensusFork.Electra:
+    Opt.some HistoricalSummariesFork.Electra
+  elif consensusFork >= ConsensusFork.Capella:
+    Opt.some HistoricalSummariesFork.Capella
+  else:
+    Opt.none HistoricalSummariesFork
+
+func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
+  # Either key or index depending on prefix
+  if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
+    let res = ? ValidatorPubKey.fromHex(value)
+    ok(ValidatorIdent(kind: ValidatorQueryKind.Key, key: res))
+  else:
+    let res = RestValidatorIndex(? Base10.decode(uint64, value))
+    ok(ValidatorIdent(kind: ValidatorQueryKind.Index, index: res))
+
+func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
+  case value
+  of "pending_initialized":
+    ok({ValidatorFilterKind.PendingInitialized})
+  of "pending_queued":
+    ok({ValidatorFilterKind.PendingQueued})
+  of "active_ongoing":
+    ok({ValidatorFilterKind.ActiveOngoing})
+  of "active_exiting":
+    ok({ValidatorFilterKind.ActiveExiting})
+  of "active_slashed":
+    ok({ValidatorFilterKind.ActiveSlashed})
+  of "exited_unslashed":
+    ok({ValidatorFilterKind.ExitedUnslashed})
+  of "exited_slashed":
+    ok({ValidatorFilterKind.ExitedSlashed})
+  of "withdrawal_possible":
+    ok({ValidatorFilterKind.WithdrawalPossible})
+  of "withdrawal_done":
+    ok({ValidatorFilterKind.WithdrawalDone})
+  of "pending":
+    ok({
+      ValidatorFilterKind.PendingInitialized,
+      ValidatorFilterKind.PendingQueued
+    })
+  of "active":
+    ok({
+      ValidatorFilterKind.ActiveOngoing,
+      ValidatorFilterKind.ActiveExiting,
+      ValidatorFilterKind.ActiveSlashed
+    })
+  of "exited":
+    ok({
+      ValidatorFilterKind.ExitedUnslashed,
+      ValidatorFilterKind.ExitedSlashed
+    })
+  of "withdrawal":
+    ok({
+      ValidatorFilterKind.WithdrawalPossible,
+      ValidatorFilterKind.WithdrawalDone
+    })
+  else:
+    err("Incorrect validator state identifier value")
+
+func toList*(value: set[ValidatorFilterKind]): seq[string] =
+  const
+    pendingSet = {ValidatorFilterKind.PendingInitialized,
+                  ValidatorFilterKind.PendingQueued}
+    activeSet = {ValidatorFilterKind.ActiveOngoing,
+                 ValidatorFilterKind.ActiveExiting,
+                 ValidatorFilterKind.ActiveSlashed}
+    exitedSet = {ValidatorFilterKind.ExitedUnslashed,
+                 ValidatorFilterKind.ExitedSlashed}
+    withdrawSet = {ValidatorFilterKind.WithdrawalPossible,
+                   ValidatorFilterKind.WithdrawalDone}
+  var
+    res: seq[string]
+    v = value
+
+  template processSet(argSet, argName: untyped): untyped =
+    if argSet * v == argSet:
+      res.add(argName)
+      v.excl(argSet)
+
+  template processSingle(argSingle, argName): untyped =
+    if argSingle in v:
+      res.add(argName)
+
+  processSet(pendingSet, "pending")
+  processSet(activeSet, "active")
+  processSet(exitedSet, "exited")
+  processSet(withdrawSet, "withdrawal")
+  processSingle(ValidatorFilterKind.PendingInitialized, "pending_initialized")
+  processSingle(ValidatorFilterKind.PendingQueued, "pending_queued")
+  processSingle(ValidatorFilterKind.ActiveOngoing, "active_ongoing")
+  processSingle(ValidatorFilterKind.ActiveExiting, "active_exiting")
+  processSingle(ValidatorFilterKind.ActiveSlashed, "active_slashed")
+  processSingle(ValidatorFilterKind.ExitedUnslashed, "exited_unslashed")
+  processSingle(ValidatorFilterKind.ExitedSlashed, "exited_slashed")
+  processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
+  processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
+  res

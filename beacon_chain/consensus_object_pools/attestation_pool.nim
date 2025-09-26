@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -721,7 +721,8 @@ func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
            capella.HashedBeaconState | deneb.HashedBeaconState |
-           electra.HashedBeaconState | fulu.HashedBeaconState,
+           electra.HashedBeaconState | fulu.HashedBeaconState |
+           gloas.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -791,9 +792,13 @@ func check_attestation_compatible*(
     return err("Incompatible shuffling")
   ok()
 
-proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: ForkyHashedBeaconState,
-                              cache: var StateCache): seq[phase0.Attestation] =
+proc getAttestationsForBlock*(
+    pool: var AttestationPool,
+    state:
+      phase0.HashedBeaconState | altair.HashedBeaconState | bellatrix.HashedBeaconState |
+      capella.HashedBeaconState | deneb.HashedBeaconState,
+    cache: var StateCache,
+): seq[phase0.Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestations
@@ -929,10 +934,12 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     else:
       default(seq[phase0.Attestation])
 
-proc getElectraAttestationsForBlock*(
+proc getAttestationsForBlock*(
     pool: var AttestationPool,
-    state: electra.HashedBeaconState | fulu.HashedBeaconState,
-    cache: var StateCache): seq[electra.Attestation] =
+    state: electra.HashedBeaconState | fulu.HashedBeaconState |
+           gloas.HashedBeaconState,
+    cache: var StateCache,
+): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -1092,7 +1099,7 @@ proc getElectraAttestationsForBlock*(
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
     when consensusFork >= ConsensusFork.Electra:
-      pool.getElectraAttestationsForBlock(forkyState, cache)
+      pool.getAttestationsForBlock(forkyState, cache)
     else:
       default(seq[electra.Attestation])
 

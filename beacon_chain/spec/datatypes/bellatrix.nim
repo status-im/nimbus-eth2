@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Types specific to bellatrix (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
@@ -38,8 +38,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
-  ExecutionAddress* = object
-    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
+  ExecutionAddress* = presets.Eth1Address
 
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
@@ -331,12 +330,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
@@ -346,7 +339,6 @@ type
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
     TrustedSignedBeaconBlock
   SomeBeaconBlock* =
     BeaconBlock |
@@ -364,25 +356,6 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [ValueError].} =
   hexToByteArray(s, result.data)
-
-func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
-     raises: [ValueError].} =
-  hexToByteArray(s, result.data)
-
-proc writeValue*(
-    writer: var JsonWriter, value: ExecutionAddress) {.raises: [IOError].} =
-  writer.writeValue to0xHex(value.data)
-
-proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
-     raises: [IOError, SerializationError].} =
-  try:
-    hexToByteArray(reader.readValue(string), value.data)
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "ExecutionAddress value should be a valid hex string")
-
-func `$`*(v: ExecutionAddress): string =
-  v.data.toHex()
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -430,15 +403,30 @@ func shortLog*(v: ExecutionPayload): auto =
     num_transactions: len(v.transactions)
   )
 
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    transactions_root: shortLog(v.transactions_root),
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
@@ -446,14 +434,7 @@ template asSigVerified*(
     x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
-
 template asTrusted*(
     x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

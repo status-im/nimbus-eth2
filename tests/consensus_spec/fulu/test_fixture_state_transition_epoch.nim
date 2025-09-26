@@ -41,6 +41,8 @@ const
   HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
   PendingConsolidationsDir =     RootDir/"pending_consolidations"
   PendingDepositsDir =           RootDir/"pending_deposits"
+  ProposerLookaheadDir =         RootDir/"proposer_lookahead"
+
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
@@ -49,7 +51,7 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
     SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
     RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
-    PendingDepositsDir, PendingConsolidationsDir])
+    PendingDepositsDir, PendingConsolidationsDir, ProposerLookaheadDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -152,6 +154,11 @@ runSuite(PendingDepositsDir, "Pending deposits"):
 # ---------------------------------------------------------------
 runSuite(PendingConsolidationsDir, "Pending consolidations"):
   process_pending_consolidations(cfg, state)
+
+# Proposer lookahead
+# ---------------------------------------------------------------
+runSuite(ProposerLookaheadDir, "Proposer lookahead"):
+  process_proposer_lookahead(state, cache)
 
 # Sync committee updates
 # ---------------------------------------------------------------

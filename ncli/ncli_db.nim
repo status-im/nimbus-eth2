@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
@@ -23,6 +23,7 @@ import
 
 from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
+from stew/staticfor import staticfor
 
 when defined(posix):
   import system/ansi_c
@@ -252,7 +253,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[capella.TrustedSignedBeaconBlock],
       seq[deneb.TrustedSignedBeaconBlock],
       seq[electra.TrustedSignedBeaconBlock],
-      seq[fulu.TrustedSignedBeaconBlock])
+      seq[fulu.TrustedSignedBeaconBlock],
+      seq[gloas.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -284,6 +286,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Fulu:
         blocks[6].add dag.db.getBlock(
           blck.root, fulu.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Gloas:
+        blocks[7].add dag.db.getBlock(
+          blck.root, gloas.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -297,7 +302,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref capella.HashedBeaconState)(),
       (ref deneb.HashedBeaconState)(),
       (ref electra.HashedBeaconState)(),
-      (ref fulu.HashedBeaconState)())
+      (ref fulu.HashedBeaconState)(),
+      (ref gloas.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -364,6 +370,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Fulu:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[6][].data, noRollback)
+              of ConsensusFork.Gloas:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[7][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -374,16 +383,11 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
+                of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
-  processBlocks(blocks[0])
-  processBlocks(blocks[1])
-  processBlocks(blocks[2])
-  processBlocks(blocks[3])
-  processBlocks(blocks[4])
-  processBlocks(blocks[5])
-  processBlocks(blocks[6])
-
+  staticFor i, 0 .. 7:
+    processBlocks(blocks[i])
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf) =
@@ -398,6 +402,7 @@ proc cmdDumpState(conf: DbConf) =
     denebState     = (ref deneb.HashedBeaconState)()
     electraState   = (ref electra.HashedBeaconState)()
     fuluState      = (ref fulu.HashedBeaconState)()
+    gloasState     = (ref gloas.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -418,6 +423,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(denebState[])
     doit(electraState[])
     doit(fuluState[])
+    doit(gloasState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -663,9 +669,11 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       if (let e = io2.removeFile(name); e.isErr):
         warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
-  if missingHistory:
-    notice "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
   printTimers(true, timers)
+
+  if missingHistory:
+    warn "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
+    quit QuitFailure
 
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string)

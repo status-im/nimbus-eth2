@@ -5,19 +5,23 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
+  taskpools,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import anyIt, mapIt, toSeq
+from std/algorithm import sorted
+from std/sequtils import anyIt, filterIt, mapIt, toSeq
 from std/strutils import rsplit
 from stew/byteutils import fromHex
+from ../../beacon_chain/spec/peerdas_helpers import
+  recover_matrix, recover_cells_and_proofs_parallel
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -76,7 +80,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
       y = fromHex[32](data["input"]["y"].getStr)
       proof = fromHex[48](data["input"]["proof"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_4844/verify_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/tests/formats/kzg_4844/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
     # the G1 subgroup of the BLS curve) or `z` or `y` are not a valid BLS
     # field element, it should error, i.e. the output should be `null`."
@@ -209,7 +213,7 @@ proc runComputeCellsTest(suiteName, suitePath, path: string) =
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/compute_cells.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/tests/formats/kzg_7594/compute_cells.md#condition
     if blob.isNone:
       check output.kind == JNull
     else:
@@ -256,7 +260,7 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
@@ -305,7 +309,152 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
-from std/algorithm import sorted
+proc loadCellsAndKzgProofsValidCases(
+    suitePath: string): seq[MatrixEntry]
+    {.raises: [KeyError, OSError, YamlParserError, YamlConstructionError].} =
+  var
+    data: seq[MatrixEntry]
+    rowCount = 0
+  for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+    let
+      rowData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+      output = rowData["output"]
+
+    # As per
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+    # ensuring it is valid case
+    if output.kind == JNull:
+      continue
+
+    for i in 0..<output[0].len:
+      data.add(MatrixEntry(
+        cell: Cell(bytes: fromHex[2048](output[0][i].getStr).get),
+        kzg_proof: KzgProof(bytes: fromHex[48](output[1][i].getStr).get),
+        column_index: ColumnIndex(i),
+        row_index: RowIndex(rowCount)))
+    rowCount += 1
+  data
+
+proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - valid":
+    let
+      # read scenario data from valid cases
+      data = loadCellsAndKzgProofsValidCases(suitePath)
+      rowCount = data[data.len - 1].row_index.int + 1
+      # The 64 column indices
+      indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
+      # Minimal data for recovery
+      input = data.filterIt(it.column_index in indices)
+        .mapIt(MatrixEntry(
+          cell: it.cell,
+          row_index: it.row_index,
+          column_index: it.column_index))
+
+    block singleThread:
+      ## ensure the output is consistent with that of the multi-thread
+
+      # check recovered cells and proofs
+      # assuming columns are sorted
+      let v = recover_matrix(input, rowCount)
+      check v.isOk
+      let val = v.get
+      for i in 0..<val.len:
+        check data[i].cell.bytes == val[i].cell.bytes
+        check data[i].kzg_proof.bytes == val[i].kzg_proof.bytes
+        check data[i].row_index == val[i].row_index
+        check data[i].column_index == val[i].column_index
+
+    block multiThread:
+      ## verify the output from multi-thread version
+
+      # convert input into column
+      let colCount = indices.len
+      var colInput = newSeq[ref fulu.DataColumnSidecar](colCount)
+
+      for i in 0 ..< colCount:
+        var cells = newSeq[Cell](rowCount)
+        for j in 0 ..< rowCount:
+          let iIdx = j * colCount + i
+          cells[j] = input[iIdx].cell
+        colInput[i] = (ref fulu.DataColumnSidecar)(
+          index: indices[i],
+          column: DataColumn(cells))
+
+      # check recovered cells and proofs
+      # assuming columns are sorted
+      var tp = Taskpool.new()
+      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      check v.isOk
+      let val = v.get
+      for i in 0..<val.len:
+        for j in 0..<val[i].cells.len:
+          let k = i * NUMBER_OF_COLUMNS + j
+          check data[k].cell.bytes == val[i].cells[j].bytes
+          check data[k].kzg_proof.bytes == val[i].proofs[j].bytes
+
+proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string) =
+  test "KZG - Recover Cells And Kzg Proofs Parallel - invalid":
+    # Preload data of valid cases
+    let
+      validData = loadCellsAndKzgProofsValidCases(suitePath)
+      validRowCount = validData[validData.len - 1].row_index + 1
+
+    for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+      let invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
+
+      # As per
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+      # ensuring it is invalid case
+      if invalidData["output"].kind != JNull:
+        continue
+
+      let
+        invalidCells = invalidData["input"]["cells"]
+        invalidIndices = invalidData["input"]["cell_indices"]
+
+      # skip when there are more cells than indices as with seq[DataColumnSidecar]
+      # length of indices is always >= length of cells for each row
+      if invalidCells.len > invalidIndices.len:
+        continue
+
+      var
+        shouldSkip = false
+        colInput = newSeq[ref fulu.DataColumnSidecar](invalidIndices.len)
+      for i in 0 ..< colInput.lenu64:
+        let cIdx = invalidIndices[i.int].getInt.toUInt64.get
+        var cells: seq[Cell]
+
+        # insert rows from data of valid cases if it is a valid index
+        if cIdx < NUMBER_OF_COLUMNS:
+          for j in 0 ..< validRowCount:
+            let vIdx = NUMBER_OF_COLUMNS * j + cIdx
+            cells.add(Cell(bytes: validData[vIdx].cell.bytes))
+
+        # insert the invalid data as the last cell
+        if i < invalidCells.lenu64:
+          let cellBytes = fromHex[2048](invalidCells[i.int].getStr).valueOr:
+            # As per
+            # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/tests/formats/kzg_7594/recover_cells_and_kzg_proofs.md#condition
+            # this is an invalid case. However, this is a limitation by design that
+            # when the cell is not in 2048-length, it will be in default value and
+            # recover without any failures
+            check invalidData["output"].kind == JNull
+            shouldSkip = true
+            break
+          cells.add(Cell(bytes: cellBytes))
+
+        # set data column
+        colInput[i] = (ref fulu.DataColumnSidecar)(
+          index: ColumnIndex(cIdx),
+          column: DataColumn(cells))
+
+      if shouldSkip:
+        continue
+
+      # check error
+      var tp = Taskpool.new()
+      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      check v.isErr
 
 var suiteName = "EF - KZG"
 
@@ -313,11 +462,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_challenge` isn't provided by nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_kzg_proof",
-     "verify_blob_kzg_proof", "verify_blob_kzg_proof_batch",
-     "verify_kzg_proof"]
+    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_challenge",
+     "compute_kzg_proof", "verify_blob_kzg_proof",
+     "verify_blob_kzg_proof_batch", "verify_kzg_proof"]
 
   block:
     let testsDir = suitePath/"blob_to_kzg_commitment"/"kzg-mainnet"
@@ -355,9 +505,12 @@ suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  # TODO `compute_verify_cell_kzg_proof_batch_challenge` isn't provided by
+  # nim-kzg4844 yet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs",
+     "compute_verify_cell_kzg_proof_batch_challenge",
      "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
 
   block:
@@ -374,6 +527,11 @@ suite suiteName:
     let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
+
+  block:
+    let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
+    runRecoverCellsAndKzgProofsParallelValidTest(suiteName, testsDir)
+    runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, testsDir)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"

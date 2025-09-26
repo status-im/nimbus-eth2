@@ -55,32 +55,20 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
     -f Makefile.mingw \
     CC="${CC}" \
+    CFLAGS="-Os -fPIC" \
     libminiupnpc.a &>/dev/null
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
     CC="${CC}" \
-    CFLAGS="-Wall -Os -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4 ${CFLAGS}" \
+    CFLAGS="-Wall -Os -fPIC -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4 ${CFLAGS}" \
     libnatpmp.a &>/dev/null
-  # We set CXX and add CXXFLAGS for libunwind's C++ code, even though we don't
-  # use those C++ objects. I don't see an easy way of disabling the C++ parts in
-  # libunwind itself.
-  #
-  # "libunwind.a" combines objects produced from C and C++ code. Even though we
-  # don't link any C++-generated objects, the linker still checks them for
-  # undefined symbols, so we're forced to use g++ as a linker wrapper.
-  # For some reason, macOS's Clang doesn't need this trick, nor do native (and
-  # newer) Mingw-w64 toolchains on Windows.
-  #
   # nim-blscurve's Windows SSSE3 detection doesn't work when cross-compiling,
   # so we enable it here.
   make \
-    CC="${CC}" \
-    CXX="${CXX}" \
-    CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
-    USE_VENDORED_LIBUNWIND=1 \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
+    CC="${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CC} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
@@ -142,7 +130,6 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
     RANLIB="x86_64-apple-darwin${DARWIN_VER}-ranlib" \
     DSYMUTIL="x86_64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
-    USE_VENDORED_LIBUNWIND=1 \
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC} --clang.linkerexe=${CC}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
@@ -173,7 +160,6 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
-    USE_VENDORED_LIBUNWIND=1 \
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then

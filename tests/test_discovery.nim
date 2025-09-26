@@ -1,15 +1,15 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
-  testutils/unittests,
+  chronos/unittest2/asynctests,
   chronos, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/[forks, network],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
@@ -38,13 +38,14 @@ proc generateNode(rng: ref HmacDrbgContext, port: Port,
 const noSyncnetsPreference = SyncnetBits()
 const noCgcnetsPreference = CgcBits()
 
-procSuite "Eth2 specific discovery tests":
-  let
-    rng = HmacDrbgContext.new()
-    enrForkId = ENRForkID(
-      fork_digest: ForkDigest([byte 0, 1, 2, 3]),
-      next_fork_version: Version([byte 0, 0, 0, 0]),
-      next_fork_epoch: Epoch(0))
+suite "Eth2 specific discovery tests":
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      enrForkId = ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0))
 
   asyncTest "Subnet query":
     var attnets: AttnetBits
@@ -234,7 +235,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
         for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId
@@ -264,7 +265,7 @@ suite "Discovery fork ID":
           forkId = ENRForkID(
             fork_digest: fork_digest,
             next_fork_version: next_fork_version,
-            next_fork_epoch: FAR_FUTURE_EPOCH)
+            next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
         for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
           check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
         forkId

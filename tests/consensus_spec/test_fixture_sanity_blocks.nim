@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -21,7 +21,6 @@ from ../../beacon_chain/spec/presets import
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
-from ../teststateutil import checkPerValidatorBalanceCalc
 
 proc runTest(
     consensusFork: static ConsensusFork,
@@ -54,15 +53,6 @@ proc runTest(
         discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
-        withState(fhPreState[]):
-          when consensusFork == ConsensusFork.Deneb:
-            if unitTestName != "randomized_14":
-              # TODO this test as of v1.5.0-beta.2 breaks, but also probably
-              # just remove Deneb-only infrastructure of this sort, since it
-              # doesn't readily adapt to Electra regardless. For now keep to
-              # point to a potentially fixable/unexpected test case which is
-              # involves code not run outside the test suite to begin with.
-              check checkPerValidatorBalanceCalc(forkyState.data)
       else:
         let res = state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
@@ -88,30 +78,27 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
     SanityBlocksDir =
       SszTestsDir/const_preset/forkDirName/"sanity"/"blocks"/"pyspec_tests"
 
-  suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
-    for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-      # TODO Fulu not in critical path yet so to start with only flag remaining
-      # issues where it needs MAX_BLOBS_PER_BLOCK_FULU (not yet present), so in
-      # process_execution_payload() it doesn't falsely reject two test cases.
-      when consensusFork == ConsensusFork.Fulu:
-        if  path.contains("max_blobs_per_block") or
-            path.contains("one_blob_max_txs"):
-          continue
-      consensusFork.runTest(
-        "EF - " & forkHumanName & " - Sanity - Blocks",
-        SanityBlocksDir, suiteName, path)
+  debugGloasComment "block sanity"
+  when consensusFork != ConsensusFork.Gloas or const_preset == "mainnet":
+    suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
+      for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
+        consensusFork.runTest(
+          "EF - " & forkHumanName & " - Sanity - Blocks",
+          SanityBlocksDir, suiteName, path)
 
-  suite "EF - " & forkHumanName & " - Finality " & preset():
-    for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-      consensusFork.runTest(
-        "EF - " & forkHumanName & " - Finality",
-        FinalityDir, suiteName, path)
+  debugGloasComment "finality and random block sanity"
+  when consensusFork != ConsensusFork.Gloas:
+    suite "EF - " & forkHumanName & " - Finality " & preset():
+      for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
+        consensusFork.runTest(
+          "EF - " & forkHumanName & " - Finality",
+          FinalityDir, suiteName, path)
 
-  suite "EF - " & forkHumanName & " - Random " & preset():
-    for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
-      consensusFork.runTest(
-        "EF - " & forkHumanName & " - Random",
-        RandomDir, suiteName, path)
+    suite "EF - " & forkHumanName & " - Random " & preset():
+      for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
+        consensusFork.runTest(
+          "EF - " & forkHumanName & " - Random",
+          RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
   runForkBlockTests(consensusFork)

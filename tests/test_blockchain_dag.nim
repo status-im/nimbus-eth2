@@ -48,14 +48,14 @@ suite "Block pool processing" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      quarantine {.used.} = Quarantine.init(dag.cfg)
       state = newClone(dag.headState)
       cache = StateCache()
-      info = ForkedEpochInfo()
+      info {.used.} = ForkedEpochInfo()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
-      b1 = addTestBlock(state[], cache, attestations = att0).phase0Data
-      b2 = addTestBlock(state[], cache).phase0Data
+      b1 {.used.} = addTestBlock(state[], cache, attestations = att0).phase0Data
+      b2 {.used.} = addTestBlock(state[], cache).phase0Data
 
   test "basic ops":
     check:
@@ -168,9 +168,12 @@ suite "Block pool processing" & preset():
       shufflingRef = dag.getShufflingRef(dag.head, nextEpoch, false).valueOr:
         raiseAssert "false"
       nextEpochProposers = withState(dag.headState):
-        get_beacon_proposer_indices(
-          forkyState.data, shufflingRef.shuffled_active_validator_indices,
-          nextEpoch)
+        when consensusFork == ConsensusFork.Gloas:
+          default(seq[Opt[ValidatorIndex]])
+        else:
+          get_beacon_proposer_indices(
+            forkyState.data, shufflingRef.shuffled_active_validator_indices,
+            nextEpoch)
 
     check:
       # get_beacon_proposer_indices based on ShufflingRef matches EpochRef
@@ -284,7 +287,6 @@ suite "Block pool altair processing" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -361,9 +363,9 @@ suite "chain DAG finalization tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
+      quarantine = Quarantine.init(dag.cfg)
       cache = StateCache()
-      info = ForkedEpochInfo()
+      info {.used.} = ForkedEpochInfo()
 
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken
@@ -670,7 +672,6 @@ suite "Old database versions" & preset():
     var
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
@@ -719,7 +720,7 @@ suite "Diverging hardforks":
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       cache = StateCache()
       info = ForkedEpochInfo()
       tmpState = assignClone(dag.headState)
@@ -978,7 +979,7 @@ suite "Backfill":
     var
       cache: StateCache
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
 
     let
       next = addTestBlock(tailState[], cache).phase0Data
@@ -1047,7 +1048,7 @@ suite "Starting states":
           {skipBlsValidation}))
       tailState = assignClone(genState[])
       db = BeaconChainDB.new("", inMemory = true)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(defaultRuntimeConfig))
 
   test "Starting state without block":
     var
@@ -1174,7 +1175,7 @@ suite "Latest valid hash" & preset():
       dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       cache = StateCache()
       info = ForkedEpochInfo()
       state = newClone(dag.headState)
@@ -1245,7 +1246,7 @@ suite "Pruning":
     var
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
+      quarantine = Quarantine.init(dag.cfg)
       cache = StateCache()
       blocks = @[dag.head]
 
@@ -1294,7 +1295,7 @@ suite "State history":
       dag = ChainDAGRef.init(
         cfg, makeTestDB(numValidators, cfg = cfg),
         validatorMonitor, {})
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
     var verifier = BatchVerifier.init(rng, taskpool)
@@ -1415,7 +1416,7 @@ suite "Ancestry":
       dag = ChainDAGRef.init(
         cfg, makeTestDB(numValidators, cfg = cfg),
         validatorMonitor, {})
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
 
@@ -1710,7 +1711,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
         numValidators, eth1Data = Opt.some(eth1Data),
         flags = {}, cfg = cfg),
       validatorMonitor, {})
-    quarantine = newClone(Quarantine.init())
+    quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
 

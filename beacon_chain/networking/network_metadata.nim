@@ -5,13 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/os,
-  stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
-  web3/[conversions],
-  web3/primitives as web3types,
+  stew/byteutils, stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
@@ -34,8 +32,7 @@ from std/strutils import
 # compilation, so a host OS specific separator can be used when deriving paths
 # from `currentSourcePath`.
 
-export
-  web3types, conversions, RuntimeConfig
+export RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
@@ -43,8 +40,6 @@ const
   incbinEnabled* = sizeof(pointer) == 8
 
 type
-  Eth1BlockHash* = web3types.Hash32
-
   Eth1Network* = enum
     mainnet
     sepolia
@@ -83,9 +78,6 @@ type
 
     # Parsing `enr.Records` is still not possible at compile-time
     bootstrapNodes*: seq[string]
-
-    depositContractBlock*: uint64
-    depositContractBlockHash*: Eth2Digest
 
     genesis*: GenesisMetadata
 
@@ -142,9 +134,6 @@ proc loadEth2NetworkMetadata*(
     let
       genesisPath = path & "/genesis.ssz"
       configPath = path & "/config.yaml"
-      deployBlockPath = path & "/deploy_block.txt"
-      depositContractBlockPath = path & "/deposit_contract_block.txt"
-      depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
       bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt"  # <= Dec 2024
       bootstrapNodesPath = path & "/bootstrap_nodes.yaml"
       bootEnrPath = path & "/boot_enr.yaml"
@@ -160,43 +149,6 @@ proc loadEth2NetworkMetadata*(
       else:
         defaultRuntimeConfig
 
-      depositContractBlockStr = if fileExists(depositContractBlockPath):
-        readFile(depositContractBlockPath).strip
-      else:
-        ""
-
-      depositContractBlockHashStr = if fileExists(depositContractBlockHashPath):
-        readFile(depositContractBlockHashPath).strip
-      else:
-        ""
-
-      deployBlockStr = if fileExists(deployBlockPath):
-        readFile(deployBlockPath).strip
-      else:
-        ""
-
-      depositContractBlock = if depositContractBlockStr.len > 0:
-        parseBiggestUInt depositContractBlockStr
-      elif deployBlockStr.len > 0:
-        parseBiggestUInt deployBlockStr
-      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
-        raise newException(ValueError,
-          "A network with deposit contract should specify the " &
-          "deposit contract deployment block in a file named " &
-          "deposit_contract_block.txt or deploy_block.txt")
-      else:
-        1'u64
-
-      depositContractBlockHash = if depositContractBlockHashStr.len > 0:
-        Eth2Digest.strictParse(depositContractBlockHashStr)
-      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
-        raise newException(ValueError,
-          "A network with deposit contract should specify the " &
-          "deposit contract deployment block hash in a file " &
-          "name deposit_contract_block_hash.txt")
-      else:
-        default(Eth2Digest)
-
       bootstrapNodes = deduplicate(
         readBootstrapNodes(bootstrapNodesLegacyPath) &
         readBootEnr(bootstrapNodesPath) &
@@ -206,8 +158,6 @@ proc loadEth2NetworkMetadata*(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractBlock: depositContractBlock,
-      depositContractBlockHash: depositContractBlockHash,
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
@@ -254,11 +204,17 @@ proc loadCompileTimeNetworkMetadata(
 when const_preset == "gnosis":
   when incbinEnabled:
     let
-      gnosisGenesis* {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
-      gnosisGenesisSize* {.importc: "gnosis_mainnet_genesis_size".}: int
+      gnosisGenesisVar {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+      gnosisGenesisSizeVar {.importc: "gnosis_mainnet_genesis_size".}: int
 
-      chiadoGenesis* {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
-      chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
+      chiadoGenesisVar {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
+      chiadoGenesisSizeVar {.importc: "gnosis_chiado_genesis_size".}: int
+
+    template gnosisGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: gnosisGenesisVar
+    template gnosisGenesisSize*(): int = {.noSideEffect.}: gnosisGenesisSizeVar
+
+    template chiadoGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: chiadoGenesisVar
+    template chiadoGenesisSize*(): int = {.noSideEffect.}: chiadoGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
@@ -288,8 +244,8 @@ when const_preset == "gnosis":
       checkForkConsistency(network.cfg)
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Fulu
-
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Gloas
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -297,12 +253,18 @@ elif const_preset == "mainnet":
     # use this trick instead which saves significant amounts of compile time
     {.push hint[GlobalVar]:off.}
     let
-      mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
-      mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
+      mainnetGenesisVar {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+      mainnetGenesisSizeVar {.importc: "eth2_mainnet_genesis_size".}: int
 
-      sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
-      sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
+      sepoliaGenesisVar {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+      sepoliaGenesisSizeVar {.importc: "eth2_sepolia_genesis_size".}: int
     {.pop.}
+
+    template mainnetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: mainnetGenesisVar
+    template mainnetGenesisSize*: int = {.noSideEffect.}: mainnetGenesisSizeVar
+
+    template sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
+    template sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
@@ -365,9 +327,15 @@ elif const_preset == "mainnet":
     for network in [
         mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Fulu
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Gloas
+
+    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert mainnetMetadata.cfg.BLOB_SCHEDULE.len == 0
+
+    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
+      doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
@@ -388,8 +356,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       fatal "config.yaml not found for network", networkName
       quit 1
 
-  if networkName in ["goerli", "prater"]:
-    warn "Goerli is deprecated and unsupported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
+  if networkName == "holesky":
+    warn "https://blog.ethereum.org/2025/09/01/holesky-shutdown-announcement suggests migrating to Hoodi or Sepolia"
 
   let metadata =
     when const_preset == "gnosis":

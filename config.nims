@@ -96,8 +96,8 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # https://support.apple.com/en-us/102861
-      # "macOS Ventura is compatible with these computers" lists current oldest
+      # https://support.apple.com/en-us/105113
+      # "macOS Sonoma is compatible with these computers" lists current oldest
       # supported x86 models, all of which have Kaby Lake or newer CPUs.
       switch("passC", "-march=skylake -mtune=generic")
       switch("passL", "-march=skylake -mtune=generic")
@@ -121,9 +121,11 @@ elif defined(riscv64):
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
-  if defined(windows):
+  if defined(i386) or defined(amd64):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
+    # For non-Windows targets, https://github.com/bitcoin-core/secp256k1/issues/1623
+    # also suggests disabling the same flag to address Ubuntu 22.04/recent AMD CPUs.
     switch("passC", "-mno-avx512f")
     switch("passL", "-mno-avx512f")
 
@@ -144,8 +146,6 @@ switch("passL", "-fno-omit-frame-pointer")
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
-
-switch("import", "testutils/moduletests")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
@@ -178,14 +178,25 @@ if canEnableDebuggingSymbols:
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
+switch("warningAsError", "BareExcept:on")
+switch("warningAsError", "CStringConv:on")
+switch("warningAsError", "UnusedImport:on")
+switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
+switch("hintAsError", "DuplicateModuleImport:on")
+
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
 
-# Too many right now to read compiler output. Warnings are legitimate, but
-# should be fixed out-of-band of `unstable` branch.
-switch("warning", "BareExcept:off")
-
-# Too many of these because of Defect compat in 1.2
+#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 28) Hint: 'sszCheck' cannot raise 'YamlConstructionError' [XCannotRaiseY]
+#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 51) Hint: 'sszCheck' cannot raise 'YamlParserError' [XCannotRaiseY]
+#   1 nimbus-eth2/vendor/nim-testutils/testutils/moduletests.nim(17, 24) Hint: 'main' cannot raise 'CatchableError' [XCannotRaiseY]
+#   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 20) Hint: 'loadTestMeta' cannot raise 'YamlConstructionError' [XCannotRaiseY]
+#   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 43) Hint: 'loadTestMeta' cannot raise 'YamlParserError' [XCannotRaiseY]
+#   2 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(213, 58) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+#   3 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(369, 38) Hint: 'readValue' cannot raise 'SerializationError' [XCannotRaiseY]
+#   3 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(369, 58) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+#   4 nimbus-eth2/vendor/nim-serialization/serialization.nim(27, 86) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+# 116 nimbus-eth2/vendor/nim-ssz-serialization/ssz_serialization.nim(51, 77) Hint: 'writeFixedSized' cannot raise 'IOError' [XCannotRaiseY]
 switch("hint", "XCannotRaiseY:off")
 
 # Useful for Chronos metrics.

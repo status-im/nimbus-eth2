@@ -5,12 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
-  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode,
-       uri, hashes],
+  std/[strformat, strutils, typetraits, unicode, uri, hashes],
   # Third-party libraries
   normalize,
   # Status libraries
@@ -23,6 +22,10 @@ import
   # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
+
+from std/algorithm import binarySearch
+from std/math import `^`
+from std/parseutils import parseBiggestUInt
 
 export base, uri, io2, options
 
@@ -150,10 +153,9 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    capellaIndex*: Option[GeneralizedIndex]
-    denebIndex*: Option[GeneralizedIndex]
-    electraIndex*: Option[GeneralizedIndex]
-    fuluIndex*: Option[GeneralizedIndex]
+    electraIndex*: GeneralizedIndex
+    fuluIndex*: GeneralizedIndex
+    gloasIndex*: GeneralizedIndex
 
   KeystoreData* = object
     version*: uint64
@@ -727,20 +729,19 @@ template writeValue*(w: var JsonWriter,
 
 func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
   if propertyPath == ".execution_payload.fee_recipient":
-    debugFuluComment "We don't know yet if `GeneralizedIndex` will stay same in Fulu yet."
+    debugGloasComment "almost certainly not correct anymore, execution payload position changes substantially"
     ok ProvenProperty(
       path: propertyPath,
-      capellaIndex: some GeneralizedIndex(401),
-      denebIndex: some GeneralizedIndex(801),
-      electraIndex: some GeneralizedIndex(801),
-      fuluIndex: some GeneralizedIndex(801))
+      electraIndex: GeneralizedIndex(801),
+      fuluIndex: GeneralizedIndex(801),
+      gloasIndex: GeneralizedIndex(801))
   elif propertyPath == ".graffiti":
+    debugGloasComment "check if graffiti is still generalizedindex 18"
     ok ProvenProperty(
       path: propertyPath,
-      capellaIndex: some GeneralizedIndex(18),
-      denebIndex: some GeneralizedIndex(18),
-      electraIndex: some GeneralizedIndex(18),
-      fuluIndex: some GeneralizedIndex(18))
+      electraIndex: GeneralizedIndex(18),
+      fuluIndex: GeneralizedIndex(18),
+      gloasIndex: GeneralizedIndex(18))
   else:
     err("Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
@@ -847,15 +848,15 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
-          prop.capellaIndex = some GeneralizedIndex(401)
-          prop.denebIndex = some GeneralizedIndex(801)
-          prop.electraIndex = some GeneralizedIndex(801)
-          prop.fuluIndex = some GeneralizedIndex(801)
+          debugGloasComment "nearly certainly incorrect fee recipient generalizedindex"
+          prop.electraIndex = GeneralizedIndex(801)
+          prop.fuluIndex = GeneralizedIndex(801)
+          prop.gloasIndex = GeneralizedIndex(801)
         elif prop.path == ".graffiti":
-          prop.capellaIndex = some GeneralizedIndex(18)
-          prop.denebIndex = some GeneralizedIndex(18)
-          prop.electraIndex = some GeneralizedIndex(18)
-          prop.fuluIndex = some GeneralizedIndex(18)
+          debugGloasComment "check if graffiti is still generalizedindex 18"
+          prop.electraIndex = GeneralizedIndex(18)
+          prop.fuluIndex = GeneralizedIndex(18)
+          prop.gloasIndex = GeneralizedIndex(18)
         else:
           reader.raiseUnexpectedValue("Keystores with proven properties different than " &
                                       "`.execution_payload.fee_recipient` and `.graffiti` " &

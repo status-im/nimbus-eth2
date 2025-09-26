@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -95,3 +95,12 @@ suite "EF - Fulu - Fork " & preset():
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(electra.BeaconState, fulu.BeaconState, "Fulu", OpForkDir,
             upgrade_to_fulu, suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/gloas import BeaconState
+
+suite "EF - Gloas - Fork " & preset():
+  const OpForkDir =
+    SszTestsDir/const_preset/"gloas"/"fork"/"fork"/"pyspec_tests"
+  for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
+    runTest(fulu.BeaconState, gloas.BeaconState, "Gloas", OpForkDir,
+            upgrade_to_gloas, suiteName, path)

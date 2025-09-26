@@ -17,18 +17,18 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client],
+  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    attestation_pool, sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
-  ./sync/[sync_manager, request_manager, sync_types],
+  ./sync/[sync_manager, request_manager, sync_types, validator_custody],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -56,6 +56,7 @@ type
     phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
     electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
+    columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
@@ -81,7 +82,7 @@ type
     list*: ChainListRef
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
-    dataColumnQuarantine*: ref DataColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -95,6 +96,7 @@ type
     eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager
+    validatorCustody*: ValidatorCustodyRef
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     untrustedManager*: SyncManager[Peer, PeerId]
@@ -121,6 +123,7 @@ type
     lastValidAttestedBlock*: Opt[BlockSlot]
     shutdownEvent*: AsyncEvent
 
+# TODO https://github.com/status-im/nim-stew/pull/258
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:
@@ -134,6 +137,9 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+func hasRestAllowedOrigin*(node: BeaconNode): bool =
+  node.config.restAllowedOrigin.isSome
 
 func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
   if config.payloadBuilderEnable:
@@ -171,4 +177,5 @@ proc getPayloadBuilderClient*(
     socketFlags = {SocketFlags.TcpNoDelay}
 
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
-                    socketFlags = socketFlags)
+                    socketFlags = socketFlags,
+                    userAgent = nimbusAgentStr)

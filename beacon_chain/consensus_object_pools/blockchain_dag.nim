@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils, tables, sets],
@@ -47,6 +47,8 @@ declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_da
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
 declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
+
+declareGauge beacon_head_execution_number, "Execuction block number of the beacon head block"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -266,8 +268,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
-  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
@@ -898,6 +903,15 @@ proc updateBeaconMetrics(
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
 
+    beacon_head_execution_number.set(
+      when consensusFork >= ConsensusFork.Bellatrix and
+          consensusFork < ConsensusFork.Gloas:
+        debugGloasComment "handle correctly for gloas"
+        forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
+      else:
+        0'u64.toGaugeValue
+    )
+
 import blockchain_dag_light_client
 
 export
@@ -1019,6 +1033,12 @@ proc applyBlock(
     ? state_transition(
       dag.cfg, state, data, cache, info,
       updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Gloas:
+    let data = getBlock(dag, bid, gloas.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      updateFlags + {slotProcessed}, noRollback)
 
   ok()
 
@@ -1094,11 +1114,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for blck in db.getAncestorSummaries(head.root):
     # The execution block root gets filled in as needed. Nonfinalized Bellatrix
     # and later blocks are loaded as optimistic, which gets adjusted that first
-    # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
+    # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
     # marked as `VALID`.
-    let newRef = BlockRef.init(
-      blck.root, Opt.none Eth2Digest, executionValid = false,
-      blck.summary.slot)
+    let newRef =
+      if cfg.consensusForkAtEpoch(blck.summary.slot.epoch) >= ConsensusFork.Bellatrix:
+        BlockRef.init(
+          blck.root,
+          Opt.none Eth2Digest,
+          OptimisticStatus.notValidated,
+          blck.summary.slot,
+        )
+      else:
+        BlockRef.init(
+          blck.root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.summary.slot
+        )
+
     if headRef == nil:
       headRef = newRef
 
@@ -1181,6 +1211,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
+      of ConsensusFork.Gloas:     gloasFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -1362,6 +1393,9 @@ template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
 proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
   dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")
 
+func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  dag.forkDigests[].atEpoch(epoch, dag.cfg)
+
 func getEpochRef*(
     dag: ChainDAGRef, state: ForkedHashedBeaconState, cache: var StateCache): EpochRef =
   ## Get a cached `EpochRef` or construct one based on the given state - always
@@ -1461,7 +1495,10 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment ""
+    when consensusFork == ConsensusFork.Gloas:
+      return Opt.none(Eth2Digest)
+    elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:
         var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
         mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
@@ -1933,7 +1970,6 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     # Update light client data
     dag.deleteLightClientData(bs.blck.bid)
 
-    bs.blck.executionValid = true
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
     discard dag.db.delBlock(
       dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
@@ -1993,26 +2029,7 @@ func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
         # it could have been orphaned or the DB is slightly inconsistent.
         # Report it as optimistic until it becomes reachable or gets deleted
         return true
-  not blck.executionValid
-
-proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
-  var cur = blck
-
-  while true:
-    cur.executionValid = true
-
-    debug "markBlockVerified", blck = shortLog(cur)
-
-    if cur.parent.isNil:
-      break
-
-    cur = cur.parent
-
-    # Always check at least as far back as the parent so that when a new block
-    # is added with executionValid already set, it stil sets the ancestors, to
-    # the next valid in the chain.
-    if cur.executionValid:
-      return
+  blck.optimisticStatus != OptimisticStatus.valid
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
@@ -2300,24 +2317,37 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(
-    dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
-    # The initial `BlockRef` is creted before the checkpoint block is loaded.
+    # The initial `BlockRef` is created before the checkpoint block is loaded.
     # It is backfilled later, so return `none` and keep retrying.
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    debugGloasComment " "
+    when consensusFork == ConsensusFork.Gloas:
+      Opt.some ZERO_HASH
+    elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
       Opt.some ZERO_HASH
 
-proc loadExecutionBlockHash*(
-    dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
+proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:
+    # Execution block hashes are loaded lazily during startup
     blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
+
+    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
+      # The block belongs to Bellatrix+ but the merge has not yet happened
+      # meaning that its ancestors are also pre-merge
+      blck.markExecutionValid(true)
+
+      var cur = blck.parent
+      while cur != nil and cur.executionBlockHash.isNone:
+        cur.executionBlockHash = blck.executionBlockHash
+        cur = cur.parent
+
   blck.executionBlockHash
 
 from std/packedsets import PackedSet, incl, items
@@ -2373,6 +2403,53 @@ func checkCompoundingChanges(
   withState(state):
     anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
 
+func trackVanityState(
+    dag: ChainDAGRef, knownValidators: openArray[ValidatorIndex]): auto =
+  (
+    lastHeadKind: dag.headState.kind,
+    lastHeadEpoch: getStateField(dag.headState, slot).epoch,
+    lastKnownValidatorsChangeStatuses:
+      dag.headState.getBlsToExecutionChangeStatuses(knownValidators),
+    lastKnownCompoundingChangeStatuses:
+      dag.headState.getCompoundingStatuses(knownValidators)
+  )
+
+proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
+  if dag.headState.kind > vanityState.lastHeadKind:
+    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
+      if handler != nil and
+          dag.headState.kind >= consensusFork and
+          vanityState.lastHeadKind < consensusFork:
+        handler()
+
+    # Policy: Retain back through Mainnet's second latest fork.
+    ConsensusFork.Deneb.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToDeneb)
+    ConsensusFork.Electra.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToElectra)
+    ConsensusFork.Fulu.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToFulu)
+  else:
+    if dag.vanityLogs.onBlobParametersUpdate != nil and
+        dag.headState.kind >= ConsensusFork.Fulu:
+      let headEpoch = getStateField(dag.headState, slot).epoch
+      if headEpoch > vanityState.lastHeadEpoch:
+        for entry in dag.cfg.BLOB_SCHEDULE:
+          if headEpoch >= entry.EPOCH:
+            if vanityState.lastHeadEpoch < entry.EPOCH:
+              dag.vanityLogs.onBlobParametersUpdate()
+            break
+
+  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
+      checkBlsToExecutionChanges(
+        dag.headState, vanityState.lastKnownValidatorsChangeStatuses):
+    dag.vanityLogs.onKnownBlsToExecutionChange()
+
+  if  dag.vanityLogs.onKnownCompoundingChange != nil and
+      checkCompoundingChanges(
+        dag.headState, vanityState.lastKnownCompoundingChangeStatuses):
+    dag.vanityLogs.onKnownCompoundingChange()
+
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
     knownValidators: openArray[ValidatorIndex]) =
@@ -2410,11 +2487,7 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadKind = dag.headState.kind
-    lastKnownValidatorsChangeStatuses = getBlsToExecutionChangeStatuses(
-      dag.headState, knownValidators)
-    lastKnownCompoundingChangeStatuses = getCompoundingStatuses(
-      dag.headState, knownValidators)
+    vanityState = dag.trackVanityState(knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -2430,32 +2503,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
-
-  if dag.headState.kind > lastHeadKind:
-    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
-      if handler != nil and
-          dag.headState.kind >= consensusFork and
-          lastHeadKind < consensusFork:
-        handler()
-
-    # Policy: Retain back through Mainnet's second latest fork.
-    ConsensusFork.Capella.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToCapella)
-    ConsensusFork.Deneb.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToDeneb)
-    ConsensusFork.Electra.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToElectra)
-
-  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
-      checkBlsToExecutionChanges(
-        dag.headState, lastKnownValidatorsChangeStatuses):
-    dag.vanityLogs.onKnownBlsToExecutionChange()
-
-  if  dag.vanityLogs.onKnownCompoundingChange != nil and
-      checkCompoundingChanges(
-        dag.headState, lastKnownCompoundingChangeStatuses):
-    dag.vanityLogs.onKnownCompoundingChange()
-
+  dag.processVanityLogs(vanityState)
   dag.db.putHeadBlock(newHead.root)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
@@ -2488,7 +2536,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = not newHead.executionValid
+      optStatus = newHead.optimisticStatus
 
     if not(isNil(dag.onReorgHappened)):
       let
@@ -2510,7 +2558,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = not newHead.executionValid
+      optStatus = newHead.optimisticStatus
 
     if not(isNil(dag.onHeadChanged)):
       let
@@ -2662,7 +2710,7 @@ proc getProposer*(
 
 proc getProposalState*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
-    Result[ref ForkedHashedBeaconState, cstring] =
+    Opt[ref ForkedHashedBeaconState] =
   ## Return a state suitable for making proposals for the given head and slot -
   ## in particular, the state can be discarded after use and does not have a
   ## state root set
@@ -2682,7 +2730,7 @@ proc getProposalState*(
       error "Cannot get proposal state - skipping block production, database corrupt?",
         head = shortLog(head),
         slot
-      return err("Cannot create proposal state")
+      return err()
   else:
     loadStateCache(dag, cache, head.bid, slot.epoch)
 

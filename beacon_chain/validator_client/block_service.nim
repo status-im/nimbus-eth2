@@ -160,8 +160,7 @@ proc publishBlockV3(
       let signature =
         try:
           let res = await validator.getBlockSignature(fork, genesisRoot,
-                                                      slot, blockRoot,
-                                                      maybeBlock)
+                                                      blockRoot, maybeBlock)
           if res.isErr():
             warn "Unable to sign blinded block proposal using remote signer",
                  reason = res.error()
@@ -241,7 +240,7 @@ proc publishBlockV3(
         signature =
           try:
             let res = await validator.getBlockSignature(
-              fork, genesisRoot, slot, blockRoot, maybeBlock)
+              fork, genesisRoot, blockRoot, maybeBlock)
             if res.isErr():
               warn "Unable to sign block proposal using remote signer",
                    reason = res.error()
@@ -258,13 +257,9 @@ proc publishBlockV3(
         res =
           try:
             debug "Sending block"
-            if vc.isPastElectraFork(slot.epoch()):
-              await vc.publishBlockV2(
-                signedBlockContents, BroadcastValidationType.Gossip,
-                ApiStrategyKind.First)
-            else:
-              await vc.publishBlock(
-                signedBlockContents, ApiStrategyKind.First)
+            await vc.publishBlockV2(
+              signedBlockContents, BroadcastValidationType.Gossip,
+              ApiStrategyKind.First)
           except ValidatorApiError as exc:
             warn "Unable to publish block", reason = exc.getFailureReason()
             return

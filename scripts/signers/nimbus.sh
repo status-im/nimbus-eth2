@@ -11,6 +11,7 @@ SIGNING_NODE_IDX=$1
 
 ./build/nimbus_signing_node \
   --log-level=DEBUG \
+  --network=$2 \
   --validators-dir="${DATA_DIR}/validators_shares/$(( SIGNING_NODE_IDX + 1 ))" \
   --secrets-dir="${DATA_DIR}/secrets_shares/$(( SIGNING_NODE_IDX + 1 ))" \
   --bind-port=$(( BASE_REMOTE_SIGNER_PORT + SIGNING_NODE_IDX )) &> "${DATA_DIR}/logs/nimbus_signing_node.${SIGNING_NODE_IDX}.jsonl" &

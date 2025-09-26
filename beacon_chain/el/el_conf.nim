@@ -1,18 +1,20 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[options, uri],
   results, chronicles, confutils,
   confutils/toml/defs as confTomlDefs,
-  confutils/toml/std/net as confTomlNet,
-  confutils/toml/std/uri as confTomlUri,
   json_serialization, # for logging
   toml_serialization, toml_serialization/lexer,
+  toml_serialization/std/net as confTomlNet,
+  toml_serialization/std/uri as confTomlUri,
   ../spec/engine_authentication
 
 from std/strutils import toLowerAscii, split, startsWith

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -73,6 +73,12 @@ type
     F: HashArray[4, FixedTestStruct]
     G: HashArray[2, VarTestStruct]
 
+  ProgressiveTestStruct = object
+    A: seq[byte]
+    B: seq[uint64]
+    C: seq[SmallTestStruct]
+    D: seq[seq[VarTestStruct]]
+
   BitsStruct = object
     A: BitList[5]
     B: BitArray[2]
@@ -80,131 +86,46 @@ type
     D: BitList[6]
     E: BitArray[8]
 
-  # https://github.com/wemeetagain/consensus-specs/blob/eip-7495/tests/generators/ssz_generic/ssz_stablecontainer.py
-  SingleFieldTestStableStruct {.sszStableContainer: 4.} = object
-    A: Opt[byte]
+  # ProgressiveBitsStruct = object
+  #   A: BitArray[256]
+  #   B: BitList[256]
+  #   C: BitSeq
+  #   D: BitArray[257]
+  #   E: BitList[257]
+  #   F: BitSeq
+  #   G: BitArray[1280]
+  #   H: BitList[1280]
+  #   I: BitSeq
+  #   J: BitArray[1281]
+  #   K: BitList[1281]
+  #   L: BitSeq
 
-  SmallTestStableStruct {.sszStableContainer: 4.} = object
-    A: Opt[uint16]
-    B: Opt[uint16]
+  # ProgressiveSingleFieldContainerTestStruct
+  #     {.sszActiveFields: [1].} = object
+  #   A: byte
 
-  FixedTestStableStruct {.sszStableContainer: 4.} = object
-    A: Opt[uint8]
-    B: Opt[uint64]
-    C: Opt[uint32]
+  # ProgressiveSingleListContainerTestStruct
+  #     {.sszActiveFields: [0, 0, 0, 0, 1].} = object
+  #   C: BitSeq
 
-  VarTestStableStruct {.sszStableContainer: 4.} = object
-    A: Opt[uint16]
-    B: Opt[List[uint16, 1024]]
-    C: Opt[uint8]
+  # ProgressiveVarTestStruct
+  #     {.sszActiveFields: [1, 0, 1, 0, 1].} = object
+  #   A: byte
+  #   B: List[uint16, 123]
+  #   C: BitSeq
 
-  ComplexTestStableStruct {.sszStableContainer: 8.} = object
-    A: Opt[uint16]
-    B: Opt[List[uint16, 128]]
-    C: Opt[uint8]
-    D: Opt[List[byte, 256]]
-    E: Opt[VarTestStableStruct]
-    F: Opt[array[4, FixedTestStableStruct]]
-    G: Opt[array[2, VarTestStableStruct]]
-
-  BitsStableStruct {.sszStableContainer: 8.} = object
-    A: Opt[BitList[5]]
-    B: Opt[BitArray[2]]
-    C: Opt[BitArray[1]]
-    D: Opt[BitList[6]]
-    E: Opt[BitArray[8]]
-
-  # https://github.com/wemeetagain/consensus-specs/blob/eip-7495/tests/generators/ssz_generic/ssz_profile.py
-  SingleFieldTestProfile {.sszProfile: SingleFieldTestStableStruct.} = object
-    A: byte
-
-  SmallTestProfile1 {.sszProfile: SmallTestStableStruct.} = object
-    A: uint16
-    B: uint16
-
-  SmallTestProfile2 {.sszProfile: SmallTestStableStruct.} = object
-    A: uint16
-
-  SmallTestProfile3 {.sszProfile: SmallTestStableStruct.} = object
-    B: uint16
-
-  FixedTestProfile1 {.sszProfile: FixedTestStableStruct.} = object
-    A: uint8
-    B: uint64
-    C: uint32
-
-  FixedTestProfile2 {.sszProfile: FixedTestStableStruct.} = object
-    A: uint8
-    B: uint64
-
-  FixedTestProfile3 {.sszProfile: FixedTestStableStruct.} = object
-    A: uint8
-    C: uint32
-
-  FixedTestProfile4 {.sszProfile: FixedTestStableStruct.} = object
-    C: uint32
-
-  VarTestProfile1 {.sszProfile: VarTestStableStruct.} = object
-    A: uint16
-    B: List[uint16, 1024]
-    C: uint8
-
-  VarTestProfile2 {.sszProfile: VarTestStableStruct.} = object
-    B: List[uint16, 1024]
-    C: uint8
-
-  VarTestProfile3 {.sszProfile: VarTestStableStruct.} = object
-    B: List[uint16, 1024]
-
-  ComplexTestProfile1 {.sszProfile: ComplexTestStableStruct.} = object
-    A: uint16
-    B: List[uint16, 128]
-    C: uint8
-    D: List[byte, 256]
-    E: VarTestStableStruct
-    F: array[4, FixedTestStableStruct]
-    G: array[2, VarTestStableStruct]
-
-  ComplexTestProfile2 {.sszProfile: ComplexTestStableStruct.} = object
-    A: uint16
-    B: List[uint16, 128]
-    C: uint8
-    D: List[byte, 256]
-    E: VarTestStableStruct
-
-  ComplexTestProfile3 {.sszProfile: ComplexTestStableStruct.} = object
-    A: uint16
-    C: uint8
-    E: VarTestStableStruct
-    G: array[2, VarTestStableStruct]
-
-  ComplexTestProfile4 {.sszProfile: ComplexTestStableStruct.} = object
-    B: List[uint16, 128]
-    D: List[byte, 256]
-    F: array[4, FixedTestStableStruct]
-
-  ComplexTestProfile5 {.sszProfile: ComplexTestStableStruct.} = object
-    E: VarTestStableStruct
-    F: array[4, FixedTestStableStruct]
-    G: array[2, VarTestStableStruct]
-
-  BitsProfile1 {.sszProfile: BitsStableStruct.} = object
-    A: BitList[5]
-    B: BitArray[2]
-    C: BitArray[1]
-    D: BitList[6]
-    E: BitArray[8]
-
-  BitsProfile2 {.sszProfile: BitsStableStruct.} = object
-    A: BitList[5]
-    B: BitArray[2]
-    C: BitArray[1]
-    D: BitList[6]
-
-  BitsProfile3 {.sszProfile: BitsStableStruct.} = object
-    A: BitList[5]
-    D: BitList[6]
-    E: BitArray[8]
+  # ProgressiveComplexTestStruct
+  #     {.sszActiveFields: [
+  #       1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1
+  #     ].} = object
+  #   A: byte
+  #   B: List[uint16, 123]
+  #   C: BitSeq
+  #   D: seq[uint64]
+  #   E: seq[SmallTestStruct]
+  #   F: seq[seq[VarTestStruct]]
+  #   G: List[ProgressiveSingleFieldContainerTestStruct, 10]
+  #   H: seq[ProgressiveVarTestStruct]
 
 # Type specific checks
 # ------------------------------------------------------------------------
@@ -224,6 +145,34 @@ proc checkBasic(
   check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
+
+# proc checkProgressiveList(
+#     sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+# ) {.raises: [
+#     IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+#   var typeIdent: string
+#   let wasMatched =
+#     try:
+#       scanf(sszSubType, "proglist_$+", typeIdent)
+#     except ValueError:
+#       false  # Parsed `size` is out of range
+#   doAssert wasMatched
+
+#   case typeIdent
+#   of "bool":
+#     checkBasic(seq[bool], dir, expectedHash)
+#   of "uint8":
+#     checkBasic(seq[uint8], dir, expectedHash)
+#   of "uint16":
+#     checkBasic(seq[uint16], dir, expectedHash)
+#   of "uint32":
+#     checkBasic(seq[uint32], dir, expectedHash)
+#   of "uint64":
+#     checkBasic(seq[uint64], dir, expectedHash)
+#   of "uint128":
+#     checkBasic(seq[UInt128], dir, expectedHash)
+#   of "uint256":
+#     checkBasic(seq[UInt256], dir, expectedHash)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
@@ -303,11 +252,17 @@ proc checkBitVector(
   of 3: checkBasic(BitArray[3], dir, expectedHash)
   of 4: checkBasic(BitArray[4], dir, expectedHash)
   of 5: checkBasic(BitArray[5], dir, expectedHash)
+  of 6: checkBasic(BitArray[6], dir, expectedHash)
+  of 7: checkBasic(BitArray[7], dir, expectedHash)
   of 8: checkBasic(BitArray[8], dir, expectedHash)
   of 9: checkBasic(BitArray[9], dir, expectedHash)
+  of 15: checkBasic(BitArray[15], dir, expectedHash)
   of 16: checkBasic(BitArray[16], dir, expectedHash)
+  of 17: checkBasic(BitArray[17], dir, expectedHash)
   of 31: checkBasic(BitArray[31], dir, expectedHash)
   of 32: checkBasic(BitArray[32], dir, expectedHash)
+  of 33: checkBasic(BitArray[33], dir, expectedHash)
+  of 511: checkBasic(BitArray[511], dir, expectedHash)
   of 512: checkBasic(BitArray[512], dir, expectedHash)
   of 513: checkBasic(BitArray[513], dir, expectedHash)
   else:
@@ -325,10 +280,17 @@ proc checkBitList(
     checkBasic(BitList[3], dir, expectedHash)
     checkBasic(BitList[4], dir, expectedHash)
     checkBasic(BitList[5], dir, expectedHash)
+    checkBasic(BitList[6], dir, expectedHash)
+    checkBasic(BitList[7], dir, expectedHash)
     checkBasic(BitList[8], dir, expectedHash)
+    checkBasic(BitList[9], dir, expectedHash)
+    checkBasic(BitList[15], dir, expectedHash)
     checkBasic(BitList[16], dir, expectedHash)
+    checkBasic(BitList[17], dir, expectedHash)
     checkBasic(BitList[31], dir, expectedHash)
     checkBasic(BitList[32], dir, expectedHash)
+    checkBasic(BitList[33], dir, expectedHash)
+    checkBasic(BitList[511], dir, expectedHash)
     checkBasic(BitList[512], dir, expectedHash)
     checkBasic(BitList[513], dir, expectedHash)
     return
@@ -347,10 +309,17 @@ proc checkBitList(
   of 3: checkBasic(BitList[3], dir, expectedHash)
   of 4: checkBasic(BitList[4], dir, expectedHash)
   of 5: checkBasic(BitList[5], dir, expectedHash)
+  of 6: checkBasic(BitList[6], dir, expectedHash)
+  of 7: checkBasic(BitList[7], dir, expectedHash)
   of 8: checkBasic(BitList[8], dir, expectedHash)
+  of 9: checkBasic(BitList[9], dir, expectedHash)
+  of 15: checkBasic(BitList[15], dir, expectedHash)
   of 16: checkBasic(BitList[16], dir, expectedHash)
+  of 17: checkBasic(BitList[17], dir, expectedHash)
   of 31: checkBasic(BitList[31], dir, expectedHash)
   of 32: checkBasic(BitList[32], dir, expectedHash)
+  of 33: checkBasic(BitList[33], dir, expectedHash)
+  of 511: checkBasic(BitList[511], dir, expectedHash)
   of 512: checkBasic(BitList[512], dir, expectedHash)
   of 513: checkBasic(BitList[513], dir, expectedHash)
   else:
@@ -359,13 +328,9 @@ proc checkBitList(
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(
-    baseDir, sszType, sszSubType: string
-) {.raises: [
-    Exception, IOError, SerializationError,
-    TestSizeError, UnconsumedInput, ValueError].} =
-  let dir = baseDir/sszSubType
-
+proc sszCheck(dir, sszType, sszSubType: string)
+    {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
+               ValueError, YamlConstructionError, YamlParserError].} =
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
   if fileExists(dir/"meta.yaml"):
@@ -393,6 +358,8 @@ proc sszCheck(
     of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
+  of "basic_progressive_list":
+    skip()  # checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
@@ -408,74 +375,32 @@ proc sszCheck(
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
+    of "ProgressiveTestStruct":
+      skip()  #checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
+    of "ProgressiveBitsStruct":
+      skip()  # checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
-  of "profiles":
+  of "progressive_bitlist":
+    skip()  # checkBasic(BitSeq, dir, expectedHash)
+  of "progressive_containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
-    case name
-    of "BitsProfile1":
-      checkBasic(BitsProfile1, dir, expectedHash)
-    of "BitsProfile2":
-      checkBasic(BitsProfile2, dir, expectedHash)
-    of "BitsProfile3":
-      checkBasic(BitsProfile3, dir, expectedHash)
-    of "ComplexTestProfile1":
-      checkBasic(ComplexTestProfile1, dir, expectedHash)
-    of "ComplexTestProfile2":
-      checkBasic(ComplexTestProfile2, dir, expectedHash)
-    of "ComplexTestProfile3":
-      checkBasic(ComplexTestProfile3, dir, expectedHash)
-    of "ComplexTestProfile4":
-      checkBasic(ComplexTestProfile4, dir, expectedHash)
-    of "ComplexTestProfile5":
-      checkBasic(ComplexTestProfile5, dir, expectedHash)
-    of "FixedTestProfile1":
-      checkBasic(FixedTestProfile1, dir, expectedHash)
-    of "FixedTestProfile2":
-      checkBasic(FixedTestProfile2, dir, expectedHash)
-    of "FixedTestProfile3":
-      checkBasic(FixedTestProfile3, dir, expectedHash)
-    of "FixedTestProfile4":
-      checkBasic(FixedTestProfile4, dir, expectedHash)
-    of "SingleFieldTestProfile":
-      checkBasic(SingleFieldTestProfile, dir, expectedHash)
-    of "SmallTestProfile1":
-      checkBasic(SmallTestProfile1, dir, expectedHash)
-    of "SmallTestProfile2":
-      checkBasic(SmallTestProfile2, dir, expectedHash)
-    of "SmallTestProfile3":
-      checkBasic(SmallTestProfile3, dir, expectedHash)
-    of "VarTestProfile1":
-      checkBasic(VarTestProfile1, dir, expectedHash)
-    of "VarTestProfile2":
-      checkBasic(VarTestProfile2, dir, expectedHash)
-    of "VarTestProfile3":
-      checkBasic(VarTestProfile3, dir, expectedHash)
-    else:
-      raise newException(ValueError, "unknown profile in test: " & sszSubType)
-  of "stablecontainers":
-    var name: string
-    let wasMatched = scanf(sszSubType, "$+_", name)
-    doAssert wasMatched
-    case name
-    of "BitsStableStruct":
-      checkBasic(BitsStableStruct, dir, expectedHash)
-    of "ComplexTestStableStruct":
-      checkBasic(ComplexTestStableStruct, dir, expectedHash)
-    of "FixedTestStableStruct":
-      checkBasic(FixedTestStableStruct, dir, expectedHash)
-    of "SingleFieldTestStableStruct":
-      checkBasic(SingleFieldTestStableStruct, dir, expectedHash)
-    of "SmallTestStableStruct":
-      checkBasic(SmallTestStableStruct, dir, expectedHash)
-    of "VarTestStableStruct":
-      checkBasic(VarTestStableStruct, dir, expectedHash)
-    else:
-      raise newException(ValueError,
-        "unknown stablecontainer in test: " & sszSubType)
+    skip()
+    # case name
+    # of "ProgressiveSingleFieldContainerTestStruct":
+    #   checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
+    # of "ProgressiveSingleListContainerTestStruct":
+    #   checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
+    # of "ProgressiveVarTestStruct":
+    #   checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
+    # of "ProgressiveComplexTestStruct":
+    #   checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
+    # else:
+    #   raise newException(ValueError,
+    #     "unknown progressive container in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -487,37 +412,39 @@ proc sszCheck(
 # Test runner
 # ------------------------------------------------------------------------
 
+proc runValidTest(dir, sszType, sszSubType: string) =
+  test &"{sszType:12} - valid - " & sszSubType:
+    sszCheck(dir, sszType, sszSubType)
+
+proc runInvalidTest(dir, sszType, sszSubType: string) =
+  test &"{sszType:12} - invalid - " & sszSubType:
+    try:
+      sszCheck(dir, sszType, sszSubType)
+    except SszError, UnconsumedInput:
+      discard
+    except TestSizeError as err:
+      echo err.msg
+      skip()
+    except:
+      echo getStackTrace(getCurrentException())
+      echo getCurrentExceptionMsg()
+      check false
+
 suite "EF - SSZ generic types":
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
-    var skipped: string
-    case sszType
-    of "containers":
-      skipped = " - skipping BitsStruct"
-
-    test &"Testing {sszType:16} inputs - valid" & skipped:
+    block:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
-        sszCheck(path, sszType, sszSubType)
+        runValidTest(path/sszSubType, sszType, sszSubType)
 
-    template invalidPath: untyped = SSZDir/sszType/"invalid"
-    if os_ops.dirExists(invalidPath):
-      test &"Testing {sszType:16} inputs - invalid" & skipped:
-        for pathKind, sszSubType in walkDir(
-            invalidPath, relative = true, checkDir = true):
-          if pathKind != pcDir: continue
-          try:
-            sszCheck(invalidPath, sszType, sszSubType)
-          except SszError, UnconsumedInput:
-            discard
-          except TestSizeError as err:
-            echo err.msg
-            skip()
-          except:
-            checkpoint getStackTrace(getCurrentException())
-            checkpoint getCurrentExceptionMsg()
-            check false
+    block:
+      let path = SSZDir/sszType/"invalid"
+      for pathKind, sszSubType in walkDir(
+          path, relative = true, checkDir = true):
+        if pathKind != pcDir: continue
+        runInvalidTest(path/sszSubType, sszType, sszSubType)

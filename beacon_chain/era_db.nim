@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/os,
@@ -126,7 +126,7 @@ proc getBlockSSZ*(
   if len > int.high.uint64:
     return err("Invalid uncompressed size")
 
-  bytes = newSeqUninitialized[byte](len)
+  bytes = newSeqUninit[byte](len)
 
   # Where it matters, we will integrity-check the data with SSZ - no
   # need to waste cycles on crc32
@@ -171,7 +171,7 @@ proc getStateSSZ*(
         min(len, partial.get().uint64 + maxUncompressedFrameDataLen - 1)
       else: len
 
-  bytes = newSeqUninitialized[byte](wanted)
+  bytes = newSeqUninit[byte](wanted)
 
   # Where it matters, we will integrity-check the data with SSZ - no
   # need to waste cycles on crc32
@@ -421,8 +421,8 @@ proc getPartialState(
   try:
     readSszBytes(tmp.toOpenArray(0, partialBytes - 1), output)
     true
-  except CatchableError:
-    # TODO log?
+  except CatchableError as exc:
+    error "Failed to parse partial beacon state", slot = slot, msg = exc.msg
     false
 
 iterator getBlockIds*(
@@ -441,7 +441,7 @@ iterator getBlockIds*(
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
     case db.cfg.consensusForkAtEpoch(slot.epoch)
-    of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+    of ConsensusFork.Phase0 .. ConsensusFork.Gloas:
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(
           db, historical_roots, historical_summaries, stateSlot, state[]):

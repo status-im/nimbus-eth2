@@ -15,10 +15,11 @@ from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import
-  ExecutionPayloadHeader, PendingConsolidation, PendingDeposit,
+  PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
-from ./spec/datatypes/fulu import
-  ExecutionPayloadHeader
+from ./spec/datatypes/gloas import
+  BuilderPendingPayment, BuilderPendingWithdrawal, 
+  BUILDER_PENDING_WITHDRAWALS_LIMIT
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -393,7 +394,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: electra.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -477,7 +478,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: fulu.ExecutionPayloadHeader
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -502,3 +503,108 @@ type
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
       ## [New in Electra:EIP7251]
+
+    # [New in Fulu:EIP7917]
+    proposer_lookahead*:
+        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
+  # Memory-representation-equivalent to a Gloas BeaconState for in-place SSZ
+  # reading and writing
+  GloasBeaconStateNoImmutableValidators* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*:
+      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
+    justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
+
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Inactivity
+    inactivity_scores*: InactivityScores
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_header*: gloas.ExecutionPayloadHeader
+      ## [Modified in Gloas:EIP7732]
+
+    # Withdrawals
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
+      ## [New in Electra:EIP7251]
+
+    # [New in Electra:EIP7251]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+
+    # [New in Fulu:EIP7917]
+    proposer_lookahead*:
+        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
+    # [New in Gloas:EIP7732]
+    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    # [New in Gloas:EIP7732]
+    builder_pending_payments*: 
+      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
+    # [New in Gloas:EIP7732]
+    builder_pending_withdrawals*: 
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    # [New in Gloas:EIP7732]
+    latest_block_hash*: Eth2Digest
+    # [New in Gloas:EIP7732]
+    latest_withdrawals_root*: Eth2Digest

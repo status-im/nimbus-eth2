@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -113,7 +113,7 @@ proc readIndex*(f: IoHandle): Result[Index, string] =
   # technically not an error, but we'll throw this sanity check in here..
   if slot > int32.high().uint64: return err("fishy slot")
 
-  var offsets = newSeqUninitialized[int64](count)
+  var offsets = newSeqUninit[int64](count)
   for i in 0..<count:
     let
       offset = uint64.fromBytesLE(buf.toOpenArray(pos, pos + 7))

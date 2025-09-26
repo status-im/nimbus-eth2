@@ -46,10 +46,10 @@ const
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
-static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Electra, ConsensusFork.Fulu}
+  OptionalForks* = {ConsensusFork.Fulu, ConsensusFork.Gloas}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -233,6 +233,7 @@ type
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     syncCommitteeProofs*: SyncCommitteeProofsMap
+    timeConfig*: TimeConfig
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
@@ -267,8 +268,14 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  SlotDuration* = int64(SECONDS_PER_SLOT).seconds
-  OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
+  SlotDuration* =
+    int64(SECONDS_PER_SLOT).seconds
+  SlotDurationSoft* =
+    (int64(SECONDS_PER_SLOT) div 2).seconds
+  OneThirdDuration* =
+    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT)).seconds
+  OneThirdDurationSoft* =
+    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT) div 2'i64).seconds
   AllBeaconNodeRoles* = {
     BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,
@@ -503,32 +510,32 @@ chronicles.expandIt(SyncCommitteeDuty):
   validator_index = it.validator_index
   validator_sync_committee_indices = it.validator_sync_committee_indices
 
-proc equals*(info: VCRuntimeConfig, name: string, check: uint64): bool =
-  let numstr = info.getOrDefault(name, "missing")
-  if numstr == "missing": return false
-  let value = Base10.decode(uint64, numstr).valueOr:
+func parseConfigValue[T: uint64](_: typedesc[T], str: string): Opt[T] =
+  let res = Base10.decode(uint64, str).valueOr:
+    return Opt.none T
+  Opt.some res
+
+func parseConfigValue[T: DomainType](_: typedesc[T], str: string): Opt[T] =
+  try:
+    var res: DomainType
+    hexToByteArray(str, distinctBase(res))
+    Opt.some res
+  except ValueError:
+    Opt.none T
+
+func equals*[T](info: VCRuntimeConfig, name: string, check: T): bool =
+  let str = info.getOrDefault(name, "missing")
+  if str == "missing": return false
+  let value = T.parseConfigValue(str).valueOr:
     return false
   value == check
 
-proc equals*(info: VCRuntimeConfig, name: string, check: DomainType): bool =
-  let domstr = info.getOrDefault(name, "missing")
-  if domstr == "missing": return false
-  let value =
-    try:
-      var dres: DomainType
-      hexToByteArray(domstr, distinctBase(dres))
-      dres
-    except ValueError:
-      return false
-  value == check
-
-proc equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
+func equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
   info.equals(name, uint64(check))
 
-proc checkConfig*(c: VCRuntimeConfig): bool =
+func checkConfig*(c: VCRuntimeConfig): bool =
   c.equals("MAX_VALIDATORS_PER_COMMITTEE", MAX_VALIDATORS_PER_COMMITTEE) and
   c.equals("SLOTS_PER_EPOCH", SLOTS_PER_EPOCH) and
-  c.equals("SECONDS_PER_SLOT", SECONDS_PER_SLOT) and
   c.equals("EPOCHS_PER_ETH1_VOTING_PERIOD", EPOCHS_PER_ETH1_VOTING_PERIOD) and
   c.equals("SLOTS_PER_HISTORICAL_ROOT", SLOTS_PER_HISTORICAL_ROOT) and
   c.equals("EPOCHS_PER_HISTORICAL_VECTOR", EPOCHS_PER_HISTORICAL_VECTOR) and
@@ -549,6 +556,20 @@ proc checkConfig*(c: VCRuntimeConfig): bool =
   c.equals("DOMAIN_AGGREGATE_AND_PROOF", DOMAIN_AGGREGATE_AND_PROOF) and
   c.hasKey("ALTAIR_FORK_VERSION") and c.hasKey("ALTAIR_FORK_EPOCH") and
   not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
+
+func checkConfig*(c: VCRuntimeConfig, timeConfig: TimeConfig): bool =
+  c.checkConfig and c.equals("SECONDS_PER_SLOT", timeConfig.SECONDS_PER_SLOT)
+
+func getTimeConfig*(c: VCRuntimeConfig): Opt[TimeConfig] =
+  let SECONDS_PER_SLOT = block:
+    const defaultStr = Base10.toString(
+      defaultRuntimeConfig.time.SECONDS_PER_SLOT)
+    ? uint64.parseConfigValue c.getOrDefault("SECONDS_PER_SLOT", defaultStr)
+  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT:
+    return Opt.none TimeConfig
+  if SECONDS_PER_SLOT != presets.SECONDS_PER_SLOT:
+    return Opt.none TimeConfig  # Temporary, until removed from presets
+  Opt.some TimeConfig(SECONDS_PER_SLOT: SECONDS_PER_SLOT)
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
@@ -1061,7 +1082,7 @@ proc getValidatorRegistration(
     vc: ValidatorClientRef,
     validator: AttachedValidator,
     timestamp: Time,
-    fork: Fork
+    genesis_fork_version: Version,
 ): Result[PendingValidatorRegistration, RegistrationKind] =
   if validator.index.isNone():
     debug "Validator registration missing validator index",
@@ -1091,14 +1112,14 @@ proc getValidatorRegistration(
   var registration =
     SignedValidatorRegistrationV1(
       message: ValidatorRegistrationV1(
-        fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+        fee_recipient: feeRecipient,
         gas_limit: gasLimit,
         timestamp: uint64(timestamp.toUnix()),
         pubkey: validator.pubkey
       )
     )
 
-  let sigfut = validator.getBuilderSignature(fork, registration.message)
+  let sigfut = validator.getBuilderSignature(genesis_fork_version, registration.message)
   if sigfut.finished():
     # This is short-path if we able to create signature locally.
     if not(sigfut.completed()):
@@ -1120,7 +1141,7 @@ proc getValidatorRegistration(
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
     timestamp: Time,
-    fork: Fork
+    genesis_fork_version: Version,
 ): Future[seq[SignedValidatorRegistrationV1]] {.
   async: (raises: [CancelledError]).} =
 
@@ -1140,7 +1161,7 @@ proc prepareRegistrationList*(
     timed = 0
 
   for validator in vc.attachedValidators[].items():
-    let res = vc.getValidatorRegistration(validator, timestamp, fork)
+    let res = vc.getValidatorRegistration(validator, timestamp, genesis_fork_version)
     if res.isOk():
       let preg = res.get()
       if preg.future.isNil():
@@ -1235,7 +1256,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     time_to_slot = shortLog(timeToSlot)
 
   while true:
-    await sleepAsync2(timeToSlot)
+    await sleepAsync(timeToSlot)
 
     let
       wallTime = vc.beaconClock.now()

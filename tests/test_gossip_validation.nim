@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -45,13 +45,13 @@ suite "Gossip validation " & preset():
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
-      pool = newClone(AttestationPool.init(dag, quarantine))
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
-      batchCrypto = BatchCrypto.new(
+      batchCrypto {.used.} = BatchCrypto.new(
         rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
@@ -297,7 +297,7 @@ suite "Gossip validation - Altair":
   setup:
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
     var

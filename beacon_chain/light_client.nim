@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -137,8 +137,8 @@ proc createLightClient(
     strictVerification)
 
   proc lightClientVerifier(obj: SomeForkedLightClientObject):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-    let resfut = Future[Result[void, VerifierError]].Raising([CancelledError]).init("lightClientVerifier")
+      Future[Result[void, LightClientVerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    let resfut = Future[Result[void, LightClientVerifierError]].Raising([CancelledError]).init("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =
@@ -181,7 +181,7 @@ proc createLightClient(
     getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
     shouldInhibitSync = shouldInhibitSync)
 
-  lightClient.gossipState = {}
+  reset(lightClient.gossipState)
 
   lightClient
 
@@ -287,11 +287,13 @@ proc installMessageValidators*(
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,
-      contextFork: ConsensusFork,
+      expectedContextBytes: ForkDigest,
       validatorProcName: untyped): ValidationResult =
     msg.logReceived()
 
-    if contextFork != lightClient.cfg.consensusForkAtEpoch(msg.contextEpoch):
+    let contextBytes =
+      lightClient.forkDigests[].atEpoch(msg.contextEpoch, lightClient.cfg)
+    if contextBytes != expectedContextBytes:
       msg.logDropped(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
@@ -346,28 +348,29 @@ proc installMessageValidators*(
 
   let forkDigests = lightClient.forkDigests
   for consensusFork in ConsensusFork:
-    withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
-      when lcDataFork > LightClientDataFork.None:
-        closureScope:
-          let
-            contextFork = consensusFork
-            digest = forkDigests[].atConsensusFork(contextFork)
+    for forkDigest in consensusFork.forkDigests(forkDigests[]):
+      withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
+        when lcDataFork > LightClientDataFork.None:
+          closureScope:
+            let contextBytes = forkDigest
 
-          # light_client_optimistic_update
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
-          lightClient.network.addValidator(
-            getLightClientFinalityUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientFinalityUpdate
-            ): ValidationResult =
-              validate(msg, contextFork, processLightClientFinalityUpdate))
+            # light_client_optimistic_update
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+            lightClient.network.addValidator(
+              getLightClientFinalityUpdateTopic(forkDigest), proc (
+                msg: lcDataFork.LightClientFinalityUpdate,
+                src: PeerId
+              ): ValidationResult =
+                validate(msg, contextBytes, processLightClientFinalityUpdate))
 
-          # light_client_optimistic_update
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
-          lightClient.network.addValidator(
-            getLightClientOptimisticUpdateTopic(digest), proc (
-              msg: lcDataFork.LightClientOptimisticUpdate
-            ): ValidationResult =
-              validate(msg, contextFork, processLightClientOptimisticUpdate))
+            # light_client_optimistic_update
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+            lightClient.network.addValidator(
+              getLightClientOptimisticUpdateTopic(forkDigest), proc (
+                msg: lcDataFork.LightClientOptimisticUpdate,
+                src: PeerId
+              ): ValidationResult =
+                validate(msg, contextBytes, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
@@ -387,10 +390,7 @@ proc updateGossipStatus*(
       dagIsBehind.get(true)
     isBehind = lcBehind and dagBehind
 
-    currentEpochTargetGossipState = getTargetGossipState(
-      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-      cfg.FULU_FORK_EPOCH, isBehind)
+    currentEpochTargetGossipState = getTargetGossipState(epoch, cfg, isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
         currentEpochTargetGossipState
@@ -399,9 +399,7 @@ proc updateGossipStatus*(
         # which is in the past relative to the signature slot (current slot).
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
-          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-          cfg.FULU_FORK_EPOCH, isBehind)
+          epoch - 1, cfg, isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
   template currentGossipState(): auto = lightClient.gossipState
@@ -419,25 +417,23 @@ proc updateGossipStatus*(
     discard
 
   let
-    newGossipForks = targetGossipState - currentGossipState
-    oldGossipForks = currentGossipState - targetGossipState
+    newGossipEpochs = targetGossipState - currentGossipState
+    oldGossipEpochs = currentGossipState - targetGossipState
 
-  for gossipFork in oldGossipForks:
-    if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in oldGossipEpochs:
+    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+      let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
       lightClient.network.unsubscribe(
         getLightClientOptimisticUpdateTopic(forkDigest))
 
-  for gossipFork in newGossipForks:
-    if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in newGossipEpochs:
+    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+      let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.subscribe(
-        getLightClientFinalityUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientFinalityUpdateTopic(forkDigest), basicParams())
       lightClient.network.subscribe(
-        getLightClientOptimisticUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientOptimisticUpdateTopic(forkDigest), basicParams())
 
   lightClient.gossipState = targetGossipState

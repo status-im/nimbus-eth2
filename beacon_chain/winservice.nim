@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,7 @@
 when defined(windows):
   import results, chronicles
   import chronos/[osdefs, osutils, oserrno]
-  import ./conf_common
+  import ./nimbus_binary_common
 
   type
     SERVICE_STATUS* {.final, pure.} = object
@@ -106,10 +106,8 @@ when defined(windows):
   proc reportServiceStatusSuccess*() =
     reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
 
-  template establishWindowsService*(argClientId,
-                                    argCopyrights,
-                                    argNimBanner,
-                                    argSpecVersion,
+  template establishWindowsService*(argHelpBanner: string,
+                                    argVersions: openArray[string],
                                     argServiceName: string,
                                     argConfigType: untyped,
                                     argEntryPoint: untyped,
@@ -150,8 +148,7 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
         quit QuitFailure
 
-      var config = makeBannerAndConfig(argClientId, argCopyrights,
-                                       argNimBanner, argSpecVersion,
+      var config = makeBannerAndConfig(argHelpBanner, argVersions,
                                        environment, argConfigType).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure

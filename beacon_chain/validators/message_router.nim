@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/sequtils,
@@ -84,8 +84,8 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], checkValidator: bool):
-    Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+    blobsOpt: Opt[seq[BlobSidecar]], dataColumnsOpt: Opt[seq[fulu.DataColumnSidecar]],
+    checkValidator: bool): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -112,7 +112,7 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind >= ConsensusFork.Deneb:
+    when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
@@ -152,28 +152,69 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  var blobRefs = Opt.none(BlobSidecars)
-  if blobsOpt.isSome():
-    let blobs = blobsOpt.get()
-    var workers = newSeq[Future[SendResult]](blobs.len)
-    for i in 0..<blobs.lenu64:
-      let subnet_id = router[].processor[]
-        .dag.cfg.compute_subnet_for_blob_sidecar(
-          blobs[i].signed_block_header.message.slot, i)
-      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
-    let allres = await allFinished(workers)
-    for i in 0..<allres.len:
-      let res = allres[i]
-      doAssert res.finished()
-      if res.failed():
-        notice "Blob not sent",
-          blob = shortLog(blobs[i]), error = res.error[]
-      else:
-        notice "Blob sent", blob = shortLog(blobs[i])
-    blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+  when typeof(blck).kind >= ConsensusFork.Fulu:
+    var dataColumnRefs = Opt.none(fulu.DataColumnSidecars)
+    let dataColumns = dataColumnsOpt.get()
+    if dataColumnsOpt.isSome():
+      var das_workers =
+        newSeq[Future[SendResult]](len(dataColumns))
+      for i in 0..<dataColumns.lenu64:
+        let subnet_id =
+          compute_subnet_for_data_column_sidecar(dataColumns[i].index)
 
-  let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
+        das_workers[i] =
+          router[].network.broadcastDataColumnSidecar(subnet_id,
+                                                      dataColumns[i])
+      let allres = await allFinished(das_workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Data column not sent",
+            data_column = shortLog(dataColumns[i]), error = res.error[]
+        else:
+          notice "Data column sent",
+            data_column = shortLog(dataColumns[i])
+      # Push only those columns to processor for which we custody
+      let
+        metadata = router[].network.metadata.custody_group_count
+        custody_columns =
+          router[].network.cfg.resolve_columns_from_custody_groups(
+            router[].network.nodeId, metadata)
+
+      var final_columns: seq[ref fulu.DataColumnSidecar]
+      for dc in dataColumns:
+        if dc.index in custody_columns:
+          final_columns.add newClone(dc)
+      dataColumnRefs = Opt.some(final_columns)
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck), dataColumnRefs)
+  elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+    var blobRefs = Opt.none(BlobSidecars)
+    if blobsOpt.isSome():
+      let blobs = blobsOpt.get()
+      var workers = newSeq[Future[SendResult]](blobs.len)
+      for i in 0..<blobs.lenu64:
+        let subnet_id = router[].processor[]
+          .dag.cfg.compute_subnet_for_blob_sidecar(
+            blobs[i].signed_block_header.message.slot, i)
+        workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
+      let allres = await allFinished(workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Blob not sent",
+            blob = shortLog(blobs[i]), error = res.error[]
+        else:
+          notice "Blob sent", blob = shortLog(blobs[i])
+      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
+  else:
+    let added = await router[].blockProcessor[].addBlock(
+      MsgSource.api, ForkedSignedBeaconBlock.init(blck))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
