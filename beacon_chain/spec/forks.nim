@@ -219,6 +219,10 @@ type
     phase0.Attestation |
     electra.SingleAttestation
 
+  ForkyAttesterSlashing* =
+    phase0.AttesterSlashing |
+    electra.AttesterSlashing
+
   ForkedAttestation* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.Attestation
@@ -1297,25 +1301,38 @@ template getForkedBlockField*(
   of ConsensusFork.Fulu:      unsafeAddr x.fuluData.message.y
   of ConsensusFork.Gloas:     unsafeAddr x.gloasData.message.y)[]
 
-template signature*(x: ForkedSignedBeaconBlock |
-                       ForkedSignedBlindedBeaconBlock): ValidatorSig =
+template getForkedBodyField*(
+    x: ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    y: untyped): untyped =
+  # unsafeAddr avoids a copy of the field in some cases
+  (case x.kind
+  of ConsensusFork.Phase0:    unsafeAddr x.phase0Data.message.body.y
+  of ConsensusFork.Altair:    unsafeAddr x.altairData.message.body.y
+  of ConsensusFork.Bellatrix: unsafeAddr x.bellatrixData.message.body.y
+  of ConsensusFork.Capella:   unsafeAddr x.capellaData.message.body.y
+  of ConsensusFork.Deneb:     unsafeAddr x.denebData.message.body.y
+  of ConsensusFork.Electra:   unsafeAddr x.electraData.message.body.y
+  of ConsensusFork.Fulu:      unsafeAddr x.fuluData.message.body.y
+  of ConsensusFork.Gloas:     unsafeAddr x.gloasData.message.body.y)[]
+
+func signature*(x: ForkedSignedBeaconBlock |
+                   ForkedTrustedSignedBeaconBlock |
+                   ForkedSignedBlindedBeaconBlock): ValidatorSig | TrustedSig =
   withBlck(x): forkyBlck.signature
 
-template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
-  withBlck(x): forkyBlck.signature
-
-template root*(x: ForkedSignedBeaconBlock |
+func root*(x: ForkedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Eth2Digest =
   withBlck(x): forkyBlck.root
 
-template slot*(x: ForkedSignedBeaconBlock |
+func slot*(x: ForkedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Slot =
   withBlck(x): forkyBlck.message.slot
 
-template shortLog*(x: ForkedBeaconBlock): auto =
+func shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)
 
-template shortLog*(x: ForkedSignedBeaconBlock |
+func shortLog*(x: ForkedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock |
                       ForkedSignedBlindedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)

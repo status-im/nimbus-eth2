@@ -11,6 +11,7 @@
 
 import
   # Status libraries
+  std/times,
   stew/[byteutils, endians2, objects],
   nimcrypto/sha2,
   chronicles,
