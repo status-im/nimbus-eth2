@@ -8,10 +8,20 @@ AllTests-mainnet
 ```diff
 + Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
 + Aggregating across committees [Preset: mainnet]                                            OK
++ Attestation from different branch [Preset: mainnet]                                        OK
++ Attestations may arrive in any order [Preset: mainnet]                                     OK
++ Attestations may overlap, bigger first [Preset: mainnet]                                   OK
++ Attestations may overlap, smaller first [Preset: mainnet]                                  OK
++ Attestations should be combined [Preset: mainnet]                                          OK
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
++ Everyone voting for something different [Preset: mainnet]                                  OK
++ Fork choice returns block with attestation                                                 OK
++ Fork choice returns latest block with no attestations                                      OK
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
++ Trying to add a block twice tags the second as an error                                    OK
++ Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
 ## Attestation pool processing [Preset: mainnet]
@@ -773,6 +783,7 @@ AllTests-mainnet
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
++ execution payload envelope signatures                                                      OK
 ```
 ## Network metadata
 ```diff
