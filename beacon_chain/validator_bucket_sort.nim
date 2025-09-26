@@ -5,10 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/typetraits
 import "."/spec/crypto
+from stew/staticfor import staticFor
 from "."/spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
 
 const
@@ -57,7 +58,7 @@ func sortValidatorBuckets*(validators: openArray[Validator]):
     res.bucketSorted[insertPos[]] = i.ValidatorIndex
 
   doAssert bucketInsertPositions[0] == 0
-  for i in 1 ..< NUM_BUCKETS:
+  staticFor i, 1 ..< NUM_BUCKETS:
     doAssert res.bucketUpperBounds[i - 1] == bucketInsertPositions[i]
 
   res

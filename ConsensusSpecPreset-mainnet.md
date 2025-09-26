@@ -4107,6 +4107,34 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Slots - slots_1 [Preset: mainnet]                                             OK
 + EF - Gloas - Slots - slots_2 [Preset: mainnet]                                             OK
 ```
+## EF - Gloas - Transition  [Preset: mainnet]
+```diff
++ EF - Gloas - Transition - non_empty_historical_roots [Preset: mainnet]                     OK
++ EF - Gloas - Transition - normal_transition [Preset: mainnet]                              OK
++ EF - Gloas - Transition - simple_transition [Preset: mainnet]                              OK
++ EF - Gloas - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
++ EF - Gloas - Transition - transition_missing_first_post_block [Preset: mainnet]            OK
++ EF - Gloas - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]         OK
++ EF - Gloas - Transition - transition_only_blocks_post_fork [Preset: mainnet]               OK
++ EF - Gloas - Transition - transition_randomized_state [Preset: mainnet]                    OK
++ EF - Gloas - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]       OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_after_fork [Preset: main OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: mai OK
++ EF - Gloas - Transition - transition_with_btec_right_after_fork [Preset: mainnet]          OK
++ EF - Gloas - Transition - transition_with_btec_right_before_fork [Preset: mainnet]         OK
++ EF - Gloas - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]       OK
++ EF - Gloas - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]      OK
++ EF - Gloas - Transition - transition_with_finality [Preset: mainnet]                       OK
++ EF - Gloas - Transition - transition_with_leaking_at_fork [Preset: mainnet]                OK
++ EF - Gloas - Transition - transition_with_leaking_pre_fork [Preset: mainnet]               OK
++ EF - Gloas - Transition - transition_with_no_attestations_until_after_fork [Preset: mainne OK
++ EF - Gloas - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]     OK
++ EF - Gloas - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_after_fork [Preset: main OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mai OK
++ EF - Gloas - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
++ EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
+```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK

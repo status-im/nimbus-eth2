@@ -188,8 +188,6 @@ suite "EF - Gloas - Transition " & preset():
     SszTestsDir/const_preset/"gloas"/"transition"/"core"/"pyspec_tests"
 
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    debugGloasComment "gloas transition tests"
-    if true: continue
     let transitionInfo = getTransitionInfo(TransitionDir / path)
     var cfg = defaultRuntimeConfig
     cfg.GLOAS_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
