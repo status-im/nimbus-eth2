@@ -448,12 +448,20 @@ proc initFullNode(
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-      # The design with a callback for block verification is unusual compared
-      # to the rest of the application, but fits with the general approach
-      # taken in the sync/request managers - this is an architectural compromise
-      # that should probably be reimagined more holistically in the future.
-      blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+      withBlck(signedBlock):
+        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+          # TODO document why there are no columns here
+          let sidecarsOpt = Opt.none(DataColumnSidecars)
+        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+          template sidecarsOpt: untyped = blobs
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+          const sidecarsOpt = noSidecars
+        else:
+          {.error: "Unkown fork: " & $consensusFork.}
+
+        blockProcessor.addBlock(
+          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
+
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
@@ -463,40 +471,38 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Fulu and
-            consensusFork < ConsensusFork.Gloas:
+        when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "no blob_kzg_commitments field for gloas"
-          let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if cres.isSome():
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                            cres,
-                                            maybeFinalized = maybeFinalized)
-          else:
+          let sidecarsOpt = Opt.none(DataColumnSidecars)
+        elif consensusFork == ConsensusFork.Fulu:
+          let sidecarsOpt =
+            dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
-            if not quarantine[].addSidecarless(
-              dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
-
-        elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-          let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if bres.isSome():
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                            bres,
-                                            maybeFinalized = maybeFinalized)
-          else:
+            return
+              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
+                err(VerifierError.UnviableFork)
+              else:
+                err(VerifierError.MissingParent)
+        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+          let sidecarsOpt = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if sidecarsOpt.isNone():
             # We don't have all the sidecars for this block, so we have
             # to put it to the quarantine.
-            if not quarantine[].addSidecarless(
-              dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
+            return
+              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
+                err(VerifierError.UnviableFork)
+              else:
+                err(VerifierError.MissingParent)
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+          const sidecarsOpt = noSidecars
         else:
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                          maybeFinalized = maybeFinalized)
+          {.error: "Unkown fork: " & $consensusFork.}
+
+        await blockProcessor.addBlock(
+          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized
+        )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
@@ -2524,7 +2530,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
 
   asyncSpawn runSlotLoop(node, wallTime)
   asyncSpawn runOnSecondLoop(node)
-  asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
   while true:

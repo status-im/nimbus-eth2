@@ -70,11 +70,9 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
-    discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let missing = await processor[].addBlock(
-      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+    let missing = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
 
     check: missing.error == VerifierError.MissingParent
 
@@ -84,8 +82,7 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
-      status = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
+      status = await processor.addBlock(MsgSource.gossip, b1, noSidecars)
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -133,20 +130,16 @@ suite "Block processor" & preset():
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn, invalidBlockRoots = @[b2.root])
-      processorFut = processor.runQueueProcessingLoop()
-    defer: await processorFut.cancelAndWait()
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+      let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
+      let res = await processor.addBlock(MsgSource.gossip, b1, noSidecars)
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -158,8 +151,7 @@ suite "Block processor" & preset():
         not dag.containsForkBlock(b2.root)
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+      let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)

@@ -153,7 +153,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    var dataColumnRefs = Opt.none(fulu.DataColumnSidecars)
+    var sidecarOpt = Opt.none(fulu.DataColumnSidecars)
     let dataColumns = dataColumnsOpt.get()
     if dataColumnsOpt.isSome():
       var das_workers =
@@ -186,11 +186,9 @@ proc routeSignedBeaconBlock*(
       for dc in dataColumns:
         if dc.index in custody_columns:
           final_columns.add newClone(dc)
-      dataColumnRefs = Opt.some(final_columns)
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck), dataColumnRefs)
+      sidecarOpt = Opt.some(final_columns)
   elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    var blobRefs = Opt.none(BlobSidecars)
+    var sidecarOpt = Opt.none(BlobSidecars)
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       var workers = newSeq[Future[SendResult]](blobs.len)
@@ -208,13 +206,13 @@ proc routeSignedBeaconBlock*(
             blob = shortLog(blobs[i]), error = res.error[]
         else:
           notice "Blob sent", blob = shortLog(blobs[i])
-      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+      sidecarOpt = Opt.some(blobs.mapIt(newClone(it)))
 
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
   else:
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck))
+    const sidecarOpt = noSidecars
+
+  let added = await router[].blockProcessor.addBlock(
+    MsgSource.api, blck, sidecarOpt)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
