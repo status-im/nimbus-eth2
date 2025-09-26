@@ -307,3 +307,37 @@ suite "Message signatures":
         load(pubkey0).get, get_execution_payload_bid_signature(
           fork0, genesis_validators_root1, msg[],
           state[], privkey0).toValidatorSig)
+
+  test "execution payload envelope signatures":
+    let 
+      msg = gloas.SignedExecutionPayloadEnvelope.new()
+      state = gloas.BeaconState.new()
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root0, msg[],
+          state[], privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root0, msg[],
+          state[], privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork1, genesis_validators_root0, msg[],
+          state[], privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg[], state[],
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root1, msg[],
+          state[], privkey0).toValidatorSig)

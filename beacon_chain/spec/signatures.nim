@@ -453,3 +453,30 @@ proc verify_execution_payload_bid_signature*(
   let signing_root = compute_execution_payload_bid_signing_root(
     fork, genesis_validators_root, msg, state)
   blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+func compute_execution_payload_envelope_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadEnvelope,
+    state: gloas.BeaconState): Eth2Digest =
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadEnvelope, state: gloas.BeaconState,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadEnvelope, state: gloas.BeaconState,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
