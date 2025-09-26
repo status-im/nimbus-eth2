@@ -191,12 +191,31 @@ proc check_proposer_slashing*(
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-process_proposer_slashing
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache):
     Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
+
+  # [New in Gloas:EIP7732]
+  # Remove the BuilderPendingPayment corresponding to
+  # this proposal if it is still in the 2-epoch window.
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    let 
+      slot = proposer_slashing.signed_header_1.message.slot
+      proposal_epoch = slot.epoch()
+      current_epoch = get_current_epoch(state)
+    
+    if proposal_epoch == current_epoch:
+      let payment_index = SLOTS_PER_EPOCH + (slot mod SLOTS_PER_EPOCH)
+      state.builder_pending_payments[payment_index.int] =
+        BuilderPendingPayment()
+    elif proposal_epoch == get_previous_epoch(state):
+      let payment_index = slot mod SLOTS_PER_EPOCH
+      state.builder_pending_payments[payment_index.int] =
+        BuilderPendingPayment()
   slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data

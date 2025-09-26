@@ -854,7 +854,7 @@ func check_attestation_index(
 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_attestation_same_slot
-func is_attestation_same_slot*(
+func is_attestation_same_slot(
     state: gloas.BeaconState, data: AttestationData): bool =
   ## Checks if the attestation was for the block 
   ## proposed at the attestation slot.
@@ -942,7 +942,7 @@ func get_attestation_participation_flag_indices(
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: gloas.BeaconState, data: AttestationData, 
     inclusion_delay: uint64): set[TimelyFlag] =
@@ -981,7 +981,7 @@ func get_attestation_participation_flag_indices(
   if is_matching_source and inclusion_delay <=
       integer_squareroot(SLOTS_PER_EPOCH):
     participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
-  if is_matching_target and inclusion_delay <= SLOTS_PER_EPOCH:
+  if is_matching_target:
     participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
   if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
     participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)

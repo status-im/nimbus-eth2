@@ -102,8 +102,6 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    debugGloasComment "gloas modifies attestation processing"
-    continue
     runTest[electra.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
@@ -245,8 +243,6 @@ suite baseDescription & "Proposer Slashing " & preset():
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
-    debugGloasComment "gloas modifies proposer slashing processing"
-    continue
     runTest[ProposerSlashing, typeof applyProposerSlashing](
       OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
       applyProposerSlashing, path)
