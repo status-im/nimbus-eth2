@@ -426,7 +426,7 @@ proc enqueueQuarantine(self: var BlockProcessor, root: Eth2Digest) =
           self.enqueueBlock(
             MsgSource.gossip,
             quarantined,
-            Opt.some(BlobSidecars @[]),
+            Opt.none(BlobSidecars),
             Opt.some(DataColumnSidecars @[]),
           )
         else:
@@ -449,7 +449,7 @@ proc enqueueQuarantine(self: var BlockProcessor, root: Eth2Digest) =
             MsgSource.gossip,
             quarantined,
             Opt.some(BlobSidecars @[]),
-            Opt.some(DataColumnSidecars @[]),
+            Opt.none(DataColumnSidecars),
           )
         else:
           if (let res = checkBlobOrColumnlessSignature(self, forkyBlck); res.isErr):
