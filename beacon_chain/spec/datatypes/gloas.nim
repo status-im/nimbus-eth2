@@ -51,15 +51,13 @@ const
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex 
     column*: DataColumn
     kzg_commitments*: KzgCommitments
     kzg_proofs*: deneb.KzgProofs
-    signed_block_header*: SignedBeaconBlockHeader
-    kzg_commitments_inclusion_proof*:
-      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS, Eth2Digest]
+    beacon_block_root*: Eth2Digest
 
   ExecutionPayloadForSigning* = object
     executionPayload*: deneb.ExecutionPayload
@@ -67,8 +65,8 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#executionpayloadbid
+  ExecutionPayloadBid* = object
     # Execution block header fields
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
@@ -80,9 +78,9 @@ type
     value*: Gwei
     blob_kzg_commitments_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadheader
-  SignedExecutionPayloadHeader* = object
-    message*: ExecutionPayloadHeader
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#signedexecutionpayloadbid
+  SignedExecutionPayloadBid* = object
+    message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#executionpayloadenvelope
@@ -141,8 +139,7 @@ type
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
-
-    execution*: gloas.ExecutionPayloadHeader
+    execution*: deneb.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
@@ -235,7 +232,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -291,7 +288,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: gloas.ExecutionPayloadHeader
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -401,7 +398,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -426,7 +423,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
     # [New in Gloas:EIP7732]
-    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
@@ -469,7 +466,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
     # [New in Gloas:EIP7732]
-    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
@@ -500,7 +497,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList 
 
     # [New in Gloas:EIP7732]
-    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
     payload_attestations*: 
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
@@ -588,7 +585,7 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: ExecutionPayloadHeader): auto =
+func shortLog*(v: ExecutionPayloadBid): auto =
   (
     parent_block_hash: shortLog(v.parent_block_hash),
     parent_block_root: shortLog(v.parent_block_root),

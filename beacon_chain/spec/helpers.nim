@@ -386,10 +386,17 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState | gloas.BeaconState): bool =
+           electra.BeaconState | fulu.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-is_merge_transition_complete
+func is_merge_transition_complete*(state: gloas.BeaconState): bool =
+  var bid = default(gloas.ExecutionPayloadBid)
+  const kzgs = default(KzgCommitments)
+  bid.blob_kzg_commitments_root = kzgs.hash_tree_root()
+  state.latest_execution_payload_bid != bid
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
@@ -554,6 +561,6 @@ func is_builder_payment_withdrawable*(
   
   builder.withdrawable_epoch >= current_epoch or not builder.slashed
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
-  state.latest_execution_payload_header.block_hash == state.latest_block_hash
+  state.latest_execution_payload_bid.block_hash == state.latest_block_hash

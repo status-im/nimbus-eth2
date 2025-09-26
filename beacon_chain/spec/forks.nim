@@ -1020,6 +1020,7 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
 template forky*(
     x:
       ForkedBeaconBlock |
+      ForkedSignedBeaconBlock |
       ForkedHashedBeaconState,
     kind: static ConsensusFork): untyped =
   when kind == ConsensusFork.Gloas:
@@ -1214,8 +1215,8 @@ iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): F
   yield forkDigests.atConsensusFork(consensusFork)
 
   if consensusFork >= ConsensusFork.Fulu:
-    for (_, consensusFork, forkDigest) in forkDigests.bpos:
-      if consensusFork == consensusFork:
+    for (_, bpoConsensusFork, forkDigest) in forkDigests.bpos:
+      if bpoConsensusFork == consensusFork:
         yield forkDigest
 
 template asSigned*(

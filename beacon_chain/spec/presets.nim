@@ -729,6 +729,12 @@ else:
 
   # createConstantsFromPreset const_preset
 
+const IsMainnetSupported*: bool =
+  const_preset == "mainnet" and SECONDS_PER_SLOT == 12
+
+const IsGnosisSupported*: bool =
+  const_preset == "gnosis" and SECONDS_PER_SLOT == 5
+
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
   MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64

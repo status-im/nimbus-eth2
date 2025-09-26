@@ -23,7 +23,7 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  EpochRef, VerifierError
+  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError
 from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
@@ -110,6 +110,9 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+  NoSidecars = typeof(())
+  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DatacolumnSidecars]
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -171,99 +174,101 @@ proc dumpBlock[T](
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlockWithParent, checkHeadBlock
 
-proc storeBackfillBlock(
-    self: var BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
-  # The block is certainly not missing any more
-  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+template selectSidecars(
+    consensusFork: static ConsensusFork,
+    blobsOpt: Opt[BlobSidecars],
+    columnsOpt: Opt[DataColumnSidecars],
+): untyped =
+  # The when jungle here must be kept consistent with `verifySidecars`
+  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    doAssert blobsOpt.isNone(), "No blobs in " & $consensusFork
+    columnsOpt
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    doAssert columnsOpt.isNone(), "No columns in " & $consensusFork
+    blobsOpt
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    doAssert blobsOpt.isNone and columnsOpt.isNone(),
+      "No blobs/columns in " & $consensusFork
+    default(NoSidecars)
+  else:
+    {.error: "Unkown fork " & $consensusFork.}
 
-  # Establish blob viability before calling addbackfillBlock to avoid
-  # writing the block in case of blob error.
-  var blobsOk = true
-  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
+proc verifySidecars(
+    signedBlock: ForkySignedBeaconBlock,
+    sidecarsOpt: SomeOptSidecars,
+): Result[void, VerifierError] =
+  const consensusFork = typeof(signedBlock).kind
+
+  when consensusFork == ConsensusFork.Gloas:
+    # For Gloas, we still need to store the columns if they're provided
+    # but skip validation since we don't have kzg_commitments in the block
+    if sidecarsOpt.isSome:
+      debugGloasComment "potentially validate against payload envelope"
+      let columns = sidecarsOpt.get()
+      discard
+  elif consensusFork == ConsensusFork.Fulu:
+    if sidecarsOpt.isSome:
+      let columns = sidecarsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0 ..< columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr():
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+            return err(VerifierError.Invalid)
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    if sidecarsOpt.isSome:
+      let blobs = sidecarsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
+        let r = validate_blobs(
+          kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
+        )
         if r.isErr():
-          debug "backfill blob validation failed",
+          debug "blob validation failed",
             blockRoot = shortLog(signedBlock.root),
             blobs = shortLog(blobs),
             blck = shortLog(signedBlock.message),
             kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
-        blobsOk = r.isOk()
+          return err(VerifierError.Invalid)
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    static: doAssert sidecarsOpt is NoSidecars
+  else:
+    {.error: "Unknown consensus fork " & $consensusFork.}
 
-  if not blobsOk:
-    return err(VerifierError.Invalid)
+  ok()
 
-  let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
+  if sidecarsOpt.isSome():
+    debug "Inserting blobs into database", blobs = sidecarsOpt[].len
+    for b in sidecarsOpt[]:
+      self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  if res.isErr():
-    case res.error
-    of VerifierError.MissingParent:
-      if signedBlock.message.parent_root in
-          self.consensusManager.quarantine[].unviable:
-        # DAG doesn't know about unviable ancestor blocks - we do! Translate
-        # this to the appropriate error so that sync etc doesn't retry the block
-        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[DataColumnSidecars]) =
+  if sidecarsOpt.isSome():
+    debug "Inserting columns into database", columns = sidecarsOpt[].len
+    for c in sidecarsOpt[]:
+      self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
-        return err(VerifierError.UnviableFork)
-    of VerifierError.UnviableFork:
-      # Track unviables so that descendants can be discarded properly
-      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-    else: discard
-    return res
-
-  # Only store blobs after successfully establishing block viability.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
-  for b in blobs:
-    self.consensusManager.dag.db.putBlobSidecar(b[])
-
-  res
+proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
+  discard
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
-    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
+    signedBlock: ForkySignedBeaconBlock,
+    sidecarsOpt: SomeOptSidecars,
+): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
-  var
-    columnsOk = true
 
-  when signedBlock is gloas.SignedBeaconBlock:
-    # For Gloas, we still need to store the columns if they're provided
-    # but skip validation since we don't have kzg_commitments in the block
-    if dataColumnsOpt.isSome:
-      debugGloasComment "potentially validate against payload envelope"
-      let columns = dataColumnsOpt.get()
-      discard
-  else:
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr():
-            debug "backfill data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            columnsOk = false
-            break
-          columnsOk = r.isOk()
-
-  if not columnsOk:
-    return err(VerifierError.Invalid)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -282,18 +287,14 @@ proc storeBackfillBlock(
     else: discard
     return res
 
-  # Only store data columns after successfully establishing block viability.
-  let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  debug "Inserting columns into database (backfill)",
-    indices = columns.mapIt($it[].index).len
-  for i in 0..<columns.len:
-    self.consensusManager.dag.db.putDataColumnSidecar(columns[i][])
+  # Only store side cars after successfully establishing block viability.
+  self.storeSidecars(sidecarsOpt)
 
   res
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, sendNewPayload
-from ../consensus_object_pools/attestation_pool import addForkChoice
+from ../consensus_object_pools/attestation_pool import AttestationPool, addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
@@ -386,11 +387,10 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      when consensusFork >= ConsensusFork.Fulu:
-        resfut.complete(self.storeBackfillBlock(forkyBlck, data_columns))
-      else:
-        resfut.complete(self.storeBackfillBlock(forkyBlck, blobs))
+      let sidecars = selectSidecars(consensusFork, blobs, data_columns)
+      resfut.complete(self.storeBackfillBlock(forkyBlck, sidecars))
       return
+
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
@@ -473,13 +473,98 @@ proc enqueueQuarantine(self: var BlockProcessor, root: Eth2Digest) =
       else:
         {.error: "Unknown consensus fork " & $consensusFork.}
 
+proc onBlockAdded*(
+    dag: ChainDAGRef,
+    consensusFork: static ConsensusFork,
+    src: MsgSource,
+    wallTime: BeaconTime,
+    attestationPool: ref AttestationPool,
+    validatorMonitor: ref ValidatorMonitor,
+): OnBlockAdded[consensusFork] =
+  # Actions to perform when a block is successfully added to the DAG, while
+  # still having access to the clearance state data
+
+  return proc(
+      blckRef: BlockRef,
+      blck: consensusFork.TrustedSignedBeaconBlock,
+      state: consensusFork.BeaconState,
+      epochRef: EpochRef,
+      unrealized: FinalityCheckpoints,
+  ) =
+    attestationPool[].addForkChoice(
+      epochRef, blckRef, unrealized, blck.message, wallTime
+    )
+
+    validatorMonitor[].registerBeaconBlock(src, wallTime, blck.message)
+
+    for attestation in blck.message.body.attestations:
+      for vidx in dag.get_attesting_indices(attestation, true):
+        validatorMonitor[].registerAttestationInBlock(
+          attestation.data, vidx, blck.message.slot
+        )
+
+    when consensusFork >= ConsensusFork.Altair:
+      for i in blck.message.body.sync_aggregate.sync_committee_bits.oneIndices():
+        validatorMonitor[].registerSyncAggregateInBlock(
+          blck.message.slot, blck.root, state.current_sync_committee.pubkeys.data[i]
+        )
+
+proc verifyPayload(
+    self: ref BlockProcessor, signedBlock: ForkySignedBeaconBlock
+): Result[OptimisticStatus, VerifierError] =
+  const consensusFork = typeof(signedBlock).kind
+  # When the execution layer is not available to verify the payload, we do the
+  # required checks on the CL instead and proceed as if the EL was syncing
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
+  when consensusFork == ConsensusFork.Gloas:
+    debugGloasComment "no exection payload field for gloas"
+    ok OptimisticStatus.valid
+  elif consensusFork >= ConsensusFork.Bellatrix:
+    if signedBlock.message.is_execution_block:
+      template payload(): auto =
+        signedBlock.message.body.execution_payload
+
+      template returnWithError(msg: string, extraMsg = ""): untyped =
+        if extraMsg != "":
+          debug msg, reason = extraMsg, executionPayload = shortLog(payload)
+        else:
+          debug msg, executionPayload = shortLog(payload)
+        return err(VerifierError.Invalid)
+
+      if payload.transactions.anyIt(it.len == 0):
+        returnWithError "Execution block contains zero length transactions"
+
+      if payload.block_hash != signedBlock.message.compute_execution_block_hash():
+        returnWithError "Execution block hash validation failed"
+
+      # [New in Deneb:EIP4844]
+      when consensusFork >= ConsensusFork.Deneb:
+        let blobsRes = signedBlock.message.is_valid_versioned_hashes
+        if blobsRes.isErr:
+          returnWithError "Blob versioned hashes invalid", blobsRes.error
+      else:
+        # If there are EIP-4844 (type 3) transactions in the payload with
+        # versioned hashes, the transactions would be rejected by the EL
+        # based on payload timestamp (only allowed post Deneb);
+        # There are no `blob_kzg_commitments` before Deneb to compare against
+        discard
+
+      if signedBlock.root in self.invalidBlockRoots:
+        returnWithError "Block root treated as invalid via config", $signedBlock.root
+
+      ok OptimisticStatus.notValidated
+    else:
+      ok OptimisticStatus.valid
+  else:
+    ok OptimisticStatus.valid
+
 proc storeBlock(
     self: ref BlockProcessor,
     src: MsgSource,
     wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
-    dataColumnsOpt: Opt[DataColumnSidecars],
+    sidecarsOpt: SomeOptSidecars,
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
@@ -490,7 +575,7 @@ proc storeBlock(
   ## to know about it, such as the fork choice and the monitoring
 
   let
-    attestationPool = self.consensusManager.attestationPool
+    ap = self.consensusManager.attestationPool
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
@@ -515,19 +600,16 @@ proc storeBlock(
     # DAG doesn't know about unviable ancestor blocks - we do however!
     return err(VerifierError.UnviableFork)
 
-  let
-    # We have to be careful that there exists only one in-flight entry point
-    # for adding blocks or the checks performed in `checkHeadBlock` might
-    # be invalidated (ie a block could be added while we wait for EL response
-    # here)
-    parent = dag.checkHeadBlock(signedBlock)
-
-  if parent.isErr():
+  # We have to be careful that there exists only one in-flight entry point
+  # for adding blocks or the checks performed in `checkHeadBlock` might
+  # be invalidated (ie a block could be added while we wait for EL response
+  # here)
+  let parent = dag.checkHeadBlock(signedBlock).valueOr:
     # TODO This logic can be removed if the database schema is extended
     # to store non-canonical heads on top of the canonical head!
     # If that is done, the database no longer contains extra blocks
     # that have not yet been assigned a `BlockRef`
-    if parent.error() == VerifierError.MissingParent:
+    if error == VerifierError.MissingParent:
       # This indicates that no `BlockRef` is available for the `parent_root`.
       # However, the block may still be available in local storage. On startup,
       # only the canonical branch is imported into `blockchain_dag`, while
@@ -593,7 +675,7 @@ proc storeBlock(
             MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars),
             columns)
 
-    return err(parent.error())
+    return err(error)
 
   const consensusFork = typeof(signedBlock).kind
   let
@@ -621,127 +703,23 @@ proc storeBlock(
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
-  let optimisticStatus = optimisticStatusRes.valueOr:
-    # When the execution layer is not available to verify the payload, we do the
-    # required checks on the CL instead and proceed as if the EL was syncing
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and
-        typeof(signedBlock).kind < ConsensusFork.Gloas:
-      debugGloasComment "no exection payload field for gloas"
-      if signedBlock.message.is_execution_block:
-        template payload(): auto = signedBlock.message.body.execution_payload
-
-        template returnWithError(msg: string, extraMsg = ""): untyped =
-          if extraMsg != "":
-            debug msg, reason = extraMsg, executionPayload = shortLog(payload)
-          else:
-            debug msg, executionPayload = shortLog(payload)
-          doAssert strictVerification notin dag.updateFlags
-          return err(VerifierError.Invalid)
-
-        if payload.transactions.anyIt(it.len == 0):
-          returnWithError "Execution block contains zero length transactions"
-
-        if payload.block_hash !=
-            signedBlock.message.compute_execution_block_hash():
-          returnWithError "Execution block hash validation failed"
-
-        # [New in Deneb:EIP4844]
-        when consensusFork >= ConsensusFork.Deneb:
-          let blobsRes = signedBlock.message.is_valid_versioned_hashes
-          if blobsRes.isErr:
-            returnWithError "Blob versioned hashes invalid", blobsRes.error
-        else:
-          # If there are EIP-4844 (type 3) transactions in the payload with
-          # versioned hashes, the transactions would be rejected by the EL
-          # based on payload timestamp (only allowed post Deneb);
-          # There are no `blob_kzg_commitments` before Deneb to compare against
-          discard
-
-        if signedBlock.root in self.invalidBlockRoots:
-          returnWithError "Block root treated as invalid via config",
-            $signedBlock.root
-
-      OptimisticStatus.notValidated
-    else:
-      OptimisticStatus.valid
+  let optimisticStatus = ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
   let newPayloadTick = Moment.now()
 
-  when typeof(signedBlock).kind >= ConsensusFork.Fulu and
-      typeof(signedBlock).kind < ConsensusFork.Gloas:
-    debugGloasComment "no blob_kzg_commitments field for gloas"
-    if dataColumnsOpt.isSome:
-      let
-        columns0 = dataColumnsOpt.get()
-        kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns0.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns0.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns0[i][])
-          if r.isErr:
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns0[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            return err(VerifierError.Invalid)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
-  # TODO with v1.4.0, not sure this is still relevant
-  # Establish blob viability before calling addHeadBlock to avoid
-  # writing the block in case of blob error.
-  elif typeof(signedBlock).kind >= ConsensusFork.Deneb and
-      typeof(signedBlock).kind < ConsensusFork.Gloas:
-    debugGloasComment "no blob_kzg_commitments field for gloas"
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-          return err(VerifierError.Invalid)
-
-  type Trusted = typeof signedBlock.asTrusted()
-
-  let
-    blckRes = dag.addHeadBlockWithParent(
-        self.verifier, signedBlock, parent.value(), optimisticStatus) do (
-      blckRef: BlockRef, trustedBlock: Trusted,
-      epochRef: EpochRef, unrealized: FinalityCheckpoints):
-      # Callback add to fork choice if valid
-      attestationPool[].addForkChoice(
-        epochRef, blckRef, unrealized, trustedBlock.message, wallTime)
-
-      vm[].registerBeaconBlock(
-        src, wallTime, trustedBlock.message)
-
-      for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation, true):
-          vm[].registerAttestationInBlock(attestation.data, validator_index,
-            trustedBlock.message.slot)
-
-      withState(dag[].clearanceState):
-        when consensusFork >= ConsensusFork.Altair and
-            consensusFork == typeof(signedBlock).kind:
-          for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
-            vm[].registerSyncAggregateInBlock(
-              trustedBlock.message.slot, trustedBlock.root,
-              forkyState.data.current_sync_committee.pubkeys.data[i])
-
-  let blck = ?blckRes # `?` and `do?` are not friendly with each other
+  let blck =
+    ?dag.addHeadBlockWithParent(
+      self.verifier,
+      signedBlock,
+      parent,
+      optimisticStatus,
+      onBlockAdded(dag, consensusFork, src, wallTime, ap, vm),
+    )
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -750,16 +728,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
-  for b in blobs:
-    self.consensusManager.dag.db.putBlobSidecar(b[])
-
-  # write data columns now that block has been written
-  let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  debug "Inserting columns into database",
-    indices = data_columns.mapIt($it.index).len
-  for col in data_columns:
-    self.consensusManager.dag.db.putDataColumnSidecar(col[])
+  self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
 
@@ -892,9 +861,11 @@ proc processBlock(
 
   let
     res = withBlck(entry.blck):
-      let res = await self.storeBlock(
-        entry.src, wallTime, forkyBlck, entry.blobs, entry.columns,
-        entry.maybeFinalized, entry.queueTick, entry.validationDur)
+      let
+        sidecars = selectSidecars(consensusFork, entry.blobs, entry.columns)
+        res = await self.storeBlock(
+          entry.src, wallTime, forkyBlck, sidecars,
+          entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
       self[].dumpBlock(forkyBlck, res)
 

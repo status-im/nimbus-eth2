@@ -223,33 +223,6 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
     attestationPool = consensusManager.attestationPool
     validatorMonitor = overseer.validatorMonitor
 
-  proc onBlockAdded(
-    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].} =
-
-    let wallTime = overseer.getBeaconTimeFn()
-    withBlck(blck):
-      attestationPool[].addForkChoice(
-        epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
-
-      validatorMonitor[].registerBeaconBlock(
-        MsgSource.sync, wallTime, forkyBlck.message)
-
-      for attestation in forkyBlck.message.body.attestations:
-        for validator_index in
-          dag.get_attesting_indices(attestation, true):
-          validatorMonitor[].registerAttestationInBlock(
-            attestation.data, validator_index, forkyBlck.message.slot)
-
-      withState(dag[].clearanceState):
-        when (consensusFork >= ConsensusFork.Altair) and
-             (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
-          for i in forkyBlck.message.body.sync_aggregate.
-            sync_committee_bits.oneIndices():
-            validatorMonitor[].registerSyncAggregateInBlock(
-              forkyBlck.message.slot, forkyBlck.root,
-              forkyState.data.current_sync_committee.pubkeys.data[i])
-
   block mainLoop:
     while true:
       let bchunk = await overseer.blocksQueue.popFirst()
@@ -257,11 +230,23 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
       block innerLoop:
         for bdata in bchunk.blocks:
           block:
-            let res = addBackfillBlockData(dag, bdata, bchunk.onStateUpdatedCb,
-                                           onBlockAdded)
+            let res = withBlck(bdata.blck):
+              addBackfillBlockData(
+                dag,
+                consensusFork,
+                bdata,
+                bchunk.onStateUpdatedCb,
+                onBlockAdded(
+                  dag,
+                  consensusFork,
+                  MsgSource.sync,
+                  overseer.getBeaconTimeFn(),
+                  attestationPool,
+                  validatorMonitor,
+                ),
+              )
             if res.isErr():
-              let msg = "Unable to add block data to database [" &
-                        $res.error & "]"
+              let msg = "Unable to add block data to database [" & $res.error & "]"
               bchunk.resfut.complete(Result[void, string].err(msg))
               break innerLoop
 

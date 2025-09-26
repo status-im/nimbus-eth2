@@ -25,7 +25,7 @@ const
   topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
-  topicExecutionPayloadHeaderSuffix = "execution_payload_header/ssz_snappy"
+  topicExecutionPayloadBidSuffix = "execution_payload_bid/ssz_snappy"
   topicExecutionPayloadSuffix = "execution_payload/ssz_snappy" 
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
 
@@ -75,9 +75,9 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload_header
-func getExecutionPayloadHeaderTopic*(forkDigest: ForkDigest): string =
-  eth2Prefix(forkDigest) & topicExecutionPayloadHeaderSuffix
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload_bid
+func getExecutionPayloadBidTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicExecutionPayloadBidSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload
 func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =

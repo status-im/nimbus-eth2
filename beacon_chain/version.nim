@@ -5,17 +5,17 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## This module implements the version tagging details of all binaries included
 ## in the Nimbus release process (i.e. beacon_node, validator_client, etc)
 
-import std/[os, strutils], metrics, ./buildinfo
+import std/[os, strutils], ./buildinfo
 
 const
   versionMajor* = 25
   versionMinor* = 9
-  versionBuild* = 0
+  versionBuild* = 1
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
@@ -29,5 +29,7 @@ const
 
   nimbusAgentStr* = "Nimbus/" & fullVersionStr
 
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+when not defined(nimscript):
+  import metrics
+  declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+  versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])

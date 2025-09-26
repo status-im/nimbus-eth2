@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - name: Fix nim cache conflicts
-        run: | 
+        run: |
           echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
           echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
 
@@ -246,6 +246,11 @@ jobs:
           for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
           done
+
+      - name: Build with custom SECONDS_PER_SLOT
+        run: |
+          source env.sh
+          nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE -d:SECONDS_PER_SLOT=1 beacon_chain/nimbus_beacon_node
 
   lint:
     name: "Lint"

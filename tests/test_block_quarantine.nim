@@ -10,7 +10,6 @@
 
 import
   unittest2,
-  chronicles,
   ../beacon_chain/spec/[forks, presets],
   ../beacon_chain/spec/datatypes/[phase0, deneb],
   ../beacon_chain/consensus_object_pools/block_quarantine

@@ -3630,6 +3630,7 @@ ConsensusSpecPreset-mainnet
 ```diff
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_after_max_inclusion_slot         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_not_zero  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_too_high  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_signature            OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_bad_source_root                  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_before_inclusion_delay           OK
@@ -3649,6 +3650,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_source_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
@@ -3657,6 +3659,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_0           OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_1           OK
 + [Valid]   EF - Gloas - Operations - Attestation - at_max_inclusion_slot                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_no_double_countin OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_tracking          OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_max_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_min_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_one_epoc OK
@@ -3670,9 +3674,18 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_epoch_delay OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_min_inclusi OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_false_historical_slot   OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_gets_head_flag          OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_historical_slot    OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_same_slot          OK
++ [Valid]   EF - Gloas - Operations - Attestation - mismatched_payload_no_head_flag          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_zero_previo OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_same_slot_attestation_index_zero   OK
 ```
 ## EF - Gloas - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
@@ -3783,26 +3796,26 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
 ```
-## EF - Gloas - Operations - Execution Payload Header  [Preset: mainnet]
+## EF - Gloas - Operations - Execution Payload Bid  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: mainnet]
 ```diff
@@ -3831,6 +3844,9 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - basic                              OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_too_late  OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
 ## EF - Gloas - Operations - Sync Aggregate  [Preset: mainnet]
@@ -4025,6 +4041,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    Eth1Block                                                                     OK
 +   Testing    Eth1Data                                                                      OK
 +   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
@@ -4055,8 +4072,8 @@ ConsensusSpecPreset-mainnet
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
 +   Testing    SignedExecutionPayloadEnvelope                                                OK
-+   Testing    SignedExecutionPayloadHeader                                                  OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
 +   Testing    SingleAttestation                                                             OK
@@ -4076,6 +4093,8 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Slots - double_empty_epoch [Preset: mainnet]                                  OK
 + EF - Gloas - Slots - effective_decrease_balance_updates_lookahead [Preset: mainnet]        OK
 + EF - Gloas - Slots - empty_epoch [Preset: mainnet]                                         OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_set [Preset: mainnet]       OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_unset [Preset: mainnet]     OK
 + EF - Gloas - Slots - historical_accumulator [Preset: mainnet]                              OK
 + EF - Gloas - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]               OK
 + EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset: OK
@@ -4109,9 +4128,16 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconB OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
   Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4125,10 +4151,6 @@ ConsensusSpecPreset-mainnet
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - mainnet/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - mainnet/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - mainnet/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - mainnet/gloas/merkle_proof/single_merkle_proof/Beacon OK
 ```
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff

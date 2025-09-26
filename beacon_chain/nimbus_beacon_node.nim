@@ -1331,7 +1331,7 @@ proc addGloasMessageHandlers(
   node.addFuluMessageHandlers(forkDigest, slot)
   debugGloasComment "default gossipsub config"
   node.network.subscribe(
-    getExecutionPayloadHeaderTopic(forkDigest), basicParams())
+    getExecutionPayloadBidTopic(forkDigest), basicParams())
   node.network.subscribe(
     getExecutionPayloadTopic(forkDigest), basicParams())
   node.network.subscribe(
@@ -1382,7 +1382,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
-  node.network.unsubscribe(getExecutionPayloadHeaderTopic(forkDigest))
+  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
 
@@ -1926,12 +1926,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         head = node.dag.head # could be a new head compared to earlier
 
       if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
-        node.dag.advanceClearanceState(nextSlot)
-
         # If there is a proposal, we want to let the execution client know a bit
         # earlier - the risk is that fork choice changes again before the proposal
-        # but this risk should be small
-        node.consensusManager.proposalForkchoiceUpdated(
+        # but this risk should be small - this function also prepares the
+        # clearance state for the most likely block to be arriving next
+        node.consensusManager.prepareNextSlot(
           nextSlot, sleepAsync(nextSlotCutoff.offset)
         )
       else:

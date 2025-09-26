@@ -1,3 +1,30 @@
+2025-09-25 v25.9.1
+==================
+
+Nimbus `v25.9.1` is a `low-urgency` release for mainnet and `high-urgency` release for the Hoodi, Sepolia, and Holesky testnets, due to impending Fusaka forks on each.
+
+### Improvements
+
+- Provide execution clients more time in certain circumstances to prepare payloads:
+  https://github.com/status-im/nimbus-eth2/pull/7457
+
+- Include BLS to execution changes under more situations in blocks:
+  https://github.com/status-im/nimbus-eth2/pull/7506
+
+- Update the validator client to use non-deprecated publishBlockV2 pre-Electra:
+  https://github.com/status-im/nimbus-eth2/pull/7438
+
+### Fixes
+
+- Fix sync sometimes getting stuck:
+  https://github.com/status-im/nimbus-eth2/pull/7491
+
+- Provide proper CORS headers for beacon API:
+  https://github.com/status-im/nimbus-eth2/pull/7473
+
+- Enable building on non-macOS ARM platforms:
+  https://github.com/status-im/nimbus-eth2/pull/7465
+
 2025-09-02 v25.9.0
 ==================
 

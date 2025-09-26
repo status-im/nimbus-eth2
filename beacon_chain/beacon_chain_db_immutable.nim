@@ -18,7 +18,7 @@ from ./spec/datatypes/electra import
   PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
 from ./spec/datatypes/gloas import
-  BuilderPendingPayment, BuilderPendingWithdrawal, 
+  BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
   BUILDER_PENDING_WITHDRAWALS_LIMIT
 
 type
@@ -566,7 +566,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: gloas.ExecutionPayloadHeader
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
       ## [Modified in Gloas:EIP7732]
 
     # Withdrawals

@@ -90,9 +90,8 @@ func verifyStateRoot(
 
 type
   RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [].}
-  RollbackHashedProc*[T] =
-    proc(state: var T) {.gcsafe, noSideEffect, raises: [].}
-  RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
+  RollbackForkedHashedProc* =
+    proc(state: var ForkedHashedBeaconState) {.gcsafe, noSideEffect, raises: [].}
 
 func noRollback*() =
   trace "Skipping rollback of broken state"

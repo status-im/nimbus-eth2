@@ -191,12 +191,31 @@ proc check_proposer_slashing*(
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-process_proposer_slashing
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache):
     Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
+
+  # [New in Gloas:EIP7732]
+  # Remove the BuilderPendingPayment corresponding to
+  # this proposal if it is still in the 2-epoch window.
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    let 
+      slot = proposer_slashing.signed_header_1.message.slot
+      proposal_epoch = slot.epoch()
+      current_epoch = get_current_epoch(state)
+    
+    if proposal_epoch == current_epoch:
+      let payment_index = SLOTS_PER_EPOCH + (slot mod SLOTS_PER_EPOCH)
+      state.builder_pending_payments[payment_index.int] =
+        BuilderPendingPayment()
+    elif proposal_epoch == get_previous_epoch(state):
+      let payment_index = slot mod SLOTS_PER_EPOCH
+      state.builder_pending_payments[payment_index.int] =
+        BuilderPendingPayment()
   slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -1102,39 +1121,38 @@ proc process_execution_payload*(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_execution_payload_header
-proc process_execution_payload_header*(
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     blck: SomeGloasBeaconBlock): Result[void, cstring] =
-
-  template signed_header: untyped = blck.body.signed_execution_payload_header
-  template header: untyped = signed_header.message
-
+  template signed_bid: untyped = blck.body.signed_execution_payload_bid
+  template bid: untyped = signed_bid.message
   let
-    builder_index = ValidatorIndex.init(header.builder_index).valueOr:
-      return err("process_execution_payload_header: invalid builder index")
+    builder_index = ValidatorIndex.init(bid.builder_index).valueOr:
+      return err("process_execution_payload_bid: invalid builder index")
     builder = addr state.validators.item(builder_index)
-    amount = header.value
-
-  # Verify the header signature
-  if not verify_execution_payload_header_signature(
-      state.fork, state.genesis_validators_root, signed_header,
-      state, builder[].pubkey, signed_header.signature):
-    return err("payload_header: invalid header signature")
-
-  if not is_active_validator(builder[], get_current_epoch(state)):
-    return err("process_execution_payload_header: builder not active")
-  if builder[].slashed:
-    return err("process_execution_payload_header: builder is slashed")
+    amount = bid.value
 
   # For self-builds, amount must be zero regardless of withdrawal credential prefix
   if builder_index == blck.proposer_index:
     if amount != 0.Gwei:
-      return err("process_execution_payload_header: self-build must have zero amount")
+      return err("process_execution_payload_bid: self-build must have zero amount")
+    if signed_bid.signature != ValidatorSig.infinity():
+      return err("process_execution_payload_bid: self-build signature must be infinity")
   else:
     # Non-self builds require builder withdrawal credential
     if not has_builder_withdrawal_credential(builder[]):
-      return err("process_execution_payload_header: builder missing withdrawal credential")
+      return err("process_execution_payload_bid: builder missing withdrawal credential")
+    # Verify the bid signature for non-self builds
+    if not verify_execution_payload_bid_signature(
+        state.fork, state.genesis_validators_root, signed_bid,
+        state, builder[].pubkey, signed_bid.signature):
+      return err("payload_bid: invalid bid signature")
+
+  if not is_active_validator(builder[], get_current_epoch(state)):
+    return err("process_execution_payload_bid: builder not active")
+  if builder[].slashed:
+    return err("process_execution_payload_bid: builder is slashed")
 
   # Check that the builder is active, non-slashed, and has funds to cover the bid
   let
@@ -1144,49 +1162,45 @@ proc process_execution_payload_header*(
         if payment.withdrawal.builder_index == builder_index:
           total += payment.withdrawal.amount
       total
-
     pending_withdrawals = block:
       var total: Gwei
       for withdrawal in state.builder_pending_withdrawals:
         if withdrawal.builder_index == builder_index:
           total += withdrawal.amount
       total
-
     required_balance =
       amount + pending_payments + pending_withdrawals +
       static(MIN_ACTIVATION_BALANCE.Gwei)
 
   if amount != 0.Gwei and
       state.balances.item(builder_index) < required_balance:
-    return err("process_execution_payload_header: insufficient builder balance")
+    return err("process_execution_payload_bid: insufficient builder balance")
 
   # Verify that the bid is for the current slot
-  if header.slot != blck.slot:
-    return err("process_execution_payload_header: header slot mismatch")
+  if bid.slot != blck.slot:
+    return err("process_execution_payload_bid: bid slot mismatch")
 
   # Verify that the bid is for the right parent block
-  if header.parent_block_hash != state.latest_block_hash:
-    return err("process_execution_payload_header: parent block hash mismatch")
-  if header.parent_block_root != blck.parent_root:
-    return err("process_execution_payload_header: parent block root mismatch")
+  if bid.parent_block_hash != state.latest_block_hash:
+    return err("process_execution_payload_bid: parent block hash mismatch")
+  if bid.parent_block_root != blck.parent_root:
+    return err("process_execution_payload_bid: parent block root mismatch")
 
   # Record the pending payment
   let
     pending_payment = BuilderPendingPayment(
       weight: 0.Gwei,
       withdrawal: BuilderPendingWithdrawal(
-        fee_recipient: header.fee_recipient,
+        fee_recipient: bid.fee_recipient,
         amount: amount,
         builder_index: builder_index.uint64
       )
     )
-
   state.builder_pending_payments.mitem(
-    SLOTS_PER_EPOCH + (header.slot mod SLOTS_PER_EPOCH)) = pending_payment
+    SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
-  # Cache the signed execution payload header
-  state.latest_execution_payload_header = header
-
+  # Cache the signed execution payload bid
+  state.latest_execution_payload_bid = bid
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
@@ -1574,7 +1588,7 @@ proc process_block*(
 
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
-  ? process_execution_payload_header(cfg, state, blck)
+  ? process_execution_payload_bid(cfg, state, blck)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 

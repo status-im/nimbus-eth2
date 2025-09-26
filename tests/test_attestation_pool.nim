@@ -110,7 +110,7 @@ suite "Attestation pool processing" & preset():
           blck = addTestBlock(
             state[], cache, attestations = attestations, cfg = dag.cfg)
         check dag.addHeadBlock(
-          verifier, blck.phase0Data, OnPhase0BlockAdded(nil)).isOk
+          verifier, blck.phase0Data, OnBlockAdded[ConsensusFork.Phase0](nil)).isOk
 
     # History 1 contains all odd blocks
     state.fillToEpoch(cache)
@@ -530,6 +530,7 @@ suite "Attestation pool processing" & preset():
       b1 = addTestBlock(state[], cache).phase0Data
       b1Add = dag.addHeadBlock(verifier, b1) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -545,6 +546,7 @@ suite "Attestation pool processing" & preset():
       b2 = addTestBlock(state[], cache).phase0Data
       b2Add = dag.addHeadBlock(verifier, b2) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -563,6 +565,7 @@ suite "Attestation pool processing" & preset():
       b10 = makeTestBlock(state[], cache).phase0Data
       b10Add = dag.addHeadBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -583,6 +586,7 @@ suite "Attestation pool processing" & preset():
       ).phase0Data
       b11Add = dag.addHeadBlock(verifier, b11) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -637,6 +641,7 @@ suite "Attestation pool processing" & preset():
       b10 = makeTestBlock(state[], cache).phase0Data
       b10Add = dag.addHeadBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -654,6 +659,7 @@ suite "Attestation pool processing" & preset():
     let b10_clone = b10 # Assumes deep copy
     let b10Add_clone = dag.addHeadBlock(verifier, b10_clone) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -671,6 +677,7 @@ suite "Attestation pool processing" & preset():
       b10 = addTestBlock(state[], cache).phase0Data
       b10Add = dag.addHeadBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -699,6 +706,7 @@ suite "Attestation pool processing" & preset():
 
         let blockRef = dag.addHeadBlock(verifier, new_block) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+            state: phase0.BeaconState,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           pool[].addForkChoice(
@@ -744,6 +752,7 @@ suite "Attestation pool processing" & preset():
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = dag.addHeadBlock(verifier, b10_clone) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(

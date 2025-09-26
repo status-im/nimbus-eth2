@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## This module implements the version tagging details of all binaries included
 ## in the Nimbus release process (i.e. beacon_node, validator_client, etc)
 
-import std/[os, strutils], metrics
+import std/[os, strutils]
 
 proc gitFolderExists(path: string): bool {.compileTime.} =
   # walk up parent folder to find `.git` folder
@@ -74,6 +74,8 @@ func nimBanner*(): string =
   else:
     tmp[0]
 
-declareGauge nimVersionGauge,
-  "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues = [NimVersion, getNimGitHash()])
+when not defined(nimscript):
+  import metrics
+  declareGauge nimVersionGauge,
+    "Nim version info", ["version", "nim_commit"], name = "nim_version"
+  nimVersionGauge.set(1, labelValues = [NimVersion, getNimGitHash()])

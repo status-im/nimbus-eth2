@@ -28,9 +28,9 @@ from ./testbcutil import addHeadBlock
 func `$`(x: BlockRef): string = shortLog(x)
 
 const
-  nilPhase0Callback = OnPhase0BlockAdded(nil)
-  nilAltairCallback = OnAltairBlockAdded(nil)
-  nilBellatrixCallback = OnBellatrixBlockAdded(nil)
+  nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
+  nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
+  nilBellatrixCallback = OnBlockAdded[ConsensusFork.Bellatrix](nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -1725,7 +1725,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
         attested = attested, allDeposits = deposits,
         graffiti = graffiti, cfg = cfg):
       let added = withBlck(forkedBlck):
-        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        const nilCallback = OnBlockAdded[consensusFork](nil)
         dag.addHeadBlock(verifier, forkyBlck, nilCallback)
       check added.isOk()
       dag.updateHead(added[], quarantine[], [])
