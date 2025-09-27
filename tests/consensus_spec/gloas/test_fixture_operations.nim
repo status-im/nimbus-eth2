@@ -21,6 +21,7 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
+from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
@@ -191,6 +192,35 @@ suite baseDescription & "Deposit Request " & preset():
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
+
+suite baseDescription & "Execution Payload " & preset():
+  func makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
+        preState: var gloas.BeaconState,
+        signed_envelope: SignedExecutionPayloadEnvelope):
+        Result[void, cstring] =
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
+      
+      var cache: StateCache
+      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
+      
+      process_execution_payload(
+        defaultRuntimeConfig, preState, signed_envelope, executePayload, cache)
+
+  for path in walkTests(OpExecutionPayloadDir):
+    let testDir = OpExecutionPayloadDir / "pyspec_tests" / path
+    let inputFile = 
+      if fileExists(testDir/"signed_envelope.ssz_snappy"):
+        "signed_envelope"
+      else:
+        continue
+    
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
+    runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, suiteName, "Execution Payload", inputFile,
+      applyExecutionPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(

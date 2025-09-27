@@ -1117,6 +1117,118 @@ proc process_execution_payload*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-process_execution_payload
+proc process_execution_payload*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    signed_envelope: SignedExecutionPayloadEnvelope,
+    notify_new_payload: deneb.ExecutePayload, cache: var StateCache,
+    verify: bool = true): Result[void, cstring] =
+  template envelope: untyped = signed_envelope.message
+  template payload: untyped = envelope.payload
+
+  # Verify signature
+  if verify:
+    let 
+      builder_index = ValidatorIndex.init(envelope.builder_index).valueOr:
+        return err("process_execution_payload: invalid builder index")
+      builder_pubkey = state.validators.item(builder_index).pubkey
+    if not verify_execution_payload_envelope_signature(
+        state.fork, state.genesis_validators_root, signed_envelope, state,
+        builder_pubkey, signed_envelope.signature):
+      return err("process_execution_payload: invalid envelope signature")
+  
+  # Cache latest block header state root
+  if state.latest_block_header.state_root == Eth2Digest():
+    let state_copy = new(typeof(state))
+    state_copy[] = state
+    state.latest_block_header.state_root = hash_tree_root(state_copy[])
+
+  # Verify consistency with the beacon block
+  if envelope.beacon_block_root != hash_tree_root(state.latest_block_header):
+    return err("process_execution_payload: beacon block root mismatch")
+  if envelope.slot != state.slot:
+    return err("process_execution_payload: slot mismatch")
+  
+  # Verify consistency with the committed bid
+  let committed_bid = state.latest_execution_payload_bid
+  if envelope.builder_index != committed_bid.builder_index:
+    return err("process_execution_payload: builder index mismatch")
+  if committed_bid.blob_kzg_commitments_root != 
+      hash_tree_root(envelope.blob_kzg_commitments):
+    return err("process_execution_payload: blob KZG commitments root mismatch")
+  
+  # Verify the withdrawals root
+  if hash_tree_root(payload.withdrawals) != state.latest_withdrawals_root:
+    return err("process_execution_payload: withdrawals root mismatch")
+  
+  # Verify the gas_limit
+  if committed_bid.gas_limit != payload.gas_limit:
+    return err("process_execution_payload: gas limit mismatch")
+  
+  # Verify the block hash
+  if committed_bid.block_hash != payload.block_hash:
+    return err("process_execution_payload: block hash mismatch")
+  
+  # Verify consistency of the parent hash with respect to the previous execution payload
+  if payload.parent_hash != state.latest_block_hash:
+    return err("process_execution_payload: parent hash mismatch")
+  
+  # Verify prev_randao
+  if payload.prev_randao != get_randao_mix(state, get_current_epoch(state)):
+    return err("process_execution_payload: prev_randao mismatch")
+  
+  # Verify timestamp
+  if payload.timestamp != compute_timestamp_at_slot(state, state.slot):
+    return err("process_execution_payload: timestamp mismatch")
+  
+  # Verify commitments are under limit
+  let blob_params = cfg.get_blob_parameters(get_current_epoch(state))
+  if lenu64(envelope.blob_kzg_commitments) > blob_params.MAX_BLOBS_PER_BLOCK:
+    return err("process_execution_payload: too many KZG commitments")
+  
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  var bsv = sortValidatorBuckets(state.validators.asSeq)
+  for op in envelope.execution_requests.deposits:
+    ? process_deposit_request(cfg, state, op, {})
+  for op in envelope.execution_requests.withdrawals:
+    process_withdrawal_request(cfg, state, bsv[], op, cache)
+  for op in envelope.execution_requests.consolidations:
+    process_consolidation_request(cfg, state, bsv[], op, cache)
+
+  # Queue the builder payment
+  var payment = state.builder_pending_payments.mitem(
+    (SLOTS_PER_EPOCH + (state.slot mod SLOTS_PER_EPOCH)).int)
+  let amount = payment.withdrawal.amount
+  if amount > 0.Gwei:
+    let exit_queue_epoch = 
+      compute_exit_epoch_and_update_churn(cfg, state, amount, cache)
+    payment.withdrawal.withdrawable_epoch = 
+      exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    if not state.builder_pending_withdrawals.add(payment.withdrawal):
+      return err("process_execution_payload: couldn't add builder withdrawal")
+  
+  state.builder_pending_payments[
+      (SLOTS_PER_EPOCH + (state.slot mod SLOTS_PER_EPOCH)).int] =
+    BuilderPendingPayment()
+  
+  # Cache the execution payload hash
+  state.execution_payload_availability[
+    state.slot mod SLOTS_PER_HISTORICAL_ROOT] = true
+  state.latest_block_hash = payload.block_hash
+  
+# Verify the state root
+  if verify:
+    let state_copy = new(typeof(state))
+    state_copy[] = state
+    if envelope.state_root != hash_tree_root(state_copy[]):
+      return err("process_execution_payload: state root mismatch")
+  
+  ok()
+
 # copy of datatypes/gloas.nim
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock

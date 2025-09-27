@@ -4050,6 +4050,26 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
 ```
+## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bu OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ga OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pr OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_sl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ti OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_max_blob OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_exe OK
+```
 ## EF - Gloas - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
