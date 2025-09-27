@@ -300,12 +300,6 @@ func updateAggregates(entry: var AttestationEntry) =
     for index_in_committee, signature in entry.singles:
       if entry.aggregates.len() == 0:
         # Create aggregate on first iteration..
-        template getInitialAggregate(_: Phase0AttestationEntry):
-            untyped {.used.} =
-          Phase0Validation(
-            aggregation_bits:
-              CommitteeValidatorsBits.init(entry.committee_len),
-            aggregate_signature: AggregateSignature.init(signature))
         template getInitialAggregate(_: ElectraAttestationEntry):
             untyped {.used.} =
           ElectraValidation(
@@ -705,23 +699,8 @@ func add(
     attCache[key] = aggregation_bits
 
 func init(
-    T: type AttestationCache, state: phase0.HashedBeaconState, _: StateCache):
-    T =
-  # Load attestations that are scheduled for being given rewards for
-  for i in 0..<state.data.previous_epoch_attestations.len():
-    result.add(
-      state.data.previous_epoch_attestations[i].data,
-      state.data.previous_epoch_attestations[i].aggregation_bits)
-  for i in 0..<state.data.current_epoch_attestations.len():
-    result.add(
-      state.data.current_epoch_attestations[i].data,
-      state.data.current_epoch_attestations[i].aggregation_bits)
-
-func init(
     T: type AttestationCache,
-    state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
-           capella.HashedBeaconState | deneb.HashedBeaconState |
-           electra.HashedBeaconState | fulu.HashedBeaconState |
+    state: electra.HashedBeaconState | fulu.HashedBeaconState |
            gloas.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
@@ -753,7 +732,7 @@ func init(
 
 func score(
     attCache: var AttestationCache, data: AttestationData,
-    aggregation_bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits): int =
+    aggregation_bits: ElectraCommitteeValidatorsBits): int =
   # The score of an attestation is loosely based on how many new votes it brings
   # to the state - a more accurate score function would also look at inclusion
   # distance and effective balance.
@@ -793,146 +772,18 @@ func check_attestation_compatible*(
   ok()
 
 proc getAttestationsForBlock*(
-    pool: var AttestationPool,
-    state:
-      phase0.HashedBeaconState | altair.HashedBeaconState | bellatrix.HashedBeaconState |
-      capella.HashedBeaconState | deneb.HashedBeaconState,
-    cache: var StateCache,
+    _: var AttestationPool,
+    _:
+      bellatrix.HashedBeaconState | capella.HashedBeaconState |
+      deneb.HashedBeaconState,
+    _: var StateCache,
 ): seq[phase0.Attestation] =
-  ## Retrieve attestations that may be added to a new block at the slot of the
-  ## given state
-  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestations
-  let newBlockSlot = state.data.slot.uint64
+  @[]
 
-  if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
-    return @[] # Too close to genesis
-
-  let
-    # Attestations produced in a particular slot are added to the block
-    # at the slot where at least MIN_ATTESTATION_INCLUSION_DELAY have passed
-    maxAttestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
-    startPackingTick = Moment.now()
-
-  var
-    candidates: seq[tuple[
-      score: int, slot: Slot, entry: ptr Phase0AttestationEntry,
-      validation: int]]
-    attCache = AttestationCache[CommitteeValidatorsBits].init(state, cache)
-
-  for i in 0..<ATTESTATION_LOOKBACK:
-    if i > maxAttestationSlot: # Around genesis..
-      break
-
-    let
-      slot = Slot(maxAttestationSlot - i)
-      candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
-
-    if candidateIdx.isNone():
-      # Passed the collection horizon - shouldn't happen because it's based on
-      # ATTESTATION_LOOKBACK
-      break
-
-    for _, entry in pool.phase0Candidates[candidateIdx.get()].mpairs():
-      entry.updateAggregates()
-
-      for j in 0..<entry.aggregates.len():
-        let attestation = entry.toAttestation(entry.aggregates[j])
-
-        # Filter out attestations that were created with a different shuffling.
-        # As we don't re-check signatures, this needs to be done separately
-        if not pool.dag.check_attestation_compatible(state, attestation).isOk():
-          continue
-
-        # Attestations are checked based on the state that we're adding the
-        # attestation to - there might have been a fork between when we first
-        # saw the attestation and the time that we added it
-        if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache).isOk():
-          continue
-
-        let score = attCache.score(
-          entry.data, entry.aggregates[j].aggregation_bits)
-        if score == 0:
-          # 0 score means the attestation would not bring any votes - discard
-          # it early
-          # Note; this must be done _after_ `check_attestation` as it relies on
-          # the committee to match the state that was used to build the cache
-          continue
-
-        # Careful, must not update the attestation table for the pointer to
-        # remain valid
-        candidates.add((score, slot, addr entry, j))
-
-  # Using a greedy algorithm, select as many attestations as possible that will
-  # fit in the block.
-  #
-  # Effectively https://en.wikipedia.org/wiki/Maximum_coverage_problem which
-  # therefore has inapproximability results of greedy algorithm optimality.
-  #
-  # Some research, also, has been done showing that one can tweak this and do
-  # a kind of k-greedy version where each greedy step tries all possible two,
-  # three, or higher-order tuples of next elements. These seem promising, but
-  # also expensive.
-  #
-  # For each round, we'll look for the best attestation and add it to the result
-  # then re-score the other candidates.
-  var res: seq[phase0.Attestation]
-  let totalCandidates = candidates.len()
-  while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
-    let entryCacheKey = block:
-      # Find the candidate with the highest score - slot is used as a
-      # tie-breaker so that more recent attestations are added first
-      let
-        candidate =
-          # Fast path for when all remaining candidates fit
-          if candidates.lenu64 < MAX_ATTESTATIONS: candidates.len - 1
-          else: maxIndex(candidates)
-        (_, _, entry, j) = candidates[candidate]
-
-      candidates.del(candidate) # careful, `del` reorders candidates
-
-      res.add(entry[].toAttestation(entry[].aggregates[j]))
-
-      # Update cache so that the new votes are taken into account when updating
-      # the score below
-      attCache.add(entry[].data,  entry[].aggregates[j].aggregation_bits)
-
-      entry[].data.getAttestationCacheKey
-
-    block:
-      # Because we added some votes, it's quite possible that some candidates
-      # are no longer interesting - update the scores of the existing candidates
-      for it in candidates.mitems():
-        # Aggregates not on the same (slot, committee) pair don't change scores
-        if it.entry[].data.getAttestationCacheKey != entryCacheKey:
-          continue
-
-        it.score = attCache.score(
-          it.entry[].data,
-          it.entry[].aggregates[it.validation].aggregation_bits)
-
-      candidates.keepItIf:
-        # Only keep candidates that might add coverage
-        it.score > 0
-
-  let
-    packingDur = Moment.now() - startPackingTick
-
-  debug "Packed attestations for block",
-    newBlockSlot, packingDur, totalCandidates, attestations = res.len()
-  attestation_pool_block_attestation_packing_time.set(
-    packingDur.toFloatSeconds())
-
-  res
-
-proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: ForkedHashedBeaconState,
-                              cache: var StateCache): seq[phase0.Attestation] =
-  withState(state):
-    when consensusFork < ConsensusFork.Electra:
-      pool.getAttestationsForBlock(forkyState, cache)
-    else:
-      default(seq[phase0.Attestation])
+proc getAttestationsForBlock*(
+    _: var AttestationPool, _: ForkedHashedBeaconState, _: var StateCache):
+    seq[phase0.Attestation] =
+  @[]
 
 proc getAttestationsForBlock*(
     pool: var AttestationPool,
@@ -1173,48 +1024,13 @@ func getElectraAggregatedAttestation*(
   res
 
 func getPhase0AggregatedAttestation*(
-    pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
-    Opt[phase0.Attestation] =
-  let
-    candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
-  if candidateIdx.isNone:
-    return Opt.none(phase0.Attestation)
-
-  pool.phase0Candidates[candidateIdx.get].withValue(
-      attestation_data_root, entry):
-    entry[].updateAggregates()
-
-    let (bestIndex, _) = bestValidation(entry[].aggregates)
-
-    # Found the right hash, no need to look further
-    return Opt.some(entry[].toAttestation(entry[].aggregates[bestIndex]))
-
+    _: var AttestationPool, _: Slot, _: Eth2Digest): Opt[phase0.Attestation] =
   Opt.none(phase0.Attestation)
 
 func getPhase0AggregatedAttestation*(
-    pool: var AttestationPool, slot: Slot, index: CommitteeIndex):
+    _: var AttestationPool, _: Slot, _: CommitteeIndex):
     Opt[phase0.Attestation] =
-  ## Select the attestation that has the most votes going for it in the given
-  ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
-  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
-  if candidateIdx.isNone:
-    return Opt.none(phase0.Attestation)
-
-  var res: Opt[phase0.Attestation]
-  for _, entry in pool.phase0Candidates[candidateIdx.get].mpairs():
-    doAssert entry.data.slot == slot
-    if index != entry.data.index:
-      continue
-
-    entry.updateAggregates()
-
-    let (bestIndex, best) = bestValidation(entry.aggregates)
-
-    if res.isNone() or best > res.get().aggregation_bits.countOnes():
-      res = Opt.some(entry.toAttestation(entry.aggregates[bestIndex]))
-
-  res
+  Opt.none(phase0.Attestation)
 
 type BeaconHead* = object
   blck*: BlockRef

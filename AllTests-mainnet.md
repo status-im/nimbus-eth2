@@ -27,12 +27,7 @@ AllTests-mainnet
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
-+ Attestations may arrive in any order [Preset: mainnet]                                     OK
-+ Attestations may overlap, bigger first [Preset: mainnet]                                   OK
-+ Attestations may overlap, smaller first [Preset: mainnet]                                  OK
-+ Attestations should be combined [Preset: mainnet]                                          OK
 + Can add and retrieve simple attestations [Preset: mainnet]                                 OK
-+ Everyone voting for something different [Preset: mainnet]                                  OK
 + Fork choice returns block with attestation                                                 OK
 + Fork choice returns latest block with no attestations                                      OK
 + Trying to add a block twice tags the second as an error                                    OK
