@@ -773,6 +773,7 @@ AllTests-mainnet
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
++ execution payload envelope signatures                                                      OK
 ```
 ## Network metadata
 ```diff
