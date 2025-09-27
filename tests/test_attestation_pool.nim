@@ -175,16 +175,6 @@ suite "Attestation pool processing" & preset():
         check_attestation(forkyState.data, att1, flags, cache2).isOk
         check_attestation(forkyState.data, att2, flags, cache2).isOk
 
-    # An additional compatibility check catches that (used in block production)
-    withState(state[]):
-      check:
-        check_attestation_compatible(dag, forkyState, att1).isOk
-        check_attestation_compatible(dag, forkyState, att2).isErr
-    withState(state2[]):
-      check:
-        check_attestation_compatible(dag, forkyState, att1).isErr
-        check_attestation_compatible(dag, forkyState, att2).isOk
-
   test "Can add and retrieve simple attestations" & preset():
     let
       # Create an attestation for slot 1!
@@ -468,8 +458,6 @@ suite "Attestation pool processing" & preset():
             # signature: ValidatorSig()
           )
 
-      cache = StateCache()
-
     # -------------------------------------------------------------
     # Prune
 
@@ -569,13 +557,13 @@ suite "Attestation pool electra processing" & preset():
           slot = getStateField(state[], slot)
           parent_root = withState(state[]): forkyState.latest_block_root
           committee = get_beacon_committee(state[], slot, cIndex, cache)
-        makeAttestation(state[], parent_root, committee[0], cache)
+        makeElectraAttestation(state[], parent_root, committee[0], cache)
       att2 = block:
         let
           slot = getStateField(state2[], slot)
           parent_root = withState(state2[]): forkyState.latest_block_root
           committee = get_beacon_committee(state2[], slot, cIndex, cache2)
-        makeAttestation(state2[], parent_root, committee[0], cache2)
+        makeElectraAttestation(state2[], parent_root, committee[0], cache2)
       maxSlot = max(att1.data.slot, att2.data.slot)
 
     # Advance time so attestations become valid
@@ -589,24 +577,28 @@ suite "Attestation pool electra processing" & preset():
 
     # They should remain valid only within a compatible state
     withState(state[]):
-      check:
-        check_attestation(forkyState.data, att1, {}, cache).isOk
-        check_attestation(forkyState.data, att2, {}, cache).isErr
+      when consensusFork >= ConsensusFork.Electra:
+        check:
+          check_attestation(forkyState.data, att1, {}, cache, true).isOk
+          check_attestation(forkyState.data, att2, {}, cache, true).isErr
     withState(state2[]):
-      check:
-        check_attestation(forkyState.data, att1, {}, cache2).isErr
-        check_attestation(forkyState.data, att2, {}, cache2).isOk
+      when consensusFork >= ConsensusFork.Electra:
+        check:
+          check_attestation(forkyState.data, att1, {}, cache2, true).isErr
+          check_attestation(forkyState.data, att2, {}, cache2, true).isOk
 
     # If signature checks are skipped, state incompatibility is not detected
-    let flags = {skipBlsValidation}
+    const flags = {skipBlsValidation}
     withState(state[]):
-      check:
-        check_attestation(forkyState.data, att1, flags, cache).isOk
-        check_attestation(forkyState.data, att2, flags, cache).isOk
+      when consensusFork >= ConsensusFork.Electra:
+        check:
+          check_attestation(forkyState.data, att1, flags, cache, true).isOk
+          check_attestation(forkyState.data, att2, flags, cache, true).isOk
     withState(state2[]):
-      check:
-        check_attestation(forkyState.data, att1, flags, cache2).isOk
-        check_attestation(forkyState.data, att2, flags, cache2).isOk
+      when consensusFork >= ConsensusFork.Electra:
+        check:
+          check_attestation(forkyState.data, att1, flags, cache2, true).isOk
+          check_attestation(forkyState.data, att2, flags, cache2, true).isOk
 
     # An additional compatibility check catches that (used in block production)
     withState(state[]):

@@ -680,9 +680,10 @@ iterator electraAttestations*(
 
 type
   AttestationCacheKey = (Slot, uint64)
-  AttestationCache[CVBType] = Table[AttestationCacheKey, CVBType] ##\
-    ## Cache for quick lookup during beacon block construction of attestations
-    ## which have already been included, and therefore should be skipped.
+  AttestationCache =
+    Table[AttestationCacheKey, ElectraCommitteeValidatorsBits] ##\
+      ## Cache for quick lookup during beacon block construction of attestations
+      ## which have already been included, and therefore should be skipped.
 
 func getAttestationCacheKey(ad: AttestationData): AttestationCacheKey =
   # The committee is unique per slot and committee index which means we can use
@@ -691,7 +692,7 @@ func getAttestationCacheKey(ad: AttestationData): AttestationCacheKey =
 
 func add(
     attCache: var AttestationCache, data: AttestationData,
-    aggregation_bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits) =
+    aggregation_bits: ElectraCommitteeValidatorsBits) =
   let key = data.getAttestationCacheKey()
   attCache.withValue(key, v) do:
     v[].incl(aggregation_bits)
@@ -754,8 +755,8 @@ func score(
 func check_attestation_compatible*(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
-    attestation: SomeAttestation | electra.Attestation |
-                 electra.TrustedAttestation): Result[void, cstring] =
+    attestation: electra.Attestation | electra.TrustedAttestation):
+    Result[void, cstring] =
   let
     targetEpoch = attestation.data.target.epoch
     compatibleRoot = state.dependent_root(targetEpoch.get_previous_epoch)
@@ -806,7 +807,7 @@ proc getAttestationsForBlock*(
     candidates: seq[tuple[
       score: int, slot: Slot, entry: ptr ElectraAttestationEntry,
       validation: int]]
-    attCache = AttestationCache[ElectraCommitteeValidatorsBits].init(state, cache)
+    attCache = AttestationCache.init(state, cache)
 
   for i in 0..<ATTESTATION_LOOKBACK:
     if i > maxAttestationSlot: # Around genesis..
@@ -868,8 +869,7 @@ proc getAttestationsForBlock*(
   #
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
-  var
-    candidatesPerBlock: OrderedTable[CandidateKey, seq[electra.Attestation]]
+  var candidatesPerBlock: OrderedTable[CandidateKey, seq[electra.Attestation]]
 
   let totalCandidates = candidates.len()
   while candidates.len > 0 and candidatesPerBlock.lenu64() <
@@ -974,9 +974,7 @@ func getElectraAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot,
     attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
     Opt[electra.Attestation] =
-
-  let
-    candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
+  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
