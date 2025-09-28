@@ -74,14 +74,18 @@ proc runTest[T, U](
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
-      let postState =
-        newClone(parseTest(
+      let
+        postState = newClone(parseTest(
           testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+        pass = preState[].hash_tree_root() == postState[].hash_tree_root()
 
-      reportDiff(preState, postState)
+      # TODO reportDiff doesn't understand at least one of HashArray or
+      # HashList merkle tree caching, so only check if htr's mismatch.
+      if not pass:
+        reportDiff(preState, postState)
       check:
         done.isOk()
-        preState[].hash_tree_root() == postState[].hash_tree_root()
+        pass
     else:
       check: done.isErr() # No post state = processing should fail
 
