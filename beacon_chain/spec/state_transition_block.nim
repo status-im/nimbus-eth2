@@ -1221,7 +1221,7 @@ proc process_execution_payload*(
 
 # Verify the state root
   if verify:
-    if envelope.state_root != hash_tree_root(state_copy):
+    if envelope.state_root != hash_tree_root(state):
       return err("process_execution_payload: state root mismatch")
 
   ok()
