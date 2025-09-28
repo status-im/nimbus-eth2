@@ -51,7 +51,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
-  defaultGasLimit* = 45_000_000
+  defaultGasLimit* = 60_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
