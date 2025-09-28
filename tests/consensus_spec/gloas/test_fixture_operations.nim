@@ -202,21 +202,22 @@ suite baseDescription & "Execution Payload " & preset():
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
-      
+
       var cache: StateCache
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      
+
       process_execution_payload(
         defaultRuntimeConfig, preState, signed_envelope, executePayload, cache)
 
   for path in walkTests(OpExecutionPayloadDir):
-    let testDir = OpExecutionPayloadDir / "pyspec_tests" / path
-    let inputFile = 
-      if fileExists(testDir/"signed_envelope.ssz_snappy"):
-        "signed_envelope"
-      else:
-        continue
-    
+    let
+      testDir = OpExecutionPayloadDir / "pyspec_tests" / path
+      inputFile =
+        if fileExists(testDir/"signed_envelope.ssz_snappy"):
+          "signed_envelope"
+        else:
+          continue
+
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
       OpExecutionPayloadDir, suiteName, "Execution Payload", inputFile,
