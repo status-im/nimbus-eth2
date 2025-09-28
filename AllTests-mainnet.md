@@ -29,7 +29,6 @@ AllTests-mainnet
 + Attestation from different branch [Preset: mainnet]                                        OK
 + Can add and retrieve simple attestations [Preset: mainnet]                                 OK
 + Fork choice returns block with attestation                                                 OK
-+ Fork choice returns latest block with no attestations                                      OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with aggregates [Preset: mainnet]                                                  OK
