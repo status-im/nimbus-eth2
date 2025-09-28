@@ -12,14 +12,15 @@ import
   metrics,
   chronicles, stew/byteutils,
   # Internal
-  ../spec/[
-    beaconstate, eth2_merkleization, forks, state_transition_epoch, validator],
+  ../spec/[eth2_merkleization, forks, validator],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
 
 from std/algorithm import sort
-from std/sequtils import keepItIf, maxIndex
+from std/sequtils import keepItIf
+from ../spec/beaconstate import check_attestation, dependent_root
+from ../spec/state_transition_epoch import compute_unrealized_finality
 
 export blockchain_dag, fork_choice
 
@@ -212,12 +213,9 @@ func candidateIdx(
     pool: AttestationPool, slot: Slot, candidateIdxType: CandidateIdxType):
     Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
+  const poolLength = pool.electraCandidates.lenu64
 
-  let poolLength = if candidateIdxType == CandidateIdxType.electraIdx:
-    pool.electraCandidates.lenu64 else: pool.phase0Candidates.lenu64
-
-  if slot >= pool.startingSlot and
-      slot < (pool.startingSlot + poolLength):
+  if slot >= pool.startingSlot and slot < (pool.startingSlot + poolLength):
     Opt.some(int(slot mod poolLength))
   else:
     Opt.none(int)
@@ -227,7 +225,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
     return # Genesis
 
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
-  let newStartingSlot = wallSlot + 1 - pool.phase0Candidates.lenu64
+  let newStartingSlot = wallSlot + 1 - pool.electraCandidates.lenu64
 
   if newStartingSlot < pool.startingSlot:
     error "Current slot older than attestation pool view, clock reset?",
@@ -237,7 +235,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   # As time passes we'll clear out any old attestations as they are no longer
   # viable to be included in blocks
 
-  if newStartingSlot - pool.startingSlot >= pool.phase0Candidates.lenu64():
+  if newStartingSlot - pool.startingSlot >= pool.electraCandidates.lenu64():
     # In case many slots passed since the last update, avoid iterating over
     # the same indices over and over
     pool.phase0Candidates.reset()
@@ -955,7 +953,7 @@ proc getElectraAttestationsForBlock*(
       default(seq[electra.Attestation])
 
 func bestValidation(
-    aggregates: openArray[Phase0Validation | ElectraValidation]): (int, int) =
+    aggregates: openArray[ElectraValidation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
   doAssert aggregates.len() > 0,
     "updateAggregates should have created at least one aggregate"

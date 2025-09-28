@@ -243,41 +243,6 @@ suite "Attestation pool processing" & preset():
       pool[].covers(att0.data, att0.aggregation_bits)
       pool[].covers(att1.data, att1.aggregation_bits)
 
-  test "Fork choice returns latest block with no attestations":
-    var cache = StateCache()
-    let
-      b1 = addTestBlock(state[], cache).phase0Data
-      b1Add = dag.addHeadBlock(verifier, b1) do (
-          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          state: phase0.BeaconState,
-          epochRef: EpochRef, unrealized: FinalityCheckpoints):
-        # Callback add to fork choice if valid
-        pool[].addForkChoice(
-          epochRef, blckRef, unrealized, signedBlock.message,
-          blckRef.slot.start_beacon_time)
-
-    let head =
-      pool[].selectOptimisticHead(b1Add[].slot.start_beacon_time).get().blck
-    check:
-      head == b1Add[]
-
-    let
-      b2 = addTestBlock(state[], cache).phase0Data
-      b2Add = dag.addHeadBlock(verifier, b2) do (
-          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          state: phase0.BeaconState,
-          epochRef: EpochRef, unrealized: FinalityCheckpoints):
-        # Callback add to fork choice if valid
-        pool[].addForkChoice(
-          epochRef, blckRef, unrealized, signedBlock.message,
-          blckRef.slot.start_beacon_time)
-
-    let head2 =
-      pool[].selectOptimisticHead(b2Add[].slot.start_beacon_time).get().blck
-
-    check:
-      head2 == b2Add[]
-
   test "Fork choice returns block with attestation":
     var cache = StateCache()
     let
