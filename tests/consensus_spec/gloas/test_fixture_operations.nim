@@ -219,6 +219,8 @@ suite baseDescription & "Execution Payload " & preset():
       inputFile =
         if fileExists(testDir/"signed_envelope.ssz_snappy"):
           "signed_envelope"
+        # Skip test vectors with missing signed envelope files
+        # will be fixed in next consensus-spec-tests release
         else:
           continue
 

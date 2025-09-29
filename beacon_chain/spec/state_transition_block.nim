@@ -1139,7 +1139,7 @@ proc process_execution_payload*(
 
   # Cache latest block header state root
   let previous_state_root = hash_tree_root(state)
-  if state.latest_block_header.state_root == Eth2Digest():
+  if state.latest_block_header.state_root.isZero:
     state.latest_block_header.state_root = previous_state_root
 
   # Verify consistency with the beacon block
@@ -1149,7 +1149,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: slot mismatch")
 
   # Verify consistency with the committed bid
-  let committed_bid = state.latest_execution_payload_bid
+  template committed_bid: untyped = state.latest_execution_payload_bid
   if envelope.builder_index != committed_bid.builder_index:
     return err("process_execution_payload: builder index mismatch")
   if committed_bid.blob_kzg_commitments_root !=
@@ -1189,7 +1189,12 @@ proc process_execution_payload*(
   if not notify_new_payload(payload):
     return err("process_execution_payload: execution payload invalid")
 
-  var bsv = sortValidatorBuckets(state.validators.asSeq)
+  let bsv =
+    if envelope.execution_requests.withdrawals.len +
+      envelope.execution_requests.consolidations.len > 0:
+      sortValidatorBuckets(state.validators.asSeq)
+    else:
+      nil
   for op in envelope.execution_requests.deposits:
     ? process_deposit_request(cfg, state, op, {})
   for op in envelope.execution_requests.withdrawals:
@@ -1198,8 +1203,8 @@ proc process_execution_payload*(
     process_consolidation_request(cfg, state, bsv[], op, cache)
 
   # Queue the builder payment
-  var payment = state.builder_pending_payments.mitem(
-    (SLOTS_PER_EPOCH + (state.slot mod SLOTS_PER_EPOCH)).int)
+  let payment_index = (SLOTS_PER_EPOCH + (state.slot mod SLOTS_PER_EPOCH)).int
+  var payment = state.builder_pending_payments.mitem(payment_index)
   let amount = payment.withdrawal.amount
   if amount > 0.Gwei:
     let exit_queue_epoch =
@@ -1210,16 +1215,14 @@ proc process_execution_payload*(
     if not state.builder_pending_withdrawals.add(payment.withdrawal):
       return err("process_execution_payload: couldn't add builder withdrawal")
 
-  state.builder_pending_payments[
-      (SLOTS_PER_EPOCH + (state.slot mod SLOTS_PER_EPOCH)).int] =
-    BuilderPendingPayment()
+  state.builder_pending_payments[payment_index] = BuilderPendingPayment()
 
   # Cache the execution payload hash
   state.execution_payload_availability[
     state.slot mod SLOTS_PER_HISTORICAL_ROOT] = true
   state.latest_block_hash = payload.block_hash
 
-# Verify the state root
+  # Verify the state root
   if verify:
     if envelope.state_root != hash_tree_root(state):
       return err("process_execution_payload: state root mismatch")
