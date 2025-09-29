@@ -1191,7 +1191,7 @@ proc process_execution_payload*(
 
   let bsv =
     if envelope.execution_requests.withdrawals.len +
-      envelope.execution_requests.consolidations.len > 0:
+        envelope.execution_requests.consolidations.len > 0:
       sortValidatorBuckets(state.validators.asSeq)
     else:
       nil
