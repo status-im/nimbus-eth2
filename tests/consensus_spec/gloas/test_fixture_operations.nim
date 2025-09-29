@@ -221,6 +221,7 @@ suite baseDescription & "Execution Payload " & preset():
           "signed_envelope"
         # Skip test vectors with missing signed envelope files
         # will be fixed in next consensus-spec-tests release
+        # https://github.com/ethereum/consensus-specs/issues/4545
         else:
           continue
 
