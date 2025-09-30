@@ -1138,9 +1138,10 @@ proc process_execution_payload*(
       return err("process_execution_payload: invalid envelope signature")
 
   # Cache latest block header state root
-  let previous_state_root = hash_tree_root(state)
+  # Note: Moved hash_tree_root inside conditional check
+  # for performance, so it's only computed when needed
   if state.latest_block_header.state_root.isZero:
-    state.latest_block_header.state_root = previous_state_root
+    state.latest_block_header.state_root = hash_tree_root(state)
 
   # Verify consistency with the beacon block
   if envelope.beacon_block_root != hash_tree_root(state.latest_block_header):
