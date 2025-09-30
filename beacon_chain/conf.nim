@@ -19,7 +19,7 @@ import
   serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/net/nat,
-  eth/p2p/discoveryv5/enr,
+  eth/enr/enr,
   json_serialization, json_serialization/std/net as jsnet, web3/confutils_defs,
   chronos/transports/common,
   kzg4844/kzg,
