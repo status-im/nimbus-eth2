@@ -53,11 +53,12 @@ func is_builder_withdrawal_credential*(
     withdrawal_credentials: Eth2Digest): bool =
   withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-has_compounding_withdrawal_credential
 func has_compounding_withdrawal_credential*(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal
-  ## credential.
-  is_compounding_withdrawal_credential(validator.withdrawal_credentials)
+  ## Check if ``validator`` has an 0x02 or 0x03 prefixed withdrawal credential.
+  is_compounding_withdrawal_credential(validator.withdrawal_credentials) or
+      is_builder_withdrawal_credential(validator.withdrawal_credentials)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/beacon-chain.md#new-get_max_effective_balance
 func get_max_effective_balance*(validator: Validator): Gwei =
