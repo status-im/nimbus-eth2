@@ -4,7 +4,7 @@ Nimbus is a client for the Ethereum network that is [lightweight](https://our.st
 
 Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks.
 
-This book describes the consensus protocol implementation which includes a [beacon node](./quick-start.md), [validator client](./validator-client.md) and [light client](./el-light-client.md).
+This book describes the consensus protocol implementation which includes a [beacon node](./quick-start.md), [validator client](./validator-client.md) and [consensus light client](./el-light-client.md).
 
 An [execution client](https://github.com/status-im/nimbus-eth1) is also under development - see its [quickstart guide](./execution-client.md).
 
@@ -18,7 +18,7 @@ Our companion project [fluffy](https://github.com/status-im/nimbus-eth1/tree/mas
 * [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) remote signing
 * [Validator monitoring](./validator-monitor.md) and [performance analysis](./attestation-performance.md) tooling
 * [External block builder](./external-block-builder.md) (PBS / mev-boost) support with execution client fallback
-* [Light consensus client](./el-light-client.md) for running an execution client without a full beacon node
+* [Consensus light client](./el-light-client.md) for running an execution client without a full beacon node
 
 
 ## Design goals
@@ -45,7 +45,7 @@ You can read this book from start to finish, or you might want to read just spec
 * Coming from a different client? Check out the [migration guide](./migration.md).
 * Visualize the important metrics with [Grafana and Prometheus](./metrics-pretty-pictures.md).
 * Interested in becoming a validator? Follow the [validator guide](./run-a-validator.md).
-* If you're not planning on becoming a validator, you can run the [light client](./el-light-client.md).
+* If you're not planning on becoming a validator, you can run the [consensus light client](./el-light-client.md).
 
 ## Get in touch
 
