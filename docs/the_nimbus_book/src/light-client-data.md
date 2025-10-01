@@ -5,7 +5,7 @@ Light client data is imported incrementally and does not affect validator perfor
 Information about the light client sync protocol can be found in the [Ethereum consensus specs](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md).
 
 !!! note
-    Nimbus also implements a [standalone consensus light client](./el-light-client.md) that may be used to sync an execution layer (EL) client.
+    Nimbus also implements a [standalone consensus light client](./consensus-light-client.md) that may be used to sync an execution layer (EL) client.
 
 ## Configuration
 

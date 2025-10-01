@@ -7,7 +7,7 @@
 
     If you're looking for information about setting up an execution client for validator duties or any other production usage, see the [execution clients guide](./eth1.md).
 
-The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol. Paired with a [beacon node](./quick-start.md) or [consensus light client](./el-light-client.md), it provides access to Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/).
+The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol. Paired with a [beacon node](./quick-start.md) or [consensus light client](./consensus-light-client.md), it provides access to Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/).
 
 ## Building from source
 
@@ -132,7 +132,7 @@ See the [era file guide](./era-store.md) for more information.
 
 ## Launch the client
 
-In order for the execution client to operate, you need to connect a consensus node. This can be the [Nimbus beacon node](./quick-start.md), a [supported consensus client](https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients) or a [consensus light client](./el-light-client.md).
+In order for the execution client to operate, you need to connect a consensus node. This can be the [Nimbus beacon node](./quick-start.md), a [supported consensus client](https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients) or a [consensus light client](./consensus-light-client.md).
 
 The consensus node connects to the execution client via the Engine API which is enabled using `--engine-api` and by default runs on port `8551`.
 
