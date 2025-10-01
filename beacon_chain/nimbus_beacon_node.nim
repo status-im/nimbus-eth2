@@ -1230,7 +1230,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for subnet_id in SubnetId:
     node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
 
-  node.consensusManager[].actionTracker.subscribedSubnets = default(AttnetBits)
+  node.consensusManager[].actionTracker.subscribedSubnets.reset()
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
@@ -1285,6 +1285,17 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   else:
     node.dag.cfg.CUSTODY_REQUIREMENT
 
+proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
+  let
+    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId, targetSubnets.uint64)
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.subscribe(topic, basicParams())
+
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
@@ -1332,25 +1343,9 @@ proc addElectraMessageHandlers(
   node.doAddDenebMessageHandlers(
     forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
-proc addFuluMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
-  # of columns. Last common ancestor fork for gossip environment is Capellla.
-  node.addCapellaMessageHandlers(forkDigest, slot)
-
-  let
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId,
-      targetSubnets.uint64)
-
-  for i in custody:
-    let topic = getDataColumnSidecarTopic(forkDigest, i)
-    node.network.subscribe(topic, basicParams())
-
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addFuluMessageHandlers(forkDigest, slot)
+  node.addCapellaMessageHandlers(forkDigest, slot)
   debugGloasComment "default gossipsub config"
   node.network.subscribe(
     getExecutionPayloadHeaderTopic(forkDigest), basicParams())
@@ -1656,7 +1651,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addCapellaMessageHandlers,
     addDenebMessageHandlers,
     addElectraMessageHandlers,
-    addFuluMessageHandlers,
+    addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
     addGloasMessageHandlers
   ]
 
@@ -1666,6 +1661,17 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       node, node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg), slot)
 
   node.gossipState = targetGossipState
+
+  # Validator custody can change in the middle of a fork/BPO interval; need to
+  # subscribe to potentially new column topics. Do this after node.gossipState
+  # is updated to avoid adding immediately unsubscribed subscriptions. Custody
+  # can only grow in a node's lifetime, so only address additive case. It can,
+  # therefore, overlap existing subscriptions, rather than separately tracking
+  # them.
+  for gossipEpoch in node.gossipState:
+    if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
+      node.updateDataColumnSidecarHandlers(gossipEpoch)
+
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
