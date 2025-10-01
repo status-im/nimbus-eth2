@@ -87,7 +87,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#withdrawal-prefixes
   COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#withdrawal-prefixes
   BUILDER_WITHDRAWAL_PREFIX* = 0x03'u8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/electra/beacon-chain.md#execution-layer-triggered-requests
