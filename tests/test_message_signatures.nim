@@ -275,7 +275,7 @@ suite "Message signatures":
           subcommittee_index, privkey0).toValidatorSig)
 
   test "execution payload bid signatures":
-    let 
+    let
       msg = gloas.SignedExecutionPayloadBid.new()
       state = gloas.BeaconState.new()
 
@@ -309,7 +309,7 @@ suite "Message signatures":
           state[], privkey0).toValidatorSig)
 
   test "execution payload envelope signatures":
-    let 
+    let
       msg = gloas.SignedExecutionPayloadEnvelope.new()
       state = gloas.BeaconState.new()
 
@@ -341,3 +341,35 @@ suite "Message signatures":
         load(pubkey0).get, get_execution_payload_envelope_signature(
           fork0, genesis_validators_root1, msg[],
           state[], privkey0).toValidatorSig)
+
+  test "payload attestation message signatures":
+    let msg = default(PayloadAttestationMessage)
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, msg,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root0, msg,
+          privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, msg,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root0, msg,
+          privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, msg,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork1, genesis_validators_root0, msg,
+          privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, msg,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root1, msg,
+          privkey0).toValidatorSig)
