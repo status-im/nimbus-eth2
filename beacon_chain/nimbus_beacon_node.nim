@@ -14,7 +14,8 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   kzg4844/kzg,
-  eth/p2p/discoveryv5/[enr, random2],
+  eth/enr/enr,
+  eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
     blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,

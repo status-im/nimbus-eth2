@@ -10,8 +10,8 @@
 # Uncategorized helper functions from the spec
 import
   chronicles, results, taskpools,
-  eth/p2p/discoveryv5/[node],
-  kzg4844/[kzg],
+  eth/p2p/discoveryv5/node,
+  kzg4844/kzg,
   ssz_serialization/[
     proofs,
     types],

@@ -9,7 +9,7 @@
 import
   stew/byteutils,
   chronicles,
-  eth/p2p/discoveryv5/enr,
+  eth/enr/enr,
   libp2p/[multiaddress, multicodec, peerstore],
   ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
