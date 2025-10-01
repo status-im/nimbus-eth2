@@ -1710,6 +1710,13 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/das-core.md#reconstruction-and-cross-seeding
+  # "If the node obtains 50%+ of all the columns, it SHOULD reconstruct the
+  # full data matrix via the recover_matrix helper."
+  if node.dataColumnQuarantine.custodyColumns.lenu64 <
+      node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
+    return
+
   logScope:
     slot = slot
 
