@@ -175,35 +175,6 @@ suite "Attestation pool processing" & preset():
         check_attestation(forkyState.data, att1, flags, cache2).isOk
         check_attestation(forkyState.data, att2, flags, cache2).isOk
 
-  test "Can add and retrieve simple attestations" & preset():
-    let
-      # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(
-        state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
-      attestation = makeAttestation(
-        state[], state[].latest_block_root, bc0[0], cache)
-
-    pool[].addAttestation(
-      attestation, @[bc0[0]], attestation.aggregation_bits.len,
-      attestation.loadSig, attestation.data.slot.start_beacon_time)
-
-    check:
-      # Added attestation, should get it back
-      toSeq(pool[].attestations(Opt.none(Slot), Opt.none(CommitteeIndex))) ==
-        @[attestation]
-      toSeq(pool[].attestations(
-        Opt.some(attestation.data.slot), Opt.none(CommitteeIndex))) ==
-        @[attestation]
-      toSeq(pool[].attestations(
-        Opt.some(attestation.data.slot), Opt.some(attestation.data.index.CommitteeIndex))) ==
-        @[attestation]
-      toSeq(pool[].attestations(Opt.none(Slot), Opt.some(attestation.data.index.CommitteeIndex))) ==
-        @[attestation]
-      toSeq(pool[].attestations(Opt.some(
-        attestation.data.slot + 1), Opt.none(CommitteeIndex))) == []
-      toSeq(pool[].attestations(
-        Opt.none(Slot), Opt.some(CommitteeIndex(attestation.data.index + 1)))) == []
-
   test "Working with aggregates" & preset():
     let
       # Create an attestation for slot 1!

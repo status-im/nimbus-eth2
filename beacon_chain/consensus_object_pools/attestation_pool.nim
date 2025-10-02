@@ -45,7 +45,6 @@ type
     aggregation_bits: CVBType
     aggregate_signature: AggregateSignature
 
-  Phase0Validation = Validation[CommitteeValidatorsBits]
   ElectraValidation = Validation[ElectraCommitteeValidatorsBits]
 
   AttestationEntry[CVBType] = object
@@ -66,10 +65,6 @@ type
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - this map keeps track of each vote keyed by
     ## getAttestationCandidateKey()
-
-  CandidateIdxType {.pure.} = enum
-    phase0Idx
-    electraIdx
 
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
@@ -209,9 +204,7 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(
-    pool: AttestationPool, slot: Slot, candidateIdxType: CandidateIdxType):
-    Opt[int] =
+func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
   const poolLength = pool.electraCandidates.lenu64
 
@@ -258,14 +251,6 @@ func oneIndex(
       else: # More than one bit set!
         return Opt.none(int)
   res
-
-func toAttestation(entry: AttestationEntry, validation: Phase0Validation):
-    phase0.Attestation =
-  phase0.Attestation(
-    aggregation_bits: validation.aggregation_bits,
-    data: entry.data,
-    signature: validation.aggregate_signature.finish().toValidatorSig()
-  )
 
 func toElectraAttestation(
     entry: AttestationEntry, validation: ElectraValidation):
@@ -452,14 +437,7 @@ proc addAttestation*(
 
   updateCurrent(pool, wallTime.slotOrZero)
 
-  when kind(typeof(attestation)) == ConsensusFork.Electra:
-    let candidateIdx = pool.candidateIdx(
-      attestation.data.slot, CandidateIdxType.electraIdx)
-  elif kind(typeof(attestation)) == ConsensusFork.Phase0:
-    let candidateIdx = pool.candidateIdx(
-      attestation.data.slot, CandidateIdxType.phase0Idx)
-  else:
-    static: doAssert false
+  let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:
     debug "Skipping old attestation for block production",
       startingSlot = pool.startingSlot
@@ -556,7 +534,7 @@ func covers*(
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.phase0Idx).valueOr:
+  let candidateIdx = pool.candidateIdx(data.slot).valueOr:
     return false
 
   pool.phase0Candidates[candidateIdx].withValue(
@@ -574,7 +552,7 @@ func covers*(
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.electraIdx).valueOr:
+  let candidateIdx = pool.candidateIdx(data.slot).valueOr:
     return false
 
   pool.electraCandidates[candidateIdx].withValue(
@@ -604,42 +582,16 @@ proc addForkChoice*(pool: var AttestationPool,
       blck = shortLog(blck), err = state.error
 
 iterator attestations*(
-    pool: AttestationPool, slot: Opt[Slot],
-    committee_index: Opt[CommitteeIndex]): phase0.Attestation =
-  let candidateIndices =
-    if slot.isSome():
-      let candidateIdx = pool.candidateIdx(
-        slot.get(), CandidateIdxType.phase0Idx)
-      if candidateIdx.isSome():
-        candidateIdx.get() .. candidateIdx.get()
-      else:
-        1 .. 0
-    else:
-      0 ..< pool.phase0Candidates.len()
-
-  for candidateIndex in candidateIndices:
-    for _, entry in pool.phase0Candidates[candidateIndex]:
-      if committee_index.isNone() or entry.data.index == committee_index.get():
-        var singleAttestation = phase0.Attestation(
-          aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
-          data: entry.data)
-
-        for index, signature in entry.singles:
-          singleAttestation.aggregation_bits.setBit(index)
-          singleAttestation.signature = signature.toValidatorSig()
-          yield singleAttestation
-          singleAttestation.aggregation_bits.clearBit(index)
-
-        for v in entry.aggregates:
-          yield entry.toAttestation(v)
+    _: AttestationPool, _: Opt[Slot], _: Opt[CommitteeIndex]):
+    phase0.Attestation =
+  discard
 
 iterator electraAttestations*(
     pool: AttestationPool, slot: Opt[Slot],
     committee_index: Opt[CommitteeIndex]): electra.Attestation =
   let candidateIndices =
     if slot.isSome():
-      let candidateIdx = pool.candidateIdx(
-        slot.get(), CandidateIdxType.electraIdx)
+      let candidateIdx = pool.candidateIdx(slot.get())
       if candidateIdx.isSome():
         candidateIdx.get() .. candidateIdx.get()
       else:
@@ -813,7 +765,7 @@ proc getAttestationsForBlock*(
 
     let
       slot = Slot(maxAttestationSlot - i)
-      candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
+      candidateIdx = pool.candidateIdx(slot)
 
     if candidateIdx.isNone():
       # Passed the collection horizon - shouldn't happen because it's based on
@@ -972,7 +924,7 @@ func getElectraAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot,
     attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
     Opt[electra.Attestation] =
-  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
+  let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
@@ -1000,7 +952,7 @@ func getElectraAggregatedAttestation*(
   # be used here, because otherwise they wouldn't have the same value. It thus
   # leaves the cross-committee aggregation for getElectraAttestationsForBlock,
   # which does do this.
-  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
+  let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
