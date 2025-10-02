@@ -778,6 +778,7 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ payload attestation message signatures                                                     OK
 ```
 ## Network metadata
 ```diff
