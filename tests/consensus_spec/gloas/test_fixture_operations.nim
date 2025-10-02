@@ -198,7 +198,7 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  func makeApplyExecutionPayloadCb(path: string): auto =
+  proc makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var gloas.BeaconState,
         signed_envelope: SignedExecutionPayloadEnvelope):
@@ -206,12 +206,17 @@ suite baseDescription & "Execution Payload " & preset():
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
-
-      var cache: StateCache
+      var
+        cache: StateCache
+        hashedState = gloas.HashedBeaconState(
+          data: preState,
+          root: hash_tree_root(preState)
+        )
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-
-      process_execution_payload(
-        defaultRuntimeConfig, preState, signed_envelope, executePayload, cache)
+      result = process_execution_payload(
+        defaultRuntimeConfig, hashedState,
+        signed_envelope, executePayload, cache)
+      preState = hashedState.data
 
   for path in walkTests(OpExecutionPayloadDir):
     let
