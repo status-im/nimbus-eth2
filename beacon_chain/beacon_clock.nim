@@ -31,16 +31,25 @@ type
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
+    timeConfig: TimeConfig
     genesis: Time
 
   GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [].}
 
-proc init*(T: type BeaconClock, genesis_time: uint64): Opt[T] =
-  # Since we'll be converting beacon time differences to nanoseconds,
-  # the time can't be outrageously far from now
-  if genesis_time > (getTime().toUnix().uint64 + 100'u64 * 365'u64 * 24'u64 *
-        60'u64 * 60'u64) or
-      genesis_time < GENESIS_SLOT * SECONDS_PER_SLOT:
+proc init*(
+    T: type BeaconClock,
+    timeConfig: TimeConfig,
+    genesis_time: uint64): Opt[T] =
+  let
+    SECONDS_PER_SLOT = timeConfig.SECONDS_PER_SLOT
+    MIN_GENESIS_TIME = GENESIS_SLOT * SECONDS_PER_SLOT
+    MAX_GENESIS_TIME =
+      # Since we'll be converting beacon time differences to nanoseconds,
+      # the time can't be outrageously far from now
+      getTime().toUnix().uint64 +
+      100'u64 * 365'u64 * 24'u64 * 60'u64 * 60'u64
+  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT or
+      genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
     Opt.none(BeaconClock)
   else:
     let
@@ -49,7 +58,9 @@ proc init*(T: type BeaconClock, genesis_time: uint64): Opt[T] =
       # offset to genesis instead of applying it at every time conversion
       unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
-    Opt.some T(genesis: unixGenesis - unixGenesisOffset)
+    Opt.some T(
+      timeConfig: timeConfig,
+      genesis: unixGenesis - unixGenesisOffset)
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))

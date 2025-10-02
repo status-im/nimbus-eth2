@@ -211,9 +211,11 @@ proc initClock(
   # This procedure performs initialization of BeaconClock using current genesis
   # information. It also performs waiting for genesis.
   let
-    res = BeaconClock.init(vc.beaconGenesis.genesis_time).valueOr:
+    res = BeaconClock.init(
+        vc.timeConfig, vc.beaconGenesis.genesis_time).valueOr:
       raise (ref ValidatorClientError)(
-        msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time)
+        msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time &
+             "; seconds_per_slot=" & $vc.timeConfig.SECONDS_PER_SLOT)
     currentTime = res.now()
     currentSlot = currentTime.slotOrZero()
     currentEpoch = currentSlot.epoch()

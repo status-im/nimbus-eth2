@@ -73,7 +73,7 @@ proc main() {.noinline, raises: [CatchableError].} =
         raiseAssert "Invalid baked-in state: " & err.msg
 
     genesisTime = getStateField(genesisState[], genesis_time)
-    beaconClock = BeaconClock.init(genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()

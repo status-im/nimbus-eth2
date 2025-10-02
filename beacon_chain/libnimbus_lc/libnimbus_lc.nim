@@ -243,10 +243,11 @@ proc ETHBeaconClockCreateFromState(
   ## Returns:
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
-  let beaconClock = BeaconClock.new()
-  beaconClock[] =
-    BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
-      return nil
+  let
+    genesisTime = getStateField(state[], genesis_time)
+    beaconClock = BeaconClock.new()
+  beaconClock[] = BeaconClock.init(cfg[].time, genesisTime).valueOr:
+    return nil
   beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =

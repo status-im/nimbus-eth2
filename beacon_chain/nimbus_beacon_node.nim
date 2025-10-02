@@ -731,7 +731,7 @@ proc init*(
         metadata, config.genesisState, config.genesisStateUrl)
     let
       genesisTime = getStateField(genesisState[], genesis_time)
-      beaconClock = BeaconClock.init(genesisTime).valueOr:
+      beaconClock = BeaconClock.init(metadata.cfg.time, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
         quit 1
       currentSlot = beaconClock.now().slotOrZero()
@@ -927,7 +927,7 @@ proc init*(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
       quit 1
 
