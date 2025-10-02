@@ -2358,7 +2358,8 @@ func checkCompoundingChanges(
   # Since it tracks head, it's possible reorgs trigger reporting the same
   # validator indices multiple times; this is fine.
   withState(state):
-    anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
+    anyIt(vis, has_compounding_withdrawal_credential(
+      consensusFork, forkyState.data.validators[it]))
 
 func trackVanityState(
     dag: ChainDAGRef, knownValidators: openArray[ValidatorIndex]): auto =

@@ -528,7 +528,7 @@ func process_withdrawal_request*(
 
   # Verify withdrawal credentials
   let
-    has_correct_credential = has_execution_withdrawal_credential(validator)
+    has_correct_credential = has_execution_withdrawal_credential(type(state).kind, validator)
     is_correct_source_address =
       validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
         withdrawal_request.source_address.data
@@ -565,7 +565,7 @@ func process_withdrawal_request*(
       static(MIN_ACTIVATION_BALANCE.Gwei) + pending_balance_to_withdraw
 
   # Only allow partial withdrawals with compounding withdrawal credentials
-  if  has_compounding_withdrawal_credential(validator) and
+  if  has_compounding_withdrawal_credential(type(state).kind, validator) and
       has_sufficient_effective_balance and has_excess_balance:
     let
       to_withdraw = min(
@@ -665,7 +665,7 @@ func process_consolidation_request*(
   # Verify source withdrawal credentials
   let
     has_correct_credential =
-      has_execution_withdrawal_credential(source_validator[])
+      has_execution_withdrawal_credential(type(state).kind, source_validator[])
     is_correct_source_address =
       source_validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
         consolidation_request.source_address.data
@@ -673,7 +673,7 @@ func process_consolidation_request*(
     return
 
   # Verify that target has compounding withdrawal credentials
-  if not has_compounding_withdrawal_credential(target_validator):
+  if not has_compounding_withdrawal_credential(type(state).kind, target_validator):
     return
 
   # Verify the source and the target are active
