@@ -429,7 +429,7 @@ proc verify_bls_to_execution_change_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_bid_signature
 func compute_execution_payload_bid_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: gloas.SignedExecutionPayloadBid, 
+    msg: gloas.SignedExecutionPayloadBid,
     state: gloas.BeaconState): Eth2Digest =
   let
     epoch = get_current_epoch(state)
@@ -439,7 +439,7 @@ func compute_execution_payload_bid_signing_root*(
 
 func get_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: SignedExecutionPayloadBid, state: gloas.BeaconState, 
+    msg: SignedExecutionPayloadBid, state: gloas.BeaconState,
     privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_execution_payload_bid_signing_root(
     fork, genesis_validators_root, msg, state)
@@ -448,7 +448,7 @@ func get_execution_payload_bid_signature*(
 proc verify_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: gloas.SignedExecutionPayloadBid, state: gloas.BeaconState,
-    pubkey: ValidatorPubKey | CookedPubKey, 
+    pubkey: ValidatorPubKey | CookedPubKey,
     signature: SomeSig): bool =
   let signing_root = compute_execution_payload_bid_signing_root(
     fork, genesis_validators_root, msg, state)
@@ -479,4 +479,30 @@ proc verify_execution_payload_envelope_signature*(
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_execution_payload_envelope_signing_root(
     fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/validator.md#constructing-a-payload-attestation
+func compute_payload_attestation_message_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage): Eth2Digest =
+  let
+    epoch = msg.data.slot.epoch
+    domain = get_domain(
+      fork, DOMAIN_PTC_ATTESTER, epoch, genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+func get_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)

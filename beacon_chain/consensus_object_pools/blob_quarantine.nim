@@ -492,8 +492,7 @@ func hasSidecars*(
 proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
   ## block ``blck``.

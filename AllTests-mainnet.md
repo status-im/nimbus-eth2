@@ -27,7 +27,6 @@ AllTests-mainnet
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
-+ Can add and retrieve simple attestations [Preset: mainnet]                                 OK
 + Fork choice returns block with attestation                                                 OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
@@ -778,6 +777,7 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ payload attestation message signatures                                                     OK
 ```
 ## Network metadata
 ```diff

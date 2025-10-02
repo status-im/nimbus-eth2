@@ -219,6 +219,8 @@ proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
     signedBlock: ForkySignedBeaconBlock,
     maybeFinalized: bool = false): ValidationRes =
+  const consensusFork = typeof(signedBlock).kind
+
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -240,66 +242,50 @@ proc processSignedBeaconBlock*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
-
-  if v.isOk():
-    # Block passed validation - enqueue it for processing. The block processing
-    # queue is effectively unbounded as we use a freestanding task to enqueue
-    # the block - this is done so that when blocks arrive concurrently with
-    # sync, we don't lose the gossip blocks, but also don't block the gossip
-    # propagation of seemingly good blocks
-    trace "Block validated"
-
-    if not(isNil(self.dag.onBlockGossipAdded)):
-      self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
-
-    let blobs =
-      when typeof(signedBlock).kind in
-          [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let bres =
-          self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
-        if bres.isSome():
-          bres
-        else:
-          self.quarantine[].addSidecarless(signedBlock)
-          return v
-      else:
-        Opt.none(BlobSidecars)
-
-    let columns =
-      when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        let cres =
-          self.dataColumnQuarantine[].popSidecars(signedBlock.root,
-                                                  signedBlock)
-        if cres.isSome():
-          cres
-        else:
-          discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot,
-                                                   signedBlock)
-          return v
-      else:
-        Opt.none(DataColumnSidecars)
-
-    self.blockProcessor[].enqueueBlock(
-      src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
-      columns,
-      maybeFinalized = maybeFinalized,
-      validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
-
-    # Validator monitor registration for blocks is done by the processor
-    beacon_blocks_received.inc()
-    beacon_block_delay.observe(delay.toFloatSeconds())
-  else:
-    debug "Dropping block", error = v.error()
+  self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {}).isOkOr:
+    debug "Dropping block", err = error
 
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
 
-    beacon_blocks_dropped.inc(1, [$v.error[0]])
+    beacon_blocks_dropped.inc(1, [$error[0]])
+    return err(error)
 
-  v
+  # Block passed validation - enqueue it for processing. The block processing
+  # queue is effectively unbounded as we use a freestanding task to enqueue
+  # the block - this is done so that when blocks arrive concurrently with
+  # sync, we don't lose the gossip blocks, but also don't block the gossip
+  # propagation of seemingly good blocks
+  trace "Block validated"
+
+  if not (isNil(self.dag.onBlockGossipAdded)):
+    self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
+
+  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    let sidecarsOpt =
+      self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
+    if sidecarsOpt.isNone():
+      discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
+      return ok()
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    let sidecarsOpt = self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
+    if sidecarsOpt.isNone():
+      self.quarantine[].addSidecarless(signedBlock)
+      return ok()
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    const sidecarsOpt = noSidecars
+  else:
+    {.error: "Unknown fork " & $consensusFork.}
+
+  let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
+  self.blockProcessor.enqueueBlock(
+    src, signedBlock, sidecarsOpt, maybeFinalized, validationDur
+  )
+
+  # Validator monitor registration for blocks is done by the processor
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(delay.toFloatSeconds())
+
+  ok()
 
 proc processBlobSidecar*(
     self: var Eth2Processor, src: MsgSource,
@@ -332,13 +318,11 @@ proc processBlobSidecar*(
   self.blobQuarantine[].put(block_root, newClone(blobSidecar))
 
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    let blobless = o.unsafeGet()
-    withBlck(blobless):
+    withBlck(o[]):
       when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
         if bres.isSome():
-          self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
-            Opt.none(DataColumnSidecars))
+          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
@@ -375,17 +359,13 @@ proc processDataColumnSidecar*(
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    let columnless = o.unsafeGet()
-    withBlck(columnless):
+    withBlck(o[]):
       when consensusFork >= ConsensusFork.Fulu and
           consensusFork < ConsensusFork.Gloas:
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, columnless,
-            Opt.none(BlobSidecars),
-            cres)
+          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
         else:
           discard self.quarantine[].addSidecarless(
             self.dag.finalizedHead.slot, forkyBlck)
