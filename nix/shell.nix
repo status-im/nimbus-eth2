@@ -8,7 +8,7 @@ let
     pymdown-extensions
   ];
   mkdocs-python = pkgs.python3.withPackages mkdocs-packages;
-in pkgs.mkShell {
+in pkgs.mkShellNoCC {
 
   buildInputs = with pkgs; [
     figlet
@@ -16,6 +16,8 @@ in pkgs.mkShell {
     git-lfs
     gnumake
     getopt
+    gcc11
+    binutils
 
     # For the local simulation
     openssl # for generating the JWT file
