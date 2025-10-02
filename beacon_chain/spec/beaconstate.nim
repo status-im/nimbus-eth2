@@ -66,7 +66,7 @@ func has_compounding_withdrawal_credential*(
     ## credential.
     is_compounding_withdrawal_credential(validator.withdrawal_credentials)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/beacon-chain.md#new-get_max_effective_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-get_max_effective_balance
 func get_max_effective_balance*(
     consensusFork: static ConsensusFork, validator: Validator): Gwei =
   ## Get max effective balance for ``validator``.
@@ -97,7 +97,7 @@ func get_validator_from_deposit*(
     effective_balance: effective_balance
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#modified-get_validator_from_deposit
 func get_validator_from_deposit*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     pubkey: ValidatorPubKey,
@@ -1472,7 +1472,7 @@ func has_eth1_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
 func has_execution_withdrawal_credential*(
     consensusFork: static ConsensusFork, validator: Validator): bool =
   ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
