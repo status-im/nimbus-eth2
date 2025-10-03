@@ -137,10 +137,6 @@ func checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
-func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
-                          y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
-  cmp(x.index, y[].index)
-
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
@@ -727,8 +723,8 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-        if rman.custody_columns_set.lenu64 >
-            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
+        if rman.custody_columns_set.lenu64 >=
+            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
           PARALLEL_DATA_COLUMNS_SUPER
         else:
           PARALLEL_DATA_COLUMNS

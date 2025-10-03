@@ -103,7 +103,7 @@ type
       ## time
 
   NoSidecars* = typeof(())
-  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DatacolumnSidecars]
+  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
 
