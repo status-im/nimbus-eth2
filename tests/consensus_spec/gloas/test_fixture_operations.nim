@@ -208,13 +208,13 @@ suite baseDescription & "Execution Payload " & preset():
         ).contains("execution_valid: true")
       var
         cache: StateCache
-        hashedState = gloas.HashedBeaconState(
-          data: preState,
-          root: hash_tree_root(preState)
-        )
+        hashedState = (ref gloas.HashedBeaconState)()
+      hashedState.data = preState
+      hashedState.root = hash_tree_root(preState)
+
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
       result = process_execution_payload(
-        defaultRuntimeConfig, hashedState,
+        defaultRuntimeConfig, hashedState[],
         signed_envelope, executePayload, cache)
       preState = hashedState.data
 
