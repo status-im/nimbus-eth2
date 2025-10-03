@@ -208,15 +208,15 @@ suite baseDescription & "Execution Payload " & preset():
         ).contains("execution_valid: true")
       var
         cache: StateCache
-        hashedState = (ref gloas.HashedBeaconState)()
-      hashedState.data = preState
-      hashedState.root = hash_tree_root(preState)
+      let hashedState = (ref gloas.HashedBeaconState)(
+        data: preState, root: hash_tree_root(preState))
 
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      result = process_execution_payload(
+      let res = process_execution_payload(
         defaultRuntimeConfig, hashedState[],
         signed_envelope, executePayload, cache)
       preState = hashedState.data
+      res
 
   for path in walkTests(OpExecutionPayloadDir):
     let
