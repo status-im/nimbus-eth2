@@ -2511,10 +2511,22 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
 
   let metadata = peer.metadata
   if metadata.isOk:
-    return (if metadata.get.custody_group_count > NUMBER_OF_COLUMNS:
-              0'u64
-            else:
-              metadata.get.custody_group_count)
+    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+                metadata.get.custody_group_count
+              else:
+                0
+
+    # If a peer's metadata hasn't been updated since a Fulu transition, the
+    # metadata is present but has no initialized cgc.
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
+    # guarantees that the ENR will have this information though:
+    # "A new field is added to the ENR under the key cgc to facilitate custody
+    # data column discovery. This new field MUST be added once
+    # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
+    if cgc >= CUSTODY_REQUIREMENT:
+      return cgc
+
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
         peer_id = peer.peerId
@@ -2526,13 +2538,17 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          return 0'u64
+          return 0
+
+        if peer.metadata.isOk:
+          peer.metadata.get.custody_group_count = cgc
+
         return cgc.uint64
       except SszError, SerializationError:
         discard  # Ignore decoding errors and fallback to default
 
   # Return default value if no valid custody subnet count is found.
-  return CUSTODY_REQUIREMENT.uint64
+  CUSTODY_REQUIREMENT
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
