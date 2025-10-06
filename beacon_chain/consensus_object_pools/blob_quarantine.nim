@@ -747,9 +747,6 @@ proc pruneAfterFinalization*(
     epoch: Epoch,
     backfillNeeded: bool
 ) =
-  # TODO: In this procedure `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS`
-  # should be used instead of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`, but it
-  # was unavailable in the moment of this code being written.
   let
     startEpoch =
       if backfillNeeded:
@@ -844,8 +841,7 @@ proc init*(
 
   ColumnQuarantine(
     minEpochsForSidecarsRequests:
-      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      # This should be changed to MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
+      cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS,
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
