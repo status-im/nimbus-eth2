@@ -101,7 +101,6 @@ type
     backfiller*: SyncManager[Peer, PeerId]
     untrustedManager*: SyncManager[Peer, PeerId]
     syncOverseer*: SyncOverseerRef
-    genesisSnapshotContent*: string
     processor*: ref Eth2Processor
     batchVerifier*: ref BatchVerifier
     blockProcessor*: ref BlockProcessor
