@@ -197,7 +197,6 @@ proc assemble_data_column_sidecars*(
     debugGloasComment "kzg_commitments removed from beaconblock in gloas"
     return sidecars
   else:
-    debugGloasComment " "
     template kzg_commitments: untyped =
       signed_beacon_block.message.body.blob_kzg_commitments
     if kzg_commitments.len == 0:

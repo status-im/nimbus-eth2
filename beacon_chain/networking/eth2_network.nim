@@ -2711,7 +2711,10 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+  node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
       enrCustodySubnetCountField: SSZ.encode(cgcnets)

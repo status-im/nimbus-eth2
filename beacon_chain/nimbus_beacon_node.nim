@@ -2043,9 +2043,8 @@ proc attemptGetBlobs(node: BeaconNode,
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu and
            consensusFork < ConsensusFork.Gloas:
-        let
-          blobsFromElOpt =
-            await elManager.sendGetBlobsV2(forkyBlck)
+        let blobsFromElOpt =
+          await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
           # check lengths of array[BlobAndProofV2] with blobs
@@ -2053,16 +2052,14 @@ proc attemptGetBlobs(node: BeaconNode,
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
-            var flat_proof: seq[kzg.KzgProof] = @[]
+            var flat_proof: seq[kzg.KzgProof]
             for item in blobsEl:
               for proof in item.proofs:
                 flat_proof.add(kzg.KzgProof(bytes: proof.data))
-            let
-              recovered_columns =
-                assemble_data_column_sidecars(
-                  forkyBlck,
-                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-                  flat_proof)
+            let recovered_columns = assemble_data_column_sidecars(
+              forkyBlck,
+              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+              flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
             for col in recovered_columns:
