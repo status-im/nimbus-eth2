@@ -505,6 +505,8 @@ proc runPreGenesisWaitingLoop(
       debug "Pre-genesis waiting loop was interrupted"
       raise exc
 
+  vc.preGenesisEvent.fire()
+
 proc runGenesisWaitingLoop(
     vc: ValidatorClientRef
 ) {.async: (raises: [CancelledError]).} =
@@ -525,6 +527,8 @@ proc runGenesisWaitingLoop(
     except CancelledError as exc:
       debug "Genesis waiting loop was interrupted"
       raise exc
+
+  vc.genesisEvent.fire()
 
 proc asyncRun*(
     vc: ValidatorClientRef
