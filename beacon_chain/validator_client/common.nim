@@ -1465,7 +1465,9 @@ proc waitForNextEpoch*(service: ClientServiceRef,
      async: (raises: [CancelledError], raw: true) .}=
   let
     vc = service.client
-    sleepTime = vc.beaconClock.durationToNextEpoch() + delay
+    currentSlot = vc.beaconClock.now().toSlot()
+    nextEpochTime = currentSlot.nextEpochStartTime()
+    sleepTime = vc.beaconClock.fromNow(nextEpochTime).durationOrZero() + delay
   debug "Sleeping until next epoch", service = service.name,
                                      sleep_time = sleepTime, delay = delay
   sleepAsync(sleepTime)
@@ -1474,12 +1476,18 @@ proc waitForNextEpoch*(service: ClientServiceRef): Future[void] {.
      async: (raises: [CancelledError], raw: true).}=
   waitForNextEpoch(service, ZeroDuration)
 
+proc waitForNextSlot*(
+       vc: ValidatorClientRef,
+       currentSlot: tuple[afterGenesis: bool, slot: Slot]
+     ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    nextSlotTime = currentSlot.nextSlotStartTime()
+    sleepTime = vc.beaconClock.fromNow(nextSlotTime).durationOrZero()
+  sleepAsync(sleepTime)
+
 proc waitForNextSlot*(service: ClientServiceRef): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
-  let
-    vc = service.client
-    sleepTime = vc.beaconClock.durationToNextSlot()
-  sleepAsync(sleepTime)
+  service.client.waitForNextSlot(service.client.beaconClock.now().toSlot())
 
 func compareUnsorted*[T](a, b: openArray[T]): bool =
   if len(a) != len(b):

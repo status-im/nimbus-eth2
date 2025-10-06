@@ -449,12 +449,9 @@ proc publishAttestationsAndAggregates(
       debug "Publish attestation request was interrupted"
       raise exc
 
-  let aggregateTime =
-    # chronos.Duration subtraction could not return negative value, in such
-    # case it will return `ZeroDuration`.
-    vc.beaconClock.durationToNextSlot() - OneThirdDuration
-  if aggregateTime != ZeroDuration:
-    await sleepAsync(aggregateTime)
+  let aggregateTime = vc.beaconClock.fromNow(slot.aggregate_deadline())
+  if aggregateTime.inFuture:
+    await sleepAsync(aggregateTime.offset)
 
   block:
     let delay = vc.getDelay(slot.aggregate_deadline())
@@ -694,12 +691,9 @@ proc publishAttestationsAndAggregatesV2(
       debug "Publish attestation request was interrupted"
       raise exc
 
-  let aggregateTime =
-    # chronos.Duration subtraction could not return negative value, in such
-    # case it will return `ZeroDuration`.
-    vc.beaconClock.durationToNextSlot() - OneThirdDuration
-  if aggregateTime != ZeroDuration:
-    await sleepAsync(aggregateTime)
+  let aggregateTime = vc.beaconClock.fromNow(slot.aggregate_deadline())
+  if aggregateTime.inFuture:
+    await sleepAsync(aggregateTime.offset)
 
   block:
     let
@@ -733,7 +727,7 @@ proc spawnAttestationTasks(
   try:
     for index, duties in dutiesByCommittee:
       tasks.add(service.publishAttestationsAndAggregates(slot, index, duties))
-    let timeout = vc.beaconClock.durationToNextSlot()
+    let timeout = vc.beaconClock.fromNow(slot + 1).durationOrZero()
     await allFutures(tasks).wait(timeout)
   except AsyncTimeoutError:
     # Cancelling all the pending tasks.
@@ -757,7 +751,7 @@ proc spawnAttestationTasksV2(
   await vc.waitForBlock(slot, attestationSlotOffset)
 
   try:
-    let timeout = vc.beaconClock.durationToNextSlot()
+    let timeout = vc.beaconClock.fromNow(slot + 1).durationOrZero()
     await service.publishAttestationsAndAggregatesV2(slot, duties).wait(timeout)
   except AsyncTimeoutError:
     discard

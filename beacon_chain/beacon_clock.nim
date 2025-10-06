@@ -85,40 +85,31 @@ proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Dura
 proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
   c.fromNow(slot.start_beacon_time())
 
-proc durationToNextSlot*(c: BeaconClock): Duration =
-  let
-    currentTime = c.now()
-    currentSlot = currentTime.toSlot()
-
-  if currentSlot.afterGenesis:
-    let nextSlot = currentSlot.slot + 1
-    nanoseconds(
-      (nextSlot.start_beacon_time() - currentTime).nanoseconds)
+func durationOrZero*(d: tuple[inFuture: bool, offset: Duration]): Duration =
+  if d.inFuture:
+    d.offset
   else:
-    # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
-    let
-      absoluteTime = Slot(0).start_beacon_time() +
-        (Slot(0).start_beacon_time() - currentTime)
-      timeToNextSlot = absoluteTime - currentSlot.slot.start_beacon_time()
-    nanoseconds(timeToNextSlot.nanoseconds)
+    ZeroDuration
 
-proc durationToNextEpoch*(c: BeaconClock): Duration =
-  let
-    currentTime = c.now()
-    currentSlot = currentTime.toSlot()
-
-  if currentSlot.afterGenesis:
-    let nextEpochSlot = (currentSlot.slot.epoch() + 1).start_slot()
-    nanoseconds(
-      (nextEpochSlot.start_beacon_time() - currentTime).nanoseconds)
+func nextSlotStartTime*(
+    exSlot: tuple[afterGenesis: bool, slot: Slot]): BeaconTime =
+  if exSlot.afterGenesis:
+    (exSlot.slot + 1).start_beacon_time()
   else:
-    # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
     let
-      absoluteTime = Slot(0).start_beacon_time() +
-        (Slot(0).start_beacon_time() - currentTime)
-      timeToNextEpoch = absoluteTime -
-        currentSlot.slot.epoch().start_slot().start_beacon_time()
-    nanoseconds(timeToNextEpoch.nanoseconds)
+      genesisTime = GENESIS_SLOT.start_beacon_time()
+      timeDiff = exSlot.slot.start_beacon_time() - genesisTime
+    genesisTime - timeDiff
+
+func nextEpochStartTime*(
+    exSlot: tuple[afterGenesis: bool, slot: Slot]): BeaconTime =
+  if exSlot.afterGenesis:
+    (exSlot.slot.epoch + 1).start_slot.start_beacon_time()
+  else:
+    let
+      genesisTime = GENESIS_SLOT.start_beacon_time()
+      timeDiff = exSlot.slot.epoch.start_slot.start_beacon_time() - genesisTime
+    genesisTime - timeDiff
 
 func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)

@@ -486,54 +486,45 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
 proc runPreGenesisWaitingLoop(
     vc: ValidatorClientRef
 ) {.async: (raises: [CancelledError]).} =
-  var breakLoop = false
-  while not(breakLoop):
+  while true:
     let
-      genesisTime = vc.beaconClock.fromNow(Slot(0))
-      currentEpoch = vc.beaconClock.now().toSlot().slot.epoch()
+      currentTime = vc.beaconClock.now()
+      currentSlot = currentTime.toSlot()
+      currentEpoch = currentSlot.slot.epoch()
 
-    if not(genesisTime.inFuture) or currentEpoch < PREGENESIS_EPOCHS_COUNT:
+    if currentSlot.afterGenesis or currentEpoch < PREGENESIS_EPOCHS_COUNT:
       break
 
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
-           time_to_genesis = genesisTime.offset
+           time_to_genesis = GENESIS_SLOT.start_beacon_time() - currentTime
 
-    breakLoop =
-      try:
-        await sleepAsync(vc.beaconClock.durationToNextSlot())
-        false
-      except CancelledError as exc:
-        debug "Pre-genesis waiting loop was interrupted"
-        raise exc
-
-  if not(breakLoop):
-    vc.preGenesisEvent.fire()
+    try:
+      await vc.waitForNextSlot(currentSlot)
+    except CancelledError as exc:
+      debug "Pre-genesis waiting loop was interrupted"
+      raise exc
 
 proc runGenesisWaitingLoop(
     vc: ValidatorClientRef
 ) {.async: (raises: [CancelledError]).} =
-  var breakLoop = false
-  while not(breakLoop):
-    let genesisTime = vc.beaconClock.fromNow(Slot(0))
+  while true:
+    let
+      currentTime = vc.beaconClock.now()
+      currentSlot = currentTime.toSlot()
 
-    if not(genesisTime.inFuture):
+    if currentSlot.afterGenesis:
       break
 
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
-           time_to_genesis = genesisTime.offset
+           time_to_genesis = GENESIS_SLOT.start_beacon_time() - currentTime
 
-    breakLoop =
-      try:
-        await sleepAsync(vc.beaconClock.durationToNextSlot())
-        false
-      except CancelledError as exc:
-        debug "Genesis waiting loop was interrupted"
-        raise exc
-
-  if not(breakLoop):
-    vc.genesisEvent.fire()
+    try:
+      await vc.waitForNextSlot(currentSlot)
+    except CancelledError as exc:
+      debug "Genesis waiting loop was interrupted"
+      raise exc
 
 proc asyncRun*(
     vc: ValidatorClientRef

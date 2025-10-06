@@ -417,7 +417,7 @@ proc processSyncCommitteeTasks(
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
-    timeout = vc.beaconClock.durationToNextSlot()
+    timeout = vc.beaconClock.fromNow(slot + 1).durationOrZero()
 
   logScope:
     slot = slot
