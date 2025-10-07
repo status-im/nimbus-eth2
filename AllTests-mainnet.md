@@ -43,37 +43,38 @@ AllTests-mainnet
 ```diff
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
-+ sanity check Altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check Altair blocks [Preset: mainnet]                                               OK
 + sanity check Altair states [Preset: mainnet]                                               OK
 + sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
-+ sanity check Bellatrix and cross-fork getState rollback [Preset: mainnet]                  OK
 + sanity check Bellatrix blocks [Preset: mainnet]                                            OK
 + sanity check Bellatrix states [Preset: mainnet]                                            OK
 + sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
-+ sanity check Capella and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check Capella blocks [Preset: mainnet]                                              OK
 + sanity check Capella states [Preset: mainnet]                                              OK
 + sanity check Capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check Deneb and cross-fork getState rollback [Preset: mainnet]                      OK
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
-+ sanity check Electra and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check Electra blocks [Preset: mainnet]                                              OK
 + sanity check Electra states [Preset: mainnet]                                              OK
 + sanity check Electra states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check Fulu and cross-fork getState rollback [Preset: mainnet]                       OK
 + sanity check Fulu blocks [Preset: mainnet]                                                 OK
 + sanity check Fulu states [Preset: mainnet]                                                 OK
 + sanity check Fulu states, reusing buffers [Preset: mainnet]                                OK
++ sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
++ sanity check bellatrix and cross-fork getState rollback [Preset: mainnet]                  OK
 + sanity check blobs [Preset: mainnet]                                                       OK
++ sanity check capella and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check data columns [Preset: mainnet]                                                OK
++ sanity check deneb and cross-fork getState rollback [Preset: mainnet]                      OK
++ sanity check electra and cross-fork getState rollback [Preset: mainnet]                    OK
++ sanity check fulu and cross-fork getState rollback [Preset: mainnet]                       OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
+  sanity check gloas and cross-fork getState rollback [Preset: mainnet]                      Skip
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
-+ sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
 + sanity check phase 0 states [Preset: mainnet]                                              OK
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
++ sanity check phase0 getState rollback [Preset: mainnet]                                    OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
 ## Beacon chain file test suite

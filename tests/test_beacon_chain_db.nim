@@ -797,184 +797,43 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check phase 0 getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Phase0,
-        phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
+  template doRollbackTest(consensusFork: static ConsensusFork): untyped =
+    block:
+      let cfg = defaultRuntimeConfig
+      var
+        db = makeTestDB(SLOTS_PER_EPOCH)
+        validatorMonitor = newClone(ValidatorMonitor.init())
+        dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+        state = ForkedHashedBeaconState.new(
+          (ref consensusFork.BeaconState)(slot: 10.Slot)[])
+        root = Eth2Digest()
 
-    db.putCorruptState(ConsensusFork.Phase0, root)
+      db.putCorruptState(consensusFork, root)
 
-    let restoreAddr = addr dag.headState
+      let restoreAddr = addr dag.headState
 
-    func restore() =
-      assign(state[], restoreAddr[])
+      func restore() =
+        assign(state[], restoreAddr[])
 
-    check:
-      state[].phase0Data.data.slot == 10.Slot
-      not db.getState(root, state[].phase0Data.data, restore)
-      state[].phase0Data.data.slot != 10.Slot
-
-  test "sanity check Altair and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Altair,
-        altairData: altair.HashedBeaconState(data: altair.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Altair, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].altairData.data.slot == 10.Slot
-      not db.getState(root, state[].altairData.data, restore)
+      withState(state[]):
+        check:
+          forkyState.data.slot == 10.Slot
+          not db.getState(root, forkyState.data, restore)
 
       # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
+      check:
+        state[].kind == ConsensusFork.Phase0
+        state[].phase0Data.data.slot != 10.Slot
 
-  test "sanity check Bellatrix and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Bellatrix,
-        bellatrixData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Bellatrix, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].bellatrixData.data.slot == 10.Slot
-      not db.getState(root, state[].bellatrixData.data, restore)
-
-      # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
-
-  test "sanity check Capella and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Capella,
-        capellaData: capella.HashedBeaconState(data: capella.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Capella, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].capellaData.data.slot == 10.Slot
-      not db.getState(root, state[].capellaData.data, restore)
-
-      # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
-
-  test "sanity check Deneb and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Deneb,
-        denebData: deneb.HashedBeaconState(data: deneb.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Deneb, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].denebData.data.slot == 10.Slot
-      not db.getState(root, state[].denebData.data, restore)
-
-      # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
-
-  test "sanity check Electra and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Electra,
-        electraData: electra.HashedBeaconState(data: electra.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Electra, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].electraData.data.slot == 10.Slot
-      not db.getState(root, state[].electraData.data, restore)
-
-      # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
-
-  test "sanity check Fulu and cross-fork getState rollback" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Fulu,
-        fuluData: fulu.HashedBeaconState(data: fulu.BeaconState(
-          slot: 10.Slot)))
-      root = Eth2Digest()
-
-    db.putCorruptState(ConsensusFork.Fulu, root)
-
-    let restoreAddr = addr dag.headState
-
-    func restore() =
-      assign(state[], restoreAddr[])
-
-    check:
-      state[].fuluData.data.slot == 10.Slot
-      not db.getState(root, state[].fuluData.data, restore)
-
-      # assign() has switched the case object fork
-      state[].kind == ConsensusFork.Phase0
-      state[].phase0Data.data.slot != 10.Slot
+  withAll(ConsensusFork):
+    var name = "sanity check " & $consensusFork &
+      (if consensusFork > ConsensusFork.Phase0: " and cross-fork" else: "") &
+      " getState rollback"
+    test name & preset():
+      when consensusFork >= ConsensusFork.Gloas:
+        skip()
+      else:
+        doRollbackTest(consensusFork)
 
   test "find ancestors" & preset():
     var db = BeaconChainDB.new("", inMemory = true)
