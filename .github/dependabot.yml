@@ -9,13 +9,35 @@ version: 2
 updates:
   - package-ecosystem: gitsubmodule
     directory: /
-    allow:
-      - dependency-name: vendor/mainnet
-      - dependency-name: vendor/holesky
-      - dependency-name: vendor/sepolia
-      - dependency-name: vendor/hoodi
-      - dependency-name: vendor/gnosis-chain-configs
-      - dependency-name: vendor/nim-sqlite3-abi
+    ignore:
+      # Libraries that track the latest tag have to be managed manually,
+      # as Dependabot otherwise suggests the latest unstable commit
+      # https://github.com/dependabot/dependabot-core/pull/13052
+      - dependency-name: vendor/nim-bearssl
+      - dependency-name: vendor/nim-chronicles
+      - dependency-name: vendor/nim-chronos
+      - dependency-name: vendor/nim-eth
+      - dependency-name: vendor/nim-faststreams
+      - dependency-name: vendor/nim-json-rpc
+      - dependency-name: vendor/nim-json-serialization
+      - dependency-name: vendor/nim-libbacktrace
+      - dependency-name: vendor/nim-libp2p
+      - dependency-name: vendor/nim-metrics
+      - dependency-name: vendor/nim-normalize
+      - dependency-name: vendor/nim-presto
+      - dependency-name: vendor/nim-results
+      - dependency-name: vendor/nim-serialization
+      - dependency-name: vendor/nim-stew
+      - dependency-name: vendor/nim-stint
+      - dependency-name: vendor/nim-taskpools
+      - dependency-name: vendor/nim-testutils
+      - dependency-name: vendor/nim-toml-serialization
+      - dependency-name: vendor/nim-unicodedb
+      - dependency-name: vendor/nim-unittest2
+      - dependency-name: vendor/nim-web3
+      - dependency-name: vendor/nim-websock
+      - dependency-name: vendor/nimcrypto
+      - dependency-name: vendor/NimYAML
     schedule:
       interval: daily
     target-branch: unstable
