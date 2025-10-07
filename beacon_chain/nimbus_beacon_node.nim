@@ -2263,7 +2263,7 @@ proc installMessageValidators(node: BeaconNode) =
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
         when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "modify for Gloas"
+          debugGloasComment " "
         else:
           node.network.addValidator(
             getBeaconBlocksTopic(digest), proc (
@@ -2279,9 +2279,7 @@ proc installMessageValidators(node: BeaconNode) =
                   node.processor[].processSignedBeaconBlock(
                     MsgSource.gossip, signedBlock)))
         when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "add processExecutionPayload"
-          debugGloasComment "add processExecutionPayloadBid"
-          debugGloasComment "add processPayloadAttestation"
+          debugGloasComment " "
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2297,7 +2295,8 @@ proc installMessageValidators(node: BeaconNode) =
                   return toValidationResult(
                     await node.processor.processAttestation(
                       MsgSource.gossip, attestation, subnet_id,
-                      checkSignature = true, checkValidator = false)))
+                      checkSignature = true, checkValidator = false,
+                      consensusFork)))
         else:
           for it in SubnetId:
             closureScope:  # Needed for inner `proc`; don't lift it out of loop.
@@ -2310,7 +2309,8 @@ proc installMessageValidators(node: BeaconNode) =
                   return toValidationResult(
                     await node.processor.processAttestation(
                       MsgSource.gossip, attestation, subnet_id,
-                      checkSignature = true, checkValidator = false)))
+                      checkSignature = true, checkValidator = false,
+                      consensusFork)))
         # beacon_aggregate_and_proof
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
@@ -2322,7 +2322,8 @@ proc installMessageValidators(node: BeaconNode) =
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedAggregateAndProof(
-                  MsgSource.gossip, signedAggregateAndProof)))
+                  MsgSource.gossip, signedAggregateAndProof,
+                  fork = consensusFork)))
         else:
           node.network.addAsyncValidator(
             getAggregateAndProofsTopic(digest), proc (
@@ -2331,7 +2332,8 @@ proc installMessageValidators(node: BeaconNode) =
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedAggregateAndProof(
-                  MsgSource.gossip, signedAggregateAndProof)))
+                  MsgSource.gossip, signedAggregateAndProof,
+                  fork = consensusFork)))
         # attester_slashing
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
@@ -2424,7 +2426,7 @@ proc installMessageValidators(node: BeaconNode) =
                     node.processor[].processDataColumnSidecar(
                       MsgSource.gossip, dataColumnSidecar, subnet_id)))
         elif consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "modified data_column_sidecar processing"
+          debugGloasComment " "
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           # blob_sidecar_{subnet_id}
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id

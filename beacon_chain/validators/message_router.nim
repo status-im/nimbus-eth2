@@ -249,9 +249,13 @@ proc routeAttestation*(
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
-    let res = await router[].processor.processAttestation(
-      MsgSource.api, attestation, subnet_id,
-      checkSignature = checkSignature, checkValidator = checkValidator)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch)
+      res = await router[].processor.processAttestation(
+        MsgSource.api, attestation, subnet_id,
+        checkSignature = checkSignature, checkValidator = checkValidator,
+        currentFork)
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -316,9 +320,12 @@ proc routeSignedAggregateAndProof*(
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
     # that all processing happens anyway
-    let res = await router[].processor.processSignedAggregateAndProof(
-      MsgSource.api, proof, checkSignature = checkSignature,
-      checkCover = false)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch)
+      res = await router[].processor.processSignedAggregateAndProof(
+        MsgSource.api, proof, checkSignature = checkSignature,
+        checkCover = false, currentFork)
     if not res.isGoodForSending:
       warn "Aggregated attestation failed validation",
         attestation = shortLog(proof.message.aggregate),
