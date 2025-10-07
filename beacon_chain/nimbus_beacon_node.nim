@@ -1739,6 +1739,8 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         debug "The node has already obtained all the columns"
         return
 
+      let startTime = Moment.now()
+
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
         node.batchVerifier[].taskpool, columns).valueOr:
@@ -1746,6 +1748,9 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
           return
       let rowCount = recovered.len
       var reconCounter = 0
+
+      let recoveredTime = Moment.now()
+
       for i in 0 ..< maxColCount:
         if i in indices:
           continue
@@ -1763,11 +1768,15 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
           signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader(),
           kzg_commitments_inclusion_proof:
             columns[0].kzg_commitments_inclusion_proof)
-        node.dag.db.putDataColumnSidecar(dataColumn)
+        node.dag.db.putDataColumnSidecar(dataColumn)  # TODO might already have
         inc reconCounter
 
+      let reconstructedTime = Moment.now()
+
       debug "Columns reconstructed",
-        columns = reconCounter
+        columns = reconCounter,
+        recoveryTime = recoveredTime - startTime,
+        reconstructionTime = reconstructedTime - recoveredTime
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
