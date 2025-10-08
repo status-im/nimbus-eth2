@@ -40,6 +40,9 @@ in pkgs.mkShellNoCC {
     export USE_SYSTEM_GETOPT=1
     export MAKEFLAGS="-j$NIX_BUILD_CORES"
 
+    # The LTO is not included in the GCC provided by nixpkgs, causing tests to fail
+    export NIM_PARAMS='--passC:"-fno-lto" --passL:"-fno-lto"'
+
     figlet "Welcome to Nimbus-eth2"
   '';
 }
