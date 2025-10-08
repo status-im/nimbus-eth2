@@ -1370,10 +1370,11 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   )
   SELECT v FROM next;
   """
+  static: doAssert BeaconBlockSummary.isFixedSize
   let
     stmt = expectDb db.db.prepareStmt(
       summariesQuery, array[32, byte],
-      array[sizeof(BeaconBlockSummary), byte],
+      array[BeaconBlockSummary.fixedPortionSize, byte],
       managed = false)
 
   defer: # in case iteration is stopped along the way
