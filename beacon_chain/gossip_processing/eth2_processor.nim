@@ -511,41 +511,40 @@ proc processSignedAggregateAndProof*(
     delay = wallTime - slot.aggregate_deadline
   debug "Aggregate received", delay
 
-  withConsensusFork(fork):
-    let v = await self.attestationPool.validateAggregate(
-      self.batchCrypto, signedAggregateAndProof, wallTime,
-      checkSignature = checkSignature, checkCover = checkCover, consensusFork)
+  let v = await self.attestationPool.validateAggregate(
+    self.batchCrypto, signedAggregateAndProof, wallTime,
+    checkSignature = checkSignature, checkCover = checkCover, fork)
 
-    return if v.isOk():
-      # Due to async validation the wallTime here might have changed
-      wallTime = self.getCurrentBeaconTime()
+  return if v.isOk():
+    # Due to async validation the wallTime here might have changed
+    wallTime = self.getCurrentBeaconTime()
 
-      let (attesting_indices, sig) = v.get()
+    let (attesting_indices, sig) = v.get()
 
-      self[].checkForPotentialDoppelganger(
-        signedAggregateAndProof.message.aggregate, attesting_indices)
+    self[].checkForPotentialDoppelganger(
+      signedAggregateAndProof.message.aggregate, attesting_indices)
 
-      trace "Aggregate validated"
+    trace "Aggregate validated"
 
-      # -1 here is the notional index in committee for which the attestation pool
-      # only requires external input regarding SingleAttestation messages.
-      self.attestationPool[].addAttestation(
-        signedAggregateAndProof.message.aggregate, attesting_indices,
-        signedAggregateAndProof.message.aggregate.aggregation_bits.len, -1, sig,
-        wallTime)
+    # -1 here is the notional index in committee for which the attestation pool
+    # only requires external input regarding SingleAttestation messages.
+    self.attestationPool[].addAttestation(
+      signedAggregateAndProof.message.aggregate, attesting_indices,
+      signedAggregateAndProof.message.aggregate.aggregation_bits.len, -1, sig,
+      wallTime)
 
-      self.validatorMonitor[].registerAggregate(
-        src, wallTime, signedAggregateAndProof.message, attesting_indices)
+    self.validatorMonitor[].registerAggregate(
+      src, wallTime, signedAggregateAndProof.message, attesting_indices)
 
-      beacon_aggregates_received.inc()
-      beacon_aggregate_delay.observe(delay.toFloatSeconds())
+    beacon_aggregates_received.inc()
+    beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
-      ok()
-    else:
-      debug "Dropping aggregate", reason = $v.error
-      beacon_aggregates_dropped.inc(1, [$v.error[0]])
+    ok()
+  else:
+    debug "Dropping aggregate", reason = $v.error
+    beacon_aggregates_dropped.inc(1, [$v.error[0]])
 
-      err(v.error())
+    err(v.error())
 
 proc processBlsToExecutionChange*(
     self: ref Eth2Processor, src: MsgSource,
