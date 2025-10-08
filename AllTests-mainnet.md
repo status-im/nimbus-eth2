@@ -24,14 +24,6 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-## Attestation pool processing [Preset: mainnet]
-```diff
-+ Attestation from different branch [Preset: mainnet]                                        OK
-+ Fork choice returns block with attestation                                                 OK
-+ Trying to add a block twice tags the second as an error                                    OK
-+ Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
-+ Working with aggregates [Preset: mainnet]                                                  OK
-```
 ## Backfill
 ```diff
 + Backfill to genesis                                                                        OK
