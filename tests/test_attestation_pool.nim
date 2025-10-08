@@ -77,7 +77,7 @@ suite "Attestation pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH * 6, cfg = cfg)
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(cfg))
