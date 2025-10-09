@@ -381,6 +381,54 @@ proc getFinalizedEpoch*(peer: Peer): Epoch =
   else:
     pstate.statusMsg.finalizedEpoch
 
+proc getFinalizedRoot*(peer: Peer): Eth2Digest =
+  ## Returns finalized checkpoint's root for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.finalizedRoot
+  else:
+    pstate.statusMsg.finalizedRoot
+
+proc getForkDigest*(peer: Peer): ForkDigest =
+  ## Returns fork for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.forkDigest
+  else:
+    pstate.statusMsg.forkDigest
+
+proc getFinalizedCheckpoint*(peer: Peer): Checkpoint =
+  ## Returns finalized checkpoint's root for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    Checkpoint(
+      root: pstate.statusMsgV2.get.finalizedRoot,
+      epoch: pstate.statusMsgV2.get.finalizedEpoch)
+  else:
+    Checkpoint(
+      root: pstate.statusMsg.finalizedRoot,
+      epoch: pstate.statusMsg.finalizedEpoch)
+
+proc getHeadBlockId*(peer: Peer): BlockId =
+  ## Returns head BlockId for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    BlockId(
+      root: pstate.statusMsgV2.get.headRoot,
+      slot: pstate.statusMsgV2.get.headSlot)
+  else:
+    BlockId(
+      root: pstate.statusMsg.headRoot,
+      slot: pstate.statusMsg.headSlot)
+
+proc getEarliestAvailableSlot*(peer: Peer): Opt[Slot] =
+  ## Returns earliest available slot for specific peer ``peer``.
+  let
+    pstate = peer.state(PeerSync)
+    msg = pstate.statusMsgV2.valueOr:
+      return Opt.none(Slot)
+  Opt.some(msg.earliestAvailableSlot)
+
 proc getStatusLastTime*(peer: Peer): chronos.Moment =
   ## Returns head slot for specific peer ``peer``.
   peer.state(PeerSync).statusLastTime

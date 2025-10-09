@@ -444,7 +444,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
 func getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
-proc getFuture(peer: Peer): Future[void] {.inline.} =
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
@@ -1707,12 +1707,9 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
 proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
   # Convert peer id to node id by extracting the peer's public key
-  let nodeId =
-    block:
-      var key: PublicKey
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
-  nodeId
+  var key: PublicKey
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
