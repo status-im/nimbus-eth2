@@ -391,7 +391,7 @@ template toRaw*(x: ValidatorPubKey | SomeSig): auto =
   x.blob
 
 func toHex*(x: BlsCurveType): string =
-  toHex(toRaw(x))
+  byteutils.toHex(toRaw(x))
 
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
