@@ -11,11 +11,9 @@ import
   stew/bitops2,
   std/[sets, tables],
   results, metrics,
-  ../spec/[presets, helpers],
+  ../spec/[presets, helpers, column_map],
   ../beacon_chain_db_quarantine
 
-from std/sequtils import mapIt, toSeq
-from std/strutils import join
 from ../spec/datatypes/deneb import SignedBeaconBlock
 from ../spec/datatypes/electra import SignedBeaconBlock
 from ../spec/datatypes/fulu import SignedBeaconBlock
@@ -28,13 +26,7 @@ declareGauge blob_quarantine_memory_slots_occupied, "Number of occupied memory s
 declareGauge blob_quarantine_database_slots_total, "Total count of availble database slots inside blob quarantine"
 declareGauge blob_quarantine_database_slots_occupied, "Number of occupied database slots inside blob quarantine"
 
-static:
-  doAssert(NUMBER_OF_COLUMNS == 2 * 64, "ColumnMap should be updated")
-
 type
-  ColumnMap* = object
-    data: array[2, uint64]
-
   SidecarHolderKind {.pure.} = enum
     Empty, Loaded, Unloaded
 
@@ -90,42 +82,6 @@ func isUnloaded[A](holder: SidecarHolder[A]): bool =
 
 func isLoaded[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Loaded
-
-func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
-  var res: ColumnMap
-  for column in columns:
-    let
-      index = int(uint64(column) shr 6)
-      offset = int(uint64(column) and 0x3F'u64)
-    res.data[index].setBit(offset)
-  res
-
-func `and`*(a, b: ColumnMap): ColumnMap =
-  ColumnMap(data: [a.data[0] and b.data[0], a.data[1] and b.data[1]])
-
-iterator items*(a: ColumnMap): ColumnIndex =
-  var
-    data0 = a.data[0]
-    data1 = a.data[1]
-
-  while data0 != 0'u64:
-    let
-      # t = data0 and -data0
-      t = data0 and (not(data0) + 1'u64)
-      res = firstOne(data0)
-    yield ColumnIndex(res - 1)
-    data0 = data0 xor t
-
-  while data1 != 0'u64:
-    let
-      # t = data0 and -data0
-      t = data1 and (not(data1) + 1'u64)
-      res = firstOne(data1)
-    yield ColumnIndex(64 + res - 1)
-    data1 = data1 xor t
-
-func `$`*(a: ColumnMap): string =
-  "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
 
 func maxSidecars*(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
