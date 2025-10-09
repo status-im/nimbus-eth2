@@ -1176,7 +1176,7 @@ proc shortNetworkName*(eth2Network: Option[string]): string =
   # network that can be used for directories etc.
   if eth2Network.isSome() and
       eth2Network.get() in
-      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "holesky", "sepolia"]:
+      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia"]:
     eth2Network.get()
   else:
     eth2Network.loadEth2Network().cfg.name()
