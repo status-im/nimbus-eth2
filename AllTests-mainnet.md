@@ -154,9 +154,12 @@ AllTests-mainnet
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
-## ColumnQuarantine data structure test suite  [Preset: mainnet]
+## ColumnMap test suite
 ```diff
 + ColumnMap test                                                                             OK
+```
+## ColumnQuarantine data structure test suite  [Preset: mainnet]
+```diff
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
