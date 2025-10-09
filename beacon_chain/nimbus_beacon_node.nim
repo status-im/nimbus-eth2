@@ -1977,28 +1977,29 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1 and
-     node.quarantine.sidecarless.len == 0:
+     node.quarantine.sidecarless.len == 0 and
+     node.validatorCustody.diff_set.len > 0:
     # Detect new validator custody at the last slot of every epoch
     discard node.validatorCustody.detectNewValidatorCustody(
       node.attachedValidatorBalanceTotal)
-    if node.validatorCustody.diff_set.len > 0:
-      var custodyColumns =
-        node.validatorCustody.newer_column_set.toSeq()
-      sort(custodyColumns)
-      # update custody columns
-      node.dataColumnQuarantine.updateColumnQuarantine(
-        node.dag.cfg, custodyColumns)
 
-      # Update CGC and metadata with respect to the new detected validator custody
-      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+    var custodyColumns =
+      node.validatorCustody.newer_column_set.toSeq()
+    sort(custodyColumns)
+    # update custody columns
+    node.dataColumnQuarantine.updateColumnQuarantine(
+      node.dag.cfg, custodyColumns)
 
-      if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
-        node.network.loadCgcnetMetadataAndEnr(new_vcus)
-      else:
-        node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
+    # Update CGC and metadata with respect to the new detected validator custody
+    let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
 
-      info "New validator custody count detected",
-        custody_columns = node.dataColumnQuarantine.custodyColumns.len
+    if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
+      node.network.loadCgcnetMetadataAndEnr(new_vcus)
+    else:
+      node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
+
+    info "New validator custody count detected",
+      custody_columns = node.dataColumnQuarantine.custodyColumns.len
 
   # Update nfd field for BPOs
   let
