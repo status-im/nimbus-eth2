@@ -689,11 +689,6 @@ proc getAttestationsForBlock*(
   @[]
 
 proc getAttestationsForBlock*(
-    _: var AttestationPool, _: ForkedHashedBeaconState, _: var StateCache):
-    seq[phase0.Attestation] =
-  @[]
-
-proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
            gloas.HashedBeaconState,
@@ -852,15 +847,6 @@ proc getAttestationsForBlock*(
 
   res
 
-proc getElectraAttestationsForBlock*(
-    pool: var AttestationPool, state: ForkedHashedBeaconState,
-    cache: var StateCache): seq[electra.Attestation] =
-  withState(state):
-    when consensusFork >= ConsensusFork.Electra:
-      pool.getAttestationsForBlock(forkyState, cache)
-    else:
-      default(seq[electra.Attestation])
-
 func bestValidation(
     aggregates: openArray[ElectraValidation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
@@ -907,8 +893,8 @@ func getElectraAggregatedAttestation*(
   # "Set `attestation.committee_bits = committee_bits`, where `committee_bits`
   # has the same value as in each individual attestation." implies that cannot
   # be used here, because otherwise they wouldn't have the same value. It thus
-  # leaves the cross-committee aggregation for getElectraAttestationsForBlock,
-  # which does do this.
+  # leaves the cross-committee aggregation for getAttestationsForBlock() which
+  # does do this.
   let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)

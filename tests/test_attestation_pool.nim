@@ -64,6 +64,15 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
 template addAttestation(a, b, c, d, e, f: untyped): untyped =
   addAttestation(a, b, c, d, -1, e, f)
 
+proc getElectraAttestationsForBlock(
+    pool: var AttestationPool, state: ForkedHashedBeaconState,
+    cache: var StateCache): seq[electra.Attestation] =
+  withState(state):
+    when consensusFork >= ConsensusFork.Electra:
+      pool.getAttestationsForBlock(forkyState, cache)
+    else:
+      raiseAssert "invalid fork"
+
 suite "Attestation pool electra processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
