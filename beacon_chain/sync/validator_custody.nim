@@ -64,7 +64,7 @@ func init*(T: type ValidatorCustodyRef, network: Eth2Node,
     dataColumnQuarantine: dataColumnQuarantine)
 
 proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
-                                total_node_balance: Gwei): seq[ColumnIndex] =
+                                total_node_balance: Gwei) =
   debug "Total node balance before applying validator custody",
     total_node_balance = total_node_balance
   let
@@ -84,7 +84,6 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
     vcus.diff_set = toSeq(newer_columns.difference(vcus.older_column_set))
   vcus.older_column_set = newer_columns
   vcus.newer_column_set = newer_columns
-  vcus.diff_set
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   if vcus.global_refill_list.len > 0:
