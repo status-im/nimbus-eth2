@@ -218,7 +218,8 @@ func check_data_column_sidecar_inclusion_proof(
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-    data_column_sidecar: fulu.DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: fulu.DataColumnSidecar | gloas.DataColumnSidecar):
+    Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
@@ -711,6 +712,61 @@ proc validateDataColumnSidecar*(
       block_root: block_root,
       index: data_column_sidecar.index,
       slot: data_column_sidecar.signed_block_header.message.slot,
+      kzg_commitments: data_column_sidecar.kzg_commitments)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
+proc validateDataColumnSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    dataColumnQuarantine: ref ColumnQuarantine,
+    data_column_sidecar: gloas.DataColumnSidecar,
+    wallTime: BeaconTime, subnet_id: uint64):
+    Result[void, ValidationError] =
+
+  # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
+  block:
+    let v = verify_data_column_sidecar(data_column_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
+
+  # [REJECT] The sidecar is for the correct subnet
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) ==
+      subnet_id):
+    return dag.checkedReject("DataColumnSidecar: not for correct subnet")
+
+  # [IGNORE] Modified from Fulu: The sidecar is the first sidecar for the tuple
+  # (sidecar.beacon_block_root, sidecar.index) with valid kzg proof.
+  let block_root = data_column_sidecar.beacon_block_root
+  if dataColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
+    return errIgnore("DataColumnSidecar: already have valid data column")
+
+  debugGloasComment ""
+  # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
+  # execution payload header (builder's bid).
+  #
+  # [REJECT] The hash of the sidecar's kzg_commitments matches the
+  # blob_kzg_commitments_root in the corresponding builder's bid for
+  # sidecar.beacon_block_root.
+  #
+  # TODO: Implement getExecutionPayloadBid(block_root)
+  # This requires storing bids received via execution_payload_bid gossip topic,
+  # indexed by the beacon block root they commit to.
+
+  # [REJECT] The sidecar's column data is valid
+  block:
+    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+    if r.isErr:
+      return dag.checkedReject(r.error)
+
+  # Send notification about new data column sidecar via callback
+  let onDataColumnSidecarCallback =
+    dataColumnQuarantine[].onDataColumnSidecarCallback()
+
+  if not(isNil(onDataColumnSidecarCallback)):
+    onDataColumnSidecarCallback DataColumnSidecarInfoObject(
+      block_root: block_root,
+      index: data_column_sidecar.index,
       kzg_commitments: data_column_sidecar.kzg_commitments)
 
   ok()

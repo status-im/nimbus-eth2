@@ -337,33 +337,47 @@ proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
     dataColumnSidecar: fulu.DataColumnSidecar | gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
-  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
+  when dataColumnSidecar is fulu.DataColumnSidecar:
+    template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
+  let block_root = when dataColumnSidecar is gloas.DataColumnSidecar:
+    dataColumnSidecar.beacon_block_root
+  else:
+    hash_tree_root(block_header)
+
   let
-    block_root = hash_tree_root(block_header)
     wallTime = self.getCurrentBeaconTime()
     (_, wallSlot) = wallTime.toSlot()
+
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
-  # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - block_header.slot.start_beacon_time
+
+  let delay = when dataColumnSidecar is gloas.DataColumnSidecar:
+    ZeroDuration
+  else:
+    # Potential under/overflows are fine; would just create odd metrics and logs
+    wallTime - block_header.slot.start_beacon_time
+
   debug "Data column received", delay
 
-  let v =
-    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
-                                       dataColumnSidecar, wallTime, subnet_id)
+  let v = self.dag.validateDataColumnSidecar(
+    self.quarantine, self.dataColumnQuarantine,
+    dataColumnSidecar, wallTime, subnet_id)
+
   if v.isErr():
     debug "Dropping data column", error = v.error()
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
+
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     withBlck(o[]):
-      when consensusFork >= ConsensusFork.Fulu and
-          consensusFork < ConsensusFork.Gloas:
-        let cres =
-          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+      when consensusFork >= ConsensusFork.Fulu:
+        let cres = self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():
           self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
         else:
@@ -446,10 +460,8 @@ proc processAttestation*(
     await self.attestationPool.validateAttestation(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   else:
-    withConsensusFork(fork):
-      await self.attestationPool.validateAttestation(
-        self.batchCrypto, attestation, wallTime, subnet_id, checkSignature,
-        consensusFork)
+    await self.attestationPool.validateAttestation(
+      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature, fork)
 
   return if v.isOk():
     # Due to async validation the wallTime here might have changed
