@@ -53,7 +53,7 @@ const
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
-    index*: ColumnIndex 
+    index*: ColumnIndex
     column*: DataColumn
     kzg_commitments*: KzgCommitments
     kzg_proofs*: deneb.KzgProofs
@@ -87,7 +87,7 @@ type
   ExecutionPayloadEnvelope* = object
     payload*: deneb.ExecutionPayload
     execution_requests*: ExecutionRequests
-    builder_index*: uint64 
+    builder_index*: uint64
     beacon_block_root*: Eth2Digest
     slot*: Slot
     blob_kzg_commitments*: KzgCommitments
@@ -320,10 +320,10 @@ type
     # [New in Gloas:EIP7732]
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
-    builder_pending_payments*: 
+    builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*: 
+    builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
     # [New in Gloas:EIP7732]
     latest_block_hash*: Eth2Digest
@@ -420,12 +420,12 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*: 
+    payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   SigVerifiedBeaconBlockBody* = object
@@ -463,12 +463,12 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*: 
+    payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   TrustedBeaconBlockBody* = object
@@ -494,12 +494,12 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList 
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*: 
+    payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
@@ -555,6 +555,14 @@ type
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
+
+func shortLog*(v: DataColumnSidecar): auto =
+  (
+    index: v.index,
+    kzg_commitments: v.kzg_commitments.len,
+    kzg_proofs: v.kzg_proofs.len,
+    beacon_block_root: shortLog(v.beacon_block_root),
+  )
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

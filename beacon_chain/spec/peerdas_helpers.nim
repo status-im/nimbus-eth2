@@ -248,7 +248,7 @@ proc assemble_data_column_sidecars*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
 func verify_data_column_sidecar*(sidecar: fulu.DataColumnSidecar |
-                                 gloas.DataColumnSidecar):
+                                          gloas.DataColumnSidecar):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
@@ -283,7 +283,7 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar |
-                                            gloas.DataColumnSidecar):
+                                                     gloas.DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 
