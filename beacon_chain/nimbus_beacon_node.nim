@@ -563,7 +563,6 @@ proc initFullNode(
       else:
         getLocalWallSlot()
     eaSlot = dag.head.slot
-    erSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -584,8 +583,8 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
-    validatorCustody = ValidatorCustodyRef.init(node.network, dag, supernode,
-      getLocalHeadSlot, custodyColumns, getBeaconTime, dataColumnQuarantine)
+    validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
+      dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -633,7 +632,6 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
-  node.dag.erSlot = erSlot
   node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
@@ -1694,7 +1692,6 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
-          node.dag.eaSlot = forkyBlck.message.slot
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
@@ -1979,7 +1976,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
      (slot.epoch() + 1).start_slot() - slot == 1 and
      node.quarantine.sidecarless.len == 0:
     # Detect new validator custody at the last slot of every epoch
-    node.validatorCustody.detectNewValidatorCustody(
+    node.validatorCustody.detectNewValidatorCustody(slot,
       node.attachedValidatorBalanceTotal)
 
     if node.validatorCustody.diff_set.len > 0:
@@ -2545,7 +2542,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
-  node.validatorCustody.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)

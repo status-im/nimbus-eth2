@@ -2248,6 +2248,9 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           # that.
           break
 
+        # eaSlot would be the earliest slot for which we can reliably
+        # serve a block (and sidecars if it's within the DA retention window)
+        dag.eaSlot = bid.slot + 1
         cur = dag.parent(bid)
 
     # TODO There have been varied reports of startup pruning causing long

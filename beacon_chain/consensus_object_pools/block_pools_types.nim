@@ -131,12 +131,8 @@ type
 
     eaSlot*: Slot
       ## Earliest available slot is the earliest slot at which the BN can
-      ## guarantee serving blocks with sidecars.
-
-    erSlot*: Slot
-      ## Earliest refilled slot is the earliest slot at which excess
-      ## DataColumnSidecar downloading finishes, if erSlot = GENESIS_SLOT
-      ## we can deduce that validator custody is inactive.
+      ## guarantee serving blocks (and sidecars which are a subset of slots
+      ## pertaining to the DA retention window of sidecars).
 
     validatorMonitor*: ref ValidatorMonitor
 
@@ -371,7 +367,7 @@ func horizon*(dag: ChainDAGRef): Slot =
     GENESIS_SLOT
 
 func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
-  max(dag.eaSlot, dag.erSlot)
+  dag.eaSlot
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
