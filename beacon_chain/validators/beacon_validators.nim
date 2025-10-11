@@ -916,19 +916,6 @@ proc signAndSendAggregate(
         return
 
     signAndSendAggregatedAttestations()
-  else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#aggregateandproof
-    var msg = phase0.SignedAggregateAndProof(
-      message: phase0.AggregateAndProof(
-        aggregator_index: distinctBase validator_index,
-        selection_proof: selectionProof))
-
-    msg.message.aggregate = node.attestationPool[].getPhase0AggregatedAttestation(
-      slot, committee_index).valueOr:
-        return
-
-    signAndSendAggregatedAttestations()
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =

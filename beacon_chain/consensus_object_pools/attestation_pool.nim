@@ -918,11 +918,6 @@ func getPhase0AggregatedAttestation*(
     _: var AttestationPool, _: Slot, _: Eth2Digest): Opt[phase0.Attestation] =
   Opt.none(phase0.Attestation)
 
-func getPhase0AggregatedAttestation*(
-    _: var AttestationPool, _: Slot, _: CommitteeIndex):
-    Opt[phase0.Attestation] =
-  Opt.none(phase0.Attestation)
-
 type BeaconHead* = object
   blck*: BlockRef
   safeExecutionBlockHash*, finalizedExecutionBlockHash*: Eth2Digest
