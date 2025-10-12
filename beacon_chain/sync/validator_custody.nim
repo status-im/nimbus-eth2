@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[sets]
-import chronos, chronicles
+import chronicles
 import ssz_serialization/[proofs, types]
 import
   ../validators/action_tracker,
