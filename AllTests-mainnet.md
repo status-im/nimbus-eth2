@@ -35,38 +35,41 @@ AllTests-mainnet
 ```diff
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
-+ sanity check Altair blocks [Preset: mainnet]                                               OK
-+ sanity check Altair states [Preset: mainnet]                                               OK
-+ sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
-+ sanity check Bellatrix blocks [Preset: mainnet]                                            OK
-+ sanity check Bellatrix states [Preset: mainnet]                                            OK
-+ sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
-+ sanity check Capella blocks [Preset: mainnet]                                              OK
-+ sanity check Capella states [Preset: mainnet]                                              OK
-+ sanity check Capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check Deneb blocks [Preset: mainnet]                                                OK
-+ sanity check Deneb states [Preset: mainnet]                                                OK
-+ sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
-+ sanity check Electra blocks [Preset: mainnet]                                              OK
-+ sanity check Electra states [Preset: mainnet]                                              OK
-+ sanity check Electra states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check Fulu blocks [Preset: mainnet]                                                 OK
-+ sanity check Fulu states [Preset: mainnet]                                                 OK
-+ sanity check Fulu states, reusing buffers [Preset: mainnet]                                OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
++ sanity check altair blocks [Preset: mainnet]                                               OK
++ sanity check altair states [Preset: mainnet]                                               OK
++ sanity check altair states, reusing buffers [Preset: mainnet]                              OK
 + sanity check bellatrix and cross-fork getState rollback [Preset: mainnet]                  OK
++ sanity check bellatrix blocks [Preset: mainnet]                                            OK
++ sanity check bellatrix states [Preset: mainnet]                                            OK
++ sanity check bellatrix states, reusing buffers [Preset: mainnet]                           OK
 + sanity check blobs [Preset: mainnet]                                                       OK
 + sanity check capella and cross-fork getState rollback [Preset: mainnet]                    OK
++ sanity check capella blocks [Preset: mainnet]                                              OK
++ sanity check capella states [Preset: mainnet]                                              OK
++ sanity check capella states, reusing buffers [Preset: mainnet]                             OK
 + sanity check data columns [Preset: mainnet]                                                OK
 + sanity check deneb and cross-fork getState rollback [Preset: mainnet]                      OK
++ sanity check deneb blocks [Preset: mainnet]                                                OK
++ sanity check deneb states [Preset: mainnet]                                                OK
++ sanity check deneb states, reusing buffers [Preset: mainnet]                               OK
 + sanity check electra and cross-fork getState rollback [Preset: mainnet]                    OK
++ sanity check electra blocks [Preset: mainnet]                                              OK
++ sanity check electra states [Preset: mainnet]                                              OK
++ sanity check electra states, reusing buffers [Preset: mainnet]                             OK
 + sanity check fulu and cross-fork getState rollback [Preset: mainnet]                       OK
++ sanity check fulu blocks [Preset: mainnet]                                                 OK
++ sanity check fulu states [Preset: mainnet]                                                 OK
++ sanity check fulu states, reusing buffers [Preset: mainnet]                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
   sanity check gloas and cross-fork getState rollback [Preset: mainnet]                      Skip
-+ sanity check phase 0 blocks [Preset: mainnet]                                              OK
-+ sanity check phase 0 states [Preset: mainnet]                                              OK
-+ sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
+  sanity check gloas blocks [Preset: mainnet]                                                Skip
+  sanity check gloas states [Preset: mainnet]                                                Skip
+  sanity check gloas states, reusing buffers [Preset: mainnet]                               Skip
++ sanity check phase0 blocks [Preset: mainnet]                                               OK
 + sanity check phase0 getState rollback [Preset: mainnet]                                    OK
++ sanity check phase0 states [Preset: mainnet]                                               OK
++ sanity check phase0 states, reusing buffers [Preset: mainnet]                              OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
 ## Beacon chain file test suite
