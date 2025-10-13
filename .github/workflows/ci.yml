@@ -232,15 +232,14 @@ jobs:
 
       - name: Build files with isMainModule
         run: |
-          executables=(
-            "beacon_chain/fork_choice/fork_choice"
-            "beacon_chain/fork_choice/proto_array"
-            "beacon_chain/networking/network_metadata_downloads"
-            "beacon_chain/era_db"
-            "beacon_chain/trusted_node_sync"
-            "benchmarks/rest_api_benchmark"
-            "tests/mocking/mock_genesis"
-          )
+          makefile_content=$(<./Makefile)
+          executables=()
+          while IFS= read -r file; do
+              base=$(basename "$file" ".nim")
+              if ! grep -qw "$base" <<< "$makefile_content"; then
+                  executables+=("$file")
+              fi
+          done < <(grep -Rl --include="*.nim" --exclude-dir=vendor "when isMainModule:" .)
           make -j update
           source env.sh
           for executable in "${executables[@]}"; do

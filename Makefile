@@ -299,6 +299,8 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	block_sim \
+	fork_choice \
+	proto_array \
 	test_libnimbus_lc \
 	process_state
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
