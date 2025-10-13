@@ -409,9 +409,7 @@ template hasSidecarImpl(
   if rootRecord.count == 0:
     return false
   let index = quarantine.getIndex(sidecarIndex)
-  if (index == -1) or rootRecord.sidecars[index].isEmpty():
-    return false
-  true
+  (index != -1) and not rootRecord.sidecars[index].isEmpty()
 
 func hasSidecar*(
     quarantine: BlobQuarantine,
