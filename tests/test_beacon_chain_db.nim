@@ -16,7 +16,7 @@ import
   ./testutil
 
 from std/algorithm import sort
-from std/sequtils import allIt, mapIt, toSeq
+from std/sequtils import allIt, toSeq
 from snappy import encodeFramed, uncompressedLenFramed
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef
