@@ -194,6 +194,8 @@ type
     summaries: array[2, EpochSummary] # We monitor the current and previous epochs
 
   ValidatorMonitor* = object
+    timeConfig: TimeConfig
+
     epoch: Epoch # The most recent epoch seen in monitoring
 
     monitors: Table[ValidatorPubKey, ref MonitoredValidator]
@@ -257,8 +259,12 @@ proc addAutoMonitor*(
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
 
-func init*(T: type ValidatorMonitor, autoRegister = false, totals = false): T =
-  T(autoRegister: autoRegister, totals: totals)
+func init*(
+    T: type ValidatorMonitor,
+    timeConfig: TimeConfig,
+    autoRegister = false,
+    totals = false): T =
+  T(timeConfig: timeConfig, autoRegister: autoRegister, totals: totals)
 
 template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
 

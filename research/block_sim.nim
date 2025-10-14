@@ -77,7 +77,7 @@ cli do(
   ChainDAGRef.preInit(db, genesisState[])
   let rng = HmacDrbgContext.new()
   var
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     taskpool =
       try:

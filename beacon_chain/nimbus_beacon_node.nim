@@ -913,6 +913,7 @@ proc init*(
   # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
+      cfg.time,
       config.validatorMonitorAuto,
       config.validatorMonitorTotals.get(
         not config.validatorMonitorDetails)))

@@ -43,7 +43,7 @@ suite "Block processor" & preset():
         res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     var
       taskpool = Taskpool.new()
@@ -112,7 +112,7 @@ suite "Block processor" & preset():
 
     # check that init also reloads block graph
     var
-      validatorMonitor2 = newClone(ValidatorMonitor.init())
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     check:

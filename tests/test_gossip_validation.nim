@@ -42,7 +42,7 @@ suite "Gossip validation " & preset():
       rng = HmacDrbgContext.new()
       cfg = defaultRuntimeConfig
     var
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -296,7 +296,7 @@ suite "Gossip validation - Altair":
 
   setup:
     let
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
       quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
