@@ -166,7 +166,7 @@ suite "BlobQuarantine data structure test suite " & preset():
   setup:
     let
       cfg {.used.} = defaultRuntimeConfig
-      db {.used.} = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      db {.used.} = BeaconChainDB.new("", cfg, inMemory = true)
       quarantine {.used.} = db.getQuarantineDB()
 
   teardown:
@@ -1065,7 +1065,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
   setup:
     let
       cfg {.used.} = defaultRuntimeConfig
-      db {.used.} = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      db {.used.} = BeaconChainDB.new("", cfg, inMemory = true)
       quarantine {.used.} = db.getQuarantineDB()
 
   teardown:

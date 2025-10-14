@@ -133,7 +133,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       (cfg, _) = readRuntimeConfig(path/"config.yaml")
       initial_state = loadForkedState(
         path/"initial_state.ssz_snappy", consensusFork)
-      db = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+      db = BeaconChainDB.new("", cfg, inMemory = true)
     defer: db.close()
     ChainDAGRef.preInit(db, initial_state[])
 
