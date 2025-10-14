@@ -83,7 +83,7 @@ suite "Validator change pool testing suite":
 
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(
-        ChainDAGRef, cfg, makeTestDB(SLOTS_PER_EPOCH * 3),
+        ChainDAGRef, cfg, makeTestDB(SLOTS_PER_EPOCH * 3, cfg = cfg),
         validatorMonitor, {})
       fork {.used.} = dag.forkAtEpoch(Epoch(0))
       genesis_validators_root = dag.genesis_validators_root

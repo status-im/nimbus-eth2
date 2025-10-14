@@ -38,12 +38,13 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
-    let rng = HmacDrbgContext.new()
+    let
+      rng = HmacDrbgContext.new()
+      cfg = defaultRuntimeConfig
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(
-        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(SLOTS_PER_EPOCH * 3, cfg = cfg), validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(dag.cfg))
@@ -56,10 +57,8 @@ suite "Gossip validation " & preset():
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    check:
-      process_slots(
-        defaultRuntimeConfig, state[], getStateField(state[], slot) + 1,
-        cache, info, {}).isOk()
+    check cfg.process_slots(
+      state[], getStateField(state[], slot) + 1, cache, info, {}).isOk()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =

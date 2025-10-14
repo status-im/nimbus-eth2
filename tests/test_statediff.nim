@@ -40,10 +40,11 @@ when isMainModule:
 
 suite "state diff tests" & preset():
   setup:
+    let cfg = defaultRuntimeConfig
     var
-      db = makeTestDB(SLOTS_PER_EPOCH)
+      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
       validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
   test "random slot differences" & preset():
     let testStates = getTestStates(dag.headState, ConsensusFork.Capella)

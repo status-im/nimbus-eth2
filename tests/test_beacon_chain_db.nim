@@ -331,7 +331,7 @@ suite "Beacon chain DB" & preset():
 
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig, mockEth1BlockHash, 0,
+        cfg, mockEth1BlockHash, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
 
     db.putState(state[].root, state[].data)
@@ -564,8 +564,6 @@ suite "Beacon chain DB" & preset():
     db.close()
 
 suite "Quarantine" & preset():
-  const cfg = defaultRuntimeConfig
-
   setup:
     let
       db = BeaconChainDB.new("", cfg, inMemory = true)
