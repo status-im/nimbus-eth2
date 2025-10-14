@@ -1,0 +1,172 @@
+#!/usr/bin/env groovy
+/* beacon_chain
+ * Copyright (c) 2019-2025 Status Research & Development GmbH
+ * Licensed and distributed under either of
+ *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+ *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+ * at your option. This file may not be copied, modified, or distributed except according to those terms.
+ */
+library 'status-jenkins-lib@v1.9.2'
+
+pipeline {
+  /* This way we run the same Jenkinsfile on different platforms. */
+  agent { label 'macos && aarch64' }
+
+  parameters {
+    choice(
+      name: 'VERBOSITY',
+      description: 'Value for the V make flag to increase log verbosity',
+      choices: [0, 1, 2]
+    )
+    string(
+      name: 'NIM_COMMIT',
+      description: 'Value for the NIM_COMMIT make flag to choose Nim commit',
+      defaultValue: nimCommitForJob(),
+    )
+  }
+
+  options {
+    disableRestartFromStage()
+    timestamps()
+    ansiColor('xterm')
+    /* This also includes wait time in the queue. */
+    timeout(time: 24, unit: 'HOURS')
+    /* Limit builds retained. */
+    buildDiscarder(logRotator(
+      numToKeepStr: '5',
+      daysToKeepStr: '30',
+      artifactNumToKeepStr: '3',
+    ))
+    /* Throttle number of concurrent builds. */
+    throttleJobProperty(
+      throttleEnabled: true,
+      throttleOption: 'category',
+      categories: ['nimbus-eth2'],
+      maxConcurrentPerNode: 1,
+      maxConcurrentTotal: 9
+    )
+    /* Abort old builds for non-main branches. */
+    disableConcurrentBuilds(
+      abortPrevious: !isMainBranch()
+    )
+  }
+
+  environment {
+    NPROC = Runtime.getRuntime().availableProcessors()
+    MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
+    XDG_CACHE_HOME = "${env.WORKSPACE_TMP}/.cache"
+  }
+
+  stages {
+    stage('Setup') {
+      steps { script {
+        def brew_prefix = brew.prefix()
+        /* Explicit PATH to avoid using HomeBrew LLVM. */
+        env.PATH = "/usr/local/bin:/usr/sbin:/usr/bin:/bin:${brew_prefix}/bin"
+        /* Newer Clang 18.0 from Homebrew on macOS, XCode provides 15.0.
+         * Temp fix for BLST issue: https://github.com/supranational/blst/issues/209 */
+        if (utils.arch() == 'arm64') {
+          env.PATH     = "${brew_prefix}/opt/llvm/bin:$PATH"
+          env.LDFLAGS  = "-L${brew_prefix}/opt/llvm/lib"
+          env.CPPFLAGS = "-I${brew_prefix}/opt/llvm/include"
+        }
+      } }
+    }
+
+    stage('Deps') {
+      steps { timeout(20) {
+        /* To allow the following parallel stages. */
+        sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
+        /* Allow the following parallel stages. */
+        sh 'make deps'
+        /* Download test vectors. */
+        sh './scripts/setup_scenarios.sh'
+      } }
+    }
+
+    stage('Build') {
+      steps { timeout(50) {
+        sh 'make LOG_LEVEL=TRACE'
+      } }
+    }
+
+    stage('Check Docs') {
+      steps {
+        sh './scripts/check_docs_help_msg.sh'
+      }
+    }
+
+    stage('Tests') {
+      parallel {
+        stage('General') {
+          steps { timeout(60) {
+            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
+          } }
+        }
+
+        stage('REST') {
+          steps { timeout(5) {
+            sh 'make restapi-test'
+          } }
+          post { always {
+            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
+          } }
+        }
+      }
+      post { always { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } } }
+    }
+
+    stage('Finalizations') {
+      stages {  /* parallel builds of minimal / mainnet not yet supported */
+        stage('minimal') {
+          steps { timeout(26) {
+            sh 'make local-testnet-minimal'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
+          } }
+        }
+
+        stage('mainnet') {
+          steps { timeout(62) {
+            sh 'make local-testnet-mainnet'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
+          } }
+        }
+      }
+      post {
+        always { timeout(10) {
+          /* DEBUG: Show file sizes to catch too big ones. */
+          sh 'ls -hl *.tar.gz'
+          archiveArtifacts(
+            artifacts: '*.tar.gz',
+            excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
+            allowEmptyArchive: true
+          )
+        } }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs(
+        disableDeferredWipeout: true,
+        deleteDirs: true
+      )
+    }
+  }
+}
+
+def isMainBranch() {
+  return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
+}
+
+def nimCommitForJob() {
+  return JOB_NAME.contains('nimv2_2') ? 'upstream/version-2-2' : ''
+}
