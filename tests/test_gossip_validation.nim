@@ -44,7 +44,7 @@ suite "Gossip validation " & preset():
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(SLOTS_PER_EPOCH * 3, cfg = cfg), validatorMonitor, {})
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(dag.cfg))
@@ -307,7 +307,7 @@ suite "Gossip validation - Altair":
   template prepare(numValidators: Natural): untyped {.dirty.} =
     let
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+        cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       batchCrypto = BatchCrypto.new(
         rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(

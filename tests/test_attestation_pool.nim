@@ -86,8 +86,8 @@ suite "Attestation pool electra processing" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(
         ChainDAGRef, cfg,
-        makeTestDB(
-          TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH, cfg = cfg),
+        cfg.makeTestDB(
+          TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)

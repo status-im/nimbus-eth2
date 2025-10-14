@@ -46,7 +46,7 @@ suite "Block pool processing" & preset():
       rng = HmacDrbgContext.new()
       cfg = defaultRuntimeConfig
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -282,7 +282,7 @@ suite "Block pool altair processing" & preset():
         res.ALTAIR_FORK_EPOCH = Epoch(1)
         res
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -359,7 +359,7 @@ suite "chain DAG finalization tests" & preset():
       rng = HmacDrbgContext.new()
       cfg = defaultRuntimeConfig
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -713,7 +713,7 @@ suite "Diverging hardforks":
         res.ALTAIR_FORK_EPOCH = 2.Epoch
         res
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = phase0RuntimeConfig)
+      db = phase0RuntimeConfig.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -1170,7 +1170,7 @@ suite "Latest valid hash" & preset():
         res.BELLATRIX_FORK_EPOCH = 2.Epoch
         res
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -1237,7 +1237,7 @@ suite "Pruning":
         res.MIN_EPOCHS_FOR_BLOCK_REQUESTS = res.safeMinEpochsForBlockRequests()
         doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
         res
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       tmpState = assignClone(dag.headState)
@@ -1292,7 +1292,7 @@ suite "State history":
       cfg = defaultRuntimeConfig
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(numValidators, cfg = cfg),
+        cfg, cfg.makeTestDB(numValidators),
         validatorMonitor, {})
       quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
@@ -1413,7 +1413,7 @@ suite "Ancestry":
       cfg = defaultRuntimeConfig
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(numValidators, cfg = cfg),
+        cfg, cfg.makeTestDB(numValidators),
         validatorMonitor, {})
       quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
@@ -1706,9 +1706,8 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       deposit_count: deposits.lenu64)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
-      cfg, makeTestDB(
-        numValidators, eth1Data = Opt.some(eth1Data),
-        flags = {}, cfg = cfg),
+      cfg, cfg.makeTestDB(
+        numValidators, eth1Data = Opt.some(eth1Data), flags = {}),
       validatorMonitor, {})
     quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()

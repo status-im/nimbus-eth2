@@ -43,7 +43,7 @@ suite "Light client processor" & preset():
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
-      cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {},
+      cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(
         serve: true,
         importMode: LightClientDataImportMode.OnlyNew))

@@ -42,7 +42,7 @@ suite "state diff tests" & preset():
   setup:
     let cfg = defaultRuntimeConfig
     var
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 

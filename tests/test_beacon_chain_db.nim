@@ -114,7 +114,7 @@ proc getTestStates(
     cfg: RuntimeConfig,
     consensusFork: ConsensusFork): seq[ref ForkedHashedBeaconState] =
   let
-    db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+    db = cfg.makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
   var testStates = getTestStates(dag.headState, consensusFork)
@@ -198,7 +198,7 @@ suite "Beacon chain DB" & preset():
 
   template doStateTest(consensusFork: static ConsensusFork): untyped =
     block:
-      let db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      let db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
       for state in testStates[consensusFork]:
         let root = state[].forky(consensusFork).root
@@ -227,7 +227,7 @@ suite "Beacon chain DB" & preset():
       consensusFork: static ConsensusFork): untyped =
     block:
       let
-        db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+        db = cfg.makeTestDB(SLOTS_PER_EPOCH)
         stateBuffer = (consensusFork.BeaconStateRef)()
 
       for state in testStates[consensusFork]:
@@ -257,7 +257,7 @@ suite "Beacon chain DB" & preset():
   template doRollbackTest(consensusFork: static ConsensusFork): untyped =
     block:
       var
-        db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+        db = cfg.makeTestDB(SLOTS_PER_EPOCH)
         validatorMonitor = newClone(ValidatorMonitor.init())
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
         state = ForkedHashedBeaconState.new(
@@ -380,7 +380,7 @@ suite "Beacon chain DB" & preset():
       blobSidecar1 = BlobSidecar(signed_block_header: blockHeader0, index: 2)
       blobSidecar2 = BlobSidecar(signed_block_header: blockHeader1, index: 2)
 
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
     var
       buf: seq[byte]
@@ -480,7 +480,7 @@ suite "Beacon chain DB" & preset():
       dataColumnSidecar1 = fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
       dataColumnSidecar2 = fulu.DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
 
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
     var
       buf: seq[byte]

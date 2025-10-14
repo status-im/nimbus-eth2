@@ -21,10 +21,10 @@ from ../beacon_chain/spec/beaconstate import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
+    cfg: RuntimeConfig,
     validators: Natural,
     eth1Data = Opt.none(Eth1Data),
-    flags: UpdateFlags = {},
-    cfg = defaultRuntimeConfig): BeaconChainDB =
+    flags: UpdateFlags = {}): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires FULU_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
