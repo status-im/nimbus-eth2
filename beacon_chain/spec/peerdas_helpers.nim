@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronicles, results, taskpools,
+  chronos, chronicles, results, taskpools,
   eth/p2p/discoveryv5/node,
   kzg4844/kzg,
   ssz_serialization/[
@@ -163,29 +163,49 @@ proc recover_cells_and_proofs_parallel*(
 
   for column in dataColumns:
     if not (blobCount == column.column.len):
-      return err ("DataColumns do not have the same length")
+      return err("DataColumns do not have the same length")
 
-  # spawn threads for recovery
   var
-    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
+    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]]
     res = newSeq[CellsAndProofs](blobCount)
-  for blobIdx in 0..<blobCount:
+
+  let startTime = Moment.now()
+
+  # ---- Spawn phase with time limit ----
+  for blobIdx in 0 ..< blobCount:
+    let now = Moment.now()
+    if (now - startTime) > 2.seconds:
+      warn "Aborting reconstruction: spawn phase exceeded 2s",
+        spawned = pendingFuts.len, total = blobCount
+      break  # Stop spawning new tasks
+
     var
       cellIndices = newSeq[CellIndex](columnCount)
       cells = newSeq[Cell](columnCount)
     for i in 0 ..< dataColumns.len:
       cellIndices[i] = dataColumns[i][].index
       cells[i] = dataColumns[i][].column[blobIdx]
-    pendingFuts[blobIdx] =
-      tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells)
+    pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
 
-  # sync threads
-  for i in 0..<blobCount:
+  # ---- Sync phase ----
+  for i in 0 ..< pendingFuts.len:
+    let now = Moment.now()
+    if (now - startTime) > 2.seconds:
+      warn "Aborting reconstruction: sync phase exceeded 2s",
+        completed = i, totalSpawned = pendingFuts.len
+      return err("Data column reconstruction aborted after timeout during sync")
+
     let futRes = sync pendingFuts[i]
     if futRes.isErr:
       return err("KZG cells and proofs recovery failed")
+
     res[i] = futRes.get
+
+  if pendingFuts.len < blobCount:
+    return err("KZG recovery aborted: timeout before completing all blobs")
+
   ok(res)
+
 
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,

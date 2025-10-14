@@ -9,7 +9,7 @@
 
 import
   system/ansi_c,
-  std/[os, random, terminal, times],
+  std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -1974,7 +1974,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1 and
-     node.quarantine.sidecarless.len == 0 and
+     node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
     node.validatorCustody.detectNewValidatorCustody(slot,
