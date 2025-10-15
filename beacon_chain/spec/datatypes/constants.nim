@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import chronos/timer
+import chronos/timer, ./constants_raw
 
 type
   Slot* = distinct uint64
@@ -24,8 +24,8 @@ const
   NODE_ID_BITS* = 256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#configuration
-  EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
-  SUBNETS_PER_NODE* = 2'u64
+  EPOCHS_PER_SUBNET_SUBSCRIPTION* {.intdefine.}: uint64 = 256'u64  # hoodiUZH
+  SUBNETS_PER_NODE* {.intdefine.}: uint64 = 2'u64  # hoodiUZH
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
   ATTESTATION_SUBNET_EXTRA_BITS* = 0'u64
   ATTESTATION_SUBNET_PREFIX_BITS* = 6'u64 ## \
@@ -64,15 +64,16 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
-  REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
+  REORG_HEAD_WEIGHT_THRESHOLD* {.intdefine.}: uint64 = 20  # hoodiUZH
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
-  REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
+  REORG_MAX_EPOCHS_SINCE_FINALIZATION* {.intdefine.} =
+    Epoch(REORG_MAX_EPOCHS_SINCE_FINALIZATION)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS* = 1024'u64
-  RESP_TIMEOUT* = 10'u64
+  MAX_REQUEST_BLOCKS* {.intdefine.}: uint64 = 1024'u64  # hoodiUZH
+  RESP_TIMEOUT* {.intdefine.}: uint64 = 10'u64  # hoodiUZH
   ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
-  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
+  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = MAXIMUM_GOSSIP_CLOCK_DISPARITY.int64.millis
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#configuration
   MAX_PAYLOAD_SIZE* = 10'u64 * 1024 * 1024 # bytes

@@ -29,7 +29,7 @@ const
 
   # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
-  TTFB_TIMEOUT* = 5'u64
+  TTFB_TIMEOUT* {.intdefine.}: uint64 = 5'u64  # hoodiUZH
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
@@ -722,11 +722,26 @@ else:
 
   # createConstantsFromPreset const_preset
 
-const IsMainnetSupported*: bool =
-  const_preset == "mainnet" and SECONDS_PER_SLOT == 12
+const
+  ConstantsAreDefault: bool =
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION.uint64 == 2 and
+    MAX_REQUEST_BLOCKS == 1024 and
+    EPOCHS_PER_SUBNET_SUBSCRIPTION == 256 and
+    TTFB_TIMEOUT == 5 and
+    RESP_TIMEOUT == 10 and
+    MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64 == 500 and
+    SUBNETS_PER_NODE == 2 and
+    REORG_HEAD_WEIGHT_THRESHOLD == 20
 
-const IsGnosisSupported*: bool =
-  const_preset == "gnosis" and SECONDS_PER_SLOT == 5
+  IsMainnetSupported*: bool =
+    const_preset == "mainnet" and
+    ConstantsAreDefault and
+    SECONDS_PER_SLOT == 12
+
+  IsGnosisSupported*: bool =
+    const_preset == "gnosis" and
+    ConstantsAreDefault and
+    SECONDS_PER_SLOT == 5
 
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
