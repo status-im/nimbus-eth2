@@ -243,7 +243,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
   static: doAssert lightClientFinalityUpdateSlotOffset ==
     lightClientOptimisticUpdateSlotOffset
   let sendTime = node.beaconClock.fromNow(
-    slot.light_client_finality_update_time())
+    slot.light_client_finality_update_time(node.dag.cfg.time))
   if sendTime.inFuture:
     debug "Waiting to send LC updates", slot, delay = shortLog(sendTime.offset)
     await sleepAsync(sendTime.offset)
@@ -1232,13 +1232,14 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
 
-  let newHead = await handleProposal(node, head, slot)
+  let
+    timeConfig = node.dag.cfg.time
+    newHead = await handleProposal(node, head, slot)
   head = newHead
 
-  let
-    # The latest point in time when we'll be sending out attestations
-    attestationCutoff = node.beaconClock.fromNow(slot.attestation_deadline())
-
+  # The latest point in time when we'll be sending out attestations
+  let attestationCutoff = node.beaconClock.fromNow(
+    slot.attestation_deadline(timeConfig))
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
       head = shortLog(head),
@@ -1266,8 +1267,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   # the result in aggregates
   static:
     doAssert aggregateSlotOffset == syncContributionSlotOffset, "Timing change?"
-  let
-    aggregateCutoff = node.beaconClock.fromNow(slot.aggregate_deadline())
+  let aggregateCutoff = node.beaconClock.fromNow(
+    slot.aggregate_deadline(timeConfig))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)

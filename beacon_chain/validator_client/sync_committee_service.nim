@@ -62,7 +62,8 @@ proc serveSyncCommitteeMessage*(
     message = shortLog(message)
 
   debug "Sending sync committee message",
-        delay = vc.getDelay(message.slot.sync_committee_message_deadline())
+        delay = vc.getDelay(
+          message.slot.sync_committee_message_deadline(vc.timeConfig))
 
   let res =
     try:
@@ -76,7 +77,8 @@ proc serveSyncCommitteeMessage*(
       return false
 
   let
-    delay = vc.getDelay(message.slot.sync_committee_message_deadline())
+    delay = vc.getDelay(
+      message.slot.sync_committee_message_deadline(vc.timeConfig))
     dur = Moment.now() - startTime
 
   if res:
@@ -131,7 +133,7 @@ proc produceAndPublishSyncCommitteeMessages(
       (succeed, errored, failed)
 
   let
-    delay = vc.getDelay(slot.attestation_deadline())
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
@@ -174,7 +176,7 @@ proc serveContributionAndProof*(
       res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline())
+        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeConfig))
 
   let restSignedProof = RestSignedContributionAndProof.init(
     proof, signature)
@@ -326,7 +328,7 @@ proc produceAndPublishContributions(
           (succeed, errored, failed)
 
     let
-      delay = vc.getDelay(slot.aggregate_deadline())
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
@@ -353,7 +355,8 @@ proc publishSyncMessagesAndContributions(
     slot = slot
 
   block:
-    let delay = vc.getDelay(slot.sync_committee_message_deadline())
+    let delay = vc.getDelay(
+      slot.sync_committee_message_deadline(vc.timeConfig))
     debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
@@ -393,15 +396,15 @@ proc publishSyncMessagesAndContributions(
     return
 
   let currentTime = vc.beaconClock.now()
-  if slot.sync_contribution_deadline() > currentTime:
-    let waitDur =
-      nanoseconds((slot.sync_contribution_deadline() - currentTime).nanoseconds)
+  if slot.sync_contribution_deadline(vc.timeConfig) > currentTime:
+    let waitDur = nanoseconds((
+      slot.sync_contribution_deadline(vc.timeConfig) - currentTime).nanoseconds)
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(slot.sync_contribution_deadline())
+    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeConfig))
     debug "Producing contribution and proofs", delay = delay
 
   try:

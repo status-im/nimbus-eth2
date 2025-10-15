@@ -62,6 +62,9 @@ proc init*(
       timeConfig: timeConfig,
       genesis: unixGenesis - unixGenesisOffset)
 
+func timeConfig*(c: BeaconClock): TimeConfig =
+  c.timeConfig  # Readonly
+
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))
 

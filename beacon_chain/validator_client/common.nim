@@ -856,7 +856,8 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.attestation_deadline() - slot.start_beacon_time())
+    $(minSlot.attestation_deadline(vc.timeConfig) -
+      slot.start_beacon_time())
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
@@ -873,7 +874,8 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.block_deadline() - slot.start_beacon_time())
+    $(minSlot.block_deadline(vc.timeConfig) -
+      slot.start_beacon_time())
 
 iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
                                  epoch: Epoch): DutyAndProof =

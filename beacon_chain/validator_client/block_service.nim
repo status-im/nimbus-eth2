@@ -193,7 +193,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline())
+        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Blinded block published", delay = delay
@@ -268,7 +268,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline())
+        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Block published", delay = delay
@@ -292,9 +292,10 @@ proc publishBlock(
     slot = slot
     wall_slot = currentSlot
 
-  debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
-                            genesis_root = genesisRoot,
-                            graffiti = graffiti, fork = fork
+  debug "Publishing block",
+        delay = vc.getDelay(slot.block_deadline(vc.timeConfig)),
+        genesis_root = genesisRoot,
+        graffiti = graffiti, fork = fork
   let
     randaoReveal =
       try:
@@ -590,7 +591,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
       currentTime = vc.beaconClock.now()
       afterSlot = currentTime.slotOrZero()
 
-    if currentTime > afterSlot.attestation_deadline():
+    if currentTime > afterSlot.attestation_deadline(vc.timeConfig):
       # Attestation time already, lets wait for next slot.
       continue
 
