@@ -175,6 +175,7 @@ pipeline {
         disableDeferredWipeout: true,
         deleteDirs: true
       )
+      dir("${env.WORKSPACE}@tmp") { deleteDir() }
     }
   }
 }
