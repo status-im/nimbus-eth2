@@ -598,6 +598,12 @@ proc validateDataColumnSidecar*(
     if v.isErr:
       return dag.checkedReject(v.error)
 
+  # Check if the sidecar respects the blob limit.
+  let epoch = block_header.slot.epoch()
+  if lenu64(data_column_sidecar.kzg_commitments) >
+     dag.cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
+    return dag.checkedReject("DataColumnSidecar: The sidecar does not respect the blob limit")
+
   # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
@@ -723,7 +729,6 @@ proc validateDataColumnSidecar*(
     data_column_sidecar: gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
-
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
   block:
     let v = verify_data_column_sidecar(data_column_sidecar)
