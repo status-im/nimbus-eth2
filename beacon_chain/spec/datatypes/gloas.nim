@@ -59,6 +59,8 @@ type
     kzg_proofs*: deneb.KzgProofs
     beacon_block_root*: Eth2Digest
 
+  DataColumnSidecars* = seq[ref DataColumnSidecar]
+
   ExecutionPayloadForSigning* = object
     executionPayload*: deneb.ExecutionPayload
     blockValue*: Wei

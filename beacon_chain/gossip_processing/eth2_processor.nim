@@ -260,7 +260,10 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+  debugGloasComment " "
+  when consensusFork == ConsensusFork.Gloas:
+    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+  elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
     if sidecarsOpt.isNone():

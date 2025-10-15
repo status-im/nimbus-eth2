@@ -452,7 +452,10 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          when consensusFork == ConsensusFork.Gloas:
+            let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+          else:
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -474,7 +477,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "no blob_kzg_commitments field for gloas"
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
@@ -2269,22 +2272,19 @@ proc installMessageValidators(node: BeaconNode) =
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
-        when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment " "
-        else:
-          node.network.addValidator(
-            getBeaconBlocksTopic(digest), proc (
-              signedBlock: consensusFork.SignedBeaconBlock,
-              src: PeerId,
-            ): ValidationResult =
-              if node.shouldSyncOptimistically(node.currentSlot):
-                toValidationResult(
-                  node.optimisticProcessor.processSignedBeaconBlock(
-                    signedBlock))
-              else:
-                toValidationResult(
-                  node.processor[].processSignedBeaconBlock(
-                    MsgSource.gossip, signedBlock)))
+        node.network.addValidator(
+          getBeaconBlocksTopic(digest), proc (
+            signedBlock: consensusFork.SignedBeaconBlock,
+            src: PeerId,
+          ): ValidationResult =
+            if node.shouldSyncOptimistically(node.currentSlot):
+              toValidationResult(
+                node.optimisticProcessor.processSignedBeaconBlock(
+                  signedBlock))
+            else:
+              toValidationResult(
+                node.processor[].processSignedBeaconBlock(
+                  MsgSource.gossip, signedBlock)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
