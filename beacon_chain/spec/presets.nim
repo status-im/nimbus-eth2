@@ -919,9 +919,9 @@ proc readRuntimeConfig*(
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
 
-  checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-                     "SECONDS_PER_SLOT", `in`
   checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
+  # checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
+  #                    "SECONDS_PER_SLOT", `in`
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
