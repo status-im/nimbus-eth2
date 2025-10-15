@@ -110,9 +110,9 @@ type
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
-    # TODO REORG_HEAD_WEIGHT_THRESHOLD*: uint64
+    REORG_HEAD_WEIGHT_THRESHOLD*: uint64
     # TODO REORG_PARENT_WEIGHT_THRESHOLD*: uint64
-    # TODO REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
 
     # Deposit contract
     DEPOSIT_CHAIN_ID*: uint64
@@ -270,7 +270,6 @@ when const_preset == "mainnet":
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
 
-
     # Validator cycle
     # ---------------------------------------------------------------
     # 2**2 (= 4)
@@ -285,6 +284,11 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
+
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -457,6 +461,11 @@ elif const_preset == "gnosis":
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
+
     # Deposit contract
     # ---------------------------------------------------------------
     # Gnosis PoW Mainnet
@@ -609,7 +618,6 @@ elif const_preset == "minimal":
     # [customized] process deposits more quickly, but insecure
     ETH1_FOLLOW_DISTANCE: 16,
 
-
     # Validator cycle
     # ---------------------------------------------------------------
     # 2**2 (= 4)
@@ -625,6 +633,10 @@ elif const_preset == "minimal":
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -1002,9 +1014,7 @@ proc readRuntimeConfig*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
-  checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
-  checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS

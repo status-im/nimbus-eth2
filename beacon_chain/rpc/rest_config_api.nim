@@ -238,11 +238,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           PROPOSER_SCORE_BOOST:
             Base10.toString(PROPOSER_SCORE_BOOST),
           REORG_HEAD_WEIGHT_THRESHOLD:
-            Base10.toString(REORG_HEAD_WEIGHT_THRESHOLD),
+            Base10.toString(cfg.REORG_HEAD_WEIGHT_THRESHOLD),
           REORG_PARENT_WEIGHT_THRESHOLD:
             Base10.toString(REORG_PARENT_WEIGHT_THRESHOLD),
           REORG_MAX_EPOCHS_SINCE_FINALIZATION:
-            Base10.toString(uint64(REORG_MAX_EPOCHS_SINCE_FINALIZATION)),
+            Base10.toString(cfg.REORG_MAX_EPOCHS_SINCE_FINALIZATION),
 
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
