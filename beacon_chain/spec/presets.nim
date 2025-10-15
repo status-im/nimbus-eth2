@@ -29,7 +29,6 @@ const
 
   # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
-  TTFB_TIMEOUT* = 5'u64
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
@@ -124,8 +123,6 @@ type
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO TTFB_TIMEOUT*: uint64
-    # TODO RESP_TIMEOUT*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
@@ -173,9 +170,8 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
-    "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
+    "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
+    "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
     "  - EPOCH",                       # parsed separately
   ]
@@ -303,10 +299,6 @@ when const_preset == "mainnet":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -474,10 +466,6 @@ elif const_preset == "gnosis":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -644,10 +632,6 @@ elif const_preset == "minimal":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -977,8 +961,6 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility TTFB_TIMEOUT
-  checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
                      "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
