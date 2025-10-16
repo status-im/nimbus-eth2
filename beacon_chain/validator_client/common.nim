@@ -1468,7 +1468,7 @@ proc waitForNextEpoch*(service: ClientServiceRef,
   let
     vc = service.client
     currentSlot = vc.beaconClock.now().toSlot()
-    nextEpochTime = currentSlot.nextEpochStartTime()
+    nextEpochTime = currentSlot.nextEpochStartTime(vc.timeConfig)
     sleepTime = vc.beaconClock.fromNow(nextEpochTime).durationOrZero() + delay
   debug "Sleeping until next epoch", service = service.name,
                                      sleep_time = sleepTime, delay = delay
@@ -1483,7 +1483,7 @@ proc waitForNextSlot*(
        currentSlot: tuple[afterGenesis: bool, slot: Slot]
      ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
   let
-    nextSlotTime = currentSlot.nextSlotStartTime()
+    nextSlotTime = currentSlot.nextSlotStartTime(vc.timeConfig)
     sleepTime = vc.beaconClock.fromNow(nextSlotTime).durationOrZero()
   sleepAsync(sleepTime)
 

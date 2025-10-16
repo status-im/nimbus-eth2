@@ -95,7 +95,8 @@ func durationOrZero*(d: tuple[inFuture: bool, offset: Duration]): Duration =
     ZeroDuration
 
 func nextSlotStartTime*(
-    exSlot: tuple[afterGenesis: bool, slot: Slot]): BeaconTime =
+    exSlot: tuple[afterGenesis: bool, slot: Slot],
+    timeConfig: TimeConfig): BeaconTime =
   if exSlot.afterGenesis:
     (exSlot.slot + 1).start_beacon_time()
   else:
@@ -105,7 +106,8 @@ func nextSlotStartTime*(
     genesisTime - timeDiff
 
 func nextEpochStartTime*(
-    exSlot: tuple[afterGenesis: bool, slot: Slot]): BeaconTime =
+    exSlot: tuple[afterGenesis: bool, slot: Slot],
+    timeConfig: TimeConfig): BeaconTime =
   if exSlot.afterGenesis:
     (exSlot.slot.epoch + 1).start_slot.start_beacon_time()
   else:
