@@ -719,7 +719,7 @@ else:
   # createConstantsFromPreset const_preset
 
 const
-  ConstantsAreDefault: bool =
+  AreConstantsDefault: bool =
     MAX_REQUEST_BLOCKS == 1024 and
     EPOCHS_PER_SUBNET_SUBSCRIPTION == 256 and
     MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64 == 500 and
@@ -727,12 +727,12 @@ const
 
   IsMainnetSupported*: bool =
     const_preset == "mainnet" and
-    ConstantsAreDefault and
+    AreConstantsDefault and
     SECONDS_PER_SLOT == 12
 
   IsGnosisSupported*: bool =
     const_preset == "gnosis" and
-    ConstantsAreDefault and
+    AreConstantsDefault and
     SECONDS_PER_SLOT == 5
 
 const
