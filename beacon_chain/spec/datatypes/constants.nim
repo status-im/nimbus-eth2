@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import chronos/timer, ./constants_raw
 
@@ -64,14 +64,10 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
-  REORG_HEAD_WEIGHT_THRESHOLD* {.intdefine.}: uint64 = 20  # hoodiUZH
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
-  REORG_MAX_EPOCHS_SINCE_FINALIZATION* {.intdefine.} =
-    Epoch(REORG_MAX_EPOCHS_SINCE_FINALIZATION)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* {.intdefine.}: uint64 = 1024'u64  # hoodiUZH
-  RESP_TIMEOUT* {.intdefine.}: uint64 = 10'u64  # hoodiUZH
   ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = MAXIMUM_GOSSIP_CLOCK_DISPARITY.int64.millis
 

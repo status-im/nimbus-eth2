@@ -1977,7 +1977,8 @@ proc validateLightClientFinalityUpdate*(
       else:
         GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-    forwardTime = signature_slot.light_client_finality_update_time
+    forwardTime = signature_slot
+      .light_client_finality_update_time(dag.cfg.time)
   if currentTime < forwardTime:
     # [IGNORE] The `finality_update` is received after the block at
     # `signature_slot` was given enough time to propagate through the network.
@@ -2014,7 +2015,8 @@ proc validateLightClientOptimisticUpdate*(
       else:
         GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-    forwardTime = signature_slot.light_client_optimistic_update_time
+    forwardTime = signature_slot
+      .light_client_optimistic_update_time(dag.cfg.time)
   if currentTime < forwardTime:
     # [IGNORE] The `optimistic_update` is received after the block at
     # `signature_slot` was given enough time to propagate through the network.

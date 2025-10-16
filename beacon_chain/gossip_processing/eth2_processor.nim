@@ -471,7 +471,9 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - attestation.data.slot.attestation_deadline
+  let
+    timeConfig = self.dag.cfg.time
+    delay = wallTime - attestation.data.slot.attestation_deadline(timeConfig)
   debug "Attestation received", delay
 
   let v = when attestation is phase0.Attestation:
@@ -537,8 +539,9 @@ proc processSignedAggregateAndProof*(
 
   # Potential under/overflows are fine; would just create odd logs
   let
+    timeConfig = self.dag.cfg.time
     slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline
+    delay = wallTime - slot.aggregate_deadline(timeConfig)
   debug "Aggregate received", delay
 
   let v = await self.attestationPool.validateAggregate(
@@ -700,7 +703,10 @@ proc processSyncCommitteeMessage*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - syncCommitteeMsg.slot.sync_committee_message_deadline
+  let
+    timeConfig = self.dag.cfg.time
+    slot = syncCommitteeMsg.slot
+    delay = wallTime - slot.sync_committee_message_deadline(timeConfig)
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -748,8 +754,9 @@ proc processSignedContributionAndProof*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
+    timeConfig = self.dag.cfg.time
     slot = contributionAndProof.message.contribution.slot
-    delay = wallTime - slot.sync_contribution_deadline
+    delay = wallTime - slot.sync_contribution_deadline(timeConfig)
   debug "Contribution received", delay
 
   # Now proceed to validation

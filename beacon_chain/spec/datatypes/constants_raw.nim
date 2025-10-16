@@ -9,4 +9,4 @@
 
 const
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* {.intdefine.}: uint64 = 500  # hoodiUZH
-  REORG_MAX_EPOCHS_SINCE_FINALIZATION* {.intdefine.}: uint64 = 2  # hoodiUZH
+ 

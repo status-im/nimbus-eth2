@@ -29,7 +29,6 @@ const
 
   # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
-  TTFB_TIMEOUT* {.intdefine.}: uint64 = 5'u64  # hoodiUZH
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
@@ -110,9 +109,9 @@ type
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
-    # TODO REORG_HEAD_WEIGHT_THRESHOLD*: uint64
+    REORG_HEAD_WEIGHT_THRESHOLD*: uint64
     # TODO REORG_PARENT_WEIGHT_THRESHOLD*: uint64
-    # TODO REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
 
     # Deposit contract
     DEPOSIT_CHAIN_ID*: uint64
@@ -124,8 +123,6 @@ type
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO TTFB_TIMEOUT*: uint64
-    # TODO RESP_TIMEOUT*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
@@ -173,9 +170,8 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
-    "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
+    "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
+    "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
     "  - EPOCH",                       # parsed separately
   ]
@@ -270,7 +266,6 @@ when const_preset == "mainnet":
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
 
-
     # Validator cycle
     # ---------------------------------------------------------------
     # 2**2 (= 4)
@@ -285,6 +280,11 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
+
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -303,10 +303,6 @@ when const_preset == "mainnet":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -457,6 +453,11 @@ elif const_preset == "gnosis":
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
+
     # Deposit contract
     # ---------------------------------------------------------------
     # Gnosis PoW Mainnet
@@ -474,10 +475,6 @@ elif const_preset == "gnosis":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -609,7 +606,6 @@ elif const_preset == "minimal":
     # [customized] process deposits more quickly, but insecure
     ETH1_FOLLOW_DISTANCE: 16,
 
-
     # Validator cycle
     # ---------------------------------------------------------------
     # 2**2 (= 4)
@@ -625,6 +621,10 @@ elif const_preset == "minimal":
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -644,10 +644,6 @@ elif const_preset == "minimal":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -724,14 +720,10 @@ else:
 
 const
   ConstantsAreDefault: bool =
-    REORG_MAX_EPOCHS_SINCE_FINALIZATION.uint64 == 2 and
     MAX_REQUEST_BLOCKS == 1024 and
     EPOCHS_PER_SUBNET_SUBSCRIPTION == 256 and
-    TTFB_TIMEOUT == 5 and
-    RESP_TIMEOUT == 10 and
     MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64 == 500 and
-    SUBNETS_PER_NODE == 2 and
-    REORG_HEAD_WEIGHT_THRESHOLD == 20
+    SUBNETS_PER_NODE == 2
 
   IsMainnetSupported*: bool =
     const_preset == "mainnet" and
@@ -992,8 +984,6 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility TTFB_TIMEOUT
-  checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
                      "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
@@ -1017,9 +1007,7 @@ proc readRuntimeConfig*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
-  checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
-  checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS

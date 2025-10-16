@@ -26,12 +26,12 @@ const
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
   topicExecutionPayloadBidSuffix = "execution_payload_bid/ssz_snappy"
-  topicExecutionPayloadSuffix = "execution_payload/ssz_snappy" 
+  topicExecutionPayloadSuffix = "execution_payload/ssz_snappy"
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
 
 const
-  # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
-  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
+  # https://github.com/ethereum/consensus-specs/pull/4532
+  RESP_TIMEOUT_DUR* = 10.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128

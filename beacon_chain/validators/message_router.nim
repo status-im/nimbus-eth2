@@ -131,8 +131,9 @@ proc routeSignedBeaconBlock*(
             return err(res.error())
 
   let
+    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].getCurrentBeaconTime()
-    delay = sendTime - blck.message.slot.block_deadline()
+    delay = sendTime - blck.message.slot.block_deadline(timeConfig)
     # The block (and blobs, if present) passed basic gossip validation
     # - we can "safely" broadcast it now. In fact, per the spec, we
     # should broadcast it even if it later fails to apply to our
@@ -263,8 +264,9 @@ proc routeAttestation*(
       return err(res.error()[1])
 
   let
+    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - attestation.data.slot.attestation_deadline()
+    delay = sendTime - attestation.data.slot.attestation_deadline(timeConfig)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -334,8 +336,10 @@ proc routeSignedAggregateAndProof*(
       return err(res.error()[1])
 
   let
+    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - proof.message.aggregate.data.slot.aggregate_deadline()
+    slot = proof.message.aggregate.data.slot
+    delay = sendTime - slot.aggregate_deadline(timeConfig)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -369,8 +373,9 @@ proc routeSyncCommitteeMessage*(
       return err(res.error()[1])
 
   let
+    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.slot.sync_committee_message_deadline()
+    delay = sendTime - msg.slot.sync_committee_message_deadline(timeConfig)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -490,8 +495,10 @@ proc routeSignedContributionAndProof*(
       return err(res.error()[1])
 
   let
+    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.message.contribution.slot.sync_contribution_deadline()
+    slot = msg.message.contribution.slot
+    delay = sendTime - slot.sync_contribution_deadline(timeConfig)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():

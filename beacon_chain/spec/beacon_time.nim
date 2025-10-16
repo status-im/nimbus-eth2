@@ -164,19 +164,31 @@ func start_beacon_time*(s: Slot): BeaconTime =
   if s > maxSlot: FAR_FUTURE_BEACON_TIME
   else: BeaconTime(ns_since_genesis: int64(uint64(s) * NANOSECONDS_PER_SLOT))
 
-func block_deadline*(s: Slot): BeaconTime =
+func block_deadline*(s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time
-func attestation_deadline*(s: Slot): BeaconTime =
+
+func attestation_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + attestationSlotOffset
-func aggregate_deadline*(s: Slot): BeaconTime =
+
+func aggregate_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + aggregateSlotOffset
-func sync_committee_message_deadline*(s: Slot): BeaconTime =
+
+func sync_committee_message_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + syncCommitteeMessageSlotOffset
-func sync_contribution_deadline*(s: Slot): BeaconTime =
+
+func sync_contribution_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + syncContributionSlotOffset
-func light_client_finality_update_time*(s: Slot): BeaconTime =
+
+func light_client_finality_update_time*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + lightClientFinalityUpdateSlotOffset
-func light_client_optimistic_update_time*(s: Slot): BeaconTime =
+
+func light_client_optimistic_update_time*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
