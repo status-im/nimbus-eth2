@@ -9,4 +9,3 @@
 
 const
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* {.intdefine.}: uint64 = 500  # hoodiUZH
- 
