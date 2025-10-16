@@ -108,7 +108,7 @@ proc main() {.noinline, raises: [CatchableError].} =
               discard await elManager.newExecutionPayload(forkyBlck.message)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
-      getBeaconTime, optimisticHandler)
+      cfg.time, getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,

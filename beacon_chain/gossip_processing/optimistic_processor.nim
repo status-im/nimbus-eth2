@@ -26,14 +26,17 @@ type
     ): Future[void] {.async: (raises: [CancelledError]).}
 
   OptimisticProcessor* = ref object
+    timeConfig: TimeConfig
     getBeaconTime: GetBeaconTimeFn
     optimisticVerifier: OptimisticBlockVerifier
     processFut: Future[void].Raising([CancelledError])
 
 proc initOptimisticProcessor*(
+    timeConfig: TimeConfig,
     getBeaconTime: GetBeaconTimeFn,
     optimisticVerifier: OptimisticBlockVerifier): OptimisticProcessor =
   OptimisticProcessor(
+    timeConfig: timeConfig,
     getBeaconTime: getBeaconTime,
     optimisticVerifier: optimisticVerifier)
 
