@@ -11,8 +11,7 @@
 import
   unittest2,
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine,
-    full_block_pool]
+    block_quarantine, full_block_pool]
 
 from stew/byteutils import hexToByteArray
 
