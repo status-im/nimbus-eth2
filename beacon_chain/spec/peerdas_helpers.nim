@@ -176,7 +176,7 @@ proc recover_cells_and_proofs_parallel*(
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS column reconstruction timed out while preparing columns",
+      debug "PeerDAS reconstruction timed out while preparing columns",
         spawned = pendingFuts.len, total = blobCount
       break  # Stop spawning new tasks
 
