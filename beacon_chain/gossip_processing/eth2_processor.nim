@@ -251,14 +251,12 @@ proc processExecutionPayloadGloas(
   # check if the envelope exists
   let signedEnvelope = self.fullBlockPool[].getEnvelope(signedBlock).valueOr:
     return
-  # stop if it has been processed
-  if self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
-    return
 
   # validate the envelope again as it wasn't validated without the block
-  self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
-    return
-  self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
+  if not self.fullBlockPool[].isEnvelopeValid(signedEnvelope):
+    self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
+      return
+    self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
 
   # process
   self.processExecutionPayloadGloas(signedBlock, signedEnvelope)
