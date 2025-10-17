@@ -22,7 +22,7 @@ import
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
-  ../digest,
+  ../[digest, block_id],
   kzg4844/[kzg, kzg_abi]
 
 from ./altair import
@@ -624,3 +624,6 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+func toBlockId*(v: SignedExecutionPayloadEnvelope): BlockId =
+  BlockId(root: v.message.beacon_block_root, slot: v.message.slot)
