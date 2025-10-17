@@ -1725,7 +1725,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "Stored data columns", columns = indices.len
+      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
@@ -1741,7 +1741,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
         node.batchVerifier[].taskpool, columns).valueOr:
-          error "Error in data column reconstruction"
+          error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
       var reconCounter = 0

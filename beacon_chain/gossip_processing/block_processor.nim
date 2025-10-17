@@ -222,13 +222,11 @@ proc verifySidecars(
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
   if sidecarsOpt.isSome():
-    debug "Inserting blobs into database", blobs = sidecarsOpt[].len
     for b in sidecarsOpt[]:
       self.consensusManager.dag.db.putBlobSidecar(b[])
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[DataColumnSidecars]) =
   if sidecarsOpt.isSome():
-    debug "Inserting columns into database", columns = sidecarsOpt[].len
     for c in sidecarsOpt[]:
       self.consensusManager.dag.db.putDataColumnSidecar(c[])
 

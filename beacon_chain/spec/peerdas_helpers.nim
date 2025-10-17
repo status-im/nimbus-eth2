@@ -170,12 +170,13 @@ proc recover_cells_and_proofs_parallel*(
     res = newSeq[CellsAndProofs](blobCount)
 
   let startTime = Moment.now()
+  const reconstructionTimeout = 2.seconds
 
   # ---- Spawn phase with time limit ----
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
-    if (now - startTime) > 2.seconds:
-      warn "Aborting reconstruction: spawn phase exceeded 2s",
+    if (now - startTime) > reconstructionTimeout:
+      debug "PeerDAS column reconstruction timed out while preparing columns",
         spawned = pendingFuts.len, total = blobCount
       break  # Stop spawning new tasks
 
@@ -190,10 +191,10 @@ proc recover_cells_and_proofs_parallel*(
   # ---- Sync phase ----
   for i in 0 ..< pendingFuts.len:
     let now = Moment.now()
-    if (now - startTime) > 2.seconds:
-      warn "Aborting reconstruction: sync phase exceeded 2s",
+    if (now - startTime) > reconstructionTimeout:
+      debug "PeerDAS column reconstruction timed out while preparing columns",
         completed = i, totalSpawned = pendingFuts.len
-      return err("Data column reconstruction aborted after timeout during sync")
+      return err("Data column reconstruction timed out")
 
     let futRes = sync pendingFuts[i]
     if futRes.isErr:
@@ -202,7 +203,7 @@ proc recover_cells_and_proofs_parallel*(
     res[i] = futRes.get
 
   if pendingFuts.len < blobCount:
-    return err("KZG recovery aborted: timeout before completing all blobs")
+    return err("Data column reconstruction timed out")
 
   ok(res)
 
