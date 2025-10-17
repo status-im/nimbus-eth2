@@ -402,7 +402,8 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
         wallTime
       else:
         wallTime + self.rng.nextLcSyncTaskDelay(
-          wallTime, finalized, optimistic, isNextSyncCommitteeKnown,
+          self.timeConfig, wallTime,
+          finalized, optimistic, isNextSyncCommitteeKnown,
           didLatestSyncTaskProgress = didProgress)
     wasGossipSupported = isGossipSupported
 
