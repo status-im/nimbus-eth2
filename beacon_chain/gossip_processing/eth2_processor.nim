@@ -218,6 +218,70 @@ proc new*(T: type Eth2Processor,
 # any side effects until the message is fully validated, or invalid messages
 # could be used to push out valid messages.
 
+proc processExecutionPayloadGloas(
+    self: var Eth2Processor,
+    signedBlock: ForkySignedBeaconBlock,
+    signedEnvelope: SignedExecutionPayloadEnvelope) =
+  ## Process execution payload when both the block and envelope are found.
+
+  logScope:
+    blockRoot = shortLog(signedBlock.root)
+    builderIdx = signedEnvelope.message.builder_index
+
+  # only process once
+  # TODO: thread-safety
+  if self.fullBlockPool[].isEnvelopeProcessing(signedEnvelope) or
+      self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
+    return
+  self.fullBlockPool[].markEnvelopeProcessing(signedEnvelope)
+
+  trace "Execution payload processing"
+  debugGloasComment("")
+
+  # process complete
+  debug "Execution payload processed"
+  self.fullBlockPool[].markEnvelopeProcessed(signedEnvelope)
+  self.fullBlockPool[].markBlockExecutionEnabled(signedBlock)
+
+proc processExecutionPayloadGloas(
+    self: var Eth2Processor,
+    signedBlock: ForkySignedBeaconBlock) =
+  ## Received a valid block and checking if the envelope arrives
+
+  # check if the envelope exists
+  let signedEnvelope = self.fullBlockPool[].getEnvelope(signedBlock).valueOr:
+    return
+  # stop if it has been processed
+  if self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
+    return
+
+  # validate the envelope again as it wasn't validated without the block
+  self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
+    return
+  self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
+
+  # process
+  self.processExecutionPayloadGloas(signedBlock, signedEnvelope)
+
+proc processExecutionPayloadGloas(
+    self: var Eth2Processor,
+    signedEnvelope: SignedExecutionPayloadEnvelope) =
+  ## Received a valid envelope and the block should be in the chain
+
+  # find the block from the chain
+  let signedBlock =
+    block:
+      let forkedBlock = self.dag.getForkedBlock(signedEnvelope.toBlockId()).valueOr:
+        return
+      withBlck(forkedBlock):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyBlck.asSigned()
+        else:
+          return
+
+  # process
+  self.processExecutionPayloadGloas(signedBlock, signedEnvelope)
+
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
     signedBlock: ForkySignedBeaconBlock,
@@ -279,6 +343,9 @@ proc processSignedBeaconBlock*(
   else:
     {.error: "Unknown fork " & $consensusFork.}
 
+  when type(signedBlock).kind >= ConsensusFork.Gloas:
+    self.processExecutionPayloadGloas(signedBlock)
+
   let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
   self.blockProcessor.enqueueBlock(
     src, signedBlock, sidecarsOpt, maybeFinalized, validationDur
@@ -287,6 +354,36 @@ proc processSignedBeaconBlock*(
   # Validator monitor registration for blocks is done by the processor
   beacon_blocks_received.inc()
   beacon_block_delay.observe(delay.toFloatSeconds())
+
+  ok()
+
+proc processExecutionPayload*(
+    self: var Eth2Processor, src: MsgSource,
+    signedEnvelope: SignedExecutionPayloadEnvelope):
+    ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
+    builderIdx = signedEnvelope.message.builder_index
+    signature = shortLog(signedEnvelope.signature)
+    wallSlot
+
+  let delay = wallTime - signedEnvelope.message.slot.start_beacon_time
+  debug "Execution payload received", delay
+
+  # always save the envelope in case the block arrives later
+  self.fullBlockPool[].addEnvelope(signedEnvelope)
+
+  self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
+    return err(error)
+
+  trace "Execution payload validated"
+
+  self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
+  self.processExecutionPayloadGloas(signedEnvelope)
 
   ok()
 
