@@ -175,7 +175,7 @@ proc createLightClient(
         GENESIS_SLOT.sync_committee_period
 
   lightClient.manager = LightClientManager.init(
-    lightClient.network, rng, getTrustedBlockRoot,
+    lightClient.network, rng, lightClient.cfg.time, getTrustedBlockRoot,
     bootstrapVerifier, updateVerifier, finalityVerifier, optimisticVerifier,
     isLightClientStoreInitialized, isNextSyncCommitteeKnown,
     getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
