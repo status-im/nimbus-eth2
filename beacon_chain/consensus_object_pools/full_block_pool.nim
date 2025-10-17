@@ -131,8 +131,13 @@ func isBlockExecutionEnabled*(
 
 func isBlockSeen*(
     pool: FullBlockPool,
+    blockRoot: Eth2Digest): bool =
+  blockRoot in pool.blocks
+
+func isBlockSeen*(
+    pool: FullBlockPool,
     blck: ForkySignedBeaconBlock): bool =
-  blck.root in pool.blocks
+  pool.isBlockSeen(blck.root)
 
 func getEnvelope(
     pool: FullBlockPool,
