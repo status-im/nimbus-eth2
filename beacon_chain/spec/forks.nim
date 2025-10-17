@@ -1822,6 +1822,9 @@ func toBlockId*(blck: ForkedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock): BlockId =
   withBlck(blck): BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
 
+func toBlockId*(v: SignedExecutionPayloadEnvelope): BlockId =
+  BlockId(root: v.message.beacon_block_root, slot: v.message.slot)
+
 func historical_summaries*(state: ForkedHashedBeaconState):
     HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT] =
   withState(state):

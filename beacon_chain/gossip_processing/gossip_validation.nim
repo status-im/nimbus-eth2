@@ -18,7 +18,8 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    spec_cache, light_client_pool, sync_committee_msg_pool,
+    full_block_pool, light_client_pool,
+    spec_cache, sync_committee_msg_pool,
     validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
@@ -966,6 +967,66 @@ proc validateBeaconBlock*(
       signed_beacon_block.signature):
     quarantine[].addUnviable(signed_beacon_block.root)
     return dag.checkedReject("BeaconBlock: Invalid proposer signature")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload
+proc validateExecutionPayload*(
+    dag: ChainDAGRef, fullBlockPool: ref FullBlockPool,
+    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
+    Result[void, ValidationError] =
+  template envelope: untyped = signed_execution_payload_envelope.message
+
+  # [IGNORE] The envelope's block root envelope.block_root has been seen (via
+  # gossip or non-gossip sources) (a client MAY queue payload for processing
+  # once the block is retrieved).
+  if not fullBlockPool[].isBlockSeen(envelope.beacon_block_root):
+    return errIgnore("ExecutionPayload: block not found")
+
+  # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
+  # for this block root from this builder.
+  if not fullBlockPool[].isEnvelopeValid(signed_execution_payload_envelope):
+    return errIgnore("ExecutionPayload: already seen the envelope")
+
+  # [REJECT] block passes validation.
+  let blck =
+    block:
+      let forkedBlock = dag.getForkedBlock(signed_execution_payload_envelope.toBlockId()).valueOr:
+        return errReject("ExecutionPayload: invalid block")
+      withBlck(forkedBlock):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyBlck.asSigned().message
+        else:
+          return errReject("ExecutionPayload: invalid fork")
+
+  # [REJECT] block.slot equals envelope.slot.
+  if blck.slot != envelope.slot:
+    return errReject("ExecutionPayload: slot mismatch")
+
+  # TODO: check if it needs fallback to `state.latest_execution_payload_bid`
+  template bid: untyped = blck.body.signed_execution_payload_bid.message
+
+  # [REJECT] envelope.builder_index == bid.builder_index
+  if envelope.builder_index != bid.builder_index:
+    return errReject("ExecutionPayload: builder index mismatch")
+
+  # [REJECT] payload.block_hash == bid.block_hash
+  if envelope.payload.block_hash != bid.block_hash:
+    return errReject("ExecutionPayload: block hash mismatch")
+
+  # [REJECT] signed_execution_payload_envelope.signature is valid with respect
+  # to the builder's public key.
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      if not verify_execution_payload_envelope_signature(
+          dag.forkAtEpoch(envelope.slot.epoch),
+          getStateField(dag.headState, genesis_validators_root),
+          signed_execution_payload_envelope, forkyState.data,
+          dag.validatorKey(envelope.builder_index).get(),
+          signed_execution_payload_envelope.signature):
+        return dag.checkedReject("ExecutionPayload: invalid builder signature")
+    else:
+      return dag.checkedReject("ExecutionPayload: invalid fork")
 
   ok()
 
