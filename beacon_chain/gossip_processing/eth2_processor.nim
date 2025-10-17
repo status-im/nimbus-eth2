@@ -17,7 +17,7 @@ import
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool,
+    attestation_pool, full_block_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -131,6 +131,7 @@ type
     validatorPool*: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
+    fullBlockPool: ref FullBlockPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -178,6 +179,7 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
+          fullBlockPool: ref FullBlockPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
@@ -197,6 +199,7 @@ proc new*(T: type Eth2Processor,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
+    fullBlockPool: fullBlockPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
