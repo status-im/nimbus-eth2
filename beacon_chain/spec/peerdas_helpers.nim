@@ -192,7 +192,7 @@ proc recover_cells_and_proofs_parallel*(
   for i in 0 ..< pendingFuts.len:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS column reconstruction timed out while preparing columns",
+      debug "PeerDAS reconstruction timed out",
         completed = i, totalSpawned = pendingFuts.len
       return err("Data column reconstruction timed out")
 
