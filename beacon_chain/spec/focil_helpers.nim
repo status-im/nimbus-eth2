@@ -21,6 +21,29 @@ import
      validator],
   ./datatypes/[fulu, focil]
 
+const
+  viewFreezeOffset = slotOffset(VIEW_FREEZE_CUTOFF)
+  submissionDueOffset = slotOffset(INCLUSION_LIST_SUBMISSION_DUE)
+  proposerCutoffOffset = slotOffset(PROPOSER_INCLUSION_LIST_CUT_OFF)
+
+func inclusion_list_view_freeze*(slot: Slot): BeaconTime =
+  slot.start_beacon_time() + viewFreezeOffset
+
+func inclusion_list_submission_due*(slot: Slot): BeaconTime =
+  slot.start_beacon_time() + submissionDueOffset
+
+func inclusion_list_proposer_cutoff*(slot: Slot): BeaconTime =
+  slot.start_beacon_time() + proposerCutoffOffset
+
+func get_view_freeze_cutoff_ms*(): uint64 =
+  uint64(viewFreezeOffset.nanoseconds div 1_000_000)
+
+func get_inclusion_list_submission_due_ms*(): uint64 =
+  uint64(submissionDueOffset.nanoseconds div 1_000_000)
+
+func get_proposer_inclusion_list_cutoff_ms*(): uint64 =
+  uint64(proposerCutoffOffset.nanoseconds div 1_000_000)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#new-is_valid_inclusion_list_signature
 func verify_inclusion_list_signature*(
     state: ForkyBeaconState,
@@ -84,3 +107,65 @@ func get_inclusion_committee_assignment*(
       return Opt.som(slot)
 
   Opt.none(Slot)
+
+proc process_inclusion_list*(
+    store: var InclusionListStore,
+    state: ForkyBeaconState,
+    signed_inclusion_list: SignedInclusionList,
+    wallTime: BeaconTime
+) =
+  ## Validate timing constraints and merge the inclusion list into the store.
+  ## Mirrors the spec deadlines: tolerate the configured clock skew and only
+  ## admit lists received before the view-freeze boundary. Late arrivals still
+  ## go through the equivocation path but do not expand the required set.
+  let message = signed_inclusion_list.message
+
+  let
+    slotStart = message.slot.start_beacon_time()
+    earliestAllowed = slotStart - MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    latestTolerated =
+      inclusion_list_proposer_cutoff(message.slot) + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+
+  if wallTime < earliestAllowed:
+    # Too far in the future relative to our clock; rely on re-gossip and skip.
+    return
+
+  if wallTime > latestTolerated:
+    # Way past the proposer cutoff; nothing to be gained from processing.
+    return
+
+  if not verify_inclusion_list_signature(state, signed_inclusion_list):
+    return
+
+  let
+    committee = get_inclusion_list_committee(state, message.slot)
+    committeeRoot = hash_tree_root(committee)
+    key = makeKey(message.slot, committeeRoot)
+
+  if message.inclusion_list_committee_root != committeeRoot:
+    return
+
+  let acceptBeforeFreeze =
+    wallTime <= inclusion_list_view_freeze(message.slot)
+
+  store.process_inclusion_list(message, accept = acceptBeforeFreeze)
+
+proc get_inclusion_list_transactions*(
+    store: InclusionListStore, state: ForkyBeaconState, slot: Slot
+): seq[bellatrix.Transaction] =
+  ## Collect the unique transactions from valid inclusion lists for ``slot``
+  let
+    committee = get_inclusion_list_committee(state, slot)
+    committeeRoot = hash_tree_root(committee)
+    key = makeKey(slot, committeeRoot)
+    equivocators = store.getEquivocatorsForKey(key)
+
+  var aggregated: seq[bellatrix.Transaction]
+  for inclusionList in store.getInclusionListsForKey(key):
+    if inclusionList.validator_index in equivocators:
+      continue
+    for tx in inclusionList.transactions.items:
+      if tx notin aggregated:
+        aggregated.add(tx)
+
+  aggregated

@@ -43,17 +43,21 @@ export json_serialization, base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#domain-types
-  DOMAIN_INCLUSION_LIST_COMMITTEE* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
+  DOMAIN_INCLUSION_LIST_COMMITTEE* = DomainType([byte 0x0C, 0x00, 0x00, 0x00])
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#preset
   INCLUSION_LIST_COMMITTEE_SIZE* = 16'u64
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/fork-choice.md#time-parameters
-  VIEW_FREEZE_DEADLINE* = (SECONDS_PER_SLOT * 2 div 3 + 1).seconds
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/p2p-interface.md#configuration
-  ATTESTATION_DEADLINE* = (SECONDS_PER_SLOT div 3).seconds
+
+  # https://github.com/ethereum/consensus-specs/blob/master/specs/_features/eip7805/fork-choice.md#configuration
+  VIEW_FREEZE_DEADLINE* = (SECONDS_PER_SLOT * 3 div 4 ).seconds
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
+  INCLUSION_LIST_SUBMISSION_DUE = (SECONDS_PER_SLOT * 2 div 3).seconds
+  PROPOSER_INCLUSION_LIST_CUT_OFF = (SECONDS_PER_SLOT - 1).seconds
+
+
   MAX_REQUEST_INCLUSION_LIST* = 16'u64
   MAX_BYTES_PER_INCLUSION_LIST* = 8192'u64
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
-  PROPOSER_INCLUSION_LIST_CUT_OFF = (SECONDS_PER_SLOT - 1).seconds
+
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#inclusionlist
@@ -67,3 +71,107 @@ type
   SignedInclusionList* = object
     message*: InclusionList
     signature*: ValidatorSig
+
+  InclusionListKey* = tuple[slot: Slot, committeeRoot: Eth2Digest]
+
+  InclusionListStore* = object
+    ## Inclusion lists accepted prior to the view-freeze deadline.
+    inclusionLists*: Table[InclusionListKey, seq[InclusionList]]
+    ## Tracking of validators that equivocated for a particular (slot, root).
+    equivocators*: Table[InclusionListKey, HashSet[ValidatorIndex]]
+
+template makeKey*(slot: Slot, root: Eth2Digest): InclusionListKey =
+  (slot: slot, committeeRoot: root)
+
+proc init*(T: typedesc[InclusionListStore]): T =
+  InclusionListStore(
+    inclusionLists: initTable[InclusionListKey, seq[InclusionList]](),
+    equivocators: initTable[InclusionListKey, HashSet[ValidatorIndex]](),
+  )
+
+template mgetOrPutSeq(tab: var Table[InclusionListKey, seq[InclusionList]],
+                      key: InclusionListKey): var seq[InclusionList] =
+  tab.mgetOrPut(key, @[])
+
+template mgetOrPutSet(tab: var Table[InclusionListKey, HashSet[ValidatorIndex]],
+                      key: InclusionListKey): var HashSet[ValidatorIndex] =
+  tab.mgetOrPut(key, initHashSet[ValidatorIndex]())
+
+proc markEquivocator(
+    store: var InclusionListStore, key: InclusionListKey, validator: ValidatorIndex
+) =
+  store.equivocators.mgetOrPutSet(key).incl(validator)
+
+proc isKnownEquivocator(
+    store: InclusionListStore, key: InclusionListKey, validator: ValidatorIndex
+): bool =
+  store.equivocators.withValue(key, equivocators):
+    return validator in equivocators[]
+  false
+
+proc process_inclusion_list*(
+    store: var InclusionListStore,
+    inclusionList: InclusionList,
+    accept: bool
+) {.raises: [].} =
+  ## Record `inclusionList` if `accept` is true. Validators that equivocate are
+  ## remembered and future lists from them are ignored.
+  let key = makeKey(inclusionList.slot, inclusionList.inclusion_list_committee_root)
+
+  if store.isKnownEquivocator(key, inclusionList.validator_index):
+    return
+
+  var lists = store.inclusionLists.mgetOrPutSeq(key)
+  for idx, existing in lists.pairs:
+    if existing.validator_index != inclusionList.validator_index:
+      continue
+
+    if existing == inclusionList:
+      return
+
+    # Equivocation detected: drop previous entry and mark validator.
+    store.markEquivocator(key, inclusionList.validator_index)
+    lists.delete(idx)
+    return
+
+  if accept:
+    lists.add(inclusionList)
+
+proc getInclusionListsForKey*(
+    store: InclusionListStore, key: InclusionListKey
+): seq[InclusionList] =
+  store.inclusionLists.withValue(key, value):
+    return value[]
+  @[]
+
+proc getEquivocatorsForKey*(
+    store: InclusionListStore, key: InclusionListKey
+): HashSet[ValidatorIndex] =
+  store.equivocators.withValue(key, equivocators):
+    return equivocators[]
+  initHashSet[ValidatorIndex]()
+
+proc prune*(store: var InclusionListStore, keepFromSlot: Slot) {.raises: [].} =
+  ## Drop entries for slots older than `keepFromSlot`.
+  var toDelete: seq[InclusionListKey]
+  for key in store.inclusionLists.keys:
+    if key.slot < keepFromSlot:
+      toDelete.add(key)
+
+  for key in toDelete:
+    discard store.inclusionLists.del(key)
+    discard store.equivocators.del(key)
+
+## Temporary global store.
+## TODO: wire a beacon-node owned instance once the
+## gossip integration for inclusion lists lands.
+var globalInclusionListStore*: InclusionListStore = InclusionListStore.init()
+
+proc get_inclusion_list_store*(): var InclusionListStore =
+  globalInclusionListStore
+
+proc resetGlobalInclusionListStore*() =
+  globalInclusionListStore = InclusionListStore.init()
+
+
+
