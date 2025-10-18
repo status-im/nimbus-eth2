@@ -165,13 +165,22 @@ proc prune*(store: var InclusionListStore, keepFromSlot: Slot) {.raises: [].} =
 ## Temporary global store.
 ## TODO: wire a beacon-node owned instance once the
 ## gossip integration for inclusion lists lands.
-var globalInclusionListStore*: InclusionListStore = InclusionListStore.init()
+var globalInclusionListStore*: ref InclusionListStore
+
+proc ensureGlobalStore() =
+  if globalInclusionListStore.isNil:
+    globalInclusionListStore = new(InclusionListStore)
+    globalInclusionListStore[] = InclusionListStore.init()
 
 proc get_inclusion_list_store*(): var InclusionListStore =
-  globalInclusionListStore
+  ensureGlobalStore()
+  globalInclusionListStore[]
+
+proc setGlobalInclusionListStore*(store: ref InclusionListStore) =
+  globalInclusionListStore = store
 
 proc resetGlobalInclusionListStore*() =
-  globalInclusionListStore = InclusionListStore.init()
-
-
-
+  if not globalInclusionListStore.isNil:
+    globalInclusionListStore[] = InclusionListStore.init()
+  else:
+    ensureGlobalStore()

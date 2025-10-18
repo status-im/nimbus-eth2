@@ -1121,6 +1121,71 @@ proc process_execution_payload*(
 
   ok()
 
+# Focil based changes On Fulu
+# https://github.com/ethereum/consensus-specs/blob/26bb70739ac7ab1ec1f6a9b47ca8e47db0c14848/specs/_features/eip7805/beacon-chain.md#modified-verify_and_notify_new_payload
+proc process_execution_payload*(
+    cfg: RuntimeConfig, state: var fulu.BeaconState,
+    body: SomeFuluBeaconBlockBody,
+    notify_new_payload: fulu.ExecutePayload): Result[void, cstring] =
+  template payload: auto = body.execution_payload
+
+  # Verify consistency of the parent hash with respect to the previous
+  # execution payload header
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # [New in Deneb] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+    return err("process_execution_payload: too many KZG commitments")
+
+  # Verify inclusion list transactions
+  block:
+    let inclusionStore = get_inclusion_list_store()
+    let requiredTxs = get_inclusion_list_transactions(inclusionStore, state, state.slot)
+    if requiredTxs.len > 0:
+      let payloadTxs = payload.transactions.asSeq
+      for tx in requiredTxs:
+        if tx notin payloadTxs:
+          # NOTE: This currently assumes the gossip-fed inclusion list store is
+          # authoritative for the slot. Once we wire in precise timing
+          # validation for view-freeze deadlines, this guard should be tightened.
+          return err("process_execution_payload: missing inclusion list tx")
+
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = fulu.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used,
+    excess_blob_gas: payload.excess_blob_gas)
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
