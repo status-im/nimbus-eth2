@@ -199,8 +199,6 @@ proc checkProgressiveList(
     checkBasic(seq[UInt128], dir, expectedHash)
   of "uint256":
     checkBasic(seq[UInt256], dir, expectedHash)
-  else:
-    raise newException(ValueError, "unknown ssz type in test: " & sszSubType)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
