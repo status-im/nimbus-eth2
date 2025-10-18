@@ -179,7 +179,7 @@ proc checkProgressiveList(
   var typeIdent: string
   let wasMatched =
     try:
-      scanf(sszSubType, "proglist_$+_", typeIdent)
+      scanf(sszSubType, "proglist_$+", typeIdent)
     except ValueError:
       false  # Parsed `size` is out of range
   doAssert wasMatched
