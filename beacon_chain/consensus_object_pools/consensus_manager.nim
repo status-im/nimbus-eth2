@@ -212,8 +212,9 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   # Grab the new head according to our latest attestation data
   let
+    timeConfig = self.dag.cfg.time
     newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time).valueOr:
+        wallSlot.start_beacon_time(timeConfig)).valueOr:
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return

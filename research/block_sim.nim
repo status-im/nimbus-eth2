@@ -135,8 +135,7 @@ cli do(
                 attestation.aggregation_bits.len,
                 -1,
                 sig,
-                data.slot.start_beacon_time,
-              )
+                data.slot.start_beacon_time(cfg.time))
             else:
               var data =
                 makeAttestationData(updatedState, slot, committee_index, bid.root)
@@ -158,8 +157,7 @@ cli do(
                 committee.len,
                 index_in_committee,
                 sig,
-                data.slot.start_beacon_time,
-              )
+                data.slot.start_beacon_time(cfg.time))
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -313,7 +311,7 @@ cli do(
       # Callback add to fork choice if valid
       attPool.addForkChoice(
         epochRef, blckRef, unrealized, signedBlock.message,
-        blckRef.slot.start_beacon_time,
+        blckRef.slot.start_beacon_time(cfg.time),
       )
 
     let added = dag.addHeadBlock(verifier, newBlock, onAdded)

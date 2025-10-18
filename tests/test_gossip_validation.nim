@@ -88,7 +88,7 @@ suite "Gossip validation " & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(
           epochRef, blckRef, unrealized, signedBlock.message,
-          blckRef.slot.start_beacon_time)
+          blckRef.slot.start_beacon_time(cfg.time))
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[], [])
@@ -111,7 +111,7 @@ suite "Gossip validation " & preset():
         committees_per_slot,
         att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
 
-      beaconTime = att_1_0.data.slot.start_beacon_time()
+      beaconTime = att_1_0.data.slot.start_beacon_time(cfg.time)
 
     check:
       validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
@@ -357,7 +357,7 @@ suite "Gossip validation - Altair":
           signatureSlot = Opt.some(signatureSlot))
         msgVerdict = waitFor noCancel dag.validateSyncCommitteeMessage(
           quarantine, batchCrypto, syncCommitteePool,
-          msg, subcommitteeIdx, slot.start_beacon_time(),
+          msg, subcommitteeIdx, slot.start_beacon_time(cfg.time),
           checkSignature = true)
       check msgVerdict.isOk == expectValid
 
@@ -405,7 +405,7 @@ suite "Gossip validation - Altair":
       syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
       let contribVerdict = waitFor noCancel dag.validateContribution(
         quarantine, batchCrypto, syncCommitteePool,
-        contrib[], slot.start_beacon_time(),
+        contrib[], slot.start_beacon_time(cfg.time),
         checkSignature = true)
       check contribVerdict.isOk == expectValid
 
@@ -439,7 +439,7 @@ suite "Gossip validation - Altair":
 
       res = waitFor validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, slot.start_beacon_time(),
+        msg, subcommitteeIdx, slot.start_beacon_time(cfg.time),
         checkSignature = true)
       (bid, cookedSig, positions) = res.get()
 
@@ -478,5 +478,5 @@ suite "Gossip validation - Altair":
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(), true
-      ).waitFor().isErr()
+        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(cfg.time),
+        true).waitFor().isErr()

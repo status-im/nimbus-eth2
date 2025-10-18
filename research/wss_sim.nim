@@ -184,7 +184,7 @@ cli do(validatorsDir: string, secretsDir: string,
       slot = getStateField(state[], slot) + 1
     process_slots(cfg, state[], slot, cache, info, {}).expect("works")
 
-    if start_beacon_time(slot) > beaconClock.now():
+    if slot.start_beacon_time(cfg.time) > beaconClock.now():
       notice "Ran out of time",
         epoch = slot.epoch
       break

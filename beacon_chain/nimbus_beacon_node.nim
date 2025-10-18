@@ -1784,7 +1784,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # slot does not interfere with propagation of messages and with VC duties.
   const endOffset = aggregateSlotOffset + nanos(
     (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
-  let endCutoff = node.beaconClock.fromNow(slot.start_beacon_time + endOffset)
+  let
+    timeConfig = node.dag.cfg.time
+    endCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(timeConfig) + endOffset)
   if endCutoff.inFuture:
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
@@ -1938,7 +1941,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
-    slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
+    slot.start_beacon_time(timeConfig) +
+    chronos.seconds(int(SECONDS_PER_SLOT - 1)))
 
   let proposalFcu =
     if advanceCutoff.inFuture:
@@ -1949,7 +1953,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       await sleepAsync(advanceCutoff.offset)
       let
         nextSlot = slot + 1
-        nextSlotCutoff = node.beaconClock.fromNow(nextSlot.start_beacon_time)
+        nextSlotCutoff = node.beaconClock.fromNow(
+          nextSlot.start_beacon_time(timeConfig))
         head = node.dag.head # could be a new head compared to earlier
 
       if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
@@ -2084,12 +2089,13 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   ## lastSlot: the last slot that we successfully processed, so we know where to
   ##           start work from - there might be jumps if processing is delayed
   let
+    timeConfig = node.dag.cfg.time
     # The slot we should be at, according to the clock
     wallSlot = wallTime.slotOrZero
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
-    delay = wallTime - expectedSlot.start_beacon_time()
+    delay = wallTime - expectedSlot.start_beacon_time(timeConfig)
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
@@ -2145,10 +2151,11 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   return false
 
 proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
+  let timeConfig = node.dag.cfg.time
   var
     curSlot = startTime.slotOrZero()
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+    timeToNextSlot = nextSlot.start_beacon_time(timeConfig) - startTime
 
   info "Scheduling first slot action",
     startTime = shortLog(startTime),
@@ -2186,7 +2193,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
         wallSlot = shortLog(wallSlot)
 
       # cur & next slot remain the same
-      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
+      timeToNextSlot = nextSlot.start_beacon_time(timeConfig) - wallTime
       continue
 
     if wallSlot > nextSlot + SLOTS_PER_EPOCH:
@@ -2202,7 +2209,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
       curSlot = wallSlot - SLOTS_PER_EPOCH
     elif wallSlot > nextSlot:
       notice "Missed expected slot start, catching up",
-        delay = shortLog(wallTime - nextSlot.start_beacon_time()),
+        delay = shortLog(wallTime - nextSlot.start_beacon_time(timeConfig)),
         curSlot = shortLog(curSlot),
         nextSlot = shortLog(curSlot)
 
@@ -2212,7 +2219,8 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+    timeToNextSlot =
+      nextSlot.start_beacon_time(timeConfig) - node.beaconClock.now()
 
 proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
@@ -2506,9 +2514,11 @@ type StopFuture = Future[void].Raising([CancelledError])
 
 proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   let
+    timeConfig = node.dag.cfg.time
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
+    genesisTime = node.beaconClock.fromNow(
+      GENESIS_SLOT.start_beacon_time(timeConfig))
 
   notice "Starting beacon node",
     version = fullVersionStr,
@@ -2516,7 +2526,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
+      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(timeConfig),
     head = shortLog(head),
     justified = shortLog(getStateField(
       node.dag.headState, current_justified_checkpoint)),

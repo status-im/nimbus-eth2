@@ -65,7 +65,8 @@ suite "Block processor" & preset():
     var
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
-      getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
+      getTimeFn = proc(): BeaconTime =
+        b2.message.slot.start_beacon_time(cfg.time)
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,

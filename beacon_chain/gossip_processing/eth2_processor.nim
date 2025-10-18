@@ -236,7 +236,9 @@ proc processSignedBeaconBlock*(
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlock.message.slot.start_beacon_time
+  let
+    timeConfig = self.dag.cfg.time
+    delay = wallTime - signedBlock.message.slot.start_beacon_time(timeConfig)
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -301,7 +303,9 @@ proc processBlobSidecar*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - block_header.slot.start_beacon_time
+  let
+    timeConfig = self.dag.cfg.time
+    delay = wallTime - block_header.slot.start_beacon_time(timeConfig)
   debug "Blob received", delay
 
   let v =
@@ -346,7 +350,9 @@ proc processDataColumnSidecar*(
     dcs = shortLog(dataColumnSidecar)
     wallSlot
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - block_header.slot.start_beacon_time
+  let
+    timeConfig = self.dag.cfg.time
+    delay = wallTime - block_header.slot.start_beacon_time(timeConfig)
   debug "Data column received", delay
 
   let v =

@@ -92,7 +92,9 @@ AllTests-mainnet
 ## Beacon time
 ```diff
 + Dependent slots                                                                            OK
-+ basics                                                                                     OK
++ basics (SECONDS_PER_SLOT=12)                                                               OK
++ basics (SECONDS_PER_SLOT=5)                                                                OK
++ basics (SECONDS_PER_SLOT=6)                                                                OK
 ```
 ## Beacon validators test suite
 ```diff

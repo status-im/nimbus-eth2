@@ -857,7 +857,7 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
     "<unknown>"
   else:
     $(minSlot.attestation_deadline(vc.timeConfig) -
-      slot.start_beacon_time())
+      slot.start_beacon_time(vc.timeConfig))
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
@@ -875,7 +875,7 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
     "<unknown>"
   else:
     $(minSlot.block_deadline(vc.timeConfig) -
-      slot.start_beacon_time())
+      slot.start_beacon_time(vc.timeConfig))
 
 iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
                                  epoch: Epoch): DutyAndProof =
@@ -1248,8 +1248,9 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     chronosOffset = chronos.nanoseconds(
       if offset.nanoseconds < 0: 0'i64 else: offset.nanoseconds)
 
-  var timeToSlot = (destinationSlot.start_beacon_time() - currentTime) +
-                   chronosOffset
+  var timeToSlot =
+    (destinationSlot.start_beacon_time(vc.timeConfig) - currentTime) +
+    chronosOffset
 
   logScope:
     start_time = shortLog(currentTime)
@@ -1282,8 +1283,9 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
       else:
         # Time moved back by a single slot - this could be a minor adjustment,
         # for example when NTP does its thing after not working for a while
-        timeToSlot = destinationSlot.start_beacon_time() - wallTime +
-                     chronosOffset
+        timeToSlot =
+          (destinationSlot.start_beacon_time(vc.timeConfig) - wallTime) +
+          chronosOffset
         if showLogs:
           warn "System time adjusted backwards, rescheduling slot actions"
         continue
@@ -1348,7 +1350,7 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
                     node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
-    delay = wallTime - eblck.slot.start_beacon_time()
+    delay = wallTime - eblck.slot.start_beacon_time(vc.timeConfig)
 
   debug "Block received", slot = eblck.slot,
         block_root = shortLog(eblck.block_root), optimistic = eblck.optimistic,
@@ -1391,7 +1393,8 @@ proc waitForBlock*(
   ## by the beacon node.
   let
     startTime = Moment.now()
-    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+    waitTime =
+      (slot.start_beacon_time(vc.timeConfig) + timediff) - vc.beaconClock.now()
 
   logScope:
     slot = slot

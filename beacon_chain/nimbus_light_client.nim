@@ -266,7 +266,7 @@ proc main() {.noinline, raises: [CatchableError].} =
     let
       wallSlot = wallTime.slotOrZero()
       expectedSlot = lastSlot + 1
-      delay = wallTime - expectedSlot.start_beacon_time()
+      delay = wallTime - expectedSlot.start_beacon_time(cfg.time)
 
       finalizedHeader = lightClient.finalizedHeader
       optimisticHeader = lightClient.optimisticHeader
@@ -303,7 +303,7 @@ proc main() {.noinline, raises: [CatchableError].} =
     var
       curSlot = getBeaconTime().slotOrZero()
       nextSlot = curSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
     while true:
       await sleepAsync(timeToNextSlot)
 
@@ -315,7 +315,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
       curSlot = wallSlot
       nextSlot = wallSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
 
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()

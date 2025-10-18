@@ -223,7 +223,8 @@ proc on_attestation*(
        attesting_indices: openArray[ValidatorIndex],
        wallTime: BeaconTime
      ): FcResult[void] =
-  ? self.update_time(dag, max(wallTime, attestation_slot.start_beacon_time))
+  ? self.update_time(dag,
+    max(wallTime, attestation_slot.start_beacon_time(dag.cfg.time)))
 
   if attestation_slot < self.checkpoints.time.slotOrZero:
     for validator_index in attesting_indices:
@@ -271,7 +272,8 @@ proc process_block*(self: var ForkChoice,
                     unrealized: FinalityCheckpoints,
                     blck: ForkyTrustedBeaconBlock,
                     wallTime: BeaconTime): FcResult[void] =
-  ? update_time(self, dag, max(wallTime, blckRef.slot.start_beacon_time))
+  ? update_time(self, dag,
+    max(wallTime, blckRef.slot.start_beacon_time(dag.cfg.time)))
 
   for attester_slashing in blck.body.attester_slashings:
     for idx in getValidatorIndices(attester_slashing):
