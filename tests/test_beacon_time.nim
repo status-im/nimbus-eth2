@@ -60,14 +60,9 @@ suite "Beacon time":
       check:
         counts == 2
 
-  test "basics (SECONDS_PER_SLOT=12)":
-    doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 12))
-
-  test "basics (SECONDS_PER_SLOT=6)":
-    doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 6))
-
-  test "basics (SECONDS_PER_SLOT=5)":
-    doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 5))
+  for SECONDS_PER_SLOT in [5'u64, 6, 12]:
+    test "basics (SECONDS_PER_SLOT=" & $SECONDS_PER_SLOT & ")":
+      doBasicsTest(TimeConfig(SECONDS_PER_SLOT: SECONDS_PER_SLOT))
 
   test "Dependent slots":
     check:
