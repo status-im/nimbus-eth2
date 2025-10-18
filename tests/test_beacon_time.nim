@@ -64,7 +64,7 @@ suite "Beacon time":
     doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 12))
 
   test "basics (SECONDS_PER_SLOT=6)":
-    doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 5))
+    doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 6))
 
   test "basics (SECONDS_PER_SLOT=5)":
     doBasicsTest(TimeConfig(SECONDS_PER_SLOT: 5))
