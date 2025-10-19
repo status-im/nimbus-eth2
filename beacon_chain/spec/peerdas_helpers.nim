@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronos, chronicles, results, taskpools,
+  chronos, chronicles, results, taskpools, times,
   eth/p2p/discoveryv5/node,
   kzg4844/kzg,
   ssz_serialization/[
@@ -151,7 +151,8 @@ proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
-    dataColumns: seq[ref fulu.DataColumnSidecar]):
+    dataColumns: seq[ref fulu.DataColumnSidecar],
+    slotDuration: int64):
     Result[seq[CellsAndProofs], cstring] =
   ## This helper recovers blobs from the data column sidecars parallelly
   if dataColumns.len == 0:
@@ -170,13 +171,15 @@ proc recover_cells_and_proofs_parallel*(
     res = newSeq[CellsAndProofs](blobCount)
 
   let startTime = Moment.now()
-  const reconstructionTimeout = 2.seconds
+  let reconstructionTimeout =
+    (initDuration(nanoseconds = slotDuration * 100_000_000)).inNanoseconds()
+
 
   # ---- Spawn phase with time limit ----
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out while preparing columns",
+    if (now - startTime).nanoseconds > reconstructionTimeout:
+      debug "PeerDAS column reconstruction timed out while preparing columns",
         spawned = pendingFuts.len, total = blobCount
       break  # Stop spawning new tasks
 
@@ -191,8 +194,8 @@ proc recover_cells_and_proofs_parallel*(
   # ---- Sync phase ----
   for i in 0 ..< pendingFuts.len:
     let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out",
+    if (now - startTime).nanoseconds > reconstructionTimeout:
+      debug "PeerDAS column reconstruction timed out while preparing columns",
         completed = i, totalSpawned = pendingFuts.len
       return err("Data column reconstruction timed out")
 
@@ -207,6 +210,11 @@ proc recover_cells_and_proofs_parallel*(
 
   ok(res)
 
+proc recover_cells_and_proofs_parallel*(
+    tp: Taskpool,
+    dataColumns: seq[ref fulu.DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring] =
+  recover_cells_and_proofs_parallel(tp, dataColumns, 10000'i64)
 
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,

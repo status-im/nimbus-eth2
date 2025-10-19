@@ -1713,6 +1713,16 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     warn "Failed to get the current slot head"
     return
 
+  let
+    currentCgc = node.dataColumnQuarantine.custodyColumns.lenu64
+    nonSupernode =
+      currentCgc > node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2 and
+      currentCgc < node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+
+  if not(node.config.peerdasSupernode) or
+     nonSupernode:
+    return
+
   withBlck(blck):
     when consensusFork >= ConsensusFork.Fulu:
       let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
@@ -1741,7 +1751,8 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
-        node.batchVerifier[].taskpool, columns).valueOr:
+        node.batchVerifier[].taskpool, columns,
+        node.dag.cfg.time.SECONDS_PER_SLOT.int64).valueOr:
           error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
