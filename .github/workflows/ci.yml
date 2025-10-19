@@ -54,10 +54,15 @@ jobs:
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
+              cpu: amd64
             builder: macos-13
           - target:
+              os: macos
+              cpu: arm64
+            builder: macos-latest
+          - target:
               os: windows
-            builder: windows-2019
+            builder: windows-2022
 
     defaults:
       run:
@@ -65,7 +70,17 @@ jobs:
 
     name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
+
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
+      - name: Clean workspace (very aggressive)
+        if: contains(matrix.builder, 'self-hosted')
+        run: rm -rf "$GITHUB_WORKSPACE"/*
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -88,23 +103,6 @@ jobs:
           curl -L "$MINGW_URL" -o "external/mingw-${{ matrix.target.cpu }}.zip"
           7z x -y "external/mingw-${{ matrix.target.cpu }}.zip" -oexternal/mingw-${{ matrix.target.cpu }}/
           mv external/mingw-${{ matrix.target.cpu }}/**/* ./external/mingw-${{ matrix.target.cpu }}
-
-      - name: Restore Nim DLLs dependencies (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-dlls-cache
-        uses: actions/cache@v4
-        with:
-          path: external/dlls-${{ matrix.target.cpu }}
-          key: 'dlls-${{ matrix.target.cpu }}'
-
-      - name: Install DLLs dependencies (Windows)
-        if: >
-          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir -p external
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
 
       - name: Path to cached dependencies (Windows)
         if: >
@@ -219,31 +217,39 @@ jobs:
     name: "Developer builds"
     runs-on: ['self-hosted','ubuntu-22.04']
     steps:
+      - name: Fix nim cache conflicts
+        run: |
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
+          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
+
+      - name: Clean workspace (very aggressive)
+        run: rm -rf "$GITHUB_WORKSPACE"/*
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Build with developer flags
-        run: |
-          make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
-
       - name: Build files with isMainModule
         run: |
-          executables=(
-            "beacon_chain/el/deposit_contract"
-            "beacon_chain/fork_choice/fork_choice"
-            "beacon_chain/fork_choice/proto_array"
-            "beacon_chain/networking/network_metadata_downloads"
-            "beacon_chain/era_db"
-            "beacon_chain/trusted_node_sync"
-            "benchmarks/rest_api_benchmark"
-            "tests/mocking/mock_genesis"
-          )
+          makefile_content=$(<./Makefile)
+          executables=()
+          while IFS= read -r file; do
+              base=$(basename "$file" ".nim")
+              if ! grep -qw "$base" <<< "$makefile_content"; then
+                  executables+=("$file")
+              fi
+          done < <(grep -Rl --include="*.nim" --exclude-dir=vendor "when isMainModule:" .)
+          make -j update
           source env.sh
           for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
           done
+
+      - name: Build with custom SECONDS_PER_SLOT
+        run: |
+          source env.sh
+          nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE -d:SECONDS_PER_SLOT=1 beacon_chain/nimbus_beacon_node
 
   lint:
     name: "Lint"
@@ -259,7 +265,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml|config.nims|beacon_chain.nimble"
-          excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc"
+          excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc|sh"
 
           current_year=$(date +"%Y")
           problematic_files=()
@@ -282,13 +288,13 @@ jobs:
         run: |
           problematic_files=()
           while read -r file; do
-            if ! grep -qE '^{\.push raises: \[\]\.}$' "$file"; then
+            if ! grep -qE '^{\.push raises: \[\](, gcsafe)?\.}$' "$file"; then
               problematic_files+=("$file")
             fi
           done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -E '\.nim$' || true)
 
           if (( ${#problematic_files[@]} )); then
-            echo "The following files do not have '{.push raises: [].}':"
+            echo "The following files do not have '{.push raises: [], gcsafe.}' (gcsafe optional):"
             for file in "${problematic_files[@]}"; do
               echo "- $file"
             done

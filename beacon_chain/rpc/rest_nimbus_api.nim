@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[sequtils],
+  std/sequtils,
   stew/base10,
   chronicles,
   chronos/apps/http/httpdebug,
@@ -16,7 +16,6 @@ import
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../el/el_manager,
-  ../validators/beacon_validators,
   ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
@@ -107,8 +106,6 @@ type
     connected*: bool
 
 RestJson.useDefaultSerializationFor(
-  BlockProposalEth1Data,
-  Eth1BlockObj,
   RestChronosMetricsInfo,
   RestConnectionInfo,
   RestFutureInfo,
@@ -255,32 +252,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         except ValueError:
           return RestApiResponse.jsonResponse((result: false))
     RestApiResponse.jsonResponse((result: true))
-
-  router.api2(MethodGet, "/nimbus/v1/eth1/chain") do () -> RestApiResponse:
-    let res = mapIt(node.elManager.eth1ChainBlocks, it)
-    RestApiResponse.jsonResponse(res)
-
-  router.api2(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
-    ) -> RestApiResponse:
-    let wallSlot = node.beaconClock.now.slotOrZero
-    let head =
-      block:
-        let res = node.getSyncedHead(wallSlot)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                           $res.error())
-        let tres = res.get()
-        if not tres.executionValid:
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        tres
-    let proposalState = assignClone(node.dag.headState)
-    node.dag.withUpdatedState(
-        proposalState[],
-        head.atSlot(wallSlot).toBlockSlotId().expect("not nil")):
-      return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(updatedState))
-    do:
-      return RestApiResponse.jsonError(Http400, PrunedStateError)
 
   router.api2(MethodGet, "/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:
@@ -531,3 +502,47 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         delay: uint64(delay.nanoseconds)
       )
     RestApiResponse.jsonResponsePlain(response)
+
+  router.metricsApi2(
+    MethodGet,
+    "/nimbus/v1/debug/beacon/states/{state_id}/historical_summaries",
+    {RestServerMetricsType.Status, Response},
+  ) do(state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError, $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Capella:
+          const historicalSummariesFork =
+            historicalSummariesForkAtConsensusFork(consensusFork)
+              .expect("HistoricalSummariesFork for Capella onwards")
+
+          let response = getHistoricalSummariesResponse(historicalSummariesFork)(
+            historical_summaries: forkyState.data.historical_summaries,
+            proof: forkyState.data
+              .build_proof(historicalSummariesFork.historical_summaries_gindex)
+              .expect("Valid gindex"),
+            slot: bslot.slot,
+          )
+
+          if contentType == jsonMediaType:
+            RestApiResponse.jsonResponseFinalizedWVersion(
+              response,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork, node.hasRestAllowedOrigin)
+          elif contentType == sszMediaType:
+            RestApiResponse.sszResponse(
+              response, consensusFork, node.hasRestAllowedOrigin)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        else:
+          RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)

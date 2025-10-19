@@ -44,7 +44,7 @@ func compute_slot_signing_root*(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
   compute_signing_root(slot, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     privkey: ValidatorPrivKey): CookedSig =
@@ -165,7 +165,7 @@ proc verify_attestation_signature*(
 
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-is_valid_deposit_signature
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#new-is_valid_deposit_signature
 func compute_deposit_signing_root(
     version: Version,
     deposit_message: DepositMessage): Eth2Digest =
@@ -337,7 +337,7 @@ proc verify_sync_committee_selection_proof*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/validator.md#signature
 func compute_contribution_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof): Eth2Digest =
@@ -373,30 +373,31 @@ proc verify_contribution_and_proof_signature*(
 
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 func compute_builder_signing_root(
-    fork: Fork,
-    msg: deneb_mev.BuilderBid | electra_mev.BuilderBid | fulu_mev.BuilderBid |
+    genesis_fork_version: Version,
+      msg: electra_mev.BuilderBid | fulu_mev.BuilderBid |
          ValidatorRegistrationV1): Eth2Digest =
-  # Uses genesis fork version regardless
-  doAssert fork.current_version == fork.previous_version
-
-  let domain = get_domain(
-    fork, DOMAIN_APPLICATION_BUILDER, GENESIS_EPOCH, ZERO_HASH)
+  # Fork = none in spec which means GENESIS_FORK_VERSION:
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/phase0/beacon-chain.md#compute_domain
+  let domain = compute_domain(
+    DOMAIN_APPLICATION_BUILDER, genesis_fork_version, ZERO_HASH)
   compute_signing_root(msg, domain)
 
 proc get_builder_signature*(
-    fork: Fork, msg: ValidatorRegistrationV1, privkey: ValidatorPrivKey):
+    genesis_fork_version: Version,
+    msg: ValidatorRegistrationV1, privkey: ValidatorPrivKey):
     CookedSig =
-  let signing_root = compute_builder_signing_root(fork, msg)
+  let signing_root = compute_builder_signing_root(genesis_fork_version, msg)
   blsSign(privkey, signing_root.data)
 
 proc verify_builder_signature*(
-    fork: Fork, msg: deneb_mev.BuilderBid | electra_mev.BuilderBid |
-    fulu_mev.BuilderBid | ValidatorRegistrationV1,
+    genesis_fork_version: Version,
+    msg: electra_mev.BuilderBid |
+          fulu_mev.BuilderBid | ValidatorRegistrationV1,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
-  let signing_root = compute_builder_signing_root(fork, msg)
+  let signing_root = compute_builder_signing_root(genesis_fork_version, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange): Eth2Digest =
@@ -423,4 +424,85 @@ proc verify_bls_to_execution_change_signature*(
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_bid_signature
+func compute_execution_payload_bid_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadBid,
+    state: gloas.BeaconState): Eth2Digest =
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_bid_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadBid, state: gloas.BeaconState,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_execution_payload_bid_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_bid_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadBid, state: gloas.BeaconState,
+    pubkey: ValidatorPubKey | CookedPubKey,
+    signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_bid_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+func compute_execution_payload_envelope_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadEnvelope,
+    state: gloas.BeaconState): Eth2Digest =
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadEnvelope, state: gloas.BeaconState,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: gloas.SignedExecutionPayloadEnvelope, state: gloas.BeaconState,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/validator.md#constructing-a-payload-attestation
+func compute_payload_attestation_message_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage): Eth2Digest =
+  let
+    epoch = msg.data.slot.epoch
+    domain = get_domain(
+      fork, DOMAIN_PTC_ATTESTER, epoch, genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+func get_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)

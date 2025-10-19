@@ -15,7 +15,7 @@ import
   ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
-  ../beacon_chain/spec/eth2_merkleization,
+  ../beacon_chain/spec/[eth2_merkleization, forks],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management
@@ -29,8 +29,6 @@ from ../tests/mocking/mock_genesis import mockEth1BlockHash
 func init(T: type IpAddress, ip: IpAddress): T = ip
 
 type
-  Eth1Address = web3.Address
-
   StartUpCommand {.pure.} = enum
     generateDeposits
     createTestnet
@@ -169,10 +167,6 @@ type
         desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" .}: OutFile
 
-      outputDepositTreeSnapshot* {.
-        desc: "Output file where to write the initial deposit tree snapshot"
-        name: "output-deposit-tree-snapshot" .}: OutFile
-
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" .}: OutFile
@@ -240,9 +234,6 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: web3.FixedBytes[32])
 
-template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
-  T(data: distinctBase(address))
-
 template `as`(address: Hash32, T: type Eth2Digest): T =
   asEth2Digest(address)
 
@@ -254,7 +245,7 @@ func getOrDefault[T](x: Opt[T]): T =
 
 func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -270,7 +261,7 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -287,7 +278,7 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
 
 func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
+    fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
@@ -303,58 +294,6 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
-
-func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
-    state_root: blk.stateRoot as Eth2Digest,
-    receipts_root: blk.receiptsRoot as Eth2Digest,
-    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toBytesBE),
-    block_number: uint64 blk.number,
-    gas_limit: uint64 blk.gasLimit,
-    gas_used: uint64 blk.gasUsed,
-    timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
-    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
-    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
-
-func `as`(blk: BlockObject, T: type fulu.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
-    state_root: blk.stateRoot as Eth2Digest,
-    receipts_root: blk.receiptsRoot as Eth2Digest,
-    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
-    block_number: uint64 blk.number,
-    gas_limit: uint64 blk.gasLimit,
-    gas_used: uint64 blk.gasUsed,
-    timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
-    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
-    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
-
-func createDepositContractSnapshot(
-    deposits: seq[DepositData],
-    blockHash: Eth2Digest,
-    blockHeight: uint64): DepositContractSnapshot =
-  var merkleizer = DepositsMerkleizer.init()
-  for i, deposit in deposits:
-    let htr = hash_tree_root(deposit)
-    merkleizer.addChunk(htr.data)
-
-  DepositContractSnapshot(
-    eth1Block: blockHash,
-    depositContractState: merkleizer.toDepositContractState,
-    blockHeight: blockHeight)
 
 proc writeValue*(writer: var JsonWriter, value: DateTime) {.
      raises: [IOError].} =
@@ -453,9 +392,10 @@ proc doCreateTestnet*(config: CliConfig,
             err = err.msg
       quit 1
 
-  template createAndSaveState(genesisExecutionPayloadHeader: auto): Eth2Digest =
+  template createAndSaveState(consensusFork: static ConsensusFork): Eth2Digest =
     var initialState = newClone(initialize_beacon_state_from_eth1(
-        cfg, eth1Hash, startTime, deposits, genesisExecutionPayloadHeader,
+        cfg, consensusFork, eth1Hash, startTime, deposits,
+        genesisBlock as consensusFork.ExecutionPayloadHeader,
         {skipBlsValidation}))
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -474,26 +414,19 @@ proc doCreateTestnet*(config: CliConfig,
     info "SSZ genesis file written",
           path = outSszGenesis, fork = kind(typeof initialState[])
 
-    SSZ.saveFile(
-      config.outputDepositTreeSnapshot.string,
-      createDepositContractSnapshot(
-        deposits,
-        genesisExecutionPayloadHeader.block_hash,
-        genesisExecutionPayloadHeader.block_number).getTreeSnapshot())
-
     initialState[].genesis_validators_root
 
   let genesisValidatorsRoot =
     if config.fuluForkEpoch == 0:
-      createAndSaveState(genesisBlock as fulu.ExecutionPayloadHeader)
+      createAndSaveState(ConsensusFork.Fulu)
     elif config.electraForkEpoch == 0:
-      createAndSaveState(genesisBlock as electra.ExecutionPayloadHeader)
+      createAndSaveState(ConsensusFork.Electra)
     elif config.denebForkEpoch == 0:
-      createAndSaveState(genesisBlock as deneb.ExecutionPayloadHeader)
+      createAndSaveState(ConsensusFork.Deneb)
     elif config.capellaForkEpoch == 0:
-      createAndSaveState(genesisBlock as capella.ExecutionPayloadHeader)
+      createAndSaveState(ConsensusFork.Capella)
     else:
-      createAndSaveState(genesisBlock as bellatrix.ExecutionPayloadHeader)
+      createAndSaveState(ConsensusFork.Bellatrix)
 
   let bootstrapFile = string config.outputBootstrapFile
   if bootstrapFile.len > 0:
@@ -509,21 +442,6 @@ proc doCreateTestnet*(config: CliConfig,
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
-type
-  DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
-
-func ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
-
-proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
-  result = await newWeb3(web3Url)
-  if privateKey.len != 0:
-    result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])
-  else:
-    let accounts = await result.provider.eth_accounts()
-    doAssert(accounts.len > 0)
-    result.defaultAccount = accounts[0]
-
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 
 when isMainModule:
@@ -533,6 +451,21 @@ when isMainModule:
 
   from std/sequtils import mapIt, toSeq
   from std/terminal import readPasswordFromStdin
+
+  type
+    DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
+
+  func ethToWei(eth: UInt256): UInt256 =
+    eth * 1000000000000000000.u256
+
+  proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
+    result = await newWeb3(web3Url)
+    if privateKey.len != 0:
+      result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])
+    else:
+      let accounts = await result.provider.eth_accounts()
+      doAssert(accounts.len > 0)
+      result.defaultAccount = accounts[0]
 
   # Compiled version of /scripts/depositContract.v.py in this repo
   # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.

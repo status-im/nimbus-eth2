@@ -1381,8 +1381,7 @@ proc registerSyntheticAttestation*(
     let status = db.sqlCommitTransaction.exec()
     checkStatus()
 
-proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
-             {.raises: [IOError].} =
+proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR =
   ## Export the full slashing protection database
   ## to a json the Slashing Protection Database Interchange (Complete) Format
   result.metadata.interchange_format_version = "5"
@@ -1477,8 +1476,8 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
           )
         doAssert status.isOk()
 
-proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError].} =
+proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR):
+    SlashingImportStatus =
   ## Import a Slashing Protection Database Intermediate Representation
   ## file into the specified slashing protection DB
   ##

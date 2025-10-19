@@ -21,10 +21,10 @@ from ../beacon_chain/spec/beaconstate import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
+    cfg: RuntimeConfig,
     validators: Natural,
     eth1Data = Opt.none(Eth1Data),
-    flags: UpdateFlags = {},
-    cfg = defaultRuntimeConfig): BeaconChainDB =
+    flags: UpdateFlags = {}): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires FULU_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
@@ -63,7 +63,7 @@ proc makeTestDB*(
         hash_tree_root(default(BeaconBlockBody(consensusFork)))
       forkyState.root = hash_tree_root(forkyState.data)
 
-  result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+  result = BeaconChainDB.new("", cfg, inMemory = true)
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(

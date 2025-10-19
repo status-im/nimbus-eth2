@@ -8,7 +8,8 @@
 {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu],
+  ./datatypes/[
+    phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas],
   ./eth2_merkleization
 
 type
@@ -222,13 +223,13 @@ template finalized_root_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template FinalityBranch*(kind: static LightClientDataFork): auto =
+template FinalityBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.FinalityBranch]
+    electra.FinalityBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.FinalityBranch]
+    altair.FinalityBranch
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "BeaconState unsupported in " & $kind.}
 
 template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
@@ -239,11 +240,11 @@ template current_sync_committee_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
+template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.CurrentSyncCommitteeBranch]
+    electra.CurrentSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.CurrentSyncCommitteeBranch]
+    altair.CurrentSyncCommitteeBranch
   else:
     static: raiseAssert "Unreachable"
 
@@ -256,133 +257,133 @@ template next_sync_committee_gindex*(
   else:
     static: raiseAssert "Unreachable"
 
-template NextSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
+template NextSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
-    typedesc[electra.NextSyncCommitteeBranch]
+    electra.NextSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
-    typedesc[altair.NextSyncCommitteeBranch]
+    altair.NextSyncCommitteeBranch
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientHeader*(kind: static LightClientDataFork): auto =
+template LightClientHeader*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientHeader]
+    electra.LightClientHeader
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientHeader]
+    deneb.LightClientHeader
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientHeader]
+    capella.LightClientHeader
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientHeader]
+    altair.LightClientHeader
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientBootstrap*(kind: static LightClientDataFork): auto =
+template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientBootstrap]
+    electra.LightClientBootstrap
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientBootstrap]
+    deneb.LightClientBootstrap
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientBootstrap]
+    capella.LightClientBootstrap
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientBootstrap]
+    altair.LightClientBootstrap
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientUpdate*(kind: static LightClientDataFork): auto =
+template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientUpdate]
+    electra.LightClientUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientUpdate]
+    deneb.LightClientUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientUpdate]
+    capella.LightClientUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientUpdate]
+    altair.LightClientUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
+template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientFinalityUpdate]
+    electra.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientFinalityUpdate]
+    deneb.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientFinalityUpdate]
+    capella.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientFinalityUpdate]
+    altair.LightClientFinalityUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
+template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientOptimisticUpdate]
+    electra.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientOptimisticUpdate]
+    deneb.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientOptimisticUpdate]
+    capella.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientOptimisticUpdate]
+    altair.LightClientOptimisticUpdate
   else:
     static: raiseAssert "Unreachable"
 
-template LightClientStore*(kind: static LightClientDataFork): auto =
+template LightClientStore*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
-    typedesc[electra.LightClientStore]
+    electra.LightClientStore
   elif kind == LightClientDataFork.Deneb:
-    typedesc[deneb.LightClientStore]
+    deneb.LightClientStore
   elif kind == LightClientDataFork.Capella:
-    typedesc[capella.LightClientStore]
+    capella.LightClientStore
   elif kind == LightClientDataFork.Altair:
-    typedesc[altair.LightClientStore]
+    altair.LightClientStore
   else:
     static: raiseAssert "Unreachable"
 
 template Forky*(
     x: typedesc[ForkedLightClientHeader],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientHeader
 
 template Forky*(
     x: typedesc[ForkedLightClientBootstrap],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientBootstrap
 
 template Forky*(
     x: typedesc[ForkedLightClientUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientFinalityUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientFinalityUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientOptimisticUpdate],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientOptimisticUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientStore],
-    kind: static LightClientDataFork): auto =
+    kind: static LightClientDataFork): typedesc =
   kind.LightClientStore
 
-template Forked*(x: typedesc[ForkyLightClientHeader]): auto =
-  typedesc[ForkedLightClientHeader]
+template Forked*(x: typedesc[ForkyLightClientHeader]): typedesc =
+  ForkedLightClientHeader
 
-template Forked*(x: typedesc[ForkyLightClientBootstrap]): auto =
-  typedesc[ForkedLightClientBootstrap]
+template Forked*(x: typedesc[ForkyLightClientBootstrap]): typedesc =
+  ForkedLightClientBootstrap
 
-template Forked*(x: typedesc[ForkyLightClientUpdate]): auto =
-  typedesc[ForkedLightClientUpdate]
+template Forked*(x: typedesc[ForkyLightClientUpdate]): typedesc =
+  ForkedLightClientUpdate
 
-template Forked*(x: typedesc[ForkyLightClientFinalityUpdate]): auto =
-  typedesc[ForkedLightClientFinalityUpdate]
+template Forked*(x: typedesc[ForkyLightClientFinalityUpdate]): typedesc =
+  ForkedLightClientFinalityUpdate
 
-template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): auto =
-  typedesc[ForkedLightClientOptimisticUpdate]
+template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): typedesc =
+  ForkedLightClientOptimisticUpdate
 
-template Forked*(x: typedesc[ForkyLightClientStore]): auto =
-  typedesc[ForkedLightClientStore]
+template Forked*(x: typedesc[ForkyLightClientStore]): typedesc =
+  ForkedLightClientStore
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =
@@ -1003,6 +1004,76 @@ func migratingToDataFork*[
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
 
+# Convenience-based location for toExecutionPayloadHeader because this is the
+# first time we have access to `hash_tree_root` in a universally available
+# module
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: bellatrix.ExecutionPayload
+): bellatrix.ExecutionPayloadHeader =
+  bellatrix.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: capella.ExecutionPayload
+): capella.ExecutionPayloadHeader =
+  capella.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals), # [New in Capella]
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
+proc toExecutionPayloadHeader*(
+    payload: deneb.ExecutionPayload
+): deneb.ExecutionPayloadHeader =
+  deneb.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used, # [New in Deneb]
+    excess_blob_gas: payload.excess_blob_gas, # [New in Deneb]
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1036,25 +1107,9 @@ func toCapellaLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   capella.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: capella.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
@@ -1107,27 +1162,9 @@ func toDenebLightClientHeader(
     blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: deneb.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
@@ -1156,7 +1193,7 @@ func toElectraLightClientHeader(
   template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
+    execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
       state_root: payload.state_root,
@@ -1178,59 +1215,13 @@ func toElectraLightClientHeader(
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
-      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
+    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 

@@ -7,76 +7,45 @@
 
 {.push raises: [].}
 
-# Common routines for a BeaconNode and a ValidatorClient
+# Utilities common across several nimbus binaries (BN/VC/EC/Portal/etc)
 
 import
   # Standard library
-  std/[tables, strutils, terminal, typetraits],
+  std/[cpuinfo, exitprocs, os, tables, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2, metrics/chronos_httpserver,
+  stew/io2, metrics/chronos_httpserver, taskpools,
 
   # Local modules
-  ./spec/[helpers, keystore],
-  ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, conf_common, version]
+  ./spec/keystore,
+  ./buildinfo
+
+from ./spec/datatypes/base import SPEC_VERSION
+
+const specBanner* = "Ethereum consensus spec v" & SPEC_VERSION
+
+from system/ansi_c import c_malloc
+
+when defaultChroniclesStream.outputs.type.arity == 2:
+  from ./filepath import secureCreatePath
+
+  import stew/staticfor
 
 when defined(posix):
   import termios
 
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
-
-declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
-
 export
-  confutils, toml_serialization, beacon_clock, beacon_node_status, conf,
-  conf_common
+  confutils, toml_serialization
 
 type
-  SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [].}
-
-# silly chronicles, colors is a compile-time property
-when defaultChroniclesStream.outputs.type.arity == 2:
-  func stripAnsi(v: string): string =
-    var
-      res = newStringOfCap(v.len)
-      i: int
-
-    while i < v.len:
-      let c = v[i]
-      if c == '\x1b':
-        var
-          x = i + 1
-          found = false
-
-        while x < v.len: # look for [..m
-          let c2 = v[x]
-          if x == i + 1:
-            if c2 != '[':
-              break
-          else:
-            if c2 in {'0'..'9'} + {';'}:
-              discard # keep looking
-            elif c2 == 'm':
-              i = x + 1
-              found = true
-              break
-            else:
-              break
-          inc x
-
-        if found: # skip adding c
-          continue
-      res.add c
-      inc i
-
-    res
+  StdoutLogKind* {.pure.} = enum
+    Auto = "auto"
+    Colors = "colors"
+    NoColors = "nocolors"
+    Json = "json"
+    None = "none"
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -93,7 +62,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
 
 proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
   if stdoutKind == StdoutLogKind.Auto:
-    if isatty(stdout):
+    if getEnv("NO_COLOR").len == 0 and isatty(stdout):
       # On a TTY, let's be fancy
       StdoutLogKind.Colors
     else:
@@ -103,10 +72,6 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
       StdoutLogKind.NoColors
   else:
     stdoutKind
-
-when defaultChroniclesStream.outputs.type.arity == 2:
-  from std/os import splitFile
-  from "."/filepath import secureCreatePath
 
 proc setupFileLimits*() =
   when not defined(windows):
@@ -119,8 +84,18 @@ proc setupFileLimits*() =
       setMaxOpenFiles2(16384).isOkOr:
         warn "Cannot increase open file limit", err = osErrorMsg(error)
 
+proc writePanicLine*(v: varargs[string, `$`]) =
+  ## Attempt writing text to stderr, ignoring errors if it fails - useful when
+  ## logging has not yet been set up
+  try:
+    for s in v:
+      stderr.write(s)
+    stderr.write("\p")
+  except IOError:
+    discard # Nothing to do..
+
 proc setupLogging*(
-    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
+    logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
   # Here, we either write those logs to an output, or not, depending on the
   # given configuration.
@@ -129,9 +104,6 @@ proc setupLogging*(
   when defaultChroniclesStream.outputs.type.arity != 2:
     warn "Logging configuration options not enabled in the current build"
   else:
-    # Naive approach where chronicles will form a string and we will discard
-    # it, even if it could have skipped the formatting phase
-
     proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
@@ -142,9 +114,6 @@ proc setupLogging*(
 
     proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
       writeAndFlush(stdout, msg)
-
-    proc noColorsFlush(logLevel: LogLevel, msg: LogOutputStr) =
-      writeAndFlush(stdout, stripAnsi(msg))
 
     let fileWriter =
       if logFile.isSome():
@@ -171,14 +140,15 @@ proc setupLogging*(
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
-    let tmp = detectTTY(stdoutKind)
-
-    case tmp
-    of StdoutLogKind.Auto: raiseAssert "checked above"
+    case detectTTY(stdoutKind)
+    of StdoutLogKind.Auto:
+      raiseAssert "Auto-detection done in detectTTY"
     of StdoutLogKind.Colors:
       defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = true
     of StdoutLogKind.NoColors:
-      defaultChroniclesStream.outputs[0].writer = noColorsFlush
+      defaultChroniclesStream.outputs[0].writer = stdoutFlush
+      defaultChroniclesStream.outputs[0].colors = false
     of StdoutLogKind.Json:
       defaultChroniclesStream.outputs[0].writer = noOutput
 
@@ -190,56 +160,92 @@ proc setupLogging*(
     of StdoutLogKind.None:
      defaultChroniclesStream.outputs[0].writer = noOutput
 
+    staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
+      setLogEnabled(defaultChroniclesStream.outputs[i].writer != noOutput, i)
+
     if logFile.isSome():
       warn "The --log-file option is deprecated. Consider redirecting the standard output to a file instead"
   try:
     updateLogLevel(logLevel)
   except ValueError as err:
     try:
-      stderr.write "Invalid value for --log-level. " & err.msg
+      stderr.writeLine "Invalid value for --log-level. " & err.msg
     except IOError:
       echo "Invalid value for --log-level. " & err.msg
     quit 1
 
-template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
-  let
-    version = clientId & "\p" & copyrights & "\p\p" &
-      "eth2 specification v" & SPEC_VERSION & "\p\p" &
-      nimBanner
-
-  # TODO for some reason, copyrights are printed when doing `--help`
-  {.push warning[ProveInit]: off.}
-  let config = try:
-    ConfType.load(
-      version = version, # but a short version string makes more sense...
-      copyrightBanner = clientId,
-      secondarySources = proc (
-          config: ConfType, sources: ref SecondarySources
-      ) {.raises: [ConfigurationError].} =
-        if config.configFile.isSome:
-          sources.addConfigFile(Toml, config.configFile.get)
-    )
-  except CatchableError as err:
-    # We need to log to stderr here, because logging hasn't been configured yet
+proc setupTaskpool*(numThreads: int): Taskpool =
+  let taskpool =
     try:
-      stderr.write "Failure while loading the configuration:\n"
-      stderr.write err.msg
-      stderr.write "\n"
+      if numThreads < 0:
+        fatal "The number of threads --num-threads cannot be negative."
+        quit QuitFailure
+      elif numThreads == 0:
+        Taskpool.new(numThreads = min(countProcessors(), 16))
+      else:
+        Taskpool.new(numThreads = numThreads)
+    except CatchableError as e:
+      fatal "Cannot start taskpool", err = e.msg
+      quit QuitFailure
 
-      if err[] of ConfigurationError and
-        err.parent != nil and
-        err.parent[] of TomlFieldReadingError:
-        let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
-        if fieldName in ["web3-url", "bootstrap-node",
-                        "direct-peer", "validator-monitor-pubkey"]:
-          stderr.write "Since the '" & fieldName & "' option is allowed to " &
-                       "have more than one value, please make sure to supply " &
-                       "a properly formatted TOML array\n"
-    except IOError:
-      discard
-    quit 1
+  info "Taskpool started", numThreads = taskpool.numThreads
+
+  taskpool
+
+proc loadWithBanners*(
+    ConfType: type,
+    helpBanner, copyright: string,
+    versions: openArray[string],
+    ignoreUnknown = false,
+    environment: openArray[string] = [],
+): Result[ConfType, string] =
+  let
+    version =
+      [helpBanner, copyright].join("\p") & "\p\p" &
+      (@versions & @[nimBanner()]).join("\p")
+
+    cmdLine =
+      if len(environment) == 0:
+        try:
+          commandLineParams()
+        except OSError as exc:
+          return err(exc.msg)
+      else:
+        @environment
+
+  {.push warning[ProveInit]: off.}
+  let config =
+    try:
+      ConfType.load(
+        version = version, # what --version outputs
+        copyrightBanner = helpBanner, # what is shown on top of --help
+        cmdLine = cmdLine,
+        ignoreUnknown = ignoreUnknown,
+        secondarySources = proc(
+            config: ConfType, sources: ref SecondarySources
+        ) {.raises: [ConfigurationError], gcsafe.} =
+          if config.configFile.isSome:
+            sources.addConfigFile(Toml, config.configFile.get)
+        ,
+      )
+    except CatchableError as exc:
+      # Logging not configured yet!
+      var msg = "Failure while loading the configuration:\p" & exc.msg & "\p"
+      if (exc[] of ConfigurationError) and not (isNil(exc.parent)) and
+          (exc.parent[] of TomlFieldReadingError):
+        let fieldName = ((ref TomlFieldReadingError)(exc.parent)).field
+        if fieldName in
+            [
+              "el", "web3-url", "bootstrap-node", "direct-peer",
+              "validator-monitor-pubkey",
+            ]:
+          msg &=
+            "Since the '" & fieldName & "' option is allowed to " &
+            "have more than one value, please make sure to supply " &
+            "a properly formatted TOML array\p"
+      return err(msg)
   {.pop.}
-  config
+  ok(config)
 
 proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
                                stopAtEpoch: uint64): bool =
@@ -263,99 +269,19 @@ proc resetStdin*() =
     attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
     discard fd.tcSetAttr(TCSANOW, attrs.addr)
 
-proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
-  while true:
-    let exitLoop =
-      try:
-        await sleepAsync(60.seconds)
-        false
-      except CatchableError:
-        cache.clear()
-        true
-    if exitLoop: break
-    cache.pruneExpiredKeys()
+proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async: (raises: []).} =
+  try:
+    while true:
+      await sleepAsync(60.seconds)
+      cache.pruneExpiredKeys()
+  except CancelledError:
+    discard
+  cache.clear()
 
-proc sleepAsync*(t: TimeDiff): Future[void] =
-  sleepAsync(nanoseconds(
-    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
-
-proc sleepAsync2*(t: TimeDiff): Future[void] {.
+proc sleepAsync*(t: TimeDiff): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
-
-proc runSlotLoop*[T](node: T, startTime: BeaconTime,
-                     slotProc: SlotStartProc[T]) {.async.} =
-  var
-    curSlot = startTime.slotOrZero()
-    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - startTime
-
-  info "Scheduling first slot action",
-    startTime = shortLog(startTime),
-    nextSlot = shortLog(nextSlot),
-    timeToNextSlot = shortLog(timeToNextSlot)
-
-  while true:
-    # Start by waiting for the time when the slot starts. Sleeping relinquishes
-    # control to other tasks which may or may not finish within the alotted
-    # time, so below, we need to be wary that the ship might have sailed
-    # already.
-    await sleepAsync(timeToNextSlot)
-
-    let
-      wallTime = node.beaconClock.now()
-      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
-
-    if wallSlot < nextSlot:
-      # While we were sleeping, the system clock changed and time moved
-      # backwards!
-      if wallSlot + 1 < nextSlot:
-        # This is a critical condition where it's hard to reason about what
-        # to do next - we'll call the attention of the user here by shutting
-        # down.
-        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
-          nextSlot = shortLog(nextSlot),
-          wallSlot = shortLog(wallSlot)
-        bnStatus = BeaconNodeStatus.Stopping
-        return
-
-      # Time moved back by a single slot - this could be a minor adjustment,
-      # for example when NTP does its thing after not working for a while
-      warn "System time adjusted backwards, rescheduling slot actions",
-        wallTime = shortLog(wallTime),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      # cur & next slot remain the same
-      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
-      continue
-
-    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
-      # Time moved forwards by more than an epoch - either the clock was reset
-      # or we've been stuck in processing for a long time - either way, we will
-      # skip ahead so that we only process the events of the last
-      # SLOTS_PER_EPOCH slots
-      warn "Time moved forwards by more than an epoch, skipping ahead",
-        curSlot = shortLog(curSlot),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      curSlot = wallSlot - SLOTS_PER_EPOCH
-
-    elif wallSlot > nextSlot:
-        notice "Missed expected slot start, catching up",
-          delay = shortLog(wallTime - nextSlot.start_beacon_time()),
-          curSlot = shortLog(curSlot),
-          nextSlot = shortLog(curSlot)
-
-    let breakLoop = await slotProc(node, wallTime, curSlot)
-    if breakLoop:
-      break
-
-    curSlot = wallSlot
-    nextSlot = wallSlot + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
 
 proc init*(T: type RestServerRef,
            ip: IpAddress,
@@ -363,7 +289,7 @@ proc init*(T: type RestServerRef,
            allowedOrigin: Option[string],
            validateFn: PatternCallback,
            ident: string,
-           config: AnyConf): T =
+           config: auto): T =
   let
     address = initTAddress(ip, port)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
@@ -401,7 +327,7 @@ type
     token*: string
 
 proc initKeymanagerServer*(
-    config: AnyConf,
+    config: auto,
     existingRestServer: RestServerRef = nil): KeymanagerInitResult
     {.raises: [].} =
 
@@ -426,7 +352,7 @@ proc initKeymanagerServer*(
       fatal "The keymanager token should not be empty", tokenFilePath
       quit 1
 
-    when config is BeaconNodeConf:
+    when compiles(config.restPort):
       if existingRestServer != nil and
          config.restAddress == config.keymanagerAddress and
         config.restPort == config.keymanagerPort:
@@ -449,7 +375,7 @@ proc initKeymanagerServer*(
   KeymanagerInitResult(server: keymanagerServer, token: token)
 
 proc initMetricsServer*(
-    config: AnyConf
+    config: auto
 ): Future[Result[Opt[MetricsHttpServerRef], string]] {.
   async: (raises: [CancelledError]).} =
   if config.metricsEnabled:
@@ -493,3 +419,57 @@ proc quitDoppelganger*() =
 
   const QuitDoppelganger = 129
   quit QuitDoppelganger
+
+proc quitSlashing*() =
+  fatal "A known validator is slashed"
+
+  const QuitSlashing = 198
+  quit QuitSlashing
+
+proc defaultDataDir*(namespace, network: string): string =
+  ## Return the location to use by default for the given network - since
+  ## each network has its own blocks and configuration, separate the data
+  ## directories by chain to keep things simple.
+  ##
+  ## Namespace is for separating applications by namespace, ie when they don't
+  ## support sharing data directory - in particular, the validator client,
+  ## signing node and beacon node must use separate folders or they risk loading
+  ## the same keys!
+  ##
+  ## In theory, things like private keys could be shared between testnets and
+  ## mainnet, but this amounts to reusing the same keys for both environments
+  ## which seems dubious at best, security-wise.
+
+  let
+    base =
+      when defined(windows):
+        # Avoid roaming profile since DB is large
+        os.getEnv("LOCALAPPDATA", os.getEnv("APPDATA"))
+      elif defined(macos) or defined(macosx):
+        # Everything goes in here on mac
+        os.getHomeDir() / "Library/Application Support"
+      else:
+        # https://specifications.freedesktop.org/basedir-spec/0.8/#variables
+        os.getEnv("XDG_STATE_HOME", os.getEnv("HOME") / ".local/state")
+
+    nimbus = when defined(linux): "nimbus" else: "Nimbus"
+
+  var dir = base / nimbus
+
+  if namespace.len > 0:
+    dir = dir / namespace
+
+  if network.len > 0:
+    dir = dir / network
+
+  dir
+
+proc createPidFile*(filename: string) {.raises: [IOError].} =
+  var pidFile {.global.}: cstring # avoid gc
+  doAssert pidFile.len == 0, "PID file must only be created once"
+
+  writeFile filename, $os.getCurrentProcessId()
+  pidFile = cast[cstring](c_malloc(csize_t(filename.len + 1)))
+  copyMem(pidFile, cstring(filename), filename.len + 1)
+
+  addExitProc proc {.noconv.} = discard io2.removeFile($pidFile)

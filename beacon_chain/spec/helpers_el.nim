@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,7 +33,7 @@ func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
     for vHash in tx.versionedHashes:
       if commitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")
-      if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
+      if vHash != kzg_commitment_to_versioned_hash(commitments[i]):
         return err("Invalid `blob_versioned_hash` at index " & $i)
       inc i
   if i != commitments.len:

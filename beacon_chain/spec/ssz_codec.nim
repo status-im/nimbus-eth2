@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@ import
 from ./datatypes/altair import
   ParticipationFlags, EpochParticipationFlags
 
-export codec, base, typetraits, EpochParticipationFlags
+export codec, base, typetraits, ParticipationFlags, EpochParticipationFlags
 
 # Coding and decoding of SSZ to spec-specific types
 
@@ -26,6 +26,7 @@ template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
 template toSszType*(v: Version): auto = distinctBase(v)
 template toSszType*(v: JustificationBits): auto = distinctBase(v)
 template toSszType*(v: EpochParticipationFlags): auto = asList v
+template toSszType*(v: Eth1Address): auto = v.data()
 
 func fromSszBytes*(
     T: type GraffitiBytes, data: openArray[byte]): T {.raises: [SszError].} =
@@ -70,5 +71,12 @@ func fromSszBytes*(
   # TODO https://github.com/nim-lang/Nim/issues/21123
   let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
   readSszValue(bytes, tmp[])
+
+func fromSszBytes*(
+    T: type Eth1Address, bytes: openArray[byte]): T {.raises: [SszError].} =
+  if bytes.len != sizeof(result.data()):
+    raiseIncorrectSize T
+
+  copyMem(addr result.data()[0], unsafeAddr bytes[0], sizeof(result.data()))
 
 template toSszType*(v: HashedValidatorPubKey): auto = toRaw(v.pubkey)

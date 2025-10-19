@@ -15,7 +15,7 @@ import
   # Beacon chain internals
   spec/datatypes/altair,
   spec/[eth2_ssz_serialization, helpers],
-  ./db_limits
+  ./db_utils
 
 logScope: topics = "lcdata"
 
@@ -171,11 +171,6 @@ type
       ## {SyncCommitteePeriod}
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
-
-template disposeSafe(s: untyped): untyped =
-  if distinctBase(s) != nil:
-    s.dispose()
-    s = typeof(s)(nil)
 
 proc initHeadersStore(
     backend: SqStoreRef,

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
-  stew/shims/[sets, hashes], chronicles,
+  stew/shims/hashes, chronicles,
   ../spec/forks
 
+from stew/shims/sets import keepItIf
 from ../spec/validator import compute_subscribed_subnets
 from ../consensus_object_pools/block_pools_types import ShufflingRef
 from ../consensus_object_pools/spec_cache import
@@ -61,9 +62,8 @@ type
       ## for internal validators
 
     knownValidators*: Table[ValidatorIndex, Slot]
-      ## Validators that we've recently seen - we'll subscribe to one stability
-      ## subnet for each such validator - the slot is used to expire validators
-      ## that no longer are posting duties
+      ## Validators that we've recently seen - the slot is used to expire
+      ## validators that no longer are posting duties
 
     duties: HashSet[AggregatorDuty]
       ## Known aggregation duties in the near future - before each such
@@ -137,9 +137,8 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
     allSubnetBits
   else:
     var res: AttnetBits
-    if tracker.knownValidators.len > 0:
-      for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
-        res[subnetId.int] = true
+    for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
+      res[subnetId.int] = true
     res
 
 proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =

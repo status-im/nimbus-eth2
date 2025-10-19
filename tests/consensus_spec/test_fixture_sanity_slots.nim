@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import ../../beacon_chain/spec/forks
 import os_ops
-from std/strutils import parseInt
+from std/strutils import parseBiggestInt
 from ./fixtures_utils import SszTestsDir, parseTest
 from ../testutil import check, preset, suite, test
 from ../../beacon_chain/spec/state_transition import process_slots
@@ -22,7 +22,7 @@ proc runTest(
     suiteName, identifier: string) {.raises: [IOError, ValueError].} =
   let
     testDir = testDir / identifier
-    num_slots = readLines(testDir / "slots.yaml", 2)[0].parseInt.uint64
+    num_slots = readLines(testDir / "slots.yaml", 2)[0].parseBiggestInt.uint64
 
   test "EF - " & forkName & " - Slots - " & identifier & " [Preset: " & const_preset & "]":
     let
@@ -107,3 +107,12 @@ suite "EF - Fulu - Sanity - Slots " & preset():
       sanitySlotsDir, relative = true, checkDir = true):
     runTest(
       fulu.BeaconState, sanitySlotsDir, "Fulu", suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/gloas import BeaconState
+
+suite "EF - Gloas - Sanity - Slots " & preset():
+  const sanitySlotsDir = sanitySlotsDir("gloas")
+  for kind, path in walkDir(
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(
+      gloas.BeaconState, sanitySlotsDir, "Gloas", suiteName, path)

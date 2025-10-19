@@ -1,16 +1,15 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
-  ../beacon_chain/spec/[
-    datatypes/base, forks, presets, signatures, state_transition],
+  ../beacon_chain/spec/[forks, presets, signatures, state_transition],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, validator_change_pool],
   "."/[testutil, testblockutil, testdbutil]
@@ -82,11 +81,10 @@ suite "Validator change pool testing suite":
         tmp.FULU_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 5
         tmp
 
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(
-        ChainDAGRef, cfg, makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
-      fork = dag.forkAtEpoch(Epoch(0))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
+      fork {.used.} = dag.forkAtEpoch(Epoch(0))
       genesis_validators_root = dag.genesis_validators_root
       pool = newClone(ValidatorChangePool.init(dag))
 
@@ -200,7 +198,6 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 1,
       cache, info, {}).expect("ok")
-    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
       for j in 0'u64 .. i:
@@ -231,7 +228,6 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 2,
       cache, info, {}).expect("ok")
-    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
       var priorityMessages: seq[SignedBLSToExecutionChange]

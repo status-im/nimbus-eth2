@@ -16,9 +16,9 @@ import
 export client, rest_types, eth2_rest_serialization,
        rest_keymanager_types
 
-UUID.serializesAsBaseIn RestJson
-KeyPath.serializesAsBaseIn RestJson
-WalletName.serializesAsBaseIn RestJson
+UUID.serializesAsBase RestJson
+KeyPath.serializesAsBase RestJson
+WalletName.serializesAsBase RestJson
 
 proc raiseKeymanagerGenericError*(resp: RestPlainResponse) {.
      noreturn, raises: [RestError].} =

@@ -1,5 +1,5 @@
 # nimbus_signing_node
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures, forks],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
        "."/rpc/rest_constants,
-       "."/[conf, version, nimbus_binary_common],
+       "."/[buildinfo, conf, version, nimbus_binary_common],
        "."/validators/[keystore_management, validator_pool]
 
 const
@@ -42,6 +42,7 @@ type
     runKeystoreCachePruningLoopFut: Future[void]
     sigintHandleFut: Future[void]
     sigtermHandleFut: Future[void]
+    genesis_fork_version: Version
 
   SigningNodeRef* = ref SigningNode
 
@@ -114,19 +115,31 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
   ok(key)
 
 proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
+  let
+    genesis_fork_version =
+      # With `mainnet` compile-time preset, these are not available
+      if config.eth2Network == some("minimal"):
+        Version [byte 0x00, 0x00, 0x00, 0x01]
+      elif config.eth2Network == some("gnosis"):
+        Version [byte 0x00, 0x00, 0x00, 0x64]
+      else:
+        config.loadEth2Network().cfg.GENESIS_FORK_VERSION
+
   when declared(waitSignal):
     SigningNodeRef(
       config: config,
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
   else:
     SigningNodeRef(
       config: config,
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
-      keystoreCache: KeystoreCacheRef.init()
+      keystoreCache: KeystoreCacheRef.init(),
+      genesis_fork_version: genesis_fork_version,
     )
 
 template errorResponse(code: HttpCode, message: string): RestApiResponse =
@@ -238,18 +251,17 @@ proc installApiHandlers*(node: SigningNodeRef) =
 
         let (feeRecipientIndex, blockHeader) =
           case request.beaconBlockHeader.kind
-          of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
-            # `phase0` and `altair` blocks do not have `fee_recipient`, so
-            # we return an error.
+          of ConsensusFork.Phase0 .. ConsensusFork.Capella:
             return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Capella:
-            (GeneralizedIndex(401), request.beaconBlockHeader.data)
           of ConsensusFork.Deneb:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
           of ConsensusFork.Electra:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
           of ConsensusFork.Fulu:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
+          of ConsensusFork.Gloas:
+            debugGloasComment "do not this"
+            return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)
@@ -328,13 +340,11 @@ proc installApiHandlers*(node: SigningNodeRef) =
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
         let
-          forkInfo = request.forkInfo.get()
-          signature = get_builder_signature(forkInfo.fork,
+          signature = get_builder_signature(
+            node.genesis_fork_version,
             ValidatorRegistrationV1(
-              fee_recipient:
-                ExecutionAddress(data: distinctBase(Eth1Address.fromHex(
-                  request.validatorRegistration.feeRecipient))),
-              gas_limit: request.validatorRegistration.gasLimit,
+              fee_recipient: request.validatorRegistration.fee_recipient,
+              gas_limit: request.validatorRegistration.gas_limit,
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),
@@ -345,7 +355,7 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   notice "Launching signing node", version = fullVersionStr,
          cmdParams = commandLineParams(), config = sn.config
 
-  info "Initializaing validators", path = sn.config.validatorsDir()
+  info "Initializing validators", path = sn.config.validatorsDir()
   sn.loadKeystores()
 
   if sn.attachedValidators.count() == 0:
@@ -483,9 +493,20 @@ proc runSigningNode(config: SigningNodeConf) {.async: (raises: []).} =
   if not sn.runWithSignals(asyncRun sn):
     return
 
-programMain:
-  let config =
-    makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
-                        SigningNodeConf)
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
+  const
+    banner = "Nimbus signing node " & fullVersionStr
+    copyright =
+      "Copyright (c) 2021-" & compileYear & " Status Research & Development GmbH"
+
+  let config = SigningNodeConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    writePanicLine error # Logging not yet set up
+    quit QuitFailure
+
   setupLogging(config.logLevel, config.logStdout, config.logFile)
+
   waitFor runSigningNode(config)
+
+when isMainModule:
+  main()

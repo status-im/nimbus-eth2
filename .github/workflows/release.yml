@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -432,20 +432,26 @@ jobs:
           failOnError: false
           name: |
             Linux_amd64_archive
-            Linux_amd64_checksum
+            Linux_amd64_checksum_bn
+            Linux_amd64_checksum_vc
             Linux_amd64_packages
             Linux_arm64_archive
-            Linux_arm64_checksum
+            Linux_arm64_checksum_bn
+            Linux_arm64_checksum_vc
             Linux_arm64_packages
             Linux_arm_archive
-            Linux_arm_checksum
+            Linux_arm_checksum_bn
+            Linux_arm_checksum_vc
             Linux_arm_packages
             Windows_amd64_archive
-            Windows_amd64_checksum
+            Windows_amd64_checksum_bn
+            Windows_amd64_checksum_vc
             macOS_amd64_archive
-            macOS_amd64_checksum
+            macOS_amd64_checksum_bn
+            macOS_amd64_checksum_vc
             macOS_arm64_archive
-            macOS_arm64_checksum
+            macOS_arm64_checksum_bn
+            macOS_arm64_checksum_vc
 
       - name: Login to Docker Hub
         uses: docker/login-action@v1

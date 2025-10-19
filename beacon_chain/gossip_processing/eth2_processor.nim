@@ -5,17 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/tables,
+  std/[tables],
   chronicles, chronos, metrics,
   taskpools,
+  kzg4844/kzg,
+  ssz_serialization/types,
+  ../el/el_manager,
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -46,6 +49,10 @@ declareCounter blob_sidecars_received,
   "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
   "Number of invalid blobs dropped by this node", labels = ["reason"]
+declareCounter data_column_sidecars_received,
+  "Number of valid data columns processed by this node"
+declareCounter data_column_sidecars_dropped,
+  "Number of invalid data columns dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -88,6 +95,10 @@ declareHistogram beacon_block_delay,
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
+
+declareHistogram data_column_sidecar_delay,
+  "Time(s) betweeen slot start and data column sidecar reception",
+  buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -144,6 +155,8 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
+    dataColumnQuarantine*: ref ColumnQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -167,6 +180,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref ColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -185,6 +199,7 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -204,6 +219,8 @@ proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
     signedBlock: ForkySignedBeaconBlock,
     maybeFinalized: bool = false): ValidationRes =
+  const consensusFork = typeof(signedBlock).kind
+
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -225,49 +242,50 @@ proc processSignedBeaconBlock*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
-
-  if v.isOk():
-    # Block passed validation - enqueue it for processing. The block processing
-    # queue is effectively unbounded as we use a freestanding task to enqueue
-    # the block - this is done so that when blocks arrive concurrently with
-    # sync, we don't lose the gossip blocks, but also don't block the gossip
-    # propagation of seemingly good blocks
-    trace "Block validated"
-
-    if not(isNil(self.dag.onBlockGossipAdded)):
-      self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
-
-    let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
-        else:
-          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                                signedBlock)
-          return v
-      else:
-        Opt.none(BlobSidecars)
-
-    self.blockProcessor[].enqueueBlock(
-      src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
-      maybeFinalized = maybeFinalized,
-      validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
-
-    # Validator monitor registration for blocks is done by the processor
-    beacon_blocks_received.inc()
-    beacon_block_delay.observe(delay.toFloatSeconds())
-  else:
-    debug "Dropping block", error = v.error()
+  self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {}).isOkOr:
+    debug "Dropping block", err = error
 
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
 
-    beacon_blocks_dropped.inc(1, [$v.error[0]])
+    beacon_blocks_dropped.inc(1, [$error[0]])
+    return err(error)
 
-  v
+  # Block passed validation - enqueue it for processing. The block processing
+  # queue is effectively unbounded as we use a freestanding task to enqueue
+  # the block - this is done so that when blocks arrive concurrently with
+  # sync, we don't lose the gossip blocks, but also don't block the gossip
+  # propagation of seemingly good blocks
+  trace "Block validated"
+
+  if not (isNil(self.dag.onBlockGossipAdded)):
+    self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
+
+  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    let sidecarsOpt =
+      self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
+    if sidecarsOpt.isNone():
+      discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
+      return ok()
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    let sidecarsOpt = self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
+    if sidecarsOpt.isNone():
+      self.quarantine[].addSidecarless(signedBlock)
+      return ok()
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    const sidecarsOpt = noSidecars
+  else:
+    {.error: "Unknown fork " & $consensusFork.}
+
+  let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
+  self.blockProcessor.enqueueBlock(
+    src, signedBlock, sidecarsOpt, maybeFinalized, validationDur
+  )
+
+  # Validator monitor registration for blocks is done by the processor
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(delay.toFloatSeconds())
+
+  ok()
 
 proc processBlobSidecar*(
     self: var Eth2Processor, src: MsgSource,
@@ -295,27 +313,100 @@ proc processBlobSidecar*(
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(newClone(blobSidecar))
-
   let block_root = hash_tree_root(block_header)
-  if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
-    let blobless = o.unsafeGet()
-    withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
-        if self.blobQuarantine[].hasBlobs(forkyBlck):
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+  debug "Blob validated, putting in blob quarantine"
+  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
+
+  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
+    withBlck(o[]):
+      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
+        if bres.isSome():
+          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
         else:
-          discard self.quarantine[].addBlobless(
-            self.dag.finalizedHead.slot, forkyBlck)
+          self.quarantine[].addSidecarless(forkyBlck)
       else:
-        raiseAssert "Could not have been added as blobless"
+        raiseAssert "Could not be added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
 
+  v
+
+proc processDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    dataColumnSidecar: fulu.DataColumnSidecar,
+    subnet_id: uint64): ValidationRes =
+  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let
+    block_root = hash_tree_root(block_header)
+    wallTime = self.getCurrentBeaconTime()
+    (_, wallSlot) = wallTime.toSlot()
+  logScope:
+    dcs = shortLog(dataColumnSidecar)
+    wallSlot
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - block_header.slot.start_beacon_time
+  debug "Data column received", delay
+
+  let v =
+    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
+                                       dataColumnSidecar, wallTime, subnet_id)
+  if v.isErr():
+    debug "Dropping data column", error = v.error()
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+  debug "Data column validated, putting data column in quarantine"
+  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
+    withBlck(o[]):
+      when consensusFork >= ConsensusFork.Fulu and
+          consensusFork < ConsensusFork.Gloas:
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+        if cres.isSome():
+          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
+        else:
+          discard self.quarantine[].addSidecarless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not be added as columnless"
+
+  data_column_sidecars_received.inc()
+  data_column_sidecar_delay.observe(delay.toFloatSeconds())
+
+  v
+
+proc processDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    dataColumnSidecar: gloas.DataColumnSidecar,
+    subnet_id: uint64): ValidationRes =
+  let
+    block_root = dataColumnSidecar.beacon_block_root
+    wallTime = self.getCurrentBeaconTime()
+    (_, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    dcs = shortLog(dataColumnSidecar)
+    wallSlot
+
+  debug "Data column received (Gloas - quarantine not implemented)"
+
+  let v = self.dag.validateDataColumnSidecar(
+    self.quarantine, self.dataColumnQuarantine,
+    dataColumnSidecar, wallTime, subnet_id)
+
+  if v.isErr():
+    debug "Dropping data column", error = v.error()
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debugGloasComment ""
+  # TODO: Implement quarantine logic for Gloas
+  # For now, just validate and drop
+  debug "Data column validated (not stored - quarantine TODO)"
+
+  data_column_sidecars_received.inc()
   v
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
@@ -364,8 +455,9 @@ proc checkForPotentialDoppelganger(
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: phase0.Attestation | SingleAttestation,
-    subnet_id: SubnetId, checkSignature, checkValidator: bool
-): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+    subnet_id: SubnetId, checkSignature, checkValidator: bool,
+    fork: ConsensusFork):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -379,12 +471,18 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - attestation.data.slot.attestation_deadline
+  let
+    timeConfig = self.dag.cfg.time
+    delay = wallTime - attestation.data.slot.attestation_deadline(timeConfig)
   debug "Attestation received", delay
 
-  # Now proceed to validation
-  let v = await self.attestationPool.validateAttestation(
-    self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
+  let v = when attestation is phase0.Attestation:
+    await self.attestationPool.validateAttestation(
+      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
+  else:
+    await self.attestationPool.validateAttestation(
+      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature, fork)
+
   return if v.isOk():
     # Due to async validation the wallTime here might have changed
     wallTime = self.getCurrentBeaconTime()
@@ -422,7 +520,8 @@ proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     signedAggregateAndProof:
       phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes]
+    checkSignature = true, checkCover = true,
+    fork: ConsensusFork): Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -440,14 +539,14 @@ proc processSignedAggregateAndProof*(
 
   # Potential under/overflows are fine; would just create odd logs
   let
+    timeConfig = self.dag.cfg.time
     slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline
+    delay = wallTime - slot.aggregate_deadline(timeConfig)
   debug "Aggregate received", delay
 
-  let v =
-    await self.attestationPool.validateAggregate(
-      self.batchCrypto, signedAggregateAndProof, wallTime,
-      checkSignature = checkSignature, checkCover = checkCover)
+  let v = await self.attestationPool.validateAggregate(
+    self.batchCrypto, signedAggregateAndProof, wallTime,
+    checkSignature = checkSignature, checkCover = checkCover, fork)
 
   return if v.isOk():
     # Due to async validation the wallTime here might have changed
@@ -504,6 +603,15 @@ proc processBlsToExecutionChange*(
 
   return v
 
+proc checkKnownValidatorSlashing(
+    self: var Eth2Processor,
+    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+  for idx in getValidatorIndices(msg):
+    let i = ValidatorIndex.init(idx).valueOr:
+      continue
+    if self.blockProcessor[].consensusManager[].actionTracker.knownValidators.hasKey(i):
+      quitSlashing()
+
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
@@ -517,6 +625,8 @@ proc processAttesterSlashing*(
 
   if v.isOk():
     trace "Attester slashing validated"
+
+    self.checkKnownValidatorSlashing(attesterSlashing)
 
     self.validatorChangePool[].addMessage(attesterSlashing)
 
@@ -540,6 +650,8 @@ proc processProposerSlashing*(
   let v = self.validatorChangePool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
+
+    self.checkKnownValidatorSlashing(proposerSlashing)
 
     self.validatorChangePool[].addMessage(proposerSlashing)
 
@@ -591,7 +703,10 @@ proc processSyncCommitteeMessage*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - syncCommitteeMsg.slot.sync_committee_message_deadline
+  let
+    timeConfig = self.dag.cfg.time
+    slot = syncCommitteeMsg.slot
+    delay = wallTime - slot.sync_committee_message_deadline(timeConfig)
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -639,8 +754,9 @@ proc processSignedContributionAndProof*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
+    timeConfig = self.dag.cfg.time
     slot = contributionAndProof.message.contribution.slot
-    delay = wallTime - slot.sync_contribution_deadline
+    delay = wallTime - slot.sync_contribution_deadline(timeConfig)
   debug "Contribution received", delay
 
   # Now proceed to validation

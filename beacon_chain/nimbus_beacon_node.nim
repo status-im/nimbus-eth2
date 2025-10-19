@@ -8,35 +8,33 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  system/ansi_c,
+  std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
-  eth/p2p/discoveryv5/[enr, random2],
+  kzg4844/kzg,
+  eth/enr/enr,
+  eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, data_column_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
-    deposit_snapshots, engine_authentication, weak_subjectivity,
-    peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
+    engine_authentication, weak_subjectivity, peerdas_helpers],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
-  "."/[
-    beacon_node, beacon_node_light_client, deposits,
-    nimbus_binary_common, statusbar, trusted_node_sync, wallets]
+  ./[
+    beacon_node, beacon_node_light_client, buildinfo, deposits,
+    nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
-when defined(posix):
-  import system/ansi_c
-
-from ./spec/datatypes/deneb import SignedBeaconBlock
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
+from std/algorithm import sort
+from std/sequtils import filterIt, mapIt, toSeq
+from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
+from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
@@ -111,7 +109,6 @@ proc doRunTrustedNodeSync(
     trustedBlockRoot: Option[Eth2Digest],
     backfill: bool,
     reindex: bool,
-    downloadDepositSnapshot: bool,
     genesisState: ref ForkedHashedBeaconState) {.async.} =
   let syncTarget =
     if stateId.isSome:
@@ -138,7 +135,6 @@ proc doRunTrustedNodeSync(
     syncTarget,
     backfill,
     reindex,
-    downloadDepositSnapshot,
     genesisState)
 
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
@@ -146,22 +142,22 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
       onUpgradeToElectra:              electraColor,
-      onKnownCompoundingChange:        electraBlink)
+      onKnownCompoundingChange:        electraBlink,
+      onUpgradeToFulu:                 fuluColor,
+      onBlobParametersUpdate:          fuluColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
       onUpgradeToElectra:              electraMono,
-      onKnownCompoundingChange:        electraMono)
+      onKnownCompoundingChange:        electraMono,
+      onUpgradeToFulu:                 fuluMono,
+      onBlobParametersUpdate:          fuluMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onUpgradeToCapella:
-        (proc() = notice "🦉 Withdrowls now available 🦉"),
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
@@ -169,12 +165,19 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToElectra:
         (proc() = notice "🦒 Compounding is available 🦒"),
       onKnownCompoundingChange:
-        (proc() = notice "🦒 Compounding is activated 🦒"))
+        (proc() = notice "🦒 Compounding is activated 🦒"),
+      onUpgradeToFulu:
+        (proc() = notice "🐅 Blobs columnized 🐅"),
+      onBlobParametersUpdate:
+        (proc() = notice "🐅 Blob parameters updated 🐅"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
+  debugGloasComment "don't know vanity mascot yet"
   case consensusFork
+  of ConsensusFork.Gloas:
+    "?"
   of ConsensusFork.Fulu:
-    "❓"
+    "🐅"
   of ConsensusFork.Electra:
     "🦒"
   of ConsensusFork.Deneb:
@@ -202,24 +205,24 @@ proc loadChainDag(
     if dag == nil: return
     withForkyFinalityUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+        let
+          contextEpoch = forkyFinalityUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.finUpdateQueue.emit(
           RestVersioned[ForkedLightClientFinalityUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
       when lcDataFork > LightClientDataFork.None:
-        let contextFork =
-          dag.cfg.consensusForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+        let
+          contextEpoch = forkyOptimisticUpdate.contextEpoch
+          contextFork = dag.cfg.consensusForkAtEpoch(contextEpoch)
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch)
         eventBus.optUpdateQueue.emit(
           RestVersioned[ForkedLightClientOptimisticUpdate](
-            data: data,
-            jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
+            data: data, jsonVersion: contextFork, sszContext: contextBytes))
 
   let
     chainDagFlags =
@@ -309,12 +312,14 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
+  proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
+    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
-        some node.dag.is_optimistic(data.toBlockId())
+        Opt.some node.dag.is_optimistic(data.toBlockId())
       else:
-        none[bool]()
+        Opt.none(bool)
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
   proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
@@ -324,7 +329,7 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(
+        res.optimistic = Opt.some node.dag.is_optimistic(
           BlockId(slot: data.slot, root: data.block_root))
         res
       else:
@@ -334,7 +339,7 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(
+        res.optimistic = Opt.some node.dag.is_optimistic(
           BlockId(slot: data.slot, root: data.new_head_block))
         res
       else:
@@ -347,18 +352,13 @@ proc initFullNode(
       elManager: ELManager): OnFinalizedCallback {.nimcall.} =
     static: doAssert (elManager is ref)
     return proc(dag: ChainDAGRef, data: FinalizationInfoObject) =
-      if elManager != nil:
-        let finalizedEpochRef = dag.getFinalizedEpochRef()
-        discard trackFinalizedState(elManager,
-                                    finalizedEpochRef.eth1_data,
-                                    finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
       let eventData =
         if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
           var res = data
           # `slot` in this `BlockId` may be higher than block's actual slot,
           # this is alright for the purpose of calling `is_optimistic`.
-          res.optimistic = some node.dag.is_optimistic(
+          res.optimistic = Opt.some node.dag.is_optimistic(
             BlockId(slot: data.epoch.start_slot, root: data.block_root))
           res
         else:
@@ -393,15 +393,18 @@ proc initFullNode(
     isSlotWithinWeakSubjectivityPeriod(node.dag,
       node.beaconClock.now().slotOrZero())
 
+  proc forkAtEpoch(epoch: Epoch): ConsensusFork =
+    consensusForkAtEpoch(dag.cfg, epoch)
+
   proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
     await node.shutdownEvent.wait()
-    bnStatus = BeaconNodeStatus.Stopping
+    ProcessState.scheduleStop("shutdownEvent")
 
   asyncSpawn eventWaiter()
 
   let
     quarantine = newClone(
-      Quarantine.init())
+      Quarantine.init(dag.cfg))
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
       onSingleAttestationReceived))
@@ -414,18 +417,24 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
-      dag.cfg, onBlobSidecarAdded))
-    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
+      dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
-        NUMBER_OF_CUSTODY_GROUPS.uint64
+        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
-        CUSTODY_REQUIREMENT.uint64
-    custody_columns_set =
-      node.network.nodeId.resolve_column_sets_from_custody_groups(
-          max(SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
+        dag.cfg.CUSTODY_REQUIREMENT
+    custodyColumns =
+      dag.cfg.resolve_columns_from_custody_groups(
+        node.network.nodeId, localCustodyGroups)
+
+  var sortedColumns = custodyColumns.toSeq()
+  sort(sortedColumns)
+
+  let
+    dataColumnQuarantine = newClone(ColumnQuarantine.init(
+      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -435,17 +444,25 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, getBeaconTime)
-
+      blobQuarantine, dataColumnQuarantine, getBeaconTime,
+      config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-      # The design with a callback for block verification is unusual compared
-      # to the rest of the application, but fits with the general approach
-      # taken in the sync/request managers - this is an architectural compromise
-      # that should probably be reimagined more holistically in the future.
-      blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+      withBlck(signedBlock):
+        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+          # TODO document why there are no columns here
+          let sidecarsOpt = Opt.none(DataColumnSidecars)
+        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+          template sidecarsOpt: untyped = blobs
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+          const sidecarsOpt = noSidecars
+        else:
+          {.error: "Unkown fork: " & $consensusFork.}
+
+        blockProcessor.addBlock(
+          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
+
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
@@ -455,23 +472,38 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
-          else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
-                                      maybeFinalized = maybeFinalized)
+        when consensusFork == ConsensusFork.Gloas:
+          debugGloasComment "no blob_kzg_commitments field for gloas"
+          let sidecarsOpt = Opt.none(DataColumnSidecars)
+        elif consensusFork == ConsensusFork.Fulu:
+          let sidecarsOpt =
+            dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if sidecarsOpt.isNone():
+            # We don't have all the columns for this block, so we have
+            # to put it in columnless quarantine.
+            return
+              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
+                err(VerifierError.UnviableFork)
+              else:
+                err(VerifierError.MissingParent)
+        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
+          let sidecarsOpt = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if sidecarsOpt.isNone():
+            # We don't have all the sidecars for this block, so we have
+            # to put it to the quarantine.
+            return
+              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
+                err(VerifierError.UnviableFork)
+              else:
+                err(VerifierError.MissingParent)
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+          const sidecarsOpt = noSidecars
         else:
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
-                                    maybeFinalized = maybeFinalized)
+          {.error: "Unkown fork: " & $consensusFork.}
+
+        await blockProcessor.addBlock(
+          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized
+        )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
@@ -483,18 +515,19 @@ proc initFullNode(
       else:
         Opt.none(ref BlobSidecar)
     rmanDataColumnLoader = proc(
-        columnId: DataColumnIdentifier): Opt[ref DataColumnSidecar] =
-      var data_column_sidecar = DataColumnSidecar.new()
+        columnId: DataColumnIdentifier): Opt[ref fulu.DataColumnSidecar] =
+      var data_column_sidecar = fulu.DataColumnSidecar.new()
       if dag.db.getDataColumnSidecar(columnId.block_root, columnId.index, data_column_sidecar[]):
         Opt.some data_column_sidecar
       else:
-        Opt.none(ref DataColumnSidecar)
+        Opt.none(ref fulu.DataColumnSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
+      rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -509,7 +542,7 @@ proc initFullNode(
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.tail.slot, blockVerifier,
+      dag.tail.slot, blockVerifier, forkAtEpoch,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
@@ -521,7 +554,7 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     clistPivotSlot =
@@ -529,6 +562,7 @@ proc initFullNode(
         clist.tail.get().blck.slot()
       else:
         getLocalWallSlot()
+    eaSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -538,17 +572,19 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
+      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH,
-      getBeaconTime, (proc(): bool = syncManager.inProgress),
+      node.network, supernode, custodyColumns,
+      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+    validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
+      dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -569,16 +605,10 @@ proc initFullNode(
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
-  dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.resolve_columns_from_custody_groups(
-      max(SAMPLES_PER_SLOT.uint64,
-      localCustodyGroups))
-
   if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -602,8 +632,10 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.dag.eaSlot = eaSlot
   node.list = clist
   node.blobQuarantine = blobQuarantine
+  node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -614,6 +646,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
+  node.validatorCustody = validatorCustody
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager
@@ -676,16 +709,17 @@ const
   SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
-proc init*(T: type BeaconNode,
-           rng: ref HmacDrbgContext,
-           config: BeaconNodeConf,
-           metadata: Eth2NetworkMetadata): Future[BeaconNode]
-          {.async.} =
+proc init*(
+    T: type BeaconNode,
+    rng: ref HmacDrbgContext,
+    config: BeaconNodeConf,
+    metadata: Eth2NetworkMetadata,
+    taskpool: Taskpool,
+): Future[BeaconNode] {.async.} =
   var
     genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
-  template eth1Network: auto = metadata.eth1Network
 
   if not(isDir(config.databaseDir)):
     # If database directory missing, we going to use genesis state to check
@@ -695,7 +729,7 @@ proc init*(T: type BeaconNode,
         metadata, config.genesisState, config.genesisStateUrl)
     let
       genesisTime = getStateField(genesisState[], genesis_time)
-      beaconClock = BeaconClock.init(genesisTime).valueOr:
+      beaconClock = BeaconClock.init(metadata.cfg.time, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
         quit 1
       currentSlot = beaconClock.now().slotOrZero()
@@ -717,21 +751,6 @@ proc init*(T: type BeaconNode,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
           quit 1
 
-  let taskpool =
-    try:
-      if config.numThreads < 0:
-        fatal "The number of threads --num-threads cannot be negative."
-        quit 1
-      elif config.numThreads == 0:
-        Taskpool.new(numThreads = min(countProcessors(), 16))
-      else:
-        Taskpool.new(numThreads = config.numThreads)
-    except CatchableError as e:
-      fatal "Cannot start taskpool", err = e.msg
-      quit 1
-
-  info "Threadpool started", numThreads = taskpool.numThreads
-
   if metadata.genesis.kind == BakedIn:
     if config.genesisState.isSome:
       warn "The --genesis-state option has no effect on networks with built-in genesis state"
@@ -752,6 +771,7 @@ proc init*(T: type BeaconNode,
       phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
       electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+      columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
@@ -801,15 +821,11 @@ proc init*(T: type BeaconNode,
         config.eraDir,
         config.externalBeaconApiUrl.get,
         config.trustedStateRoot.map do (x: Eth2Digest) -> string:
-          "0x" & x.data.toHex,
+          x.data.to0xHex(),
         trustedBlockRoot,
         backfill = false,
         reindex = false,
-        downloadDepositSnapshot = false,
         genesisState)
-
-  if config.finalizedCheckpointBlock.isSome:
-    warn "--finalized-checkpoint-block has been deprecated, ignoring"
 
   let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -831,24 +847,6 @@ proc init*(T: type BeaconNode,
     tmp
   else:
     nil
-
-  if config.finalizedDepositTreeSnapshot.isSome:
-    let
-      depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-      snapshot =
-        try:
-          SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
-        except SszError as err:
-          fatal "Deposit tree snapshot loading failed",
-                err = formatMsg(err, depositTreeSnapshotPath)
-          quit 1
-        except CatchableError as err:
-          fatal "Failed to read deposit tree snapshot file", err = err.msg
-          quit 1
-      depositContractSnapshot = DepositContractSnapshot.init(snapshot).valueOr:
-        fatal "Invalid deposit tree snapshot file"
-        quit 1
-    db.putDepositContractSnapshot(depositContractSnapshot)
 
   let engineApiUrls = config.engineApiUrls
 
@@ -915,6 +913,7 @@ proc init*(T: type BeaconNode,
   # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
+      cfg.time,
       config.validatorMonitorAuto,
       config.validatorMonitorTotals.get(
         not config.validatorMonitorDetails)))
@@ -927,7 +926,7 @@ proc init*(T: type BeaconNode,
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
       quit 1
 
@@ -959,16 +958,7 @@ proc init*(T: type BeaconNode,
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
 
-  let elManager = ELManager.new(
-    cfg,
-    metadata.depositContractBlock,
-    metadata.depositContractBlockHash,
-    db,
-    engineApiUrls,
-    eth1Network)
-
-  if config.rpcEnabled.isSome:
-    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
+  let elManager = ELManager.new(engineApiUrls, metadata.eth1Network)
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
@@ -1072,8 +1062,6 @@ proc init*(T: type BeaconNode,
     keymanagerServer: keymanagerInitResult.server,
     keystoreCache: keystoreCache,
     eventBus: eventBus,
-    gossipState: {},
-    blocksGossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
@@ -1107,21 +1095,8 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-from std/sequtils import toSeq
-
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
-
-func forkDigests(node: BeaconNode): auto =
-  let forkDigestsArray: array[ConsensusFork, auto] = [
-    node.dag.forkDigests.phase0,
-    node.dag.forkDigests.altair,
-    node.dag.forkDigests.bellatrix,
-    node.dag.forkDigests.capella,
-    node.dag.forkDigests.deneb,
-    node.dag.forkDigests.electra,
-    node.dag.forkDigests.fulu]
-  forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
@@ -1137,6 +1112,9 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
+    validatorsCount =
+      withState(node.dag.headState):
+        forkyState.data.validators.lenu64
 
   node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -1149,12 +1127,12 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   # Remember what we subscribed to, so we can unsubscribe later
   node.consensusManager[].actionTracker.subscribedSubnets = subnets
 
-  let forkDigests = node.forkDigests()
-
-  for gossipFork in node.gossipState:
-    let forkDigest = forkDigests[gossipFork]
+  for gossipEpoch in node.gossipState:
+    let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, forkDigest)
-    node.network.subscribeAttestationSubnets(subscribeSubnets, forkDigest)
+    node.network.subscribeAttestationSubnets(
+      subscribeSubnets, forkDigest,
+      getAttestationSubnetTopicParams(validatorsCount))
 
   debug "Attestation subnets",
     slot, epoch = slot.epoch, gossipState = node.gossipState,
@@ -1178,10 +1156,7 @@ proc updateBlocksGossipStatus*(
         # Use DAG status to determine whether to subscribe for blocks gossip
         dagIsBehind
 
-    targetGossipState = getTargetGossipState(
-      slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-      cfg.FULU_FORK_EPOCH, isBehind)
+    targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1198,29 +1173,35 @@ proc updateBlocksGossipStatus*(
     discard
 
   let
-    newGossipForks = targetGossipState - currentGossipState
-    oldGossipForks = currentGossipState - targetGossipState
+    newGossipEpochs = targetGossipState - currentGossipState
+    oldGossipEpochs = currentGossipState - targetGossipState
 
-  for gossipFork in oldGossipForks:
-    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in oldGossipEpochs:
+    let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
-  for gossipFork in newGossipForks:
-    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
+  for gossipEpoch in newGossipEpochs:
+    let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
+  let validatorsCount =
+    withState(node.dag.headState):
+      forkyState.data.validators.lenu64
   node.network.subscribe(
-    getAggregateAndProofsTopic(forkDigest), aggregateTopicParams,
-    enableTopicMetrics = true)
+    getAttesterSlashingsTopic(forkDigest), getAttesterSlashingTopicParams())
+  node.network.subscribe(
+    getProposerSlashingsTopic(forkDigest), getProposerSlashingTopicParams())
+  node.network.subscribe(
+    getVoluntaryExitsTopic(forkDigest), getVoluntaryExitTopicParams())
+  node.network.subscribe(
+    getAggregateAndProofsTopic(forkDigest),
+    getAggregateProofTopicParams(validatorsCount), enableTopicMetrics = true)
 
   # updateAttestationSubnetHandlers subscribes attestation subnets
 
@@ -1233,7 +1214,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for subnet_id in SubnetId:
     node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
 
-  node.consensusManager[].actionTracker.subscribedSubnets = default(AttnetBits)
+  node.consensusManager[].actionTracker.subscribedSubnets.reset()
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
@@ -1279,35 +1260,62 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
+func readCustodyGroupSubnets(node: BeaconNode): uint64 =
+  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
+  if node.config.peerdasSupernode:
+    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+  elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
+    vcus_count
+  else:
+    node.dag.cfg.CUSTODY_REQUIREMENT
+
+proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
+  let
+    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId, targetSubnets.uint64)
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.subscribe(topic, basicParams())
+
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
 
   # If this comes online near sync committee period, it'll immediately get
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
-  let syncnets = node.getSyncCommitteeSubnets(slot.epoch)
+  let
+    syncnets = node.getSyncCommitteeSubnets(slot.epoch)
+    validatorsCount =
+      withState(node.dag.headState):
+        forkyState.data.validators.lenu64
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if syncnets[subcommitteeIdx]:
       node.network.subscribe(
-        getSyncCommitteeTopic(forkDigest, subcommitteeIdx), basicParams)
+        getSyncCommitteeTopic(forkDigest, subcommitteeIdx),
+        getSyncCommitteeSubnetTopicParams(validatorsCount))
 
   node.network.subscribe(
-    getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
+    getSyncCommitteeContributionAndProofTopic(forkDigest),
+    getSyncContributionTopicParams())
 
   node.network.updateSyncnetsMetadata(syncnets)
 
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
+  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest),
+    getBlsToExecutionChangeTopicParams())
 
 proc doAddDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
     blobSidecarSubnetCount: uint64) =
   node.addCapellaMessageHandlers(forkDigest, slot)
   for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
-    node.network.subscribe(topic, basicParams)
+    node.network.subscribe(topic, basicParams())
 
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1319,9 +1327,16 @@ proc addElectraMessageHandlers(
   node.doAddDenebMessageHandlers(
     forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
-proc addFuluMessageHandlers(
+proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addElectraMessageHandlers(forkDigest, slot)
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  debugGloasComment "default gossipsub config"
+  node.network.subscribe(
+    getExecutionPayloadBidTopic(forkDigest), basicParams())
+  node.network.subscribe(
+    getExecutionPayloadTopic(forkDigest), basicParams())
+  node.network.subscribe(
+    getPayloadAttestationMessageTopic(forkDigest), basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1353,7 +1368,24 @@ proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
     forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeElectraMessageHandlers(forkDigest)
+  # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
+  # of columns. Last common ancestor fork for gossip environment is Capellla.
+  node.removeCapellaMessageHandlers(forkDigest)
+
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.dag.cfg.get_custody_groups(
+      node.network.nodeId, targetSubnets.uint64)
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.unsubscribe(topic)
+
+proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeFuluMessageHandlers(forkDigest)
+  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
+  node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
+  node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1386,18 +1418,21 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       syncnets - node.network.metadata.syncnets
     oldSyncnets =
       node.network.metadata.syncnets - syncnets
-    forkDigests = node.forkDigests()
+    validatorsCount =
+      withState(node.dag.headState):
+        forkyState.data.validators.lenu64
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     doAssert not (newSyncnets[subcommitteeIdx] and
                   oldSyncnets[subcommitteeIdx])
-    for gossipFork in node.gossipState:
-      template topic(): auto =
-        getSyncCommitteeTopic(forkDigests[gossipFork], subcommitteeIdx)
+    for gossipEpoch in node.gossipState:
+      template topic(): auto = getSyncCommitteeTopic(
+        node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg), subcommitteeIdx)
       if oldSyncnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
       elif newSyncnets[subcommitteeIdx]:
-        node.network.subscribe(topic, basicParams)
+        node.network.subscribe(topic,
+          getSyncCommitteeSubnetTopicParams(validatorsCount))
 
   node.network.updateSyncnetsMetadata(syncnets)
 
@@ -1413,7 +1448,8 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
       validator.doppelgangerChecked(epoch - 1)
 
 proc maybeUpdateActionTrackerNextEpoch(
-    node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
+    node: BeaconNode, forkyState: ForkyHashedBeaconState, currentSlot: Slot) =
+  let nextEpoch = currentSlot.epoch + 1
   if node.consensusManager[].actionTracker.needsUpdate(
       forkyState, nextEpoch):
     template epochRefFallback() =
@@ -1431,6 +1467,7 @@ proc maybeUpdateActionTrackerNextEpoch(
         shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
           # epochRefFallback() won't work in this case either
           return
+        # using the separate method of proposer indices calculation in Fulu
         nextEpochProposers = get_beacon_proposer_indices(
           forkyState.data, shufflingRef.shuffled_active_validator_indices,
           nextEpoch)
@@ -1474,7 +1511,12 @@ proc maybeUpdateActionTrackerNextEpoch(
         effective_balance = forkyState.data.validators.item(
           nextEpochFirstProposer).effective_balance
 
-      if  participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
+      # Maximal potential accuracy primarily useful during the last slot of
+      # each epoch to prepare for a possible proposal the first slot of the
+      # next epoch. Otherwise, epochRefFallback is potentially very slow as
+      # it can induce a lengthy state replay.
+      if (not (currentSlot + 1).is_epoch) or
+         (participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
           participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
           effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
           forkyState.data.slot.epoch != GENESIS_EPOCH and
@@ -1482,7 +1524,7 @@ proc maybeUpdateActionTrackerNextEpoch(
             nextEpochFirstProposer) == 0 and
           not effective_balance_might_update(
             forkyState.data.balances.item(nextEpochFirstProposer),
-            effective_balance):
+            effective_balance)):
         node.consensusManager[].actionTracker.updateActions(
           shufflingRef, nextEpochProposers)
       else:
@@ -1505,7 +1547,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
 
   let
     head = node.dag.head
@@ -1515,38 +1557,31 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     isBehind =
       headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
     targetGossipState =
-      getTargetGossipState(
-        slot.epoch,
-        node.dag.cfg.ALTAIR_FORK_EPOCH,
-        node.dag.cfg.BELLATRIX_FORK_EPOCH,
-        node.dag.cfg.CAPELLA_FORK_EPOCH,
-        node.dag.cfg.DENEB_FORK_EPOCH,
-        node.dag.cfg.ELECTRA_FORK_EPOCH,
-        node.dag.cfg.FULU_FORK_EPOCH,
-        isBehind)
+      getTargetGossipState(slot.epoch, node.dag.cfg, isBehind)
 
-  doAssert targetGossipState.card <= 2
+  doAssert targetGossipState.len <= 2
 
   let
-    newGossipForks = targetGossipState - node.gossipState
-    oldGossipForks = node.gossipState - targetGossipState
+    newGossipEpochs = targetGossipState - node.gossipState
+    oldGossipEpochs = node.gossipState - targetGossipState
 
-  doAssert newGossipForks.card <= 2
-  doAssert oldGossipForks.card <= 2
+  doAssert newGossipEpochs.len <= 2
+  doAssert oldGossipEpochs.len <= 2
 
-  func maxGossipFork(gossipState: GossipState): int =
-    var res = -1
-    for gossipFork in gossipState:
-      res = max(res, gossipFork.int)
+  # TODO properly or reconsider, should become sort of trivial now
+  func maxGossipEpoch(gossipState: GossipState): uint64 =
+    var res = 0'u64
+    for gossipEpoch in gossipState:
+      res = max(res, distinctBase(gossipEpoch))
     res
 
-  if  maxGossipFork(targetGossipState) < maxGossipFork(node.gossipState) and
-      targetGossipState != {}:
+  if  maxGossipEpoch(targetGossipState) < maxGossipEpoch(node.gossipState) and
+      targetGossipState.len > 0:
     warn "Unexpected clock regression during transition",
       targetGossipState,
       gossipState = node.gossipState
 
-  if node.gossipState.card == 0 and targetGossipState.card > 0:
+  if node.gossipState.len == 0 and targetGossipState.len > 0:
     # We are synced, so we will connect
     debug "Enabling topic subscriptions",
       wallSlot = slot,
@@ -1567,17 +1602,15 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.consensusManager[].actionTracker.updateActions(
           epochRef.shufflingRef, epochRef.beacon_proposers)
 
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
-  if node.gossipState.card > 0 and targetGossipState.card == 0:
+  if node.gossipState.len > 0 and targetGossipState.len == 0:
     debug "Disabling topic subscriptions",
       wallSlot = slot,
       headSlot = head.slot,
       headDistance
 
     node.processor[].clearDoppelgangerProtection()
-
-  let forkDigests = node.forkDigests()
 
   const removeMessageHandlers: array[ConsensusFork, auto] = [
     removePhase0MessageHandlers,
@@ -1586,11 +1619,14 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeCapellaMessageHandlers,
     removeDenebMessageHandlers,
     removeElectraMessageHandlers,
-    removeFuluMessageHandlers
+    removeFuluMessageHandlers,
+    removeGloasMessageHandlers
   ]
 
-  for gossipFork in oldGossipForks:
-    removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
+  for gossipEpoch in oldGossipEpochs:
+    let gossipFork = node.dag.cfg.consensusForkAtEpoch(gossipEpoch)
+    removeMessageHandlers[gossipFork](
+      node, node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg))
 
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
@@ -1599,13 +1635,27 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addCapellaMessageHandlers,
     addDenebMessageHandlers,
     addElectraMessageHandlers,
-    addFuluMessageHandlers
+    addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
+    addGloasMessageHandlers
   ]
 
-  for gossipFork in newGossipForks:
-    addMessageHandlers[gossipFork](node, forkDigests[gossipFork], slot)
+  for gossipEpoch in newGossipEpochs:
+    let gossipFork = node.dag.cfg.consensusForkAtEpoch(gossipEpoch)
+    addMessageHandlers[gossipFork](
+      node, node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg), slot)
 
   node.gossipState = targetGossipState
+
+  # Validator custody can change in the middle of a fork/BPO interval; need to
+  # subscribe to potentially new column topics. Do this after node.gossipState
+  # is updated to avoid adding immediately unsubscribed subscriptions. Custody
+  # can only grow in a node's lifetime, so only address additive case. It can,
+  # therefore, overlap existing subscriptions, rather than separately tracking
+  # them.
+  for gossipEpoch in node.gossipState:
+    if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
+      node.updateDataColumnSidecarHandlers(gossipEpoch)
+
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
@@ -1622,12 +1672,109 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
+        debugGloasComment " "
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
+
+proc pruneDataColumns(node: BeaconNode, slot: Slot) =
+  let dataColumnPruneEpoch = (slot.epoch -
+                              node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(
+      dataColumnPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
+        else:
+          for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+              count = count + 1
+    debug "pruned data columns", count, dataColumnPruneEpoch
+
+proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/das-core.md#reconstruction-and-cross-seeding
+  # "If the node obtains 50%+ of all the columns, it SHOULD reconstruct the
+  # full data matrix via the recover_matrix helper."
+  if node.dataColumnQuarantine.custodyColumns.lenu64 <
+      node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
+    return
+
+  logScope:
+    slot = slot
+
+  let blck = node.dag.getForkedBlock(node.dag.head.bid).valueOr:
+    warn "Failed to get the current slot head"
+    return
+
+  withBlck(blck):
+    when consensusFork >= ConsensusFork.Fulu:
+      let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
+      var
+        columns: seq[ref fulu.DataColumnSidecar]
+        indices: HashSet[uint64]
+
+      # Get columns from database
+      for i in 0 ..< maxColCount:
+        var colData: fulu.DataColumnSidecar
+        if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
+          columns.add(newClone(colData))
+          indices.incl(i)
+      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
+
+      # Make sure the node has obtained 50%+ of all the columns
+      if columns.lenu64 < (maxColCount div 2):
+        warn "The node did not obtain 50%+ of all the columns"
+        return
+      # Ignore if the node has already obtained all the columns
+      elif columns.lenu64 == maxColCount:
+        debug "The node has already obtained all the columns"
+        return
+
+      let startTime = Moment.now()
+
+      # Reconstruct columns
+      let recovered = recover_cells_and_proofs_parallel(
+        node.batchVerifier[].taskpool, columns).valueOr:
+          error "Data column reconstruction incomplete"
+          return
+      let rowCount = recovered.len
+      var reconCounter = 0
+
+      let recoveredTime = Moment.now()
+
+      for i in 0 ..< maxColCount:
+        if i in indices:
+          continue
+        var
+          cells = newSeq[Cell](rowCount)
+          proofs = newSeq[kzg.KzgProof](rowCount)
+        for j in 0 ..< rowCount:
+          cells[j] = recovered[j].cells[i]
+          proofs[j] = recovered[j].proofs[i]
+        let dataColumn = fulu.DataColumnSidecar(
+          index: ColumnIndex(i),
+          column: DataColumn.init(cells),
+          kzg_commitments: columns[0].kzg_commitments,
+          kzg_proofs: deneb.KzgProofs.init(proofs),
+          signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader(),
+          kzg_commitments_inclusion_proof:
+            columns[0].kzg_commitments_inclusion_proof)
+        node.dag.db.putDataColumnSidecar(dataColumn)  # TODO might already have
+        inc reconCounter
+
+      let reconstructedTime = Moment.now()
+
+      debug "Columns reconstructed",
+        columns = reconCounter,
+        recoveryTime = recoveredTime - startTime,
+        reconstructionTime = reconstructedTime - recoveredTime
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
@@ -1642,6 +1789,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
 
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
+    reconstructDataColumns(node, slot)
+
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
       node.attachedValidators[]
@@ -1650,6 +1800,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.blobQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+    node.processor.quarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
@@ -1663,6 +1817,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # the pruning for later
       node.dag.pruneHistory()
       node.pruneBlobs(slot)
+      node.pruneDataColumns(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -1713,7 +1868,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # missed sync committee participation via process_sync_aggregate(), but
       # attestation penalties for example, need, specific handling.
       # checked by maybeUpdateActionTrackerNextEpoch.
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   let
     nextAttestationSlot =
@@ -1784,13 +1939,31 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
-  if advanceCutoff.inFuture:
-    # We wait until there's only a second left before the next slot begins, then
-    # we advance the clearance state to the next slot - this gives us a high
-    # probability of being prepared for the block that will arrive and the
-    # epoch processing that follows
-    await sleepAsync(advanceCutoff.offset)
-    node.dag.advanceClearanceState()
+
+  let proposalFcu =
+    if advanceCutoff.inFuture:
+      # We wait until there's only a second left before the next slot begins, then
+      # we advance the clearance state to the next slot - this gives us a high
+      # probability of being prepared for the block that will arrive and the
+      # epoch processing that follows
+      await sleepAsync(advanceCutoff.offset)
+      let
+        nextSlot = slot + 1
+        nextSlotCutoff = node.beaconClock.fromNow(nextSlot.start_beacon_time)
+        head = node.dag.head # could be a new head compared to earlier
+
+      if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
+        # If there is a proposal, we want to let the execution client know a bit
+        # earlier - the risk is that fork choice changes again before the proposal
+        # but this risk should be small - this function also prepares the
+        # clearance state for the most likely block to be arriving next
+        node.consensusManager.prepareNextSlot(
+          nextSlot, sleepAsync(nextSlotCutoff.offset)
+        )
+      else:
+        nil
+    else:
+      nil
 
   # Prepare action tracker for the next slot
   node.consensusManager[].actionTracker.updateSlot(slot + 1)
@@ -1800,7 +1973,49 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
+  if (not node.config.peerdasSupernode) and
+     (slot.epoch() + 1).start_slot() - slot == 1 and
+     node.dataColumnQuarantine[].len == 0 and
+     node.attachedValidatorBalanceTotal > 0.Gwei:
+    # Detect new validator custody at the last slot of every epoch
+    node.validatorCustody.detectNewValidatorCustody(slot,
+      node.attachedValidatorBalanceTotal)
+
+    if node.validatorCustody.diff_set.len > 0:
+      var custodyColumns =
+        node.validatorCustody.newer_column_set.toSeq()
+      sort(custodyColumns)
+      # update custody columns
+      node.dataColumnQuarantine.updateColumnQuarantine(
+        node.dag.cfg, custodyColumns)
+
+      # Update CGC and metadata with respect to the new detected validator custody
+      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
+
+      if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
+        node.network.loadCgcnetMetadataAndEnr(new_vcus)
+      else:
+        node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
+
+      info "New validator custody count detected",
+        custody_columns = node.dataColumnQuarantine.custodyColumns.len
+
+  # Update nfd field for BPOs
+  let
+    nextForkEpoch = node.dag.cfg.nextForkEpochAtEpoch(epoch)
+    nextForkDigest = if nextForkEpoch == FAR_FUTURE_EPOCH:
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+      # "If no next fork is scheduled, the nfd entry contains the default value
+      # for the type (i.e., the SSZ representation of a zero-filled array)."
+      default(ForkDigest)
+    else:
+      node.dag.forkDigests[].atEpoch(nextForkEpoch, node.dag.cfg)
+  node.network.updateNextForkDigest(nextForkDigest)
+
   await node.updateGossipStatus(slot + 1)
+
+  if proposalFcu != nil:
+    await proposalFcu
 
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =
@@ -1817,33 +2032,48 @@ func formatNextConsensusFork(
     (if withVanityArt: nextConsensusFork.getVanityMascot & " " else: "") &
     $nextConsensusFork & ":" & $nextForkEpoch)
 
-func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  node.syncOverseer.statusMsg.valueOr:
-    let optimisticHead = not node.dag.head.executionValid
-    if node.syncManager.inProgress:
-      let
-        optimisticSuffix =
-          if optimisticHead:
-            "/opt"
-          else:
-            ""
-        lightClientSuffix =
-          if node.consensusManager[].shouldSyncOptimistically(wallSlot):
-            " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
-          else:
-            ""
-      node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
-    elif node.untrustedManager.inProgress:
-      "untrusted: " & node.untrustedManager.syncStatus
-    elif node.backfiller.inProgress:
-      "backfill: " & node.backfiller.syncStatus
-    elif optimisticHead:
-      "synced/opt"
-    else:
-      "synced"
+proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
+  node.syncOverseer.syncStatusMessage()
 
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
+
+proc attemptGetBlobs(node: BeaconNode,
+                     lastSlot: Slot) {.async.} =
+  let
+    block_id = node.quarantine[].last_block_slot.valueOr:
+      return
+  if block_id.slot != lastSlot + 1:
+    return
+  let
+    elManager = node.blockProcessor[].consensusManager.elManager
+  if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu and
+           consensusFork < ConsensusFork.Gloas:
+        let blobsFromElOpt =
+          await elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+          # check lengths of array[BlobAndProofV2] with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            var flat_proof: seq[kzg.KzgProof]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+            let recovered_columns = assemble_data_column_sidecars(
+              forkyBlck,
+              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+              flat_proof)
+            # Send notification to event stream
+            # and add these columns to column quarantine
+            for col in recovered_columns:
+              if col.index in node.dataColumnQuarantine[].custodyColumns:
+                node.dataColumnQuarantine[].put(forkyBlck.root, newClone(col))
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
@@ -1897,10 +2127,12 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
 
+  await node.attemptGetBlobs(lastSlot)
+
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-
+  node.requestManager.switchToColumnLoop()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -1912,6 +2144,76 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   return false
 
+proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
+  var
+    curSlot = startTime.slotOrZero()
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+
+  info "Scheduling first slot action",
+    startTime = shortLog(startTime),
+    nextSlot = shortLog(nextSlot),
+    timeToNextSlot = shortLog(timeToNextSlot)
+
+  while true:
+    # Start by waiting for the time when the slot starts. Sleeping relinquishes
+    # control to other tasks which may or may not finish within the allotted
+    # time, so below, we need to be wary that the ship might have sailed
+    # already.
+    await sleepAsync(timeToNextSlot)
+
+    let
+      wallTime = node.beaconClock.now()
+      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+
+    if wallSlot < nextSlot:
+      # While we were sleeping, the system clock changed and time moved
+      # backwards!
+      if wallSlot + 1 < nextSlot:
+        # This is a critical condition where it's hard to reason about what
+        # to do next - we'll call the attention of the user here by shutting
+        # down.
+        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
+          nextSlot = shortLog(nextSlot), wallSlot = shortLog(wallSlot)
+        ProcessState.scheduleStop("clock skew")
+        return
+
+      # Time moved back by a single slot - this could be a minor adjustment,
+      # for example when NTP does its thing after not working for a while
+      warn "System time adjusted backwards, rescheduling slot actions",
+        wallTime = shortLog(wallTime),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      # cur & next slot remain the same
+      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
+      continue
+
+    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
+      # Time moved forwards by more than an epoch - either the clock was reset
+      # or we've been stuck in processing for a long time - either way, we will
+      # skip ahead so that we only process the events of the last
+      # SLOTS_PER_EPOCH slots
+      warn "Time moved forwards by more than an epoch, skipping ahead",
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      curSlot = wallSlot - SLOTS_PER_EPOCH
+    elif wallSlot > nextSlot:
+      notice "Missed expected slot start, catching up",
+        delay = shortLog(wallTime - nextSlot.start_beacon_time()),
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(curSlot)
+
+    let breakLoop = await onSlotStart(node, wallTime, curSlot)
+    if breakLoop:
+      break
+
+    curSlot = wallSlot
+    nextSlot = wallSlot + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+
 proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
@@ -1919,7 +2221,7 @@ proc onSecond(node: BeaconNode, time: Moment) =
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
-    bnStatus = BeaconNodeStatus.Stopping
+    ProcessState.scheduleStop("stopAtSyncedEpoch")
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const
@@ -1961,169 +2263,217 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      let digest = forkDigests[].atConsensusFork(consensusFork)
-
-      # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
-      node.network.addValidator(
-        getBeaconBlocksTopic(digest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock
-        ): ValidationResult =
-          if node.shouldSyncOptimistically(node.currentSlot):
-            toValidationResult(
-              node.optimisticProcessor.processSignedBeaconBlock(
-                signedBlock))
-          else:
-            toValidationResult(
-              node.processor[].processSignedBeaconBlock(
-                MsgSource.gossip, signedBlock)))
-
-      # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-      when consensusFork >= ConsensusFork.Electra:
-        for it in SubnetId:
-          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let subnet_id = it
-            node.network.addAsyncValidator(
-              getAttestationTopic(digest, subnet_id), proc (
-                attestation: SingleAttestation
-              ): Future[ValidationResult] {.
-                  async: (raises: [CancelledError]).} =
-                return toValidationResult(
-                  await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id,
-                    checkSignature = true, checkValidator = false)))
-      else:
-        for it in SubnetId:
-          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let subnet_id = it
-            node.network.addAsyncValidator(
-              getAttestationTopic(digest, subnet_id), proc (
-                attestation: phase0.Attestation
-              ): Future[ValidationResult] {.
-                  async: (raises: [CancelledError]).} =
-                return toValidationResult(
-                  await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id,
-                    checkSignature = true, checkValidator = false)))
-
-      # beacon_aggregate_and_proof
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-      when consensusFork >= ConsensusFork.Electra:
-        node.network.addAsyncValidator(
-          getAggregateAndProofsTopic(digest), proc (
-            signedAggregateAndProof: electra.SignedAggregateAndProof
-          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-            return toValidationResult(
-              await node.processor.processSignedAggregateAndProof(
-                MsgSource.gossip, signedAggregateAndProof)))
-      else:
-        node.network.addAsyncValidator(
-          getAggregateAndProofsTopic(digest), proc (
-            signedAggregateAndProof: phase0.SignedAggregateAndProof
-          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-            return toValidationResult(
-              await node.processor.processSignedAggregateAndProof(
-                MsgSource.gossip, signedAggregateAndProof)))
-
-      # attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
-      when consensusFork >= ConsensusFork.Electra:
-        node.network.addValidator(
-          getAttesterSlashingsTopic(digest), proc (
-            attesterSlashing: electra.AttesterSlashing
-          ): ValidationResult =
-            toValidationResult(
-              node.processor[].processAttesterSlashing(
-                MsgSource.gossip, attesterSlashing)))
-      else:
-        node.network.addValidator(
-          getAttesterSlashingsTopic(digest), proc (
-            attesterSlashing: phase0.AttesterSlashing
-          ): ValidationResult =
-            toValidationResult(
-              node.processor[].processAttesterSlashing(
-                MsgSource.gossip, attesterSlashing)))
-
-      # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#proposer_slashing
-      node.network.addValidator(
-        getProposerSlashingsTopic(digest), proc (
-          proposerSlashing: ProposerSlashing
-        ): ValidationResult =
-          toValidationResult(
-            node.processor[].processProposerSlashing(
-              MsgSource.gossip, proposerSlashing)))
-
-      # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#voluntary_exit
-      node.network.addValidator(
-        getVoluntaryExitsTopic(digest), proc (
-          signedVoluntaryExit: SignedVoluntaryExit
-        ): ValidationResult =
-          toValidationResult(
-            node.processor[].processSignedVoluntaryExit(
-              MsgSource.gossip, signedVoluntaryExit)))
-
-      when consensusFork >= ConsensusFork.Altair:
-        # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
-        for subcommitteeIdx in SyncSubcommitteeIndex:
-          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let idx = subcommitteeIdx
-            node.network.addAsyncValidator(
-              getSyncCommitteeTopic(digest, idx), proc (
-                msg: SyncCommitteeMessage
-              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-                return toValidationResult(
-                  await node.processor.processSyncCommitteeMessage(
-                    MsgSource.gossip, msg, idx)))
-
-        # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
-        node.network.addAsyncValidator(
-          getSyncCommitteeContributionAndProofTopic(digest), proc (
-            msg: SignedContributionAndProof
-          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-            return toValidationResult(
-              await node.processor.processSignedContributionAndProof(
-                MsgSource.gossip, msg)))
-
-      when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
-        node.network.addAsyncValidator(
-          getBlsToExecutionChangeTopic(digest), proc (
-            msg: SignedBLSToExecutionChange
-          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-            return toValidationResult(
-              await node.processor.processBlsToExecutionChange(
-                MsgSource.gossip, msg)))
-
-      when consensusFork >= ConsensusFork.Deneb:
-        # blob_sidecar_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        let subnetCount =
-          when consensusFork >= ConsensusFork.Electra:
-            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
-          else:
-            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT
-        for it in 0.BlobId ..< subnetCount.BlobId:
-          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let subnet_id = it
-            node.network.addValidator(
-              getBlobSidecarTopic(digest, subnet_id), proc (
-                blobSidecar: deneb.BlobSidecar
-              ): ValidationResult =
+      for digest in @[forkDigests[].atConsensusFork(consensusFork)] &
+          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2]):
+        let digest = digest # lent
+        # beacon_block
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
+        when consensusFork >= ConsensusFork.Gloas:
+          debugGloasComment " "
+        else:
+          node.network.addValidator(
+            getBeaconBlocksTopic(digest), proc (
+              signedBlock: consensusFork.SignedBeaconBlock,
+              src: PeerId,
+            ): ValidationResult =
+              if node.shouldSyncOptimistically(node.currentSlot):
                 toValidationResult(
-                  node.processor[].processBlobSidecar(
-                    MsgSource.gossip, blobSidecar, subnet_id)))
+                  node.optimisticProcessor.processSignedBeaconBlock(
+                    signedBlock))
+              else:
+                toValidationResult(
+                  node.processor[].processSignedBeaconBlock(
+                    MsgSource.gossip, signedBlock)))
+
+        # beacon_attestation_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
+        when consensusFork >= ConsensusFork.Electra:
+          for it in SubnetId:
+            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+              let subnet_id = it
+              node.network.addAsyncValidator(
+                getAttestationTopic(digest, subnet_id), proc (
+                  attestation: SingleAttestation, src: PeerId
+                ): Future[ValidationResult] {.
+                    async: (raises: [CancelledError]).} =
+                  return toValidationResult(
+                    await node.processor.processAttestation(
+                      MsgSource.gossip, attestation, subnet_id,
+                      checkSignature = true, checkValidator = false,
+                      consensusFork)))
+        else:
+          for it in SubnetId:
+            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+              let subnet_id = it
+              node.network.addAsyncValidator(
+                getAttestationTopic(digest, subnet_id), proc (
+                  attestation: phase0.Attestation, src: PeerId
+                ): Future[ValidationResult] {.
+                    async: (raises: [CancelledError]).} =
+                  return toValidationResult(
+                    await node.processor.processAttestation(
+                      MsgSource.gossip, attestation, subnet_id,
+                      checkSignature = true, checkValidator = false,
+                      consensusFork)))
+
+        # beacon_aggregate_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
+        when consensusFork >= ConsensusFork.Electra:
+          node.network.addAsyncValidator(
+            getAggregateAndProofsTopic(digest), proc (
+              signedAggregateAndProof: electra.SignedAggregateAndProof,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processSignedAggregateAndProof(
+                  MsgSource.gossip, signedAggregateAndProof,
+                  fork = consensusFork)))
+        else:
+          node.network.addAsyncValidator(
+            getAggregateAndProofsTopic(digest), proc (
+              signedAggregateAndProof: phase0.SignedAggregateAndProof,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processSignedAggregateAndProof(
+                  MsgSource.gossip, signedAggregateAndProof,
+                  fork = consensusFork)))
+
+        # attester_slashing
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
+        when consensusFork >= ConsensusFork.Electra:
+          node.network.addValidator(
+            getAttesterSlashingsTopic(digest), proc (
+              attesterSlashing: electra.AttesterSlashing,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processAttesterSlashing(
+                  MsgSource.gossip, attesterSlashing)))
+        else:
+          node.network.addValidator(
+            getAttesterSlashingsTopic(digest), proc (
+              attesterSlashing: phase0.AttesterSlashing,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processAttesterSlashing(
+                  MsgSource.gossip, attesterSlashing)))
+
+        # proposer_slashing
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#proposer_slashing
+        node.network.addValidator(
+          getProposerSlashingsTopic(digest), proc (
+            proposerSlashing: ProposerSlashing,
+            src: PeerId
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processProposerSlashing(
+                MsgSource.gossip, proposerSlashing)))
+
+        # voluntary_exit
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#voluntary_exit
+        node.network.addValidator(
+          getVoluntaryExitsTopic(digest), proc (
+            signedVoluntaryExit: SignedVoluntaryExit,
+            src: PeerId
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processSignedVoluntaryExit(
+                MsgSource.gossip, signedVoluntaryExit)))
+
+        when consensusFork >= ConsensusFork.Altair:
+          # sync_committee_{subnet_id}
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+          for subcommitteeIdx in SyncSubcommitteeIndex:
+            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+              let idx = subcommitteeIdx
+              node.network.addAsyncValidator(
+                getSyncCommitteeTopic(digest, idx), proc (
+                  msg: SyncCommitteeMessage,
+                  src: PeerId
+                ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                  return toValidationResult(
+                    await node.processor.processSyncCommitteeMessage(
+                      MsgSource.gossip, msg, idx)))
+
+          # sync_committee_contribution_and_proof
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+          node.network.addAsyncValidator(
+            getSyncCommitteeContributionAndProofTopic(digest), proc (
+              msg: SignedContributionAndProof,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processSignedContributionAndProof(
+                  MsgSource.gossip, msg)))
+
+        when consensusFork >= ConsensusFork.Capella:
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
+          node.network.addAsyncValidator(
+            getBlsToExecutionChangeTopic(digest), proc (
+              msg: SignedBLSToExecutionChange,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processBlsToExecutionChange(
+                  MsgSource.gossip, msg)))
+
+        # data_column_sidecar_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
+        when consensusFork >= ConsensusFork.Gloas:
+          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+            closureScope:
+              let subnet_id = it
+              node.network.addValidator(
+                getDataColumnSidecarTopic(digest, subnet_id), proc (
+                  dataColumnSidecar: gloas.DataColumnSidecar,
+                  src: PeerId
+                ): ValidationResult =
+                  toValidationResult(
+                    node.processor[].processDataColumnSidecar(
+                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
+        elif consensusFork == ConsensusFork.Fulu:
+          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+            closureScope:
+              let subnet_id = it
+              node.network.addValidator(
+                getDataColumnSidecarTopic(digest, subnet_id), proc (
+                  dataColumnSidecar: fulu.DataColumnSidecar,
+                  src: PeerId
+                ): ValidationResult =
+                  toValidationResult(
+                    node.processor[].processDataColumnSidecar(
+                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
+        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+          # blob_sidecar_{subnet_id}
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+          let subnetCount =
+            when consensusFork >= ConsensusFork.Electra:
+              node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
+            else:
+              node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT
+          for it in 0.BlobId ..< subnetCount.BlobId:
+            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+              let subnet_id = it
+              node.network.addValidator(
+                getBlobSidecarTopic(digest, subnet_id), proc (
+                  blobSidecar: deneb.BlobSidecar,
+                  src: PeerId
+                ): ValidationResult =
+                  toValidationResult(
+                    node.processor[].processBlobSidecar(
+                      MsgSource.gossip, blobSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  bnStatus = BeaconNodeStatus.Stopping
-  notice "Graceful shutdown"
   if not node.config.inProcessValidators:
     try:
       node.vcProcess.close()
@@ -2141,8 +2491,52 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc run(node: BeaconNode) {.raises: [CatchableError].} =
-  bnStatus = BeaconNodeStatus.Running
+proc initializeNetworking(node: BeaconNode) {.async.} =
+  node.installMessageValidators()
+
+  info "Listening to incoming network requests"
+  await node.network.startListening()
+
+  let addressFile = node.config.dataDir / "beacon_node.enr"
+  writeFile(addressFile, node.network.announcedENR.toURI)
+
+  await node.network.start()
+
+type StopFuture = Future[void].Raising([CancelledError])
+
+proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
+  let
+    head = node.dag.head
+    finalizedHead = node.dag.finalizedHead
+    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
+
+  notice "Starting beacon node",
+    version = fullVersionStr,
+    nimVersion = NimVersion,
+    enr = node.network.announcedENR.toURI,
+    peerId = $node.network.switch.peerInfo.peerId,
+    timeSinceFinalization =
+      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
+    head = shortLog(head),
+    justified = shortLog(getStateField(
+      node.dag.headState, current_justified_checkpoint)),
+    finalized = shortLog(getStateField(
+      node.dag.headState, finalized_checkpoint)),
+    finalizedHead = shortLog(finalizedHead),
+    SLOTS_PER_EPOCH,
+    SECONDS_PER_SLOT,
+    SPEC_VERSION,
+    dataDir = node.config.dataDir.string,
+    validators = node.attachedValidators[].count
+
+  if genesisTime.inFuture:
+    notice "Waiting for genesis", genesisIn = genesisTime.offset
+
+  waitFor node.initializeNetworking()
+
+  node.elManager.start()
+
+  ProcessState.notifyRunning()
 
   if not isNil(node.restServer):
     node.restServer.installRestHandlers(node)
@@ -2175,67 +2569,22 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
     asyncSpawn node.pollForDynamicValidators(
       web3signerUrl, node.config.web3signerUpdateInterval)
 
-  asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
+  asyncSpawn runSlotLoop(node, wallTime)
   asyncSpawn runOnSecondLoop(node)
-  asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  # main event loop
-  while bnStatus == BeaconNodeStatus.Running:
-    poll() # if poll fails, the network is broken
+  while true:
+    if (let reason = ProcessState.stopping(); reason.isSome()):
+      notice "Shutting down", reason = reason[]
+      break
+    if stopper != nil and stopper.finished():
+      break
+
+    chronos.poll()
 
   # time to say goodbye
   node.stop()
 
-var gPidFile: string
-proc createPidFile(filename: string) {.raises: [IOError].} =
-  writeFile filename, $os.getCurrentProcessId()
-  gPidFile = filename
-  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
-
-proc initializeNetworking(node: BeaconNode) {.async.} =
-  node.installMessageValidators()
-
-  info "Listening to incoming network requests"
-  await node.network.startListening()
-
-  let addressFile = node.config.dataDir / "beacon_node.enr"
-  writeFile(addressFile, node.network.announcedENR.toURI)
-
-  await node.network.start()
-
-proc start*(node: BeaconNode) {.raises: [CatchableError].} =
-  let
-    head = node.dag.head
-    finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
-
-  notice "Starting beacon node",
-    version = fullVersionStr,
-    nimVersion = NimVersion,
-    enr = node.network.announcedENR.toURI,
-    peerId = $node.network.switch.peerInfo.peerId,
-    timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
-    head = shortLog(head),
-    justified = shortLog(getStateField(
-      node.dag.headState, current_justified_checkpoint)),
-    finalized = shortLog(getStateField(
-      node.dag.headState, finalized_checkpoint)),
-    finalizedHead = shortLog(finalizedHead),
-    SLOTS_PER_EPOCH,
-    SECONDS_PER_SLOT,
-    SPEC_VERSION,
-    dataDir = node.config.dataDir.string,
-    validators = node.attachedValidators[].count
-
-  if genesisTime.inFuture:
-    notice "Waiting for genesis", genesisIn = genesisTime.offset
-
-  waitFor node.initializeNetworking()
-
-  node.elManager.start()
-  node.run()
 
 func formatGwei(amount: Gwei): string =
   # TODO This is implemented in a quite a silly way.
@@ -2380,26 +2729,19 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
+proc doRunBeaconNode*(
+    config: var BeaconNodeConf,
+    rng: ref HmacDrbgContext,
+    taskpool: Taskpool,
+    stopper: StopFuture,
+) {.raises: [CatchableError], gcsafe.} =
+  doAssert taskpool != nil
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
       const_preset,
       cmdParams = commandLineParams(),
       config
-
-  template ignoreDeprecatedOption(option: untyped): untyped =
-    if config.option.isSome:
-      warn "Config option is deprecated",
-        option = config.option.get
-  ignoreDeprecatedOption requireEngineAPI
-  ignoreDeprecatedOption safeSlotsToImportOptimistically
-  ignoreDeprecatedOption terminalTotalDifficultyOverride
-  ignoreDeprecatedOption optimistic
-  ignoreDeprecatedOption validatorMonitorTotals
-  ignoreDeprecatedOption web3ForcePolling
-
-  createPidFile(config.dataDir.string / "beacon_node.pid")
 
   config.createDumpDirs()
 
@@ -2413,27 +2755,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
 
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    bnStatus = BeaconNodeStatus.Stopping
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
-
-  # equivalent SIGTERM handler
-  when defined(posix):
-    proc SIGTERMHandler(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      bnStatus = BeaconNodeStatus.Stopping
-    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
-
   block:
     let res =
       if config.trustedSetupFile.isNone:
@@ -2443,18 +2764,19 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     if res.isErr():
       raiseAssert res.error()
 
-  let node = waitFor BeaconNode.init(rng, config, metadata)
-
-  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
+  if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
+
+  let node = waitFor BeaconNode.init(rng, config, metadata, taskpool)
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
   setSystemMetricsAutomaticUpdate(false)
 
-  node.metricsServer = metricsServer
+  node.metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
 
-  if bnStatus == BeaconNodeStatus.Stopping:
+  if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
 
   when not defined(windows):
@@ -2463,9 +2785,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     initStatusBar(node)
 
   if node.nickname != "":
-    dynamicLogScope(node = node.nickname): node.start()
+    dynamicLogScope(node = node.nickname): node.run(stopper)
   else:
-    node.start()
+    node.run(stopper)
 
 proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [CatchableError].} =
@@ -2499,10 +2821,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
     {.raises: [CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
-    let metadata = config.loadEth2Network()
-
     waitFor testWeb3Provider(config.web3TestUrl,
-                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
                              rng.loadJwtSecret(config, allowCreate = true))
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
@@ -2516,7 +2835,7 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [IOError].} =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -2564,7 +2883,29 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
+  of BNStartUpCmd.noCommand:
+    createPidFile(config.dataDir.string / "beacon_node.pid")
+    ProcessState.setupStopHandlers()
+
+    if config.rpcEnabled.isSome:
+      warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
+
+    template ignoreDeprecatedOption(option: untyped): untyped =
+      if config.option.isSome:
+        warn "Ignoring deprecated configuration option",
+          option = config.option.get
+    ignoreDeprecatedOption requireEngineAPI
+    ignoreDeprecatedOption safeSlotsToImportOptimistically
+    ignoreDeprecatedOption terminalTotalDifficultyOverride
+    ignoreDeprecatedOption optimistic
+    ignoreDeprecatedOption validatorMonitorTotals
+    ignoreDeprecatedOption web3ForcePolling
+    ignoreDeprecatedOption finalizedDepositTreeSnapshot
+    ignoreDeprecatedOption finalizedCheckpointBlock
+
+    let taskpool = setupTaskpool(config.numThreads)
+
+    doRunBeaconNode(config, rng, taskpool, nil)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
@@ -2588,25 +2929,25 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       config.lcTrustedBlockRoot,
       config.backfillBlocks,
       config.reindex,
-      config.downloadDepositSnapshot,
       genesisState)
     db.close()
 
-{.pop.} # TODO moduletests exceptions
+# noinline to keep it in stack traces
+proc main*() {.noinline, raises: [CatchableError].} =
+  const copyright =
+    "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
-programMain:
-  var config = makeBannerAndConfig(clientId, copyrights, nimBanner,
-                                   SPEC_VERSION, [], BeaconNodeConf).valueOr:
-    stderr.write error
-    quit QuitFailure
-
-  if not(checkAndCreateDataDir(string(config.dataDir))):
-    # We are unable to access/create data folder or data folder's
-    # permissions are insecure.
+  var config = BeaconNodeConf.loadWithBanners(clientId, copyright, [specBanner]).valueOr:
+    writePanicLine error # Logging not yet set up
     quit QuitFailure
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
+
+  if not (checkAndCreateDataDir(string(config.dataDir))):
+    # We are unable to access/create data folder or data folder's
+    # permissions are insecure.
+    quit QuitFailure
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such
@@ -2614,31 +2955,30 @@ programMain:
   ## run, it will be overwritten later with a different handler
   ## performing a graceful exit.
   proc exitImmediatelyOnCtrlC() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    # in case a password prompt disabled echoing
-    resetStdin()
-    echo "" # If we interrupt during an interactive prompt, this
-            # will move the cursor to the next line
-    notice "Shutting down after having received SIGINT"
-    quit 0
+    # No allocations in signal handler
+    cstdout.rawWrite("Shutting down after having received SIGINT / ctrl-c")
+    quit QuitSuccess
   setControlCHook(exitImmediatelyOnCtrlC)
+
   # equivalent SIGTERM handler
-  when defined(posix):
+  when declared(ansi_c.SIGTERM):
     proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      quit 0
+      # No allocations in signal handler
+      cstdout.rawWrite("Shutting down after having received SIGTERM")
+      quit QuitSuccess
     c_signal(ansi_c.SIGTERM, exitImmediatelyOnSIGTERM)
 
   when defined(windows):
     if config.runAsService:
       proc exitService() =
-        bnStatus = BeaconNodeStatus.Stopping
-      establishWindowsService(clientId, copyrights, nimBanner, SPEC_VERSION,
+        ProcessState.scheduleStop("exitService")
+      establishWindowsService(clientId, copyright, [specBanner],
                               "nimbus_beacon_node", BeaconNodeConf,
                               handleStartUpCmd, exitService)
     else:
       handleStartUpCmd(config)
   else:
     handleStartUpCmd(config)
+
+when isMainModule:
+  main()

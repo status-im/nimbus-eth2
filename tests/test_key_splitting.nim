@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,16 +15,12 @@ import
   ./testutil
 
 func sign(secrets: seq[SecretShare], message: seq[byte]): seq[SignatureShare] =
-  let msg = message
   return secrets.mapIt(it.key.blsSign(message).toSignatureShare(it.id))
 
 suite "Key spliting":
   let
     privateKey = ValidatorPrivKey.init("0x25295f0d1d592a90b333e26e85149708208e9f8e8bc18f6c77bd62f8ad7a6866")
     pubKey = privateKey.toPubKey.toPubKey
-    password = string.fromBytes hexToSeqByte("7465737470617373776f7264f09f9491")
-    salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
-    iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
     rng = HmacDrbgContext.new()
     msg = rng[].generateBytes(32)
 

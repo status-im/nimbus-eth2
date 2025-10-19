@@ -8,10 +8,10 @@
 {.push raises: [].}
 {.used.}
 
-import unittest2, results, chronos, stint
-import ../beacon_chain/validators/beacon_validators,
-       ../beacon_chain/spec/datatypes/base,
-       ../beacon_chain/spec/eth2_apis/eth2_rest_serialization
+import
+  unittest2,
+  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+  ../beacon_chain/validators/block_payloads
 
 suite "Beacon validators test suite":
   test "builderBetterBid(builderBoostFactor) test":

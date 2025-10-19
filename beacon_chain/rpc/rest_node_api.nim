@@ -9,7 +9,7 @@
 import
   stew/byteutils,
   chronicles,
-  eth/p2p/discoveryv5/enr,
+  eth/enr/enr,
   libp2p/[multiaddress, multicodec, peerstore],
   ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
@@ -269,14 +269,14 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.syncManager.inProgress
       isOptimistic =
         if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-          some(not node.dag.head.executionValid)
+          Opt.some(not node.dag.head.executionValid)
         else:
-          none[bool]()
+          Opt.none(bool)
       elOffline =
         if node.currentSlot().epoch() >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-          some(not node.elManager.hasAnyWorkingConnection)
+          Opt.some(not node.elManager.hasAnyWorkingConnection)
         else:
-          none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
+          Opt.none(bool)  # Added with ethereum/beacon-APIs v2.4.0
 
       info = RestSyncInfo(
         head_slot: headSlot, sync_distance: distance,

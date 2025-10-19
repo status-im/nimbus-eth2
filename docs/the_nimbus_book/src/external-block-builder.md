@@ -56,6 +56,8 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 - [EthStaker MEV relay list](https://ethstaker.cc/mev-relay-list/)
 
+- [MEV Relay List](https://www.coincashew.com/coins/overview-eth/mev-boost/mev-relay-list)
+
 - [Mainnet Relay Overview](https://beaconcha.in/relays)
 
 - [Hoodi Relay Overview](https://hoodi.beaconcha.in/relays)

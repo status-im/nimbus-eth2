@@ -82,8 +82,7 @@ proc loadForked[T: not Opt](
 proc loadSteps(
     path: string,
     fork_digests: ForkDigests
-): seq[TestStep] {.raises: [
-    IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
+): seq[TestStep] {.raises: [KeyError, ValueError].} =
   template loadForked[T](t: typedesc[T], s: JsonNode): T =
     loadForked(t, s, path, fork_digests)
 
@@ -134,12 +133,12 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       (cfg, _) = readRuntimeConfig(path/"config.yaml")
       initial_state = loadForkedState(
         path/"initial_state.ssz_snappy", consensusFork)
-      db = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+      db = BeaconChainDB.new("", cfg, inMemory = true)
     defer: db.close()
     ChainDAGRef.preInit(db, initial_state[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(false, false))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time, false, false))
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true, importMode: LightClientDataImportMode.Full))
@@ -147,7 +146,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       taskpool = Taskpool.new()
     var
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
+      quarantine = newClone(Quarantine.init(cfg))
 
     let steps = loadSteps(path, dag.forkDigests[])
     for i, step in steps:
@@ -155,7 +154,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       of TestStepKind.NewBlock:
         checkpoint $i & " new_block: " & $shortLog(step.blck.toBlockId())
         let added = withBlck(step.blck):
-          const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+          const nilCallback = OnBlockAdded[consensusFork](nil)
           dag.addHeadBlock(verifier, forkyBlck, nilCallback)
         check: added.isOk()
       of TestStepKind.NewHead:

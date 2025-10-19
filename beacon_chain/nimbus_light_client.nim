@@ -16,31 +16,26 @@ import
   ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
-  "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
+  ./[
+    beacon_clock, buildinfo, filepath, light_client, light_client_db,
+    nimbus_binary_common, process_state, version,
+  ]
 
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
-# this needs to be global, so it can be set in the Ctrl+C signal handler
-var globalRunning = true
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
+  ProcessState.setupStopHandlers()
+  const
+    banner = "Nimbus light client " & fullVersionStr
+    copyright =
+      "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
 
-programMain:
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    globalRunning = false
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
+  var config = LightClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    writePanicLine error # Logging not yet set up
+    quit QuitFailure
 
-  var config = makeBannerAndConfig(
-    "Nimbus light client " & fullVersionStr, LightClientConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   notice "Launching light client",
@@ -78,7 +73,7 @@ programMain:
         raiseAssert "Invalid baked-in state: " & err.msg
 
     genesisTime = getStateField(genesisState[], genesis_time)
-    beaconClock = BeaconClock.init(genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
@@ -97,13 +92,7 @@ programMain:
     engineApiUrls = config.engineApiUrls
     elManager =
       if engineApiUrls.len > 0:
-        ELManager.new(
-          cfg,
-          metadata.depositContractBlock,
-          metadata.depositContractBlockHash,
-          db = nil,
-          engineApiUrls,
-          metadata.eth1Network)
+        ELManager.new(engineApiUrls, metadata.eth1Network)
       else:
         nil
 
@@ -111,14 +100,15 @@ programMain:
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Bellatrix:
+        debugGloasComment ""
+        when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(forkyBlck.message)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
-      getBeaconTime, optimisticHandler)
+      cfg.time, getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
@@ -133,14 +123,19 @@ programMain:
     PeerSync, PeerSync.NetworkState.init(
       cfg, forkDigests, genesisBlockRoot, getBeaconTime))
 
-  withAll(ConsensusFork):
-    let forkDigest = forkDigests[].atConsensusFork(consensusFork)
-    network.addValidator(
-      getBeaconBlocksTopic(forkDigest), proc (
-          signedBlock: consensusFork.SignedBeaconBlock
-      ): ValidationResult =
-        toValidationResult(
-          optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  for consensusFork in ConsensusFork:
+    for forkDigest in consensusFork.forkDigests(forkDigests[]):
+      withConsensusFork(consensusFork):
+        when consensusFork >= ConsensusFork.Gloas:
+          debugGloasComment "consensusFork.SignedBeaconBlock support missing"
+        else:
+          network.addValidator(
+            getBeaconBlocksTopic(forkDigest), proc (
+                signedBlock: consensusFork.SignedBeaconBlock,
+                src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
@@ -235,42 +230,34 @@ programMain:
 
     isSynced(wallSlot)
 
-  var blocksGossipState: GossipState = {}
+  var blocksGossipState: GossipState
   proc updateBlocksGossipStatus(slot: Slot) =
     let
       isBehind = not shouldSyncOptimistically(slot)
-
-      targetGossipState = getTargetGossipState(
-        slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-        cfg.FULU_FORK_EPOCH, isBehind)
+      targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
 
     template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:
       return
 
-    if currentGossipState.card == 0 and targetGossipState.card > 0:
+    if currentGossipState.len == 0 and targetGossipState.len > 0:
       debug "Enabling blocks topic subscriptions",
         wallSlot = slot, targetGossipState
-    elif currentGossipState.card > 0 and targetGossipState.card == 0:
+    elif currentGossipState.len > 0 and targetGossipState.len == 0:
       debug "Disabling blocks topic subscriptions",
         wallSlot = slot
     else:
       # Individual forks added / removed
       discard
 
-    let
-      newGossipForks = targetGossipState - currentGossipState
-      oldGossipForks = currentGossipState - targetGossipState
-
-    for gossipFork in oldGossipForks:
-      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
+    for gossipEpoch in currentGossipState - targetGossipState:
+      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
-    for gossipFork in newGossipForks:
-      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
+    for gossipEpoch in targetGossipState - currentGossipState:
+      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.subscribe(
-        getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+        getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
         enableTopicMetrics = true)
 
     blocksGossipState = targetGossipState
@@ -355,7 +342,9 @@ programMain:
 
   asyncSpawn runOnSlotLoop()
   asyncSpawn runOnSecondLoop()
-  while globalRunning:
+
+  while not ProcessState.stopIt(notice("Shutting down", reason = it)):
     poll()
 
-  notice "Exiting light client"
+when isMainModule:
+  main()

@@ -160,8 +160,7 @@ proc publishBlockV3(
       let signature =
         try:
           let res = await validator.getBlockSignature(fork, genesisRoot,
-                                                      slot, blockRoot,
-                                                      maybeBlock)
+                                                      blockRoot, maybeBlock)
           if res.isErr():
             warn "Unable to sign blinded block proposal using remote signer",
                  reason = res.error()
@@ -194,7 +193,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline())
+        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Blinded block published", delay = delay
@@ -241,7 +240,7 @@ proc publishBlockV3(
         signature =
           try:
             let res = await validator.getBlockSignature(
-              fork, genesisRoot, slot, blockRoot, maybeBlock)
+              fork, genesisRoot, blockRoot, maybeBlock)
             if res.isErr():
               warn "Unable to sign block proposal using remote signer",
                    reason = res.error()
@@ -258,13 +257,9 @@ proc publishBlockV3(
         res =
           try:
             debug "Sending block"
-            if vc.isPastElectraFork(slot.epoch()):
-              await vc.publishBlockV2(
-                signedBlockContents, BroadcastValidationType.Gossip,
-                ApiStrategyKind.First)
-            else:
-              await vc.publishBlock(
-                signedBlockContents, ApiStrategyKind.First)
+            await vc.publishBlockV2(
+              signedBlockContents, BroadcastValidationType.Gossip,
+              ApiStrategyKind.First)
           except ValidatorApiError as exc:
             warn "Unable to publish block", reason = exc.getFailureReason()
             return
@@ -273,7 +268,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline())
+        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Block published", delay = delay
@@ -297,9 +292,10 @@ proc publishBlock(
     slot = slot
     wall_slot = currentSlot
 
-  debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
-                            genesis_root = genesisRoot,
-                            graffiti = graffiti, fork = fork
+  debug "Publishing block",
+        delay = vc.getDelay(slot.block_deadline(vc.timeConfig)),
+        genesis_root = genesisRoot,
+        graffiti = graffiti, fork = fork
   let
     randaoReveal =
       try:
@@ -595,7 +591,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
       currentTime = vc.beaconClock.now()
       afterSlot = currentTime.slotOrZero()
 
-    if currentTime > afterSlot.attestation_deadline():
+    if currentTime > afterSlot.attestation_deadline(vc.timeConfig):
       # Attestation time already, lets wait for next slot.
       continue
 

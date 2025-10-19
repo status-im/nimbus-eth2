@@ -25,7 +25,7 @@ import
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
-  eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
+  eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
@@ -54,6 +54,13 @@ type
   # warning about unused import (rpc/messages).
   GossipMsg = messages.Message
 
+  ValidationSyncProc*[T] =
+    proc(msg: T, src: PeerId): ValidationResult {.gcsafe, raises: [].}
+
+  ValidationAsyncProc*[T] =
+    proc(msg: T, src: PeerId): Future[ValidationResult] {.
+      async: (raises: [CancelledError]).}
+
   SeenItem* = object
     peerId*: PeerId
     stamp*: chronos.Moment
@@ -79,6 +86,7 @@ type
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
     forkDigests*: ref ForkDigests
+    nextForkDigest: ForkDigest
     rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     directPeers*: DirectPeers
@@ -86,8 +94,8 @@ type
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
-    cfg: RuntimeConfig
-    getBeaconTime: GetBeaconTimeFn
+    cfg*: RuntimeConfig
+    getBeaconTime*: GetBeaconTimeFn
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
@@ -436,7 +444,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
 func getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
-proc getFuture(peer: Peer): Future[void] {.inline.} =
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
@@ -619,7 +627,7 @@ proc writeChunkSZ(
     uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
 
   var
-    data = newSeqUninitialized[byte](
+    data = newSeqUninit[byte](
       ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
       payloadSZ.len)
     pos = 0
@@ -638,7 +646,7 @@ proc writeChunk(conn: Connection,
   let
     uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
   var
-    data = newSeqUninitialized[byte](
+    data = newSeqUninit[byte](
       ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
       snappy.maxCompressedLenFramed(payload.len).int)
     pos = 0
@@ -752,8 +760,8 @@ proc uncompressFramedStream(conn: Connection,
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
   var
-    frameData = newSeqUninitialized[byte](maxCompressedFrameDataLen + 4)
-    output = newSeqUninitialized[byte](expectedSize)
+    frameData = newSeqUninit[byte](maxCompressedFrameDataLen + 4)
+    output = newSeqUninit[byte](expectedSize)
     written = 0
 
   while written < expectedSize:
@@ -850,7 +858,8 @@ template gossipMaxSize(T: untyped): uint32 =
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock:
+         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
+         T is gloas.DataColumnSidecar:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -922,7 +931,15 @@ proc readResponseChunk(
   var responseCodeByte: byte
   try:
     await conn.readExactly(addr responseCodeByte, 1)
-  except LPStreamEOFError, LPStreamIncompleteError:
+  except LPStreamIncompleteError:
+    # `LPStreamIncompleteError` is raised by `nim-libp2p` when remote peer
+    # dropped connection and stream, so it can't be used anymore.
+    return neterr UnexpectedEOF
+  except LPStreamEOFError:
+    # `LPStreamEOFError` is raised by `nim-libp2p` when remote peer sent
+    # EOF frame, which indicates that remote peer wants to gracefully finish
+    # the stream. It also means that our connection with remote peer is not
+    # broken and new streams could be initiated.
     return neterr PotentiallyExpectedEOF
   except CancelledError as exc:
     raise exc
@@ -1691,12 +1708,9 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
 proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
   # Convert peer id to node id by extracting the peer's public key
-  let nodeId =
-    block:
-      var key: PublicKey
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
-  nodeId
+  var key: PublicKey
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1845,7 +1859,7 @@ proc new(T: type Eth2Node,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
-         rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
+         rng: ref HmacDrbgContext): T =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)
@@ -2495,7 +2509,21 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
 
   let metadata = peer.metadata
   if metadata.isOk:
-    return metadata.get.custody_group_count
+    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+                metadata.get.custody_group_count
+              else:
+                0
+
+    # If a peer's metadata hasn't been updated since a Fulu transition, the
+    # metadata is present but has no initialized cgc.
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
+    # guarantees that the ENR will have this information though:
+    # "A new field is added to the ENR under the key cgc to facilitate custody
+    # data column discovery. This new field MUST be added once
+    # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
+    if cgc >= CUSTODY_REQUIREMENT:
+      return cgc
 
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
@@ -2507,12 +2535,18 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
     if enrFieldOpt.isOk:
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
+        if cgc > NUMBER_OF_COLUMNS:
+          return 0
+
+        if peer.metadata.isOk:
+          peer.metadata.get.custody_group_count = cgc
+
         return cgc.uint64
       except SszError, SerializationError:
         discard  # Ignore decoding errors and fallback to default
 
   # Return default value if no valid custody subnet count is found.
-  return CUSTODY_REQUIREMENT.uint64
+  CUSTODY_REQUIREMENT
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
@@ -2534,10 +2568,11 @@ proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
   res.complete(v)
   res
 
-func addValidator*[MsgType](node: Eth2Node,
-                            topic: string,
-                            msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe, raises: [].} ) =
+func addValidator*[MsgType](
+    node: Eth2Node,
+    topic: string,
+    msgValidator: ValidationSyncProc[MsgType]
+) =
   # Message validators run when subscriptions are enabled - they validate the
   # data and return an indication of whether the message should be broadcast
   # or not - validation is `async` but implemented without the macro because
@@ -2552,7 +2587,7 @@ func addValidator*[MsgType](node: Eth2Node,
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
-        msgValidator(decoded) # doesn't raise!
+        msgValidator(decoded, message.fromPeer) # doesn't raise!
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
@@ -2569,12 +2604,15 @@ func addValidator*[MsgType](node: Eth2Node,
   node.validTopics.incl topic # Only allow subscription to validated topics
   node.pubsub.addValidator(topic, execValidator)
 
-proc addAsyncValidator*[MsgType](node: Eth2Node,
-                            topic: string,
-                            msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.async: (raises: [CancelledError]).} ) =
-  proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.async: (raw: true).} =
+proc addAsyncValidator*[MsgType](
+    node: Eth2Node,
+    topic: string,
+    msgValidator: ValidationAsyncProc[MsgType]
+) =
+  proc execValidator(
+      topic: string,
+      message: GossipMsg
+  ): Future[ValidationResult] {.async: (raw: true).} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
@@ -2583,7 +2621,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
-        msgValidator(decoded) # doesn't raise!
+        msgValidator(decoded, message.fromPeer) # doesn't raise!
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
@@ -2635,15 +2673,13 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
   broadcast(node, topic, gossipEncode(msg))
 
 proc subscribeAttestationSubnets*(
-    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
-  # Nimbus won't score attestation subnets for now, we just rely on block and
-  # aggregate which are more stable and reliable
-
+    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest,
+    topicParams: TopicParams) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)), topicParams)
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
@@ -2673,7 +2709,10 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+  node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
       enrCustodySubnetCountField: SSZ.encode(cgcnets)
@@ -2703,6 +2742,24 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     warn "Failed to update the ENR syncnets field", error = res.error
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
+
+proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+  if node.nextForkDigest == next_fork_digest:
+    return
+
+  node.metadata.seq_number += 1
+  node.nextForkDigest = next_fork_digest
+
+  let res = node.discovery.updateRecord({
+    enrNextForkDigestField: SSZ.encode(next_fork_digest)
+  })
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update the ENR nfd field", error = res.error
+  else:
+    debug "Next fork digest changed; updated ENR nfd", next_fork_digest
 
 proc updateForkId(node: Eth2Node, value: ENRForkID) =
   node.forkId = value
@@ -2776,45 +2833,10 @@ proc broadcastAggregateAndProof*(
   node.broadcast(topic, proof)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: phase0.SignedBeaconBlock):
+    node: Eth2Node, blck: SomeForkySignedBeaconBlock):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: altair.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: bellatrix.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: capella.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.capella)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: deneb.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: electra.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.electra)
-  node.broadcast(topic, blck)
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: fulu.SignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getBeaconBlocksTopic(node.forkDigests.fulu)
+  let topic = getBeaconBlocksTopic(
+    node.forkDigestAtEpoch(blck.message.slot.epoch))
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
@@ -2825,6 +2847,15 @@ proc broadcastBlobSidecar*(
     topic = getBlobSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, blob)
+
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, data_column)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

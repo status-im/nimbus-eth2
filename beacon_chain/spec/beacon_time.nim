@@ -150,7 +150,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
@@ -164,19 +164,31 @@ func start_beacon_time*(s: Slot): BeaconTime =
   if s > maxSlot: FAR_FUTURE_BEACON_TIME
   else: BeaconTime(ns_since_genesis: int64(uint64(s) * NANOSECONDS_PER_SLOT))
 
-func block_deadline*(s: Slot): BeaconTime =
+func block_deadline*(s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time
-func attestation_deadline*(s: Slot): BeaconTime =
+
+func attestation_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + attestationSlotOffset
-func aggregate_deadline*(s: Slot): BeaconTime =
+
+func aggregate_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + aggregateSlotOffset
-func sync_committee_message_deadline*(s: Slot): BeaconTime =
+
+func sync_committee_message_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + syncCommitteeMessageSlotOffset
-func sync_contribution_deadline*(s: Slot): BeaconTime =
+
+func sync_contribution_deadline*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + syncContributionSlotOffset
-func light_client_finality_update_time*(s: Slot): BeaconTime =
+
+func light_client_finality_update_time*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + lightClientFinalityUpdateSlotOffset
-func light_client_optimistic_update_time*(s: Slot): BeaconTime =
+
+func light_client_optimistic_update_time*(
+    s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time + lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
@@ -184,7 +196,7 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH

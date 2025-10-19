@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
@@ -194,6 +194,8 @@ type
     summaries: array[2, EpochSummary] # We monitor the current and previous epochs
 
   ValidatorMonitor* = object
+    timeConfig: TimeConfig
+
     epoch: Epoch # The most recent epoch seen in monitoring
 
     monitors: Table[ValidatorPubKey, ref MonitoredValidator]
@@ -257,8 +259,12 @@ proc addAutoMonitor*(
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
 
-func init*(T: type ValidatorMonitor, autoRegister = false, totals = false): T =
-  T(autoRegister: autoRegister, totals: totals)
+func init*(
+    T: type ValidatorMonitor,
+    timeConfig: TimeConfig,
+    autoRegister = false,
+    totals = false): T =
+  T(timeConfig: timeConfig, autoRegister: autoRegister, totals: totals)
 
 template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
 
@@ -659,7 +665,7 @@ proc registerAttestation*(
     attestation: phase0.Attestation | SingleAttestation, idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
-    delay = seen_timestamp - slot.attestation_deadline()
+    delay = seen_timestamp - slot.attestation_deadline(self.timeConfig)
 
   self.withMonitor(idx):
     let id = monitor.id
@@ -684,7 +690,7 @@ proc registerAggregate*(
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
-    delay = seen_timestamp - slot.aggregate_deadline()
+    delay = seen_timestamp - slot.aggregate_deadline(self.timeConfig)
     aggregator_index = aggregate_and_proof.aggregator_index
 
   self.withMonitor(aggregator_index):
@@ -755,7 +761,7 @@ proc registerBeaconBlock*(
     let
       id = monitor.id
       slot = blck.slot
-      delay = seen_timestamp - slot.block_deadline()
+      delay = seen_timestamp - slot.block_deadline(self.timeConfig)
 
     validator_monitor_beacon_block.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
@@ -774,7 +780,8 @@ proc registerSyncCommitteeMessage*(
     let
       id = monitor.id
       slot = sync_committee_message.slot
-      delay = seen_timestamp - slot.sync_committee_message_deadline()
+      delay = seen_timestamp -
+        slot.sync_committee_message_deadline(self.timeConfig)
 
     validator_monitor_sync_committee_messages.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
@@ -797,7 +804,7 @@ proc registerSyncContribution*(
     participants: openArray[ValidatorIndex]) =
   let
     slot = contribution_and_proof.contribution.slot
-    delay = seen_timestamp - slot.sync_contribution_deadline()
+    delay = seen_timestamp - slot.sync_contribution_deadline(self.timeConfig)
 
   let aggregator_index = contribution_and_proof.aggregator_index
   self.withMonitor(aggregator_index):

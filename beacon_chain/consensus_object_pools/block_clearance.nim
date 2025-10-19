@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
@@ -32,25 +32,27 @@ proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
-       executionValid: bool,
+       optimisticStatus: OptimisticStatus,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnForkyBlockAdded,
+       onBlockAdded: OnBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
     trustedBlock.root, trustedBlock.message.slot),
     "Given state must have the new block applied"
+  const consensusFork = typeof(trustedBlock).kind
 
   let
     blockRoot = trustedBlock.root
-    blockRef = BlockRef.init(
-      blockRoot, executionValid = executionValid, trustedBlock.message)
+    blockRef = BlockRef.init(blockRoot, optimisticStatus, trustedBlock.message)
     startTick = Moment.now()
 
   link(parent, blockRef)
 
-  if executionValid:
-    dag.markBlockVerified(blockRef)
+  if optimisticStatus == OptimisticStatus.valid:
+    # Since the new block has a valid payload, its ancestors also do but this
+    # might be the first time we learn of it
+    parent.markExecutionValid(true)
 
   dag.forkBlocks.incl(KeyedBlockRef.init(blockRef))
 
@@ -81,7 +83,7 @@ proc addResolvedHeadBlock(
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
-    executionValid, heads = dag.heads.len(),
+    optimisticStatus, heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
     epochRefDur = epochRefTick - putBlockTick
@@ -99,12 +101,15 @@ proc addResolvedHeadBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    let unrealized = withState(state):
+    let unrealized =
       when consensusFork >= ConsensusFork.Altair:
-        forkyState.data.compute_unrealized_finality()
+        state.forky(consensusFork).data.compute_unrealized_finality()
       else:
-        forkyState.data.compute_unrealized_finality(cache)
-    onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
+        state.forky(consensusFork).data.compute_unrealized_finality(cache)
+    onBlockAdded(
+      blockRef, trustedBlock, state.forky(consensusFork).data, epochRef, unrealized
+    )
+
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 
@@ -133,27 +138,6 @@ proc checkStateTransition(
     err(VerifierError.Invalid)
   else:
     ok()
-
-proc advanceClearanceState*(dag: ChainDAGRef) =
-  # When the chain is synced, the most likely block to be produced is the block
-  # right after head - we can exploit this assumption and advance the state
-  # to that slot before the block arrives, thus allowing us to do the expensive
-  # epoch transition ahead of time.
-  # Notably, we use the clearance state here because that's where the block will
-  # first be seen - later, this state will be copied to the head state!
-  let advanced = withState(dag.clearanceState):
-    forkyState.data.slot > forkyState.data.latest_block_header.slot
-  if not advanced:
-    let
-      startTick = Moment.now()
-      next = getStateField(dag.clearanceState, slot) + 1
-    var
-      cache = StateCache()
-      info = ForkedEpochInfo()
-    dag.advanceSlots(dag.clearanceState, next, true, cache, info,
-                     dag.updateFlags)
-    debug "Prepared clearance state for next block",
-      next, updateStateDur = Moment.now() - startTick
 
 proc checkHeadBlock*(
     dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):
@@ -225,7 +209,7 @@ proc checkHeadBlock*(
 proc addHeadBlockWithParent*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
-    executionValid: bool, onBlockAdded: OnForkyBlockAdded
+    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded
     ): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
@@ -307,7 +291,7 @@ proc addHeadBlockWithParent*(
   ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
-    executionValid,
+    optimisticStatus,
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
@@ -344,8 +328,7 @@ proc addBackfillBlock*(
           info "Invalid genesis block signature"
           return err(VerifierError.Invalid)
       else:
-        let proposerKey = dag.validatorKey(blck.proposer_index)
-        if proposerKey.isNone():
+        let proposerKey = dag.validatorKey(blck.proposer_index).valueOr:
           # We've verified that the block root matches our expectations by following
           # the chain of parents all the way from checkpoint. If all those blocks
           # were valid, the proposer_index in this block must also be valid, and we
@@ -362,7 +345,7 @@ proc addBackfillBlock*(
             getStateField(dag.headState, genesis_validators_root),
             blck.slot,
             signedBlock.root,
-            proposerKey.get(),
+            proposerKey,
             signedBlock.signature):
           info "Block signature verification failed"
           return err(VerifierError.Invalid)
@@ -452,24 +435,6 @@ proc addBackfillBlock*(
 
   ok()
 
-template BlockAdded(kind: static ConsensusFork): untyped =
-  when kind == ConsensusFork.Fulu:
-    OnFuluBlockAdded
-  elif kind == ConsensusFork.Electra:
-    OnElectraBlockAdded
-  elif kind == ConsensusFork.Deneb:
-    OnDenebBlockAdded
-  elif kind == ConsensusFork.Capella:
-    OnCapellaBlockAdded
-  elif kind == ConsensusFork.Bellatrix:
-    OnBellatrixBlockAdded
-  elif kind == ConsensusFork.Altair:
-    OnAltairBlockAdded
-  elif kind == ConsensusFork.Phase0:
-    OnPhase0BlockAdded
-  else:
-    static: raiseAssert "Unreachable"
-
 proc verifyBlockProposer*(
     verifier: var BatchVerifier,
     fork: Fork,
@@ -489,73 +454,57 @@ proc verifyBlockProposer*(
 
 proc addBackfillBlockData*(
     dag: ChainDAGRef,
+    consensusFork: static ConsensusFork,
     bdata: BlockData,
     onStateUpdated: OnStateUpdated,
-    onBlockAdded: OnForkedBlockAdded
+    onBlockAdded: OnBlockAdded,
 ): Result[void, VerifierError] =
   var cache = StateCache()
+  template forkyBlck: untyped = bdata.blck.forky(consensusFork)
+  let
+    parent = checkHeadBlock(dag, forkyBlck).valueOr:
+      if error == VerifierError.Duplicate:
+        return ok()
+      return err(error)
+    startTick = Moment.now()
+    clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+    updateFlags1 = dag.updateFlags
+      # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
+      # improve performance by 100%, but this approach needs some
+      # improvements, which is unclear.
 
-  withBlck(bdata.blck):
-    let
-      parent = checkHeadBlock(dag, forkyBlck).valueOr:
-        if error == VerifierError.Duplicate:
-          return ok()
-        return err(error)
-      startTick = Moment.now()
-      clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
-      updateFlags1 = dag.updateFlags
-        # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
-        # improve performance by 100%, but this approach needs some
-        # improvements, which is unclear.
+  if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
+                      updateFlags1):
+    error "Unable to load clearance state for parent block, " &
+          "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
+    return err(VerifierError.MissingParent)
 
-    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
-                       updateFlags1):
-      error "Unable to load clearance state for parent block, " &
-            "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
-      return err(VerifierError.MissingParent)
+  let proposerVerifyTick = Moment.now()
 
-    let proposerVerifyTick = Moment.now()
+  if not(isNil(onStateUpdated)):
+    ? onStateUpdated(forkyBlck.message.slot)
 
-    if not(isNil(onStateUpdated)):
-      ? onStateUpdated(forkyBlck.message.slot)
+  let
+    stateDataTick = Moment.now()
+    updateFlags2 =
+      dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
 
-    let
-      stateDataTick = Moment.now()
-      updateFlags2 =
-        dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
+  ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
 
-    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
+  let stateVerifyTick = Moment.now()
 
-    let stateVerifyTick = Moment.now()
+  if bdata.blob.isSome():
+    for blob in bdata.blob.get():
+      dag.db.putBlobSidecar(blob[])
 
-    if bdata.blob.isSome():
-      for blob in bdata.blob.get():
-        dag.db.putBlobSidecar(blob[])
-
-    type Trusted = typeof forkyBlck.asTrusted()
-
-    proc onBlockAddedHandler(
-        blckRef: BlockRef,
-        trustedBlock: Trusted,
-        epochRef: EpochRef,
-        unrealized: FinalityCheckpoints
-    ) {.gcsafe, raises: [].} =
-      onBlockAdded(
-        blckRef,
-        ForkedTrustedSignedBeaconBlock.init(trustedBlock),
-        epochRef,
-        unrealized)
-
-    let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
-
-    discard addResolvedHeadBlock(
-      dag, dag.clearanceState,
-      forkyBlck.asTrusted(),
-      true,
-      parent, cache,
-      blockHandler,
-      proposerVerifyTick - startTick,
-      stateDataTick - proposerVerifyTick,
-      stateVerifyTick - stateDataTick)
+  discard addResolvedHeadBlock(
+    dag, dag.clearanceState,
+    forkyBlck.asTrusted(),
+    OptimisticStatus.notValidated,
+    parent, cache,
+    onBlockAdded,
+    proposerVerifyTick - startTick,
+    stateDataTick - proposerVerifyTick,
+    stateVerifyTick - stateDataTick)
 
   ok()

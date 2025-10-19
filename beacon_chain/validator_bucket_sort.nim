@@ -1,14 +1,15 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/typetraits
 import "."/spec/crypto
+from stew/staticfor import staticFor
 from "."/spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
 
 const
@@ -16,11 +17,8 @@ const
   NUM_BUCKETS = 1 shl BUCKET_BITS
 
 type
-  # `newSeqUninitialized` requires its type to be SomeNumber
-  IntValidatorIndex = distinctBase ValidatorIndex
-
   BucketSortedValidators* = object
-    bucketSorted*: seq[IntValidatorIndex]
+    bucketSorted*: seq[ValidatorIndex]
     bucketUpperBounds: array[NUM_BUCKETS, uint] # avoids over/underflow checks
     extraItems*: seq[ValidatorIndex]
 
@@ -50,17 +48,17 @@ func sortValidatorBuckets*(validators: openArray[Validator]):
     bucketInsertPositions[i] = accum
   doAssert accum == validators.len.uint
   let res = (ref BucketSortedValidators)(
-    bucketSorted: newSeqUninitialized[IntValidatorIndex](validators.len),
+    bucketSorted: newSeqUninit[ValidatorIndex](validators.len),
     bucketUpperBounds: bucketInsertPositions)
 
   for i, validator in validators:
     let insertPos =
       addr bucketInsertPositions[getBucketNumber(validator.pubkey)]
     dec insertPos[]
-    res.bucketSorted[insertPos[]] = i.IntValidatorIndex
+    res.bucketSorted[insertPos[]] = i.ValidatorIndex
 
   doAssert bucketInsertPositions[0] == 0
-  for i in 1 ..< NUM_BUCKETS:
+  staticFor i, 1 ..< NUM_BUCKETS:
     doAssert res.bucketUpperBounds[i - 1] == bucketInsertPositions[i]
 
   res
@@ -85,6 +83,6 @@ func findValidatorIndex*(
         bsv.bucketUpperBounds[bucketNumber - 1]
 
   for i in lowerBounds ..< bsv.bucketUpperBounds[bucketNumber]:
-    if validators[bsv.bucketSorted[i]].pubkey == pubkey:
-      return Opt.some bsv.bucketSorted[i].ValidatorIndex
+    if validators[bsv.bucketSorted[i].distinctBase].pubkey == pubkey:
+      return Opt.some bsv.bucketSorted[i]
   Opt.none ValidatorIndex

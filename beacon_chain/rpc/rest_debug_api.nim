@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import std/sequtils
 import chronicles, metrics
 import ".."/beacon_node,
        ".."/spec/forks,
-       "."/[rest_utils, state_ttl_cache]
+       "."/[rest_beacon_api, rest_utils, state_ttl_cache]
 
 from ../fork_choice/proto_array import ProtoArrayItem, items
 
@@ -20,19 +20,33 @@ export rest_utils
 logScope: topics = "rest_debug"
 
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugDataColumnSidecars
+  # https://github.com/ethereum/beacon-APIs/blob/v4.0.0-alpha.0/apis/debug/data_column_sidecars.yaml
+  router.api2(
+      MethodGet, "/eth/v1/debug/beacon/data_column_sidecars/{block_id}") do (
+      block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
+    handleDataSidecarRequest[
+      InvalidDataColumnSidecarIndexValueError,
+      List[fulu.DataColumnSidecar, NUMBER_OF_COLUMNS],
+      getDataColumnSidecar
+    ](
+      node, preferredContentType(jsonMediaType, sszMediaType),
+      block_id, indices)
+
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
   router.api2(MethodGet, "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
     RestApiResponse.jsonError(
       Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
-  # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Debug/getStateV2
+  # https://github.com/ethereum/beacon-APIs/blob/v4.0.0-alpha.0/apis/debug/state.v2.yaml
   router.metricsApi2(
     MethodGet, "/eth/v2/debug/beacon/states/{state_id}",
     {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
+    let
+      bslot = block:
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
@@ -41,8 +55,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
-    let contentType =
-      block:
+      contentType = block:
         let res = preferredContentType(jsonMediaType,
                                        sszMediaType)
         if res.isErr():
@@ -53,11 +66,13 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return
         if contentType == jsonMediaType:
           RestApiResponse.jsonResponseState(
-            state, node.getStateOptimistic(state))
+            state, node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid),
+            node.hasRestAllowedOrigin)
         elif contentType == sszMediaType:
-          let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
-            RestApiResponse.sszResponse(forkyState.data, headers)
+            RestApiResponse.sszResponse(
+              forkyState.data, state.kind, node.hasRestAllowedOrigin)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
@@ -97,14 +112,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         unrealized = item.unrealized.get(item.checkpoints)
         u_justified_checkpoint =
           if unrealized.justified != item.checkpoints.justified:
-            some unrealized.justified
+            Opt.some unrealized.justified
           else:
-            none(Checkpoint)
+            Opt.none(Checkpoint)
         u_finalized_checkpoint =
           if unrealized.finalized != item.checkpoints.finalized:
-            some unrealized.finalized
+            Opt.some unrealized.finalized
           else:
-            none(Checkpoint)
+            Opt.none(Checkpoint)
 
       response.fork_choice_nodes.add RestNode(
         slot: item.bid.slot,
@@ -129,12 +144,12 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestNodeValidity.valid,
         execution_block_hash:
           node.dag.loadExecutionBlockHash(item.bid).get(ZERO_HASH),
-        extra_data: some RestNodeExtraData(
+        extra_data: Opt.some RestNodeExtraData(
           justified_root: item.checkpoints.justified.root,
           finalized_root: item.checkpoints.finalized.root,
           u_justified_checkpoint: u_justified_checkpoint,
           u_finalized_checkpoint: u_finalized_checkpoint,
           best_child: item.bestChild,
-          bestDescendant: item.bestDescendant))
+          best_descendant: item.bestDescendant))
 
     RestApiResponse.jsonResponsePlain(response)

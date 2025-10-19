@@ -5,10 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/[strformat, typetraits, json, sequtils],
+  std/json,
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
@@ -16,20 +16,20 @@ import
   eth/common/eth_types,
   results,
   kzg4844/[kzg_abi, kzg],
-  stew/[assign2, byteutils, objects],
+  stew/objects,
   # Local modules:
-  ../spec/[eth2_merkleization, forks],
+  ../spec/forks,
   ../networking/network_metadata,
-  ".."/beacon_node_status,
-  "."/[el_conf, engine_api_conversions, eth1_chain]
+  "."/[el_conf, engine_api_conversions]
 
+from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
+from std/typetraits import distinctBase
 from ../spec/engine_authentication import getSignedIatToken
-from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
-  eth1_chain, el_conf, engine_api, base
+  el_conf, engine_api, base
 
 logScope:
   topics = "elman"
@@ -39,141 +39,63 @@ const
     [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
 
 type
-  FixedBytes[N: static int] =  web3.FixedBytes[N]
-  PubKeyBytes = DynamicBytes[48, 48]
-  WithdrawalCredentialsBytes = DynamicBytes[32, 32]
-  SignatureBytes = DynamicBytes[96, 96]
-  Int64LeBytes = DynamicBytes[8, 8]
-  WithoutTimeout* = distinct int
+  WithoutTimeout = distinct int
 
-  DeadlineObject* = object
-    # TODO (cheatfate): This object declaration could be removed when
-    # `Raising()` macro starts to support procedure arguments.
-    future*: Future[void].Raising([CancelledError])
+  DeadlineFuture* = Future[void].Raising([CancelledError])
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     GetPayloadV3Response |
-    GetPayloadV4Response
-
-contract(DepositContract):
-  proc deposit(pubkey: PubKeyBytes,
-               withdrawalCredentials: WithdrawalCredentialsBytes,
-               signature: SignatureBytes,
-               deposit_data_root: FixedBytes[32])
-
-  proc get_deposit_root(): FixedBytes[32]
-  proc get_deposit_count(): Int64LeBytes
-
-  proc DepositEvent(pubkey: PubKeyBytes,
-                    withdrawalCredentials: WithdrawalCredentialsBytes,
-                    amount: Int64LeBytes,
-                    signature: SignatureBytes,
-                    index: Int64LeBytes) {.event.}
+    GetPayloadV4Response |
+    GetPayloadV5Response
 
 const
   noTimeout = WithoutTimeout(0)
-  hasDepositRootChecks = defined(has_deposit_root_checks)
-
-  targetBlocksPerLogsRequest = 1000'u64
-    # TODO
-    #
-    # This is currently set to 1000, because this was the default maximum
-    # value in Besu circa our 22.3.0 release. Previously, we've used 5000,
-    # but this was effectively forcing the fallback logic in `syncBlockRange`
-    # to always execute multiple requests before getting a successful response.
-    #
-    # Besu have raised this default to 5000 in https://github.com/hyperledger/besu/pull/5209
-    # which is expected to ship in their next release.
-    #
-    # Full deposits sync time with various values for this parameter:
-    #
-    # Blocks per request | Geth running on the same host | Geth running on a more distant host
-    # ----------------------------------------------------------------------------------------
-    # 1000               |                      11m 20s  |                                 22m
-    # 5000               |                       5m 20s  |                             15m 40s
-    # 100000             |                       4m 10s  |                          not tested
-    #
-    # The number of requests scales linearly with the parameter value as you would expect.
-    #
-    # These results suggest that it would be reasonable for us to get back to 5000 once the
-    # Besu release is well-spread within their userbase.
 
   # Engine API timeouts
-  engineApiConnectionTimeout = 5.seconds  # How much we wait before giving up connecting to the Engine API
-  web3RequestsTimeout* = 8.seconds # How much we wait for eth_* requests (e.g. eth_getBlockByHash)
+  engineApiConnectionTimeout = 5.seconds  # How long we wait before giving up connecting to the Engine API
+  web3RequestsTimeout = 8.seconds # How long we wait for eth_* requests
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
+
+  GETBLOBS_TIMEOUT = 250.milliseconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
     ## before declaring the connection as degraded/restored
 
 type
-  NextExpectedPayloadParams* = object
-    headBlockHash*: Eth2Digest
-    safeBlockHash*: Eth2Digest
-    finalizedBlockHash*: Eth2Digest
-    payloadAttributes*: PayloadAttributesV3
-
-  ELManagerState* {.pure.} = enum
-    Running, Closing, Closed
+  NextExpectedPayloadParams = object
+    headBlockHash: Eth2Digest
+    safeBlockHash: Eth2Digest
+    finalizedBlockHash: Eth2Digest
+    payloadAttributes: PayloadAttributesV3
 
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
       ## If this value is supplied the EL manager will check whether
       ## all configured EL nodes are connected to the same network.
 
-    depositContractAddress*: Eth1Address
-    depositContractBlockNumber: uint64
-    depositContractBlockHash: Hash32
-
-    blocksPerLogsRequest: uint64
-      ## This value is used to dynamically adjust the number of
-      ## blocks we are trying to download at once during deposit
-      ## syncing. By default, the value is set to the constant
-      ## `targetBlocksPerLogsRequest`, but if the EL is failing
-      ## to serve this number of blocks per single `eth_getLogs`
-      ## request, we temporarily lower the value until the request
-      ## succeeds. The failures are generally expected only in
-      ## periods in the history for very high deposit density.
-
     elConnections: seq[ELConnection]
       ## All active EL connections
 
-    eth1Chain: Eth1Chain
-      ## At larger distances, this chain consists of all blocks
-      ## with deposits. Within the relevant voting period, it
-      ## also includes blocks without deposits because we must
-      ## vote for a block only if it's part of our known history.
+    checkChainIdLoopFut: Future[void]
+    nextExpectedPayloadParams: Opt[NextExpectedPayloadParams]
 
-    syncTargetBlock: Opt[Eth1BlockNumber]
-
-    chainSyncingLoopFut: Future[void]
-    exchangeTransitionConfigurationLoopFut: Future[void]
-    managerState: ELManagerState
-
-    nextExpectedPayloadParams*: Option[NextExpectedPayloadParams]
-
-  EtcStatus {.pure.} = enum
+  ChainIdStatus {.pure.} = enum
     notExchangedYet
     mismatch
     match
-
-  DepositContractSyncStatus {.pure.} = enum
-    unknown
-    notSynced
-    synced
 
   ELConnectionState {.pure.} = enum
     NeverTested
     Working
     Degraded
 
-  ELConnection* = ref object
+  ELConnection = ref object
     engineUrl: EngineApiUrl
 
     web3: Opt[Web3]
@@ -184,45 +106,14 @@ type
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
-    etcStatus: EtcStatus
-      ## The latest status of the `exchangeTransitionConfiguration`
-      ## exchange.
+    chainIdStatus: ChainIdStatus
+      ## The latest status of the `checkChainId` exchange.
 
     state: ELConnectionState
     hysteresisCounter: int
-
-    depositContractSyncStatus: DepositContractSyncStatus
-      ## Are we sure that this EL has synced the deposit contract?
-
     lastPayloadId: Opt[Bytes8]
 
-  FullBlockId* = object
-    number: Eth1BlockNumber
-    hash: Hash32
-
-  DataProviderFailure* = object of CatchableError
-  CorruptDataProvider* = object of DataProviderFailure
-  DataProviderTimeout* = object of DataProviderFailure
-  DataProviderConnectionFailure* = object of DataProviderFailure
-
-  DisconnectHandler* = proc () {.gcsafe, raises: [].}
-
-  DepositEventHandler* = proc (
-    pubkey: PubKeyBytes,
-    withdrawalCredentials: WithdrawalCredentialsBytes,
-    amount: Int64LeBytes,
-    signature: SignatureBytes,
-    merkleTreeIndex: Int64LeBytes,
-    j: JsonNode) {.gcsafe, raises: [].}
-
-declareCounter failed_web3_requests,
-  "Failed web3 requests"
-
-declareGauge eth1_latest_head,
-  "The highest Eth1 block number observed on the network"
-
-declareGauge eth1_synced_head,
-  "Block number of the highest synchronized block according to follow distance"
+  DataProviderTimeout* = object of CatchableError
 
 declareCounter engine_api_responses,
   "Number of successful requests to the newPayload Engine API end-point",
@@ -241,10 +132,7 @@ declareCounter engine_api_last_minute_forkchoice_updates_sent,
   "Number of last minute requests to the forkchoiceUpdated Engine API end-point just before block proposals",
   labels = ["url"]
 
-proc init*(t: typedesc[DeadlineObject], d: Duration): DeadlineObject =
-  DeadlineObject(future: sleepAsync(d))
-
-proc variedSleep*(
+proc variedSleep(
     counter: var int,
     durations: openArray[Duration]
 ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
@@ -271,14 +159,14 @@ proc close(connection: ELConnection): Future[void] {.async: (raises: []).} =
       debug "Failed to close execution layer", error = $exc.name,
             reason = $exc.msg
 
-proc increaseCounterTowardsStateChange(connection: ELConnection): bool =
+func increaseCounterTowardsStateChange(connection: ELConnection): bool =
   result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
   if result:
     connection.hysteresisCounter = 0
   else:
     inc connection.hysteresisCounter
 
-proc decreaseCounterTowardsStateChange(connection: ELConnection) =
+func decreaseCounterTowardsStateChange(connection: ELConnection) =
   if connection.hysteresisCounter > 0:
     # While we increase the counter by 1, we decreate it by 20% in order
     # to require a steady and affirmative change instead of allowing
@@ -378,26 +266,14 @@ func raiseIfNil(web3block: BlockObject): BlockObject {.raises: [ValueError].} =
     raise newException(ValueError, "EL returned 'null' result for block")
   web3block
 
-template cfg(m: ELManager): auto =
-  m.eth1Chain.cfg
-
-func hasJwtSecret*(m: ELManager): bool =
+func hasJwtSecret(m: ELManager): bool =
   for c in m.elConnections:
     if c.engineUrl.jwtSecret.isSome:
       return true
-
-func isSynced*(m: ELManager): bool =
-  m.syncTargetBlock.isSome and
-  m.eth1Chain.blocks.len > 0 and
-  m.syncTargetBlock.get <= m.eth1Chain.blocks[^1].number
-
-template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
-  m.eth1Chain.blocks
+  false
 
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
-#  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
-#             "Invalid configuration: GENESIS_DELAY is set too low"
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
@@ -455,26 +331,7 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
 
   connection.web3.get.provider
 
-proc getBlockByHash(
-    rpcClient: RpcClient,
-    hash: Hash32
-): Future[BlockObject] {.async: (raises: [CatchableError]).} =
-  await rpcClient.eth_getBlockByHash(hash, false)
-
-proc getBlockByNumber*(
-    rpcClient: RpcClient,
-    number: Eth1BlockNumber
-): Future[BlockObject] {.async: (raises: [CatchableError]).} =
-  let hexNumber = try:
-    let num = distinctBase(number)
-    &"0x{num:X}" # No leading 0's!
-  except ValueError as exc:
-    # Since the format above is valid, failing here should not be possible
-    raiseAssert exc.msg
-
-  await rpcClient.eth_getBlockByNumber(hexNumber, false)
-
-func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
+func areSameAs(expectedParams: Opt[NextExpectedPayloadParams],
                latestHead, latestSafe, latestFinalized: Eth2Digest,
                timestamp: uint64,
                randomData: Eth2Digest,
@@ -511,7 +368,7 @@ proc getPayloadFromSingleEL(
     consensusHead: Eth2Digest,
     headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64,
-    randomData: Eth2Digest,
+    prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[WithdrawalV1]
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
@@ -531,7 +388,7 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV1(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient))
       elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
         let response = await rpcClient.forkchoiceUpdated(
@@ -541,13 +398,15 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV2(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
-            GetPayloadResponseType is engine_api.GetPayloadV4Response:
-        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+            GetPayloadResponseType is engine_api.GetPayloadV4Response or
+            GetPayloadResponseType is engine_api.GetPayloadV5Response:
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+        # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -555,7 +414,7 @@ proc getPayloadFromSingleEL(
             finalizedBlockHash: finalizedBlock.asBlockHash),
           Opt.some PayloadAttributesV3(
             timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData.data,
+            prevRandao: Bytes32 prevRandao.to(Hash32),
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
             parentBeaconBlockRoot: consensusHead.to(Hash32)))
@@ -564,7 +423,7 @@ proc getPayloadFromSingleEL(
 
       if response.payloadStatus.status != PayloadExecutionStatus.valid or
          response.payloadId.isNone:
-        raise newException(CatchableError, "Head block is not a valid payload")
+        raise newException(CatchableError, "Head block is not a valid payload; " & $response)
 
       # Give the EL some time to assemble the block
       await sleepAsync(chronos.milliseconds 500)
@@ -598,7 +457,7 @@ template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): typ
   engine_api.GetPayloadV4Response
 
 template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV4Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -618,18 +477,19 @@ proc getPayload*(
     consensusHead: Eth2Digest,
     headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64,
-    randomData: Eth2Digest,
+    prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[capella.Withdrawal]
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
-    return err()
+    notice "No engine configured, using empty payload"
+    return Opt.none(PayloadType)
 
   let
     engineApiWithdrawals = toEngineWithdrawals withdrawals
     isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
       headBlock, safeBlock, finalizedBlock, timestamp,
-      randomData, suggestedFeeRecipient, engineApiWithdrawals)
+      prevRandao, suggestedFeeRecipient, engineApiWithdrawals)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -644,7 +504,7 @@ proc getPayload*(
       m.elConnections.mapIt(
         it.getPayloadFromSingleEL(EngineApiResponseType(PayloadType),
           isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
-          timestamp, randomData, suggestedFeeRecipient, engineApiWithdrawals))
+          timestamp, prevRandao, suggestedFeeRecipient, engineApiWithdrawals))
 
     let timeoutExceeded =
       try:
@@ -722,109 +582,13 @@ proc getPayload*(
       requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
 
-    when PayloadType.kind == ConsensusFork.Fulu:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeFulu)
-    else:
-      if bestPayloadIdx.isSome():
-        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    if bestPayloadIdx.isSome():
+      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
 
   err()
-
-proc waitELToSyncDeposits(
-    connection: ELConnection,
-    minimalRequiredBlock: Hash32
-) {.async: (raises: [CancelledError]).} =
-  var rpcClient: RpcClient = nil
-
-  if connection.depositContractSyncStatus == DepositContractSyncStatus.synced:
-    return
-
-  var attempt = 0
-
-  while true:
-    if isNil(rpcClient):
-      rpcClient = await connection.connectedRpcClient()
-
-    try:
-      discard raiseIfNil await connection.engineApiRequest(
-        rpcClient.getBlockByHash(minimalRequiredBlock),
-        "getBlockByHash", Moment.now(),
-        web3RequestsTimeout, failureAllowed = true)
-      connection.depositContractSyncStatus = DepositContractSyncStatus.synced
-      return
-    except CancelledError as exc:
-      trace "waitELToSyncDepositContract interrupted",
-             url = connection.engineUrl.url
-      raise exc
-    except CatchableError as exc:
-      connection.depositContractSyncStatus = DepositContractSyncStatus.notSynced
-      if attempt == 0:
-        warn "Failed to obtain the most recent known block from the " &
-             "execution layer node (the node is probably not synced)",
-             url = connection.engineUrl.url,
-             blk = minimalRequiredBlock,
-             reason = exc.msg
-      elif attempt mod 60 == 0:
-        # This warning will be produced every 30 minutes
-        warn "Still failing to obtain the most recent known block from the " &
-             "execution layer node (the node is probably still not synced)",
-             url = connection.engineUrl.url,
-             blk = minimalRequiredBlock,
-             reason = exc.msg
-      inc(attempt)
-      await sleepAsync(seconds(30))
-      rpcClient = nil
-
-func networkHasDepositContract(m: ELManager): bool =
-  not m.cfg.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue
-
-func mostRecentKnownBlock(m: ELManager): Hash32 =
-  if m.eth1Chain.finalizedDepositsMerkleizer.getChunkCount() > 0:
-    m.eth1Chain.finalizedBlockHash.asBlockHash
-  else:
-    m.depositContractBlockHash
-
-proc selectConnectionForChainSyncing(
-    m: ELManager
-): Future[ELConnection] {.async: (raises: [CancelledError,
-                                           DataProviderConnectionFailure]).} =
-  doAssert m.elConnections.len > 0
-
-  let pendingConnections = m.elConnections.mapIt(
-    if m.networkHasDepositContract:
-      FutureBase waitELToSyncDeposits(it, m.mostRecentKnownBlock)
-    else:
-      FutureBase connectedRpcClient(it))
-
-  while true:
-    var pendingFutures = pendingConnections
-    try:
-      discard await race(pendingFutures)
-    except ValueError:
-      raiseAssert "pendingFutures should not be empty at this moment"
-    except CancelledError as exc:
-      let pending = pendingConnections.filterIt(not(it.finished())).
-                      mapIt(it.cancelAndWait())
-      await noCancel allFutures(pending)
-      raise exc
-
-    pendingFutures.reset()
-    for index, future in pendingConnections.pairs():
-      if future.completed():
-        let pending = pendingConnections.filterIt(not(it.finished())).
-                        mapIt(it.cancelAndWait())
-        await noCancel allFutures(pending)
-        return m.elConnections[index]
-      elif not(future.finished()):
-        pendingFutures.add(future)
-
-    if len(pendingFutures) == 0:
-      raise newException(DataProviderConnectionFailure,
-                         "Unable to establish connection for chain syncing")
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
@@ -844,23 +608,30 @@ proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: FixedBytes[32]
+    parent_beacon_block_root: Hash32
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV3(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root)
+    payload, versioned_hashes, parent_beacon_block_root)
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: FixedBytes[32],
+    parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root,
+    payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
+
+proc sendGetBlobsV2toSingleEl(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV2(versioned_hashes)
 
 type
   StatusRelation = enum
@@ -959,7 +730,7 @@ proc processResponse(
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc couldBeBetter(d: ELConsensusViolationDetector): bool =
+func couldBeBetter(d: ELConsensusViolationDetector): bool =
   const
     SyncingOrAccepted = {
       PayloadExecutionStatus.syncing,
@@ -969,10 +740,7 @@ proc couldBeBetter(d: ELConsensusViolationDetector): bool =
     return false
   if d.selectedStatus.isNone():
     return true
-  if d.selectedStatus.get() in SyncingOrAccepted:
-    true
-  else:
-    false
+  d.selectedStatus.get() in SyncingOrAccepted
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
   block:
@@ -990,69 +758,117 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
     if len(pending) > 0:
       await noCancel allFutures(pending)
 
+proc sendGetBlobsV2*(
+    m: ELManager,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    return err()
+
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "handle correctly for Gloas?"
+    return err()
+  else:
+    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+    var bestIdx: Opt[int]
+
+    while true:
+      let requests = m.elConnections.mapIt(
+        sendGetBlobsV2toSingleEl(it,
+          mapIt(blck.message.body.blob_kzg_commitments,
+                kzg_commitment_to_versioned_hash(it))
+        )
+      )
+
+      let timeoutExceeded =
+        try:
+          await allFutures(requests).wait(deadline)
+          false
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          # cancel anything still running, then re-raise
+          await noCancel allFutures(
+            requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+          )
+          raise exc
+
+      for idx, req in requests:
+        if req.finished():
+          # choose the first successful (not failed) response
+          if req.error.isNil and bestIdx.isNone:
+            bestIdx = Opt.some(idx)
+        else:
+          # finished == false
+          let errmsg =
+            if req.error.isNil: "request still pending"
+            else: req.error.msg
+          warn "Timeout while getting blobs & proofs",
+              url = m.elConnections[idx].engineUrl.url,
+              reason = errmsg
+
+      await noCancel allFutures(
+        requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+      )
+
+      if bestIdx.isSome():
+        let chosen = requests[bestIdx.get()]
+        # chosen is finished; but could still be an error, so guard again
+        if chosen.error.isNil:
+          return ok(chosen.value())
+        else:
+          warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
+      if timeoutExceeded:
+        break
+
+    err()
+
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
-): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
-  doAssert maxRetriesCount > 0
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    info "No execution client configured; cannot process block payloads",
+      executionPayload = shortLog(blck.body.execution_payload)
+    return Opt.none(PayloadExecutionStatus)
+
+  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
-    deadline = deadlineObj.future
-    payload = blck.body.asEngineExecutionPayload
+    payload = blck.body.execution_payload.asEngineExecutionPayload
+
+  when consensusFork >= ConsensusFork.Deneb:
+    let
+      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      parent_root = blck.parent_root.to(Hash32)
+
+  when consensusFork >= ConsensusFork.Electra:
+    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+
   var
     responseProcessor = ELConsensusViolationDetector.init()
     sleepCounter = 0
-    retriesCount = 0
 
   while true:
     block mainLoop:
-      let
-        requests = m.elConnections.mapIt:
-          let req =
-            when typeof(blck).kind >= ConsensusFork.Electra:
-              # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
-              let
-                versioned_hashes = mapIt(
-                  blck.body.blob_kzg_commitments,
-                  engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
-                # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
-                # "Each list element is a `requests` byte array as defined by
-                # EIP-7685. The first byte of each element is the `request_type`
-                # and the remaining bytes are the `request_data`. Elements of
-                # the list MUST be ordered by `request_type` in ascending order.
-                # Elements with empty `request_data` MUST be excluded from the
-                # list."
-                execution_requests = block:
-                  var requests: seq[seq[byte]]
-                  for request_type, request_data in
-                      [SSZ.encode(blck.body.execution_requests.deposits),
-                       SSZ.encode(blck.body.execution_requests.withdrawals),
-                       SSZ.encode(blck.body.execution_requests.consolidations)]:
-                    if request_data.len > 0:
-                      requests.add @[request_type.byte] & request_data
-                  requests
+      let requests = m.elConnections.mapIt:
+        let req =
+          when consensusFork >= ConsensusFork.Electra:
+            sendNewPayloadToSingleEL(
+              it, payload, versioned_hashes, parent_root, execution_requests
+            )
+          elif consensusFork >= ConsensusFork.Deneb:
+            sendNewPayloadToSingleEL(it, payload, versioned_hashes, parent_root)
+          elif consensusFork >= ConsensusFork.Bellatrix:
+            sendNewPayloadToSingleEL(it, payload)
+          else:
+            {.error: "Unsupported fork " & $consensusFork.}
 
-              sendNewPayloadToSingleEL(
-                it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data, execution_requests)
-            elif typeof(blck).kind == ConsensusFork.Deneb:
-              # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
-              # Verify the execution payload is valid
-              # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
-              let versioned_hashes = mapIt(
-                blck.body.blob_kzg_commitments,
-                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
-              sendNewPayloadToSingleEL(
-                it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data)
-            elif typeof(blck).kind in [ConsensusFork.Bellatrix, ConsensusFork.Capella]:
-              sendNewPayloadToSingleEL(it, payload)
-            else:
-              static: doAssert false
-          engineApiRequest(it, req, "newPayload", startTime, noTimeout)
+        engineApiRequest(it, req, "newPayload", startTime, noTimeout)
 
       var pendingRequests = requests
 
@@ -1087,8 +903,9 @@ proc sendNewPayload*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return PayloadExecutionStatus.invalid
-        elif responseProcessor.selectedResponse.isSome():
+          return Opt.some PayloadExecutionStatus.invalid
+
+        if responseProcessor.selectedResponse.isSome():
           if (len(pendingRequests) == 0) or
              not(responseProcessor.couldBeBetter()):
             # We spawn task which will wait for all other responses which are
@@ -1096,7 +913,7 @@ proc sendNewPayload*(
             # cancelled.
             asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
             return
-              requests[responseProcessor.selectedResponse.get].value().status
+              Opt.some requests[responseProcessor.selectedResponse.get].value().status
 
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
@@ -1104,25 +921,17 @@ proc sendNewPayload*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return PayloadExecutionStatus.syncing
+          return Opt.none(PayloadExecutionStatus)
 
         if len(pendingRequests) == 0:
           # All requests failed.
-          inc(retriesCount)
-          if retriesCount == maxRetriesCount:
-            return PayloadExecutionStatus.syncing
+          if not retry:
+            return Opt.none(PayloadExecutionStatus)
 
           # To avoid continous spam of requests when EL node is offline we
           # going to sleep until next attempt.
           await variedSleep(sleepCounter, SleepDurations)
           break mainLoop
-
-proc sendNewPayload*(
-    m: ELManager,
-    blck: SomeForkyBeaconBlock
-): Future[PayloadExecutionStatus] {.
-    async: (raises: [CancelledError], raw: true).} =
-  sendNewPayload(m, blck, DeadlineObject.init(NEWPAYLOAD_TIMEOUT), high(int))
 
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
@@ -1152,13 +961,11 @@ proc forkchoiceUpdated*(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3],
-    deadlineObj: DeadlineObject,
-    maxRetriesCount: int
+    deadline: DeadlineFuture,
+    retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
    async: (raises: [CancelledError]).} =
-
   doAssert not headBlockHash.isZero
-  doAssert maxRetriesCount > 0
 
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
   #
@@ -1214,7 +1021,6 @@ proc forkchoiceUpdated*(
       safeBlockHash: safeBlockHash.asBlockHash,
       finalizedBlockHash: finalizedBlockHash.asBlockHash)
     startTime = Moment.now
-    deadline = deadlineObj.future
 
   var
     responseProcessor = ELConsensusViolationDetector.init()
@@ -1264,13 +1070,11 @@ proc forkchoiceUpdated*(
           # matches, and similarly that if the fcU fails or times out for other
           # reasons, the expected payload params remain synchronized with
           # EL state.
-          assign(
-            m.nextExpectedPayloadParams,
-            some NextExpectedPayloadParams(
-              headBlockHash: headBlockHash,
-              safeBlockHash: safeBlockHash,
-              finalizedBlockHash: finalizedBlockHash,
-              payloadAttributes: payloadAttributesV3))
+          m.nextExpectedPayloadParams = Opt.some NextExpectedPayloadParams(
+            headBlockHash: headBlockHash,
+            safeBlockHash: safeBlockHash,
+            finalizedBlockHash: finalizedBlockHash,
+            payloadAttributes: payloadAttributesV3)
 
         template getSelected: untyped =
           let data = requests[responseProcessor.selectedResponse.get].value()
@@ -1302,7 +1106,7 @@ proc forkchoiceUpdated*(
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
           inc(retriesCount)
-          if retriesCount == maxRetriesCount:
+          if not retry:
             return (PayloadExecutionStatus.syncing, Opt.none Hash32)
 
           # To avoid continous spam of requests when EL node is offline we
@@ -1320,20 +1124,16 @@ proc forkchoiceUpdated*(
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
     m, headBlockHash, safeBlockHash, finalizedBlockHash,
-    payloadAttributes, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT),
-    high(int))
+    payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
-# TODO can't be defined within exchangeConfigWithSingleEL
-func `==`(x, y: Quantity): bool {.borrow.}
-
-proc exchangeConfigWithSingleEL(
+proc checkChainIdWithSingleEL(
     m: ELManager,
     connection: ELConnection
 ) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
   if m.eth1Network.isSome and
-     connection.etcStatus == EtcStatus.notExchangedYet:
+     connection.chainIdStatus == ChainIdStatus.notExchangedYet:
     try:
       let
         providerChain = await connection.engineApiRequest(
@@ -1351,7 +1151,7 @@ proc exchangeConfigWithSingleEL(
               url = connection.engineUrl,
               expectedChain = distinctBase(expectedChain),
               actualChain = distinctBase(providerChain)
-        connection.etcStatus = EtcStatus.mismatch
+        connection.chainIdStatus = ChainIdStatus.mismatch
         return
     except CancelledError as exc:
       debug "Configuration exchange was interrupted"
@@ -1361,15 +1161,15 @@ proc exchangeConfigWithSingleEL(
       # endpoint has been otherwise working.
       debug "Failed to obtain eth_chainId", reason = exc.msg
 
-  connection.etcStatus = EtcStatus.match
+  connection.chainIdStatus = ChainIdStatus.match
 
-proc exchangeTransitionConfiguration*(
+proc checkChainId(
     m: ELManager
 ) {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return
 
-  let requests = m.elConnections.mapIt(m.exchangeConfigWithSingleEL(it))
+  let requests = m.elConnections.mapIt(m.checkChainIdWithSingleEL(it))
   try:
     await allFutures(requests).wait(3.seconds)
   except AsyncTimeoutError:
@@ -1402,351 +1202,14 @@ proc exchangeTransitionConfiguration*(
     warn "Failed to exchange configuration with the configured EL end-points",
          completed = finished, failed = failed, timed_out = len(pending)
 
-template readJsonField(logEvent, field: untyped, ValueType: type): untyped =
-  if logEvent.field.isNone:
-    raise newException(CatchableError,
-      "Web3 provider didn't return needed logEvent field " & astToStr(field))
-  logEvent.field.get
-
-template init[N: static int](T: type DynamicBytes[N, N]): T =
-  T newSeq[byte](N)
-
-proc fetchTimestamp(
-    connection: ELConnection,
-    rpcClient: RpcClient,
-    blk: Eth1Block
-) {.async: (raises: [CatchableError]).} =
-  debug "Fetching block timestamp", blockNum = blk.number
-
-  let web3block = raiseIfNil await connection.engineApiRequest(
-    rpcClient.getBlockByHash(blk.hash.asBlockHash),
-    "getBlockByHash", Moment.now(), web3RequestsTimeout)
-
-  blk.timestamp = Eth1BlockTimestamp(web3block.timestamp)
-
-func depositEventsToBlocks(
-    depositsList: openArray[JsonString]
-): seq[Eth1Block] {.raises: [CatchableError].} =
-  var lastEth1Block: Eth1Block
-
-  for logEventData in depositsList:
-    let
-      logEvent = JrpcConv.decode(logEventData.string, LogObject)
-      blockNumber = Eth1BlockNumber readJsonField(logEvent, blockNumber, Quantity)
-      blockHash = readJsonField(logEvent, blockHash, Hash32)
-
-    if lastEth1Block == nil or lastEth1Block.number != blockNumber:
-      lastEth1Block = Eth1Block(
-        hash: blockHash.asEth2Digest,
-        number: blockNumber
-        # The `timestamp` is set in `syncBlockRange` immediately
-        # after calling this function, because we don't want to
-        # make this function `async`
-      )
-
-      result.add lastEth1Block
-
-    var
-      pubkey = init PubKeyBytes
-      withdrawalCredentials = init WithdrawalCredentialsBytes
-      amount = init Int64LeBytes
-      signature = init SignatureBytes
-      index = init Int64LeBytes
-
-    var offset = 0
-    offset += decode(logEvent.data, 0, offset, pubkey)
-    offset += decode(logEvent.data, 0, offset, withdrawalCredentials)
-    offset += decode(logEvent.data, 0, offset, amount)
-    offset += decode(logEvent.data, 0, offset, signature)
-    offset += decode(logEvent.data, 0, offset, index)
-
-    if pubkey.len != 48 or
-       withdrawalCredentials.len != 32 or
-       amount.len != 8 or
-       signature.len != 96 or
-       index.len != 8:
-      raise newException(CorruptDataProvider,
-                         "Web3 provider supplied invalid deposit logs")
-
-    lastEth1Block.deposits.add DepositData(
-      pubkey: ValidatorPubKey.init(pubkey.toArray),
-      withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
-      amount: bytes_to_uint64(amount.toArray).Gwei,
-      signature: ValidatorSig.init(signature.toArray))
-
-type
-  DepositContractDataStatus = enum
-    Fetched
-    VerifiedCorrect
-    DepositRootIncorrect
-    DepositRootUnavailable
-    DepositCountIncorrect
-    DepositCountUnavailable
-
-when hasDepositRootChecks:
-  const
-    contractCallTimeout = 60.seconds
-
-  proc fetchDepositContractData(
-      connection: ELConnection,
-      rpcClient: RpcClient,
-      depositContract: Sender[DepositContract],
-      blk: Eth1Block
-  ): Future[DepositContractDataStatus] {.async: (raises: [CancelledError]).} =
-    let
-      startTime = Moment.now()
-      deadline = sleepAsync(contractCallTimeout)
-      depositRootFut =
-        depositContract.get_deposit_root.call(blockNumber = blk.number)
-      rawCountFut =
-        depositContract.get_deposit_count.call(blockNumber = blk.number)
-      engineFut1 = connection.engineApiRequest(
-        depositRootFut, "get_deposit_root", startTime, deadline,
-        failureAllowed = true)
-      engineFut2 = connection.engineApiRequest(
-        rawCountFut, "get_deposit_count", startTime, deadline,
-        failureAllowed = true)
-
-    try:
-      await allFutures(engineFut1, engineFut2)
-    except CancelledError as exc:
-      var pending: seq[Future[void]]
-      if not(engineFut1.finished()):
-        pending.add(engineFut1.cancelAndWait())
-      if not(engineFut2.finished()):
-        pending.add(engineFut2.cancelAndWait())
-      await noCancel allFutures(pending)
-      raise exc
-
-    var res: DepositContractDataStatus
-
-    try:
-      # `engineFut1` could hold timeout exception `DataProviderTimeout`.
-      discard engineFut1.read()
-      let fetchedRoot = asEth2Digest(depositRootFut.read())
-      if blk.depositRoot.isZero:
-        blk.depositRoot = fetchedRoot
-        res = Fetched
-      elif blk.depositRoot == fetchedRoot:
-        res = VerifiedCorrect
-      else:
-        res = DepositRootIncorrect
-    except CatchableError as exc:
-      debug "Failed to fetch deposits root", block_number = blk.number,
-            reason = exc.msg
-      res = DepositRootUnavailable
-
-    try:
-      # `engineFut2` could hold timeout exception `DataProviderTimeout`.
-      discard engineFut2.read()
-      let fetchedCount = bytes_to_uint64(rawCountFut.read().toArray)
-      if blk.depositCount == 0:
-        blk.depositCount = fetchedCount
-      elif blk.depositCount != fetchedCount:
-        res = DepositCountIncorrect
-    except CatchableError as exc:
-      debug "Failed to fetch deposits count", block_number = blk.number,
-            reason = exc.msg
-      res = DepositCountUnavailable
-    res
-
-template trackFinalizedState*(m: ELManager,
-                              finalizedEth1Data: Eth1Data,
-                              finalizedStateDepositIndex: uint64): bool =
-  trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
-
-template getBlockProposalData*(m: ELManager,
-                               state: ForkedHashedBeaconState,
-                               finalizedEth1Data: Eth1Data,
-                               finalizedStateDepositIndex: uint64):
-                               BlockProposalEth1Data =
-  getBlockProposalData(
-    m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
-
 func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
-  ELConnection(
-    engineUrl: engineUrl,
-    depositContractSyncStatus: DepositContractSyncStatus.unknown)
+  ELConnection(engineUrl: engineUrl)
 
-proc new*(T: type ELManager,
-          cfg: RuntimeConfig,
-          depositContractBlockNumber: uint64,
-          depositContractBlockHash: Eth2Digest,
-          db: BeaconChainDB,
+func new*(T: type ELManager,
           engineApiUrls: seq[EngineApiUrl],
           eth1Network: Opt[Eth1Network]): T =
-  let
-    eth1Chain = Eth1Chain.init(
-      cfg, db, depositContractBlockNumber, depositContractBlockHash)
-
-  debug "Initializing ELManager",
-         depositContractBlockNumber,
-         depositContractBlockHash
-
-  T(eth1Chain: eth1Chain,
-    depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
-    depositContractBlockNumber: depositContractBlockNumber,
-    depositContractBlockHash: depositContractBlockHash.asBlockHash,
-    elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
-    eth1Network: eth1Network,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest,
-    managerState: ELManagerState.Running)
-
-proc stop(m: ELManager) {.async: (raises: []).} =
-  if m.managerState notin {ELManagerState.Closing, ELManagerState.Closed}:
-    m.managerState = ELManagerState.Closing
-    var pending: seq[Future[void].Raising([])]
-    if not(m.chainSyncingLoopFut.isNil()) and
-       not(m.chainSyncingLoopFut.finished()):
-      pending.add(m.chainSyncingLoopFut.cancelAndWait())
-    if not(m.exchangeTransitionConfigurationLoopFut.isNil()) and
-       not(m.exchangeTransitionConfigurationLoopFut.finished()):
-      pending.add(m.exchangeTransitionConfigurationLoopFut.cancelAndWait())
-    for connection in m.elConnections:
-      pending.add(connection.close())
-    await noCancel allFutures(pending)
-    m.managerState = ELManagerState.Closed
-
-const
-  votedBlocksSafetyMargin = 50
-
-func earliestBlockOfInterest(
-    m: ELManager,
-    latestEth1BlockNumber: Eth1BlockNumber): Eth1BlockNumber =
-  let blocksOfInterestRange =
-    SLOTS_PER_ETH1_VOTING_PERIOD +
-    (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
-    votedBlocksSafetyMargin
-
-  if latestEth1BlockNumber > blocksOfInterestRange.Eth1BlockNumber:
-    latestEth1BlockNumber - blocksOfInterestRange
-  else:
-    0.Eth1BlockNumber
-
-proc syncBlockRange(
-    m: ELManager,
-    connection: ELConnection,
-    rpcClient: RpcClient,
-    depositContract: Sender[DepositContract],
-    fromBlock, toBlock,
-    fullSyncFromBlock: Eth1BlockNumber
-) {.async: (raises: [CatchableError]).} =
-  doAssert m.eth1Chain.blocks.len > 0
-
-  var currentBlock = fromBlock
-  while currentBlock <= toBlock:
-    var
-      depositLogs: seq[JsonString]
-      maxBlockNumberRequested: Eth1BlockNumber
-      backoff = 100
-
-    while true:
-      maxBlockNumberRequested =
-        min(toBlock, currentBlock + m.blocksPerLogsRequest - 1)
-
-      debug "Obtaining deposit log events",
-            fromBlock = currentBlock,
-            toBlock = maxBlockNumberRequested,
-            backoff
-
-      debug.logTime "Deposit logs obtained":
-        # Reduce all request rate until we have a more general solution
-        # for dealing with Infura's rate limits
-        await sleepAsync(milliseconds(backoff))
-
-        depositLogs =
-          try:
-            await connection.engineApiRequest(
-              depositContract.getJsonLogs(
-                DepositEvent,
-                fromBlock = Opt.some blockId(currentBlock),
-                toBlock = Opt.some blockId(maxBlockNumberRequested)),
-              "getLogs", Moment.now(), 30.seconds)
-          except CancelledError as exc:
-            debug "Request for deposit logs was interrupted"
-            raise exc
-          except CatchableError as exc:
-            debug "Request for deposit logs failed", reason = exc.msg
-            inc failed_web3_requests
-            backoff = (backoff * 3) div 2
-            m.blocksPerLogsRequest = m.blocksPerLogsRequest div 2
-            if m.blocksPerLogsRequest == 0:
-              m.blocksPerLogsRequest = 1
-              raise exc
-            continue
-        m.blocksPerLogsRequest = min(
-          (m.blocksPerLogsRequest * 3 + 1) div 2,
-          targetBlocksPerLogsRequest)
-
-      currentBlock = maxBlockNumberRequested + 1
-      break
-
-    let blocksWithDeposits = depositEventsToBlocks(depositLogs)
-
-    for i in 0 ..< blocksWithDeposits.len:
-      let blk = blocksWithDeposits[i]
-      if blk.number > fullSyncFromBlock:
-        try:
-          await fetchTimestamp(connection, rpcClient, blk)
-        except CancelledError as exc:
-          debug "Request for block timestamp was interrupted",
-                block_number = blk.number
-          raise exc
-        except CatchableError as exc:
-          debug "Request for block timestamp failed",
-                block_number = blk.number, reason = exc.msg
-
-        let lastBlock = m.eth1Chain.blocks.peekLast
-        for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
-          debug "Obtaining block without deposits", blockNum = n
-          let noDepositsBlock =
-            try:
-              raiseIfNil await connection.engineApiRequest(
-                rpcClient.getBlockByNumber(n),
-                "getBlockByNumber", Moment.now(), web3RequestsTimeout)
-            except CancelledError as exc:
-              debug "The process of obtaining the block was interrupted",
-                    block_number = n
-              raise exc
-            except CatchableError as exc:
-              debug "Request for block failed", block_number = n,
-                    reason = exc.msg
-              raise exc
-
-          m.eth1Chain.addBlock(
-            lastBlock.makeSuccessorWithoutDeposits(noDepositsBlock))
-          eth1_synced_head.set noDepositsBlock.number.toGaugeValue
-
-      m.eth1Chain.addBlock blk
-      eth1_synced_head.set blk.number.toGaugeValue
-
-    if blocksWithDeposits.len > 0:
-      let lastIdx = blocksWithDeposits.len - 1
-      template lastBlock: auto = blocksWithDeposits[lastIdx]
-
-      let status =
-        when hasDepositRootChecks:
-          await fetchDepositContractData(
-            connection, rpcClient, depositContract, lastBlock)
-        else:
-          DepositRootUnavailable
-
-      when hasDepositRootChecks:
-        debug "Deposit contract state verified",
-              status = $status,
-              ourCount = lastBlock.depositCount,
-              ourRoot = lastBlock.depositRoot
-
-      case status
-      of DepositRootIncorrect, DepositCountIncorrect:
-        raise newException(CorruptDataProvider,
-          "The deposit log events disagree with the deposit contract state")
-      else:
-        discard
-
-      info "Eth1 sync progress",
-        blockNumber = lastBlock.number,
-        depositsProcessed = lastBlock.depositCount
+  T(elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
+    eth1Network: eth1Network)
 
 func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
@@ -1754,233 +1217,21 @@ func hasConnection*(m: ELManager): bool =
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
 
-func hasProperlyConfiguredConnection*(m: ELManager): bool =
-  for connection in m.elConnections:
-    if connection.etcStatus == EtcStatus.match:
-      return true
-
-  false
-
-proc startExchangeTransitionConfigurationLoop(
+proc startCheckChainIdLoop(
     m: ELManager
 ) {.async: (raises: [CancelledError]).} =
-  debug "Starting exchange transition configuration loop"
+  debug "Starting chain ID checking loop"
 
   while true:
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
-    await m.exchangeTransitionConfiguration()
+    await m.checkChainId()
     await sleepAsync(60.seconds)
-
-proc syncEth1Chain(
-    m: ELManager,
-    connection: ELConnection
-) {.async: (raises: [CatchableError]).} =
-  let rpcClient =
-    try:
-      await connection.connectedRpcClient().wait(1.seconds)
-    except AsyncTimeoutError:
-      raise newException(DataProviderTimeout, "Connection timed out")
-
-  let
-    # BEWARE
-    # `connectedRpcClient` guarantees that connection.web3 will not be
-    # `none` here, but it's not safe to initialize this later (e.g closer
-    # to where it's used) because `connection.web3` may be set to `none`
-    # at any time after a failed request. Luckily, the `contractSender`
-    # object is very cheap to create.
-    depositContract = connection.web3.get.contractSender(
-      DepositContract, m.depositContractAddress)
-
-    shouldProcessDeposits = not (
-      m.depositContractAddress.isZeroMemory or
-      m.eth1Chain.finalizedBlockHash.data.isZeroMemory)
-
-  trace "Starting syncEth1Chain", shouldProcessDeposits
-
-  logScope:
-    url = connection.engineUrl.url
-
-  # We might need to reset the chain if the new provider disagrees
-  # with the previous one regarding the history of the chain or if
-  # we have detected a conensus violation - our view disagreeing with
-  # the majority of the validators in the network.
-  #
-  # Consensus violations happen in practice because the web3 providers
-  # sometimes return incomplete or incorrect deposit log events even
-  # when they don't indicate any errors in the response. When this
-  # happens, we are usually able to download the data successfully
-  # on the second attempt.
-  #
-  # TODO
-  # Perhaps the above problem was manifesting only with the obsolete
-  # JSON-RPC data providers, which can no longer be used with Nimbus.
-  if m.eth1Chain.blocks.len > 0:
-    let needsReset = m.eth1Chain.hasConsensusViolation or (block:
-      let
-        lastKnownBlock = m.eth1Chain.blocks.peekLast
-        matchingBlockAtNewEl =
-          try:
-            raiseIfNil await connection.engineApiRequest(
-              rpcClient.getBlockByNumber(lastKnownBlock.number),
-              "getBlockByNumber", Moment.now(), web3RequestsTimeout)
-          except CancelledError as exc:
-            debug "getBlockByNumber request has been interrupted",
-                  last_known_block_number = lastKnownBlock.number
-            raise exc
-          except CatchableError as exc:
-            debug "getBlockByNumber request failed",
-                  last_known_block_number = lastKnownBlock.number,
-                  reason = exc.msg
-            raise exc
-
-      lastKnownBlock.hash.asBlockHash != matchingBlockAtNewEl.hash)
-
-    if needsReset:
-      trace "Resetting the Eth1 chain",
-            hasConsensusViolation = m.eth1Chain.hasConsensusViolation
-      m.eth1Chain.clear()
-
-  var eth1SyncedTo: Eth1BlockNumber
-  if shouldProcessDeposits:
-    if m.eth1Chain.blocks.len == 0:
-      let finalizedBlockHash = m.eth1Chain.finalizedBlockHash.asBlockHash
-      let startBlock =
-        try:
-          raiseIfNil await connection.engineApiRequest(
-            rpcClient.getBlockByHash(finalizedBlockHash),
-            "getBlockByHash", Moment.now(), web3RequestsTimeout)
-        except CancelledError as exc:
-          debug "getBlockByHash() request has been interrupted",
-                finalized_block_hash = finalizedBlockHash
-          raise exc
-        except CatchableError as exc:
-          debug "getBlockByHash() request has failed",
-                finalized_block_hash = finalizedBlockHash,
-                reason = exc.msg
-          raise exc
-
-      m.eth1Chain.addBlock Eth1Block(
-        hash: m.eth1Chain.finalizedBlockHash,
-        number: Eth1BlockNumber startBlock.number,
-        timestamp: Eth1BlockTimestamp startBlock.timestamp)
-
-    eth1SyncedTo = m.eth1Chain.blocks[^1].number
-
-    eth1_synced_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_deposits.set(
-      m.eth1Chain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
-
-    debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
-
-  var latestBlockNumber: Eth1BlockNumber
-  while true:
-    debug "syncEth1Chain tick",
-      shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
-
-    # TODO (cheatfate): This should be removed
-    if bnStatus == BeaconNodeStatus.Stopping:
-      await noCancel m.stop()
-      return
-
-    if m.eth1Chain.hasConsensusViolation:
-      raise newException(CorruptDataProvider,
-                         "Eth1 chain contradicts Eth2 consensus")
-
-    let latestBlock =
-      try:
-        raiseIfNil await connection.engineApiRequest(
-          rpcClient.eth_getBlockByNumber(blockId("latest"), false),
-          "getBlockByNumber", Moment.now(), web3RequestsTimeout)
-      except CancelledError as exc:
-        debug "Latest block request has been interrupted"
-        raise exc
-      except CatchableError as exc:
-        warn "Failed to obtain the latest block from the EL", reason = exc.msg
-        raise exc
-
-    latestBlockNumber = latestBlock.number
-
-    m.syncTargetBlock = Opt.some(
-      if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
-        latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
-      else:
-        0.Eth1BlockNumber)
-    if m.syncTargetBlock.get <= eth1SyncedTo:
-      # The chain reorged to a lower height.
-      # It's relatively safe to ignore that.
-      await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
-      continue
-
-    eth1_latest_head.set latestBlock.number.toGaugeValue
-
-    if shouldProcessDeposits and
-       latestBlock.number.uint64 > m.cfg.ETH1_FOLLOW_DISTANCE:
-      try:
-        await m.syncBlockRange(connection,
-                               rpcClient,
-                               depositContract,
-                               eth1SyncedTo + 1,
-                               m.syncTargetBlock.get,
-                               m.earliestBlockOfInterest(latestBlock.number))
-      except CancelledError as exc:
-        debug "Syncing block range process has been interrupted"
-        raise exc
-      except CatchableError as exc:
-        debug "Syncing block range process has been failed", reason = exc.msg
-        raise exc
-
-    eth1SyncedTo = m.syncTargetBlock.get
-    eth1_synced_head.set eth1SyncedTo.toGaugeValue
-
-proc startChainSyncingLoop(
-    m: ELManager
-) {.async: (raises: []).} =
-  info "Starting execution layer deposit syncing",
-        contract = $m.depositContractAddress
-
-  var syncedConnectionFut = m.selectConnectionForChainSyncing()
-  info "Connection attempt started"
-
-  var runLoop = true
-  while runLoop:
-    try:
-      let connection = await syncedConnectionFut.wait(60.seconds)
-      await syncEth1Chain(m, connection)
-    except AsyncTimeoutError:
-      notice "No synced EL nodes available for deposit syncing"
-      try:
-        await sleepAsync(chronos.seconds(30))
-      except CancelledError:
-        runLoop = false
-    except CancelledError:
-      runLoop = false
-    except CatchableError:
-      try:
-        await sleepAsync(10.seconds)
-      except CancelledError:
-        runLoop = false
-        break
-      debug "Restarting the deposit syncing loop"
-      # A more detailed error is already logged by trackEngineApiRequest
-      # To be extra safe, we will make a fresh connection attempt
-      await syncedConnectionFut.cancelAndWait()
-      syncedConnectionFut = m.selectConnectionForChainSyncing()
-
-  debug "EL chain syncing process has been stopped"
 
 proc start*(m: ELManager, syncChain = true) {.gcsafe.} =
   if m.elConnections.len == 0:
     return
 
-  ## Calling `ELManager.start()` on an already started ELManager is a noop
-  if syncChain and m.chainSyncingLoopFut.isNil:
-    m.chainSyncingLoopFut =
-      m.startChainSyncingLoop()
-
-  if m.hasJwtSecret and m.exchangeTransitionConfigurationLoopFut.isNil:
-    m.exchangeTransitionConfigurationLoopFut =
-      m.startExchangeTransitionConfigurationLoop()
+  if m.hasJwtSecret and m.checkChainIdLoopFut.isNil:
+    m.checkChainIdLoopFut = m.startCheckChainIdLoop()
 
 func `$`(x: Quantity): string =
   $(x.uint64)
@@ -1989,9 +1240,7 @@ func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
 proc testWeb3Provider*(
-    web3Url: Uri,
-    depositContractAddress: Eth1Address,
-    jwtSecret: Opt[seq[byte]]
+    web3Url: Uri, jwtSecret: Opt[seq[byte]]
 ) {.async: (raises: [CatchableError]).} =
 
   stdout.write "Establishing web3 connection..."
@@ -2026,12 +1275,3 @@ proc testWeb3Provider*(
 
   discard request "Sync status":
     web3.provider.eth_syncing()
-
-  let
-    latestBlock = request "Latest block":
-      web3.provider.eth_getBlockByNumber(blockId("latest"), false)
-
-    ns = web3.contractSender(DepositContract, depositContractAddress)
-
-  discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number)

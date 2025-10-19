@@ -5,20 +5,19 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
+  ../beacon_chain/el/engine_api_conversions,
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
 
 # TODO remove this dependency
 from std/random import rand
-
-from eth/common/eth_types_rlp import rlpHash
 
 type
   MockPrivKeysT = object
@@ -73,18 +72,18 @@ proc makeInitialDeposits*(
     result.add makeDeposit(i, flags, cfg = cfg)
 
 func signBlock(
-    fork: Fork, genesis_validators_root: Eth2Digest, forked: ForkedBeaconBlock,
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: ForkyBeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): ForkedSignedBeaconBlock =
   let
-    slot = withBlck(forked): forkyBlck.slot
-    root = hash_tree_root(forked)
+    slot = blck.slot
+    root = hash_tree_root(blck)
     signature =
       if skipBlsValidation notin flags:
         get_block_signature(
           fork, genesis_validators_root, slot, root, privKey).toValidatorSig()
       else:
         ValidatorSig()
-  ForkedSignedBeaconBlock.init(forked, root, signature)
+  ForkedSignedBeaconBlock.init(ForkedBeaconBlock.init(blck), root, signature)
 
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
@@ -104,7 +103,7 @@ func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   var payload = bellatrix.ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipts_root: EMPTY_ROOT_HASH,
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
     block_number: latest.block_number + 1,
     prev_randao: randao_mix,
     gas_limit: 30000000, # retain same limit
@@ -134,9 +133,9 @@ func build_empty_execution_payload(
   var payload = bellatrix.ExecutionPayloadForSigning(
     executionPayload: bellatrix.ExecutionPayload(
       parent_hash: latest.block_hash,
-      fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+      fee_recipient: feeRecipient,
       state_root: latest.state_root, # no changes to the state
-      receipts_root: EMPTY_ROOT_HASH,
+      receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
       block_number: latest.block_number + 1,
       prev_randao: randao_mix,
       gas_limit: latest.gas_limit, # retain same limit
@@ -150,6 +149,10 @@ func build_empty_execution_payload(
       payload.executionPayload)).compute_execution_block_hash()
 
   payload
+
+func lastPremergeSlotInTestCfg*(cfg: RuntimeConfig): Slot =
+  # Merge shortly after Bellatrix
+  cfg.BELLATRIX_FORK_EPOCH.start_slot + 10
 
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
@@ -183,7 +186,7 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let message = withState(state):
+  withState(state):
     let execution_payload =
       when consensusFork > ConsensusFork.Bellatrix:
         default(consensusFork.ExecutionPayloadForSigning)
@@ -193,9 +196,7 @@ proc addTestBlock*(
           # test relies on merging. So, merge only if no Capella transition.
           default(bellatrix.ExecutionPayloadForSigning)
         else:
-          # Merge shortly after Bellatrix
-          if  forkyState.data.slot >
-              cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
+          if forkyState.data.slot > cfg.lastPremergeSlotInTestCfg:
             if is_merge_transition_complete(forkyState.data):
               const feeRecipient = default(Eth1Address)
               build_empty_execution_payload(forkyState.data, feeRecipient)
@@ -206,9 +207,11 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    makeBeaconBlock(
+    let message = makeBeaconBlock(
       cfg,
-      state,
+      consensusFork,
+      forkyState,
+      cache,
       proposer_index,
       randao_reveal,
       # Keep deposit counts internally consistent.
@@ -217,7 +220,7 @@ proc addTestBlock*(
         deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
-      when consensusFork == ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra:
         electraAttestations
       elif consensusFork == ConsensusFork.Fulu:
         electraAttestations
@@ -229,20 +232,10 @@ proc addTestBlock*(
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
-      noRollback,
-      cache,
-      verificationFlags = {skipBlsValidation})
+      verificationFlags = {skipBlsValidation}).expect("block")
 
-  if message.isErr:
-    raiseAssert "Failed to create a block: " & $message.error
-
-  let
-    new_block = signBlock(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root), message.get(), privKey,
-      flags)
-
-  new_block
+    signBlock(
+        forkyState.data.fork, forkyState.data.genesis_validators_root, message, privKey, flags)
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,

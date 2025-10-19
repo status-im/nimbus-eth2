@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -38,28 +38,27 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
-    let rng = HmacDrbgContext.new()
+    let
+      rng = HmacDrbgContext.new()
+      cfg = defaultRuntimeConfig
     var
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(
-        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = newClone(Quarantine.init())
-      pool = newClone(AttestationPool.init(dag, quarantine))
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
-      batchCrypto = BatchCrypto.new(
+      batchCrypto {.used.} = BatchCrypto.new(
         rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    check:
-      process_slots(
-        defaultRuntimeConfig, state[], getStateField(state[], slot) + 1,
-        cache, info, {}).isOk()
+    check cfg.process_slots(
+      state[], getStateField(state[], slot) + 1, cache, info, {}).isOk()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
@@ -84,6 +83,7 @@ suite "Gossip validation " & preset():
         dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+          state: phase0.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -218,7 +218,7 @@ suite "Gossip validation - Altair":
         dag.headState, cache, blocks = 1,
         attested = false, cfg = cfg):
       let added = withBlck(blck):
-        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        const nilCallback = OnBlockAdded[consensusFork](nil)
         dag.addHeadBlock(verifier, forkyBlck, nilCallback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
@@ -296,8 +296,8 @@ suite "Gossip validation - Altair":
 
   setup:
     let
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      quarantine = newClone(Quarantine.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
     var
@@ -307,7 +307,7 @@ suite "Gossip validation - Altair":
   template prepare(numValidators: Natural): untyped {.dirty.} =
     let
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+        cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       batchCrypto = BatchCrypto.new(
         rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(

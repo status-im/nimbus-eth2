@@ -25,9 +25,7 @@ type
       name: "remote-signer" }: seq[string]
 
     dataDir {.
-      defaultValue: config.defaultDataDir()
-      defaultValueDesc: ""
-      desc: "A Nimbus data directory"
+      desc: "A directory containing validators and secrets"
       name: "data-dir" }: InputDir
 
     validatorsDirFlag* {.

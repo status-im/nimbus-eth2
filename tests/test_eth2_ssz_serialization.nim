@@ -11,8 +11,7 @@
 import
   std/strutils,
   unittest2,
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
-  ../beacon_chain/spec/eth2_ssz_serialization,
+  ../beacon_chain/spec/[eth2_ssz_serialization, forks],
   ./consensus_spec/os_ops
 
 static:
@@ -47,10 +46,9 @@ suite "Specific field types":
       check:
         t.root.isZero
 
-    testit(phase0.SignedBeaconBlock)
-    testit(phase0.TrustedSignedBeaconBlock)
-    testit(altair.SignedBeaconBlock)
-    testit(altair.TrustedSignedBeaconBlock)
+    ConsensusFork.withAll:
+      testit(consensusFork.SignedBeaconBlock)
+      testit(consensusFork.TrustedSignedBeaconBlock)
 
 suite "Size bounds":
   test "SignedBeaconBlockDeneb":
@@ -68,7 +66,12 @@ suite "Size bounds":
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"
         byte.record()
-      elif T is ExecutionAddress|BloomLogs:
+      elif T is ExecutionAddress:
+        res.add loc.join(".") & "[" & $sizeof(T) & "]: SszLengthBounds" &
+          "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
+        loc[^1].add "[element]"
+        byte.record()
+      elif T is BloomLogs:
         res.add loc.join(".") & "[" & $T.data.len & "]: SszLengthBounds" &
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"

@@ -17,7 +17,7 @@ import
   json_rpc/jsonmarshal,
   secp256k1,
   web3/[engine_api_types, eth_api_types, conversions],
-  ../el/[engine_api_conversions, eth1_chain],
+  ../el/engine_api_conversions,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
@@ -142,10 +142,10 @@ proc ETHBeaconStateCreateFromSsz(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -243,10 +243,11 @@ proc ETHBeaconClockCreateFromState(
   ## Returns:
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
-  let beaconClock = BeaconClock.new()
-  beaconClock[] =
-    BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
-      return nil
+  let
+    genesisTime = getStateField(state[], genesis_time)
+    beaconClock = BeaconClock.new()
+  beaconClock[] = BeaconClock.init(cfg[].time, genesisTime).valueOr:
+    return nil
   beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
@@ -269,7 +270,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ## * `0` - If genesis is still pending.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#custom-types
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#custom-types
   beaconClock[].now().slotOrZero().cint
 
 const lcDataFork = LightClientDataFork.high
@@ -466,6 +467,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   asRef(rng).nextLcSyncTaskDelay(
+    beaconClock[].timeConfig,
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
@@ -537,13 +539,13 @@ proc ETHLightClientStoreProcessUpdatesByRange(
       didProgress = true
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         break
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         discard
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         break
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         return 1
   if not didProgress:
     return 2
@@ -625,13 +627,13 @@ proc ETHLightClientStoreProcessFinalityUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 proc ETHLightClientStoreProcessOptimisticUpdate(
@@ -710,13 +712,13 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
       0
     else:
       case res.error
-      of VerifierError.MissingParent:
+      of LightClientVerifierError.MissingParent:
         2
-      of VerifierError.Duplicate:
+      of LightClientVerifierError.Duplicate:
         2
-      of VerifierError.UnviableFork:
+      of LightClientVerifierError.UnviableFork:
         2
-      of VerifierError.Invalid:
+      of LightClientVerifierError.Invalid:
         1
 
 func ETHLightClientStoreGetFinalizedHeader(
@@ -735,7 +737,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -755,7 +757,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -1296,7 +1298,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
-  if rlpHash(blockHeader) != executionHash[]:
+  if blockHeader.computeRlpHash().asEth2Digest() != executionHash[]:
     return nil
 
   # Construct withdrawals
@@ -1321,20 +1323,20 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       wds.add ETHWithdrawal(
         index: wd.index,
         validatorIndex: wd.validatorIndex,
-        address: ExecutionAddress(data: wd.address.data),
+        address: wd.address,
         amount: wd.amount,
         bytes: rlpBytes)
 
     let tr = orderedTrieRoot(wds)
-    if tr != data.withdrawalsRoot.get.asEth2Digest:
+    if tr != data.withdrawalsRoot.get:
       return nil
 
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
-    transactionsRoot: blockHeader.txRoot,
-    withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
+    transactionsRoot: blockHeader.txRoot.asEth2Digest(),
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32).asEth2Digest(),
     withdrawals: wds,
-    requestsHash: blockHeader.requestsHash.get(zeroHash32))
+    requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest())
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
@@ -1552,10 +1554,7 @@ proc ETHTransactionsCreateFromJson(
         return nil
       if yParity != data.v:
         return nil
-    if data.authorizationList.isSome:
-      for authorization in data.authorizationList.get:
-        if authorization.v > uint8.high:
-          return nil
+
     let
       tx = eth_types.EthTransaction(
         txType: txType,
@@ -1600,7 +1599,7 @@ proc ETHTransactionsCreateFromJson(
         except RlpError:
           raiseAssert "Unreachable"
       hash = keccak256(rlpBytes)
-    if data.hash.asEth2Digest != hash:
+    if data.hash != hash:
       return nil
 
     func packSignature(r, s: UInt256, yParity: uint8): array[65, byte] =
@@ -1612,15 +1611,12 @@ proc ETHTransactionsCreateFromJson(
 
     func recoverSignerAddress(
         rawSig: array[65, byte],
-        hashForSigning: Hash32): Opt[array[20, byte]] =
+        hashForSigning: Hash32): SkResult[ExecutionAddress] =
       let
-        sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
-          return Opt.none(array[20, byte])
-        sigHash = SkMessage.fromBytes(hashForSigning.data).valueOr:
-          return Opt.none(array[20, byte])
-        pubkey = sig.recover(sigHash).valueOr:
-          return Opt.none(array[20, byte])
-      Opt.some keys.PublicKey(pubkey).toCanonicalAddress().data
+        signature = ?Signature.fromRaw(rawSig)
+        pubkey = ?signature.recover(SkMessage(hashForSigning.data()))
+
+      ok pubkey.toCanonicalAddress()
 
     # Compute from execution address
     let
@@ -1633,7 +1629,7 @@ proc ETHTransactionsCreateFromJson(
       sigHash = tx.rlpHashForSigning(tx.isEip155())
       fromAddress = recoverSignerAddress(rawSig, sigHash).valueOr:
         return nil
-    if distinctBase(data.`from`) != fromAddress:
+    if data.`from` != fromAddress:
       return nil
 
     # Compute to execution address
@@ -1656,30 +1652,30 @@ proc ETHTransactionsCreateFromJson(
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        sig = packSignature(auth.r, auth.s, auth.yParity)
         authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
       authorizationList.add ETHAuthorization(
         chainId: auth.chainId,
-        address: ExecutionAddress(data: auth.address.data),
+        address: auth.address,
         nonce: auth.nonce,
-        authority: ExecutionAddress(data: authority),
+        authority: authority,
         signature: @sig)
 
     txs.add ETHTransaction(
-      hash: keccak256(rlpBytes),
+      hash: keccak256(rlpBytes).asEth2Digest,
       chainId: tx.chainId,
-      `from`: ExecutionAddress(data: fromAddress),
+      `from`: fromAddress,
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
       maxFeePerGas: tx.maxFeePerGas.uint64,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
-      to: ExecutionAddress(data: toAddress.data),
+      to: toAddress,
       value: tx.value,
       input: tx.payload,
       accessList: tx.accessList.mapIt(ETHAccessTuple(
-        address: ExecutionAddress(data: it.address.data),
+        address: it.address,
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
@@ -1688,7 +1684,7 @@ proc ETHTransactionsCreateFromJson(
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
 
-  if orderedTrieRoot(txs) != transactionsRoot[]:
+  if orderedTrieRoot(txs).asEth2Digest() != transactionsRoot[]:
     return nil
 
   let transactions = seq[ETHTransaction].new()
@@ -2396,17 +2392,17 @@ proc ETHReceiptsCreateFromJson(
           ReceiptStatusType.Root
         else:
           ReceiptStatusType.Status,
-      root: rec.hash,
+      root: rec.hash.asEth2Digest(),
       status: rec.status,
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
       logsBloom: BloomLogs(data: rec.logsBloom.data),
       logs: rec.logs.mapIt(ETHLog(
-        address: ExecutionAddress(data: it.address.data),
+        address: it.address,
         topics: it.topics.mapIt(Eth2Digest(data: it.data)),
         data: it.data)),
       bytes: rlpBytes)
 
-  if orderedTrieRoot(recs) != receiptsRoot[]:
+  if orderedTrieRoot(recs).asEth2Digest() != receiptsRoot[]:
     return nil
 
   let receipts = seq[ETHReceipt].new()

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -203,7 +203,7 @@ func `==`*(a, b: BadProposal): bool =
 
 proc writeValue*(
     writer: var JsonWriter, value: PubKey0x) {.inline, raises: [IOError].} =
-  writer.writeValue("0x" & value.PubKeyBytes.toHex())
+  writer.writeValue(value.PubKeyBytes.to0xHex())
 
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
                {.raises: [SerializationError, IOError].} =
@@ -214,7 +214,7 @@ proc readValue*(reader: var JsonReader, value: var PubKey0x)
 
 proc writeValue*(
     w: var JsonWriter, a: Eth2Digest0x) {.inline, raises: [IOError].} =
-  w.writeValue "0x" & a.Eth2Digest.data.toHex()
+  w.writeValue a.Eth2Digest.data.to0xHex()
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
                {.raises: [SerializationError, IOError].} =
@@ -272,15 +272,13 @@ chronicles.formatIt EpochString: it.Slot.shortLog
 chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
 chronicles.formatIt SPDIR_SignedBlock: it.shortLog
 chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
+chronicles.formatIt PubKey0x: it.PubKeyBytes.to0xHex
 
 # Interchange import
 # --------------------------------------------
 
 proc importInterchangeV5Impl*(
-       db: auto,
-       spdir: var SPDIR
-     ): SlashingImportStatus
-      {.raises: [SerializationError, IOError].} =
+    db: auto, spdir: var SPDIR): SlashingImportStatus =
   ## Common implementation of interchange import
   ## according to https://eips.ethereum.org/EIPS/eip-3076
   ## spdir needs to be `var` as it will be sorted in-place
@@ -292,8 +290,7 @@ proc importInterchangeV5Impl*(
       let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes)
       if key.isErr:
         # The bytes does not describe a valid encoding (length error)
-        error "Invalid public key.",
-          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+        error "Invalid public key.", pubkey = spdir.data[v].pubkey
 
         result = siPartial
         continue
@@ -301,8 +298,7 @@ proc importInterchangeV5Impl*(
         # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
         # Deserialization is costly but done only once per validator.
         # and SlashingDB import is a very rare event.
-        error "Invalid public key.",
-          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+        error "Invalid public key.", pubkey = spdir.data[v].pubkey
 
         result = siPartial
         continue

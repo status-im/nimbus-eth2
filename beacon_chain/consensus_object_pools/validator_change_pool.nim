@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -136,7 +136,7 @@ func addValidatorChangeMessage(
   subpool.addLast(validatorChangeMessage)
   doAssert subpool.lenu64 <= bound
 
-iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
+iterator getValidatorIndices*(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index
 
 iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
@@ -259,11 +259,11 @@ proc getValidatorChangeMessagesForBlock(
     if not validateValidatorChangeMessage(cfg, state, validator_change_message):
       continue
 
-    var skip = false
+    # Filter messages that don't affect any new validators
+    var skip = true
     for slashed_index in getValidatorIndices(validator_change_message):
-      if seen.containsOrIncl(slashed_index):
-        skip = true
-        break
+      if not seen.containsOrIncl(slashed_index):
+        skip = false
     if skip:
       continue
 
@@ -273,31 +273,34 @@ proc getValidatorChangeMessagesForBlock(
 proc getBeaconBlockValidatorChanges*(
     pool: var ValidatorChangePool, cfg: RuntimeConfig, state: ForkyBeaconState):
     BeaconBlockValidatorChanges =
-  var
-    indices: HashSet[uint64]
-    res: BeaconBlockValidatorChanges
+  var res: BeaconBlockValidatorChanges
 
-  getValidatorChangeMessagesForBlock(
-    pool.phase0_attester_slashings, cfg, state, indices,
-    res.phase0_attester_slashings)
-  getValidatorChangeMessagesForBlock(
-    pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
-  getValidatorChangeMessagesForBlock(
-    pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
+  # Exits (with priority on slashings)
+  block:
+    var indices: HashSet[uint64]
+    when typeof(state).kind >= ConsensusFork.Electra:
+      getValidatorChangeMessagesForBlock(
+        pool.electra_attester_slashings, cfg, state, indices,
+        res.electra_attester_slashings)
+    else:
+      getValidatorChangeMessagesForBlock(
+        pool.phase0_attester_slashings, cfg, state, indices,
+        res.phase0_attester_slashings)
+    getValidatorChangeMessagesForBlock(
+      pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
+    getValidatorChangeMessagesForBlock(
+      pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
 
+  # Credential changes (can be combined with exit)
   when typeof(state).kind >= ConsensusFork.Capella:
-    # Prioritize these
-    getValidatorChangeMessagesForBlock(
-      pool.bls_to_execution_changes_api, cfg, state, indices,
-      res.bls_to_execution_changes)
-
-    getValidatorChangeMessagesForBlock(
-      pool.bls_to_execution_changes_gossip, cfg, state, indices,
-      res.bls_to_execution_changes)
-
-  when typeof(state).kind >= ConsensusFork.Electra:
-    getValidatorChangeMessagesForBlock(
-      pool.electra_attester_slashings, cfg, state, indices,
-      res.electra_attester_slashings)
+    block:
+      var indices: HashSet[uint64]
+      # Prioritize those from API
+      getValidatorChangeMessagesForBlock(
+        pool.bls_to_execution_changes_api, cfg, state, indices,
+        res.bls_to_execution_changes)
+      getValidatorChangeMessagesForBlock(
+        pool.bls_to_execution_changes_gossip, cfg, state, indices,
+        res.bls_to_execution_changes)
 
   res

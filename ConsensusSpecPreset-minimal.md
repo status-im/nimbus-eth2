@@ -97,8 +97,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -125,16 +125,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Altair - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
-+ [Valid]   EF - Altair - Finality - finality_rule_1 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_2 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_3 [Preset: minimal]                       OK
-+ [Valid]   EF - Altair - Finality - finality_rule_4 [Preset: minimal]                       OK
-```
 ## EF - Altair - Fork  [Preset: minimal]
 ```diff
++ EF - Altair - Fork - after_fork_deactivate_validators_from_phase0_to_altair [Preset: minim OK
++ EF - Altair - Fork - after_fork_deactivate_validators_wo_block_from_phase0_to_altair [Pres OK
++ EF - Altair - Fork - after_fork_new_validator_active_from_phase0_to_altair [Preset: minima OK
 + EF - Altair - Fork - altair_fork_random_0 [Preset: minimal]                                OK
 + EF - Altair - Fork - altair_fork_random_1 [Preset: minimal]                                OK
 + EF - Altair - Fork - altair_fork_random_2 [Preset: minimal]                                OK
@@ -318,25 +313,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__scaled_churn     OK
 ```
-## EF - Altair - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Altair - Random - randomized_0 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_1 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_10 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_11 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_12 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_13 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_14 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_15 [Preset: minimal]                           OK
-+ [Valid]   EF - Altair - Random - randomized_2 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_3 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_4 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_5 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_6 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_7 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_8 [Preset: minimal]                            OK
-+ [Valid]   EF - Altair - Random - randomized_9 [Preset: minimal]                            OK
-```
 ## EF - Altair - Rewards  [Preset: minimal]
 ```diff
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
@@ -415,61 +391,6 @@ ConsensusSpecPreset-minimal
 +   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
-```
-## EF - Altair - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - attestation [Preset: minimal]                    OK
-+ [Valid]   EF - Altair - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
-+ [Valid]   EF - Altair - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
-+ [Valid]   EF - Altair - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
-+ [Valid]   EF - Altair - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
-+ [Valid]   EF - Altair - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
-+ [Valid]   EF - Altair - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
-+ [Valid]   EF - Altair - Sanity - Blocks - historical_batch [Preset: minimal]               OK
-+ [Valid]   EF - Altair - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pr OK
-+ [Valid]   EF - Altair - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
-+ [Valid]   EF - Altair - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
-+ [Valid]   EF - Altair - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Altair - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__full [Preset: minimal] OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee__half [Preset: minimal] OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__full [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
-+ [Valid]   EF - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
 ## EF - Altair - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -614,8 +535,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -642,16 +563,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Bellatrix - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_1 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_2 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
-+ [Valid]   EF - Bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
-```
 ## EF - Bellatrix - Fork  [Preset: minimal]
 ```diff
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_from_altair_to_bellatrix [Preset: OK
++ EF - Bellatrix - Fork - after_fork_deactivate_validators_wo_block_from_altair_to_bellatrix OK
++ EF - Bellatrix - Fork - after_fork_new_validator_active_from_altair_to_bellatrix [Preset:  OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: minimal]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_1 [Preset: minimal]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_2 [Preset: minimal]                          OK
@@ -869,25 +785,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
-## EF - Bellatrix - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Bellatrix - Random - randomized_0 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_1 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_10 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_11 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_12 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_13 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_14 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_15 [Preset: minimal]                        OK
-+ [Valid]   EF - Bellatrix - Random - randomized_2 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_3 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_4 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_5 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_6 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_7 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_8 [Preset: minimal]                         OK
-+ [Valid]   EF - Bellatrix - Random - randomized_9 [Preset: minimal]                         OK
-```
 ## EF - Bellatrix - Rewards  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
@@ -969,64 +866,6 @@ ConsensusSpecPreset-minimal
 +   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
-```
-## EF - Bellatrix - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_attester_slashing_same_bloc OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_blo OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [ OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal] OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_exp OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_pro OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_only_increase_deposit_count [Preset:  OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minima OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: m OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_same_slot_block_transition [Preset: m OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - attestation [Preset: minimal]                 OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - attester_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - block_transition_randomized_payload [Preset:  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_0 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_1 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_2 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - full_random_operations_3 [Preset: minimal]    OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - high_proposer_index [Preset: minimal]         OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - historical_batch [Preset: minimal]            OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - inactivity_scores_full_participation_leaking  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]  OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_attester_slashings_no_overlap [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_attester_slashings_partial_overlap [ OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_different_proposer_slashings_same_bl OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - multiple_different_validator_exits_same_block OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_after_inactive_index [Preset: minima OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_self_slashing [Preset: minimal]      OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - proposer_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - skipped_slots [Preset: minimal]               OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]   OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__empty [Preset: mini OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__full [Preset: minim OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee__half [Preset: minim OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__empty [Pres OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__full [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
 ```
 ## EF - Bellatrix - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -1164,8 +1003,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1192,16 +1031,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Capella - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
-+ [Valid]   EF - Capella - Finality - finality_rule_1 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_2 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: minimal]                      OK
-+ [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: minimal]                      OK
-```
 ## EF - Capella - Fork  [Preset: minimal]
 ```diff
++ EF - Capella - Fork - after_fork_deactivate_validators_from_bellatrix_to_capella [Preset:  OK
++ EF - Capella - Fork - after_fork_deactivate_validators_wo_block_from_bellatrix_to_capella  OK
++ EF - Capella - Fork - after_fork_new_validator_active_from_bellatrix_to_capella [Preset: m OK
 + EF - Capella - Fork - capella_fork_random_0 [Preset: minimal]                              OK
 + EF - Capella - Fork - capella_fork_random_1 [Preset: minimal]                              OK
 + EF - Capella - Fork - capella_fork_random_2 [Preset: minimal]                              OK
@@ -1494,25 +1328,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-## EF - Capella - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Capella - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - Capella - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - Capella - Random - randomized_9 [Preset: minimal]                           OK
-```
 ## EF - Capella - Rewards  [Preset: minimal]
 ```diff
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -1598,78 +1413,6 @@ ConsensusSpecPreset-minimal
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
-```
-## EF - Capella - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
-+ [Invalid] EF - Capella - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
-+ [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
-+ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
-+ [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
-+ [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
-+ [Valid]   EF - Capella - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
-+ [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
-+ [Valid]   EF - Capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
-+ [Valid]   EF - Capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
-+ [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
-+ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
-+ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
-+ [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
-+ [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
-+ [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
-+ [Valid]   EF - Capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
-+ [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-+ [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 ```
 ## EF - Capella - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -1817,8 +1560,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1845,16 +1588,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Deneb - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_1 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_2 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
-```
 ## EF - Deneb - Fork  [Preset: minimal]
 ```diff
++ EF - Deneb - Fork - after_fork_deactivate_validators_from_capella_to_deneb [Preset: minima OK
++ EF - Deneb - Fork - after_fork_deactivate_validators_wo_block_from_capella_to_deneb [Prese OK
++ EF - Deneb - Fork - after_fork_new_validator_active_from_capella_to_deneb [Preset: minimal OK
 + EF - Deneb - Fork - deneb_fork_random_0 [Preset: minimal]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_1 [Preset: minimal]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_2 [Preset: minimal]                                  OK
@@ -2161,25 +1899,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-## EF - Deneb - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Deneb - Random - randomized_0 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_1 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_10 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_11 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_12 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_13 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_14 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_15 [Preset: minimal]                            OK
-+ [Valid]   EF - Deneb - Random - randomized_2 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_3 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_4 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_5 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_6 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_7 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_8 [Preset: minimal]                             OK
-+ [Valid]   EF - Deneb - Random - randomized_9 [Preset: minimal]                             OK
-```
 ## EF - Deneb - Rewards  [Preset: minimal]
 ```diff
 + EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
@@ -2267,87 +1986,6 @@ ConsensusSpecPreset-minimal
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
-```
-## EF - Deneb - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [P OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mini OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minima OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
-+ [Invalid] EF - Deneb - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - block_transition_randomized_payload [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]    OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]     OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob [Preset: minimal]                        OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 ```
 ## EF - Deneb - Sanity - Slots  [Preset: minimal]
 ```diff
@@ -2506,7 +2144,6 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: minimal]            OK
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
@@ -2569,8 +2206,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -2597,16 +2234,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Electra - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
-+ [Valid]   EF - Electra - Finality - finality_rule_1 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_2 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_3 [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: minimal]                      OK
-```
 ## EF - Electra - Fork  [Preset: minimal]
 ```diff
++ EF - Electra - Fork - after_fork_deactivate_validators_from_deneb_to_electra [Preset: mini OK
++ EF - Electra - Fork - after_fork_deactivate_validators_wo_block_from_deneb_to_electra [Pre OK
++ EF - Electra - Fork - after_fork_new_validator_active_from_deneb_to_electra [Preset: minim OK
 + EF - Electra - Fork - electra_fork_random_0 [Preset: minimal]                              OK
 + EF - Electra - Fork - electra_fork_random_1 [Preset: minimal]                              OK
 + EF - Electra - Fork - electra_fork_random_2 [Preset: minimal]                              OK
@@ -2745,6 +2377,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_curre OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_new_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_source_h OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_target_h OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_com OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_ins OK
@@ -2764,6 +2397,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_address     OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_has_pending OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_not_active_ OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_pubkey_is_t OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_eth1_c OK
@@ -2804,6 +2438,8 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
@@ -2812,6 +2448,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -2923,6 +2560,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit OK
 ```
 ## EF - Electra - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -2999,6 +2637,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_next_epoch         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_no_excess_balance  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_effective_swe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
@@ -3037,25 +2677,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
-```
-## EF - Electra - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Electra - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - Electra - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - Electra - Random - randomized_9 [Preset: minimal]                           OK
 ```
 ## EF - Electra - Rewards  [Preset: minimal]
 ```diff
@@ -3153,111 +2774,11 @@ ConsensusSpecPreset-minimal
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-## EF - Electra - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_not_enough_eth1_dep OK
-+ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_too_many_eth1_depos OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mi OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mini OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
-+ [Invalid] EF - Electra - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
-+ [Invalid] EF - Electra - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
-+ [Valid]   EF - Electra - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
-+ [Valid]   EF - Electra - Sanity - Blocks - attestation [Preset: minimal]                   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
-+ [Valid]   EF - Electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
-+ [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
-+ [Valid]   EF - Electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
-+ [Valid]   EF - Electra - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - historical_batch [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
-+ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
-+ [Valid]   EF - Electra - Sanity - Blocks - max_blobs_per_block [Preset: minimal]           OK
-+ [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]   OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
-+ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob [Preset: minimal]                      OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob_max_txs [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - one_blob_two_txs [Preset: minimal]              OK
-+ [Valid]   EF - Electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
-+ [Valid]   EF - Electra - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Electra - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
-+ [Valid]   EF - Electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_pending_con OK
-+ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
-+ [Valid]   EF - Electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
-+ [Valid]   EF - Electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
-+ [Valid]   EF - Electra - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_ OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_que OK
-+ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
-+ [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
-```
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Electra - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Electra - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]      OK
 + EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]             OK
@@ -3267,6 +2788,7 @@ ConsensusSpecPreset-minimal
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset:  OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: minimal]                               OK
 + EF - Electra - Slots - pending_consolidation [Preset: minimal]                             OK
++ EF - Electra - Slots - pending_deposit_extra_gwei [Preset: minimal]                        OK
 + EF - Electra - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
 ```
@@ -3420,7 +2942,6 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: minimal]            OK
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
@@ -3442,6 +2963,11 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
 ```
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
@@ -3483,8 +3009,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -3511,16 +3037,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-## EF - Fulu - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_1 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_2 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
-+ [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
-```
 ## EF - Fulu - Fork  [Preset: minimal]
 ```diff
++ EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: minimal] OK
++ EF - Fulu - Fork - after_fork_deactivate_validators_wo_block_from_electra_to_fulu [Preset: OK
++ EF - Fulu - Fork - after_fork_new_validator_active_from_electra_to_fulu [Preset: minimal]  OK
 + EF - Fulu - Fork - fork_base_state [Preset: minimal]                                       OK
 + EF - Fulu - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
 + EF - Fulu - Fork - fork_next_epoch [Preset: minimal]                                       OK
@@ -3535,6 +3056,9 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Fork - fulu_fork_random_large_validator_set [Preset: minimal]                  OK
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
++ EF - Fulu - Fork - lookahead_consistency_at_fork [Preset: minimal]                         OK
++ EF - Fulu - Fork - lookahead_consistency_with_effective_balance_change_at_fork [Preset: mi OK
++ EF - Fulu - Fork - proposer_lookahead_init_at_fork_only_contains_active_validators [Preset OK
 ```
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -3652,6 +3176,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_in_current_ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_in_new_cons OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_source_has_ OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_target_has_ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_compou OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_excess OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_insuff OK
@@ -3671,6 +3196,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_address        OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_has_pending_wi OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_not_active_lon OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_pubkey_is_targ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_eth1_cred OK
@@ -3704,12 +3230,15 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_non_versioned_withdrawal_credenti OK
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_over_max                          OK
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_under_max                         OK
++ [Valid]   EF - Fulu - Operations - Deposit - success_top_up_to_withdrawn_validator         OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__less_effective_balance                OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__max_effective_balance                 OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__zero_balance                          OK
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
@@ -3718,11 +3247,14 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_first_payloa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_first_payload OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_regular_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_first_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_regular_pay OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
@@ -3733,6 +3265,8 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_blob_tx_type              OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_block_hash                OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_commitment                OK
@@ -3744,6 +3278,18 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_no_blobs_but_ OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - no_commitments_for_transactions     OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - no_transactions_with_commitments    OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_first_payload  OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_regular_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_first_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_regular_payl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload               OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload_with_gap_slot OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload             OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload_with_gap_sl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_first_paylo OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_regular_pay OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - zeroed_commitment                   OK
 ```
 ## EF - Fulu - Operations - Proposer Slashing  [Preset: minimal]
@@ -3813,6 +3359,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__scaled_churn       OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
 ```
 ## EF - Fulu - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3848,9 +3395,30 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Operations - Withdrawals  [Preset: minimal]
 ```diff
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_mixed_withdrawable_in_queue OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_partially_withdrawable_too_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_full            OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_partial         OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_withdrawal_index        OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_full_withdrawals_and OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_partial_withdrawals_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_non_withdrawable_non_empty_withdr OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_partial_withdrawal_a OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_full      OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_partial   OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_two_expected_partial_withdrawal_a OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - all_withdrawal                            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - no_withdrawals_but_some_next_epoch        OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
@@ -3868,50 +3436,46 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_next_epoch            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_no_excess_balance     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effec OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_effective_sweep_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_sweep_different_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_0                                  OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_0                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_1                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_2                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_3                 OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_1              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_2              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_3              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_4              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_5              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_fully_withdrawable            OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_partially_withdrawable        OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_max_partial_withdrawable          OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_max_plus_one_withdrawable         OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance                 OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance_compounding     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance          OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_full_withdrawal               OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_active_a OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited   OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited_a OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_in_exit_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_not_yet_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawal            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_two_partial_withdrawable          OK
-```
-## EF - Fulu - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Fulu - Random - randomized_0 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_1 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_10 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_11 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_12 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_13 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_14 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_15 [Preset: minimal]                             OK
-+ [Valid]   EF - Fulu - Random - randomized_2 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_3 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_4 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_5 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_6 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_7 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_8 [Preset: minimal]                              OK
-+ [Valid]   EF - Fulu - Random - randomized_9 [Preset: minimal]                              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_zero_expected_withdrawals         OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
 ## EF - Fulu - Rewards  [Preset: minimal]
 ```diff
@@ -3966,8 +3530,8 @@ ConsensusSpecPreset-minimal
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ConsolidationRequest                                                          OK
 +   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
 +   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
 +   Testing    Deposit                                                                       OK
 +   Testing    DepositData                                                                   OK
 +   Testing    DepositMessage                                                                OK
@@ -4012,75 +3576,11 @@ ConsensusSpecPreset-minimal
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-## EF - Fulu - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
-+ [Invalid] EF - Fulu - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - attestation [Preset: minimal]                      OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - bls_change [Preset: minimal]                       OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_0 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_1 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_2 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_3 [Preset: minimal]         OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - high_proposer_index [Preset: minimal]              OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - historical_batch [Preset: minimal]                 OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_self_slashing [Preset: minimal]           OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: mi OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: minim OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
-+ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
-```
 ## EF - Fulu - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Fulu - Slots - balance_change_affects_proposer [Preset: minimal]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
++ EF - Fulu - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]         OK
 + EF - Fulu - Slots - empty_epoch [Preset: minimal]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: minimal]                               OK
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]                OK
@@ -4090,8 +3590,834 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: min OK
 + EF - Fulu - Slots - over_epoch_boundary [Preset: minimal]                                  OK
 + EF - Fulu - Slots - pending_consolidation [Preset: minimal]                                OK
++ EF - Fulu - Slots - pending_deposit_extra_gwei [Preset: minimal]                           OK
 + EF - Fulu - Slots - slots_1 [Preset: minimal]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: minimal]                                              OK
+```
+## EF - Fulu - Transition  [Preset: minimal]
+```diff
++ EF - Fulu - Transition - higher_churn_limit_to_lower [Preset: minimal]                     OK
++ EF - Fulu - Transition - non_empty_historical_roots [Preset: minimal]                      OK
++ EF - Fulu - Transition - normal_transition [Preset: minimal]                               OK
++ EF - Fulu - Transition - simple_transition [Preset: minimal]                               OK
++ EF - Fulu - Transition - transition_attestation_from_previous_fork_with_new_range [Preset: OK
++ EF - Fulu - Transition - transition_missing_first_post_block [Preset: minimal]             OK
++ EF - Fulu - Transition - transition_missing_last_pre_fork_block [Preset: minimal]          OK
++ EF - Fulu - Transition - transition_only_blocks_post_fork [Preset: minimal]                OK
++ EF - Fulu - Transition - transition_randomized_state [Preset: minimal]                     OK
++ EF - Fulu - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]        OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_after_fork [Preset: minim OK
++ EF - Fulu - Transition - transition_with_attester_slashing_right_before_fork [Preset: mini OK
++ EF - Fulu - Transition - transition_with_btec_right_after_fork [Preset: minimal]           OK
++ EF - Fulu - Transition - transition_with_btec_right_before_fork [Preset: minimal]          OK
++ EF - Fulu - Transition - transition_with_consolidation_request_right_after_fork [Preset: m OK
++ EF - Fulu - Transition - transition_with_deposit_request_right_after_fork [Preset: minimal OK
++ EF - Fulu - Transition - transition_with_deposit_right_after_fork [Preset: minimal]        OK
++ EF - Fulu - Transition - transition_with_deposit_right_before_fork [Preset: minimal]       OK
++ EF - Fulu - Transition - transition_with_finality [Preset: minimal]                        OK
++ EF - Fulu - Transition - transition_with_full_withdrawal_request_right_after_fork [Preset: OK
++ EF - Fulu - Transition - transition_with_leaking_at_fork [Preset: minimal]                 OK
++ EF - Fulu - Transition - transition_with_leaking_pre_fork [Preset: minimal]                OK
++ EF - Fulu - Transition - transition_with_no_attestations_until_after_fork [Preset: minimal OK
++ EF - Fulu - Transition - transition_with_non_empty_activation_queue [Preset: minimal]      OK
++ EF - Fulu - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Prese OK
++ EF - Fulu - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pre OK
++ EF - Fulu - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [Pr OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_after_fork [Preset: minim OK
++ EF - Fulu - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mini OK
++ EF - Fulu - Transition - transition_with_random_half_participation [Preset: minimal]       OK
++ EF - Fulu - Transition - transition_with_random_three_quarters_participation [Preset: mini OK
++ EF - Fulu - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal] OK
++ EF - Fulu - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minimal OK
+```
+## EF - Gloas - Epoch Processing - Builder pending payments [Preset: minimal]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
+```
+## EF - Gloas - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - Gloas - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - Gloas - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - Gloas - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - Gloas - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - Gloas - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - Gloas - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+## EF - Gloas - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - Gloas - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
+```
+## EF - Gloas - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - Gloas - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - Gloas - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - Gloas - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - Gloas - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - Gloas - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
+## EF - Gloas - Fork  [Preset: minimal]
+```diff
++ EF - Gloas - Fork - after_fork_deactivate_validators_from_fulu_to_gloas [Preset: minimal]  OK
++ EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
++ EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: minimal]   OK
+```
+## EF - Gloas - Operations - Attestation  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_after_max_inclusion_slot         OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_not_zero  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_too_high  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_signature            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_bad_source_root                  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_before_inclusion_delay           OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_committee_index                  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_correct_attestation_included_aft OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_current_source_root              OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_empty_participants_seemingly_val OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_empty_participants_zeroes_sig    OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_future_target_epoch              OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_head_and_target_includ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_head_included_after_ma OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_incorrect_target_included_after_ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_index                            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_mismatched_target_and_slot       OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_new_source_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_bits_for_one_committee    OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_committee_bits            OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_nonset_multiple_committee_bits   OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_old_source_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_committee_bits          OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_committee_signat OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_0           OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_1           OK
++ [Valid]   EF - Gloas - Operations - Attestation - at_max_inclusion_slot                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_no_double_countin OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_tracking          OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_max_incl OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_min_incl OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_one_epoc OK
++ [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_sqrt_epo OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_included_at_ep OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_included_at_sq OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_and_target_min_inclusion_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_max_inclusion OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_min_inclusion OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_head_included_at_sqrt_epoch_de OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_epoch_delay OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_min_inclusi OK
++ [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_false_historical_slot   OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_gets_head_flag          OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_historical_slot    OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_same_slot          OK
++ [Valid]   EF - Gloas - Operations - Attestation - mismatched_payload_no_head_flag          OK
++ [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
++ [Valid]   EF - Gloas - Operations - Attestation - multiple_committees                      OK
++ [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - one_committee_with_gap                   OK
++ [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_zero_previo OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_same_slot_attestation_index_zero   OK
+```
+## EF - Gloas - Operations - Attester Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_all_empty_indices          OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_bad_extra_index       OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_bad_replaced_index    OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_duplicate_index_doubl OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_duplicate_index_norma OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_empty_indices         OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att1_high_index            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_bad_extra_index       OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_bad_replaced_index    OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_duplicate_index_doubl OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_duplicate_index_norma OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_empty_indices         OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_att2_high_index            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_1            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_1_and_2      OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_incorrect_sig_2            OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_no_double_or_surround      OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_participants_already_slash OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_same_data                  OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_1             OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_2             OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - already_exited_long_ago            OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - already_exited_recent              OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - attestation_from_future            OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - basic_double                       OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - basic_surround                     OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - low_balances                       OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - misc_balances                      OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - proposer_index_slashed             OK
++ [Valid]   EF - Gloas - Operations - Attester Slashing - with_effective_balance_disparity   OK
+```
+## EF - Gloas - Operations - BLS to execution change  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_already_0x01         OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_bad_signature        OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_current_fork_version OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_genesis_validators_r OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_incorrect_from_bls_p OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_previous_fork_versio OK
++ [Invalid] EF - Gloas - Operations - BLS to execution change - invalid_val_index_out_of_ran OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - genesis_fork_version         OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success                      OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_exited               OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_in_activation_queue  OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_in_exit_queue        OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_not_activated        OK
++ [Valid]   EF - Gloas - Operations - BLS to execution change - success_withdrawable         OK
+```
+## EF - Gloas - Operations - Block Header  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_multiple_blocks_single_slot     OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_parent_root                     OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_proposer_index                  OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_proposer_slashed                OK
++ [Invalid] EF - Gloas - Operations - Block Header - invalid_slot_block_header               OK
++ [Valid]   EF - Gloas - Operations - Block Header - basic_block_header                      OK
+```
+## EF - Gloas - Operations - Consolidation Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_in_current OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_in_new_con OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_source_has OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_target_has OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_compo OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_exces OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_insuf OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_consolidation_with_preex OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - basic_switch_to_compounding    OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_balance_larger_t OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_balance_through_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - consolidation_churn_limit_bala OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exceed_pending_conso OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exited_source        OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_exited_target        OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_inactive_source      OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_inactive_target      OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_no_source_execution_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_not_enough_consolida OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_same_source_target   OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_address       OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_has_pending_w OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_not_active_lo OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_pubkey_is_tar OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_source_with_bls_cred OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_target_with_bls_cred OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_target_with_eth1_cre OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_unknown_source_pubke OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - incorrect_unknown_target_pubke OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_exited_s OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_inactive OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_not_auth OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_source_b OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_source_c OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_unknown_ OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_exc OK
++ [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_pen OK
+```
+## EF - Gloas - Operations - Deposit  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Deposit - invalid_bad_merkle_proof                     OK
++ [Invalid] EF - Gloas - Operations - Deposit - invalid_wrong_deposit_for_deposit_count      OK
++ [Valid]   EF - Gloas - Operations - Deposit - correct_sig_but_forked_state                 OK
++ [Valid]   EF - Gloas - Operations - Deposit - effective_deposit_with_genesis_fork_version  OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_new_deposit                    OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_top_up                         OK
++ [Valid]   EF - Gloas - Operations - Deposit - incorrect_withdrawal_credentials_top_up      OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_bad_fork_version    OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_current_fork_versio OK
++ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_previous_fork_versi OK
++ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_decompression           OK
++ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_subgroup                OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_eth1_withdrawal_credentials      OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_max                              OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_non_versioned_withdrawal_credent OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_over_max                         OK
++ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_under_max                        OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__less_effective_balance               OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__max_effective_balance                OK
++ [Valid]   EF - Gloas - Operations - Deposit - top_up__zero_balance                         OK
+```
+## EF - Gloas - Operations - Deposit Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
+```
+## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bu OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ga OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pr OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_sl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ti OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_max_blob OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_exe OK
+```
+## EF - Gloas - Operations - Execution Payload Bid  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
+```
+## EF - Gloas - Operations - Payload Attestation  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_futu OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_no_a OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_too_ OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
+```
+## EF - Gloas - Operations - Proposer Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_different_proposer_indices OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_ OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_ OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_proposer_index   OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1            OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2_swap OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_incorrect_sig_2            OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - basic                              OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_too_late  OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
+```
+## EF - Gloas - Operations - Sync Aggregate  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_bad_domain          OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_extra_participant   OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_infinite_signature_ OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_infinite_signature_ OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_missing_participant OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_no_participants     OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_past_block          OK
++ [Invalid] EF - Gloas - Operations - Sync Aggregate - invalid_signature_previous_committee  OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - proposer_in_committee_with_participat OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - proposer_in_committee_without_partici OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_all_but_one_participating_with OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_high_participation_without_dup OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_low_participation_without_dupl OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_misc_balances_and_half_partici OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_only_one_participant_without_d OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - random_with_exits_without_duplicates  OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_empty_particip OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_nonduplicate_c OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_rewards_not_full_parti OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_nonparticipating_ OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_nonparticipating_ OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_participating_exi OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - sync_committee_with_participating_wit OK
++ [Valid]   EF - Gloas - Operations - Sync Aggregate - valid_signature_future_committee      OK
+```
+## EF - Gloas - Operations - Voluntary Exit  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_has_pending_withdra OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_incorrect_validator OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_not_active          OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_not_active_long_eno OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exit                      OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_above_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_up_to_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__scaled_churn      OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit   OK
+```
+## EF - Gloas - Operations - Withdrawal Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - activation_epoch_less_than_shard_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request  OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_partial_withdrawal_request_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request          OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_com OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_fir OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - basic_withdrawal_request_with_ful OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - full_exit_request_has_partial_wit OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_inactive_validator      OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_source_address          OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - incorrect_withdrawal_credential_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - insufficient_balance              OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - insufficient_effective_balance    OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - no_compounding_credentials        OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - no_excess_balance                 OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - on_withdrawal_request_initiated_e OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_activation_epo OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_incorrect_sour OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_incorrect_with OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_on_exit_initia OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_queue_full     OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_h OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_h OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_l OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - partial_withdrawal_request_with_p OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - pending_withdrawals_consume_all_e OK
++ [Valid]   EF - Gloas - Operations - Withdrawal Request - unknown_pubkey                    OK
+```
+## EF - Gloas - Operations - Withdrawals  [Preset: minimal]
+```diff
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_at_max               OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_at_max_mixed_with_sw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_exiting_validator    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_low_effective_balanc OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_mixed_with_sweep_and OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_next_epoch           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_no_excess_balance    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_effective_sweep OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_ineffective_swe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_ineffective_swe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_sweep_different OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_0                                 OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_1             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_2             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_3             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_4             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_5             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_max_partial_withdrawable         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_max_plus_one_withdrawable        OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance                OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance_compounding    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_active_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited  OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_in_exit OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_not_yet OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_two_partial_withdrawable         OK
+```
+## EF - Gloas - Rewards  [Preset: minimal]
+```diff
++ EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
++ EF - Gloas - Rewards - empty [Preset: minimal]                                             OK
++ EF - Gloas - Rewards - empty_leak [Preset: minimal]                                        OK
++ EF - Gloas - Rewards - full_all_correct [Preset: minimal]                                  OK
++ EF - Gloas - Rewards - full_but_partial_participation [Preset: minimal]                    OK
++ EF - Gloas - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
++ EF - Gloas - Rewards - full_leak [Preset: minimal]                                         OK
++ EF - Gloas - Rewards - full_random_0 [Preset: minimal]                                     OK
++ EF - Gloas - Rewards - full_random_1 [Preset: minimal]                                     OK
++ EF - Gloas - Rewards - full_random_2 [Preset: minimal]                                     OK
++ EF - Gloas - Rewards - full_random_3 [Preset: minimal]                                     OK
++ EF - Gloas - Rewards - full_random_4 [Preset: minimal]                                     OK
++ EF - Gloas - Rewards - full_random_leak [Preset: minimal]                                  OK
++ EF - Gloas - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
++ EF - Gloas - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
++ EF - Gloas - Rewards - full_random_misc_balances [Preset: minimal]                         OK
++ EF - Gloas - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
++ EF - Gloas - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
++ EF - Gloas - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
++ EF - Gloas - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
++ EF - Gloas - Rewards - half_full [Preset: minimal]                                         OK
++ EF - Gloas - Rewards - half_full_leak [Preset: minimal]                                    OK
++ EF - Gloas - Rewards - quarter_full [Preset: minimal]                                      OK
++ EF - Gloas - Rewards - quarter_full_leak [Preset: minimal]                                 OK
++ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
++ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
++ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
++ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
++ EF - Gloas - Rewards - with_exited_validators [Preset: minimal]                            OK
++ EF - Gloas - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
++ EF - Gloas - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
++ EF - Gloas - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
++ EF - Gloas - Rewards - with_slashed_validators [Preset: minimal]                           OK
++ EF - Gloas - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
+```
+## EF - Gloas - SSZ consensus objects  [Preset: minimal]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    BuilderPendingPayment                                                         OK
++   Testing    BuilderPendingWithdrawal                                                      OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
++   Testing    ExecutionPayloadEnvelope                                                      OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkChoiceNode                                                                OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    IndexedPayloadAttestation                                                     OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PayloadAttestation                                                            OK
++   Testing    PayloadAttestationData                                                        OK
++   Testing    PayloadAttestationMessage                                                     OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
++   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
+```
+## EF - Gloas - Sanity - Slots  [Preset: minimal]
+```diff
++ EF - Gloas - Slots - balance_change_affects_proposer [Preset: minimal]                     OK
++ EF - Gloas - Slots - double_empty_epoch [Preset: minimal]                                  OK
++ EF - Gloas - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]        OK
++ EF - Gloas - Slots - empty_epoch [Preset: minimal]                                         OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_set [Preset: minimal]       OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_unset [Preset: minimal]     OK
++ EF - Gloas - Slots - historical_accumulator [Preset: minimal]                              OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]               OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset: OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset: OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: minimal]   OK
++ EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: mi OK
++ EF - Gloas - Slots - over_epoch_boundary [Preset: minimal]                                 OK
++ EF - Gloas - Slots - pending_consolidation [Preset: minimal]                               OK
++ EF - Gloas - Slots - pending_deposit_extra_gwei [Preset: minimal]                          OK
++ EF - Gloas - Slots - slots_1 [Preset: minimal]                                             OK
++ EF - Gloas - Slots - slots_2 [Preset: minimal]                                             OK
+```
+## EF - Gloas - Transition  [Preset: minimal]
+```diff
++ EF - Gloas - Transition - higher_churn_limit_to_lower [Preset: minimal]                    OK
++ EF - Gloas - Transition - non_empty_historical_roots [Preset: minimal]                     OK
++ EF - Gloas - Transition - normal_transition [Preset: minimal]                              OK
++ EF - Gloas - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Gloas - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
++ EF - Gloas - Transition - transition_missing_first_post_block [Preset: minimal]            OK
++ EF - Gloas - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
++ EF - Gloas - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
++ EF - Gloas - Transition - transition_randomized_state [Preset: minimal]                    OK
++ EF - Gloas - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]       OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_after_fork [Preset: mini OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: min OK
++ EF - Gloas - Transition - transition_with_btec_right_after_fork [Preset: minimal]          OK
++ EF - Gloas - Transition - transition_with_btec_right_before_fork [Preset: minimal]         OK
++ EF - Gloas - Transition - transition_with_deposit_right_after_fork [Preset: minimal]       OK
++ EF - Gloas - Transition - transition_with_deposit_right_before_fork [Preset: minimal]      OK
++ EF - Gloas - Transition - transition_with_finality [Preset: minimal]                       OK
++ EF - Gloas - Transition - transition_with_leaking_at_fork [Preset: minimal]                OK
++ EF - Gloas - Transition - transition_with_leaking_pre_fork [Preset: minimal]               OK
++ EF - Gloas - Transition - transition_with_no_attestations_until_after_fork [Preset: minima OK
++ EF - Gloas - Transition - transition_with_non_empty_activation_queue [Preset: minimal]     OK
++ EF - Gloas - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Gloas - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pr OK
++ EF - Gloas - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [P OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mini OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_before_fork [Preset: min OK
++ EF - Gloas - Transition - transition_with_random_half_participation [Preset: minimal]      OK
++ EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: min OK
++ EF - Gloas - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
++ EF - Gloas - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 ```
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
@@ -4104,6 +4430,7 @@ ConsensusSpecPreset-minimal
 + Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
 + Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
 + Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
@@ -4125,6 +4452,10 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconB OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 ```
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
@@ -4163,6 +4494,10 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
@@ -4171,9 +4506,15 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
++ Light client - Update ranking - minimal/fulu/light_client/update_ranking/pyspec_tests/upda OK
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
+  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4182,10 +4523,6 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
@@ -4256,8 +4593,8 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
@@ -4506,80 +4843,780 @@ ConsensusSpecPreset-minimal
 + EF - Phase 0 - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-## EF - Phase0 - Finality  [Preset: minimal]
+## EF - altair - Finality  [Preset: minimal]
 ```diff
-+ [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_1 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
-+ [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
++ [Valid]   EF - altair - Finality - finality_rule_1 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_2 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_3 [Preset: minimal]                       OK
++ [Valid]   EF - altair - Finality - finality_rule_4 [Preset: minimal]                       OK
 ```
-## EF - Phase0 - Random  [Preset: minimal]
+## EF - altair - Random  [Preset: minimal]
 ```diff
-+ [Valid]   EF - Phase0 - Random - randomized_0 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_1 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_10 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_11 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_12 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_13 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_14 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_15 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase0 - Random - randomized_2 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_3 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_4 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_5 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_6 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_7 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_8 [Preset: minimal]                            OK
-+ [Valid]   EF - Phase0 - Random - randomized_9 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_0 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_1 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_10 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_11 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_12 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_13 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_14 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_15 [Preset: minimal]                           OK
++ [Valid]   EF - altair - Random - randomized_2 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_3 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_4 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_5 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_6 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_7 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_8 [Preset: minimal]                            OK
++ [Valid]   EF - altair - Random - randomized_9 [Preset: minimal]                            OK
 ```
-## EF - Phase0 - Sanity - Blocks  [Preset: minimal]
+## EF - altair - Sanity - Blocks  [Preset: minimal]
 ```diff
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: minim OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - attestation [Preset: minimal]                    OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - historical_batch [Preset: minimal]               OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
-+ [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - attestation [Preset: minimal]                    OK
++ [Valid]   EF - altair - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
++ [Valid]   EF - altair - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
++ [Valid]   EF - altair - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
++ [Valid]   EF - altair - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - altair - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
++ [Valid]   EF - altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
++ [Valid]   EF - altair - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
++ [Valid]   EF - altair - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
++ [Valid]   EF - altair - Sanity - Blocks - historical_batch [Preset: minimal]               OK
++ [Valid]   EF - altair - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pr OK
++ [Valid]   EF - altair - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - altair - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
++ [Valid]   EF - altair - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
++ [Valid]   EF - altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__full [Preset: minimal] OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee__half [Preset: minimal] OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__full [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
++ [Valid]   EF - altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
+```
+## EF - bellatrix - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_1 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_2 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
++ [Valid]   EF - bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
+```
+## EF - bellatrix - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - bellatrix - Random - randomized_0 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_1 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_10 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_11 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_12 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_13 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_14 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_15 [Preset: minimal]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_2 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_3 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_4 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_5 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_6 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_7 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_8 [Preset: minimal]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_9 [Preset: minimal]                         OK
+```
+## EF - bellatrix - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_attester_slashing_same_bloc OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_blo OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [ OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal] OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_exp OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_pro OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_only_increase_deposit_count [Preset:  OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minima OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: m OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_same_slot_block_transition [Preset: m OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - attestation [Preset: minimal]                 OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - attester_slashing [Preset: minimal]           OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - block_transition_randomized_payload [Preset:  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_0 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_1 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_2 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - full_random_operations_3 [Preset: minimal]    OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - high_proposer_index [Preset: minimal]         OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - historical_batch [Preset: minimal]            OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - inactivity_scores_full_participation_leaking  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]  OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_attester_slashings_no_overlap [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_attester_slashings_partial_overlap [ OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_proposer_slashings_same_bl OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_validator_exits_same_block OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_after_inactive_index [Preset: minima OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_self_slashing [Preset: minimal]      OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_slashing [Preset: minimal]           OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - skipped_slots [Preset: minimal]               OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]   OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__empty [Preset: mini OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__full [Preset: minim OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee__half [Preset: minim OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__empty [Pres OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__full [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
+```
+## EF - capella - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
++ [Valid]   EF - capella - Finality - finality_rule_1 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_2 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_3 [Preset: minimal]                      OK
++ [Valid]   EF - capella - Finality - finality_rule_4 [Preset: minimal]                      OK
+```
+## EF - capella - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - capella - Random - randomized_0 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_1 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_10 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_11 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_12 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_13 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_14 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_15 [Preset: minimal]                          OK
++ [Valid]   EF - capella - Random - randomized_2 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_3 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_4 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_5 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_6 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_7 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_8 [Preset: minimal]                           OK
++ [Valid]   EF - capella - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - capella - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
++ [Invalid] EF - capella - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - capella - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
++ [Valid]   EF - capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
++ [Valid]   EF - capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
++ [Valid]   EF - capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - capella - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
++ [Valid]   EF - capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
++ [Valid]   EF - capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - capella - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
++ [Valid]   EF - capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
++ [Valid]   EF - capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
++ [Valid]   EF - capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
++ [Valid]   EF - capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
++ [Valid]   EF - capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
++ [Valid]   EF - capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
++ [Valid]   EF - capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
+```
+## EF - deneb - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
++ [Valid]   EF - deneb - Finality - finality_rule_1 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_2 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
+```
+## EF - deneb - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - deneb - Random - randomized_0 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_1 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_10 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_11 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_12 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_13 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_14 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_15 [Preset: minimal]                            OK
++ [Valid]   EF - deneb - Random - randomized_2 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_3 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_4 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_5 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_6 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_7 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_8 [Preset: minimal]                             OK
++ [Valid]   EF - deneb - Random - randomized_9 [Preset: minimal]                             OK
+```
+## EF - deneb - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [P OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mini OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minima OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
++ [Invalid] EF - deneb - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
++ [Valid]   EF - deneb - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
++ [Valid]   EF - deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
++ [Valid]   EF - deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
++ [Valid]   EF - deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - deneb - Sanity - Blocks - block_transition_randomized_payload [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
++ [Valid]   EF - deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]    OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
++ [Valid]   EF - deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - deneb - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
++ [Valid]   EF - deneb - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
++ [Valid]   EF - deneb - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
++ [Valid]   EF - deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
++ [Valid]   EF - deneb - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]     OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
++ [Valid]   EF - deneb - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob [Preset: minimal]                        OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                OK
++ [Valid]   EF - deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
++ [Valid]   EF - deneb - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
++ [Valid]   EF - deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
++ [Valid]   EF - deneb - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
++ [Valid]   EF - deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
++ [Valid]   EF - deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
++ [Valid]   EF - deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
++ [Valid]   EF - deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
+```
+## EF - electra - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
++ [Valid]   EF - electra - Finality - finality_rule_1 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_2 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_3 [Preset: minimal]                      OK
++ [Valid]   EF - electra - Finality - finality_rule_4 [Preset: minimal]                      OK
+```
+## EF - electra - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - electra - Random - randomized_0 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_1 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_10 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_11 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_12 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_13 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_14 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_15 [Preset: minimal]                          OK
++ [Valid]   EF - electra - Random - randomized_2 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_3 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_4 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_5 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_6 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_7 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_8 [Preset: minimal]                           OK
++ [Valid]   EF - electra - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - electra - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_not_enough_eth1_dep OK
++ [Invalid] EF - electra - Sanity - Blocks - deposit_transition__invalid_too_many_eth1_depos OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mi OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mini OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
++ [Invalid] EF - electra - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - electra - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
++ [Valid]   EF - electra - Sanity - Blocks - attestation [Preset: minimal]                   OK
++ [Valid]   EF - electra - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
++ [Valid]   EF - electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
++ [Valid]   EF - electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
++ [Valid]   EF - electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
++ [Valid]   EF - electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - electra - Sanity - Blocks - effective_balance_increase_changes_lookahead [P OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
++ [Valid]   EF - electra - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
++ [Valid]   EF - electra - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - electra - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
++ [Valid]   EF - electra - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - historical_batch [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - electra - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - electra - Sanity - Blocks - max_blobs_per_block [Preset: minimal]           OK
++ [Valid]   EF - electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]   OK
++ [Valid]   EF - electra - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
++ [Valid]   EF - electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob [Preset: minimal]                      OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob_max_txs [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - one_blob_two_txs [Preset: minimal]              OK
++ [Valid]   EF - electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
++ [Valid]   EF - electra - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
++ [Valid]   EF - electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - electra - Sanity - Blocks - switch_to_compounding_requests_when_pending_con OK
++ [Valid]   EF - electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
++ [Valid]   EF - electra - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_ OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_que OK
++ [Valid]   EF - electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
++ [Valid]   EF - electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
+```
+## EF - fulu - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
++ [Valid]   EF - fulu - Finality - finality_rule_1 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_2 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - fulu - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - fulu - Random - randomized_0 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_1 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_10 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_11 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_12 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_13 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_14 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_15 [Preset: minimal]                             OK
++ [Valid]   EF - fulu - Random - randomized_2 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_3 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_4 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_5 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_6 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_7 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_8 [Preset: minimal]                              OK
++ [Valid]   EF - fulu - Random - randomized_9 [Preset: minimal]                              OK
+```
+## EF - fulu - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: minim OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minimal OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - fulu - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
++ [Valid]   EF - fulu - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
++ [Valid]   EF - fulu - Sanity - Blocks - attestation [Preset: minimal]                      OK
++ [Valid]   EF - fulu - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
++ [Valid]   EF - fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset: m OK
++ [Valid]   EF - fulu - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]      OK
++ [Valid]   EF - fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - bls_change [Preset: minimal]                       OK
++ [Valid]   EF - fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
++ [Valid]   EF - fulu - Sanity - Blocks - consolidation_requests_when_pending_consolidation_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_request_max_per_payload [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
++ [Valid]   EF - fulu - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
++ [Valid]   EF - fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
++ [Valid]   EF - fulu - Sanity - Blocks - effective_balance_increase_changes_lookahead [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]     OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
++ [Valid]   EF - fulu - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
++ [Valid]   EF - fulu - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
++ [Valid]   EF - fulu - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_0 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_1 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_2 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_random_operations_3 [Preset: minimal]         OK
++ [Valid]   EF - fulu - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - high_proposer_index [Preset: minimal]              OK
++ [Valid]   EF - fulu - Sanity - Blocks - historical_batch [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - fulu - Sanity - Blocks - max_blobs_per_block [Preset: minimal]              OK
++ [Valid]   EF - fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]      OK
++ [Valid]   EF - fulu - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob [Preset: minimal]                         OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                 OK
++ [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_self_slashing [Preset: minimal]           OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
++ [Valid]   EF - fulu - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
++ [Valid]   EF - fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
++ [Valid]   EF - fulu - Sanity - Blocks - switch_to_compounding_requests_when_pending_consol OK
++ [Valid]   EF - fulu - Sanity - Blocks - switch_to_compounding_requests_when_too_little_con OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: mi OK
++ [Valid]   EF - fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
++ [Valid]   EF - fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: minim OK
++ [Valid]   EF - fulu - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_upd OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_queue_ OK
++ [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
++ [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
+```
+## EF - gloas - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - gloas - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
++ [Valid]   EF - gloas - Finality - finality_rule_1 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_2 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: minimal]                        OK
+```
+## EF - gloas - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
++ [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
++ [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
++ [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: minimal]                     OK
++ [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
++ [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
++ [Valid]   EF - gloas - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
++ [Valid]   EF - gloas - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
++ [Valid]   EF - gloas - Sanity - Blocks - historical_batch [Preset: minimal]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
++ [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
++ [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
++ [Valid]   EF - gloas - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
++ [Valid]   EF - gloas - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
++ [Valid]   EF - gloas - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
++ [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
++ [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
+```
+## EF - phase0 - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
++ [Valid]   EF - phase0 - Finality - finality_rule_1 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
++ [Valid]   EF - phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
+```
+## EF - phase0 - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - phase0 - Random - randomized_0 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_1 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_10 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_11 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_12 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_13 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_14 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_15 [Preset: minimal]                           OK
++ [Valid]   EF - phase0 - Random - randomized_2 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_3 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_4 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_5 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_6 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_7 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_8 [Preset: minimal]                            OK
++ [Valid]   EF - phase0 - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - phase0 - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: minim OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - attestation [Preset: minimal]                    OK
++ [Valid]   EF - phase0 - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
++ [Valid]   EF - phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
++ [Valid]   EF - phase0 - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
++ [Valid]   EF - phase0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
++ [Valid]   EF - phase0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
++ [Valid]   EF - phase0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
++ [Valid]   EF - phase0 - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
++ [Valid]   EF - phase0 - Sanity - Blocks - historical_batch [Preset: minimal]               OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
++ [Valid]   EF - phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
++ [Valid]   EF - phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
 ## ForkChoice
 ```diff
@@ -4846,6 +5883,7 @@ ConsensusSpecPreset-minimal
   ForkChoice - minimal/electra/fork_choice/should_override_forkchoice_update/pyspec_tests/sh Skip
 + ForkChoice - minimal/electra/fork_choice/withholding/pyspec_tests/withholding_attack       OK
 + ForkChoice - minimal/electra/fork_choice/withholding/pyspec_tests/withholding_attack_unvia OK
++ ForkChoice - minimal/fulu/fork_choice/deposit_with_reorg/pyspec_tests/new_validator_deposi OK
 + ForkChoice - minimal/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
 + ForkChoice - minimal/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attest OK
 + ForkChoice - minimal/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                 OK
@@ -4854,10 +5892,13 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed_ OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/filtered_block_tree            OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/genesis                        OK
++ ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoch OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoch OK
+  ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
+  ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
@@ -4876,6 +5917,23 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots_ OK
   ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_inde OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_mism OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_wron OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__invalid_zero OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__not_availabl OK
++ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_peerdas__ok           OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
@@ -4889,6 +5947,8 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ju OK
 + ForkChoice - minimal/fulu/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ju OK
 + ForkChoice - minimal/fulu/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_en OK
+  ForkChoice - minimal/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
+  ForkChoice - minimal/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack          OK
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack_unviable OK
 ```
@@ -4898,4 +5958,5 @@ ConsensusSpecPreset-minimal
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - minimal/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
 + Sync - minimal/electra/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - minimal/fulu/sync/optimistic/pyspec_tests/from_syncing_to_invalid                   OK
 ```

@@ -10,7 +10,7 @@
 import
   std/[algorithm, sequtils],
   chronos, chronicles,
-  eth/p2p/discoveryv5/[enr, protocol, node, random2],
+  eth/p2p/discoveryv5/[protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
   ../spec/eth2_ssz_serialization,
   ".."/[conf, conf_light_client]

@@ -25,6 +25,8 @@ type
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+  ForkAtEpochCallback* =
+    proc(epoch: Epoch): ConsensusFork {.gcsafe, raises: [].}
 
   SyncRange* = object
     slot*: Slot
@@ -37,15 +39,20 @@ type
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
 
+  SyncRequestFlag* {.pure.} = enum
+    Void
+
   SyncRequest*[T] = object
     kind*: SyncQueueKind
     data*: SyncRange
+    flags*: set[SyncRequestFlag]
     item*: T
 
   SyncQueueItem[T] = object
     requests: seq[SyncRequest[T]]
     data: SyncRange
     failuresCount: Natural
+    voidsCount: Natural
 
   SyncWaiterItem[T] = ref object
     future: Future[void].Raising([CancelledError])
@@ -90,6 +97,7 @@ type
     requests: Deque[SyncQueueItem[T]]
     getSafeSlot: GetSlotCallback
     blockVerifier: BlockVerifier
+    forkAtEpoch: ForkAtEpochCallback
     waiters: seq[SyncWaiterItem[T]]
     gapList: seq[GapItem[T]]
     lock: AsyncLock
@@ -267,7 +275,60 @@ func init[T](t: typedesc[SyncQueueItem],
 func init[T](t: typedesc[GapItem], req: SyncRequest[T]): GapItem[T] =
   GapItem[T](data: req.data, item: req.item)
 
-func next(srange: SyncRange): SyncRange {.inline.} =
+func last_slot*(epoch: Epoch): Slot =
+  ## Return the start slot of ``epoch``.
+  const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
+  if epoch >= maxEpoch: FAR_FUTURE_SLOT
+  else: Slot(epoch * SLOTS_PER_EPOCH + (SLOTS_PER_EPOCH - 1'u64))
+
+func start_slot*(sr: SyncRange): Slot =
+  sr.slot
+
+func last_slot*(sr: SyncRange): Slot =
+  if sr.slot + (uint64(sr.count) - 1'u64) < sr.slot:
+    FAR_FUTURE_SLOT
+  else:
+    sr.slot + (uint64(sr.count) - 1'u64)
+
+proc epochFilter*[T](squeue: SyncQueue[T], srange: SyncRange): SyncRange =
+  case squeue.kind
+  of SyncQueueKind.Forward:
+    let
+      startEpoch = srange.slot.epoch()
+      startFork = squeue.forkAtEpoch(startEpoch)
+
+    var currentEpoch = startEpoch
+    while (currentEpoch.start_slot() <= srange.last_slot()) and
+          (squeue.forkAtEpoch(currentEpoch) == startFork) and
+          (currentEpoch != FAR_FUTURE_EPOCH):
+      currentEpoch += 1
+
+    if (currentEpoch.start_slot() <= srange.last_slot()) and
+       (squeue.forkAtEpoch(currentEpoch) != startFork):
+      SyncRange(
+        slot: srange.start_slot(),
+        count: currentEpoch.start_slot() - srange.slot)
+    else:
+      srange
+  of SyncQueueKind.Backward:
+    let
+      startEpoch = srange.last_slot().epoch()
+      startFork = squeue.forkAtEpoch(startEpoch)
+
+    var currentEpoch = startEpoch
+    while (currentEpoch.last_slot() >= srange.start_slot()) and
+          (squeue.forkAtEpoch(currentEpoch) == startFork) and
+          (currentEpoch != GENESIS_EPOCH):
+      currentEpoch -= 1
+
+    if (currentEpoch.last_slot() >= srange.start_slot()) and
+       (squeue.forkAtEpoch(currentEpoch) != startFork):
+      let ncount = srange.last_slot() - (currentEpoch + 1).start_slot() + 1'u64
+      SyncRange(slot: (currentEpoch + 1).start_slot(), count: ncount)
+    else:
+      srange
+
+func next[T](sq: SyncQueue[T], srange: SyncRange): SyncRange {.inline.} =
   let slot = srange.slot + srange.count
   if slot == FAR_FUTURE_SLOT:
     # Finish range
@@ -276,22 +337,22 @@ func next(srange: SyncRange): SyncRange {.inline.} =
     # Range that causes uint64 overflow, fixing.
     SyncRange.init(slot, uint64(FAR_FUTURE_SLOT - srange.count))
   else:
-    if slot + srange.count < slot:
-      SyncRange.init(slot, uint64(FAR_FUTURE_SLOT - srange.count))
+    if slot + sq.chunkSize < slot:
+      SyncRange.init(slot, uint64(FAR_FUTURE_SLOT - sq.chunkSize))
     else:
-      SyncRange.init(slot, srange.count)
+      SyncRange.init(slot, sq.chunkSize)
 
-func prev(srange: SyncRange): SyncRange {.inline.} =
+func prev[T](sq: SyncQueue[T], srange: SyncRange): SyncRange {.inline.} =
   if srange.slot == GENESIS_SLOT:
     # Start range
     srange
   else:
-    let slot = srange.slot - srange.count
+    let slot = srange.slot - sq.chunkSize
     if slot > srange.slot:
       # Range that causes uint64 underflow, fixing.
       SyncRange.init(GENESIS_SLOT, uint64(srange.slot))
     else:
-      SyncRange.init(slot, srange.count)
+      SyncRange.init(slot, sq.chunkSize)
 
 func contains(srange: SyncRange, slot: Slot): bool {.inline.} =
   ## Returns `true` if `slot` is in range of `srange`.
@@ -451,6 +512,7 @@ func init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               failureResetThreshold: Natural,
               getSafeSlotCb: GetSlotCallback,
               blockVerifier: BlockVerifier,
+              forkAtEpoch: ForkAtEpochCallback,
               ident: string = "main"): SyncQueue[T] =
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   doAssert(requestsCount > 0, "Number of requests should not be zero")
@@ -466,16 +528,17 @@ func init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     inpSlot: start,
     outSlot: start,
     blockVerifier: blockVerifier,
+    forkAtEpoch: forkAtEpoch,
     requests: initDeque[SyncQueueItem[T]](),
     lock: newAsyncLock(),
     ident: ident
   )
 
-func contains[T](requests: openArray[SyncRequest[T]], source: T): bool =
-  for req in requests:
-    if req.item == source:
-      return true
-  false
+func searchPeer[T](requests: openArray[SyncRequest[T]], source: T): int =
+  for index, request in requests.pairs():
+    if request.item == source:
+      return index
+  -1
 
 func find[T](sq: SyncQueue[T], req: SyncRequest[T]): Opt[SyncPosition] =
   if len(sq.requests) == 0:
@@ -538,7 +601,8 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
   var count = 0
   for qitem in sq.requests.mitems():
     if len(qitem.requests) < sq.requestsCount:
-      if item notin qitem.requests:
+      let sindex = qitem.requests.searchPeer(item)
+      if sindex < 0:
         return
           if qitem.data.slot > peerMaxSlot:
             # Peer could not satisfy our request, returning empty one.
@@ -550,7 +614,9 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
             qitem.requests.add(request)
             request
       else:
-        inc(count)
+        if SyncRequestFlag.Void notin qitem.requests[sindex].flags:
+          # We only count non-empty requests.
+          inc(count)
 
   doAssert(count < sq.requestsCount,
            "You should not pop so many requests for single peer")
@@ -567,9 +633,9 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
 
       case sq.kind
       of SyncQueueKind.Forward:
-        lastrange.next()
+        sq.next(lastrange)
       of SyncQueueKind.Backward:
-        lastrange.prev()
+        sq.prev(lastrange)
     else:
       case sq.kind
       of SyncQueueKind.Forward:
@@ -581,7 +647,7 @@ proc pop*[T](sq: SyncQueue[T], peerMaxSlot: Slot, item: T): SyncRequest[T] =
     # Peer could not satisfy our request, returning empty one.
     SyncRequest.init(sq.kind, item)
   else:
-    let request = SyncRequest.init(sq.kind, newrange, item)
+    let request = SyncRequest.init(sq.kind, sq.epochFilter(newrange), item)
     sq.requests.addLast(SyncQueueItem.init(request))
     request
 
@@ -688,12 +754,17 @@ iterator blocks(
     for i in countdown(len(blcks) - 1, 0):
       yield (blcks[i], blobs.getOpt(i))
 
+proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
+  ## Push multiple failed requests back to queue.
+  for request in requests:
+    let pos = sq.find(request).valueOr:
+      debug "Request is not relevant anymore", request = request
+      continue
+    sq.del(pos)
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
-  ## Push failed request back to queue.
-  let pos = sq.find(sr).valueOr:
-    debug "Request is not relevant anymore", request = sr
-    return
-  sq.del(pos)
+  ## Push single failed request back to queue.
+  sq.push([sr])
 
 proc process[T](
     sq: SyncQueue[T],
@@ -800,7 +871,12 @@ proc push*[T](
             raise exc
         pos
 
-  await sq.lock.acquire()
+  try:
+    await sq.lock.acquire()
+  except CancelledError as exc:
+    sq.del(sr)
+    raise exc
+
   try:
     position = sq.findPosition(sr)
 
@@ -819,6 +895,8 @@ proc push*[T](
       # Empty responses does not affect failures count
       debug "Received empty response",
             request = sr,
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
@@ -826,13 +904,23 @@ proc push*[T](
             topics = "syncman"
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
+      inc(sq.requests[position.qindex].voidsCount)
+      # Mark empty request in queue, so this range will not be requested by
+      # the same peer.
+      sq.requests[position.qindex].requests[position.sindex].flags.incl(
+        SyncRequestFlag.Void)
       sq.gapList.add(GapItem.init(sr))
-      sq.advanceQueue()
+      # With empty response - advance only when `requestsCount` of different
+      # peers returns empty response for the same range.
+      if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
+        sq.advanceQueue()
 
     of SyncProcessError.Duplicate:
       # Duplicate responses does not affect failures count
       debug "Received duplicate response",
             request = sr,
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
@@ -845,6 +933,7 @@ proc push*[T](
       debug "Block pool rejected peer's response",
             request = sr,
             invalid_block = pres.blck,
+            voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
@@ -859,6 +948,7 @@ proc push*[T](
       notice "Received blocks from an unviable fork",
              request = sr,
              unviable_block = pres.blck,
+             voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
@@ -874,6 +964,7 @@ proc push*[T](
       debug "Unexpected missing parent",
              request = sr,
              missing_parent_block = pres.blck,
+             voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
@@ -895,6 +986,7 @@ proc push*[T](
             request = sr,
             finalized_slot = sq.getSafeSlot(),
             missing_parent_block = pres.blck,
+            voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
@@ -920,6 +1012,7 @@ proc push*[T](
       if sq.requests[position.qindex].failuresCount >= sq.failureResetThreshold:
         let point = sq.getRewindPoint(pres.blck.get().slot, sq.getSafeSlot())
         debug "Multiple repeating errors occured, rewinding",
+              voids_count = sq.requests[position.qindex].voidsCount,
               failures_count = sq.requests[position.qindex].failuresCount,
               rewind_slot = point,
               sync_ident = sq.ident,

@@ -13,13 +13,12 @@
 # ---------------------------------------------------------------
 
 import
-  std/sequtils,
-  stew/endians2,
-  # Specs
   ../spec/[eth2_merkleization, digest],
   ../spec/datatypes/base
 
-template getProof*(
+from std/sequtils import mapIt
+
+template getProof(
     proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =
   let
     idx = idxParam

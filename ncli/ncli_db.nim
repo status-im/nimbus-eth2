@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/tables,
@@ -23,6 +23,7 @@ import
 
 from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
+from stew/staticfor import staticfor
 
 when defined(posix):
   import system/ansi_c
@@ -226,8 +227,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
-    dbBenchmark = BeaconChainDB.new("benchmark")
+    db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
+    dbBenchmark = BeaconChainDB.new("benchmark", cfg)
   defer:
     db.close()
     dbBenchmark.close()
@@ -238,7 +239,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = withTimerRet(timers[tInit]):
       ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
@@ -252,7 +253,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[capella.TrustedSignedBeaconBlock],
       seq[deneb.TrustedSignedBeaconBlock],
       seq[electra.TrustedSignedBeaconBlock],
-      seq[fulu.TrustedSignedBeaconBlock])
+      seq[fulu.TrustedSignedBeaconBlock],
+      seq[gloas.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -284,6 +286,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Fulu:
         blocks[6].add dag.db.getBlock(
           blck.root, fulu.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Gloas:
+        blocks[7].add dag.db.getBlock(
+          blck.root, gloas.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -297,7 +302,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref capella.HashedBeaconState)(),
       (ref deneb.HashedBeaconState)(),
       (ref electra.HashedBeaconState)(),
-      (ref fulu.HashedBeaconState)())
+      (ref fulu.HashedBeaconState)(),
+      (ref gloas.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -364,6 +370,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Fulu:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[6][].data, noRollback)
+              of ConsensusFork.Gloas:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[7][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -374,20 +383,15 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
+                of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
-  processBlocks(blocks[0])
-  processBlocks(blocks[1])
-  processBlocks(blocks[2])
-  processBlocks(blocks[3])
-  processBlocks(blocks[4])
-  processBlocks(blocks[5])
-  processBlocks(blocks[6])
-
+  staticFor i, 0 .. 7:
+    processBlocks(blocks[i])
   printTimers(false, timers)
 
-proc cmdDumpState(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+proc cmdDumpState(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   let
@@ -398,6 +402,7 @@ proc cmdDumpState(conf: DbConf) =
     denebState     = (ref deneb.HashedBeaconState)()
     electraState   = (ref electra.HashedBeaconState)()
     fuluState      = (ref fulu.HashedBeaconState)()
+    gloasState     = (ref gloas.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -418,11 +423,12 @@ proc cmdDumpState(conf: DbConf) =
     doit(denebState[])
     doit(electraState[])
     doit(fuluState[])
+    doit(gloasState[])
 
     echo "Couldn't load ", stateRoot
 
 proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   for file in conf.stateFile:
@@ -442,8 +448,8 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
     withState(state[]):
       db.putState(forkyState)
 
-proc cmdDumpBlock(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+proc cmdDumpBlock(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -463,7 +469,7 @@ proc cmdDumpBlock(conf: DbConf) =
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
 proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   for file in conf.blckFile:
@@ -515,7 +521,7 @@ proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -525,7 +531,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Initializing block pool..."
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let bid = dag.getBlockId(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
@@ -551,7 +557,7 @@ proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   echo root
 
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -563,7 +569,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tBlocks
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let tmpState = assignClone(dag.headState)
@@ -663,12 +669,14 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       if (let e = io2.removeFile(name); e.isErr):
         warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
-  if missingHistory:
-    notice "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
   printTimers(true, timers)
 
+  if missingHistory:
+    warn "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
+    quit QuitFailure
+
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   type Timers = enum
@@ -733,7 +741,7 @@ type
 proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+    db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer:
     db.close()
 
@@ -743,7 +751,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "# Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   var
@@ -970,7 +978,7 @@ proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
   info "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -979,7 +987,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
@@ -1206,11 +1214,11 @@ when isMainModule:
   of DbCmd.bench:
     cmdBench(conf, cfg)
   of DbCmd.dumpState:
-    cmdDumpState(conf)
+    cmdDumpState(conf, cfg)
   of DbCmd.putState:
     cmdPutState(conf, cfg)
   of DbCmd.dumpBlock:
-    cmdDumpBlock(conf)
+    cmdDumpBlock(conf, cfg)
   of DbCmd.putBlock:
     cmdPutBlock(conf, cfg)
   of DbCmd.putBlob:
