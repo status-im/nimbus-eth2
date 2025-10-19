@@ -1970,6 +1970,91 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
 
   sendAttestations(node, attestationHead.blck, slot)
 
+proc produceInclusionLists(
+    node: BeaconNode, head: BlockRef, slot: Slot
+): Future[void] {.async: (raises: [CancelledError]).} =
+  ## Construct inclusion lists for local validators assigned to the slot.
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Fulu:
+    return
+
+  let parentExecutionHash = node.dag.loadExecutionBlockHash(head).valueOr:
+    debug "Skipping inclusion list production; missing execution parent",
+      head = shortLog(head)
+    return
+
+  if parentExecutionHash.isZero:
+    return
+
+  var cache = StateCache()
+  let proposalStateRes = node.dag.getProposalState(head, slot, cache)
+  if proposalStateRes.isErr:
+    warn "Unable to compute proposal state for inclusion list",
+      head = shortLog(head), slot, err = proposalStateRes.error()
+    return
+  let proposalState = proposalStateRes.get
+
+  let committee = block:
+    withState(proposalState[]):
+      resolve_inclusion_list_committee(forkyState.data, slot)
+
+  if committee.len == 0:
+    return
+
+  let inclusionTxs = await node.elManager.getInclusionList(parentExecutionHash)
+
+  let limitedTxs =
+    if inclusionTxs.len > int(MAX_TRANSACTIONS_PER_PAYLOAD):
+      warn "Execution client returned excess inclusion list transactions; truncating",
+        returned = inclusionTxs.len,
+        limit = int(MAX_TRANSACTIONS_PER_PAYLOAD)
+      inclusionTxs[0 ..< int(MAX_TRANSACTIONS_PER_PAYLOAD)]
+    else:
+      inclusionTxs
+
+  let committeeRoot = compute_inclusion_list_committee_root(committee)
+
+  let transactions =
+    List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(limitedTxs)
+  let fork = node.dag.forkAtEpoch(slot.epoch)
+  let genesisRoot = node.dag.genesis_validators_root
+  let wallTime = node.beaconClock.now()
+
+  var store = get_inclusion_list_store()
+
+  for validator in committee:
+    let validatorIndex = ValidatorIndex(validator)
+    let attached = node.getValidatorForDuties(validatorIndex, slot).valueOr:
+      continue
+
+    var message = InclusionList(
+      slot: slot,
+      validator_index: validator,
+      inclusion_list_committee_root: committeeRoot,
+      transactions: transactions)
+    var signed = SignedInclusionList(message: message)
+
+    let sigRes = await attached.getInclusionListSignature(
+      fork, genesisRoot, signed.message)
+    if sigRes.isErr:
+      let errMsg = sigRes.error()
+      if errMsg.contains("Remote signer does not support inclusion list signing"):
+        debug "Skipping inclusion list due to unsupported remote signer",
+          validator_index = validatorIndex,
+          slot
+      else:
+        warn "Unable to sign inclusion list",
+          validator_index = validatorIndex,
+          slot, error = errMsg
+      continue
+
+    signed.signature = sigRes.get()
+
+    withState(proposalState[]):
+      store.process_inclusion_list(forkyState.data, signed, wallTime)
+
+  store.prune(node.dag.finalizedHead.slot)
+  await node.elManager.updatePayloadInclusionList(limitedTxs)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (raises: [CancelledError]).} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -2006,6 +2091,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
 
+  await produceInclusionLists(node, head, slot)
+  
   let newHead = await handleProposal(node, head, slot)
   head = newHead
 

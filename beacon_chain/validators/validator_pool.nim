@@ -976,6 +976,20 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
   v.slotSignature = Opt.some((slot, signature.get))
   return signature
 
+proc getInclusionListSignature*(v: AttachedValidator, fork: Fork,
+                                genesis_validators_root: Eth2Digest,
+                                inclusion_list: InclusionList
+                               ): Future[SignatureResult]
+                               {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    let sig = get_inclusion_list_signature(
+      fork, genesis_validators_root, inclusion_list, v.data.privateKey)
+    SignatureResult.ok(sig.toValidatorSig())
+  of ValidatorKind.Remote:
+    # TODO: Implement inclusion list signing for remote signers
+    SignatureResult.err("Remote signer does not support inclusion list signing")
+
 proc getValidatorExitSignature*(v: AttachedValidator, fork: Fork,
                                 genesis_validators_root: Eth2Digest,
                                 voluntary_exit: VoluntaryExit

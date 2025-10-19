@@ -44,6 +44,15 @@ func get_inclusion_list_submission_due_ms*(): uint64 =
 func get_proposer_inclusion_list_cutoff_ms*(): uint64 =
   uint64(proposerCutoffOffset.nanoseconds div 1_000_000)
 
+proc compute_inclusion_list_committee_root*(
+    committee: HashSet[uint64]): Eth2Digest =
+  ## Compute the SSZ root of the inclusion list committee
+  var committeeList: sszTypes.List[uint64,
+      sszTypes.Limit INCLUSION_LIST_COMMITTEE_SIZE]
+  for validator in committee:
+    discard committeeList.add(validator)
+  hash_tree_root(committeeList)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#new-is_valid_inclusion_list_signature
 func verify_inclusion_list_signature*(
     state: ForkyBeaconState,
@@ -139,8 +148,7 @@ proc process_inclusion_list*(
 
   let
     committee = get_inclusion_list_committee(state, message.slot)
-    committeeRoot = hash_tree_root(committee)
-    key = makeKey(message.slot, committeeRoot)
+    committeeRoot = compute_inclusion_list_committee_root(committee)
 
   if message.inclusion_list_committee_root != committeeRoot:
     return
@@ -156,7 +164,7 @@ proc get_inclusion_list_transactions*(
   ## Collect the unique transactions from valid inclusion lists for ``slot``
   let
     committee = get_inclusion_list_committee(state, slot)
-    committeeRoot = hash_tree_root(committee)
+    committeeRoot = compute_inclusion_list_committee_root(committee)
     key = makeKey(slot, committeeRoot)
     equivocators = store.getEquivocatorsForKey(key)
 
