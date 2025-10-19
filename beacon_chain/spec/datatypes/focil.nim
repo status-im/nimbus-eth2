@@ -49,10 +49,10 @@ const
   INCLUSION_LIST_COMMITTEE_SIZE* = 16'u64
 
   # https://github.com/ethereum/consensus-specs/blob/master/specs/_features/eip7805/fork-choice.md#configuration
-  VIEW_FREEZE_DEADLINE* = (SECONDS_PER_SLOT * 3 div 4 ).seconds
+  VIEW_FREEZE_DEADLINE* = chronos.seconds (SECONDS_PER_SLOT * 3 div 4 )
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
-  INCLUSION_LIST_SUBMISSION_DUE = (SECONDS_PER_SLOT * 2 div 3).seconds
-  PROPOSER_INCLUSION_LIST_CUT_OFF = (SECONDS_PER_SLOT - 1).seconds
+  INCLUSION_LIST_SUBMISSION_DUE = chronos.seconds (SECONDS_PER_SLOT * 2 div 3)
+  PROPOSER_INCLUSION_LIST_CUT_OFF = chronos.seconds (SECONDS_PER_SLOT - 1)
 
 
   MAX_REQUEST_INCLUSION_LIST* = 16'u64
