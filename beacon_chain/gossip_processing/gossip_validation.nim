@@ -602,7 +602,7 @@ proc validateDataColumnSidecar*(
   let epoch = block_header.slot.epoch()
   if lenu64(data_column_sidecar.kzg_commitments) >
      dag.cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
-    return dag.checkedReject("DataColumnSidecar: The sidecar does not respect the blob limit")
+    return errIgnore("DataColumnSidecar: The sidecar does not respect the blob limit")
 
   # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
