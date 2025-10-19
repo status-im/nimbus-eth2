@@ -27,6 +27,7 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
+from json_rpc/router import METHOD_NOT_FOUND
 
 export
   eth1_chain, el_conf, engine_api, base
@@ -203,6 +204,9 @@ type
       ## Are we sure that this EL has synced the deposit contract?
 
     lastPayloadId: Opt[Bytes8]
+
+    supportsInclusionListFetch: Opt[bool]
+    supportsInclusionListUpdate: Opt[bool]
 
   FullBlockId* = object
     number: Eth1BlockNumber
@@ -462,6 +466,55 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
       await sleepAsync(chronos.seconds(10))
 
   connection.web3.get.provider
+
+proc getInclusionListFromSingleEL(
+    connection: ELConnection,
+    parentHash: Eth2Digest
+): Future[Opt[seq[bellatrix.Transaction]]] {.async: (raises: [CatchableError]).} =
+  if connection.supportsInclusionListFetch.isSome and
+     not connection.supportsInclusionListFetch.get:
+    return Opt.none(seq[bellatrix.Transaction])
+
+  let rpcClient = await connection.connectedRpcClient()
+
+  try:
+    let response =
+      await rpcClient.engine_getInclusionListV1(parentHash.asBlockHash)
+    connection.supportsInclusionListFetch = Opt.some(true)
+    return Opt.some(response.toConsensusTransactions())
+  except ErrorResponse as exc:
+    if exc.status == METHOD_NOT_FOUND:
+      if connection.supportsInclusionListFetch.isNone:
+        trace "Execution client does not support engine_getInclusionListV1",
+          url = connection.engineUrl.url
+      connection.supportsInclusionListFetch = Opt.some(false)
+      return Opt.none(seq[bellatrix.Transaction])
+    raise exc
+
+proc updatePayloadInclusionListForSingleEL(
+    connection: ELConnection,
+    payloadId: Bytes8,
+    inclusionList: InclusionList
+): Future[bool] {.async: (raises: [CatchableError]).} =
+  if connection.supportsInclusionListUpdate.isSome and
+     not connection.supportsInclusionListUpdate.get:
+    return false
+
+  let rpcClient = await connection.connectedRpcClient()
+
+  try:
+    discard await rpcClient.engine_updatePayloadWithinInclusionListV1(
+      payloadId, inclusionList)
+    connection.supportsInclusionListUpdate = Opt.some(true)
+    return true
+  except ErrorResponse as exc:
+    if exc.status == METHOD_NOT_FOUND:
+      if connection.supportsInclusionListUpdate.isNone:
+        trace "Execution client does not support engine_updatePayloadWithinInclusionListV1",
+          url = connection.engineUrl.url
+      connection.supportsInclusionListUpdate = Opt.some(false)
+      return false
+    raise exc
 
 proc getBlockByHash(
     rpcClient: RpcClient,
@@ -1574,7 +1627,10 @@ template getBlockProposalData*(m: ELManager,
 func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
   ELConnection(
     engineUrl: engineUrl,
-    depositContractSyncStatus: DepositContractSyncStatus.unknown)
+    depositContractSyncStatus: DepositContractSyncStatus.unknown,
+    lastPayloadId: Opt[Bytes8].none,
+    supportsInclusionListFetch: Opt[bool].none,
+    supportsInclusionListUpdate: Opt[bool].none)
 
 proc new*(T: type ELManager,
           cfg: RuntimeConfig,

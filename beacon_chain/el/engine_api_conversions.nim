@@ -9,7 +9,7 @@
 
 import
   kzg4844/[kzg_abi, kzg],
-  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
+  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu,focil],
   web3/[engine_api, engine_api_types]
 
 from std/sequtils import mapIt
@@ -155,6 +155,22 @@ func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+
+func toConsensusTransactions*(inclusionList: InclusionList):
+    seq[bellatrix.Transaction] =
+  ## Convert Engine API inclusion list transactions to consensus transactions.
+  let txs = inclusionList.distinctBase
+  result = newSeqOfCap[bellatrix.Transaction](txs.len)
+  for tx in txs:
+    result.add bellatrix.Transaction.init(tx.distinctBase)
+
+func toEngineInclusionList*(txs: seq[bellatrix.Transaction]): InclusionList =
+  ## Convert consensus inclusion list transactions to Engine API representation.
+  var engineTxs = newSeqOfCap[TypedTransaction](txs.len)
+  for tx in txs:
+    engineTxs.add TypedTransaction(tx.asSeq)
+  InclusionList(engineTxs)
+
 
 func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
     fulu.ExecutionPayload =

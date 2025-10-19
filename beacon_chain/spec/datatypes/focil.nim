@@ -47,7 +47,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#preset
   INCLUSION_LIST_COMMITTEE_SIZE* = 16'u64
-
   # https://github.com/ethereum/consensus-specs/blob/master/specs/_features/eip7805/fork-choice.md#configuration
   VIEW_FREEZE_DEADLINE* = chronos.seconds (SECONDS_PER_SLOT * 3 div 4 )
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
