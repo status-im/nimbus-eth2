@@ -1005,6 +1005,7 @@ proc validateExecutionPayload*(
 
   # TODO: check if it needs fallback to `state.latest_execution_payload_bid`
   template bid: untyped = blck.body.signed_execution_payload_bid.message
+  debug "Validating execution payload", bid = shortLog(bid)
 
   # [REJECT] envelope.builder_index == bid.builder_index
   if envelope.builder_index != bid.builder_index:
