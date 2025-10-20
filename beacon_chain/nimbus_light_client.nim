@@ -174,7 +174,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
           info "New LC optimistic header"
           if elManager == nil or blockHash.isZero or
-              not isSynced(bid.slot, getBeaconTime().slotOrZero()):
+              not isSynced(bid.slot, beaconClock.currentSlot):
             return
 
           withConsensusFork(consensusFork):
@@ -264,7 +264,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
     let
-      wallSlot = wallTime.slotOrZero()
+      wallSlot = wallTime.slotOrZero(cfg.time)
       expectedSlot = lastSlot + 1
       delay = wallTime - expectedSlot.start_beacon_time(cfg.time)
 
@@ -301,24 +301,24 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   proc runOnSlotLoop() {.async.} =
     var
-      curSlot = getBeaconTime().slotOrZero()
+      curSlot = beaconClock.currentSlot
       nextSlot = curSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - beaconClock.now
     while true:
       await sleepAsync(timeToNextSlot)
 
       let
-        wallTime = getBeaconTime()
-        wallSlot = wallTime.slotOrZero()
+        wallTime = beaconClock.now
+        wallSlot = wallTime.slotOrZero(cfg.time)
 
       onSlot(wallTime, curSlot)
 
       curSlot = wallSlot
       nextSlot = wallSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - beaconClock.now
 
   proc onSecond(time: Moment) =
-    let wallSlot = getBeaconTime().slotOrZero()
+    let wallSlot = beaconClock.currentSlot
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 

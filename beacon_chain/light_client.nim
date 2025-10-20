@@ -282,8 +282,9 @@ proc installMessageValidators*(
   # When registering multiple message validators, IGNORE results take precedence
   # over ACCEPT results. However, because the opposite behaviour is needed here,
   # we handle both full node and light client validation in this module
-  template getLocalWallPeriod(): auto =
-    lightClient.getBeaconTime().slotOrZero().sync_committee_period
+  template getLocalWallPeriod(): SyncCommitteePeriod =
+    lightClient.getBeaconTime().slotOrZero(lightClient.cfg.time)
+      .sync_committee_period
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,

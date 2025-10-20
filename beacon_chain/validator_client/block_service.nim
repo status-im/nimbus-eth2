@@ -46,7 +46,7 @@ proc prepareRandao(
     slot: Slot,
     proposerKey: ValidatorPubKey
 ) {.async: (raises: [CancelledError]).} =
-  if slot == vc.beaconClock.now().slotOrZero():
+  if slot == vc.beaconClock.currentSlot():
     # Its impossible to prepare RANDAO in the beginning of the epoch. Epoch
     # signature will be requested by block proposer.
     return
@@ -589,7 +589,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
 
     let
       currentTime = vc.beaconClock.now()
-      afterSlot = currentTime.slotOrZero()
+      afterSlot = currentTime.slotOrZero(vc.timeConfig)
 
     if currentTime > afterSlot.attestation_deadline(vc.timeConfig):
       # Attestation time already, lets wait for next slot.

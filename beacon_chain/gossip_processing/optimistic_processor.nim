@@ -46,7 +46,7 @@ proc validateBeaconBlock(
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeConfig)):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():

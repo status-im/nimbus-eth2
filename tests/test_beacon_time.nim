@@ -25,19 +25,26 @@ suite "Beacon time":
       s0.sync_committee_period() == SyncCommitteePeriod(0)
 
       # Roundtrip far times we treat these as "Infinity"
-      FAR_FUTURE_SLOT.epoch.start_slot() == FAR_FUTURE_SLOT
-      FAR_FUTURE_SLOT.sync_committee_period.start_slot() == FAR_FUTURE_SLOT
-      FAR_FUTURE_EPOCH.start_slot().epoch() == FAR_FUTURE_EPOCH
-      FAR_FUTURE_SLOT ==
-        FAR_FUTURE_SLOT.start_beacon_time(timeConfig).slotOrZero()
-      FAR_FUTURE_PERIOD.start_epoch().sync_committee_period() == FAR_FUTURE_PERIOD
-      FAR_FUTURE_PERIOD.start_slot().sync_committee_period() == FAR_FUTURE_PERIOD
+      FAR_FUTURE_SLOT == FAR_FUTURE_SLOT
+        .epoch.start_slot()
+      FAR_FUTURE_SLOT == FAR_FUTURE_SLOT
+        .sync_committee_period.start_slot()
+      FAR_FUTURE_EPOCH == FAR_FUTURE_EPOCH
+        .start_slot().epoch()
+      FAR_FUTURE_SLOT == FAR_FUTURE_SLOT
+        .start_beacon_time(timeConfig).slotOrZero(timeConfig)
+      FAR_FUTURE_PERIOD == FAR_FUTURE_PERIOD
+        .start_epoch().sync_committee_period()
+      FAR_FUTURE_PERIOD == FAR_FUTURE_PERIOD
+        .start_slot().sync_committee_period()
 
-      BeaconTime(ns_since_genesis: -10000000000).slotOrZero == Slot(0)
+      BeaconTime(ns_since_genesis: -10000000000)
+        .slotOrZero(timeConfig) == GENESIS_SLOT
       Slot(5).since_epoch_start() == 5
       (Epoch(42).start_slot() + 5).since_epoch_start() == 5
 
-      Slot(5).start_beacon_time(timeConfig) > Slot(4).start_beacon_time(timeConfig)
+      Slot(5).start_beacon_time(timeConfig) >
+        Slot(4).start_beacon_time(timeConfig)
 
       Slot(4).start_beacon_time(timeConfig) +
         (Slot(5).start_beacon_time(timeConfig) -

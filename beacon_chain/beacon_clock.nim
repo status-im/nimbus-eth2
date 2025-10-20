@@ -75,6 +75,9 @@ proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())
 
+proc currentSlot*(c: BeaconClock): Slot =
+  c.now.slotOrZero(c.timeConfig)
+
 func getBeaconTimeFn*(c: BeaconClock): GetBeaconTimeFn =
   return proc(): BeaconTime = c.now()
 

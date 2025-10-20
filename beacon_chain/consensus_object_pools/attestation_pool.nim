@@ -417,7 +417,8 @@ proc addAttestation*(
   doAssert attestation.signature == signature.toValidatorSig(),
     "Deserialized signature must match the one in the attestation"
 
-  updateCurrent(pool, wallTime.slotOrZero)
+  let timeConfig = pool.dag.cfg.time
+  updateCurrent(pool, wallTime.slotOrZero(timeConfig))
 
   let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:

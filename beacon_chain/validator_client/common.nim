@@ -988,7 +988,7 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
 
 proc currentSlot*(vc: ValidatorClientRef): Slot =
-  vc.beaconClock.now().slotOrZero()
+  vc.beaconClock.now().slotOrZero(vc.timeConfig)
 
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
@@ -1244,7 +1244,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
      async: (raises: [CancelledError]).} =
   let
     currentTime = vc.beaconClock.now()
-    currentSlot = currentTime.slotOrZero()
+    currentSlot = currentTime.slotOrZero(vc.timeConfig)
     chronosOffset = chronos.nanoseconds(
       if offset.nanoseconds < 0: 0'i64 else: offset.nanoseconds)
 
@@ -1263,7 +1263,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
 
     let
       wallTime = vc.beaconClock.now()
-      wallSlot = wallTime.slotOrZero()
+      wallSlot = wallTime.slotOrZero(vc.timeConfig)
 
     logScope:
       wall_time = shortLog(wallTime)
@@ -1308,20 +1308,16 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
                              showLogs: bool): Future[Opt[Slot]] {.
      async: (raises: [CancelledError], raw: true).} =
   let
-    currentTime = vc.beaconClock.now()
-    currentSlot = curSlot.valueOr: currentTime.slotOrZero()
+    currentSlot = curSlot.valueOr: vc.currentSlot()
     nextSlot = currentSlot + 1
-
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
                              showLogs: bool): Future[Opt[Slot]] {.
      async: (raises: [CancelledError], raw: true).} =
   let
-    currentTime = vc.beaconClock.now()
-    currentSlot = currentTime.slotOrZero()
+    currentSlot = vc.currentSlot()
     nextSlot = currentSlot + 1
-
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc expectBlock*(vc: ValidatorClientRef, slot: Slot,

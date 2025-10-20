@@ -235,7 +235,7 @@ proc stepOnBlock(
   # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
-    dag.getBlockIdAtSlot(time.slotOrZero).expect("block exists"),
+    dag.getBlockIdAtSlot(time.slotOrZero(dag.cfg.time)).expect("block exists"),
     save = false,
     stateCache,
     dag.updateFlags
@@ -297,7 +297,8 @@ proc stepChecks(
   for check, val in checks:
     if check == "time":
       doAssert time.ns_since_genesis == val.getInt().seconds.nanoseconds()
-      doAssert fkChoice.checkpoints.time.slotOrZero == time.slotOrZero
+      let slot = fkChoice.checkpoints.time.slotOrZero(dag.cfg.time)
+      doAssert slot == time.slotOrZero(dag.cfg.time)
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
       let headRef = dag.getBlockRef(headRoot).get()

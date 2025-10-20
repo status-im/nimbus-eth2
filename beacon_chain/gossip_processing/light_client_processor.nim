@@ -192,7 +192,7 @@ proc tryForceUpdate(
     self: var LightClientProcessor,
     wallTime: BeaconTime) =
   ## Try to force-update to the next sync committee period.
-  let wallSlot = wallTime.slotOrZero()
+  let wallSlot = wallTime.slotOrZero(self.cfg.time)
   doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
 
   withForkyStore(self.store[]):
@@ -252,7 +252,7 @@ proc doProcessObject(
     withForkyStore(self.store[]):
       when lcDataFork > LightClientDataFork.None:
         let
-          wallSlot = wallTime.slotOrZero()
+          wallSlot = wallTime.slotOrZero(self.cfg.time)
           upgradedUpdate = update.migratingToDataFork(lcDataFork)
         process_light_client_update(
           forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,

@@ -271,7 +271,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#custom-types
-  beaconClock[].now().slotOrZero().cint
+  beaconClock[].currentSlot.cint
 
 const lcDataFork = LightClientDataFork.high
 
@@ -428,7 +428,7 @@ proc ETHLightClientStoreGetNextSyncTask(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let syncTask = nextLightClientSyncTask(
-    current = beaconClock[].now().slotOrZero().sync_committee_period,
+    current = beaconClock[].currentSlot.sync_committee_period,
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
     isNextSyncCommitteeKnown = store[].is_next_sync_committee_known)
@@ -514,8 +514,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientUpdatesByRange
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var updates =
     try:
@@ -597,8 +596,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientFinalityUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var finalityUpdate =
     try:
@@ -682,8 +680,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var optimisticUpdate =
     try:

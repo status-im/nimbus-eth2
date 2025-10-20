@@ -138,8 +138,8 @@ proc on_tick(
   self.checkpoints.time = time
 
   let
-    current_slot = time.slotOrZero
-    previous_slot = previous_time.slotOrZero
+    current_slot = time.slotOrZero(dag.cfg.time)
+    previous_slot = previous_time.slotOrZero(dag.cfg.time)
 
   # If this is a new slot, reset store.proposer_boost_root
   if current_slot > previous_slot:
@@ -199,8 +199,8 @@ proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
   const step_size = seconds(SECONDS_PER_SLOT.int)
   if time > self.checkpoints.time:
     let
-      preSlot = self.checkpoints.time.slotOrZero()
-      postSlot = time.slotOrZero()
+      preSlot = self.checkpoints.time.slotOrZero(dag.cfg.time)
+      postSlot = time.slotOrZero(dag.cfg.time)
     # Call on_tick at least once per slot.
     while time >= self.checkpoints.time + step_size:
       ? self.on_tick(dag, self.checkpoints.time + step_size)
@@ -226,7 +226,7 @@ proc on_attestation*(
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.cfg.time)))
 
-  if attestation_slot < self.checkpoints.time.slotOrZero:
+  if attestation_slot < self.checkpoints.time.slotOrZero(dag.cfg.time):
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
@@ -293,7 +293,7 @@ proc process_block*(self: var ForkChoice,
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero
+  let slot = self.checkpoints.time.slotOrZero(dag.cfg.time)
   if slot == blck.slot and
       self.checkpoints.time < slot.attestation_deadline(dag.cfg.time) and
       self.checkpoints.proposer_boost_root == ZERO_HASH:
@@ -367,7 +367,7 @@ proc get_head*(self: var ForkChoice,
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
-    self.checkpoints.time.slotOrZero.epoch,
+    self.checkpoints.time.slotOrZero(dag.cfg.time).epoch,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),

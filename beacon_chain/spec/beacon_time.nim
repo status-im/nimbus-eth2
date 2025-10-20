@@ -191,7 +191,7 @@ func light_client_optimistic_update_time*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
   s.start_beacon_time(timeConfig) + lightClientOptimisticUpdateSlotOffset
 
-func slotOrZero*(time: BeaconTime): Slot =
+func slotOrZero*(time: BeaconTime, timeConfig: TimeConfig): Slot =
   let exSlot = time.toSlot
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)

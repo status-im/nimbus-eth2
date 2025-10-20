@@ -1629,13 +1629,16 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       default(CgcBits)
   )
 
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.getBeaconTime().slotOrZero(node.cfg.time).epoch
+
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
     let
-      currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
+        node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
       wantedCgcnetsCount = wantedCgcnets.countOnes()
@@ -2178,14 +2181,11 @@ func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
 proc getMetadata_vx(node: Eth2Node, peer: Peer):
                     Future[NetRes[fulu.MetaData]]
                    {.async: (raises: [CancelledError]).} =
-  let
-    res =
-      if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
-        # Directly fetch fulu metadata if available
-        await getMetadata_v3(peer)
-      else:
-        updateMetadataV2ToV3(await getMetadata_v2(peer))
-  return res
+  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
+    # Directly fetch fulu metadata if available
+    await getMetadata_v3(peer)
+  else:
+    updateMetadataV2ToV3(await getMetadata_v2(peer))
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
@@ -2376,11 +2376,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [CatchableError].} =
   let
-    enrForkId = getENRForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
-
-    discoveryForkId = getDiscoveryForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
+    wallEpoch = getBeaconTime().slotOrZero(cfg.time).epoch
+    enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
+    discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 
     listenAddress =
       if config.listenAddress.isSome():
@@ -2777,9 +2775,6 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
 
 func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
-
-proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId,

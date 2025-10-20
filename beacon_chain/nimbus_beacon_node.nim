@@ -265,7 +265,7 @@ proc checkWeakSubjectivityCheckpoint(
     wsCheckpoint: Checkpoint,
     beaconClock: BeaconClock) =
   let
-    currentSlot = beaconClock.now.slotOrZero
+    currentSlot = beaconClock.currentSlot
     isCheckpointStale = not is_within_weak_subjectivity_period(
       dag.cfg, currentSlot, dag.headState, wsCheckpoint)
 
@@ -369,7 +369,7 @@ proc initFullNode(
     dag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    node.beaconClock.now.slotOrZero
+    node.currentSlot
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     dag.finalizedHead.slot
@@ -390,8 +390,7 @@ proc initFullNode(
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
   proc isWithinWeakSubjectivityPeriod(): bool =
-    isSlotWithinWeakSubjectivityPeriod(node.dag,
-      node.beaconClock.now().slotOrZero())
+    isSlotWithinWeakSubjectivityPeriod(node.dag, node.currentSlot)
 
   proc forkAtEpoch(epoch: Epoch): ConsensusFork =
     consensusForkAtEpoch(dag.cfg, epoch)
@@ -671,7 +670,7 @@ proc initFullNode(
   block:
     # Add in-process validators to the list of "known" validators such that
     # we start with a reasonable ENR
-    let wallSlot = node.beaconClock.now().slotOrZero()
+    let wallSlot = node.currentSlot
     for validator in node.attachedValidators[].validators.values():
       if config.validatorMonitorAuto:
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
@@ -735,7 +734,7 @@ proc init*(
       beaconClock = BeaconClock.init(metadata.cfg.time, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
         quit 1
-      currentSlot = beaconClock.now().slotOrZero()
+      currentSlot = beaconClock.currentSlot
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
         root: getStateField(genesisState[], latest_block_header).state_root)
@@ -1023,6 +1022,7 @@ proc init*(
         validatorPool,
         keystoreCache,
         rng,
+        cfg.time,
         keymanagerInitResult.token,
         config.validatorsDir,
         config.secretsDir,
@@ -2094,7 +2094,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   let
     timeConfig = node.dag.cfg.time
     # The slot we should be at, according to the clock
-    wallSlot = wallTime.slotOrZero
+    wallSlot = wallTime.slotOrZero(timeConfig)
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
@@ -2156,7 +2156,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
   let timeConfig = node.dag.cfg.time
   var
-    curSlot = startTime.slotOrZero()
+    curSlot = startTime.slotOrZero(timeConfig)
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
     timeToNextSlot = nextSlot.start_beacon_time(timeConfig) - startTime
 
@@ -2174,7 +2174,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
 
     let
       wallTime = node.beaconClock.now()
-      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+      wallSlot = wallTime.slotOrZero(timeConfig)  # Always >= GENESIS!
 
     if wallSlot < nextSlot:
       # While we were sleeping, the system clock changed and time moved
@@ -2560,7 +2560,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
 
   let
     wallTime = node.beaconClock.now()
-    wallSlot = wallTime.slotOrZero()
+    wallSlot = wallTime.slotOrZero(timeConfig)
 
   node.startLightClient()
   node.requestManager.start()

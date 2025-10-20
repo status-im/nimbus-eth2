@@ -511,12 +511,14 @@ proc updateExecutionHead*(
   defer:
     self.forkchoiceInflight = false
 
+  let timeConfig = self.dag.cfg.time
   var
     attempts = 0
     wallTime = getBeaconTimeFn()
     head = self.attestationPool[].getBeaconHead(self.dag.head)
 
-  while not (await self.forkchoiceUpdated(head, wallTime.slotOrZero(), deadline, retry)):
+  while not (await self.forkchoiceUpdated(
+      head, wallTime.slotOrZero(timeConfig), deadline, retry)):
     # Each failed call to forkchoiceUpdated that fails should reveal new
     # information about the suggested new head - a side effect of the failure is
     # that the block should be marked as invalid and removed from fork choice
@@ -536,7 +538,7 @@ proc updateExecutionHead*(
     wallTime = getBeaconTimeFn()
     let nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed after invalid block, using previous head",
-        head, wallSlot = wallTime.slotOrZero
+        head, wallSlot = wallTime.slotOrZero(timeConfig)
       break
 
     warn "updateHeadWithExecution: attempting to recover from invalid payload",

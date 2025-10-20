@@ -592,14 +592,19 @@ proc processBlsToExecutionChange*(
     self: ref Eth2Processor, src: MsgSource,
     blsToExecutionChange: SignedBLSToExecutionChange):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  let
+    timeConfig = self.dag.cfg.time
+    wallTime = self.getCurrentBeaconTime()
+    wallSlot = wallTime.slotOrZero(timeConfig)
+
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
+    wallSlot
 
   debug "BLS to execution change received"
 
   let v = await self.validatorChangePool[].validateBlsToExecutionChange(
-    self.batchCrypto, blsToExecutionChange,
-    self.getCurrentBeaconTime().slotOrZero.epoch)
+    self.batchCrypto, blsToExecutionChange, wallSlot.epoch)
 
   if v.isOk():
     trace "BLS to execution change validated"
@@ -703,8 +708,9 @@ proc processSyncCommitteeMessage*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
+    timeConfig = self.dag.cfg.time
     wallTime = self.getCurrentBeaconTime()
-    wallSlot = wallTime.slotOrZero()
+    wallSlot = wallTime.slotOrZero(timeConfig)
 
   logScope:
     syncCommitteeMsg = shortLog(syncCommitteeMsg)
@@ -713,7 +719,6 @@ proc processSyncCommitteeMessage*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
-    timeConfig = self.dag.cfg.time
     slot = syncCommitteeMsg.slot
     delay = wallTime - slot.sync_committee_message_deadline(timeConfig)
   debug "Sync committee message received", delay
@@ -751,8 +756,9 @@ proc processSignedContributionAndProof*(
     checkSignature: bool = true):
     Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
+    timeConfig = self.dag.cfg.time
     wallTime = self.getCurrentBeaconTime()
-    wallSlot = wallTime.slotOrZero()
+    wallSlot = wallTime.slotOrZero(timeConfig)
 
   logScope:
     contribution = shortLog(contributionAndProof.message.contribution)
@@ -763,7 +769,6 @@ proc processSignedContributionAndProof*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
-    timeConfig = self.dag.cfg.time
     slot = contributionAndProof.message.contribution.slot
     delay = wallTime - slot.sync_contribution_deadline(timeConfig)
   debug "Contribution received", delay

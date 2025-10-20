@@ -724,7 +724,7 @@ proc syncCommitteeDutiesLoop(
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
     middleSlot = Slot(SLOTS_PER_EPOCH div 2)
-    currentSlot = vc.beaconClock.now().slotOrZero()
+    currentSlot = vc.currentSlot()
     slotInEpoch = currentSlot.since_epoch_start()
 
   if slotInEpoch >= middleSlot:
@@ -737,7 +737,7 @@ proc pruneSlashingDatabase(
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
-    currentSlot = vc.beaconClock.now().slotOrZero()
+    currentSlot = vc.currentSlot()
     startTime = Moment.now()
     blockHeader =
       try:

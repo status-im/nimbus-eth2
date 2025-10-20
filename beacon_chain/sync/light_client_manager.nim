@@ -365,7 +365,7 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
 
     # Fetch updates
     let
-      current = wallTime.slotOrZero().sync_committee_period
+      current = wallTime.slotOrZero(self.timeConfig).sync_committee_period
 
       syncTask = nextLightClientSyncTask(
         current = current,

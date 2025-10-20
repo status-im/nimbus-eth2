@@ -417,7 +417,7 @@ proc validateBlobSidecar*(
   # `block_header.slot <= current_slot` (a client MAY queue future sidecars
   # for processing at the appropriate slot).
   if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.cfg.time)):
     return errIgnore("BlobSidecar: slot too high")
 
   # [IGNORE] The sidecar is from a slot greater than the latest
@@ -610,7 +610,7 @@ proc validateDataColumnSidecar*(
   # `block_header.slot <= current_slot`(a client MAY queue future sidecars for
   # processing at the appropriate slot).
   if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.cfg.time)):
     return errIgnore("DataColumnSidecar: slot too high")
 
   # [IGNORE] The sidecar is from a slot greater than the latest
@@ -788,7 +788,7 @@ proc validateBeaconBlock*(
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
   # blocks for processing at the appropriate slot).
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.cfg.time)):
     return errIgnore("BeaconBlock: slot too high")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -1004,9 +1004,11 @@ proc validateAttestation*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(
-      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
-      wallTime)
+    let
+      timeConfig = pool.dag.cfg.time
+      wallEpoch = wallTime.slotOrZero(timeConfig).epoch
+      consensusFork = pool.dag.cfg.consensusForkAtEpoch(wallEpoch)
+      v = check_propagation_slot_range(consensusFork, slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 

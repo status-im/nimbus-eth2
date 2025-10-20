@@ -582,7 +582,7 @@ proc storeBlock(
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
-    wallSlot = wallTime.slotOrZero
+    wallSlot = wallTime.slotOrZero(dag.cfg.time)
     deadlineTime =
       block:
         let slotTime =

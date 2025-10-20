@@ -216,8 +216,7 @@ proc initClock(
       raise (ref ValidatorClientError)(
         msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time &
              "; seconds_per_slot=" & $vc.timeConfig.SECONDS_PER_SLOT)
-    currentTime = res.now()
-    currentSlot = currentTime.slotOrZero()
+    currentSlot = res.currentSlot()
     currentEpoch = currentSlot.epoch()
     genesisTime = res.fromNow(Slot(0))
 
@@ -242,7 +241,7 @@ proc runVCSlotLoop(
     vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
   var
     startTime = vc.beaconClock.now()
-    curSlot = startTime.slotOrZero()
+    curSlot = startTime.slotOrZero(vc.timeConfig)
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
     timeToNextSlot = nextSlot.start_beacon_time(vc.timeConfig) - startTime
 
@@ -461,6 +460,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
         validatorPool,
         vc.keystoreCache,
         vc.rng,
+        vc.timeConfig,
         keymanagerInitResult.token,
         vc.config.validatorsDir,
         vc.config.secretsDir,
