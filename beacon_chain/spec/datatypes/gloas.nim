@@ -22,7 +22,7 @@ import
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
-  ../[digest, block_id],
+  ../[block_id, digest],
   kzg4844/[kzg, kzg_abi]
 
 from ./altair import
