@@ -54,7 +54,7 @@ proc prepareRandao(
   let
     destSlot = slot - 1'u64
     destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
-    deadline = destSlot.start_beacon_time() + destOffset
+    deadline = destSlot.start_beacon_time(vc.timeConfig) + destOffset
     epoch = slot.epoch()
     # We going to wait to T - (T / 4 * 2), where T is proposer's
     # duty slot.
@@ -596,9 +596,9 @@ proc runBlockPollMonitor(service: BlockServiceRef,
       continue
 
     let
-      pollTime1 = afterSlot.start_beacon_time() + BlockPollOffset1
-      pollTime2 = afterSlot.start_beacon_time() + BlockPollOffset2
-      pollTime3 = afterSlot.start_beacon_time() + BlockPollOffset3
+      pollTime1 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset1
+      pollTime2 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset2
+      pollTime3 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset3
 
     var pendingTasks =
       block:

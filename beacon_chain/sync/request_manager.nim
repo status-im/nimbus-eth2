@@ -510,9 +510,10 @@ proc requestManagerBlockLoop(
 
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
+    timeConfig = rman.network.cfg.time
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
+    delay = wallTime - wallSlot.start_beacon_time(timeConfig)
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var
@@ -622,9 +623,10 @@ proc requestManagerBlobLoop(
 
 proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
+    timeConfig = rman.network.cfg.time
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
+    delay = wallTime - wallSlot.start_beacon_time(timeConfig)
 
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 

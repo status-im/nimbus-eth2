@@ -157,7 +157,7 @@ const
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
 
-func start_beacon_time*(s: Slot): BeaconTime =
+func start_beacon_time*(s: Slot, timeConfig: TimeConfig): BeaconTime =
   # The point in time that a slot begins
   const maxSlot = Slot(
     uint64(FAR_FUTURE_BEACON_TIME.ns_since_genesis) div NANOSECONDS_PER_SLOT)
@@ -165,31 +165,31 @@ func start_beacon_time*(s: Slot): BeaconTime =
   else: BeaconTime(ns_since_genesis: int64(uint64(s) * NANOSECONDS_PER_SLOT))
 
 func block_deadline*(s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time
+  s.start_beacon_time(timeConfig)
 
 func attestation_deadline*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + attestationSlotOffset
+  s.start_beacon_time(timeConfig) + attestationSlotOffset
 
 func aggregate_deadline*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + aggregateSlotOffset
+  s.start_beacon_time(timeConfig) + aggregateSlotOffset
 
 func sync_committee_message_deadline*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + syncCommitteeMessageSlotOffset
+  s.start_beacon_time(timeConfig) + syncCommitteeMessageSlotOffset
 
 func sync_contribution_deadline*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + syncContributionSlotOffset
+  s.start_beacon_time(timeConfig) + syncContributionSlotOffset
 
 func light_client_finality_update_time*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + lightClientFinalityUpdateSlotOffset
+  s.start_beacon_time(timeConfig) + lightClientFinalityUpdateSlotOffset
 
 func light_client_optimistic_update_time*(
     s: Slot, timeConfig: TimeConfig): BeaconTime =
-  s.start_beacon_time + lightClientOptimisticUpdateSlotOffset
+  s.start_beacon_time(timeConfig) + lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
   let exSlot = time.toSlot

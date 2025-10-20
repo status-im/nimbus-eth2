@@ -244,7 +244,7 @@ proc runVCSlotLoop(
     startTime = vc.beaconClock.now()
     curSlot = startTime.slotOrZero()
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+    timeToNextSlot = nextSlot.start_beacon_time(vc.timeConfig) - startTime
 
   info "Scheduling first slot action",
        start_time = shortLog(startTime),
@@ -264,7 +264,7 @@ proc runVCSlotLoop(
     let
       wallTime = vc.beaconClock.now()
       wallSlot = currentSlot.get()
-      delay = wallTime - wallSlot.start_beacon_time()
+      delay = wallTime - wallSlot.start_beacon_time(vc.timeConfig)
 
     if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
       return
@@ -497,7 +497,8 @@ proc runPreGenesisWaitingLoop(
 
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
-           time_to_genesis = GENESIS_SLOT.start_beacon_time() - currentTime
+           time_to_genesis =
+             GENESIS_SLOT.start_beacon_time(vc.timeConfig) - currentTime
 
     try:
       await vc.waitForNextSlot(currentSlot)
@@ -520,7 +521,8 @@ proc runGenesisWaitingLoop(
 
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
-           time_to_genesis = GENESIS_SLOT.start_beacon_time() - currentTime
+           time_to_genesis =
+             GENESIS_SLOT.start_beacon_time(vc.timeConfig) - currentTime
 
     try:
       await vc.waitForNextSlot(currentSlot)

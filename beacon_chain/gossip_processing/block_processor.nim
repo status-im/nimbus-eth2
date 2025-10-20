@@ -585,7 +585,8 @@ proc storeBlock(
     wallSlot = wallTime.slotOrZero
     deadlineTime =
       block:
-        let slotTime = (wallSlot + 1).start_beacon_time() - 1.seconds
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.cfg.time) - 1.seconds
         if slotTime <= wallTime:
           0.seconds
         else:
