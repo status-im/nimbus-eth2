@@ -358,7 +358,7 @@ proc processExecutionPayload*(
     ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (_, wallSlot) = wallTime.toSlot()
 
   logScope:
     blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
