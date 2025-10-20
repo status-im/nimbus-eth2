@@ -161,7 +161,11 @@ AllTests-mainnet
 ```
 ## ColumnMap test suite
 ```diff
-+ ColumnMap test                                                                             OK
++ and() operation test                                                                       OK
++ contains() test                                                                            OK
++ fill test                                                                                  OK
++ incl()/excl() test                                                                         OK
++ supernode test                                                                             OK
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
