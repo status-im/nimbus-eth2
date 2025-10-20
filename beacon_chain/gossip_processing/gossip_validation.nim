@@ -985,7 +985,7 @@ proc validateExecutionPayload*(
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
   # for this block root from this builder.
-  if not fullBlockPool[].isEnvelopeValid(signed_execution_payload_envelope):
+  if fullBlockPool[].isEnvelopeValid(signed_execution_payload_envelope):
     return errIgnore("ExecutionPayload: already seen the envelope")
 
   # [REJECT] block passes validation.
