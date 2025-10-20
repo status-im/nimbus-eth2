@@ -39,7 +39,7 @@ suite "Full block pool":
       message: ExecutionPayloadEnvelope(beacon_block_root: root1))
     check pool.getEnvelope(noBuilderIdx).isNone()
 
-  test "Block has seen":
+  test "Block has been seen":
     let defaultBlock = gloas.SignedBeaconBlock()
     check not pool.isBlockSeen(defaultBlock)
     pool.addBlock(defaultBlock)

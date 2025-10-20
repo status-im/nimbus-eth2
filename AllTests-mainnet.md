@@ -633,7 +633,7 @@ AllTests-mainnet
 ## Full block pool
 ```diff
 + Add envelope                                                                               OK
-+ Block has seen                                                                             OK
++ Block has been seen                                                                        OK
 + Envelope progress                                                                          OK
 + Envelope status                                                                            OK
 ```
