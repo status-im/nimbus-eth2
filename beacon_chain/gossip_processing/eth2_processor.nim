@@ -229,7 +229,6 @@ proc processExecutionPayloadGloas(
     builderIdx = signedEnvelope.message.builder_index
 
   # only process once
-  # TODO: thread-safety
   if self.fullBlockPool[].isEnvelopeProcessing(signedEnvelope) or
       self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
     return
