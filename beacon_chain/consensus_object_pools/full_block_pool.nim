@@ -23,7 +23,6 @@ type
 
   ExecPayloadEnvelopeProgress {.pure.} = enum
     None = 0,
-    Processing,
     Processed
 
   ExecPayloadEnvelopeDetail = object
@@ -109,12 +108,6 @@ func isEnvelopeValid*(
   pool.checkEnvelopeStatus(envelope.toExecPayloadUniqKey(),
     ExecPayloadEnvelopeStatus.Valid)
 
-func isEnvelopeProcessing*(
-    pool: FullBlockPool,
-    envelope: SignedExecutionPayloadEnvelope): bool =
-  pool.checkEnvelopeProgress(envelope.toExecPayloadUniqKey(),
-    ExecPayloadEnvelopeProgress.Processing)
-
 func isEnvelopeProcessed*(
     pool: FullBlockPool,
     envelope: SignedExecutionPayloadEnvelope): bool =
@@ -190,12 +183,6 @@ func markEnvelopeValid*(
     envelope: SignedExecutionPayloadEnvelope) =
   pool.setEnvelopeStatus(envelope.toExecPayloadUniqKey(),
     ExecPayloadEnvelopeStatus.Valid)
-
-func markEnvelopeProcessing*(
-    pool: var FullBlockPool,
-    envelope: SignedExecutionPayloadEnvelope) =
-  pool.setEnvelopeProgress(envelope.toExecPayloadUniqKey(),
-    ExecPayloadEnvelopeProgress.Processing)
 
 func markEnvelopeProcessed*(
     pool: var FullBlockPool,

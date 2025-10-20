@@ -229,10 +229,8 @@ proc processExecutionPayloadGloas(
     builderIdx = signedEnvelope.message.builder_index
 
   # only process once
-  if self.fullBlockPool[].isEnvelopeProcessing(signedEnvelope) or
-      self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
+  if self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
     return
-  self.fullBlockPool[].markEnvelopeProcessing(signedEnvelope)
 
   trace "Execution payload processing"
   debugGloasComment("")

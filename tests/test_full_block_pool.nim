@@ -67,13 +67,7 @@ suite "Full block pool":
         beacon_block_root: root1))
     pool.addEnvelope(envelope)
     check pool.isEnvelopeSeen(envelope)
-    check not pool.isEnvelopeProcessing(envelope)
-    check not pool.isEnvelopeProcessed(envelope)
-
-    pool.markEnvelopeProcessing(envelope)
-    check pool.isEnvelopeProcessing(envelope)
     check not pool.isEnvelopeProcessed(envelope)
 
     pool.markEnvelopeProcessed(envelope)
-    check not pool.isEnvelopeProcessing(envelope)
     check pool.isEnvelopeProcessed(envelope)
