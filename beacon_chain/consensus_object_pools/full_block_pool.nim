@@ -9,7 +9,7 @@
 
 import
   stew/shims/hashes,
-  ./[block_pools_types, block_quarantine],
+  ./[block_pools_types, block_quarantine, blockchain_dag],
   ../spec/[digest, forks]
 
 type
@@ -43,6 +43,9 @@ type
       ## Execution payload envelopes that received from the network.
       # TODO: persistent storage for valid envelope for the retention period
 
+    dag*: ChainDAGRef
+    quarantine*: ref Quarantine
+
 func hash*(x: ExecPayloadUniqKey): Hash =
   hashAllFields(x)
 
@@ -60,10 +63,11 @@ func toExecPayloadUniqKey(
     builderIdx: bid.message.builder_index)
 
 func init*(
-    T: type FullBlockPool):
+    T: type FullBlockPool,
+    dag: ChainDAGRef,
+    quarantine: ref Quarantine):
     FullBlockPool =
-  debugGloasComment("")
-  T()
+  T(dag: dag, quarantine: quarantine)
 
 func pruneData*(pool: var FullBlockPool) =
   debugGloasComment("")
@@ -73,11 +77,6 @@ func addEnvelope*(
     envelope: SignedExecutionPayloadEnvelope) =
   pool.envelopes[envelope.toExecPayloadUniqKey()] =
     ExecPayloadEnvelopeDetail(envelope: envelope)
-
-func addBlock*(
-    pool: var FullBlockPool,
-    blck: ForkySignedBeaconBlock) =
-  pool.blocks[blck.root] = BeaconBlockDetail()
 
 func checkEnvelopeStatus(
     pool: FullBlockPool,
@@ -125,7 +124,15 @@ func isBlockExecutionEnabled*(
 func isBlockSeen*(
     pool: FullBlockPool,
     blockRoot: Eth2Digest): bool =
-  blockRoot in pool.blocks
+  # check the block quarantine
+  if blockRoot in pool.quarantine.unviable or
+      blockRoot in pool.quarantine.missing:
+    return true
+  for k, _ in pool.quarantine.orphans:
+    if k[0] == blockRoot:
+      return true
+  # check the DAG chain
+  pool.dag.getBlockRef(blockRoot).isSome()
 
 func isBlockSeen*(
     pool: FullBlockPool,
@@ -193,9 +200,4 @@ func markEnvelopeProcessed*(
 func markBlockExecutionEnabled*(
     pool: var FullBlockPool,
     blck: ForkySignedBeaconBlock) =
-  if blck.root notin pool.blocks:
-    return
-  try:
-    pool.blocks[blck.root].executionEnabled = true
-  except KeyError:
-    return
+  pool.blocks[blck.root] = BeaconBlockDetail(executionEnabled: true)

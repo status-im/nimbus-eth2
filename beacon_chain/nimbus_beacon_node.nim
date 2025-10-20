@@ -405,7 +405,7 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init(dag.cfg))
-    fullBlockPool = newClone(FullBlockPool.init())
+    fullBlockPool = newClone(FullBlockPool.init(dag, quarantine))
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
       onSingleAttestationReceived))

@@ -11,13 +11,24 @@
 import
   unittest2,
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, full_block_pool]
+    block_pools_types, block_quarantine, blockchain_dag, full_block_pool],
+  ./testdbutil, ./consensus_spec/fixtures_utils
 
 from stew/byteutils import hexToByteArray
 
 suite "Full block pool":
   setup:
-    var pool = FullBlockPool.init()
+    var
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      dag = ChainDAGRef.init(cfg,
+        cfg.makeTestDB(
+          TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init(cfg))
+      pool = FullBlockPool.init(dag, quarantine)
+
+    # Block root for testing
     let root1 = Eth2Digest(data:
         hexToByteArray[32]("6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001".toOpenArray(0, 63)))
 
@@ -42,12 +53,12 @@ suite "Full block pool":
   test "Block has been seen":
     let defaultBlock = gloas.SignedBeaconBlock()
     check not pool.isBlockSeen(defaultBlock)
-    pool.addBlock(defaultBlock)
+    quarantine[].addMissing(defaultBlock.root)
     check pool.isBlockSeen(defaultBlock)
 
     let blck = gloas.SignedBeaconBlock(root: root1)
     check not pool.isBlockSeen(blck)
-    pool.addBlock(blck)
+    quarantine[].addUnviable(blck.root)
     check pool.isBlockSeen(blck)
 
   test "Envelope status":
