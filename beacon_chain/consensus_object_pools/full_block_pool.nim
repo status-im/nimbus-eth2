@@ -158,11 +158,10 @@ func getEnvelope*(
     pool: FullBlockPool,
     blck: ForkySignedBeaconBlock):
     Opt[SignedExecutionPayloadEnvelope] =
-  withBlck(blck):
-    when consensusFork >= Gloas:
-      pool.getEnvelope(forkyBlck.toExecPayloadUniqKey())
-    else:
-      Opt.none(SignedExecutionPayloadEnvelope)
+  when type(blck).kind >= Gloas:
+    pool.getEnvelope(blck.toExecPayloadUniqKey())
+  else:
+    Opt.none(SignedExecutionPayloadEnvelope)
 
 func setEnvelopeStatus(
     pool: var FullBlockPool,

@@ -220,7 +220,7 @@ proc new*(T: type Eth2Processor,
 
 proc processExecutionPayloadGloas(
     self: var Eth2Processor,
-    signedBlock: ForkySignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: SignedExecutionPayloadEnvelope) =
   ## Process execution payload when both the block and envelope are found.
 
@@ -245,7 +245,7 @@ proc processExecutionPayloadGloas(
 
 proc processExecutionPayloadGloas(
     self: var Eth2Processor,
-    signedBlock: ForkySignedBeaconBlock) =
+    signedBlock: gloas.SignedBeaconBlock) =
   ## Received a valid block and checking if the envelope arrives
 
   # check if the envelope exists
