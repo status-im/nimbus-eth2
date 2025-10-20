@@ -304,6 +304,7 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
     cfg.MAX_BLOBS_PER_BLOCK
 
 debugGloasComment ""
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BlockRef): untyped =
@@ -364,6 +365,7 @@ template validateBeaconBlockBellatrix(
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
 debugGloasComment ""
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
     _:

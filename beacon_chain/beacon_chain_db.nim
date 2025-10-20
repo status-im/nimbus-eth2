@@ -856,6 +856,11 @@ proc putDataColumnSidecar*(
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns.putSZSSZ(columnkey(block_root, value.index), value)
 
+proc putDataColumnSidecar*(
+    db: BeaconChainDB,
+    value: gloas.DataColumnSidecar) =
+  db.columns.putSZSSZ(columnkey(value.beacon_block_root, value.index), value)
+
 proc delDataColumnSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: ColumnIndex): bool =

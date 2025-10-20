@@ -467,6 +467,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   asRef(rng).nextLcSyncTaskDelay(
+    beaconClock[].timeConfig,
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,

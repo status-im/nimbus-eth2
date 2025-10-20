@@ -9,7 +9,7 @@
 
 import
   system/ansi_c,
-  std/[os, random, terminal, times],
+  std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -453,7 +453,10 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          when consensusFork == ConsensusFork.Gloas:
+            let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+          else:
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -475,7 +478,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "no blob_kzg_commitments field for gloas"
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
@@ -1728,7 +1731,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "Stored data columns", columns = indices.len
+      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
@@ -1744,7 +1747,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
         node.batchVerifier[].taskpool, columns).valueOr:
-          error "Error in data column reconstruction"
+          error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
       var reconCounter = 0
@@ -1977,7 +1980,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if (not node.config.peerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1 and
-     node.quarantine.sidecarless.len == 0 and
+     node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
     node.validatorCustody.detectNewValidatorCustody(slot,
@@ -2271,22 +2274,19 @@ proc installMessageValidators(node: BeaconNode) =
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
-        when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment " "
-        else:
-          node.network.addValidator(
-            getBeaconBlocksTopic(digest), proc (
-              signedBlock: consensusFork.SignedBeaconBlock,
-              src: PeerId,
-            ): ValidationResult =
-              if node.shouldSyncOptimistically(node.currentSlot):
-                toValidationResult(
-                  node.optimisticProcessor.processSignedBeaconBlock(
-                    signedBlock))
-              else:
-                toValidationResult(
-                  node.processor[].processSignedBeaconBlock(
-                    MsgSource.gossip, signedBlock)))
+        node.network.addValidator(
+          getBeaconBlocksTopic(digest), proc (
+            signedBlock: consensusFork.SignedBeaconBlock,
+            src: PeerId,
+          ): ValidationResult =
+            if node.shouldSyncOptimistically(node.currentSlot):
+              toValidationResult(
+                node.optimisticProcessor.processSignedBeaconBlock(
+                  signedBlock))
+            else:
+              toValidationResult(
+                node.processor[].processSignedBeaconBlock(
+                  MsgSource.gossip, signedBlock)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
