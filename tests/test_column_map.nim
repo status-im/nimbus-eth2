@@ -14,9 +14,9 @@ import
   ../beacon_chain/spec/datatypes/fulu
 
 suite "ColumnMap test suite":
-  test "ColumnMap test":
-    # Filling columns of different sizes with all bits [8, 128)
-    for columnSize in 8 .. 128:
+  test "fill test":
+    # Filling columns of different sizes with all bits [4, 128)
+    for columnSize in 4 .. 128:
       let
         columnsCount = 128 div columnSize
         lastColumnSize = 128 mod columnSize
@@ -28,6 +28,7 @@ suite "ColumnMap test suite":
         var
           columns: seq[ColumnIndex]
           numbers: seq[int]
+
         for k in start ..< finish:
           columns.add(ColumnIndex(k))
           numbers.add(k)
@@ -51,7 +52,7 @@ suite "ColumnMap test suite":
           $ColumnMap.init(columns) ==
             "[" & $ numbers.mapIt($it).join(", ") & "]"
 
-    # Verify `and` operation is correct
+  test "and() operation test":
     const TestVectors = [
       (
         [1, 2, 3, 4, 5, 6, 7, 8],
@@ -101,14 +102,18 @@ suite "ColumnMap test suite":
         "[" & map3.items().toSeq().mapIt($int(it)).join(", ") & "]" ==
           vector[2]
 
-    var columns: seq[ColumnIndex]
-    for i in 0 ..< NUMBER_OF_COLUMNS:
-      columns.add(ColumnIndex(i))
-    let map = ColumnMap.init(columns)
-    check:
-      map.items().toSeq().mapIt($int(it)).join(", ") ==
-        columns.mapIt($it).join(", ")
+  test "supernode test":
+    for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
+      var columns: seq[ColumnIndex]
+      for i in 0 ..< max:
+        columns.add(ColumnIndex(i))
+      let map = ColumnMap.init(columns)
+      check:
+        map.items().toSeq().mapIt($int(it)).join(", ") ==
+          columns.mapIt($it).join(", ")
+        shortLog(map) == "[supernode]"
 
+  test "contains() test":
     for i in 0 ..< NUMBER_OF_COLUMNS:
       let testMap = ColumnMap.init([ColumnIndex(i)])
       for k in 0 ..< NUMBER_OF_COLUMNS:
@@ -116,3 +121,14 @@ suite "ColumnMap test suite":
           check ColumnIndex(k) in testMap == true
         else:
           check ColumnIndex(k) in testMap == false
+
+  test "incl()/excl() test":
+    for i in 0 ..< NUMBER_OF_COLUMNS:
+      var map: ColumnMap
+      for k in 0 ..< NUMBER_OF_COLUMNS:
+        map.incl(ColumnIndex(k))
+        check:
+          ColumnIndex(k) in map == true
+        map.excl(ColumnIndex(k))
+        check:
+          ColumnIndex(k) notin map == true
