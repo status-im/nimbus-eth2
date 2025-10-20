@@ -418,7 +418,7 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode
+    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
@@ -608,7 +608,7 @@ proc initFullNode(
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
-  if node.config.peerdasSupernode:
+  if supernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
@@ -1265,7 +1265,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode:
+  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
     node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
     vcus_count
@@ -1982,6 +1982,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
+     (not node.config.debugPeerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1 and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
