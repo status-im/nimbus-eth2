@@ -42,7 +42,7 @@ suite "Gossip validation " & preset():
       rng = HmacDrbgContext.new()
       cfg = defaultRuntimeConfig
     var
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
@@ -88,7 +88,7 @@ suite "Gossip validation " & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(
           epochRef, blckRef, unrealized, signedBlock.message,
-          blckRef.slot.start_beacon_time(cfg.time))
+          blckRef.slot.start_beacon_time(cfg.timeParams))
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[], [])
@@ -111,7 +111,7 @@ suite "Gossip validation " & preset():
         committees_per_slot,
         att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
 
-      beaconTime = att_1_0.data.slot.start_beacon_time(cfg.time)
+      beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 
     check:
       validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
@@ -296,7 +296,7 @@ suite "Gossip validation - Altair":
 
   setup:
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
@@ -357,7 +357,7 @@ suite "Gossip validation - Altair":
           signatureSlot = Opt.some(signatureSlot))
         msgVerdict = waitFor noCancel dag.validateSyncCommitteeMessage(
           quarantine, batchCrypto, syncCommitteePool,
-          msg, subcommitteeIdx, slot.start_beacon_time(cfg.time),
+          msg, subcommitteeIdx, slot.start_beacon_time(cfg.timeParams),
           checkSignature = true)
       check msgVerdict.isOk == expectValid
 
@@ -405,7 +405,7 @@ suite "Gossip validation - Altair":
       syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
       let contribVerdict = waitFor noCancel dag.validateContribution(
         quarantine, batchCrypto, syncCommitteePool,
-        contrib[], slot.start_beacon_time(cfg.time),
+        contrib[], slot.start_beacon_time(cfg.timeParams),
         checkSignature = true)
       check contribVerdict.isOk == expectValid
 
@@ -439,7 +439,7 @@ suite "Gossip validation - Altair":
 
       res = waitFor validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, slot.start_beacon_time(cfg.time),
+        msg, subcommitteeIdx, slot.start_beacon_time(cfg.timeParams),
         checkSignature = true)
       (bid, cookedSig, positions) = res.get()
 
@@ -478,5 +478,6 @@ suite "Gossip validation - Altair":
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(cfg.time),
+        msg, subcommitteeIdx,
+        state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()

@@ -62,7 +62,7 @@ proc serveAttestation(
       raise exc
 
   logScope:
-    delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeConfig))
+    delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams))
 
   debug "Sending attestation"
 
@@ -94,7 +94,7 @@ proc serveAttestation(
       submitAttestation(attestation)
 
   if res:
-    let delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeConfig))
+    let delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams))
     beacon_attestations_sent.inc()
     beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
     notice "Attestation published"
@@ -136,7 +136,7 @@ proc serveAggregateAndProof*(
   let signedProof = phase0.SignedAggregateAndProof(
     message: proof, signature: signature)
   logScope:
-    delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+    delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
 
   debug "Sending aggregated attestation", fork = fork
 
@@ -202,7 +202,7 @@ proc serveAggregateAndProofV2*(
         raiseAssert "Unsupported SignedAggregateAndProof"
 
   logScope:
-    delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+    delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
 
   debug "Sending aggregated attestation", fork = fork
 
@@ -316,7 +316,7 @@ proc produceAndPublishAttestations*(
               inc(errored)
           (succeed, errored, failed)
 
-    let delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
     debug "Attestation statistics", total = len(pendingAttestations),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
@@ -414,7 +414,7 @@ proc produceAndPublishAggregates(
             inc(errored)
         (succeed, errored, failed)
 
-    let delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
     debug "Aggregated attestation statistics", total = len(aggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
@@ -433,7 +433,7 @@ proc publishAttestationsAndAggregates(
   let vc = service.client
 
   block:
-    let delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
     debug "Producing attestations", delay = delay, slot = slot,
                                     committee_index = committee_index,
                                     duties_count = len(duties)
@@ -450,12 +450,12 @@ proc publishAttestationsAndAggregates(
       raise exc
 
   let aggregateTime = vc.beaconClock.fromNow(
-    slot.aggregate_deadline(vc.timeConfig))
+    slot.aggregate_deadline(vc.timeParams))
   if aggregateTime.inFuture:
     await sleepAsync(aggregateTime.offset)
 
   block:
-    let delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
     debug "Producing aggregate and proofs", delay = delay
   await service.produceAndPublishAggregates(ad, duties)
 
@@ -549,7 +549,7 @@ proc produceAndPublishAttestationsV2*(
             inc(errored)
         (succeed, errored, failed)
 
-    delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
 
   debug "Attestation statistics", total = len(pendingAttestations),
         succeed = statistics[0], failed_to_deliver = statistics[1],
@@ -662,7 +662,7 @@ proc produceAndPublishAggregatesV2(
           inc(errored)
       (succeed, errored, failed)
 
-  let delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+  let delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
   debug "Aggregated attestation statistics", total = len(aggregates),
         succeed = statistics[0], failed_to_deliver = statistics[1],
         not_accepted = statistics[2], delay = delay, slot = slot,
@@ -677,7 +677,7 @@ proc publishAttestationsAndAggregatesV2(
     vc = service.client
 
   block:
-    let delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
     debug "Producing attestations", delay = delay, slot = slot,
                                     duties_count = len(duties)
 
@@ -693,13 +693,13 @@ proc publishAttestationsAndAggregatesV2(
       raise exc
 
   let aggregateTime = vc.beaconClock.fromNow(
-    slot.aggregate_deadline(vc.timeConfig))
+    slot.aggregate_deadline(vc.timeParams))
   if aggregateTime.inFuture:
     await sleepAsync(aggregateTime.offset)
 
   block:
     let
-      delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
       dutiesByCommittee = getAttesterDutiesByCommittee(duties)
     debug "Producing aggregate and proofs", delay = delay
     var tasks: seq[Future[void].Raising([CancelledError])]

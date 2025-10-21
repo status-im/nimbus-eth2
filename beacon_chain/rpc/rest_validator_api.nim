@@ -58,9 +58,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $epoch.error())
         let
           res = epoch.get()
-          timeConfig = node.dag.cfg.time
           wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-          wallEpoch = wallTime.slotOrZero(timeConfig).epoch
+          wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
         if res > wallEpoch + 1:
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
@@ -120,9 +119,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $epoch.error())
         let
           res = epoch.get()
-          timeConfig = node.dag.cfg.time
           wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-          wallEpoch = wallTime.slotOrZero(timeConfig).epoch
+          wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
         if res > wallEpoch + 1:
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
@@ -352,10 +350,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res <= node.dag.finalizedHead.slot:
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                            "Slot already finalized")
-        let
-          timeConfig = node.dag.cfg.time
-          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-        if res > wallTime.slotOrZero(timeConfig):
+        let wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        if res > wallTime.slotOrZero(node.dag.timeParams):
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                            "Slot cannot be in the future")
         res
@@ -503,14 +499,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                            "Slot already finalized")
         let
-          timeConfig = node.dag.cfg.time
           wallTime = node.beaconClock.now()
           maxTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-        if qslot > maxTime.slotOrZero(timeConfig):
+        if qslot > maxTime.slotOrZero(node.dag.timeParams):
           return RestApiResponse.jsonError(
             Http400, InvalidSlotValueError, "Slot cannot be in the future")
-        if qslot + SLOTS_PER_EPOCH <
-            (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(timeConfig):
+        if qslot + SLOTS_PER_EPOCH < (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY)
+            .slotOrZero(node.dag.timeParams):
           return RestApiResponse.jsonError(
             Http400, InvalidSlotValueError,
             "Slot cannot be more than an epoch in the past")

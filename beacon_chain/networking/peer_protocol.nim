@@ -76,7 +76,7 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
 proc getWallEpoch(state: PeerSyncNetworkState): Epoch =
-  state.getBeaconTime().slotOrZero(state.cfg.time).epoch
+  state.getBeaconTime().slotOrZero(state.cfg.timeParams).epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#status
 proc getCurrentStatusV1(state: PeerSyncNetworkState): StatusMsg =
@@ -144,7 +144,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2
     dag = state.dag
     wallSlot = (
       state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-    ).slotOrZero(state.cfg.time)
+    ).slotOrZero(state.cfg.timeParams)
 
   if status.finalizedEpoch > status.headSlot.epoch:
     # Can be equal during genesis or checkpoint start

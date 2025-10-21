@@ -114,17 +114,17 @@ proc initGenesis(
 
 proc initTimeConfig(
     nodes: seq[BeaconNodeServerRef]
-): Future[Opt[TimeConfig]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[TimeParams]] {.async: (raises: [CancelledError]).} =
   var pendingRequests: seq[Future[RestResponse[GetSpecVCResponse]]]
   for node in nodes:
-    debug "Requesting time configuration settings", node = node
+    debug "Requesting time configuration parameters", node = node
     pendingRequests.add(node.client.getSpecVC())
 
   try:
     await allFutures(pendingRequests)
   except CancelledError as exc:
     var pending: seq[Future[void]]
-    debug "Time configuration settings request was interrupted"
+    debug "time configuration parameters request was interrupted"
     for future in pendingRequests:
       if not(future.finished()):
         pending.add(future.cancelAndWait())
@@ -132,39 +132,39 @@ proc initTimeConfig(
     raise exc
 
   var
-    res: Opt[TimeConfig]
+    res: Opt[TimeParams]
     didEncounterDisagreement = false
   for i, fut in pendingRequests:
     if fut.completed():
       let resp = fut.value
       if resp.status == 200:
         if checkConfig(resp.data.data):
-          let timeConfig = resp.data.data.getTimeConfig()
-          if timeConfig.isSome:
-            debug "Received time configuration settings", endpoint = nodes[i],
-                  seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT
+          let timeParams = resp.data.data.getTimeParams()
+          if timeParams.isSome:
+            debug "Received time configuration parameters", endpoint = nodes[i],
+                  seconds_per_slot = timeParams.get.SECONDS_PER_SLOT
             if res.isNone:
-              res = timeConfig
-            elif timeConfig.get == res.get:
+              res = timeParams
+            elif timeParams.get == res.get:
               discard  # Duplicate
             else:
-              warn "Received incompatible time configuration settings",
+              warn "Received incompatible time configuration parameters",
                     endpoint = nodes[i],
-                    seconds_per_slot = timeConfig.get.SECONDS_PER_SLOT,
+                    seconds_per_slot = timeParams.get.SECONDS_PER_SLOT,
                     expected_seconds_per_slot = res.get.SECONDS_PER_SLOT
               didEncounterDisagreement = true
           else:
-            debug "Received invalid time configuration settings",
+            debug "Received invalid time configuration parameters",
                   endpoint = nodes[i], config = resp.data.data
         else:
-          debug "Received incompatible time configuration settings",
+          debug "Received incompatible time configuration parameters",
                 endpoint = nodes[i], config = resp.data.data
       else:
-        debug "Received unexpected time configuration settings response code",
+        debug "Received unexpected time configuration parameters response code",
               endpoint = nodes[i], response_code = resp.status
     elif fut.failed():
       let error = fut.error
-      debug "Could not obtain time configuration settings from beacon node",
+      debug "Could not obtain time configuration parameters from beacon node",
             endpoint = nodes[i], error_name = error.name,
             reason = error.msg
     else:
@@ -212,10 +212,10 @@ proc initClock(
   # information. It also performs waiting for genesis.
   let
     res = BeaconClock.init(
-        vc.timeConfig, vc.beaconGenesis.genesis_time).valueOr:
+        vc.timeParams, vc.beaconGenesis.genesis_time).valueOr:
       raise (ref ValidatorClientError)(
         msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time &
-             "; seconds_per_slot=" & $vc.timeConfig.SECONDS_PER_SLOT)
+             "; seconds_per_slot=" & $vc.timeParams.SECONDS_PER_SLOT)
     currentSlot = res.currentSlot()
     currentEpoch = currentSlot.epoch()
     genesisTime = res.fromNow(Slot(0))
@@ -225,12 +225,12 @@ proc initClock(
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = "<n/a>", current_epoch = "<n/a>",
          time_to_genesis = genesisTime.offset,
-         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
+         seconds_per_slot = vc.timeParams.SECONDS_PER_SLOT
   else:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = currentSlot, current_epoch = currentEpoch,
-         seconds_per_slot = vc.timeConfig.SECONDS_PER_SLOT
+         seconds_per_slot = vc.timeParams.SECONDS_PER_SLOT
   res
 
 proc shutdownSlashingProtection(vc: ValidatorClientRef) =
@@ -241,9 +241,9 @@ proc runVCSlotLoop(
     vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
   var
     startTime = vc.beaconClock.now()
-    curSlot = startTime.slotOrZero(vc.timeConfig)
+    curSlot = startTime.slotOrZero(vc.timeParams)
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time(vc.timeConfig) - startTime
+    timeToNextSlot = nextSlot.start_beacon_time(vc.timeParams) - startTime
 
   info "Scheduling first slot action",
        start_time = shortLog(startTime),
@@ -263,7 +263,7 @@ proc runVCSlotLoop(
     let
       wallTime = vc.beaconClock.now()
       wallSlot = currentSlot.get()
-      delay = wallTime - wallSlot.start_beacon_time(vc.timeConfig)
+      delay = wallTime - wallSlot.start_beacon_time(vc.timeParams)
 
     if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
       return
@@ -385,9 +385,9 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
       notice "Cannot initialize beacon node", node = node, status = node.status
 
   let (nodes, genesis) = await vc.initGenesis()
-  vc.timeConfig = (await nodes.initTimeConfig()).valueOr:
+  vc.timeParams = (await nodes.initTimeConfig()).valueOr:
     raise newException(ValidatorClientError,
-                       "Could not obtain time configuration settings")
+                       "Could not obtain time configuration parameters")
   vc.beaconGenesis = genesis
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
        genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
@@ -460,7 +460,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
         validatorPool,
         vc.keystoreCache,
         vc.rng,
-        vc.timeConfig,
+        vc.timeParams,
         keymanagerInitResult.token,
         vc.config.validatorsDir,
         vc.config.secretsDir,
@@ -498,7 +498,7 @@ proc runPreGenesisWaitingLoop(
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
            time_to_genesis =
-             GENESIS_SLOT.start_beacon_time(vc.timeConfig) - currentTime
+             GENESIS_SLOT.start_beacon_time(vc.timeParams) - currentTime
 
     try:
       await vc.waitForNextSlot(currentSlot)
@@ -522,7 +522,7 @@ proc runGenesisWaitingLoop(
     notice "Waiting for genesis",
            genesis_time = vc.beaconGenesis.genesis_time,
            time_to_genesis =
-             GENESIS_SLOT.start_beacon_time(vc.timeConfig) - currentTime
+             GENESIS_SLOT.start_beacon_time(vc.timeParams) - currentTime
 
     try:
       await vc.waitForNextSlot(currentSlot)

@@ -23,7 +23,7 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError
+  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
@@ -582,11 +582,11 @@ proc storeBlock(
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
-    wallSlot = wallTime.slotOrZero(dag.cfg.time)
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
     deadlineTime =
       block:
         let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.cfg.time) - 1.seconds
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - 1.seconds
         if slotTime <= wallTime:
           0.seconds
         else:

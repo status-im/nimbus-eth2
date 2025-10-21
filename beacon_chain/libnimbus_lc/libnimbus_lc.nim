@@ -246,7 +246,7 @@ proc ETHBeaconClockCreateFromState(
   let
     genesisTime = getStateField(state[], genesis_time)
     beaconClock = BeaconClock.new()
-  beaconClock[] = BeaconClock.init(cfg[].time, genesisTime).valueOr:
+  beaconClock[] = BeaconClock.init(cfg[].timeParams, genesisTime).valueOr:
     return nil
   beaconClock.toUnmanagedPtr()
 
@@ -467,7 +467,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   asRef(rng).nextLcSyncTaskDelay(
-    beaconClock[].timeConfig,
+    beaconClock[].timeParams,
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,

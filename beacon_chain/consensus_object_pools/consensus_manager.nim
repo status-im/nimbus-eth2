@@ -212,9 +212,8 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   # Grab the new head according to our latest attestation data
   let
-    timeConfig = self.dag.cfg.time
     newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time(timeConfig)).valueOr:
+        wallSlot.start_beacon_time(self.dag.timeParams)).valueOr:
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
@@ -511,14 +510,13 @@ proc updateExecutionHead*(
   defer:
     self.forkchoiceInflight = false
 
-  let timeConfig = self.dag.cfg.time
   var
     attempts = 0
     wallTime = getBeaconTimeFn()
     head = self.attestationPool[].getBeaconHead(self.dag.head)
 
   while not (await self.forkchoiceUpdated(
-      head, wallTime.slotOrZero(timeConfig), deadline, retry)):
+      head, wallTime.slotOrZero(self.dag.timeParams), deadline, retry)):
     # Each failed call to forkchoiceUpdated that fails should reveal new
     # information about the suggested new head - a side effect of the failure is
     # that the block should be marked as invalid and removed from fork choice
@@ -536,9 +534,10 @@ proc updateExecutionHead*(
 
     # Select new head for next attempt
     wallTime = getBeaconTimeFn()
-    let nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+    let nextHead = self.attestationPool[]
+        .selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed after invalid block, using previous head",
-        head, wallSlot = wallTime.slotOrZero(timeConfig)
+        head, wallSlot = wallTime.slotOrZero(self.dag.timeParams)
       break
 
     warn "updateHeadWithExecution: attempting to recover from invalid payload",

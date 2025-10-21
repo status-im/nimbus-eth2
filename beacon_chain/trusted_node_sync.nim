@@ -175,7 +175,7 @@ proc doTrustedNodeSync*(
         doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
           genesisTime = getStateField(genesisState[], genesis_time)
-          beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+          beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
             error "Invalid genesis time in state", genesisTime
             quit 1
 
@@ -376,7 +376,8 @@ proc doTrustedNodeSync*(
   # Coming this far, we've done what ChainDAGRef.preInit would normally do -
   # we can now load a ChainDAG to start backfilling it
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time, false, false))
+    validatorMonitor = newClone(
+      ValidatorMonitor.init(cfg.timeParams, false, false))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
     backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)

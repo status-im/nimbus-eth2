@@ -26,17 +26,17 @@ type
     ): Future[void] {.async: (raises: [CancelledError]).}
 
   OptimisticProcessor* = ref object
-    timeConfig: TimeConfig
+    timeParams: TimeParams
     getBeaconTime: GetBeaconTimeFn
     optimisticVerifier: OptimisticBlockVerifier
     processFut: Future[void].Raising([CancelledError])
 
 proc initOptimisticProcessor*(
-    timeConfig: TimeConfig,
+    timeParams: TimeParams,
     getBeaconTime: GetBeaconTimeFn,
     optimisticVerifier: OptimisticBlockVerifier): OptimisticProcessor =
   OptimisticProcessor(
-    timeConfig: timeConfig,
+    timeParams: timeParams,
     getBeaconTime: getBeaconTime,
     optimisticVerifier: optimisticVerifier)
 
@@ -46,7 +46,7 @@ proc validateBeaconBlock(
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeConfig)):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():
@@ -73,7 +73,7 @@ proc processSignedBeaconBlock*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay =
-    wallTime - signedBlock.message.slot.start_beacon_time(self.timeConfig)
+    wallTime - signedBlock.message.slot.start_beacon_time(self.timeParams)
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant

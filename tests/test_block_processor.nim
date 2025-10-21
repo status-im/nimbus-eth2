@@ -43,7 +43,7 @@ suite "Block processor" & preset():
         res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     var
       taskpool = Taskpool.new()
@@ -66,7 +66,7 @@ suite "Block processor" & preset():
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       getTimeFn = proc(): BeaconTime =
-        b2.message.slot.start_beacon_time(cfg.time)
+        b2.message.slot.start_beacon_time(cfg.timeParams)
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
@@ -113,7 +113,7 @@ suite "Block processor" & preset():
 
     # check that init also reloads block graph
     var
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     check:

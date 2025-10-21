@@ -8,8 +8,10 @@
 {.push raises: [].}
 
 # Gnosis preset - Deneb
-# https://github.com/gnosischain/specs/blob/31f87ac73d271762ac35b3649e7639d00c73c66d/consensus/preset/gnosis/deneb.yaml
+# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/deneb.yaml
 const
+  # Misc
+  # ---------------------------------------------------------------
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
   # `uint64(2**12)` (= 4096)

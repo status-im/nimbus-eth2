@@ -74,7 +74,7 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   # Take into consideration chains with a different slot time
   const extraDelay = nanos(attestationSlotOffset.nanoseconds div 2)
   let afterBlockCutoff = clock.fromNow(
-    min(clock.now(), slot.attestation_deadline(clock.timeConfig)) + extraDelay)
+    min(clock.now(), slot.attestation_deadline(clock.timeParams)) + extraDelay)
 
   if afterBlockCutoff.inFuture:
     if head.isSome():

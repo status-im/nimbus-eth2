@@ -55,7 +55,7 @@ type
   LightClientManager* = object
     network: Eth2Node
     rng: ref HmacDrbgContext
-    timeConfig: TimeConfig
+    timeParams: TimeParams
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     bootstrapVerifier: BootstrapVerifier
     updateVerifier: UpdateVerifier
@@ -73,7 +73,7 @@ func init*(
     T: type LightClientManager,
     network: Eth2Node,
     rng: ref HmacDrbgContext,
-    timeConfig: TimeConfig,
+    timeParams: TimeParams,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     bootstrapVerifier: BootstrapVerifier,
     updateVerifier: UpdateVerifier,
@@ -90,7 +90,7 @@ func init*(
   LightClientManager(
     network: network,
     rng: rng,
-    timeConfig: timeConfig,
+    timeParams: timeParams,
     getTrustedBlockRoot: getTrustedBlockRoot,
     bootstrapVerifier: bootstrapVerifier,
     updateVerifier: updateVerifier,
@@ -365,7 +365,7 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
 
     # Fetch updates
     let
-      current = wallTime.slotOrZero(self.timeConfig).sync_committee_period
+      current = wallTime.slotOrZero(self.timeParams).sync_committee_period
 
       syncTask = nextLightClientSyncTask(
         current = current,
@@ -402,7 +402,7 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
         wallTime
       else:
         wallTime + self.rng.nextLcSyncTaskDelay(
-          self.timeConfig, wallTime,
+          self.timeParams, wallTime,
           finalized, optimistic, isNextSyncCommitteeKnown,
           didLatestSyncTaskProgress = didProgress)
     wasGossipSupported = isGossipSupported

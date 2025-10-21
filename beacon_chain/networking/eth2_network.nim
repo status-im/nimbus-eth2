@@ -1630,7 +1630,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero(node.cfg.time).epoch
+  node.getBeaconTime().slotOrZero(node.cfg.timeParams).epoch
 
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
@@ -2376,7 +2376,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [CatchableError].} =
   let
-    wallEpoch = getBeaconTime().slotOrZero(cfg.time).epoch
+    wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 

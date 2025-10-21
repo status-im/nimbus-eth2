@@ -578,7 +578,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     let
       qpubkey = pubkey.valueOr:
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
-      currentEpoch = host.getBeaconTimeFn().slotOrZero(host.timeConfig).epoch()
+      currentEpoch = host.getBeaconTimeFn().slotOrZero(host.timeParams).epoch()
       qepoch =
         if epoch.isSome():
           let res = epoch.get()

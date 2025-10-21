@@ -8,19 +8,17 @@
 {.push raises: [].}
 
 # Mainnet preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/presets/mainnet/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
-  # 2**4 (= 16)
+  # 2**4 (= 16) credential changes
   MAX_BLS_TO_EXECUTION_CHANGES* = 16
-
 
   # Execution
   # ---------------------------------------------------------------
   # 2**4 (= 16) withdrawals
   MAX_WITHDRAWALS_PER_PAYLOAD* = 16
-
 
   # Withdrawals processing
   # ---------------------------------------------------------------

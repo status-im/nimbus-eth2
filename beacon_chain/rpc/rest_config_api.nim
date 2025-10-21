@@ -212,7 +212,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
-            Base10.toString(cfg.time.SECONDS_PER_SLOT),
+            Base10.toString(cfg.timeParams.SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
             Base10.toString(cfg.SECONDS_PER_ETH1_BLOCK),
           MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
@@ -422,7 +422,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
             Base10.toString(uint64(MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD)),
           MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-            Base10.toString(MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD),
+            Base10.toString(uint64(MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD)),
           MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)),
           MAX_PENDING_DEPOSITS_PER_EPOCH:

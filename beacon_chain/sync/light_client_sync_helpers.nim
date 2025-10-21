@@ -110,7 +110,7 @@ func computeDelayWithJitter*(
 
 func nextLcSyncTaskDelay*(
     rng: ref HmacDrbgContext,
-    timeConfig: TimeConfig,
+    timeParams: TimeParams,
     wallTime: BeaconTime,
     finalized: SyncCommitteePeriod,
     optimistic: SyncCommitteePeriod,
@@ -118,7 +118,7 @@ func nextLcSyncTaskDelay*(
     didLatestSyncTaskProgress: bool
 ): Duration =
   let
-    current = wallTime.slotOrZero(timeConfig).sync_committee_period
+    current = wallTime.slotOrZero(timeParams).sync_committee_period
     remainingDuration =
       if not current.isGossipSupported(finalized, isNextSyncCommitteeKnown):
         if didLatestSyncTaskProgress:
@@ -129,9 +129,9 @@ func nextLcSyncTaskDelay*(
       elif finalized != optimistic:
         # Current sync committee period
         let
-          wallPeriod = wallTime.slotOrZero(timeConfig).sync_committee_period
+          wallPeriod = wallTime.slotOrZero(timeParams).sync_committee_period
           deadlineSlot = (wallPeriod + 1).start_slot - 1
-          deadline = deadlineSlot.start_beacon_time(timeConfig)
+          deadline = deadlineSlot.start_beacon_time(timeParams)
         chronos.nanoseconds((deadline - wallTime).nanoseconds)
       else:
         # Next sync committee period

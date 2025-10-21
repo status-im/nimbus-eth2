@@ -48,7 +48,7 @@ const
   PROPOSER_REORG_CUTOFF_BPS: uint64 = 1667
 
 type
-  TimeConfig* = object
+  TimeParams* = object
     SECONDS_PER_SLOT*: uint64
 
   Version* = distinct array[4, byte]
@@ -93,7 +93,7 @@ type
     GLOAS_FORK_EPOCH*: Epoch
 
     # Time parameters
-    time*: TimeConfig
+    timeParams*: TimeParams
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
@@ -254,7 +254,7 @@ when const_preset == "mainnet":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # 12 seconds
       SECONDS_PER_SLOT: 12),
     # 14 (estimate from Eth1 mainnet)
@@ -425,7 +425,7 @@ elif const_preset == "gnosis":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # 5 seconds
       SECONDS_PER_SLOT: 5),
     # 14 (estimate from Eth1 mainnet)
@@ -594,7 +594,7 @@ elif const_preset == "minimal":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # [customized] Faster for testing purposes
       SECONDS_PER_SLOT: 6),
     # 14 (estimate from Eth1 mainnet)
@@ -780,8 +780,8 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
-func parse(T: typedesc[TimeConfig], input: string): T {.raises: [ValueError].} =
-  raise (ref ValueError)(msg: "Unexpected TimeConfig value")
+func parse(T: typedesc[TimeParams], input: string): T {.raises: [ValueError].} =
+  raise (ref ValueError)(msg: "Unexpected TimeParams value")
 
 func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
@@ -1021,7 +1021,7 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     assignValue(name, field)
-  for name, field in cfg.time.fieldPairs():
+  for name, field in cfg.timeParams.fieldPairs():
     assignValue(name, field)
 
   if cfg.PRESET_BASE != const_preset:

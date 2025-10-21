@@ -138,8 +138,8 @@ proc on_tick(
   self.checkpoints.time = time
 
   let
-    current_slot = time.slotOrZero(dag.cfg.time)
-    previous_slot = previous_time.slotOrZero(dag.cfg.time)
+    current_slot = time.slotOrZero(dag.timeParams)
+    previous_slot = previous_time.slotOrZero(dag.timeParams)
 
   # If this is a new slot, reset store.proposer_boost_root
   if current_slot > previous_slot:
@@ -193,14 +193,14 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
-    FcResult[void] =
+proc update_time*(
+    self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   # `time` is the wall time, meaning it changes on every call typically
   const step_size = seconds(SECONDS_PER_SLOT.int)
   if time > self.checkpoints.time:
     let
-      preSlot = self.checkpoints.time.slotOrZero(dag.cfg.time)
-      postSlot = time.slotOrZero(dag.cfg.time)
+      preSlot = self.checkpoints.time.slotOrZero(dag.timeParams)
+      postSlot = time.slotOrZero(dag.timeParams)
     # Call on_tick at least once per slot.
     while time >= self.checkpoints.time + step_size:
       ? self.on_tick(dag, self.checkpoints.time + step_size)
@@ -224,9 +224,9 @@ proc on_attestation*(
        wallTime: BeaconTime
      ): FcResult[void] =
   ? self.update_time(dag,
-    max(wallTime, attestation_slot.start_beacon_time(dag.cfg.time)))
+    max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
 
-  if attestation_slot < self.checkpoints.time.slotOrZero(dag.cfg.time):
+  if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
@@ -273,7 +273,7 @@ proc process_block*(self: var ForkChoice,
                     blck: ForkyTrustedBeaconBlock,
                     wallTime: BeaconTime): FcResult[void] =
   ? update_time(self, dag,
-    max(wallTime, blckRef.slot.start_beacon_time(dag.cfg.time)))
+    max(wallTime, blckRef.slot.start_beacon_time(dag.timeParams)))
 
   for attester_slashing in blck.body.attester_slashings:
     for idx in getValidatorIndices(attester_slashing):
@@ -293,9 +293,9 @@ proc process_block*(self: var ForkChoice,
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero(dag.cfg.time)
+  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   if slot == blck.slot and
-      self.checkpoints.time < slot.attestation_deadline(dag.cfg.time) and
+      self.checkpoints.time < slot.attestation_deadline(dag.timeParams) and
       self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
 
@@ -367,7 +367,7 @@ proc get_head*(self: var ForkChoice,
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
-    self.checkpoints.time.slotOrZero(dag.cfg.time).epoch,
+    self.checkpoints.time.slotOrZero(dag.timeParams).epoch,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
