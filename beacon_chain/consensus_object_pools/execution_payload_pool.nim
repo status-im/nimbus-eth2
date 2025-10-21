@@ -99,7 +99,7 @@ func getHighestBidForSlotAndParent*(
   except KeyError:
     Opt.none(SignedExecutionPayloadBid)
 
-func getBidForBlockRoot*(
+func getBid*(
     pool: ExecutionPayloadBidPool,
     blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
   try:
@@ -110,10 +110,10 @@ func getBidForBlockRoot*(
   except KeyError:
     Opt.none(SignedExecutionPayloadBid)
 
-func hasBidForBlockRoot*(
+func hasBid*(
     pool: ExecutionPayloadBidPool, 
     blockRoot: Eth2Digest): bool =
-  pool.getBidForBlockRoot(blockRoot).isSome()
+  pool.getBid(blockRoot).isSome()
 
 proc prune*(pool: var ExecutionPayloadBidPool, finalizedSlot: Slot) =
   var

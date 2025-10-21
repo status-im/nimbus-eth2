@@ -18,8 +18,8 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    spec_cache, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    execution_payload_pool,spec_cache, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -722,6 +722,7 @@ proc validateDataColumnSidecar*(
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
+    executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -746,14 +747,20 @@ proc validateDataColumnSidecar*(
   debugGloasComment ""
   # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
   # execution payload header (builder's bid).
+  if not executionPayloadBidPool[].hasBid(block_root):
+    return errIgnore("DataColumnSidecar: bid not seen for this block root")
   #
   # [REJECT] The hash of the sidecar's kzg_commitments matches the
   # blob_kzg_commitments_root in the corresponding builder's bid for
   # sidecar.beacon_block_root.
-  #
-  # TODO: Implement getExecutionPayloadBid(block_root)
-  # This requires storing bids received via execution_payload_bid gossip topic,
-  # indexed by the beacon block root they commit to.
+  let signedBid = executionPayloadBidPool[].getBid(block_root).valueOr:
+    # Ideally this shouldn't happen since we just checked bid above
+    return errIgnore("DataColumnSidecar: bid missing")
+
+  template bid: untyped = signedBid.message
+  if hash_tree_root(data_column_sidecar.kzg_commitments) !=
+      bid.blob_kzg_commitments_root:
+    return dag.checkedReject("DataColumnSidecar: kzgCommitments root mismatch")
 
   # [REJECT] The sidecar's column data is valid
   block:
@@ -2031,4 +2038,107 @@ proc validateLightClientOptimisticUpdate*(
     return errIgnore("LightClientOptimisticUpdate: not matching local")
 
   pool.latestForwardedOptimisticSlot = attested_slot
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload_bid
+proc validateExecutionPayloadBid*(
+    dag: ChainDAGRef,
+    executionPayloadBidPool: ref ExecutionPayloadBidPool,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template bid: untyped = signed_execution_payload_bid.message
+  
+  # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      # Check builder index is in range
+      if bid.builder_index >= forkyState.data.validators.lenu64:
+        return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
+
+      let validator = forkyState.data.validators.item(bid.builder_index)
+
+      # Check builder is active
+      let currentEpoch = get_current_epoch(forkyState.data)
+      if not is_active_validator(validator, currentEpoch):
+        return dag.checkedReject("ExecutionPayloadBid: builder not active")
+
+      # Check builder is not slashed
+      if validator.slashed:
+        return dag.checkedReject("ExecutionPayloadBid: builder is slashed")
+
+      # [REJECT] The builder's withdrawal credentials' prefix is BUILDER_WITHDRAWAL_PREFIX
+      if not is_builder_withdrawal_credential(validator.withdrawal_credentials):
+        return dag.checkedReject(
+          "ExecutionPayloadBid: invalid withdrawal credentials")
+
+      # [IGNORE] This is the first signed bid seen with a valid signature from
+      # the given builder for this slot
+      let existingBid = executionPayloadBidPool[].getBidForSlotAndBuilder(
+        bid.slot, bid.builder_index)
+      if existingBid.isSome():
+        return errIgnore(
+          "ExecutionPayloadBid: already seen bid from this builder for this slot")
+      
+      # [IGNORE] This bid is the highest value bid seen for the corresponding
+      # slot and the given parent block hash
+      let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
+        bid.slot, bid.parent_block_hash)
+      if highestBid.isSome() and highestBid.get().message.value > bid.value:
+        return errIgnore(
+          "ExecutionPayloadBid: not the highest value bid for this slot and parent")
+
+      # [IGNORE] bid.value is less or equal than the builder's excess balance
+      # i.e. MIN_ACTIVATION_BALANCE + bid.value <= state.balances[bid.builder_index]
+      if forkyState.data.balances.item(bid.builder_index) < 
+          MIN_ACTIVATION_BALANCE.Gwei + bid.value:
+        return errIgnore(
+          "ExecutionPayloadBid: insufficient builder balance")
+
+      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
+      # payload in fork choice
+      let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
+        return errIgnore("Bid: parent block root not found in fork choice")
+
+      try:
+        let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
+          return errIgnore("Bid: parent has no execution payload")
+        
+        # Verify the bid references the correct execution payload
+        if parentExecHash != bid.parent_block_hash:
+          return dag.checkedReject(
+            "Bid: parent_block_hash doesn't match parent beacon block")
+      except KeyError:
+        return errIgnore("Bid: error loading parent execution hash")
+
+      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
+      # block in fork choice
+      if dag.getBlockRef(bid.parent_block_root).isNone():
+        return errIgnore(
+          "ExecutionPayloadBid: parent block root not found in fork choice")
+ 
+      # [IGNORE] bid.slot is the current slot or the next slot
+      let currentSlot = wallTime.slotOrZero(dag.timeParams)
+      if bid.slot != currentSlot and bid.slot != currentSlot + 1:
+        return errIgnore(
+          "ExecutionPayloadBid: slot not current or next slot")
+
+      # [REJECT] signed_execution_payload_bid.signature is valid with respect
+      # to the bid.builder_index
+      let builderPubkey = dag.validatorKey(bid.builder_index).valueOr:
+        return dag.checkedReject(
+          "ExecutionPayloadBid: cannot get builder public key")
+
+      if not verify_execution_payload_bid_signature(
+          dag.forkAtEpoch(bid.slot.epoch),
+          getStateField(dag.headState, genesis_validators_root),
+          signed_execution_payload_bid,
+          forkyState.data,
+          builderPubkey,
+          signed_execution_payload_bid.signature):
+        return dag.checkedReject(
+          "ExecutionPayloadBid: invalid signature")
+    else:
+      return dag.checkedReject(
+        "ExecutionPayloadBid: only valid for Gloas fork or later")
+
   ok()
