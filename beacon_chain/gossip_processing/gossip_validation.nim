@@ -81,15 +81,17 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    consensusFork: ConsensusFork, msgSlot: Slot, wallTime: BeaconTime):
-    Result[Slot, ValidationError] =
-  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
-
+    timeParams: TimeParams,
+    consensusFork: ConsensusFork,
+    msgSlot: Slot,
+    wallTime: BeaconTime): Result[Slot, ValidationError] =
+  let futureSlot =
+    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
-  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
-
+  let pastSlot =
+    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
   if not pastSlot.afterGenesis:
     return ok(msgSlot)
 
@@ -120,15 +122,17 @@ func check_propagation_slot_range(
 
   ok(msgSlot)
 
-func check_slot_exact(msgSlot: Slot, wallTime: BeaconTime):
-    Result[Slot, ValidationError] =
-  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
-
+func check_slot_exact(
+    timeParams: TimeParams,
+    msgSlot: Slot,
+    wallTime: BeaconTime): Result[Slot, ValidationError] =
+  let futureSlot =
+    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Sync committee slot in the future")
 
-  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
-
+  let pastSlot =
+    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
   if pastSlot.afterGenesis and msgSlot < pastSlot.slot:
     return errIgnore("Sync committee slot in the past")
 
@@ -1007,7 +1011,8 @@ proc validateAttestation*(
     let
       wallEpoch = wallTime.slotOrZero(pool.dag.timeParams).epoch
       consensusFork = pool.dag.cfg.consensusForkAtEpoch(wallEpoch)
-      v = check_propagation_slot_range(consensusFork, slot, wallTime)
+      v = pool.dag.timeParams.check_propagation_slot_range(
+        consensusFork, slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1177,7 +1182,8 @@ proc validateAttestation*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(consensusFork, slot, wallTime)
+    let v = pool.dag.timeParams.check_propagation_slot_range(
+      consensusFork, slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1358,7 +1364,8 @@ proc validateAggregate*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
   # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(consensusFork, slot, wallTime)
+    let v = pool.dag.timeParams.check_propagation_slot_range(
+      consensusFork, slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1723,7 +1730,7 @@ proc validateSyncCommitteeMessage*(
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
     # `sync_committee_message.slot == current_slot`.
-    let v = check_slot_exact(msg.slot, wallTime)
+    let v = dag.timeParams.check_slot_exact(msg.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
@@ -1815,7 +1822,8 @@ proc validateContribution*(
     # [IGNORE] The contribution's slot is for the current slot
     # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
     # i.e. contribution.slot == current_slot.
-    let v = check_slot_exact(msg.message.contribution.slot, wallTime)
+    let v = dag.timeParams.check_slot_exact(
+      msg.message.contribution.slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 

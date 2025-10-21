@@ -223,7 +223,7 @@ proc processSignedBeaconBlock*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -298,11 +298,15 @@ proc processBlobSidecar*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     blob = shortLog(blobSidecar)
     wallSlot
+
+  if not afterGenesis:
+    notice "Blob before genesis"
+    return errIgnore("Blob before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime -
@@ -343,13 +347,19 @@ proc processDataColumnSidecar*(
     dataColumnSidecar: fulu.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
   let
-    block_root = hash_tree_root(block_header)
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
+
+  if not afterGenesis:
+    notice "Data column before genesis"
+    return errIgnore("Data column before genesis")
+
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime -
     block_header.slot.start_beacon_time(self.dag.timeParams)
@@ -358,12 +368,16 @@ proc processDataColumnSidecar*(
   let v =
     self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
                                        dataColumnSidecar, wallTime, subnet_id)
+
   if v.isErr():
     debug "Dropping data column", error = v.error()
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
+
+  let block_root = hash_tree_root(block_header)
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     withBlck(o[]):
       when consensusFork >= ConsensusFork.Fulu and
@@ -388,13 +402,16 @@ proc processDataColumnSidecar*(
     dataColumnSidecar: gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   let
-    block_root = dataColumnSidecar.beacon_block_root
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
+
+  if not afterGenesis:
+    notice "Data column before genesis"
+    return errIgnore("Data column before genesis")
 
   debug "Data column received (Gloas - quarantine not implemented)"
 
@@ -465,7 +482,7 @@ proc processAttestation*(
     fork: ConsensusFork):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
-  let (afterGenesis, wallSlot) = wallTime.toSlot()
+  let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     attestation = shortLog(attestation)
@@ -529,7 +546,7 @@ proc processSignedAggregateAndProof*(
     fork: ConsensusFork): Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
-  let (afterGenesis, wallSlot) = wallTime.toSlot()
+  let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)

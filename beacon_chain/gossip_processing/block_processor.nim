@@ -780,11 +780,8 @@ proc addBlock*(
 
       discard await idleAsync().withTimeout(idleTimeout)
 
-      let
-        wallTime = self.getBeaconTime()
-        (afterGenesis, _) = wallTime.toSlot()
-
-      if not afterGenesis:
+      let wallTime = self.getBeaconTime()
+      if not wallTime.afterGenesis:
         fatal "Processing block before genesis, clock turned back?"
         quit 1
 

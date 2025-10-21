@@ -228,7 +228,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
-    wallSlot = beaconTime.toSlot()
+    wallSlot = beaconTime.toSlot(node.dag.timeParams)
 
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
