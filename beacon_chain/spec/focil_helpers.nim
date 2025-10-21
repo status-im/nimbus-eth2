@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  std/[algorithm, sequtils],
+  std/[algorithm],
   results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -54,7 +54,7 @@ proc compute_inclusion_list_committee_root*(
   hash_tree_root(committeeList)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#new-is_valid_inclusion_list_signature
-func verify_inclusion_list_signature*(
+func is_valid_inclusion_list_signature*(
     state: ForkyBeaconState,
     signed_inclusion_list: SignedInclusionList): bool =
   ## Check if the `signed_inclusion_list` has a valid signature
@@ -66,31 +66,31 @@ func verify_inclusion_list_signature*(
       message.slot.epoch())
     signing_root =
       compute_signing_root(message, domain)
-  blsVerify(pubkey, signing_root.data, signature)
+  blsVerify(pubkey, signing_root.data, signed_inclusion_list.signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#new-get_inclusion_list_committee
 func resolve_inclusion_list_committee*(
     state: ForkyBeaconState,
-    slot: Slot): HashSet[ValidatorIndex] =
+    slot: Slot): HashSet[uint64] =
   ## Return the inclusion list committee for the given slot
   let
     seed = get_seed(state, slot.epoch(), DOMAIN_INCLUSION_LIST_COMMITTEE)
     indices =
-      get_active_validator_indices(state, epoch)
+      get_active_validator_indices(state, slot.epoch())
 
     start = (slot mod SLOTS_PER_EPOCH) * INCLUSION_LIST_COMMITTEE_SIZE
     end_i = start + INCLUSION_LIST_COMMITTEE_SIZE
     seq_len {.inject.} = indices.lenu64
 
-  var res: HashSet[ValidatorIndex]
+  var res: HashSet[uint64]
   for i in 0..<INCLUSION_LIST_COMMITTEE_SIZE:
     let
       shuffledIdx = compute_shuffled_index(
-        ((start + i) mod seq_len).asUInt64,
+        (start + i) mod seq_len,
         seq_len,
         seed)
 
-    res.incl indices[shuffledIdx]
+    res.incl uint64(indices[shuffledIdx])
 
   res
 
@@ -104,13 +104,10 @@ func get_inclusion_committee_assignment*(
   ## Returns None if no assignment is found.
   let
     next_epoch = Epoch(state.slot.epoch() + 1)
-    start_slot = epoch.start_slot()
-
   doAssert epoch <= nextEpoch
 
-  for epochSlot in epoch.slots():
+  for slot in epoch.slots():
     let
-      slot = Slot(epochSlot + start_slot)
       committee = resolve_inclusion_list_committee(state, slot)
     if validator_index in committee:
       return Opt.som(slot)

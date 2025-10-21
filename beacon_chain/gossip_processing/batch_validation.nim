@@ -14,7 +14,8 @@ import
   # Status
   chronicles, chronos, chronos/threadsync,
   ../spec/signatures_batch,
-  ../consensus_object_pools/[blockchain_dag, spec_cache]
+  ../consensus_object_pools/[blockchain_dag, spec_cache],
+  ../spec/datatypes/focil
 
 export signatures_batch, blockchain_dag
 
@@ -575,5 +576,30 @@ proc scheduleBlsToExecutionChangeCheck*(
         genesis_fork, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         pubkey, sig)
+
+  ok((fut, sig))
+
+proc scheduleInclusionListCheck*(
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    message: InclusionList,
+    pubkey: CookedPubKey,
+    signature: ValidatorSig):
+    Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of an inclusion list signature
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred check otherwise.
+
+  let
+    sig = signature.load().valueOr:
+      return err("InclusionList: cannot load signature")
+    fut = batchCrypto.verifySoon("scheduleInclusionListCheck"):
+      inclusion_list_signature_set(
+        fork, batchCrypto[].genesis_validators_root, message, pubkey, sig)
 
   ok((fut, sig))
