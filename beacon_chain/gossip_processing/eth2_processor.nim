@@ -667,7 +667,36 @@ proc processSignedContributionAndProof*(
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
 
     err(v.error())
+    
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/p2p-interface.md#global-topics
+proc processInclusionList*(
+    self: ref Eth2Processor, src: MsgSource,
+    inclusionList: SignedInclusionList,
+    checkSignature: bool = true): Future[ValidationRes]
+    {.async: (raises: [CancelledError]).} =
+  let wallTime = self.getCurrentBeaconTime()
 
+  logScope:
+    validator_index = inclusionList.message.validator_index
+    slot = inclusionList.message.slot
+    wallSlot = wallTime.slotOrZero
+
+  let res = await validateInclusionList(
+    self.inclusionListPool[], self.dag, self.batchCrypto,
+    inclusionList, wallTime, checkSignature)
+
+  return if res.isOk():
+    beacon_inclusion_lists_received.inc()
+    self.attestationPool[].onInclusionList(inclusionList, wallTime)
+    ok()
+  else:
+    let errVal = res.error()
+    debug "Dropping inclusion list",
+      validator_index = inclusionList.message.validator_index,
+      slot = inclusionList.message.slot,
+      reason = $errVal
+    beacon_inclusion_lists_dropped.inc(1, [$errVal[0]])
+    err(errVal)
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,

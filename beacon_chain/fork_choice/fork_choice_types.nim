@@ -142,6 +142,17 @@ type
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
+    # keeps the actual inclusion lists keyed by validator, so we can aggregate every transaction required for a given slot/committee.
+     inclusionLists*: Table[(Slot, Eth2Digest), Table[ValidatorIndex, InclusionList]]
+     # Keeps Equivocation tracking for inclusion lists
+     # we can drop this but then we will have to re-derive equivocators from inclusion lists on restart
+    inclusionListEquivocators*: Table[(Slot, Eth2Digest), HashSet[ValidatorIndex]]
+    # Blocks who dont satisfy inclusion lists condition yet  we flip proto-array invalid bits from here so fork choice avoids those roots until they comply.
+    unsatisfiedInclusionListBlocks*: HashSet[Eth2Digest]
+   #  we record which inclusion-list committee governs its payload by hashing the committee.
+   # Later, if a late inclusion list arrives, we look up that key and re- check only those blocks, instead of scanning the entire proto-array.
+   # Table from (slot, committeeRoot) to set of block roots.
+    inclusionListBlocks*: Table[(Slot, Eth2Digest), HashSet[Eth2Digest]]
 
 func shortLog*(vote: VoteTracker): auto =
   (

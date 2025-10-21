@@ -13,14 +13,15 @@ import
   results,
   kzg4844/[kzg, kzg_abi],
   stew/byteutils,
+  ssz_serialization/types as sszTypes,
   # Internals
   ../spec/[
-    beaconstate, state_transition_block, forks,
-    helpers, network, signatures, peerdas_helpers],
+    beaconstate, state_transition_block, forks, datatypes/focil,
+    helpers, network, signatures, peerdas_helpers, focil_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
     data_column_quarantine, spec_cache, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    validator_change_pool, inclusion_list_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -1893,3 +1894,98 @@ proc validateLightClientOptimisticUpdate*(
 
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/p2p-interface.md#global-topics
+proc validateInclusionList*(
+    pool: var InclusionListPool, dag: ChainDAGRef,
+    batchCrypto: ref BatchCrypto,
+    signed_inclusion_list: SignedInclusionList,
+    wallTime: BeaconTime, checkSignature: bool):
+    Future[Result[CookedSig, ValidationError]] {.async: (raises: [CancelledError]).} =
+  ## Validate a signed inclusion list according to the EIP-7805 specification
+
+  template message: untyped = signed_inclusion_list.message
+
+  if dag.cfg.consensusForkAtEpoch(message.slot.epoch) < ConsensusFork.Fulu:
+    return dag.checkedReject("InclusionList: received before Fulu fork")
+
+  # [REJECT] The size of message.transactions is within upperbound MAX_BYTES_PER_INCLUSION_LIST.
+  var totalSize: uint64 = 0
+  for transaction in message.transactions:
+    totalSize += uint64(transaction.len)
+  if totalSize > MAX_BYTES_PER_INCLUSION_LIST:
+    return dag.checkedReject("InclusionList: transactions size exceeds MAX_BYTES_PER_INCLUSION_LIST")
+
+  # [REJECT] The slot message.slot is equal to the previous or current slot.
+  let currentSlot = wallTime.slotOrZero
+  if not (message.slot == currentSlot or message.slot == currentSlot - 1):
+    return dag.checkedReject("InclusionList: slot must be current or previous slot")
+
+  # [IGNORE] The slot message.slot is equal to the current slot, or it is equal to the previous slot and the current time is less than ATTESTATION_DEADLINE seconds into the slot.
+  if message.slot == currentSlot - 1:
+    let slotStartTime = message.slot.start_beacon_time()
+    let currentTime = wallTime
+    if currentTime >= slotStartTime + ATTESTATION_DEADLINE:
+      return errIgnore("InclusionList: previous slot inclusion list received after deadline")
+
+  # [IGNORE] The inclusion_list_committee for slot message.slot on the current branch corresponds to message.inclusion_list_committee_root, as determined by hash_tree_root(inclusion_list_committee) == message.inclusion_list_committee_root.
+  withState(dag.headState):
+    let committee = resolve_inclusion_list_committee(forkyState.data, message.slot)
+    # Note: We need to convert the HashSet to a sequence for hash_tree_root
+    var committeeList: List[uint64, Limit INCLUSION_LIST_COMMITTEE_SIZE]
+    for validator in committee:
+      if not committeeList.add(validator):
+        raiseAssert "Committee list overflowed its maximum size"
+    let committeeRoot = hash_tree_root(committeeList)
+    if committeeRoot != message.inclusion_list_committee_root:
+      return errIgnore("InclusionList: inclusion list committee root mismatch")
+
+  # [REJECT] The validator index message.validator_index is within the inclusion_list_committee corresponding to message.inclusion_list_committee_root.
+  withState(dag.headState):
+    let committee = resolve_inclusion_list_committee(forkyState.data, message.slot)
+    if message.validator_index notin committee:
+      return dag.checkedReject("InclusionList: validator not in inclusion list committee")
+
+  # [IGNORE] The message is either the first or second valid message received from the validator with index message.validator_index.
+  if pool.isSeen(signed_inclusion_list):
+    return errIgnore("InclusionList: already received inclusion list from this validator")
+
+  # [REJECT] The signature of inclusion_list.signature is valid with respect to the validator index.
+  let sig =
+    if checkSignature:
+      withState(dag.headState):
+        let
+          pubkey = dag.validatorKey(message.validator_index).valueOr:
+            return dag.checkedReject("InclusionList: invalid validator index")
+        let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
+          dag.forkAtEpoch(message.slot.epoch),
+          message, pubkey, signed_inclusion_list.signature)
+        if deferredCrypto.isErr():
+          return dag.checkedReject(deferredCrypto.error)
+
+        let (cryptoFut, sig) = deferredCrypto.get()
+        # Await the crypto check
+        let x = (await cryptoFut)
+        case x
+        of BatchResult.Invalid:
+          return dag.checkedReject("InclusionList: invalid signature")
+        of BatchResult.Timeout:
+          return errIgnore("InclusionList: timeout checking signature")
+        of BatchResult.Valid:
+          sig # keep going only in this case
+    else:
+      signed_inclusion_list.signature.load().valueOr:
+        return dag.checkedReject("InclusionList: unable to load signature")
+
+  # Add the inclusion list to the pool
+  pool.addMessage(signed_inclusion_list)
+
+  withState(dag.headState):
+    let store = get_inclusion_list_store()
+    process_inclusion_list(
+      store,
+      forkyState.data,
+      signed_inclusion_list,
+      wallTime)
+
+  ok(sig)

@@ -21,7 +21,7 @@ import
   bearssl/rand,
   # Internal
   "."/[helpers, beaconstate, forks, signatures],
-  "."/datatypes/[altair, bellatrix, phase0]
+  "."/datatypes/[altair, bellatrix, phase0, focil]
 
 export results, rand, altair, phase0, taskpools, signatures
 
@@ -224,6 +224,16 @@ func bls_to_execution_change_signature_set*(
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg)
+
+  SignatureSet.init(pubkey, signing_root, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7805/validator.md#constructing-a-signed-inclusion-list
+func inclusion_list_signature_set*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    message: InclusionList,
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, message)
 
   SignatureSet.init(pubkey, signing_root, signature)
 

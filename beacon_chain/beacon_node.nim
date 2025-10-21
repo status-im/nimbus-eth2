@@ -86,6 +86,7 @@ type
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
+    inclusionListStore*: ref InclusionListStore
     elManager*: ELManager
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost

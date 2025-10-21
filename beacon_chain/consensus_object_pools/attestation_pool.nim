@@ -13,7 +13,7 @@ import
   chronicles, stew/byteutils,
   # Internal
   ../spec/[
-    beaconstate, eth2_merkleization, forks, state_transition_epoch, validator],
+    beaconstate, eth2_merkleization, forks, state_transition_epoch, validator,datatypes/focil],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
@@ -207,6 +207,16 @@ proc addForkChoiceVotes(
       # this is most likely the result of a bug, but we'll try to keep going -
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
+
+proc onInclusionList*(pool: var AttestationPool,
+                      inclusionList: focil.SignedInclusionList,
+                      wallTime: BeaconTime) =
+  let res = pool.forkChoice.on_inclusion_list(pool.dag, inclusionList, wallTime)
+  if res.isErr():
+    warn "Couldn't add inclusion list to fork choice",
+      validator_index = inclusionList.message.validator_index,
+      slot = inclusionList.message.slot,
+      err = res.error()
 
 func candidateIdx(
     pool: AttestationPool, slot: Slot, candidateIdxType: CandidateIdxType):
