@@ -2764,6 +2764,8 @@ proc doRunBeaconNode*(
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.syncHorizon.isNone:
+    config.syncHorizon = some(metadata.cfg.timeParams.defaultSyncHorizon)
 
   block:
     let res =
