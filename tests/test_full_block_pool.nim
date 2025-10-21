@@ -20,7 +20,7 @@ suite "Full block pool":
   setup:
     var
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(cfg,
         cfg.makeTestDB(
           TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
