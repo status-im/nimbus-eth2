@@ -1903,8 +1903,11 @@ proc validateInclusionList*(
     wallTime: BeaconTime, checkSignature: bool):
     Future[Result[CookedSig, ValidationError]] {.async: (raises: [CancelledError]).} =
   ## Validate a signed inclusion list according to the EIP-7805 specification
-  
+
   template message: untyped = signed_inclusion_list.message
+
+  if dag.cfg.consensusForkAtEpoch(message.slot.epoch) < ConsensusFork.Fulu:
+    return dag.checkedReject("InclusionList: received before Fulu fork")
 
   # [REJECT] The size of message.transactions is within upperbound MAX_BYTES_PER_INCLUSION_LIST.
   var totalSize: uint64 = 0
@@ -1976,5 +1979,13 @@ proc validateInclusionList*(
 
   # Add the inclusion list to the pool
   pool.addMessage(signed_inclusion_list)
+
+  withState(dag.headState):
+    let store = get_inclusion_list_store()
+    process_inclusion_list(
+      store,
+      forkyState.data,
+      signed_inclusion_list,
+      wallTime)
 
   ok(sig)
