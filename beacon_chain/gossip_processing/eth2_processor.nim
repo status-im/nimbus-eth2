@@ -370,9 +370,8 @@ proc processExecutionPayload*(
     signature = shortLog(signedEnvelope.signature)
     wallSlot
 
-  let
-    timeConfig = self.dag.cfg.time
-    delay = wallTime - signedEnvelope.message.slot.start_beacon_time(timeConfig)
+  let delay = wallTime -
+    signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
   debug "Execution payload received", delay
 
   # always save the envelope in case the block arrives later
