@@ -136,5 +136,5 @@ func nextLcSyncTaskDelay*(
       else:
         # Next sync committee period
         chronos.seconds(
-          (SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT).int64)
+          (SLOTS_PER_SYNC_COMMITTEE_PERIOD * timeParams.SECONDS_PER_SLOT).int64)
   rng.computeDelayWithJitter(remainingDuration)

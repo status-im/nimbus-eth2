@@ -1907,7 +1907,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # int64 conversion is safe
       doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
       "in " & toTimeLeftString(
-        SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
+        node.dag.timeParams.SECONDS_PER_SLOT.int64.seconds *
+        slotsToNextSyncCommitteePeriod.int64)
     else:
       "none"
 
@@ -1944,7 +1945,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time(node.dag.timeParams) +
-    chronos.seconds(int(SECONDS_PER_SLOT - 1)))
+    chronos.seconds(int(node.dag.timeParams.SECONDS_PER_SLOT - 1)))
 
   let proposalFcu =
     if advanceCutoff.inFuture:
