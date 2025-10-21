@@ -14,7 +14,7 @@ import
   results, chronicles,
   # Internal
   ../spec/[beaconstate, helpers, state_transition_block],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix,focil],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
@@ -47,6 +47,19 @@ func compute_deltas(
 
 logScope: topics = "fork_choice"
 
+template blockBody*(blk: untyped): untyped =
+  when compiles(blk.body):
+    blk.body
+  else:
+    blk.message.body
+
+proc extractBlockTransactions(blk: auto): seq[bellatrix.Transaction] =
+  withBlck(blk):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      blockBody(forkyBlck).execution_payload.transactions.asSeq
+    else:
+      @[]
+
 func init*(
     T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
   T(proto_array: ProtoArray.init(checkpoints))
@@ -71,7 +84,12 @@ proc init*(
         total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
       finalized: checkpoint,
-      best_justified: checkpoint))
+      best_justified: checkpoint),
+     queuedAttestations: @[],
+    inclusionLists: initTable[(Slot, Eth2Digest), Table[ValidatorIndex, InclusionList]](),
+    inclusionListEquivocators: initTable[(Slot, Eth2Digest), HashSet[ValidatorIndex]](),
+    unsatisfiedInclusionListBlocks: initHashSet[Eth2Digest](),
+    inclusionListBlocks: initTable[(Slot, Eth2Digest), HashSet[Eth2Digest]]())
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -79,6 +97,138 @@ func extend[T](s: var seq[T], minLen: int) =
   ## The extension is zero-initialized
   if s.len < minLen:
     s.setLen(minLen)
+
+proc collectRequiredTransactions(
+    self: ForkChoice, key: (Slot, Eth2Digest)): seq[bellatrix.Transaction] =
+  self.inclusionLists.withValue(key, lists):
+    var aggregated: seq[bellatrix.Transaction]
+    var equivocators = initHashSet[ValidatorIndex]()
+    self.inclusionListEquivocators.withValue(key, eq):
+      equivocators = eq[]
+    for validator, inclusionList in lists[]:
+      if validator in equivocators:
+        continue
+      for tx in inclusionList.transactions.items:
+        if aggregated.allIt(it != tx):
+          aggregated.add(tx)
+    return aggregated
+  @[]
+
+proc applyInclusionStatus(
+    self: var ForkChoice,
+    key: (Slot, Eth2Digest),
+    blckRef: BlockRef,
+    payloadTxs: seq[bellatrix.Transaction]) =
+  let requiredTxs = self.collectRequiredTransactions(key)
+  if requiredTxs.len == 0:
+    if self.unsatisfiedInclusionListBlocks.contains(blckRef.root):
+      debug "Block satisfies inclusion list requirements (no pending transactions)",
+        block = shortLog(blckRef), slot = key.slot
+    self.unsatisfiedInclusionListBlocks.excl(blckRef.root)
+    return
+
+  var missing = false
+  for tx in requiredTxs:
+    if payloadTxs.allIt(it != tx):
+      missing = true
+      break
+
+  if missing:
+    if not self.unsatisfiedInclusionListBlocks.contains(blckRef.root):
+      notice "Marking block as missing inclusion list transactions",
+        block = shortLog(blckRef), slot = key.slot
+    self.unsatisfiedInclusionListBlocks.incl(blckRef.root)
+    self.mark_root_invalid(blckRef.root)
+  else:
+    if self.unsatisfiedInclusionListBlocks.contains(blckRef.root):
+      debug "Block now satisfies inclusion list transactions",
+        block = shortLog(blckRef), slot = key.slot
+    self.unsatisfiedInclusionListBlocks.excl(blckRef.root)
+
+proc updateBlockInclusionState(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    key: (Slot, Eth2Digest),
+    blockRoot: Eth2Digest) =
+  let blckRef = dag.getBlockRef(blockRoot).valueOr:
+    return
+  let blockData = dag.getForkedBlock(blckRef.bid).valueOr:
+    return
+  let transactions = extractBlockTransactions(blockData)
+  self.applyInclusionStatus(key, blckRef, transactions)
+
+proc computeCommitteeRootForBlock(
+    dag: ChainDAGRef, blckRef: BlockRef, committeeRoot: var Eth2Digest): bool =
+  var state = ForkedHashedBeaconState()
+  let bsi = BlockSlotId.init(blckRef.bid, blckRef.slot)
+  if not dag.getState(bsi, state):
+    trace "Unable to load block state for inclusion list tracking",
+      block = shortLog(blckRef)
+    return false
+
+  withState(state):
+    let committee = resolve_inclusion_list_committee(forkyState.data, blckRef.slot)
+    committeeRoot = compute_inclusion_list_committee_root(committee)
+
+  true
+
+proc registerBlockInclusion(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    blckRef: BlockRef,
+    blck: ForkyTrustedBeaconBlock) =
+  if dag.cfg.consensusForkAtEpoch(blckRef.slot.epoch) < ConsensusFork.Fulu:
+    return
+
+  var committeeRoot: Eth2Digest
+  if not computeCommitteeRootForBlock(dag, blckRef, committeeRoot):
+    return
+
+  let key = (blckRef.slot, committeeRoot)
+  let blockSet = self.inclusionListBlocks.mgetOrPut(key, initHashSet[Eth2Digest]())
+  blockSet.incl(blckRef.root)
+
+  let transactions = extractBlockTransactions(blck)
+  self.applyInclusionStatus(key, blckRef, transactions)
+
+proc on_inclusion_list*(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    inclusionList:SignedInclusionList,
+    wallTime: BeaconTime): FcResult[void] =
+  let slot = inclusionList.message.slot
+  if dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Fulu:
+    return ok()
+
+  if wallTime > inclusion_list_view_freeze(slot):
+    trace "Ignoring late inclusion list",
+      slot, validator_index = inclusionList.message.validator_index
+    return ok()
+
+  let key = (slot, inclusionList.message.inclusion_list_committee_root)
+  let validator = ValidatorIndex(inclusionList.message.validator_index)
+
+  var entries =
+    self.inclusionLists.mgetOrPut(key, initTable[ValidatorIndex, InclusionList]())
+
+  if entries.hasKey(validator):
+    if entries[validator] == inclusionList.message:
+      return ok()
+
+    entries.del(validator)
+    self.inclusionListEquivocators
+      .mgetOrPut(key, initHashSet[ValidatorIndex]())
+      .incl(validator)
+    trace "Inclusion list equivocation detected",
+      slot, validator_index = inclusionList.message.validator_index
+  else:
+    entries[validator] = inclusionList.message
+
+  if self.inclusionListBlocks.contains(key):
+    for blockRoot in self.inclusionListBlocks[key].items:
+      self.updateBlockInclusionState(dag, key, blockRoot)
+
+  ok()
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
@@ -286,6 +436,8 @@ proc process_block*(self: var ForkChoice,
           attestation.data.beacon_block_root,
           attestation.data.target.epoch)
 
+  self.registerBlockInclusion(dag, blckRef, blck)
+
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
@@ -388,6 +540,33 @@ func prune*(self: var ForkChoice): FcResult[void] =
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized))
+
+## Removes stale inclusion-list entries and rebuilds the unsatisfied set after pruning
+proc prune*(self: var ForkChoice): FcResult[void] =
+  ? self.backend.prune(
+    FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized))
+
+  let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
+
+  var keysToRemove: seq[(Slot, Eth2Digest)]
+  for key in self.inclusionLists.keys:
+    if key.slot < finalizedSlot:
+      keysToRemove.add(key)
+
+  for key in keysToRemove:
+    discard self.inclusionLists.del(key)
+    discard self.inclusionListEquivocators.del(key)
+    discard self.inclusionListBlocks.del(key)
+
+  var stillValid = initHashSet[Eth2Digest]()
+  for root in self.unsatisfiedInclusionListBlocks.items:
+    if self.backend.proto_array.indices.contains(root):
+      stillValid.incl(root)
+  self.unsatisfiedInclusionListBlocks = stillValid
+
+  ok()
 
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:
