@@ -60,12 +60,15 @@ iterator chunks*(data: openArray[BlockData],
     yield BlockDataChunk.init(stateCallback,
       data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
+proc getWallSlot(overseer: SyncOverseerRef): Slot =
+  overseer.beaconClock.currentSlot
+
 proc syncDistance*(
     overseer: SyncOverseerRef
 ): uint64 =
   let
     dag = overseer.consensusManager.dag
-    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    wallSlot = overseer.getWallSlot()
     headSlot = dag.head.slot
   wallSlot - headSlot
 
@@ -148,7 +151,7 @@ proc isWithinWeakSubjectivityPeriod(
     overseer: SyncOverseerRef, slot: Slot): bool =
   let
     dag = overseer.consensusManager.dag
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
     checkpoint = Checkpoint(
       epoch:
         getStateField(dag.headState, slot).epoch(),
@@ -161,7 +164,7 @@ proc isWithinWeakSubjectivityPeriod(
 proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
   let
     dag = overseer.consensusManager.dag
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
     slotsCount = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
   if currentSlot < slotsCount:
     GENESIS_SLOT
@@ -250,7 +253,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
               bchunk.resfut.complete(Result[void, string].err(msg))
               break innerLoop
 
-          consensusManager[].updateHead(overseer.getBeaconTimeFn().slotOrZero())
+          consensusManager[].updateHead(overseer.getWallSlot())
 
         bchunk.resfut.complete(Result[void, string].ok())
 
@@ -380,7 +383,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
 
   notice "Received light client block header",
          beacon_header = shortLog(blockHeader),
-         current_slot = overseer.beaconClock.now().slotOrZero()
+         current_slot = overseer.getWallSlot()
 
   overseer.statusMsg = Opt.some("retrieving block")
 
@@ -450,7 +453,7 @@ proc mainLoop*(
   let
     dag = overseer.consensusManager.dag
     clist = overseer.clist
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
 
   info "Sync overseer starting",
        wall_slot = currentSlot,
@@ -565,7 +568,7 @@ proc syncStatusMessage*(
 ): string =
   let
     dag = overseer.consensusManager.dag
-    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    wallSlot = overseer.getWallSlot()
     optimistic = not(dag.head.executionValid)
     optSuffix =
       if not(dag.head.executionValid):

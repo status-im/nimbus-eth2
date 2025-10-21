@@ -41,7 +41,7 @@ suite "Light client processor" & preset():
 
   const numValidators = SLOTS_PER_EPOCH
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(
       cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(

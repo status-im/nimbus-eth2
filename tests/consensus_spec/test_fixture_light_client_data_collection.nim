@@ -138,7 +138,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
     ChainDAGRef.preInit(db, initial_state[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time, false, false))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true, importMode: LightClientDataImportMode.Full))

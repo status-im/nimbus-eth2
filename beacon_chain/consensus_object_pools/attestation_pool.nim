@@ -165,7 +165,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           withBlck(blck):
             forkChoice.process_block(
               dag, epochRef, blckRef, unrealized, forkyBlck.message,
-              blckRef.slot.start_beacon_time(dag.cfg.time))
+              blckRef.slot.start_beacon_time(dag.timeParams))
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
@@ -417,7 +417,7 @@ proc addAttestation*(
   doAssert attestation.signature == signature.toValidatorSig(),
     "Deserialized signature must match the one in the attestation"
 
-  updateCurrent(pool, wallTime.slotOrZero)
+  updateCurrent(pool, wallTime.slotOrZero(pool.dag.timeParams))
 
   let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:

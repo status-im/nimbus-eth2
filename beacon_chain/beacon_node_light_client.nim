@@ -52,7 +52,7 @@ proc initLightClient*(
                 forkyBlck.message)
           else: discard
     optimisticProcessor = initOptimisticProcessor(
-      cfg.time, getBeaconTime, optimisticHandler)
+      cfg.timeParams, getBeaconTime, optimisticHandler)
 
     shouldInhibitSync = func(): bool =
       if isNil(node.syncOverseer):

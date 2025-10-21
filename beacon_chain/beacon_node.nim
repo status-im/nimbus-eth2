@@ -135,7 +135,7 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
   node.network.rng
 
 proc currentSlot*(node: BeaconNode): Slot =
-  node.beaconClock.now.slotOrZero
+  node.beaconClock.currentSlot
 
 func hasRestAllowedOrigin*(node: BeaconNode): bool =
   node.config.restAllowedOrigin.isSome

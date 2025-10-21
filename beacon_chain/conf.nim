@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[options, os, unicode, uri],
+  std/[options, unicode, uri],
   metrics,
   results,
   chronicles, chronicles/options as chroniclesOptions,
@@ -30,6 +30,7 @@ import
   ./el/el_conf,
   ./[filepath, nimbus_binary_common]
 
+from std/os import dirExists, getHomeDir, `/`
 from std/strutils import parseBiggestUInt, replace
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
@@ -240,11 +241,15 @@ type
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
 
-    peerdasSupernode* {.
+    debugPeerdasSupernode* {.
       hidden
       defaultValue: false,
-      desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
       name: "debug-peerdas-supernode" .}: bool
+
+    peerdasSupernode* {.
+      defaultValue: false,
+      desc: "Subscribe to all column subnets, thereby becoming a PeerDAS supernode"
+      name: "peerdas-supernode" .}: bool
 
     slashingDbKind* {.
       hidden

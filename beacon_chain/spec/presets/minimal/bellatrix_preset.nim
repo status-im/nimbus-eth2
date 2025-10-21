@@ -8,9 +8,9 @@
 {.push raises: [].}
 
 # Minimal preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/presets/minimal/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/bellatrix.yaml
 const
-  # Updated penalty values
+  # Rewards and penalties
   # ---------------------------------------------------------------
   # 2**24 (= 16,777,216)
   INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64 = 16777216
@@ -19,14 +19,13 @@ const
   # 3
   PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64 = 3
 
-
   # Execution
   # ---------------------------------------------------------------
-  # 2**30 (= 1,073,741,824)
+  # 2**30 (= 1,073,741,824) bytes
   MAX_BYTES_PER_TRANSACTION* = 1073741824
-  # 2**20 (= 1,048,576)
+  # 2**20 (= 1,048,576) transactions
   MAX_TRANSACTIONS_PER_PAYLOAD* = 1048576
-  # 2**8 (= 256)
+  # 2**8 (= 256) bytes
   BYTES_PER_LOGS_BLOOM* = 256
-  # 2**5 (= 32)
+  # 2**5 (= 32) bytes
   MAX_EXTRA_DATA_BYTES* = 32

@@ -81,7 +81,7 @@ suite "Validator change pool testing suite":
         tmp.FULU_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 5
         tmp
 
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       fork {.used.} = dag.forkAtEpoch(Epoch(0))

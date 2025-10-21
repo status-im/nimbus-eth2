@@ -510,10 +510,9 @@ proc requestManagerBlockLoop(
 
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
-    timeConfig = rman.network.cfg.time
     wallTime = rman.getBeaconTime()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time(timeConfig)
+    wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
+    delay = wallTime - wallSlot.start_beacon_time(rman.network.cfg.timeParams)
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var
@@ -623,10 +622,9 @@ proc requestManagerBlobLoop(
 
 proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
-    timeConfig = rman.network.cfg.time
     wallTime = rman.getBeaconTime()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time(timeConfig)
+    wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
+    delay = wallTime - wallSlot.start_beacon_time(rman.network.cfg.timeParams)
 
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
@@ -749,7 +747,7 @@ proc start*(rman: var RequestManager) =
 
 proc switchToColumnLoop*(rman: var RequestManager) =
   let currentEpoch =
-      rman.getBeaconTime().slotOrZero().epoch()
+    rman.getBeaconTime().slotOrZero(rman.network.cfg.timeParams).epoch()
 
   if currentEpoch >= rman.network.cfg.FULU_FORK_EPOCH and
      isNil(rman.dataColumnLoopFuture):

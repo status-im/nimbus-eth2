@@ -14,7 +14,7 @@ import
     strutils, streams, strformat, strscans,
     macros, typetraits],
   # Status libraries
-  faststreams, snappy, stint, ../testutil,
+  faststreams, serialization/case_objects, snappy, stint, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -126,6 +126,32 @@ type
     F: seq[seq[VarTestStruct]]
     G: List[ProgressiveSingleFieldContainerTestStruct, 10]
     H: seq[ProgressiveVarTestStruct]
+
+  SelectorA {.pure.} = enum
+    a = 1
+  CompatibleUnionA {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorA
+    of SelectorA.a: aData: ProgressiveSingleFieldContainerTestStruct
+
+  SelectorBC {.pure.} = enum
+    b = 2
+    c = 3
+  CompatibleUnionBC {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorBC
+    of SelectorBC.b: bData: ProgressiveSingleListContainerTestStruct
+    of SelectorBC.c: cData: ProgressiveVarTestStruct
+
+  SelectorABCA {.pure.} = enum
+    a1 = 1
+    b = 2
+    c = 3
+    a4 = 4
+  CompatibleUnionABCA {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorABCA
+    of SelectorABCA.a1, SelectorABCA.a4:
+      aData: ProgressiveSingleFieldContainerTestStruct
+    of SelectorABCA.b: bData: ProgressiveSingleListContainerTestStruct
+    of SelectorABCA.c: cData: ProgressiveVarTestStruct
 
 # Type specific checks
 # ------------------------------------------------------------------------
@@ -363,6 +389,17 @@ proc sszCheck(dir, sszType, sszSubType: string)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "compatible_unions":
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "CompatibleUnionA": checkBasic(CompatibleUnionA, dir, expectedHash)
+    of "CompatibleUnionBC": checkBasic(CompatibleUnionBC, dir, expectedHash)
+    of "CompatibleUnionABCA": checkBasic(CompatibleUnionABCA, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown compatible union in test: " & sszSubType)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)

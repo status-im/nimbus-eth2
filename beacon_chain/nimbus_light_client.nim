@@ -73,7 +73,7 @@ proc main() {.noinline, raises: [CatchableError].} =
         raiseAssert "Invalid baked-in state: " & err.msg
 
     genesisTime = getStateField(genesisState[], genesis_time)
-    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
@@ -108,7 +108,7 @@ proc main() {.noinline, raises: [CatchableError].} =
               discard await elManager.newExecutionPayload(forkyBlck.message)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
-      cfg.time, getBeaconTime, optimisticHandler)
+      cfg.timeParams, getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
@@ -174,7 +174,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
           info "New LC optimistic header"
           if elManager == nil or blockHash.isZero or
-              not isSynced(bid.slot, getBeaconTime().slotOrZero()):
+              not isSynced(bid.slot, beaconClock.currentSlot):
             return
 
           withConsensusFork(consensusFork):
@@ -264,9 +264,9 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
     let
-      wallSlot = wallTime.slotOrZero()
+      wallSlot = wallTime.slotOrZero(cfg.timeParams)
       expectedSlot = lastSlot + 1
-      delay = wallTime - expectedSlot.start_beacon_time(cfg.time)
+      delay = wallTime - expectedSlot.start_beacon_time(cfg.timeParams)
 
       finalizedHeader = lightClient.finalizedHeader
       optimisticHeader = lightClient.optimisticHeader
@@ -301,24 +301,26 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   proc runOnSlotLoop() {.async.} =
     var
-      curSlot = getBeaconTime().slotOrZero()
+      curSlot = beaconClock.currentSlot
       nextSlot = curSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
+      timeToNextSlot =
+        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
     while true:
       await sleepAsync(timeToNextSlot)
 
       let
-        wallTime = getBeaconTime()
-        wallSlot = wallTime.slotOrZero()
+        wallTime = beaconClock.now
+        wallSlot = wallTime.slotOrZero(cfg.timeParams)
 
       onSlot(wallTime, curSlot)
 
       curSlot = wallSlot
       nextSlot = wallSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time(cfg.time) - getBeaconTime()
+      timeToNextSlot =
+        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
 
   proc onSecond(time: Moment) =
-    let wallSlot = getBeaconTime().slotOrZero()
+    let wallSlot = beaconClock.currentSlot
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 

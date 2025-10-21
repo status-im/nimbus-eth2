@@ -136,9 +136,12 @@ proc createLightClient(
     bootstrapObserver, updateObserver, finalityObserver, optimisticObserver,
     strictVerification)
 
-  proc lightClientVerifier(obj: SomeForkedLightClientObject):
-      Future[Result[void, LightClientVerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-    let resfut = Future[Result[void, LightClientVerifierError]].Raising([CancelledError]).init("lightClientVerifier")
+  proc lightClientVerifier(
+      obj: SomeForkedLightClientObject
+  ): Future[Result[void, LightClientVerifierError]] {.
+      async: (raises: [CancelledError], raw: true).} =
+    let resfut = Future[Result[void, LightClientVerifierError]]
+      .Raising([CancelledError]).init("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =
@@ -175,7 +178,7 @@ proc createLightClient(
         GENESIS_SLOT.sync_committee_period
 
   lightClient.manager = LightClientManager.init(
-    lightClient.network, rng, lightClient.cfg.time, getTrustedBlockRoot,
+    lightClient.network, rng, lightClient.cfg.timeParams, getTrustedBlockRoot,
     bootstrapVerifier, updateVerifier, finalityVerifier, optimisticVerifier,
     isLightClientStoreInitialized, isNextSyncCommitteeKnown,
     getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
@@ -282,8 +285,9 @@ proc installMessageValidators*(
   # When registering multiple message validators, IGNORE results take precedence
   # over ACCEPT results. However, because the opposite behaviour is needed here,
   # we handle both full node and light client validation in this module
-  template getLocalWallPeriod(): auto =
-    lightClient.getBeaconTime().slotOrZero().sync_committee_period
+  template getLocalWallPeriod(): SyncCommitteePeriod =
+    lightClient.getBeaconTime().slotOrZero(lightClient.cfg.timeParams)
+      .sync_committee_period
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,
