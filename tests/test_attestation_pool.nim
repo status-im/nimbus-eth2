@@ -106,8 +106,8 @@ suite "Attestation pool electra processing" & preset():
         info,
         {}).isOk()
 
-    func startTime(attestation: electra.Attestation): BeaconTime =
-      attestation.startTime
+    template startTime(attestation: electra.Attestation): BeaconTime =
+      attestation.data.slot.start_beacon_time(cfg.timeParams)
 
   test "Attestation from different branch" & preset():
     # Create two alternate histories with different shufflings
