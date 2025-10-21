@@ -73,7 +73,6 @@ const
   ## `DecayToZero` specifies the terminal value that we will use when decaying
   ## a value.
   DecayToZero = 0.01'f64
-  DecayInterval = chronos.seconds(int64(SECONDS_PER_SLOT))
   ## `DampeningFactor` reduces the amount by which the various thresholds and
   ## caps are created. Python code and Lighthouse using 50.0, while Prysm
   ## using 90.0.
@@ -89,6 +88,9 @@ const
      AttesterSlashingWeight + ProposerSlashingWeight + VoluntaryExitWeight +
      SyncCommitteesTotalWeight + SyncContributionWeight +
      BlsToExecutionChangeWeight)
+
+func DecayInterval(timeParams: TimeParams): Duration =
+  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT))
 
 func InvalidMessageDecayPeriod(timeParams: TimeParams): Duration =
   timeParams.epochsDuration(50)
@@ -107,10 +109,11 @@ func init(
     dampeningFactor: dampeningFactor
   )
 
-func scoreParameterDecay(decayDuration: chronos.Duration): float64 =
+func scoreParameterDecay(
+    timeParams: TimeParams, decayDuration: chronos.Duration): float64 =
   ## Computes the decay to use such that a value of 1 decays to 0 (using the
   ## DecayToZero parameter) within the specified `decayDuration`.
-  let ticks = decayDuration.seconds div DecayInterval.seconds
+  let ticks = decayDuration.seconds div timeParams.DecayInterval.seconds
   math.pow(DecayToZero, 1'f64 / float64(ticks))
 
 func decayConvergence(decay, rate: float64): float64 =
@@ -149,9 +152,9 @@ func topicParams(
     meshMessageInfo: Opt[MeshMessageInfo] = Opt.none(MeshMessageInfo)
 ): TopicParams =
   let
-    timeInMeshCap = float64(3600) / float64(SECONDS_PER_SLOT)
+    timeInMeshCap = float64(3600) / float64(timeParams.SECONDS_PER_SLOT)
     firstMessageDeliveriesDecay =
-      scoreParameterDecay(firstMessageDecayTime)
+      timeParams.scoreParameterDecay(firstMessageDecayTime)
     firstMessageDeliveriesCap =
       decayConvergence(firstMessageDeliveriesDecay,
                        2'f64 * expectedMessageRate / float64(GossipD))
@@ -162,7 +165,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(SECONDS_PER_SLOT)),
+        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:
@@ -225,7 +228,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(SECONDS_PER_SLOT)),
+        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:
