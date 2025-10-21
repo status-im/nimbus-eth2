@@ -268,14 +268,6 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  SlotDuration* =
-    int64(SECONDS_PER_SLOT).seconds
-  SlotDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div 2).seconds
-  OneThirdDuration* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT)).seconds
-  OneThirdDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT) div 2'i64).seconds
   AllBeaconNodeRoles* = {
     BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,
@@ -319,6 +311,20 @@ const
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
+
+func SlotDuration*(vc: ValidatorClientRef): Duration =
+  int64(vc.timeParams.SECONDS_PER_SLOT).seconds
+
+func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div 2).seconds
+
+func OneThirdDuration*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div
+    int64(INTERVALS_PER_SLOT)).seconds
+
+func OneThirdDurationSoft*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div
+    int64(INTERVALS_PER_SLOT) div 2'i64).seconds
 
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
