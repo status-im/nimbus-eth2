@@ -185,7 +185,7 @@ func topicParams(
       invalidMessageDeliveriesWeight:
         -MaxScore / topicWeight,
       invalidMessageDeliveriesDecay:
-        scoreParameterDecay(timeParams.InvalidMessageDecayPeriod)
+        timeParams.scoreParameterDecay(timeParams.InvalidMessageDecayPeriod)
     )
   else:
     let
@@ -194,7 +194,7 @@ func topicParams(
         if info.meshMessageDecayTime.isZero():
           0.0'f64
         else:
-          scoreParameterDecay(info.meshMessageDecayTime)
+          timeParams.scoreParameterDecay(info.meshMessageDecayTime)
       meshMessageDeliveriesThreshold =
         if info.meshMessageDecayTime.isZero():
           0.0'f64
@@ -256,7 +256,7 @@ func topicParams(
       invalidMessageDeliveriesWeight:
         -MaxScore / topicWeight,
       invalidMessageDeliveriesDecay:
-        scoreParameterDecay(timeParams.InvalidMessageDecayPeriod),
+        timeParams.scoreParameterDecay(timeParams.InvalidMessageDecayPeriod),
     )
 
 func getBlockTopicParams*(timeParams: TimeParams): TopicParams =
