@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/strutils
 import chronicles, stew/base10
@@ -1679,73 +1679,6 @@ proc submitPoolAttestationsV2*(
     raise (ref ValidatorApiError)(
       msg: "Failed to submit attestations", data: failures)
 
-proc submitPoolAttestations*(
-    vc: ValidatorClientRef,
-    data: seq[phase0.Attestation],
-    strategy: ApiStrategyKind
-): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
-  const
-    RequestName = "submitPoolAttestations"
-
-  var failures: seq[ApiNodeFailure]
-
-  case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      bool,
-                                      vc.SlotDuration,
-                                      ViableNodeStatus,
-                                      {BeaconNodeRole.AttestationPublish},
-                                      submitPoolAttestations(it, data)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        ApiResponse[bool].err(apiResponse.error)
-      else:
-        let response = apiResponse.get()
-        case response.status
-        of 200:
-          ApiResponse[bool].ok(true)
-        of 400:
-          handle400Indexed()
-          ApiResponse[bool].err(ResponseInvalidError)
-        of 500:
-          handle500()
-          ApiResponse[bool].err(ResponseInternalError)
-        else:
-          handleUnexpectedCode()
-          ApiResponse[bool].err(ResponseUnexpectedError)
-
-    if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return res.get()
-
-  of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse,
-                              vc.SlotDuration,
-                              ViableNodeStatus,
-                              {BeaconNodeRole.AttestationPublish},
-                              submitPoolAttestations(it, data)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        false
-      else:
-        let response = apiResponse.get()
-        case response.status
-        of 200:
-          return true
-        of 400:
-          handle400Indexed()
-          false
-        of 500:
-          handle500()
-          false
-        else:
-          handleUnexpectedCode()
-          false
-
-    raise (ref ValidatorApiError)(
-      msg: "Failed to submit attestations", data: failures)
-
 proc submitPoolSyncCommitteeSignature*(
     vc: ValidatorClientRef,
     data: SyncCommitteeMessage,
@@ -2295,73 +2228,6 @@ proc publishAggregateAndProofsV2*(
           false
         of 404:
 
-          false
-        of 500:
-          handle500()
-          false
-        else:
-          handleUnexpectedCode()
-          false
-
-    raise (ref ValidatorApiError)(
-      msg: "Failed to publish aggregated attestation", data: failures)
-
-proc publishAggregateAndProofs*(
-    vc: ValidatorClientRef,
-    data: seq[phase0.SignedAggregateAndProof],
-    strategy: ApiStrategyKind
-): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
-  const
-    RequestName = "publishAggregateAndProofs"
-
-  var failures: seq[ApiNodeFailure]
-
-  case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      bool,
-                                      vc.SlotDuration,
-                                      ViableNodeStatus,
-                                      {BeaconNodeRole.AggregatedPublish},
-                                      publishAggregateAndProofs(it, data)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        ApiResponse[bool].err(apiResponse.error)
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          ApiResponse[bool].ok(true)
-        of 400:
-          handle400()
-          ApiResponse[bool].err(ResponseInvalidError)
-        of 500:
-          handle500()
-          ApiResponse[bool].err(ResponseInternalError)
-        else:
-          handleUnexpectedCode()
-          ApiResponse[bool].err(ResponseUnexpectedError)
-
-    if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return res.get()
-
-  of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse,
-                              vc.SlotDuration,
-                              ViableNodeStatus,
-                              {BeaconNodeRole.AggregatedPublish},
-                              publishAggregateAndProofs(it, data)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        false
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          return true
-        of 400:
-          handle400()
           false
         of 500:
           handle500()
