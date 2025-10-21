@@ -53,7 +53,7 @@ suite "Gossip validation " & preset():
       cache = StateCache()
       info = ForkedEpochInfo()
       batchCrypto {.used.} = BatchCrypto.new(
-        rng, eager = proc(): bool = false,
+        rng, cfg.timeParams, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
@@ -309,7 +309,7 @@ suite "Gossip validation - Altair":
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       batchCrypto = BatchCrypto.new(
-        rng, eager = proc(): bool = false,
+        rng, cfg.timeParams, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     var

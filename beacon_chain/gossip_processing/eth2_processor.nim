@@ -202,7 +202,7 @@ proc new*(T: type Eth2Processor,
     dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
-      rng = rng,
+      rng, dag.cfg.timeParams,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks(),

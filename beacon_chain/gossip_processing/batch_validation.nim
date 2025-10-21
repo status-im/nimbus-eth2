@@ -116,6 +116,7 @@ type
 
     taskpool: Taskpool
     rng: ref HmacDrbgContext
+    timeParams: TimeParams
 
     verifiers: array[InflightVerifications, VerifierItem]
       ## Each batch verification reqires a separate verifier
@@ -143,11 +144,11 @@ type
     signal: ThreadSignalPtr
 
 proc new*(
-    T: type BatchCrypto, rng: ref HmacDrbgContext,
+    T: type BatchCrypto, rng: ref HmacDrbgContext, timeParams: TimeParams,
     eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
     Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
-    rng: rng, taskpool: taskpool,
+    taskpool: taskpool, rng: rng, timeParams: timeParams,
     eager: eager,
     genesis_validators_root: genesis_validators_root,
     pruneTime: Moment.now())
@@ -282,14 +283,16 @@ proc processBatch(
     # there being any signatures successfully added to it
     return
 
-  let startTick = Moment.now()
+  let
+    startTick = Moment.now()
+    slotDuration = batchCrypto.timeParams.SECONDS_PER_SLOT.int64.seconds
 
   # If the hardware is too slow to keep up or an event caused a temporary
   # buildup of signature verification tasks, the batch will be dropped so as to
   # recover and not cause even further buildup - this puts an (elastic) upper
   # bound on the amount of queued-up work
-  if batch[].created + SECONDS_PER_SLOT.int64.seconds < startTick:
-    if batchCrypto.pruneTime + SECONDS_PER_SLOT.int64.seconds < startTick:
+  if batch[].created + slotDuration < startTick:
+    if batchCrypto.pruneTime + slotDuration < startTick:
       notice "Batch queue pruned, skipping attestation validation",
         batches = batchCrypto.batches.len()
       batchCrypto.pruneTime = startTick
