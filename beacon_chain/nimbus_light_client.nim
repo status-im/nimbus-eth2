@@ -257,7 +257,8 @@ proc main() {.noinline, raises: [CatchableError].} =
     for gossipEpoch in targetGossipState - currentGossipState:
       let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.subscribe(
-        getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
+        getBeaconBlocksTopic(forkDigest),
+        getBlockTopicParams(cfg.timeParams),
         enableTopicMetrics = true)
 
     blocksGossipState = targetGossipState

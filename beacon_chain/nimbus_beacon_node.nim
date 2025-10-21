@@ -1136,7 +1136,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, forkDigest)
     node.network.subscribeAttestationSubnets(
       subscribeSubnets, forkDigest,
-      getAttestationSubnetTopicParams(validatorsCount))
+      getAttestationSubnetTopicParams(node.dag.timeParams, validatorsCount))
 
   debug "Attestation subnets",
     slot, epoch = slot.epoch, gossipState = node.gossipState,
@@ -1187,7 +1187,8 @@ proc updateBlocksGossipStatus*(
   for gossipEpoch in newGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
+      getBeaconBlocksTopic(forkDigest),
+      getBlockTopicParams(node.dag.timeParams),
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -1198,14 +1199,18 @@ proc addPhase0MessageHandlers(
     withState(node.dag.headState):
       forkyState.data.validators.lenu64
   node.network.subscribe(
-    getAttesterSlashingsTopic(forkDigest), getAttesterSlashingTopicParams())
+    getAttesterSlashingsTopic(forkDigest),
+    getAttesterSlashingTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getProposerSlashingsTopic(forkDigest), getProposerSlashingTopicParams())
+    getProposerSlashingsTopic(forkDigest),
+    getProposerSlashingTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getVoluntaryExitsTopic(forkDigest), getVoluntaryExitTopicParams())
+    getVoluntaryExitsTopic(forkDigest),
+    getVoluntaryExitTopicParams(node.dag.timeParams))
   node.network.subscribe(
     getAggregateAndProofsTopic(forkDigest),
-    getAggregateProofTopicParams(validatorsCount), enableTopicMetrics = true)
+    getAggregateProofTopicParams(node.dag.timeParams, validatorsCount),
+    enableTopicMetrics = true)
 
   # updateAttestationSubnetHandlers subscribes attestation subnets
 
@@ -1300,19 +1305,20 @@ proc addAltairMessageHandlers(
     if syncnets[subcommitteeIdx]:
       node.network.subscribe(
         getSyncCommitteeTopic(forkDigest, subcommitteeIdx),
-        getSyncCommitteeSubnetTopicParams(validatorsCount))
+        getSyncCommitteeSubnetTopicParams(node.dag.timeParams, validatorsCount))
 
   node.network.subscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest),
-    getSyncContributionTopicParams())
+    getSyncContributionTopicParams(node.dag.timeParams))
 
   node.network.updateSyncnetsMetadata(syncnets)
 
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest),
-    getBlsToExecutionChangeTopicParams())
+  node.network.subscribe(
+    getBlsToExecutionChangeTopic(forkDigest),
+    getBlsToExecutionChangeTopicParams(node.dag.timeParams))
 
 proc doAddDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
@@ -1435,8 +1441,8 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       if oldSyncnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
       elif newSyncnets[subcommitteeIdx]:
-        node.network.subscribe(topic,
-          getSyncCommitteeSubnetTopicParams(validatorsCount))
+        node.network.subscribe(topic, getSyncCommitteeSubnetTopicParams(
+          node.dag.timeParams, validatorsCount))
 
   node.network.updateSyncnetsMetadata(syncnets)
 
