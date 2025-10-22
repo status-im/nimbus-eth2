@@ -468,12 +468,8 @@ proc addObject*(
   #   - `LightClientUpdatesByRange`
   #   - `GetLightClientFinalityUpdate`
   #   - `GetLightClientOptimisticUpdate`
-
-  let
-    wallTime = self.getBeaconTime()
-    (afterGenesis, _) = wallTime.toSlot()
-
-  if not afterGenesis:
+  let wallTime = self.getBeaconTime()
+  if not wallTime.afterGenesis:
     let mayProcessBeforeGenesis =
       when obj is ForkedLightClientBootstrap:
         withForkyBootstrap(obj):

@@ -87,9 +87,10 @@ cli do(
     verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init(cfg))
     attPool = AttestationPool.init(dag, quarantine)
-    batchCrypto = BatchCrypto
-      .new(rng, eager, genesis_validators_root = dag.genesis_validators_root, taskpool)
-      .expect("working batcher")
+    batchCrypto = BatchCrypto.new(
+      rng, cfg.timeParams, eager,
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat

@@ -69,7 +69,7 @@ func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))
 
 func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
-  c.toBeaconTime(t).toSlot()
+  c.toBeaconTime(t).toSlot(c.timeParams)
 
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)

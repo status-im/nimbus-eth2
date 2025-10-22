@@ -112,7 +112,12 @@ template `<`*(a, b: TimeDiff): bool = a.nanoseconds < b.nanoseconds
 template `<=`*(a, b: TimeDiff): bool = a.nanoseconds <= b.nanoseconds
 template `<`*(a: TimeDiff, b: Duration): bool = a.nanoseconds < b.nanoseconds
 
-func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
+func afterGenesis*(t: BeaconTime): bool =
+  t.ns_since_genesis >= 0
+
+func toSlot*(
+    t: BeaconTime,
+    timeParams: TimeParams): tuple[afterGenesis: bool, slot: Slot] =
   if t == FAR_FUTURE_BEACON_TIME:
     (true, FAR_FUTURE_SLOT)
   elif t.ns_since_genesis >= 0:
@@ -192,7 +197,7 @@ func light_client_optimistic_update_time*(
   s.start_beacon_time(timeParams) + lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime, timeParams: TimeParams): Slot =
-  let exSlot = time.toSlot
+  let exSlot = time.toSlot(timeParams)
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
@@ -292,6 +297,3 @@ chronicles.formatIt TimeDiff: it.shortLog
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt SyncCommitteePeriod: it.shortLog
-
-const defaultSyncHorizon* =
-  (uint64(10*60) + SECONDS_PER_SLOT - 1) div SECONDS_PER_SLOT
