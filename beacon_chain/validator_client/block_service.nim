@@ -60,7 +60,8 @@ proc prepareRandao(
 
   let
     destSlot = slot - 1'u64
-    destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
+    destOffset = TimeDiff(
+      nanoseconds: vc.timeParams.NANOSECONDS_PER_SLOT.int64 div 2)
     deadline = destSlot.start_beacon_time(vc.timeParams) + destOffset
     epoch = slot.epoch()
     # We going to wait to T - (T / 4 * 2), where T is proposer's

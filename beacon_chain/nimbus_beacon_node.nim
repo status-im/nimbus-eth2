@@ -1794,7 +1794,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # slot does not interfere with propagation of messages and with VC duties.
   let
     endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
-      NANOSECONDS_PER_SLOT -
+      node.dag.timeParams.NANOSECONDS_PER_SLOT -
       node.dag.timeParams.aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
     endCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + endOffset)
