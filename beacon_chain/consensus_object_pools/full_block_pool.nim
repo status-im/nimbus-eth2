@@ -39,7 +39,7 @@ type
 
     blocks: Table[Eth2Digest, BeaconBlockDetail]
       ## Blocks that received from the network.
-    envelopes: OrderedTable[ExecPayloadUniqKey, ExecPayloadEnvelopeDetail]
+    envelopes: Table[ExecPayloadUniqKey, ExecPayloadEnvelopeDetail]
       ## Execution payload envelopes that received from the network.
       # TODO: persistent storage for valid envelope for the retention period
 
