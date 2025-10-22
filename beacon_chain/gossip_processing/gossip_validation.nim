@@ -428,6 +428,40 @@ template validateBeaconBlockDeneb(
       blob_params.MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
 
+template validateBeaconBlockGloas(
+    _: ChainDAGRef,
+    _:
+      phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+      fulu.SignedBeaconBlock): untyped =
+  discard
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#beacon_block
+template validateBeaconBlockGloas(
+    dag: ChainDAGRef,
+    signed_beacon_block: gloas.SignedBeaconBlock): untyped =
+  template blck: untyped = signed_beacon_block.message
+  template bid: untyped = blck.body.signed_execution_payload_bid.message
+
+  # If `execution_payload` verification of block's execution payload parent by
+  # an execution node **is complete**
+  debugGloasComment("update is_execution_block")
+  if signed_beacon_block.is_execution_block:
+    # [REJECT] The block's execution payload parent (defined by
+    # `bid.parent_block_hash`) passes all validation.
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bid.parent_block_hash != dag.headState.latest_block_hash:
+          return dag.checkedReject("validateBeaconBlockGloas: invalid execution payload parent")
+
+  # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
+  # block's parent (defined by `block.parent_root`).
+  if bid.parent_block_root != blck.parent_root:
+    return dag.checkedReject("validateBeaconBlockGloas: parent block root mismatch")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
@@ -936,6 +970,8 @@ proc validateBeaconBlock*(
   validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
+
+  dag.validateBeaconBlockGloas(signed_beacon_block)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
