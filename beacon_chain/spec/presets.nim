@@ -1059,3 +1059,7 @@ func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD
   let maxEpochs = cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
   (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod
+
+func defaultSyncHorizon*(timeParams: TimeParams): uint64 =
+  (uint64(10 * 60) + timeParams.SECONDS_PER_SLOT - 1) div
+    timeParams.SECONDS_PER_SLOT

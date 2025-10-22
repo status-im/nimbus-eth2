@@ -268,14 +268,6 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  SlotDuration* =
-    int64(SECONDS_PER_SLOT).seconds
-  SlotDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div 2).seconds
-  OneThirdDuration* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT)).seconds
-  OneThirdDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT) div 2'i64).seconds
   AllBeaconNodeRoles* = {
     BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,
@@ -319,6 +311,20 @@ const
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
+
+func SlotDuration*(vc: ValidatorClientRef): Duration =
+  int64(vc.timeParams.SECONDS_PER_SLOT).seconds
+
+func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div 2).seconds
+
+func OneThirdDuration*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div
+    int64(INTERVALS_PER_SLOT)).seconds
+
+func OneThirdDurationSoft*(vc: ValidatorClientRef): Duration =
+  (int64(vc.timeParams.SECONDS_PER_SLOT) div
+    int64(INTERVALS_PER_SLOT) div 2'i64).seconds
 
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
@@ -813,7 +819,7 @@ proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
 proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
-  let res = vc.beaconClock.now().toSlot()
+  let res = vc.beaconClock.now().toSlot(vc.timeParams)
   if res.afterGenesis:
     Opt.some(res.slot)
   else:
@@ -1466,7 +1472,7 @@ proc waitForNextEpoch*(service: ClientServiceRef,
      async: (raises: [CancelledError], raw: true) .}=
   let
     vc = service.client
-    currentSlot = vc.beaconClock.now().toSlot()
+    currentSlot = vc.beaconClock.now().toSlot(vc.timeParams)
     nextEpochTime = currentSlot.nextEpochStartTime(vc.timeParams)
     sleepTime = vc.beaconClock.fromNow(nextEpochTime).durationOrZero() + delay
   debug "Sleeping until next epoch", service = service.name,
@@ -1488,7 +1494,10 @@ proc waitForNextSlot*(
 
 proc waitForNextSlot*(service: ClientServiceRef): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
-  service.client.waitForNextSlot(service.client.beaconClock.now().toSlot())
+  let
+    vc = service.client
+    currentSlot = vc.beaconClock.now().toSlot(vc.timeParams)
+  service.client.waitForNextSlot(currentSlot)
 
 func compareUnsorted*[T](a, b: openArray[T]): bool =
   if len(a) != len(b):

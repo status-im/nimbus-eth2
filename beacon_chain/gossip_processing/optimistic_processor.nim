@@ -59,7 +59,7 @@ proc processSignedBeaconBlock*(
     signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.timeParams)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)

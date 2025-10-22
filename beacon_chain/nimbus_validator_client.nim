@@ -489,7 +489,7 @@ proc runPreGenesisWaitingLoop(
   while true:
     let
       currentTime = vc.beaconClock.now()
-      currentSlot = currentTime.toSlot()
+      currentSlot = currentTime.toSlot(vc.timeParams)
       currentEpoch = currentSlot.slot.epoch()
 
     if currentSlot.afterGenesis or currentEpoch < PREGENESIS_EPOCHS_COUNT:
@@ -514,7 +514,7 @@ proc runGenesisWaitingLoop(
   while true:
     let
       currentTime = vc.beaconClock.now()
-      currentSlot = currentTime.toSlot()
+      currentSlot = currentTime.toSlot(vc.timeParams)
 
     if currentSlot.afterGenesis:
       break

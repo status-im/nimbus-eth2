@@ -341,34 +341,41 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
   except CatchableError as exc:
     raiseAssert exc.msg
 
-  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--discv5=off",
-    "--network=" & dataDir,
-    "--data-dir=" & nodeDataDir,
-    "--validators-dir=" & nodeValidatorsDir,
-    "--secrets-dir=" & nodeSecretsDir,
-    "--metrics-address=127.0.0.1",
-    "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
-    "--rest=true",
-    "--rest-address=127.0.0.1",
-    "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--no-el",
-    "--keymanager=true",
-    "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--keymanager-token-file=" & tokenFilePath,
-    "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--doppelganger-detection=off"], it))
-  except Exception as exc: # TODO fix confutils exceptions
-    raiseAssert exc.msg
+  let
+    metadata =
+      try:
+        loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
+      except IOError as exc:
+        raiseAssert exc.msg
+      except PresetFileError as exc:
+        raiseAssert exc.msg
+
+    runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
+      "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+      "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+      "--discv5=off",
+      "--network=" & dataDir,
+      "--data-dir=" & nodeDataDir,
+      "--validators-dir=" & nodeValidatorsDir,
+      "--secrets-dir=" & nodeSecretsDir,
+      "--metrics-address=127.0.0.1",
+      "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
+      "--rest=true",
+      "--rest-address=127.0.0.1",
+      "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+      "--no-el",
+      "--keymanager=true",
+      "--keymanager-address=127.0.0.1",
+      "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+      "--keymanager-token-file=" & tokenFilePath,
+      "--suggested-fee-recipient=" & $defaultFeeRecipient,
+      "--doppelganger-detection=off",
+      "--sync-horizon=" & $(metadata.cfg.timeParams.defaultSyncHorizon)], it))
+    except Exception as exc: # TODO fix confutils exceptions
+      raiseAssert exc.msg
 
   try:
-    let
-      metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-      taskpool = Taskpool.new()
-
+    let taskpool = Taskpool.new()
     await BeaconNode.init(rng, runNodeConf, metadata, taskpool)
   except CatchableError as exc:
     raiseAssert exc.msg
