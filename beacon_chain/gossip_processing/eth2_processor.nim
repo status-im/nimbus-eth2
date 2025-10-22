@@ -218,7 +218,7 @@ proc new*(T: type Eth2Processor,
 # any side effects until the message is fully validated, or invalid messages
 # could be used to push out valid messages.
 
-proc processExecutionPayloadGloas(
+proc processExecutionPayloadEnvelope(
     self: var Eth2Processor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: SignedExecutionPayloadEnvelope) =
@@ -240,7 +240,7 @@ proc processExecutionPayloadGloas(
   self.fullBlockPool[].markEnvelopeProcessed(signedEnvelope)
   self.fullBlockPool[].markBlockExecutionEnabled(signedBlock)
 
-proc processExecutionPayloadGloas(
+proc processExecutionPayloadEnvelope(
     self: var Eth2Processor,
     signedBlock: gloas.SignedBeaconBlock) =
   ## Received a valid block and checking if the envelope arrives
@@ -256,9 +256,9 @@ proc processExecutionPayloadGloas(
     self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
 
   # process
-  self.processExecutionPayloadGloas(signedBlock, signedEnvelope)
+  self.processExecutionPayloadEnvelope(signedBlock, signedEnvelope)
 
-proc processExecutionPayloadGloas(
+proc processExecutionPayloadEnvelope(
     self: var Eth2Processor,
     signedEnvelope: SignedExecutionPayloadEnvelope) =
   ## Received a valid envelope and the block should be in the chain
@@ -275,7 +275,7 @@ proc processExecutionPayloadGloas(
           return
 
   # process
-  self.processExecutionPayloadGloas(signedBlock, signedEnvelope)
+  self.processExecutionPayloadEnvelope(signedBlock, signedEnvelope)
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
@@ -343,7 +343,7 @@ proc processSignedBeaconBlock*(
     {.error: "Unknown fork " & $consensusFork.}
 
   when type(signedBlock).kind >= ConsensusFork.Gloas:
-    self.processExecutionPayloadGloas(signedBlock)
+    self.processExecutionPayloadEnvelope(signedBlock)
 
   let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
   self.blockProcessor.enqueueBlock(
@@ -383,7 +383,7 @@ proc processExecutionPayload*(
   trace "Execution payload validated"
 
   self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
-  self.processExecutionPayloadGloas(signedEnvelope)
+  self.processExecutionPayloadEnvelope(signedEnvelope)
 
   ok()
 
