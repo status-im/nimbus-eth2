@@ -2254,7 +2254,7 @@ func connectedPeersCount(node: BeaconNode): int =
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
-  restServer.router.installBuilderApiHandlers(node)
+  restServer.router.installBuilderApiHandlers()
   restServer.router.installConfigApiHandlers(node)
   restServer.router.installDebugApiHandlers(node)
   restServer.router.installEventApiHandlers(node)
