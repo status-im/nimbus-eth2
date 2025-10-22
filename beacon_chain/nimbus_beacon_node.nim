@@ -2838,7 +2838,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     createPidFile(config.dataDir.string / "beacon_node.pid")
     ProcessState.setupStopHandlers()
 

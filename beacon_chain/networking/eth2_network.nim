@@ -2325,7 +2325,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
