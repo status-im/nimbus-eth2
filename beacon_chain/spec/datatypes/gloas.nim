@@ -51,7 +51,7 @@ const
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex
     column*: DataColumn
@@ -62,9 +62,9 @@ type
     # [Modified in Gloas:EIP7732]
     # Removed `kzg_commitments_inclusion_proof`
     # [New in Gloas:EIP7732]
-    beacon_block_root*: Eth2Digest
-    # [New in Gloas:EIP7732]
     slot*: Slot
+    # [New in Gloas:EIP7732]
+    beacon_block_root*: Eth2Digest
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
@@ -570,8 +570,8 @@ func shortLog*(v: DataColumnSidecar): auto =
     index: v.index,
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
-    beacon_block_root: shortLog(v.beacon_block_root),
     slot: v.slot,
+    beacon_block_root: shortLog(v.beacon_block_root),
   )
 
 func shortLog*(v: SomeBeaconBlock): auto =
