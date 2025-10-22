@@ -30,15 +30,10 @@ type
     status: ExecPayloadEnvelopeStatus
     progress: ExecPayloadEnvelopeProgress
 
-  BeaconBlockDetail = object
-    executionEnabled: bool
-
   FullBlockPool* = object
     ## An experimental pool for keeping track of execution payload envelope and
     ## beacon block for constructing a full beacon block.
 
-    blocks: Table[Eth2Digest, BeaconBlockDetail]
-      ## Blocks that received from the network.
     envelopes: Table[ExecPayloadUniqKey, ExecPayloadEnvelopeDetail]
       ## Execution payload envelopes that received from the network.
       # TODO: persistent storage for valid envelope for the retention period
@@ -112,14 +107,6 @@ func isEnvelopeProcessed*(
     envelope: SignedExecutionPayloadEnvelope): bool =
   pool.checkEnvelopeProgress(envelope.toExecPayloadUniqKey(),
     ExecPayloadEnvelopeProgress.Processed)
-
-func isBlockExecutionEnabled*(
-    pool: FullBlockPool,
-    blck: ForkySignedBeaconBlock): bool =
-  try:
-    pool.blocks[blck.root].executionEnabled
-  except KeyError:
-    false
 
 func isBlockSeen*(
     pool: FullBlockPool,
@@ -195,4 +182,4 @@ func markEnvelopeProcessed*(
 func markBlockExecutionEnabled*(
     pool: var FullBlockPool,
     blck: ForkySignedBeaconBlock) =
-  pool.blocks[blck.root] = BeaconBlockDetail(executionEnabled: true)
+  debugGloasComment("")
