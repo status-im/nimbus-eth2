@@ -267,7 +267,7 @@ cli do(validatorsDir: string, secretsDir: string,
                       headBlock = executionHead,
                       safeBlock = executionHead,
                       finalizedBlock = ZERO_HASH,
-                      timestamp = compute_timestamp_at_slot(
+                      timestamp = cfg.timeParams.compute_timestamp_at_slot(
                         forkyState.data, forkyState.data.slot),
                       prevRandao = get_randao_mix(
                         forkyState.data, get_current_epoch(forkyState.data)),
