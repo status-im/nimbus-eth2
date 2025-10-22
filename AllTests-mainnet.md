@@ -636,13 +636,6 @@ AllTests-mainnet
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK
 ```
-## Full block pool
-```diff
-+ Add envelope                                                                               OK
-+ Block has been seen                                                                        OK
-+ Envelope progress                                                                          OK
-+ Envelope status                                                                            OK
-```
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK

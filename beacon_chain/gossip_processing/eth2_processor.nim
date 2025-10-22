@@ -17,7 +17,7 @@ import
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, full_block_pool, light_client_pool,
+    attestation_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -131,7 +131,6 @@ type
     validatorPool*: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
-    fullBlockPool: ref FullBlockPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -179,7 +178,6 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
-          fullBlockPool: ref FullBlockPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
@@ -199,7 +197,6 @@ proc new*(T: type Eth2Processor,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
-    fullBlockPool: fullBlockPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
@@ -217,65 +214,6 @@ proc new*(T: type Eth2Processor,
 # further down the line - in particular, validation should generally not have
 # any side effects until the message is fully validated, or invalid messages
 # could be used to push out valid messages.
-
-proc processExecutionPayloadEnvelope(
-    self: var Eth2Processor,
-    signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: SignedExecutionPayloadEnvelope) =
-  ## Process execution payload when both the block and envelope are found.
-
-  logScope:
-    blockRoot = shortLog(signedBlock.root)
-    builderIdx = signedEnvelope.message.builder_index
-
-  # only process once
-  if self.fullBlockPool[].isEnvelopeProcessed(signedEnvelope):
-    return
-
-  trace "Execution payload processing"
-  debugGloasComment("")
-
-  # process complete
-  debug "Execution payload processed"
-  self.fullBlockPool[].markEnvelopeProcessed(signedEnvelope)
-  self.fullBlockPool[].markBlockExecutionEnabled(signedBlock)
-
-proc processExecutionPayloadEnvelope(
-    self: var Eth2Processor,
-    signedBlock: gloas.SignedBeaconBlock) =
-  ## Received a valid block and checking if the envelope arrives
-
-  # check if the envelope exists
-  let signedEnvelope = self.fullBlockPool[].getEnvelope(signedBlock).valueOr:
-    return
-
-  # validate the envelope again as it wasn't validated without the block
-  if not self.fullBlockPool[].isEnvelopeValid(signedEnvelope):
-    self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
-      return
-    self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
-
-  # process
-  self.processExecutionPayloadEnvelope(signedBlock, signedEnvelope)
-
-proc processExecutionPayloadEnvelope(
-    self: var Eth2Processor,
-    signedEnvelope: SignedExecutionPayloadEnvelope) =
-  ## Received a valid envelope and the block should be in the chain
-
-  # find the block from the chain
-  let signedBlock =
-    block:
-      let forkedBlock = self.dag.getForkedBlock(signedEnvelope.toBlockId()).valueOr:
-        return
-      withBlck(forkedBlock):
-        when consensusFork >= ConsensusFork.Gloas:
-          forkyBlck.asSigned()
-        else:
-          return
-
-  # process
-  self.processExecutionPayloadEnvelope(signedBlock, signedEnvelope)
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
@@ -342,9 +280,6 @@ proc processSignedBeaconBlock*(
   else:
     {.error: "Unknown fork " & $consensusFork.}
 
-  when type(signedBlock).kind >= ConsensusFork.Gloas:
-    self.processExecutionPayloadEnvelope(signedBlock)
-
   let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
   self.blockProcessor.enqueueBlock(
     src, signedBlock, sidecarsOpt, maybeFinalized, validationDur
@@ -353,37 +288,6 @@ proc processSignedBeaconBlock*(
   # Validator monitor registration for blocks is done by the processor
   beacon_blocks_received.inc()
   beacon_block_delay.observe(delay.toFloatSeconds())
-
-  ok()
-
-proc processExecutionPayload*(
-    self: var Eth2Processor, src: MsgSource,
-    signedEnvelope: SignedExecutionPayloadEnvelope):
-    ValidationRes =
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    builderIdx = signedEnvelope.message.builder_index
-    signature = shortLog(signedEnvelope.signature)
-    wallSlot
-
-  let delay = wallTime -
-    signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
-  debug "Execution payload received", delay
-
-  # always save the envelope in case the block arrives later
-  self.fullBlockPool[].addEnvelope(signedEnvelope)
-
-  self.dag.validateExecutionPayload(self.fullBlockPool, signedEnvelope).isOkOr:
-    return err(error)
-
-  trace "Execution payload validated"
-
-  self.fullBlockPool[].markEnvelopeValid(signedEnvelope)
-  self.processExecutionPayloadEnvelope(signedEnvelope)
 
   ok()
 

@@ -31,7 +31,6 @@ import # Unit test
   ./test_eth2_rest_serialization,
   ./test_eth2_ssz_serialization,
   ./test_forks,
-  ./test_full_block_pool,
   ./test_gossip_transition,
   ./test_gossip_validation,
   ./test_helpers,
