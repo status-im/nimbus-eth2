@@ -267,5 +267,16 @@ suite "EF - Light client - Sync" & preset():
       presetPath/path/"light_client"/"sync"/"pyspec_tests"
     if kind != pcDir or not dirExists(basePath):
       continue
+    let consensusFork = forkForPathComponent(path).valueOr:
+      let relativePathComponent = path.relativeTestPathComponent()
+      test "Light client - Data collection - " & relativePathComponent:
+        skip()
+      continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
-      runTest(suiteName, basePath/path)
+      if consensusFork >= ConsensusFork.Fulu:
+        let relativePathComponent =
+          (basePath/path).relativeTestPathComponent()
+        test "Light client - Sync - " & relativePathComponent:
+          skip()  # https://github.com/ethereum/consensus-specs/pull/4652
+      else:
+        runTest(suiteName, basePath/path)
