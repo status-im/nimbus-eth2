@@ -18,8 +18,7 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    full_block_pool, light_client_pool,
-    spec_cache, sync_committee_msg_pool,
+    light_client_pool, spec_cache, sync_committee_msg_pool,
     validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
@@ -976,7 +975,7 @@ proc validateBeaconBlock*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
-    dag: ChainDAGRef, fullBlockPool: ref FullBlockPool,
+    dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
     Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
@@ -984,13 +983,24 @@ proc validateExecutionPayload*(
   # [IGNORE] The envelope's block root envelope.block_root has been seen (via
   # gossip or non-gossip sources) (a client MAY queue payload for processing
   # once the block is retrieved).
-  if not fullBlockPool[].isBlockSeen(envelope.beacon_block_root):
+  let blockSeen =
+    block:
+      var seen =
+        envelope.beacon_block_root in quarantine.unviable or
+        envelope.beacon_block_root in quarantine.missing or
+        dag.getBlockRef(envelope.beacon_block_root).isSome()
+      if not seen:
+        for k, _ in quarantine.orphans:
+          if k[0] == envelope.beacon_block_root:
+            seen = true
+            break
+      seen
+  if not blockSeen:
     return errIgnore("ExecutionPayload: block not found")
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
   # for this block root from this builder.
-  if fullBlockPool[].isEnvelopeValid(signed_execution_payload_envelope):
-    return errIgnore("ExecutionPayload: already seen the envelope")
+  debugGloasComment("")
 
   # [REJECT] block passes validation.
   let blck =
