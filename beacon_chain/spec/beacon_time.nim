@@ -158,6 +158,11 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#introduction
+  # Ideally bids should arrive before the start of the slot -
+  # allow 1s grace period for network propagation
+  executionPayloadBidOffset* = TimeDiff(nanoseconds:
+    NANOSECONDS_PER_SLOT.int64 div 12)
 
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
@@ -187,6 +192,10 @@ func sync_committee_message_deadline*(
 func sync_contribution_deadline*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) + syncContributionSlotOffset
+
+func execution_payload_bid_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + executionPayloadBidOffset
 
 func light_client_finality_update_time*(
     s: Slot, timeParams: TimeParams): BeaconTime =

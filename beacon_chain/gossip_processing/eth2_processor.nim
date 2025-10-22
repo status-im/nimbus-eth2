@@ -82,6 +82,13 @@ declareCounter beacon_light_client_optimistic_update_received,
 declareCounter beacon_light_client_optimistic_update_dropped,
   "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
 
+declareCounter beacon_execution_payload_bids_received,
+  "Number of valid execution payload bids processed by this node"
+
+declareCounter beacon_execution_payload_bids_dropped,
+  "Number of invalid execution payload bids dropped by this node", 
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -264,7 +271,10 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+  when consensusFork == ConsensusFork.Gloas:
+    let sidecarsOpt = 
+      self.dataColumnQuarantine[].popSidecars(signedBlock)
+  elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
     if sidecarsOpt.isNone():
@@ -562,7 +572,7 @@ proc processSignedAggregateAndProof*(
   # Potential under/overflows are fine; would just create odd logs
   let
     slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline
+    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams)
   debug "Aggregate received", delay
 
   let v = await self.attestationPool.validateAggregate(
@@ -837,3 +847,31 @@ proc processLightClientOptimisticUpdate*(
   else:
     beacon_light_client_optimistic_update_dropped.inc(1, [$v.error[0]])
   v
+
+proc processExecutionPayloadBid*(
+    self: var Eth2Processor,
+    src: MsgSource,
+    signedBid: SignedExecutionPayloadBid
+): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+
+  logScope:
+    bidSlot = signedBid.message.slot
+    builderIndex = signedBid.message.builder_index
+    blockRoot = signedBid.message.parent_block_root
+
+  let delay = wallTime - 
+    signedBid.message.slot.execution_payload_bid_deadline(self.dag.timeParams)
+  debug "Execution payload bid validated"
+
+  let v = validateExecutionPayloadBid(
+    self.dag, self.executionPayloadBidPool, signedBid, wallTime)
+  if v.isOk():
+    debug "Execution payload bid validated"
+    self.executionPayloadBidPool[].addBid(signedBid, wallTime)
+    beacon_execution_payload_bids_received.inc()
+    ok()
+  else:
+    debug "Dropping execution payload bid", reason = $v.error
+    beacon_execution_payload_bids_dropped.inc(1, [$v.error[0]])
+    err(v.error())
