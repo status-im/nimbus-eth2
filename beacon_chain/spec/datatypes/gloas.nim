@@ -57,7 +57,14 @@ type
     column*: DataColumn
     kzg_commitments*: KzgCommitments
     kzg_proofs*: deneb.KzgProofs
+    # [Modified in Gloas:EIP7732]
+    # Removed `signed_block_header`
+    # [Modified in Gloas:EIP7732]
+    # Removed `kzg_commitments_inclusion_proof`
+    # [New in Gloas:EIP7732]
     beacon_block_root*: Eth2Digest
+    # [New in Gloas:EIP7732]
+    slot*: Slot
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
@@ -564,6 +571,7 @@ func shortLog*(v: DataColumnSidecar): auto =
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     beacon_block_root: shortLog(v.beacon_block_root),
+    slot: v.slot,
   )
 
 func shortLog*(v: SomeBeaconBlock): auto =
