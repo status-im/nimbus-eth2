@@ -1310,8 +1310,8 @@ proc process_execution_payload_bid*(
       withdrawal: BuilderPendingWithdrawal(
         fee_recipient: bid.fee_recipient,
         amount: amount,
-        builder_index: builder_index.uint64
-      )
+        builder_index: builder_index.uint64,
+        withdrawable_epoch: FAR_FUTURE_EPOCH)
     )
   state.builder_pending_payments.mitem(
     SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
