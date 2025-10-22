@@ -525,7 +525,7 @@ proc spawnAttestationTasksV2(
     duties = vc.getAttesterDutiesForSlot(slot)
 
   # Waiting for blocks to be published before attesting.
-  await vc.waitForBlock(slot, attestationSlotOffset)
+  await vc.waitForBlock(slot, vc.timeParams.attestationSlotOffset)
 
   try:
     let timeout = vc.beaconClock.fromNow(slot + 1).durationOrZero()
@@ -560,7 +560,7 @@ proc mainLoop(service: AttestationServiceRef) {.async: (raises: []).} =
     try:
       let
         # We use zero offset here, because we do waiting in
-        # waitForBlock(attestationSlotOffset).
+        # waitForBlock(vc.timeParams.attestationSlotOffset).
         slot = await vc.checkedWaitForNextSlot(currentSlot,
                                                ZeroTimeDiff, false)
       if slot.isNone():
