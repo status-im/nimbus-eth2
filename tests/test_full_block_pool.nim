@@ -52,14 +52,14 @@ suite "Full block pool":
 
   test "Block has been seen":
     let defaultBlock = gloas.SignedBeaconBlock()
-    check not pool.isBlockSeen(defaultBlock)
+    check not pool.isBlockSeen(defaultBlock.root)
     quarantine[].addMissing(defaultBlock.root)
-    check pool.isBlockSeen(defaultBlock)
+    check pool.isBlockSeen(defaultBlock.root)
 
     let blck = gloas.SignedBeaconBlock(root: root1)
-    check not pool.isBlockSeen(blck)
+    check not pool.isBlockSeen(blck.root)
     quarantine[].addUnviable(blck.root)
-    check pool.isBlockSeen(blck)
+    check pool.isBlockSeen(blck.root)
 
   test "Envelope status":
     let envelope = SignedExecutionPayloadEnvelope(

@@ -134,11 +134,6 @@ func isBlockSeen*(
   # check the DAG chain
   pool.dag.getBlockRef(blockRoot).isSome()
 
-func isBlockSeen*(
-    pool: FullBlockPool,
-    blck: ForkySignedBeaconBlock): bool =
-  pool.isBlockSeen(blck.root)
-
 func getEnvelope(
     pool: FullBlockPool,
     key: ExecPayloadUniqKey):
