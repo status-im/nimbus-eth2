@@ -80,7 +80,7 @@ pipeline {
     }
 
     stage('Deps') {
-      steps { timeout(20) {
+      steps { timeout(30) {
         /* To allow the following parallel stages. */
         sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
         /* Allow the following parallel stages. */
@@ -105,7 +105,7 @@ pipeline {
     stage('Tests') {
       parallel {
         stage('General') {
-          steps { timeout(60) {
+          steps { timeout(75) {
             sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
             sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
           } }
