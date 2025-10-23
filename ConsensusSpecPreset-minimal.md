@@ -4444,7 +4444,7 @@ ConsensusSpecPreset-minimal
 + Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
 + Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
 + Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
-  Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li Skip
++ Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
@@ -4508,10 +4508,10 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
-  Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without Skip
-  Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        Skip
-  Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for Skip
-  Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr Skip
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
