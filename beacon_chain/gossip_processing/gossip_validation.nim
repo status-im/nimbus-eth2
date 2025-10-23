@@ -463,7 +463,7 @@ template validateBeaconBlockGloas(
     # `bid.parent_block_hash`) passes all validation.
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
-        if bid.parent_block_hash != dag.headState.latest_block_hash:
+        if bid.parent_block_hash != forkyState.latest_block_hash:
           return dag.checkedReject("validateBeaconBlockGloas: invalid execution payload parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
