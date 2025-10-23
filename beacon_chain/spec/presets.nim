@@ -878,8 +878,7 @@ proc readRuntimeConfig*(
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(
-      constValue: untyped, name: string, operator: untyped = `==`,
-      discardValue = true): untyped =
+      constValue: untyped, name: string, operator: untyped = `==`): untyped =
     if values.hasKey(name):
       const opDesc = astToStr(operator)
       try:
@@ -897,8 +896,7 @@ proc readRuntimeConfig*(
               "Cannot override config" &
               " (required: " & name & " " & opDesc & " " & $constValue &
               " - config: " & name & "=" & values[name] & ")")
-        if discardValue:
-          values.del name
+        values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
@@ -907,9 +905,6 @@ proc readRuntimeConfig*(
     block:
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
-
-  checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-                     "SECONDS_PER_SLOT", `in`, discardValue = false
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
@@ -1034,6 +1029,30 @@ proc readRuntimeConfig*(
   var unknowns: seq[string]
   for name in values.keys:
     unknowns.add name
+
+  template checkParsedValue(
+      constValue: untyped, value: auto, operator: untyped = `==`): untyped =
+    const opDesc = astToStr(operator)
+    try:
+      when constValue is distinct:
+        if not operator(distinctBase(value), distinctBase(constValue)):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " &
+            opDesc & " " & $distinctBase(constValue) &
+            " - config: " & name & "=" & values[name] & ")")
+      else:
+        if not operator(value, constValue):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " & opDesc & " " & $constValue &
+            " - config: " & name & "=" & values[name] & ")")
+    except ValueError:
+      raise (ref PresetFileError)(msg: "Unable to parse " & name)
+
+  checkParsedValue(
+    MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
+    cfg.timeParams.SECONDS_PER_SLOT, `in`)
 
   (cfg, unknowns)
 
