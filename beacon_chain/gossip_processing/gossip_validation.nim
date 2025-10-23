@@ -600,7 +600,7 @@ proc validateDataColumnSidecar*(
   template block_header: untyped = data_column_sidecar.signed_block_header.message
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
   block:
-    let v = verify_data_column_sidecar(data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -732,7 +732,7 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
   block:
-    let v = verify_data_column_sidecar(data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
