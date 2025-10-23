@@ -2543,7 +2543,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
       node.dag.headState, finalized_checkpoint)),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
-    SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
     validators = node.attachedValidators[].count

@@ -573,8 +573,6 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     ? uint64.parseConfigValue c.getOrDefault("SECONDS_PER_SLOT", defaultStr)
   if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT:
     return Opt.none TimeParams
-  if SECONDS_PER_SLOT != presets.SECONDS_PER_SLOT:
-    return Opt.none TimeParams  # Temporary, until removed from presets
   Opt.some TimeParams(SECONDS_PER_SLOT: SECONDS_PER_SLOT)
 
 proc updateStatus*(node: BeaconNodeServerRef,
