@@ -285,7 +285,7 @@ proc processBatch(
 
   let
     startTick = Moment.now()
-    slotDuration = batchCrypto.timeParams.SECONDS_PER_SLOT.int64.seconds
+    slotDuration = batchCrypto.timeParams.SLOT_DURATION
 
   # If the hardware is too slow to keep up or an event caused a temporary
   # buildup of signature verification tasks, the batch will be dropped so as to
