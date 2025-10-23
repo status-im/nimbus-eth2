@@ -180,9 +180,6 @@ when const_preset == "mainnet":
   import ./presets/mainnet
   export mainnet
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -356,9 +353,6 @@ elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 5
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -527,8 +521,6 @@ elif const_preset == "gnosis":
 elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
-
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
@@ -719,15 +711,14 @@ else:
   # createConstantsFromPreset const_preset
 
 const IsMainnetSupported*: bool =
-  const_preset == "mainnet" and SECONDS_PER_SLOT == 12
+  const_preset == "mainnet"
 
 const IsGnosisSupported*: bool =
-  const_preset == "gnosis" and SECONDS_PER_SLOT == 5
+  const_preset == "gnosis"
 
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
   MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
-  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -915,9 +906,8 @@ proc readRuntimeConfig*(
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
 
-  checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
-  # checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-  #                    "SECONDS_PER_SLOT", `in`
+  checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
+                     "SECONDS_PER_SLOT", `in`
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
@@ -998,7 +988,6 @@ proc readRuntimeConfig*(
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
 
-  checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS
   checkCompatibility AGGREGATE_DUE_BPS
   checkCompatibility SYNC_MESSAGE_DUE_BPS
@@ -1029,6 +1018,8 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   # Requires initialized `cfg`
+  checkCompatibility cfg.timeParams.SECONDS_PER_SLOT * 1000,
+                     "SLOT_DURATION_MS"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,

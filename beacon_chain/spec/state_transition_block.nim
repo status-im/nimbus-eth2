@@ -1311,18 +1311,19 @@ proc process_execution_payload_bid*(
   if bid.parent_block_root != blck.parent_root:
     return err("process_execution_payload_bid: parent block root mismatch")
 
-  # Record the pending payment
-  let
-    pending_payment = BuilderPendingPayment(
-      weight: 0.Gwei,
-      withdrawal: BuilderPendingWithdrawal(
-        fee_recipient: bid.fee_recipient,
-        amount: amount,
-        builder_index: builder_index.uint64
+  # Record the pending payment if there is some payment
+  if amount > 0.Gwei:
+    let
+      pending_payment = BuilderPendingPayment(
+        weight: 0.Gwei,
+        withdrawal: BuilderPendingWithdrawal(
+          fee_recipient: bid.fee_recipient,
+          amount: amount,
+          builder_index: builder_index.uint64,
+          withdrawable_epoch: FAR_FUTURE_EPOCH)
       )
-    )
-  state.builder_pending_payments.mitem(
-    SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
+    state.builder_pending_payments.mitem(
+      SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
   # Cache the signed execution payload bid
   state.latest_execution_payload_bid = bid
