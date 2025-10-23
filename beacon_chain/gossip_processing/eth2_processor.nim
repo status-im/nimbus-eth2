@@ -272,8 +272,9 @@ proc processSignedBeaconBlock*(
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
   when consensusFork == ConsensusFork.Gloas:
-    let sidecarsOpt = 
-      self.dataColumnQuarantine[].popSidecars(signedBlock)
+    debugGloasComment ""
+    # gloas needs proper data column handling
+    let sidecarsOpt = Opt.some(default(seq[ref gloas.DataColumnSidecar]))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)

@@ -600,6 +600,12 @@ AllTests-mainnet
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
 ```
+## Execution Payload Bid Pool
+```diff
++ Add and retrieve bid by slot and builder                                                   OK
++ Highest bid selection                                                                      OK
++ Pruning removes old bids                                                                   OK
+```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK

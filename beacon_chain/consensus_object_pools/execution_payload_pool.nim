@@ -11,11 +11,9 @@ import
   std/tables,
   stew/shims/hashes,
   chronicles,
-  ../spec/[digest, forks, helpers],
   ../beacon_clock,
-  ./blockchain_dag
-
-export tables
+  ./blockchain_dag,
+  ../spec/[digest, forks, helpers]
 
 logScope: topics = "bidpool"
 
@@ -23,7 +21,7 @@ type
   BidKey* = object
     slot*: Slot
     builderIndex*: uint64
-  
+
   BidDetail* = object
     bid*: SignedExecutionPayloadBid
     receivedAt*: BeaconTime
@@ -75,6 +73,22 @@ proc addBid*(
     pool.highestBids[parentKey] = signedBid
     debug "Updated highest bid for slot and parent (first bid)"
 
+func getBid*(
+    pool: ExecutionPayloadBidPool,
+    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+  try:
+    for detail in pool.bids.values:
+      if detail.bid.message.parent_block_root == blockRoot:
+        return Opt.some(detail.bid)
+    Opt.none(SignedExecutionPayloadBid)
+  except KeyError:
+    Opt.none(SignedExecutionPayloadBid)
+
+func hasBid*(
+    pool: ExecutionPayloadBidPool,
+    blockRoot: Eth2Digest): bool =
+  pool.getBid(blockRoot).isSome()
+
 func getBidForSlotAndBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     builderIndex: uint64): Opt[SignedExecutionPayloadBid] =
@@ -98,22 +112,6 @@ func getHighestBidForSlotAndParent*(
       Opt.none(SignedExecutionPayloadBid)
   except KeyError:
     Opt.none(SignedExecutionPayloadBid)
-
-func getBid*(
-    pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
-  try:
-    for detail in pool.bids.values:
-      if detail.bid.message.parent_block_root == blockRoot:
-        return Opt.some(detail.bid)
-    Opt.none(SignedExecutionPayloadBid)
-  except KeyError:
-    Opt.none(SignedExecutionPayloadBid)
-
-func hasBid*(
-    pool: ExecutionPayloadBidPool, 
-    blockRoot: Eth2Digest): bool =
-  pool.getBid(blockRoot).isSome()
 
 proc prune*(pool: var ExecutionPayloadBidPool, finalizedSlot: Slot) =
   var
