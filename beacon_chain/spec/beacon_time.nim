@@ -174,7 +174,7 @@ func lightClientOptimisticUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
   TimeDiff(nanoseconds:
     timeParams.NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#introduction
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/beacon-chain.md#introduction
 # Ideally bids should arrive before the start of the slot -
 # allow 1s grace period for network propagation
 func executionPayloadBidOffset*(timeParams: TimeParams): TimeDiff =
