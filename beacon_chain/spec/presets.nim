@@ -878,7 +878,8 @@ proc readRuntimeConfig*(
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(
-      constValue: untyped, name: string, operator: untyped = `==`): untyped =
+      constValue: untyped, name: string, operator: untyped = `==`,
+      discardValue = true): untyped =
     if values.hasKey(name):
       const opDesc = astToStr(operator)
       try:
@@ -896,7 +897,8 @@ proc readRuntimeConfig*(
               "Cannot override config" &
               " (required: " & name & " " & opDesc & " " & $constValue &
               " - config: " & name & "=" & values[name] & ")")
-        values.del name
+        if discardValue:
+          values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
@@ -907,7 +909,7 @@ proc readRuntimeConfig*(
       checkCompatibility(constValue, name, operator)
 
   checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-                     "SECONDS_PER_SLOT", `in`
+                     "SECONDS_PER_SLOT", `in`, discardValue = false
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
