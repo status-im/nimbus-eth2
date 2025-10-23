@@ -51,12 +51,15 @@ const
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex
     column*: DataColumn
     kzg_commitments*: KzgCommitments
     kzg_proofs*: deneb.KzgProofs
+    # [New in Gloas:EIP7732]
+    slot*: Slot
+    # [New in Gloas:EIP7732]
     beacon_block_root*: Eth2Digest
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
