@@ -463,15 +463,13 @@ template validateBeaconBlockGloas(
     # `bid.parent_block_hash`) passes all validation.
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
-        if bid.parent_block_hash != forkyState.latest_block_hash:
+        if bid.parent_block_hash != forkyState.data.latest_block_hash:
           return dag.checkedReject("validateBeaconBlockGloas: invalid execution payload parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
   if bid.parent_block_root != blck.parent_root:
     return dag.checkedReject("validateBeaconBlockGloas: parent block root mismatch")
-
-  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
