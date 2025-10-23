@@ -436,10 +436,11 @@ func is_execution_enabled*(
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
-func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
+func compute_timestamp_at_slot*(
+    timeParams: TimeParams, state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
-  state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
+  state.genesis_time + slots_since_genesis * timeParams.SECONDS_PER_SLOT
 
 template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)
@@ -552,13 +553,13 @@ func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
 func is_builder_payment_withdrawable*(
-    state: gloas.BeaconState, 
+    state: gloas.BeaconState,
     withdrawal: BuilderPendingWithdrawal): bool =
   ## Check if the builder is slashed and not yet withdrawable.
-  let 
+  let
     builder = state.validators[withdrawal.builder_index]
     current_epoch = state.slot.epoch
-  
+
   builder.withdrawable_epoch >= current_epoch or not builder.slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full

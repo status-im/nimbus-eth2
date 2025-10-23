@@ -246,11 +246,6 @@ jobs:
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
           done
 
-      - name: Build with custom SECONDS_PER_SLOT
-        run: |
-          source env.sh
-          nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE -d:SECONDS_PER_SLOT=1 beacon_chain/nimbus_beacon_node
-
   lint:
     name: "Lint"
     runs-on: ubuntu-latest

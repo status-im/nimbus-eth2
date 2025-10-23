@@ -48,7 +48,7 @@ const
   PROPOSER_REORG_CUTOFF_BPS: uint64 = 1667
 
 type
-  TimeConfig* = object
+  TimeParams* = object
     SECONDS_PER_SLOT*: uint64
 
   Version* = distinct array[4, byte]
@@ -93,7 +93,7 @@ type
     GLOAS_FORK_EPOCH*: Epoch
 
     # Time parameters
-    time*: TimeConfig
+    timeParams*: TimeParams
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
@@ -180,9 +180,6 @@ when const_preset == "mainnet":
   import ./presets/mainnet
   export mainnet
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -254,7 +251,7 @@ when const_preset == "mainnet":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # 12 seconds
       SECONDS_PER_SLOT: 12),
     # 14 (estimate from Eth1 mainnet)
@@ -356,9 +353,6 @@ elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 5
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -425,7 +419,7 @@ elif const_preset == "gnosis":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # 5 seconds
       SECONDS_PER_SLOT: 5),
     # 14 (estimate from Eth1 mainnet)
@@ -528,8 +522,6 @@ elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
 
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
@@ -594,7 +586,7 @@ elif const_preset == "minimal":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # [customized] Faster for testing purposes
       SECONDS_PER_SLOT: 6),
     # 14 (estimate from Eth1 mainnet)
@@ -727,18 +719,15 @@ const
 
   IsMainnetSupported*: bool =
     const_preset == "mainnet" and
-    AreConstantsDefault and
-    SECONDS_PER_SLOT == 12
+    AreConstantsDefault
 
   IsGnosisSupported*: bool =
     const_preset == "gnosis" and
-    AreConstantsDefault and
-    SECONDS_PER_SLOT == 5
+    AreConstantsDefault
 
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
   MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
-  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -791,8 +780,8 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
-func parse(T: typedesc[TimeConfig], input: string): T {.raises: [ValueError].} =
-  raise (ref ValueError)(msg: "Unexpected TimeConfig value")
+func parse(T: typedesc[TimeParams], input: string): T {.raises: [ValueError].} =
+  raise (ref ValueError)(msg: "Unexpected TimeParams value")
 
 func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
@@ -928,7 +917,6 @@ proc readRuntimeConfig*(
 
   checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
                      "SECONDS_PER_SLOT", `in`
-  checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
 
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
@@ -1009,7 +997,6 @@ proc readRuntimeConfig*(
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
 
-  checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS
   checkCompatibility AGGREGATE_DUE_BPS
   checkCompatibility SYNC_MESSAGE_DUE_BPS
@@ -1032,7 +1019,7 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     assignValue(name, field)
-  for name, field in cfg.time.fieldPairs():
+  for name, field in cfg.timeParams.fieldPairs():
     assignValue(name, field)
 
   if cfg.PRESET_BASE != const_preset:
@@ -1040,6 +1027,8 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   # Requires initialized `cfg`
+  checkCompatibility cfg.timeParams.SECONDS_PER_SLOT * 1000,
+                     "SLOT_DURATION_MS"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
@@ -1070,3 +1059,7 @@ func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD
   let maxEpochs = cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
   (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod
+
+func defaultSyncHorizon*(timeParams: TimeParams): uint64 =
+  (uint64(10 * 60) + timeParams.SECONDS_PER_SLOT - 1) div
+    timeParams.SECONDS_PER_SLOT

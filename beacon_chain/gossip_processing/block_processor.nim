@@ -23,7 +23,7 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError
+  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
 from ../consensus_object_pools/blob_quarantine import
@@ -103,7 +103,9 @@ type
       ## time
 
   NoSidecars* = typeof(())
-  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DataColumnSidecars]
+  SomeOptSidecars =
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
+    Opt[gloas.DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
 
@@ -222,13 +224,14 @@ proc verifySidecars(
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
   if sidecarsOpt.isSome():
-    debug "Inserting blobs into database", blobs = sidecarsOpt[].len
     for b in sidecarsOpt[]:
       self.consensusManager.dag.db.putBlobSidecar(b[])
 
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[DataColumnSidecars]) =
+proc storeSidecars(
+    self: BlockProcessor,
+    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
+) =
   if sidecarsOpt.isSome():
-    debug "Inserting columns into database", columns = sidecarsOpt[].len
     for c in sidecarsOpt[]:
       self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
@@ -396,11 +399,12 @@ proc enqueueQuarantine(self: ref BlockProcessor, root: Eth2Digest) =
     withBlck(quarantined):
       when consensusFork == ConsensusFork.Gloas:
         debugGloasComment ""
-        self.enqueueBlock(MsgSource.gossip, forkyBlck, Opt.none(DataColumnSidecars))
+        self.enqueueBlock(
+          MsgSource.gossip, forkyBlck, Opt.none(gloas.DataColumnSidecars))
       elif consensusFork == ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self.enqueueBlock(
-            MsgSource.gossip, forkyBlck, Opt.some(DataColumnSidecars @[])
+            MsgSource.gossip, forkyBlck, Opt.some(fulu.DataColumnSidecars @[])
           )
         else:
           if (let res = checkBlobOrColumnlessSignature(self[], forkyBlck); res.isErr):
@@ -578,10 +582,11 @@ proc storeBlock(
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
-    wallSlot = wallTime.slotOrZero
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
     deadlineTime =
       block:
-        let slotTime = (wallSlot + 1).start_beacon_time() - 1.seconds
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - 1.seconds
         if slotTime <= wallTime:
           0.seconds
         else:
@@ -775,11 +780,8 @@ proc addBlock*(
 
       discard await idleAsync().withTimeout(idleTimeout)
 
-      let
-        wallTime = self.getBeaconTime()
-        (afterGenesis, _) = wallTime.toSlot()
-
-      if not afterGenesis:
+      let wallTime = self.getBeaconTime()
+      if not wallTime.afterGenesis:
         fatal "Processing block before genesis, clock turned back?"
         quit 1
 
@@ -814,9 +816,12 @@ proc addBlock*(
         when sidecarsOpt is Opt[BlobSidecars]:
           if sidecarsOpt.isSome:
             self.blobQuarantine[].put(blockRoot, sidecarsOpt.get)
-        elif sidecarsOpt is Opt[DataColumnSidecars]:
+        elif sidecarsOpt is Opt[fulu.DataColumnSidecars]:
           if sidecarsOpt.isSome:
             self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
+        elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
+          if sidecarsOpt.isSome:
+            debugGloasComment ""
         elif sidecarsOpt is NoSidecars:
           discard
         else:

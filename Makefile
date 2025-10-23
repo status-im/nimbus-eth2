@@ -111,7 +111,7 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
-# We don't need these `vendor/holesky` and `vendor/hoodi` files but
+# We don't need these `vendor/hoodi` files but
 # fetching them may trigger 'This repository is over its data quota' from GitHub
 #
 # MSYS_NO_PATHCONV=1: On Windows MSYS2, 1st path gets mangled without this flag!
@@ -125,7 +125,7 @@ ifeq ($(NIM_PARAMS),)
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
 
-# `vendor/holesky` and `vendor/hoodi` require Git LFS
+# `vendor/hoodi` requires Git LFS
 ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
 $(error Git LFS not installed. Run 'brew install git-lfs' to set up)

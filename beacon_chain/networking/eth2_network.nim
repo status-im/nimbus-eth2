@@ -859,7 +859,7 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.DataColumnSidecar:
+         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -1629,13 +1629,16 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       default(CgcBits)
   )
 
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.getBeaconTime().slotOrZero(node.cfg.timeParams).epoch
+
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
     let
-      currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
+        node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
       wantedCgcnetsCount = wantedCgcnets.countOnes()
@@ -2178,14 +2181,11 @@ func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
 proc getMetadata_vx(node: Eth2Node, peer: Peer):
                     Future[NetRes[fulu.MetaData]]
                    {.async: (raises: [CancelledError]).} =
-  let
-    res =
-      if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
-        # Directly fetch fulu metadata if available
-        await getMetadata_v3(peer)
-      else:
-        updateMetadataV2ToV3(await getMetadata_v2(peer))
-  return res
+  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
+    # Directly fetch fulu metadata if available
+    await getMetadata_v3(peer)
+  else:
+    updateMetadataV2ToV3(await getMetadata_v2(peer))
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
@@ -2323,7 +2323,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
@@ -2376,11 +2376,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [CatchableError].} =
   let
-    enrForkId = getENRForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
-
-    discoveryForkId = getDiscoveryForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
+    wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
+    enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
+    discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 
     listenAddress =
       if config.listenAddress.isSome():
@@ -2455,7 +2453,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip = 3,
       fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      seenTTL = chronos.seconds(int(
+        cfg.timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
       gossipThreshold = -4000,
       publishThreshold = -8000,
       graylistThreshold = -16000, # also disconnect threshold
@@ -2777,9 +2776,6 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
 
 func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
-
-proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId,

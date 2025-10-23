@@ -9,7 +9,7 @@
 
 import
   system/ansi_c,
-  std/[os, random, terminal, times],
+  std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -265,7 +265,7 @@ proc checkWeakSubjectivityCheckpoint(
     wsCheckpoint: Checkpoint,
     beaconClock: BeaconClock) =
   let
-    currentSlot = beaconClock.now.slotOrZero
+    currentSlot = beaconClock.currentSlot
     isCheckpointStale = not is_within_weak_subjectivity_period(
       dag.cfg, currentSlot, dag.headState, wsCheckpoint)
 
@@ -369,7 +369,7 @@ proc initFullNode(
     dag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    node.beaconClock.now.slotOrZero
+    node.currentSlot
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     dag.finalizedHead.slot
@@ -390,8 +390,7 @@ proc initFullNode(
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
   proc isWithinWeakSubjectivityPeriod(): bool =
-    isSlotWithinWeakSubjectivityPeriod(node.dag,
-      node.beaconClock.now().slotOrZero())
+    isSlotWithinWeakSubjectivityPeriod(node.dag, node.currentSlot)
 
   proc forkAtEpoch(epoch: Epoch): ConsensusFork =
     consensusForkAtEpoch(dag.cfg, epoch)
@@ -418,7 +417,7 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode
+    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
@@ -452,7 +451,10 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          when consensusFork == ConsensusFork.Gloas:
+            let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+          else:
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -474,7 +476,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "no blob_kzg_commitments field for gloas"
-          let sidecarsOpt = Opt.none(DataColumnSidecars)
+          let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
@@ -605,7 +607,7 @@ proc initFullNode(
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
-  if node.config.peerdasSupernode:
+  if supernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
@@ -668,7 +670,7 @@ proc initFullNode(
   block:
     # Add in-process validators to the list of "known" validators such that
     # we start with a reasonable ENR
-    let wallSlot = node.beaconClock.now().slotOrZero()
+    let wallSlot = node.currentSlot
     for validator in node.attachedValidators[].validators.values():
       if config.validatorMonitorAuto:
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
@@ -729,10 +731,11 @@ proc init*(
         metadata, config.genesisState, config.genesisStateUrl)
     let
       genesisTime = getStateField(genesisState[], genesis_time)
-      beaconClock = BeaconClock.init(metadata.cfg.time, genesisTime).valueOr:
+      beaconClock = BeaconClock.init(
+          metadata.cfg.timeParams, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
         quit 1
-      currentSlot = beaconClock.now().slotOrZero()
+      currentSlot = beaconClock.currentSlot
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
         root: getStateField(genesisState[], latest_block_header).state_root)
@@ -913,7 +916,7 @@ proc init*(
   # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      cfg.time,
+      cfg.timeParams,
       config.validatorMonitorAuto,
       config.validatorMonitorTotals.get(
         not config.validatorMonitorDetails)))
@@ -926,7 +929,7 @@ proc init*(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
       quit 1
 
@@ -1020,6 +1023,7 @@ proc init*(
         validatorPool,
         keystoreCache,
         rng,
+        cfg.timeParams,
         keymanagerInitResult.token,
         config.validatorsDir,
         config.secretsDir,
@@ -1132,7 +1136,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, forkDigest)
     node.network.subscribeAttestationSubnets(
       subscribeSubnets, forkDigest,
-      getAttestationSubnetTopicParams(validatorsCount))
+      getAttestationSubnetTopicParams(node.dag.timeParams, validatorsCount))
 
   debug "Attestation subnets",
     slot, epoch = slot.epoch, gossipState = node.gossipState,
@@ -1183,7 +1187,8 @@ proc updateBlocksGossipStatus*(
   for gossipEpoch in newGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
+      getBeaconBlocksTopic(forkDigest),
+      getBlockTopicParams(node.dag.timeParams),
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -1194,14 +1199,18 @@ proc addPhase0MessageHandlers(
     withState(node.dag.headState):
       forkyState.data.validators.lenu64
   node.network.subscribe(
-    getAttesterSlashingsTopic(forkDigest), getAttesterSlashingTopicParams())
+    getAttesterSlashingsTopic(forkDigest),
+    getAttesterSlashingTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getProposerSlashingsTopic(forkDigest), getProposerSlashingTopicParams())
+    getProposerSlashingsTopic(forkDigest),
+    getProposerSlashingTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getVoluntaryExitsTopic(forkDigest), getVoluntaryExitTopicParams())
+    getVoluntaryExitsTopic(forkDigest),
+    getVoluntaryExitTopicParams(node.dag.timeParams))
   node.network.subscribe(
     getAggregateAndProofsTopic(forkDigest),
-    getAggregateProofTopicParams(validatorsCount), enableTopicMetrics = true)
+    getAggregateProofTopicParams(node.dag.timeParams, validatorsCount),
+    enableTopicMetrics = true)
 
   # updateAttestationSubnetHandlers subscribes attestation subnets
 
@@ -1262,7 +1271,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode:
+  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
     node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
     vcus_count
@@ -1296,19 +1305,20 @@ proc addAltairMessageHandlers(
     if syncnets[subcommitteeIdx]:
       node.network.subscribe(
         getSyncCommitteeTopic(forkDigest, subcommitteeIdx),
-        getSyncCommitteeSubnetTopicParams(validatorsCount))
+        getSyncCommitteeSubnetTopicParams(node.dag.timeParams, validatorsCount))
 
   node.network.subscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest),
-    getSyncContributionTopicParams())
+    getSyncContributionTopicParams(node.dag.timeParams))
 
   node.network.updateSyncnetsMetadata(syncnets)
 
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest),
-    getBlsToExecutionChangeTopicParams())
+  node.network.subscribe(
+    getBlsToExecutionChangeTopic(forkDigest),
+    getBlsToExecutionChangeTopicParams(node.dag.timeParams))
 
 proc doAddDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
@@ -1431,8 +1441,8 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       if oldSyncnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
       elif newSyncnets[subcommitteeIdx]:
-        node.network.subscribe(topic,
-          getSyncCommitteeSubnetTopicParams(validatorsCount))
+        node.network.subscribe(topic, getSyncCommitteeSubnetTopicParams(
+          node.dag.timeParams, validatorsCount))
 
   node.network.updateSyncnetsMetadata(syncnets)
 
@@ -1726,7 +1736,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "Stored data columns", columns = indices.len
+      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
@@ -1742,7 +1752,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       # Reconstruct columns
       let recovered = recover_cells_and_proofs_parallel(
         node.batchVerifier[].taskpool, columns).valueOr:
-          error "Error in data column reconstruction"
+          error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
       var reconCounter = 0
@@ -1782,9 +1792,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
-  const endOffset = aggregateSlotOffset + nanos(
-    (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
-  let endCutoff = node.beaconClock.fromNow(slot.start_beacon_time + endOffset)
+  let
+    endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+      node.dag.timeParams.NANOSECONDS_PER_SLOT -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+    endCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
@@ -1902,7 +1915,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # int64 conversion is safe
       doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
       "in " & toTimeLeftString(
-        SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
+        node.dag.timeParams.SECONDS_PER_SLOT.int64.seconds *
+        slotsToNextSyncCommitteePeriod.int64)
     else:
       "none"
 
@@ -1938,7 +1952,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
-    slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
+    slot.start_beacon_time(node.dag.timeParams) +
+    chronos.seconds(int(node.dag.timeParams.SECONDS_PER_SLOT - 1)))
 
   let proposalFcu =
     if advanceCutoff.inFuture:
@@ -1949,7 +1964,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       await sleepAsync(advanceCutoff.offset)
       let
         nextSlot = slot + 1
-        nextSlotCutoff = node.beaconClock.fromNow(nextSlot.start_beacon_time)
+        nextSlotCutoff = node.beaconClock.fromNow(
+          nextSlot.start_beacon_time(node.dag.timeParams))
         head = node.dag.head # could be a new head compared to earlier
 
       if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
@@ -1974,8 +1990,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
+     (not node.config.debugPeerdasSupernode) and
      (slot.epoch() + 1).start_slot() - slot == 1 and
-     node.quarantine.sidecarless.len == 0 and
+     node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
     node.validatorCustody.detectNewValidatorCustody(slot,
@@ -2085,11 +2102,11 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   ##           start work from - there might be jumps if processing is delayed
   let
     # The slot we should be at, according to the clock
-    wallSlot = wallTime.slotOrZero
+    wallSlot = wallTime.slotOrZero(node.dag.timeParams)
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
-    delay = wallTime - expectedSlot.start_beacon_time()
+    delay = wallTime - expectedSlot.start_beacon_time(node.dag.timeParams)
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
@@ -2146,9 +2163,9 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
 proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
   var
-    curSlot = startTime.slotOrZero()
+    curSlot = startTime.slotOrZero(node.dag.timeParams)
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+    timeToNextSlot = nextSlot.start_beacon_time(node.dag.timeParams) - startTime
 
   info "Scheduling first slot action",
     startTime = shortLog(startTime),
@@ -2164,7 +2181,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
 
     let
       wallTime = node.beaconClock.now()
-      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+      wallSlot = wallTime.slotOrZero(node.dag.timeParams)  # Always >= GENESIS!
 
     if wallSlot < nextSlot:
       # While we were sleeping, the system clock changed and time moved
@@ -2186,7 +2203,8 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
         wallSlot = shortLog(wallSlot)
 
       # cur & next slot remain the same
-      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
+      timeToNextSlot =
+        nextSlot.start_beacon_time(node.dag.timeParams) - wallTime
       continue
 
     if wallSlot > nextSlot + SLOTS_PER_EPOCH:
@@ -2202,7 +2220,8 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
       curSlot = wallSlot - SLOTS_PER_EPOCH
     elif wallSlot > nextSlot:
       notice "Missed expected slot start, catching up",
-        delay = shortLog(wallTime - nextSlot.start_beacon_time()),
+        delay = shortLog(
+          wallTime - nextSlot.start_beacon_time(node.dag.timeParams)),
         curSlot = shortLog(curSlot),
         nextSlot = shortLog(curSlot)
 
@@ -2212,7 +2231,8 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1
-    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+    timeToNextSlot =
+      nextSlot.start_beacon_time(node.dag.timeParams) - node.beaconClock.now()
 
 proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
@@ -2269,22 +2289,19 @@ proc installMessageValidators(node: BeaconNode) =
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
-        when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment " "
-        else:
-          node.network.addValidator(
-            getBeaconBlocksTopic(digest), proc (
-              signedBlock: consensusFork.SignedBeaconBlock,
-              src: PeerId,
-            ): ValidationResult =
-              if node.shouldSyncOptimistically(node.currentSlot):
-                toValidationResult(
-                  node.optimisticProcessor.processSignedBeaconBlock(
-                    signedBlock))
-              else:
-                toValidationResult(
-                  node.processor[].processSignedBeaconBlock(
-                    MsgSource.gossip, signedBlock)))
+        node.network.addValidator(
+          getBeaconBlocksTopic(digest), proc (
+            signedBlock: consensusFork.SignedBeaconBlock,
+            src: PeerId,
+          ): ValidationResult =
+            if node.shouldSyncOptimistically(node.currentSlot):
+              toValidationResult(
+                node.optimisticProcessor.processSignedBeaconBlock(
+                  signedBlock))
+            else:
+              toValidationResult(
+                node.processor[].processSignedBeaconBlock(
+                  MsgSource.gossip, signedBlock)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -2508,7 +2525,8 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
+    genesisTime = node.beaconClock.fromNow(
+      GENESIS_SLOT.start_beacon_time(node.dag.timeParams))
 
   notice "Starting beacon node",
     version = fullVersionStr,
@@ -2516,7 +2534,8 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
+      node.beaconClock.now() -
+      finalizedHead.slot.start_beacon_time(node.dag.timeParams),
     head = shortLog(head),
     justified = shortLog(getStateField(
       node.dag.headState, current_justified_checkpoint)),
@@ -2524,7 +2543,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
       node.dag.headState, finalized_checkpoint)),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
-    SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
     validators = node.attachedValidators[].count
@@ -2550,7 +2568,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
 
   let
     wallTime = node.beaconClock.now()
-    wallSlot = wallTime.slotOrZero()
+    wallSlot = wallTime.slotOrZero(node.dag.timeParams)
 
   node.startLightClient()
   node.requestManager.start()
@@ -2754,6 +2772,8 @@ proc doRunBeaconNode*(
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.syncHorizon.isNone:
+    config.syncHorizon = some(metadata.cfg.timeParams.defaultSyncHorizon)
 
   block:
     let res =
@@ -2883,7 +2903,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     createPidFile(config.dataDir.string / "beacon_node.pid")
     ProcessState.setupStopHandlers()
 

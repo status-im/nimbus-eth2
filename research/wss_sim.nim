@@ -139,9 +139,10 @@ cli do(validatorsDir: string, secretsDir: string,
 
   var
     genesisTime = getStateField(state[], genesis_time)
-    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state",
-        genesis_time = genesisTime, seconds_per_slot = cfg.time.SECONDS_PER_SLOT
+        genesis_time = genesisTime,
+        seconds_per_slot = cfg.timeParams.SECONDS_PER_SLOT
       quit 1
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
@@ -184,7 +185,7 @@ cli do(validatorsDir: string, secretsDir: string,
       slot = getStateField(state[], slot) + 1
     process_slots(cfg, state[], slot, cache, info, {}).expect("works")
 
-    if start_beacon_time(slot) > beaconClock.now():
+    if slot.start_beacon_time(cfg.timeParams) > beaconClock.now():
       notice "Ran out of time",
         epoch = slot.epoch
       break
@@ -266,7 +267,7 @@ cli do(validatorsDir: string, secretsDir: string,
                       headBlock = executionHead,
                       safeBlock = executionHead,
                       finalizedBlock = ZERO_HASH,
-                      timestamp = compute_timestamp_at_slot(
+                      timestamp = cfg.timeParams.compute_timestamp_at_slot(
                         forkyState.data, forkyState.data.slot),
                       prevRandao = get_randao_mix(
                         forkyState.data, get_current_epoch(forkyState.data)),

@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 /* beacon_chain
- * Copyright (c) 2019-2025 Status Research & Development GmbH
+ * Copyright (c) 2025 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,15 +9,15 @@
 library 'status-jenkins-lib@v1.9.2'
 
 pipeline {
-  /* This way we run the same Jenkinsfile on different platforms. */
-  agent { label params.AGENT_LABEL }
+  agent {
+    dockerfile {
+      label 'linuxcontainer'
+      filename 'linux.Dockerfile'
+      dir 'ci'
+    }
+  }
 
   parameters {
-    string(
-      name: 'AGENT_LABEL',
-      description: 'Label for targetted CI slave host: linux/macos',
-      defaultValue: params.AGENT_LABEL ?: getAgentLabel(),
-    )
     choice(
       name: 'VERBOSITY',
       description: 'Value for the V make flag to increase log verbosity',
@@ -63,58 +63,60 @@ pipeline {
   }
 
   stages {
-    stage('Setup') {
-      when { expression { NODE_LABELS.contains("macos") } }
-      steps { script {
-        def brew_prefix = brew.prefix()
-        /* Explicit PATH to avoid using HomeBrew LLVM. */
-        env.PATH = "/usr/local/bin:/usr/sbin:/usr/bin:/bin:${brew_prefix}/bin"
-        /* Newer Clang 18.0 from Homebrew on macOS, XCode provides 15.0.
-         * Temp fix for BLST issue: https://github.com/supranational/blst/issues/209 */
-        if (utils.arch() == 'arm64') {
-          env.PATH     = "${brew_prefix}/opt/llvm/bin:$PATH"
-          env.LDFLAGS  = "-L${brew_prefix}/opt/llvm/lib"
-          env.CPPFLAGS = "-I${brew_prefix}/opt/llvm/include"
-        }
-      } }
-    }
-
     stage('Deps') {
-      steps { timeout(30) {
-        /* To allow the following parallel stages. */
-        sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
-        /* Allow the following parallel stages. */
-        sh 'make deps'
-        /* Download test vectors. */
-        sh './scripts/setup_scenarios.sh'
-      } }
+      steps { 
+        timeout(20) {
+          script {
+            /* To allow the following parallel stages. */
+            sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
+            /* Allow the following parallel stages. */
+            sh 'make deps'
+            /* Download test vectors. */
+            sh './scripts/setup_scenarios.sh'
+          }
+        } 
+      }
     }
 
     stage('Build') {
-      steps { timeout(50) {
-        sh 'make LOG_LEVEL=TRACE'
-      } }
+      steps { 
+        timeout(50) {
+          script {
+            sh 'make LOG_LEVEL=TRACE'
+          }
+        } 
+      }
     }
 
     stage('Check Docs') {
       steps {
-        sh './scripts/check_docs_help_msg.sh'
+        script {
+          sh './scripts/check_docs_help_msg.sh'
+        }
       }
     }
 
     stage('Tests') {
       parallel {
         stage('General') {
-          steps { timeout(75) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
-          } }
+          steps { 
+            timeout(60) {
+              script {
+                sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 NIMFLAGS="--passC:\"-fno-lto\" --passL:\"-fno-lto\"" test'
+                sh 'git diff --exit-code --ignore-submodules=all'
+              }
+            } 
+          }
         }
 
         stage('REST') {
-          steps { timeout(5) {
-            sh 'make restapi-test'
-          } }
+          steps { 
+            timeout(5) {
+              script {
+                sh 'make restapi-test'
+              }
+            } 
+          }
           post { always {
             sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
           } }
@@ -128,18 +130,26 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { timeout(35) {  /* 30 + [6 epochs * 8 slots / epoch * 6 seconds / slot]/60 */
-            sh 'make local-testnet-minimal'
-          } }
+          steps { 
+            timeout(26) {
+              script {
+                sh 'make local-testnet-minimal'
+              }
+            } 
+          }
           post { always {
             sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
           } }
         }
 
         stage('mainnet') {
-          steps { timeout(70) {  /* 30 + [6 epochs * 32 slots / epoch * 12 seconds / slot]/60 */
-            sh 'make local-testnet-mainnet'
-          } }
+          steps { 
+            timeout(62) {
+              script {
+                sh 'make local-testnet-mainnet'
+              }
+            } 
+          }
           post { always {
             sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
           } }
@@ -165,27 +175,13 @@ pipeline {
         disableDeferredWipeout: true,
         deleteDirs: true
       )
+      dir("${env.WORKSPACE}@tmp") { deleteDir() }
     }
   }
 }
 
 def isMainBranch() {
   return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
-}
-
-/* This allows us to use one Jenkinsfile and run
- * jobs on different platforms based on job name. */
-def getAgentLabel() {
-    if (params.AGENT_LABEL) { return params.AGENT_LABEL }
-    /* We extract the name of the job from currentThread because
-     * before an agent is picket env is not available. */
-    def tokens = Thread.currentThread().getName().split('/')
-    def labels = []
-    /* Check if the job path contains any of the valid labels. */
-    ['linux', 'macos', 'x86_64', 'aarch64', 'arm64'].each {
-        if (tokens.contains(it)) { labels.add(it) }
-    }
-    return labels.join(' && ')
 }
 
 def nimCommitForJob() {

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -26,14 +26,17 @@ type
     ): Future[void] {.async: (raises: [CancelledError]).}
 
   OptimisticProcessor* = ref object
+    timeParams: TimeParams
     getBeaconTime: GetBeaconTimeFn
     optimisticVerifier: OptimisticBlockVerifier
     processFut: Future[void].Raising([CancelledError])
 
 proc initOptimisticProcessor*(
+    timeParams: TimeParams,
     getBeaconTime: GetBeaconTimeFn,
     optimisticVerifier: OptimisticBlockVerifier): OptimisticProcessor =
   OptimisticProcessor(
+    timeParams: timeParams,
     getBeaconTime: getBeaconTime,
     optimisticVerifier: optimisticVerifier)
 
@@ -43,7 +46,7 @@ proc validateBeaconBlock(
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():
@@ -56,7 +59,7 @@ proc processSignedBeaconBlock*(
     signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.timeParams)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -69,7 +72,8 @@ proc processSignedBeaconBlock*(
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlock.message.slot.start_beacon_time
+  let delay =
+    wallTime - signedBlock.message.slot.start_beacon_time(self.timeParams)
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant

@@ -21,12 +21,31 @@ type
   ColumnMap* = object
     data: array[2, uint64]
 
+template getPos(column: ColumnIndex): tuple[index: int, offset: int] =
+  (int(uint64(column) shr 6), int(uint64(column) and 0x3F'u64))
+
+func contains*(a: ColumnMap, column: ColumnIndex): bool =
+  if uint64(column) >= NUMBER_OF_COLUMNS:
+    return false
+  let (index, offset) = column.getPos()
+  a.data[index].getBit(offset)
+
+func incl*(a: var ColumnMap, column: ColumnIndex) =
+  if uint64(column) >= NUMBER_OF_COLUMNS:
+    return
+  let (index, offset) = column.getPos()
+  a.data[index].setBit(offset)
+
+func excl*(a: var ColumnMap, column: ColumnIndex) =
+  if uint64(column) >= NUMBER_OF_COLUMNS:
+    return
+  let (index, offset) = column.getPos()
+  a.data[index].clearBit(offset)
+
 func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
   var res: ColumnMap
   for column in columns:
-    let
-      index = int(uint64(column) shr 6)
-      offset = int(uint64(column) and 0x3F'u64)
+    let (index, offset) = column.getPos()
     res.data[index].setBit(offset)
   res
 
@@ -42,14 +61,8 @@ func `xor`*(a, b: ColumnMap): ColumnMap =
 func `not`*(a: ColumnMap): ColumnMap =
   ColumnMap(data: [not(a.data[0]), not(a.data[1])])
 
-func contains*(a: ColumnMap, column: ColumnIndex): bool =
-  if uint64(column) >= NUMBER_OF_COLUMNS:
-    return false
-
-  let
-    index = int(uint64(column) shr 6)
-    offset = int(uint64(column) and 0x3F'u64)
-  a.data[index].getBit(offset)
+func empty*(a: ColumnMap): bool =
+  (a.data[0] == 0'u64) and (a.data[1] == 0'u64)
 
 iterator items*(a: ColumnMap): ColumnIndex =
   var
@@ -80,4 +93,6 @@ func `$`*(a: ColumnMap): string =
   "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
 
 func shortLog*(a: ColumnMap): string =
+  if len(a) > NUMBER_OF_COLUMNS div 2:
+    return "[supernode]"
   $a

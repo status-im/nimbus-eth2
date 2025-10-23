@@ -214,13 +214,12 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
     let
       metadata = config.loadEth2Network()
       genesisTime = genesis.genesis_time
-      beaconClock = BeaconClock.init(metadata.cfg.time, genesisTime).valueOr:
+      beaconClock = BeaconClock.init(
+          metadata.cfg.timeParams, genesisTime).valueOr:
         error "Server returned invalid genesis time", genesis
         quit 1
-
-      time = getTime()
-      slot = beaconClock.toSlot(time).slot
-    slot.epoch
+      currentSlot = beaconClock.currentSlot
+    currentSlot.epoch
 
   let exitAtEpoch = if config.exitAtEpoch.isSome:
     Epoch config.exitAtEpoch.get

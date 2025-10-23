@@ -36,11 +36,6 @@ You can make requests as follows (here we are requesting the version the Nimbus 
     curl -X GET  http://unstable.hoodi.beacon-api.nimbus.team/eth/v1/node/version
     ```
 
-=== "Holesky unstable branch"
-    ```
-    curl -X GET  http://unstable.holesky.beacon-api.nimbus.team/eth/v1/node/version
-    ```
-
 === "Sepolia unstable branch"
     ```
     curl -X GET  http://unstable.sepolia.beacon-api.nimbus.team/eth/v1/node/version

@@ -49,6 +49,7 @@ The following options are available:
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
+     --peerdas-supernode       Subscribe to all column subnets, thereby becoming a PeerDAS supernode [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
      --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for

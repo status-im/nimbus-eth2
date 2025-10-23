@@ -880,14 +880,15 @@ proc syncLoop[A, B](
       await man.notInSyncEvent.wait()
 
       # Give the node time to connect to peers and get the sync process started
-      await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+      const pollInterval = seconds(15)
+      await sleepAsync(pollInterval)
 
       var
         stamp = SyncMoment.now(man.queue.progress())
         syncCount = 0
 
       while man.inProgress:
-        await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+        await sleepAsync(pollInterval)
 
         let
           newStamp = SyncMoment.now(man.queue.progress())

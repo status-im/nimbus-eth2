@@ -88,8 +88,9 @@ func signBlock(
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
 
-func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
-    bellatrix.ExecutionPayloadForSigning =
+func build_empty_merge_execution_payload(
+    cfg: RuntimeConfig,
+    state: bellatrix.BeaconState): bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions from a non-merged block.
 
@@ -97,7 +98,7 @@ func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
 
   let
     latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
+    timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
 
   var payload = bellatrix.ExecutionPayload(
@@ -118,13 +119,14 @@ func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
                                        blockValue: Wei.zero)
 
 func build_empty_execution_payload(
+    cfg: RuntimeConfig,
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
     latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
+    timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
     base_fee = calcEip1599BaseFee(latest.gas_limit,
                                   latest.gas_used,
@@ -199,9 +201,9 @@ proc addTestBlock*(
           if forkyState.data.slot > cfg.lastPremergeSlotInTestCfg:
             if is_merge_transition_complete(forkyState.data):
               const feeRecipient = default(Eth1Address)
-              build_empty_execution_payload(forkyState.data, feeRecipient)
+              cfg.build_empty_execution_payload(forkyState.data, feeRecipient)
             else:
-              build_empty_merge_execution_payload(forkyState.data)
+              cfg.build_empty_merge_execution_payload(forkyState.data)
           else:
             default(bellatrix.ExecutionPayloadForSigning)
       else:

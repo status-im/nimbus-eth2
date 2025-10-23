@@ -194,7 +194,7 @@ type
     summaries: array[2, EpochSummary] # We monitor the current and previous epochs
 
   ValidatorMonitor* = object
-    timeConfig: TimeConfig
+    timeParams: TimeParams
 
     epoch: Epoch # The most recent epoch seen in monitoring
 
@@ -261,10 +261,10 @@ proc addAutoMonitor*(
 
 func init*(
     T: type ValidatorMonitor,
-    timeConfig: TimeConfig,
+    timeParams: TimeParams,
     autoRegister = false,
     totals = false): T =
-  T(timeConfig: timeConfig, autoRegister: autoRegister, totals: totals)
+  T(timeParams: timeParams, autoRegister: autoRegister, totals: totals)
 
 template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
 
@@ -665,7 +665,7 @@ proc registerAttestation*(
     attestation: phase0.Attestation | SingleAttestation, idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
-    delay = seen_timestamp - slot.attestation_deadline(self.timeConfig)
+    delay = seen_timestamp - slot.attestation_deadline(self.timeParams)
 
   self.withMonitor(idx):
     let id = monitor.id
@@ -690,7 +690,7 @@ proc registerAggregate*(
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
-    delay = seen_timestamp - slot.aggregate_deadline(self.timeConfig)
+    delay = seen_timestamp - slot.aggregate_deadline(self.timeParams)
     aggregator_index = aggregate_and_proof.aggregator_index
 
   self.withMonitor(aggregator_index):
@@ -761,7 +761,7 @@ proc registerBeaconBlock*(
     let
       id = monitor.id
       slot = blck.slot
-      delay = seen_timestamp - slot.block_deadline(self.timeConfig)
+      delay = seen_timestamp - slot.block_deadline(self.timeParams)
 
     validator_monitor_beacon_block.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
@@ -781,7 +781,7 @@ proc registerSyncCommitteeMessage*(
       id = monitor.id
       slot = sync_committee_message.slot
       delay = seen_timestamp -
-        slot.sync_committee_message_deadline(self.timeConfig)
+        slot.sync_committee_message_deadline(self.timeParams)
 
     validator_monitor_sync_committee_messages.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
@@ -804,7 +804,7 @@ proc registerSyncContribution*(
     participants: openArray[ValidatorIndex]) =
   let
     slot = contribution_and_proof.contribution.slot
-    delay = seen_timestamp - slot.sync_contribution_deadline(self.timeConfig)
+    delay = seen_timestamp - slot.sync_contribution_deadline(self.timeParams)
 
   let aggregator_index = contribution_and_proof.aggregator_index
   self.withMonitor(aggregator_index):
