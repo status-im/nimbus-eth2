@@ -336,6 +336,9 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
+template timeParams*(dag: ChainDAGRef): TimeParams =
+  dag.cfg.timeParams
+
 func proposer_dependent_slot*(epochRef: EpochRef): Slot =
   epochRef.key.epoch.proposer_dependent_slot()
 

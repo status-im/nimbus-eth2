@@ -12,16 +12,16 @@ import
   unittest2,
   ../beacon_chain/spec/beacon_time
 
-from ../beacon_chain/spec/presets import TimeConfig
+from ../beacon_chain/spec/presets import TimeParams
 
 suite "Beacon time":
-  template doBasicsTest(timeConfig: TimeConfig) =
+  template doBasicsTest(timeParams: TimeParams) =
     let
       s0 = Slot(0)
 
     check:
       s0.epoch() == Epoch(0)
-      s0.start_beacon_time(timeConfig) == BeaconTime()
+      s0.start_beacon_time(timeParams) == BeaconTime()
       s0.sync_committee_period() == SyncCommitteePeriod(0)
 
       # Roundtrip far times we treat these as "Infinity"
@@ -32,24 +32,24 @@ suite "Beacon time":
       FAR_FUTURE_EPOCH == FAR_FUTURE_EPOCH
         .start_slot().epoch()
       FAR_FUTURE_SLOT == FAR_FUTURE_SLOT
-        .start_beacon_time(timeConfig).slotOrZero(timeConfig)
+        .start_beacon_time(timeParams).slotOrZero(timeParams)
       FAR_FUTURE_PERIOD == FAR_FUTURE_PERIOD
         .start_epoch().sync_committee_period()
       FAR_FUTURE_PERIOD == FAR_FUTURE_PERIOD
         .start_slot().sync_committee_period()
 
       BeaconTime(ns_since_genesis: -10000000000)
-        .slotOrZero(timeConfig) == GENESIS_SLOT
+        .slotOrZero(timeParams) == GENESIS_SLOT
       Slot(5).since_epoch_start() == 5
       (Epoch(42).start_slot() + 5).since_epoch_start() == 5
 
-      Slot(5).start_beacon_time(timeConfig) >
-        Slot(4).start_beacon_time(timeConfig)
+      Slot(5).start_beacon_time(timeParams) >
+        Slot(4).start_beacon_time(timeParams)
 
-      Slot(4).start_beacon_time(timeConfig) +
-        (Slot(5).start_beacon_time(timeConfig) -
-        Slot(4).start_beacon_time(timeConfig)) ==
-        Slot(5).start_beacon_time(timeConfig)
+      Slot(4).start_beacon_time(timeParams) +
+        (Slot(5).start_beacon_time(timeParams) -
+        Slot(4).start_beacon_time(timeParams)) ==
+        Slot(5).start_beacon_time(timeParams)
 
       Epoch(3).start_slot.is_epoch()
       SyncCommitteePeriod(5).start_epoch().is_sync_committee_period()
@@ -69,7 +69,7 @@ suite "Beacon time":
 
   for SECONDS_PER_SLOT in [5'u64, 6, 12]:
     test "basics (SECONDS_PER_SLOT=" & $SECONDS_PER_SLOT & ")":
-      doBasicsTest(TimeConfig(SECONDS_PER_SLOT: SECONDS_PER_SLOT))
+      doBasicsTest(TimeParams(SECONDS_PER_SLOT: SECONDS_PER_SLOT))
 
   test "Dependent slots":
     check:

@@ -28,11 +28,11 @@ type
     meshMessageActivation: chronos.Duration
     dampeningFactor: float64
 
-func slotsDuration(number: int): chronos.Duration =
-  chronos.seconds(int64(SECONDS_PER_SLOT) * number)
+func slotsDuration(timeParams: TimeParams, number: int): chronos.Duration =
+  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT) * number)
 
-func epochsDuration(number: int): chronos.Duration =
-  chronos.seconds(int64(SECONDS_PER_SLOT * SLOTS_PER_EPOCH) * number)
+func epochsDuration(timeParams: TimeParams, number: int): chronos.Duration =
+  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH) * number)
 
 const
   GossipD = 8
@@ -73,7 +73,6 @@ const
   ## `DecayToZero` specifies the terminal value that we will use when decaying
   ## a value.
   DecayToZero = 0.01'f64
-  DecayInterval = chronos.seconds(int64(SECONDS_PER_SLOT))
   ## `DampeningFactor` reduces the amount by which the various thresholds and
   ## caps are created. Python code and Lighthouse using 50.0, while Prysm
   ## using 90.0.
@@ -89,7 +88,12 @@ const
      AttesterSlashingWeight + ProposerSlashingWeight + VoluntaryExitWeight +
      SyncCommitteesTotalWeight + SyncContributionWeight +
      BlsToExecutionChangeWeight)
-  InvalidMessageDecayPeriod = epochsDuration(50)
+
+func DecayInterval(timeParams: TimeParams): Duration =
+  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT))
+
+func InvalidMessageDecayPeriod(timeParams: TimeParams): Duration =
+  timeParams.epochsDuration(50)
 
 func init(
     t: typedesc[MeshMessageInfo],
@@ -105,10 +109,11 @@ func init(
     dampeningFactor: dampeningFactor
   )
 
-func scoreParameterDecay(decayDuration: chronos.Duration): float64 =
+func scoreParameterDecay(
+    timeParams: TimeParams, decayDuration: chronos.Duration): float64 =
   ## Computes the decay to use such that a value of 1 decays to 0 (using the
   ## DecayToZero parameter) within the specified `decayDuration`.
-  let ticks = decayDuration.seconds div DecayInterval.seconds
+  let ticks = decayDuration.seconds div timeParams.DecayInterval.seconds
   math.pow(DecayToZero, 1'f64 / float64(ticks))
 
 func decayConvergence(decay, rate: float64): float64 =
@@ -140,15 +145,16 @@ func expectedAggregatorCountPerSloot(validators: uint64): float64 =
      float64(moduleLarger)) / float64(SLOTS_PER_EPOCH)
 
 func topicParams(
+    timeParams: TimeParams,
     topicWeight: float64,
     expectedMessageRate: float64,
     firstMessageDecayTime: chronos.Duration,
     meshMessageInfo: Opt[MeshMessageInfo] = Opt.none(MeshMessageInfo)
 ): TopicParams =
   let
-    timeInMeshCap = float64(3600) / float64(SECONDS_PER_SLOT)
+    timeInMeshCap = float64(3600) / float64(timeParams.SECONDS_PER_SLOT)
     firstMessageDeliveriesDecay =
-      scoreParameterDecay(firstMessageDecayTime)
+      timeParams.scoreParameterDecay(firstMessageDecayTime)
     firstMessageDeliveriesCap =
       decayConvergence(firstMessageDeliveriesDecay,
                        2'f64 * expectedMessageRate / float64(GossipD))
@@ -159,7 +165,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(SECONDS_PER_SLOT)),
+        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:
@@ -179,7 +185,7 @@ func topicParams(
       invalidMessageDeliveriesWeight:
         -MaxScore / topicWeight,
       invalidMessageDeliveriesDecay:
-        scoreParameterDecay(InvalidMessageDecayPeriod)
+        timeParams.scoreParameterDecay(timeParams.InvalidMessageDecayPeriod)
     )
   else:
     let
@@ -188,7 +194,7 @@ func topicParams(
         if info.meshMessageDecayTime.isZero():
           0.0'f64
         else:
-          scoreParameterDecay(info.meshMessageDecayTime)
+          timeParams.scoreParameterDecay(info.meshMessageDecayTime)
       meshMessageDeliveriesThreshold =
         if info.meshMessageDecayTime.isZero():
           0.0'f64
@@ -222,7 +228,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(SECONDS_PER_SLOT)),
+        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:
@@ -250,17 +256,19 @@ func topicParams(
       invalidMessageDeliveriesWeight:
         -MaxScore / topicWeight,
       invalidMessageDeliveriesDecay:
-        scoreParameterDecay(InvalidMessageDecayPeriod),
+        timeParams.scoreParameterDecay(timeParams.InvalidMessageDecayPeriod),
     )
 
-func getBlockTopicParams*(): TopicParams =
+func getBlockTopicParams*(timeParams: TimeParams): TopicParams =
   let meshInfo =
-    MeshMessageInfo.init(epochsDuration(5), 3.0'f64,
-                         epochsDuration(1))
-  topicParams(BeaconBlockWeight, 1.0'f64, epochsDuration(20),
-              Opt.some(meshInfo))
+    MeshMessageInfo.init(timeParams.epochsDuration(5), 3.0'f64,
+                         timeParams.epochsDuration(1))
+  timeParams.topicParams(
+    BeaconBlockWeight, 1.0'f64, timeParams.epochsDuration(20),
+    Opt.some(meshInfo))
 
-func getAttestationSubnetTopicParams*(validatorsCount: uint64): TopicParams =
+func getAttestationSubnetTopicParams*(
+    timeParams: TimeParams, validatorsCount: uint64): TopicParams =
   let
     committeesPerSlot = get_committee_count_per_slot(validatorsCount)
     multipleBurstsPerSubnetPerEpoch =
@@ -271,26 +279,28 @@ func getAttestationSubnetTopicParams*(validatorsCount: uint64): TopicParams =
       float64(SLOTS_PER_EPOCH)
     firstMessageDecayTime =
       if multipleBurstsPerSubnetPerEpoch:
-        epochsDuration(1)
+        timeParams.epochsDuration(1)
       else:
-        epochsDuration(4)
+        timeParams.epochsDuration(4)
     meshMessageDecayTime =
       if multipleBurstsPerSubnetPerEpoch:
-        epochsDuration(4)
+        timeParams.epochsDuration(4)
       else:
-        epochsDuration(16)
+        timeParams.epochsDuration(16)
     meshMessageCapFactor = 16.0'f64
     meshMessageActivation =
       if multipleBurstsPerSubnetPerEpoch:
-        slotsDuration(int(SLOTS_PER_EPOCH) div 2 + 1)
+        timeParams.slotsDuration(int(SLOTS_PER_EPOCH) div 2 + 1)
       else:
-        epochsDuration(3)
+        timeParams.epochsDuration(3)
     meshInfo = MeshMessageInfo.init(meshMessageDecayTime, meshMessageCapFactor,
                                     meshMessageActivation)
-  topicParams(topicWeight, messageRate, firstMessageDecayTime,
-              Opt.some(meshInfo))
+  timeParams.topicParams(
+    topicWeight, messageRate, firstMessageDecayTime,
+    Opt.some(meshInfo))
 
-func getSyncCommitteeSubnetTopicParams*(validatorsCount: uint64): TopicParams =
+func getSyncCommitteeSubnetTopicParams*(
+    timeParams: TimeParams, validatorsCount: uint64): TopicParams =
   let
     topicWeight =
       SyncCommitteesTotalWeight / float64(SYNC_COMMITTEE_SUBNET_COUNT)
@@ -301,51 +311,59 @@ func getSyncCommitteeSubnetTopicParams*(validatorsCount: uint64): TopicParams =
         validatorsCount
     messageRate =
       float64(activeValidators) / float64(SYNC_COMMITTEE_SUBNET_COUNT)
-    firstMessageDecayTime = epochsDuration(1)
-    meshMessageDecayTime = epochsDuration(4)
+    firstMessageDecayTime = timeParams.epochsDuration(1)
+    meshMessageDecayTime = timeParams.epochsDuration(4)
     meshMessageCapFactor = 4.0'f64
-    meshMessageActivation = epochsDuration(1)
+    meshMessageActivation = timeParams.epochsDuration(1)
     meshInfo = MeshMessageInfo.init(meshMessageDecayTime, meshMessageCapFactor,
                                     meshMessageActivation)
-  topicParams(topicWeight, messageRate, firstMessageDecayTime,
-              Opt.some(meshInfo))
+  timeParams.topicParams(
+    topicWeight, messageRate, firstMessageDecayTime,
+    Opt.some(meshInfo))
 
-func getAggregateProofTopicParams*(validatorsCount: uint64): TopicParams =
+func getAggregateProofTopicParams*(
+    timeParams: TimeParams, validatorsCount: uint64): TopicParams =
   let
     messageRate = expectedAggregatorCountPerSloot(validatorsCount)
-    meshInfo = MeshMessageInfo.init(epochsDuration(2), 4.0'f64,
-                                    epochsDuration(1))
-  topicParams(AggregateWeight, messageRate, epochsDuration(1),
-              Opt.some(meshInfo))
+    meshInfo = MeshMessageInfo.init(timeParams.epochsDuration(2), 4.0'f64,
+                                    timeParams.epochsDuration(1))
+  timeParams.topicParams(
+    AggregateWeight, messageRate, timeParams.epochsDuration(1),
+    Opt.some(meshInfo))
 
-func getSyncContributionTopicParams*(): TopicParams =
+func getSyncContributionTopicParams*(timeParams: TimeParams): TopicParams =
   let
     messageRate = float64(
       SYNC_COMMITTEE_SUBNET_COUNT * TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)
-    meshInfo = MeshMessageInfo.init(epochsDuration(1), 4.0'f64,
-                                    epochsDuration(1))
-  topicParams(SyncContributionWeight, messageRate, epochsDuration(1),
-              Opt.some(meshInfo))
+    meshInfo = MeshMessageInfo.init(timeParams.epochsDuration(1), 4.0'f64,
+                                    timeParams.epochsDuration(1))
+  timeParams.topicParams(
+    SyncContributionWeight, messageRate, timeParams.epochsDuration(1),
+    Opt.some(meshInfo))
 
-func getVoluntaryExitTopicParams*(): TopicParams =
+func getVoluntaryExitTopicParams*(timeParams: TimeParams): TopicParams =
   let messageRate = 4.0'f64 / float(SLOTS_PER_EPOCH)
-  topicParams(VoluntaryExitWeight, messageRate, epochsDuration(100),
-              Opt.none(MeshMessageInfo))
+  timeParams.topicParams(
+    VoluntaryExitWeight, messageRate, timeParams.epochsDuration(100),
+    Opt.none(MeshMessageInfo))
 
-func getProposerSlashingTopicParams*(): TopicParams =
+func getProposerSlashingTopicParams*(timeParams: TimeParams): TopicParams =
   let messageRate = 1.0'f64 / 5.0'f64 / float64(SLOTS_PER_EPOCH)
-  topicParams(ProposerSlashingWeight, messageRate, epochsDuration(100),
-              Opt.none(MeshMessageInfo))
+  timeParams.topicParams(
+    ProposerSlashingWeight, messageRate, timeParams.epochsDuration(100),
+    Opt.none(MeshMessageInfo))
 
-func getAttesterSlashingTopicParams*(): TopicParams =
+func getAttesterSlashingTopicParams*(timeParams: TimeParams): TopicParams =
   let messageRate = 1.0'f64 / 5.0'f64 / float64(SLOTS_PER_EPOCH)
-  topicParams(AttesterSlashingWeight, messageRate, epochsDuration(100),
-              Opt.none(MeshMessageInfo))
+  timeParams.topicParams(
+    AttesterSlashingWeight, messageRate, timeParams.epochsDuration(100),
+    Opt.none(MeshMessageInfo))
 
-func getBlsToExecutionChangeTopicParams*(): TopicParams =
+func getBlsToExecutionChangeTopicParams*(timeParams: TimeParams): TopicParams =
   let messageRate = 1.0'f64 / 5.0'f64 / float64(SLOTS_PER_EPOCH)
-  topicParams(BlsToExecutionChangeWeight, messageRate, epochsDuration(100),
-              Opt.none(MeshMessageInfo))
+  timeParams.topicParams(
+    BlsToExecutionChangeWeight, messageRate, timeParams.epochsDuration(100),
+    Opt.none(MeshMessageInfo))
 
 func basicParams*(): TopicParams = TopicParams.init()
 

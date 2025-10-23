@@ -131,9 +131,8 @@ proc routeSignedBeaconBlock*(
             return err(res.error())
 
   let
-    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].getCurrentBeaconTime()
-    delay = sendTime - blck.message.slot.block_deadline(timeConfig)
+    delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
     # The block (and blobs, if present) passed basic gossip validation
     # - we can "safely" broadcast it now. In fact, per the spec, we
     # should broadcast it even if it later fails to apply to our
@@ -249,11 +248,10 @@ proc routeAttestation*(
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
-  let timeConfig = router.processor.dag.cfg.time
   block:
     let
       wallTime = router[].processor.getCurrentBeaconTime()
-      wallEpoch = wallTime.slotOrZero(timeConfig).epoch
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
       currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
       res = await router[].processor.processAttestation(
         MsgSource.api, attestation, subnet_id,
@@ -267,7 +265,8 @@ proc routeAttestation*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - attestation.data.slot.attestation_deadline(timeConfig)
+    slot = attestation.data.slot
+    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -319,14 +318,13 @@ proc routeSignedAggregateAndProof*(
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
-  let timeConfig = router.processor.dag.cfg.time
   block:
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
     # that all processing happens anyway
     let
       wallTime = router[].processor.getCurrentBeaconTime()
-      wallEpoch = wallTime.slotOrZero(timeConfig).epoch
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
       currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
       res = await router[].processor.processSignedAggregateAndProof(
         MsgSource.api, proof, checkSignature = checkSignature,
@@ -341,7 +339,7 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    delay = sendTime - slot.aggregate_deadline(timeConfig)
+    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -375,9 +373,9 @@ proc routeSyncCommitteeMessage*(
       return err(res.error()[1])
 
   let
-    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.slot.sync_committee_message_deadline(timeConfig)
+    delay = sendTime -
+      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -497,10 +495,9 @@ proc routeSignedContributionAndProof*(
       return err(res.error()[1])
 
   let
-    timeConfig = router.processor.dag.cfg.time
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    delay = sendTime - slot.sync_contribution_deadline(timeConfig)
+    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
@@ -595,10 +592,9 @@ proc routeBlsToExecutionChange*(
             error = res.error()
       return err(res.error()[1])
 
-  let
-    timeConfig = router.processor.dag.cfg.time
-    wallEpoch = router[].getCurrentBeaconTime().slotOrZero(timeConfig).epoch
-  if wallEpoch < router[].processor[].dag.cfg.CAPELLA_FORK_EPOCH:
+  let wallEpoch =
+    router[].getCurrentBeaconTime().slotOrZero(router[].dag.timeParams).epoch
+  if wallEpoch < router[].dag.cfg.CAPELLA_FORK_EPOCH:
     # Broadcast hasn't failed, it just hasn't happened; desire seems to be to
     # allow queuing up BLS to execution changes.
     return ok()

@@ -192,7 +192,7 @@ proc tryForceUpdate(
     self: var LightClientProcessor,
     wallTime: BeaconTime) =
   ## Try to force-update to the next sync committee period.
-  let wallSlot = wallTime.slotOrZero(self.cfg.time)
+  let wallSlot = wallTime.slotOrZero(self.cfg.timeParams)
   doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
 
   withForkyStore(self.store[]):
@@ -252,7 +252,7 @@ proc doProcessObject(
     withForkyStore(self.store[]):
       when lcDataFork > LightClientDataFork.None:
         let
-          wallSlot = wallTime.slotOrZero(self.cfg.time)
+          wallSlot = wallTime.slotOrZero(self.cfg.timeParams)
           upgradedUpdate = update.migratingToDataFork(lcDataFork)
         process_light_client_update(
           forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,
@@ -468,12 +468,8 @@ proc addObject*(
   #   - `LightClientUpdatesByRange`
   #   - `GetLightClientFinalityUpdate`
   #   - `GetLightClientOptimisticUpdate`
-
-  let
-    wallTime = self.getBeaconTime()
-    (afterGenesis, _) = wallTime.toSlot()
-
-  if not afterGenesis:
+  let wallTime = self.getBeaconTime()
+  if not wallTime.afterGenesis:
     let mayProcessBeforeGenesis =
       when obj is ForkedLightClientBootstrap:
         withForkyBootstrap(obj):
@@ -515,7 +511,7 @@ func toValidationError(
             GENESIS_SLOT
         currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
         forwardTime = signature_slot
-          .light_client_finality_update_time(self.cfg.time)
+          .light_client_finality_update_time(self.cfg.timeParams)
       if currentTime < forwardTime:
         # [IGNORE] The `finality_update` is received after the block
         # at `signature_slot` was given enough time to propagate through

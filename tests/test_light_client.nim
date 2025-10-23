@@ -24,7 +24,7 @@ suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 4.SyncCommitteePeriod
   let
-    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+    cfg = block:  # Fork schedule that covers each `LightClientDataFork`
       static: doAssert ConsensusFork.high == ConsensusFork.Gloas
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
@@ -77,7 +77,7 @@ suite "Light client" & preset():
   setup:
     const num_validators = SLOTS_PER_EPOCH
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(num_validators), validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(

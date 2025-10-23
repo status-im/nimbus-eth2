@@ -138,7 +138,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
     ChainDAGRef.preInit(db, initial_state[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time, false, false))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true, importMode: LightClientDataImportMode.Full))
@@ -195,4 +195,10 @@ suite "EF - Light client - Data collection" & preset():
       continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       withConsensusFork(consensusFork):
-        runTest(suiteName, testsPath/path, consensusFork)
+        when consensusFork >= ConsensusFork.Fulu:
+          let relativePathComponent =
+            (testsPath/path).relativeTestPathComponent()
+          test "Light client - Data collection - " & relativePathComponent:
+            skip()  # https://github.com/ethereum/consensus-specs/pull/4652
+        else:
+          runTest(suiteName, testsPath/path, consensusFork)

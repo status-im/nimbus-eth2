@@ -13,12 +13,19 @@ import
   ".."/spec/forks,
   "."/[common, api, fallback_service]
 
-const
-  ServiceName = "block_service"
-  BlockPollInterval = attestationSlotOffset.nanoseconds div 4
-  BlockPollOffset1 = TimeDiff(nanoseconds: BlockPollInterval)
-  BlockPollOffset2 = TimeDiff(nanoseconds: BlockPollInterval * 2)
-  BlockPollOffset3 = TimeDiff(nanoseconds: BlockPollInterval * 3)
+const ServiceName = "block_service"
+
+func BlockPollInterval(timeParams: TimeParams): int64 =
+  timeParams.attestationSlotOffset.nanoseconds div 4
+
+func BlockPollOffset1(timeParams: TimeParams): TimeDiff =
+  TimeDiff(nanoseconds: timeParams.BlockPollInterval)
+
+func BlockPollOffset2(timeParams: TimeParams): TimeDiff =
+  TimeDiff(nanoseconds: timeParams.BlockPollInterval * 2)
+
+func BlockPollOffset3(timeParams: TimeParams): TimeDiff =
+  TimeDiff(nanoseconds: timeParams.BlockPollInterval * 3)
 
 logScope: service = ServiceName
 
@@ -53,8 +60,9 @@ proc prepareRandao(
 
   let
     destSlot = slot - 1'u64
-    destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
-    deadline = destSlot.start_beacon_time(vc.timeConfig) + destOffset
+    destOffset = TimeDiff(
+      nanoseconds: vc.timeParams.NANOSECONDS_PER_SLOT.int64 div 2)
+    deadline = destSlot.start_beacon_time(vc.timeParams) + destOffset
     epoch = slot.epoch()
     # We going to wait to T - (T / 4 * 2), where T is proposer's
     # duty slot.
@@ -193,7 +201,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
+        let delay = vc.getDelay(slot.block_deadline(vc.timeParams))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Blinded block published", delay = delay
@@ -268,7 +276,7 @@ proc publishBlockV3(
             raise exc
 
       if res:
-        let delay = vc.getDelay(slot.block_deadline(vc.timeConfig))
+        let delay = vc.getDelay(slot.block_deadline(vc.timeParams))
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
         notice "Block published", delay = delay
@@ -293,7 +301,7 @@ proc publishBlock(
     wall_slot = currentSlot
 
   debug "Publishing block",
-        delay = vc.getDelay(slot.block_deadline(vc.timeConfig)),
+        delay = vc.getDelay(slot.block_deadline(vc.timeParams)),
         genesis_root = genesisRoot,
         graffiti = graffiti, fork = fork
   let
@@ -589,16 +597,19 @@ proc runBlockPollMonitor(service: BlockServiceRef,
 
     let
       currentTime = vc.beaconClock.now()
-      afterSlot = currentTime.slotOrZero(vc.timeConfig)
+      afterSlot = currentTime.slotOrZero(vc.timeParams)
 
-    if currentTime > afterSlot.attestation_deadline(vc.timeConfig):
+    if currentTime > afterSlot.attestation_deadline(vc.timeParams):
       # Attestation time already, lets wait for next slot.
       continue
 
     let
-      pollTime1 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset1
-      pollTime2 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset2
-      pollTime3 = afterSlot.start_beacon_time(vc.timeConfig) + BlockPollOffset3
+      pollTime1 = afterSlot.start_beacon_time(vc.timeParams) +
+        vc.timeParams.BlockPollOffset1
+      pollTime2 = afterSlot.start_beacon_time(vc.timeParams) +
+        vc.timeParams.BlockPollOffset2
+      pollTime3 = afterSlot.start_beacon_time(vc.timeParams) +
+        vc.timeParams.BlockPollOffset3
 
     var pendingTasks =
       block:

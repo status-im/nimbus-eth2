@@ -47,7 +47,7 @@ suite "Block pool processing" & preset():
       cfg = defaultRuntimeConfig
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
@@ -283,7 +283,7 @@ suite "Block pool altair processing" & preset():
         res
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -360,7 +360,7 @@ suite "chain DAG finalization tests" & preset():
       cfg = defaultRuntimeConfig
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -510,7 +510,7 @@ suite "chain DAG finalization tests" & preset():
     check: dag.head.root == parentRoot
 
     let
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     # check that the state reloaded from database resembles what we had before
@@ -561,7 +561,7 @@ suite "chain DAG finalization tests" & preset():
     check: added.isOk()
 
     var
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     # check that we can apply the block after the orphaning
@@ -609,7 +609,7 @@ suite "chain DAG finalization tests" & preset():
         cur = cur.parent
 
     let
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     # check that the state reloaded from database resembles what we had before
@@ -642,7 +642,7 @@ suite "chain DAG finalization tests" & preset():
 
         # If the beacon node were to exit _now_, this is what the DB looks like.
         # Validate that we can initialize a new DAG from this database.
-        let validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+        let validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
         discard ChainDAGRef.init(cfg, db, validatorMonitor2, {})
         testPassed = true
     dag.setHeadCb(onHeadChanged)
@@ -689,7 +689,7 @@ suite "Old database versions" & preset():
     db.putGenesisBlock(genBlock.root)
 
     var
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db,validatorMonitor, {})
       state = newClone(dag.headState)
       cache = StateCache()
@@ -715,7 +715,7 @@ suite "Diverging hardforks":
     var
       db = phase0RuntimeConfig.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(
-        ValidatorMonitor.init(phase0RuntimeConfig.time))
+        ValidatorMonitor.init(phase0RuntimeConfig.timeParams))
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -741,7 +741,7 @@ suite "Diverging hardforks":
     dag.updateHead(b1Add[], quarantine[], [])
 
     let validatorMonitorAltair = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig.time))
+      ValidatorMonitor.init(altairRuntimeConfig.timeParams))
 
     let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitorAltair, {})
@@ -774,7 +774,7 @@ suite "Diverging hardforks":
     dag.updateHead(b2Add[], quarantine[], [])
 
     let validatorMonitor = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig.time))
+      ValidatorMonitor.init(altairRuntimeConfig.timeParams))
 
     let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitor, {})
@@ -811,7 +811,7 @@ suite "Backfill":
     ChainDAGRef.preInit(db, tailState[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
     var cache = StateCache()
@@ -920,7 +920,7 @@ suite "Backfill":
     ChainDAGRef.preInit(db, tailState[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
     check:
@@ -931,7 +931,7 @@ suite "Backfill":
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     let
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
 
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
@@ -955,7 +955,7 @@ suite "Backfill":
     ChainDAGRef.preInit(db, tailState[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
     check:
@@ -989,7 +989,7 @@ suite "Backfill":
     dag.updateHead(nextAdd, quarantine[], [])
 
     let
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
 
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
     check:
@@ -1000,7 +1000,7 @@ suite "Backfill":
 
     for i in 1..blocks.len:
       let
-        validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+        validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
       check dag.backfill == (
@@ -1027,7 +1027,7 @@ suite "Backfill":
 
     block:
       let
-        validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+        validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
         genBlock = get_initial_beacon_block(genState[])
       check:
@@ -1035,7 +1035,7 @@ suite "Backfill":
         dag.backfill == default(BeaconBlockSummary)
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     check dag.backfill == default(BeaconBlockSummary)
 
@@ -1072,7 +1072,7 @@ suite "Starting states":
     ChainDAGRef.preInit(db, tailState[])
 
     let
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
     # check that we can update head to itself
@@ -1174,7 +1174,7 @@ suite "Latest valid hash" & preset():
         res
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -1241,7 +1241,7 @@ suite "Pruning":
         doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       tmpState = assignClone(dag.headState)
 
@@ -1293,7 +1293,7 @@ suite "State history":
     const numValidators = SLOTS_PER_EPOCH
     let
       cfg = defaultRuntimeConfig
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(numValidators),
         validatorMonitor, {})
@@ -1414,7 +1414,7 @@ suite "Ancestry":
     const numValidators = SLOTS_PER_EPOCH
     let
       cfg = defaultRuntimeConfig
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(numValidators),
         validatorMonitor, {})
@@ -1707,7 +1707,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     eth1Data = Eth1Data(
       deposit_root: deposits.attachMerkleProofs(),
       deposit_count: deposits.lenu64)
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(
       cfg, cfg.makeTestDB(
         numValidators, eth1Data = Opt.some(eth1Data), flags = {}),

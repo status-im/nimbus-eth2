@@ -1,15 +1,16 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Gnosis preset - Phase0
-# https://github.com/gnosischain/specs/blob/1648fc86cef7bc148d74cb21921d2d12ca9442ac/consensus/preset/gnosis/phase0.yaml
+# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/phase0.yaml
 
 const
-  #
   # Misc
   # ---------------------------------------------------------------
   # 2**6 (= 64)
@@ -40,31 +41,20 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # 2**0 (= 1) slots 12 seconds
   MIN_ATTESTATION_INCLUSION_DELAY*: uint64 = 1
-  # 2**5 (= 32) slots 6.4 minutes
   SLOTS_PER_EPOCH* {.intdefine.}: uint64 = 16
-  # 2**0 (= 1) epochs 6.4 minutes
   MIN_SEED_LOOKAHEAD*: uint64 = 1
-  # 2**2 (= 4) epochs 25.6 minutes
   MAX_SEED_LOOKAHEAD*: uint64 = 4
-  # 2**6 (= 64) epochs ~6.8 hours
   EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64 = 64
-  # 2**13 (= 8,192) slots ~27 hours
   SLOTS_PER_HISTORICAL_ROOT*: uint64 = 8192
-  # 2**2 (= 4) epochs 25.6 minutes
   MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64 = 4
 
 
   # State list lengths
   # ---------------------------------------------------------------
-  # 2**16 (= 65,536) epochs ~0.8 years
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 65536
-  # 2**13 (= 8,192) epochs ~36 days
   EPOCHS_PER_SLASHINGS_VECTOR*: uint64 = 8192
-  # 2**24 (= 16,777,216) historical roots, ~26,131 years
   HISTORICAL_ROOTS_LIMIT*: uint64 = 16777216
-  # 2**40 (= 1,099,511,627,776) validator spots
   VALIDATOR_REGISTRY_LIMIT*: uint64 = 1099511627776'u64
 
 

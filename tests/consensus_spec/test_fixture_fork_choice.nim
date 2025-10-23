@@ -101,7 +101,7 @@ proc initialLoad(
 
   let
     cfg = forkedState[].kind.genesisTestRuntimeConfig
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
@@ -235,7 +235,8 @@ proc stepOnBlock(
   # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
-    dag.getBlockIdAtSlot(time.slotOrZero(dag.cfg.time)).expect("block exists"),
+    dag.getBlockIdAtSlot(time.slotOrZero(dag.timeParams))
+      .expect("block exists"),
     save = false,
     stateCache,
     dag.updateFlags
@@ -297,8 +298,8 @@ proc stepChecks(
   for check, val in checks:
     if check == "time":
       doAssert time.ns_since_genesis == val.getInt().seconds.nanoseconds()
-      let slot = fkChoice.checkpoints.time.slotOrZero(dag.cfg.time)
-      doAssert slot == time.slotOrZero(dag.cfg.time)
+      let slot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
+      doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
       let headRef = dag.getBlockRef(headRoot).get()

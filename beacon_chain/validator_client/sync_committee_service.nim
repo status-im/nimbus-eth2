@@ -63,7 +63,7 @@ proc serveSyncCommitteeMessage*(
 
   debug "Sending sync committee message",
         delay = vc.getDelay(
-          message.slot.sync_committee_message_deadline(vc.timeConfig))
+          message.slot.sync_committee_message_deadline(vc.timeParams))
 
   let res =
     try:
@@ -78,7 +78,7 @@ proc serveSyncCommitteeMessage*(
 
   let
     delay = vc.getDelay(
-      message.slot.sync_committee_message_deadline(vc.timeConfig))
+      message.slot.sync_committee_message_deadline(vc.timeParams))
     dur = Moment.now() - startTime
 
   if res:
@@ -133,7 +133,7 @@ proc produceAndPublishSyncCommitteeMessages(
       (succeed, errored, failed)
 
   let
-    delay = vc.getDelay(slot.attestation_deadline(vc.timeConfig))
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
@@ -176,7 +176,7 @@ proc serveContributionAndProof*(
       res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeConfig))
+        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
 
   let restSignedProof = RestSignedContributionAndProof.init(
     proof, signature)
@@ -328,7 +328,7 @@ proc produceAndPublishContributions(
           (succeed, errored, failed)
 
     let
-      delay = vc.getDelay(slot.aggregate_deadline(vc.timeConfig))
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
@@ -349,14 +349,14 @@ proc publishSyncMessagesAndContributions(
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
-  await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
+  await vc.waitForBlock(slot, vc.timeParams.syncCommitteeMessageSlotOffset)
 
   logScope:
     slot = slot
 
   block:
     let delay = vc.getDelay(
-      slot.sync_committee_message_deadline(vc.timeConfig))
+      slot.sync_committee_message_deadline(vc.timeParams))
     debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
@@ -396,15 +396,15 @@ proc publishSyncMessagesAndContributions(
     return
 
   let currentTime = vc.beaconClock.now()
-  if slot.sync_contribution_deadline(vc.timeConfig) > currentTime:
+  if slot.sync_contribution_deadline(vc.timeParams) > currentTime:
     let waitDur = nanoseconds((
-      slot.sync_contribution_deadline(vc.timeConfig) - currentTime).nanoseconds)
+      slot.sync_contribution_deadline(vc.timeParams) - currentTime).nanoseconds)
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeConfig))
+    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
     debug "Producing contribution and proofs", delay = delay
 
   try:
@@ -463,7 +463,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlock(syncCommitteeMessageSlotOffset).
+          # waitForBlock(vc.timeParams.syncCommitteeMessageSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
                                                  false)
         if slot.isNone():

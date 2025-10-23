@@ -65,7 +65,7 @@ else:
 
 type
   BNStartUpCmd* {.pure.} = enum
-    noCommand
+    beaconNode # match name in unified binary
     deposits
     wallets
     record
@@ -125,6 +125,7 @@ type
     Lenient = "lenient"
 
   BeaconNodeConf* = object
+    # When updating, coordinate option names with EL and other binaries
     configFile* {.
       desc: "Loads the configuration from a TOML file"
       name: "config-file" .}: Option[InputFile]
@@ -269,9 +270,9 @@ type
 
     case cmd* {.
       command
-      defaultValue: BNStartUpCmd.noCommand .}: BNStartUpCmd
+      defaultValue: BNStartUpCmd.beaconNode .}: BNStartUpCmd
 
-    of BNStartUpCmd.noCommand:
+    of BNStartUpCmd.beaconNode:
       runAsServiceFlag* {.
         windowsOnly
         defaultValue: false,
@@ -612,9 +613,7 @@ type
       syncHorizon* {.
         hidden
         desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
-        defaultValue: defaultSyncHorizon
-        defaultValueDesc: $defaultSyncHorizon
-        name: "sync-horizon" .}: uint64
+        name: "sync-horizon" .}: Option[uint64]
 
       terminalTotalDifficultyOverride* {.
         hidden
@@ -1231,7 +1230,7 @@ proc createDumpDirs*(config: BeaconNodeConf) =
     raiseAssert "createDumpDirs should be used only in the right context"
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     if config.dumpEnabled:
       if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
         warn "Could not create dump directory",
@@ -1394,7 +1393,7 @@ template databaseDir*(config: AnyConf): string =
 
 func runAsService*(config: BeaconNodeConf): bool =
   case config.cmd
-  of noCommand:
+  of BNStartUpCmd.beaconNode:
     config.runAsServiceFlag
   else:
     false

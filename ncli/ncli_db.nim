@@ -239,7 +239,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = withTimerRet(timers[tInit]):
       ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
@@ -531,7 +531,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Initializing block pool..."
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let bid = dag.getBlockId(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
@@ -569,7 +569,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tBlocks
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let tmpState = assignClone(dag.headState)
@@ -751,7 +751,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "# Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   var
@@ -987,7 +987,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.time))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")

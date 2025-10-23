@@ -1630,7 +1630,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero(node.cfg.time).epoch
+  node.getBeaconTime().slotOrZero(node.cfg.timeParams).epoch
 
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
@@ -2323,7 +2323,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
@@ -2376,7 +2376,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [CatchableError].} =
   let
-    wallEpoch = getBeaconTime().slotOrZero(cfg.time).epoch
+    wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 
@@ -2453,7 +2453,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip = 3,
       fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      seenTTL = chronos.seconds(int(
+        cfg.timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
       gossipThreshold = -4000,
       publishThreshold = -8000,
       graylistThreshold = -16000, # also disconnect threshold

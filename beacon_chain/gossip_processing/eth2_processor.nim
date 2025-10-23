@@ -202,7 +202,7 @@ proc new*(T: type Eth2Processor,
     dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
-      rng = rng,
+      rng, dag.cfg.timeParams,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks(),
@@ -223,7 +223,7 @@ proc processSignedBeaconBlock*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -236,9 +236,8 @@ proc processSignedBeaconBlock*(
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let
-    timeConfig = self.dag.cfg.time
-    delay = wallTime - signedBlock.message.slot.start_beacon_time(timeConfig)
+  let delay = wallTime -
+    signedBlock.message.slot.start_beacon_time(self.dag.timeParams)
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -299,16 +298,19 @@ proc processBlobSidecar*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     blob = shortLog(blobSidecar)
     wallSlot
 
+  if not afterGenesis:
+    notice "Blob before genesis"
+    return errIgnore("Blob before genesis")
+
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let
-    timeConfig = self.dag.cfg.time
-    delay = wallTime - block_header.slot.start_beacon_time(timeConfig)
+  let delay = wallTime -
+    block_header.slot.start_beacon_time(self.dag.timeParams)
   debug "Blob received", delay
 
   let v =
@@ -345,28 +347,37 @@ proc processDataColumnSidecar*(
     dataColumnSidecar: fulu.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
   let
-    block_root = hash_tree_root(block_header)
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
+
+  if not afterGenesis:
+    notice "Data column before genesis"
+    return errIgnore("Data column before genesis")
+
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let
-    timeConfig = self.dag.cfg.time
-    delay = wallTime - block_header.slot.start_beacon_time(timeConfig)
+  let delay = wallTime -
+    block_header.slot.start_beacon_time(self.dag.timeParams)
   debug "Data column received", delay
 
   let v =
     self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
                                        dataColumnSidecar, wallTime, subnet_id)
+
   if v.isErr():
     debug "Dropping data column", error = v.error()
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
+
+  let block_root = hash_tree_root(block_header)
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
     withBlck(o[]):
       when consensusFork >= ConsensusFork.Fulu and
@@ -391,13 +402,16 @@ proc processDataColumnSidecar*(
     dataColumnSidecar: gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   let
-    block_root = dataColumnSidecar.beacon_block_root
     wallTime = self.getCurrentBeaconTime()
-    (_, wallSlot) = wallTime.toSlot()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
+
+  if not afterGenesis:
+    notice "Data column before genesis"
+    return errIgnore("Data column before genesis")
 
   debug "Data column received (Gloas - quarantine not implemented)"
 
@@ -468,7 +482,7 @@ proc processAttestation*(
     fork: ConsensusFork):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
-  let (afterGenesis, wallSlot) = wallTime.toSlot()
+  let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     attestation = shortLog(attestation)
@@ -480,9 +494,8 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let
-    timeConfig = self.dag.cfg.time
-    delay = wallTime - attestation.data.slot.attestation_deadline(timeConfig)
+  let delay = wallTime -
+    attestation.data.slot.attestation_deadline(self.dag.timeParams)
   debug "Attestation received", delay
 
   let v = when attestation is phase0.Attestation:
@@ -533,7 +546,7 @@ proc processSignedAggregateAndProof*(
     fork: ConsensusFork): Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
-  let (afterGenesis, wallSlot) = wallTime.toSlot()
+  let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
@@ -548,9 +561,8 @@ proc processSignedAggregateAndProof*(
 
   # Potential under/overflows are fine; would just create odd logs
   let
-    timeConfig = self.dag.cfg.time
     slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline(timeConfig)
+    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams)
   debug "Aggregate received", delay
 
   let v = await self.attestationPool.validateAggregate(
@@ -593,9 +605,8 @@ proc processBlsToExecutionChange*(
     blsToExecutionChange: SignedBLSToExecutionChange):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   let
-    timeConfig = self.dag.cfg.time
     wallTime = self.getCurrentBeaconTime()
-    wallSlot = wallTime.slotOrZero(timeConfig)
+    wallSlot = wallTime.slotOrZero(self.dag.timeParams)
 
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
@@ -706,11 +717,11 @@ proc processSyncCommitteeMessage*(
     self: ref Eth2Processor, src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+    checkSignature: bool = true
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
-    timeConfig = self.dag.cfg.time
     wallTime = self.getCurrentBeaconTime()
-    wallSlot = wallTime.slotOrZero(timeConfig)
+    wallSlot = wallTime.slotOrZero(self.dag.timeParams)
 
   logScope:
     syncCommitteeMsg = shortLog(syncCommitteeMsg)
@@ -718,9 +729,8 @@ proc processSyncCommitteeMessage*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let
-    slot = syncCommitteeMsg.slot
-    delay = wallTime - slot.sync_committee_message_deadline(timeConfig)
+  let delay = wallTime -
+    syncCommitteeMsg.slot.sync_committee_message_deadline(self.dag.timeParams)
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -753,12 +763,11 @@ proc processSyncCommitteeMessage*(
 proc processSignedContributionAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true):
-    Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+    checkSignature: bool = true
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
-    timeConfig = self.dag.cfg.time
     wallTime = self.getCurrentBeaconTime()
-    wallSlot = wallTime.slotOrZero(timeConfig)
+    wallSlot = wallTime.slotOrZero(self.dag.timeParams)
 
   logScope:
     contribution = shortLog(contributionAndProof.message.contribution)
@@ -770,7 +779,7 @@ proc processSignedContributionAndProof*(
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
     slot = contributionAndProof.message.contribution.slot
-    delay = wallTime - slot.sync_contribution_deadline(timeConfig)
+    delay = wallTime - slot.sync_contribution_deadline(self.dag.timeParams)
   debug "Contribution received", delay
 
   # Now proceed to validation
