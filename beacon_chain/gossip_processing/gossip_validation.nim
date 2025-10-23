@@ -2051,7 +2051,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -2059,10 +2059,10 @@ proc validateExecutionPayloadBid*(
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
   
-  # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # Check builder index is in range
+      # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
+      # Check builder index is valid
       if bid.builder_index >= forkyState.data.validators.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
 
