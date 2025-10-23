@@ -17,7 +17,6 @@ import
   ../beacon_chain/beacon_clock,
   "."/[testutil, testdbutil]
 
-# Helper to create a bid with minimal boilerplate
 func makeBid(
     slot: Slot,
     builderIndex: uint64,

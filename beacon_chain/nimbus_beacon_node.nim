@@ -1793,10 +1793,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
-  const endOffset = aggregateSlotOffset + nanos(
-    (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
-  let endCutoff = node.beaconClock.fromNow(
-    slot.start_beacon_time(node.dag.timeParams) + endOffset)
+  let
+    endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+      node.dag.timeParams.NANOSECONDS_PER_SLOT -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+    endCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
@@ -1914,7 +1916,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # int64 conversion is safe
       doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
       "in " & toTimeLeftString(
-        SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
+        node.dag.timeParams.SECONDS_PER_SLOT.int64.seconds *
+        slotsToNextSyncCommitteePeriod.int64)
     else:
       "none"
 
@@ -1951,7 +1954,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time(node.dag.timeParams) +
-    chronos.seconds(int(SECONDS_PER_SLOT - 1)))
+    chronos.seconds(int(node.dag.timeParams.SECONDS_PER_SLOT - 1)))
 
   let proposalFcu =
     if advanceCutoff.inFuture:
@@ -2914,7 +2917,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     createPidFile(config.dataDir.string / "beacon_node.pid")
     ProcessState.setupStopHandlers()
 

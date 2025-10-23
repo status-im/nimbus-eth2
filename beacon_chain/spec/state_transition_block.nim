@@ -919,7 +919,8 @@ proc process_sync_aggregate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
+    cfg: RuntimeConfig, state: var bellatrix.BeaconState,
+    payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
@@ -933,7 +934,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
@@ -947,7 +949,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
-    state: var capella.BeaconState, payload: capella.ExecutionPayload,
+    cfg: RuntimeConfig, state: var capella.BeaconState,
+    payload: capella.ExecutionPayload,
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
@@ -960,7 +963,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
@@ -1011,7 +1015,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
@@ -1051,7 +1056,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
@@ -1095,7 +1101,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify commitments are under limit
@@ -1178,7 +1185,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: prev_randao mismatch")
 
   # Verify timestamp
-  if payload.timestamp != compute_timestamp_at_slot(state.data, state.data.slot):
+  if payload.timestamp != cfg.timeParams
+      .compute_timestamp_at_slot(state.data, state.data.slot):
     return err("process_execution_payload: timestamp mismatch")
 
   # Verify commitments are under limit
@@ -1531,7 +1539,7 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   if is_execution_enabled(state, blck.body):
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        cfg, state, blck.body.execution_payload,
         func(_: bellatrix.ExecutionPayload): bool = true)  # [New in Bellatrix]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1567,7 +1575,7 @@ proc process_block*(
     ? process_withdrawals(
         state, blck.body.execution_payload)  # [New in Capella]
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        cfg, state, blck.body.execution_payload,
         func(_: capella.ExecutionPayload): bool = true)  # [Modified in Capella]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)

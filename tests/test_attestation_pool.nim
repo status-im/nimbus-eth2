@@ -616,7 +616,7 @@ suite "Attestation pool electra processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, unrealized, signedBlock.message,
           blckRef.slot.start_beacon_time(cfg.timeParams) +
-          SECONDS_PER_SLOT.int64.seconds)
+          cfg.timeParams.SECONDS_PER_SLOT.int64.seconds)
 
       bc1 = get_beacon_committee(
         state[], getStateField(state[], slot) - 1, 1.CommitteeIndex,

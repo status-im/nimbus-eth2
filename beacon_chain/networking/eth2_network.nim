@@ -2323,7 +2323,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
@@ -2453,7 +2453,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip = 3,
       fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      seenTTL = chronos.seconds(int(
+        cfg.timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
       gossipThreshold = -4000,
       publishThreshold = -8000,
       graylistThreshold = -16000, # also disconnect threshold

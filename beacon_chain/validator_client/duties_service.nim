@@ -775,7 +775,8 @@ proc slashingDatabasePruningLoop(
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
     let slot = await vc.checkedWaitForSlot(vc.getNextEpochMiddleSlot(),
-                                           aggregateSlotOffset, false)
+                                           vc.timeParams.aggregateSlotOffset,
+                                           false)
     if slot.isNone():
       continue
 

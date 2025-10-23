@@ -240,8 +240,9 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
     {.async: (raises: [CancelledError]).} =
   template pool: untyped = node.lightClientPool[]
 
-  static: doAssert lightClientFinalityUpdateSlotOffset ==
-    lightClientOptimisticUpdateSlotOffset
+  doAssert(
+    node.dag.timeParams.lightClientFinalityUpdateSlotOffset ==
+    node.dag.timeParams.lightClientOptimisticUpdateSlotOffset)
   let sendTime = node.beaconClock.fromNow(
     slot.light_client_finality_update_time(node.dag.timeParams))
   if sendTime.inFuture:
@@ -1252,7 +1253,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.consensusManager[].updateHead(slot)
     head = node.dag.head
 
-  static: doAssert attestationSlotOffset == syncCommitteeMessageSlotOffset
+  doAssert(
+    node.dag.timeParams.attestationSlotOffset ==
+    node.dag.timeParams.syncCommitteeMessageSlotOffset)
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
@@ -1263,8 +1266,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
-  static:
-    doAssert aggregateSlotOffset == syncContributionSlotOffset, "Timing change?"
+  doAssert(
+    node.dag.timeParams.aggregateSlotOffset ==
+    node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
   let aggregateCutoff = node.beaconClock.fromNow(
     slot.aggregate_deadline(node.dag.timeParams))
   if aggregateCutoff.inFuture:

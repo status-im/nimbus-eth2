@@ -196,7 +196,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
 proc update_time*(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   # `time` is the wall time, meaning it changes on every call typically
-  const step_size = seconds(SECONDS_PER_SLOT.int)
+  let step_size = seconds(dag.timeParams.SECONDS_PER_SLOT.int64)
   if time > self.checkpoints.time:
     let
       preSlot = self.checkpoints.time.slotOrZero(dag.timeParams)

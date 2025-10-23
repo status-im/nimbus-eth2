@@ -349,7 +349,7 @@ proc publishSyncMessagesAndContributions(
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
-  await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
+  await vc.waitForBlock(slot, vc.timeParams.syncCommitteeMessageSlotOffset)
 
   logScope:
     slot = slot
@@ -463,7 +463,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlock(syncCommitteeMessageSlotOffset).
+          # waitForBlock(vc.timeParams.syncCommitteeMessageSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
                                                  false)
         if slot.isNone():
