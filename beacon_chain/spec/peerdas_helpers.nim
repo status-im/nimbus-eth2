@@ -276,7 +276,7 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSid
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
   if sidecar.kzg_commitments.len == 0:
-    return err("Data column contains zero blob")
+    return err("Data column contains zero blobs")
 
   template epoch: untyped = sidecar.signed_block_header.message.slot.epoch()
   if sidecar.kzg_commitments.lenu64 >
@@ -298,7 +298,7 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSi
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
   if sidecar.kzg_commitments.len == 0:
-    return err("Data column contains zero blob")
+    return err("Data column contains zero blobs")
 
   template epoch: untyped = sidecar.slot.epoch()
   if sidecar.kzg_commitments.lenu64 >
