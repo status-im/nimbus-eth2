@@ -1031,7 +1031,8 @@ proc readRuntimeConfig*(
     unknowns.add name
 
   template checkParsedValue(
-      name: string, value: auto, constValue: untyped, operator: untyped = `==`): untyped =
+      name: string, value: auto,
+      constValue: untyped, operator: untyped = `==`): untyped =
     const opDesc = astToStr(operator)
     try:
       when constValue is distinct:
@@ -1040,13 +1041,13 @@ proc readRuntimeConfig*(
             "Cannot override config" &
             " (required: " & name & " " &
             opDesc & " " & $distinctBase(constValue) &
-            " - config: " & name & "=" & value & ")")
+            " - config: " & name & "=" & $value & ")")
       else:
         if not operator(value, constValue):
           raise (ref PresetFileError)(msg:
             "Cannot override config" &
             " (required: " & name & " " & opDesc & " " & $constValue &
-            " - config: " & name & "=" & value & ")")
+            " - config: " & name & "=" & $value & ")")
     except ValueError:
       raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
