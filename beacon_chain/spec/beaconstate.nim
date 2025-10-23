@@ -869,15 +869,15 @@ func check_attestation_index(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_attestation_same_slot
 func is_attestation_same_slot(
     state: gloas.BeaconState, data: AttestationData): bool =
-  ## Checks if the attestation was for the block 
+  ## Checks if the attestation was for the block
   ## proposed at the attestation slot.
   if data.slot == 0:
     return true
-  
-  let 
-    is_matching_blockroot = 
+
+  let
+    is_matching_blockroot =
       data.beacon_block_root == get_block_root_at_slot(state, data.slot)
-    is_current_blockroot = 
+    is_current_blockroot =
       data.beacon_block_root != get_block_root_at_slot(state, data.slot - 1)
 
   is_matching_blockroot and is_current_blockroot
@@ -957,40 +957,40 @@ func get_attestation_participation_flag_indices(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: gloas.BeaconState, data: AttestationData, 
+    state: gloas.BeaconState, data: AttestationData,
     inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
-  let justified_checkpoint = 
+  let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
       state.current_justified_checkpoint
     else:
       state.previous_justified_checkpoint
-  
+
   # Matching roots
   let
     is_matching_source = data.source == justified_checkpoint
-    is_matching_target = is_matching_source and 
+    is_matching_target = is_matching_source and
       data.target.root == get_block_root(state, data.target.epoch)
-    is_matching_blockroot = is_matching_target and 
+    is_matching_blockroot = is_matching_target and
       data.beacon_block_root == get_block_root_at_slot(state, data.slot)
-  
+
   var is_matching_payload = false
   if is_attestation_same_slot(state, data):
     doAssert data.index == 0
     is_matching_payload = true
   else:
-    let availability_bit = 
+    let availability_bit =
       if state.execution_payload_availability[
         data.slot mod SLOTS_PER_HISTORICAL_ROOT]: 1'u64
       else: 0'u64
     is_matching_payload = (data.index == availability_bit)
-  
+
   let is_matching_head = is_matching_blockroot and is_matching_payload
-  
+
   # Checked by check_attestation
   doAssert is_matching_source
-  
-  var participation_flag_indices: set[TimelyFlag]  
+
+  var participation_flag_indices: set[TimelyFlag]
   if is_matching_source and inclusion_delay <=
       integer_squareroot(SLOTS_PER_EPOCH):
     participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
@@ -998,7 +998,7 @@ func get_attestation_participation_flag_indices(
     participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
   if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
     participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)
-  
+
   participation_flag_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_total_active_balance
@@ -1326,19 +1326,19 @@ proc process_attestation*(
     return err("process_attestation: no beacon proposer index and probably no active validators")
 
   # [Modified in Gloas:EIP7732]
-  let 
-    current_epoch_target = 
+  let
+    current_epoch_target =
       attestation.data.target.epoch == get_current_epoch(state)
-    payment_index = 
+    payment_index =
       if current_epoch_target:
         SLOTS_PER_EPOCH + (attestation.data.slot mod SLOTS_PER_EPOCH)
       else:
         attestation.data.slot mod SLOTS_PER_EPOCH
     participation_flag_indices = get_attestation_participation_flag_indices(
       state, attestation.data, state.slot - attestation.data.slot)
-  
+
   var payment = state.builder_pending_payments.item(payment_index.int)
-  
+
   template updateParticipationFlags(epoch_participation: untyped): Gwei =
     var proposer_reward_numerator = 0.Gwei
     for index in get_attesting_indices_iter(
@@ -1347,29 +1347,30 @@ proc process_attestation*(
       # [New in Gloas:EIP7732]
       # For same-slot attestations, check if we're setting any new flags
       # If we are, this validator hasn't contributed to this slot's quorum yet
-      var will_set_new_flag = false  
+      var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
            not has_flag(epoch_participation.item(index), flag_index):
           asList(epoch_participation)[index] =
             add_flag(epoch_participation.item(index), flag_index)
-          proposer_reward_numerator += 
+          proposer_reward_numerator +=
             get_base_reward(
               state, index, base_reward_per_increment) * weight.uint64
           will_set_new_flag = true
-      
+
       # [New in Gloas:EIP7732]
       # Add weight for same-slot attestations when any new flag is set
       # This ensures each validator contributes exactly once per slot
       if will_set_new_flag and
-          is_attestation_same_slot(state, attestation.data):
+          is_attestation_same_slot(state, attestation.data) and
+          payment.withdrawal.amount > 0.Gwei:
         payment.weight += state.validators.item(index).effective_balance
 
-    let 
+    let
       proposer_reward_denominator =
         (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
           WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
-      proposer_reward = 
+      proposer_reward =
         proposer_reward_numerator div proposer_reward_denominator
     increase_balance(state, proposer_index, proposer_reward)
     proposer_reward
@@ -1380,7 +1381,7 @@ proc process_attestation*(
       updateParticipationFlags(state.current_epoch_participation)
     else:
       updateParticipationFlags(state.previous_epoch_participation)
-  
+
   # Update builder payment weight
   state.builder_pending_payments[payment_index.int] = payment
 
@@ -1775,13 +1776,13 @@ template get_expected_withdrawals_with_builder_count_aux(
     processed_partial_withdrawals_count = 0'u64
     processed_builder_withdrawals_count = 0'u64
 
-  # [New in Gloas:EIP7732] 
+  # [New in Gloas:EIP7732]
   # Sweep for builder payments
   for withdrawal in state.builder_pending_withdrawals:
-    if  withdrawal.withdrawable_epoch > epoch or 
+    if  withdrawal.withdrawable_epoch > epoch or
         len(withdrawals) + 1 == MAX_WITHDRAWALS_PER_PAYLOAD:
       break
-    
+
     if is_builder_payment_withdrawable(state, withdrawal):
       let
         total_withdrawn = block:
@@ -1792,8 +1793,8 @@ template get_expected_withdrawals_with_builder_count_aux(
           res
         balance = fetch_balance - total_withdrawn
         builder = state.validators.item(withdrawal.builder_index)
-      
-      let withdrawable_balance = 
+
+      let withdrawable_balance =
         if builder.slashed:
           min(balance, withdrawal.amount)
         elif balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -1815,7 +1816,7 @@ template get_expected_withdrawals_with_builder_count_aux(
   let bound = min(
     len(withdrawals) + MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD - 1)
-  
+
   for withdrawal in state.pending_partial_withdrawals:
     if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == bound:
       break
@@ -1823,7 +1824,7 @@ template get_expected_withdrawals_with_builder_count_aux(
     let
       validator = state.validators.item(withdrawal.validator_index)
       validator_index {.inject.} = withdrawal.validator_index
-      has_sufficient_effective_balance = 
+      has_sufficient_effective_balance =
         validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
       total_withdrawn = block:
         var res: Gwei
@@ -1850,8 +1851,8 @@ template get_expected_withdrawals_with_builder_count_aux(
     processed_partial_withdrawals_count += 1
 
   # Sweep for remaining
-  let 
-    sweep_bound = min(len(state.validators), 
+  let
+    sweep_bound = min(len(state.validators),
       MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
     num_validators = lenu64(state.validators)
   validator_index = state.next_withdrawal_validator_index
@@ -1885,13 +1886,13 @@ template get_expected_withdrawals_with_builder_count_aux(
       w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
       withdrawals.add w
       withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
-    
+
     if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
       break
     validator_index = (validator_index + 1) mod num_validators
 
-  (withdrawals, 
-   processed_builder_withdrawals_count, 
+  (withdrawals,
+   processed_builder_withdrawals_count,
    processed_partial_withdrawals_count)
 
 template get_expected_withdrawals*(
@@ -2872,7 +2873,7 @@ func can_advance_slots*(
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache): 
+iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
     ValidatorIndex =
   ## Get the payload timeliness committee for the given ``slot``
   let epoch = slot.epoch()
@@ -2880,7 +2881,7 @@ iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
   buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
   buffer[32..39] = uint_to_bytes(slot.uint64)
   let seed = eth2digest(buffer)
-  
+
   var indices = newSeqOfCap[ValidatorIndex](PTC_SIZE)
 
   # Concatenate all committees for this slot in order
@@ -2895,11 +2896,11 @@ iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(
-    state: gloas.BeaconState, slot: Slot, 
-    payload_attestation: PayloadAttestation, 
+    state: gloas.BeaconState, slot: Slot,
+    payload_attestation: PayloadAttestation,
     cache: var StateCache): IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
-  var 
+  var
     attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
     i = 0
 
@@ -2918,9 +2919,9 @@ func get_indexed_payload_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
-    state: gloas.BeaconState, 
+    state: gloas.BeaconState,
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
-  ## Check if ``indexed_payload_attestation`` is not empty, has sorted 
+  ## Check if ``indexed_payload_attestation`` is not empty, has sorted
   ## and unique indices and has a valid aggregate signature.
 
   # Verify indices are non-empty and sorted
@@ -2931,12 +2932,12 @@ proc is_valid_indexed_payload_attestation*(
     return false
 
   # Verify aggregate signature
-  let 
+  let
     pubkeys = mapIt(
       indexed_payload_attestation.attesting_indices,
       state.validators[it].pubkey)
     domain = get_domain(
-      state.fork, DOMAIN_PTC_ATTESTER, 
+      state.fork, DOMAIN_PTC_ATTESTER,
       GENESIS_EPOCH, state.genesis_validators_root)
     signing_root = compute_signing_root(
       indexed_payload_attestation.data, domain)
