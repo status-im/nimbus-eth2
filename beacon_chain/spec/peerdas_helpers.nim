@@ -298,11 +298,11 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSi
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
-    # The sidecar index must be within the valid range
+  # The sidecar index must be within the valid range
   if sidecar.index >= NUMBER_OF_COLUMNS:
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
-    # A sidecar for zero blobs is invalid
+  # A sidecar for zero blobs is invalid
   if sidecar.kzg_commitments.len == 0:
     return err("Data column contains zero blobs")
 
