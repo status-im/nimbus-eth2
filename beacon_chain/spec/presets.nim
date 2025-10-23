@@ -727,7 +727,6 @@ const IsGnosisSupported*: bool =
 const
   MIN_SECONDS_PER_SLOT* = 1'u64
   MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
-  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -998,7 +997,6 @@ proc readRuntimeConfig*(
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
 
-  checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS
   checkCompatibility AGGREGATE_DUE_BPS
   checkCompatibility SYNC_MESSAGE_DUE_BPS
@@ -1029,6 +1027,8 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   # Requires initialized `cfg`
+  checkCompatibility cfg.timeParams.SECONDS_PER_SLOT * 1000,
+                     "SLOT_DURATION_MS"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
