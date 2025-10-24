@@ -90,7 +90,7 @@ suite "Light client processor" & preset():
       proc getBeaconTime(): BeaconTime =
         BeaconTime(ns_since_genesis: time.nanoseconds)
       proc setTimeToSlot(slot: Slot) =
-        time = chronos.seconds((slot * cfg.timeParams.SECONDS_PER_SLOT).int64)
+        time = slot.int64 * cfg.timeParams.SLOT_DURATION
 
       var numOnStoreInitializedCalls = 0
       func onStoreInitialized() = inc numOnStoreInitializedCalls

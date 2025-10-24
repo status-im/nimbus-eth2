@@ -56,7 +56,7 @@ mkdir -p era
 cd era
 
 # Launch the era export
-../../../ncli_db exportEra --db:../db
+../../../ncli_db exportEra --db=../db
 ```
 
 The first time the export is run, full history is exported which may take some time.
@@ -77,7 +77,7 @@ Era files can be shared directly from the `era` folder using a web server, or si
 You can pass a custom era store location to Nimbus using `--era-dir`:
 
 ```sh
-nimbus_beacon_node --era-dir:/path/to/era
+nimbus_beacon_node --era-dir=/path/to/era
 ```
 
 !!! tip

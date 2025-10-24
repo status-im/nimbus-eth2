@@ -137,7 +137,7 @@ suite "Gossip validation " & preset():
       # Too far in the past
       validateAttestation(
         pool, batchCrypto, att_1_0, beaconTime -
-        (cfg.timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
+        cfg.timeParams.SLOT_DURATION * SLOTS_PER_EPOCH.int64 - 1.seconds,
         subnet, true).waitFor().isErr
 
     block:

@@ -861,10 +861,6 @@ proc processExecutionPayloadBid*(
     builderIndex = signedBid.message.builder_index
     blockRoot = signedBid.message.parent_block_root
 
-  let delay = wallTime - 
-    signedBid.message.slot.execution_payload_bid_deadline(self.dag.timeParams)
-  debug "Execution payload bid validated"
-
   let v = validateExecutionPayloadBid(
     self.dag, self.executionPayloadBidPool, signedBid, wallTime)
   if v.isOk():
