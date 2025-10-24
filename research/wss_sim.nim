@@ -142,7 +142,7 @@ cli do(validatorsDir: string, secretsDir: string,
     beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state",
         genesis_time = genesisTime,
-        seconds_per_slot = cfg.timeParams.SECONDS_PER_SLOT
+        slot_duration_ms = cfg.timeParams.SLOT_DURATION.milliseconds
       quit 1
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
