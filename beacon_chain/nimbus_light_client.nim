@@ -87,8 +87,10 @@ proc main() {.noinline, raises: [CatchableError].} =
     rng = HmacDrbgContext.new()
     netKeys = getRandomNetKeys(rng[])
     network = createEth2Node(
-      rng, config, netKeys, cfg,
-      forkDigests, getBeaconTime, genesis_validators_root)
+      rng, config, netKeys, cfg, forkDigests, getBeaconTime, genesis_validators_root
+    ).valueOr:
+      error "Failed to initialize node", err = error
+      quit QuitFailure
     engineApiUrls = config.engineApiUrls
     elManager =
       if engineApiUrls.len > 0:
