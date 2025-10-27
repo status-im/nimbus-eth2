@@ -9,10 +9,11 @@
 {.used.}
 
 import
+  chronos/timer,
   unittest2,
   ../beacon_chain/spec/beacon_time
 
-from ../beacon_chain/spec/presets import TimeParams
+from ../beacon_chain/spec/presets import defaultRuntimeConfig
 
 suite "Beacon time":
   template doBasicsTest(timeParams: TimeParams) =
@@ -67,9 +68,11 @@ suite "Beacon time":
       check:
         counts == 2
 
-  for SECONDS_PER_SLOT in [5'u64, 6, 12]:
-    test "basics (SECONDS_PER_SLOT=" & $SECONDS_PER_SLOT & ")":
-      doBasicsTest(TimeParams(SECONDS_PER_SLOT: SECONDS_PER_SLOT))
+  for SLOT_DURATION_MS in [5000, 6000, 12000]:
+    test "basics (SLOT_DURATION_MS=" & $SLOT_DURATION_MS & ")":
+      var timeParams = defaultRuntimeConfig.timeParams
+      timeParams.SLOT_DURATION = milliseconds(SLOT_DURATION_MS)
+      doBasicsTest timeParams
 
   test "Dependent slots":
     check:

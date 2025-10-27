@@ -313,18 +313,16 @@ const
   }
 
 func SlotDuration*(vc: ValidatorClientRef): Duration =
-  int64(vc.timeParams.SECONDS_PER_SLOT).seconds
+  vc.timeParams.SLOT_DURATION
 
 func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
-  (int64(vc.timeParams.SECONDS_PER_SLOT) div 2).seconds
+  vc.timeParams.SLOT_DURATION div 2
 
 func OneThirdDuration*(vc: ValidatorClientRef): Duration =
-  (int64(vc.timeParams.SECONDS_PER_SLOT) div
-    int64(INTERVALS_PER_SLOT)).seconds
+  vc.timeParams.SLOT_DURATION div INTERVALS_PER_SLOT
 
 func OneThirdDurationSoft*(vc: ValidatorClientRef): Duration =
-  (int64(vc.timeParams.SECONDS_PER_SLOT) div
-    int64(INTERVALS_PER_SLOT) div 2'i64).seconds
+  (vc.timeParams.SLOT_DURATION div INTERVALS_PER_SLOT) div 2
 
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
@@ -564,16 +562,39 @@ func checkConfig*(c: VCRuntimeConfig): bool =
   not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
 
 func checkConfig*(c: VCRuntimeConfig, timeParams: TimeParams): bool =
-  c.checkConfig and c.equals("SECONDS_PER_SLOT", timeParams.SECONDS_PER_SLOT)
+  c.checkConfig and (
+    # If SLOT_DURATION_MS is present, it has to match local config
+    not c.hasKey("SLOT_DURATION_MS") or
+    c.equals("SLOT_DURATION_MS", timeParams.SLOT_DURATION.milliseconds.uint64)
+  ) and (
+    # If SECONDS_PER_SLOT is present, it has to match local config
+    not c.hasKey("SECONDS_PER_SLOT") or
+    c.equals("SECONDS_PER_SLOT", timeParams.SLOT_DURATION.seconds.uint64)
+  ) and (
+    # If defaults are used, local config must also use defaults
+    (c.hasKey("SLOT_DURATION_MS") or c.hasKey("SECONDS_PER_SLOT")) or
+    timeParams.SLOT_DURATION == defaultRuntimeConfig.timeParams.SLOT_DURATION
+  )
 
 func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
-  let SECONDS_PER_SLOT = block:
-    const defaultStr = Base10.toString(
-      defaultRuntimeConfig.timeParams.SECONDS_PER_SLOT)
-    ? uint64.parseConfigValue c.getOrDefault("SECONDS_PER_SLOT", defaultStr)
-  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT:
+  let SLOT_DURATION =
+    if c.hasKey("SLOT_DURATION_MS"):
+      let rawValue = ? uint64.parseConfigValue(
+        c.getOrDefault("SLOT_DURATION_MS", "missing"))
+      if rawValue > Duration.high.milliseconds.uint64:
+        return Opt.none TimeParams
+      milliseconds(rawValue.int64)
+    elif c.hasKey("SECONDS_PER_SLOT"):
+      let rawValue = ? uint64.parseConfigValue(
+        c.getOrDefault("SECONDS_PER_SLOT", "missing"))
+      if rawValue > Duration.high.seconds.uint64:
+        return Opt.none TimeParams
+      seconds(rawValue.int64)
+    else:
+      defaultRuntimeConfig.timeParams.SLOT_DURATION
+  if SLOT_DURATION notin MIN_SLOT_DURATION .. MAX_SLOT_DURATION:
     return Opt.none TimeParams
-  Opt.some TimeParams(SECONDS_PER_SLOT: SECONDS_PER_SLOT)
+  Opt.some TimeParams(SLOT_DURATION: SLOT_DURATION)
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,

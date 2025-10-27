@@ -60,7 +60,7 @@ If there are no `dir=in` ChronosStreams, incoming connections are not working.
 
 ## Set an explicit external IP
 
-If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP.
+If you have a static public IP address, use the `--nat=extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP.
 See [here](./networking.md#determine-your-public-ip-address) for how to determine your public IP address.
 
 !!! note
@@ -71,7 +71,7 @@ See [here](./networking.md#determine-your-public-ip-address) for how to determin
 The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network.
 This option is useful with ISPs that assign IP addresses dynamically.
 
-In practice this means relaunching the beacon node with `--enr-auto-update:true` (pass it as an option in the command line).
+In practice this means relaunching the beacon node with `--enr-auto-update` (pass it as an option in the command line).
 
 ## Set up port forwarding
 
@@ -147,7 +147,7 @@ Use the [open ports tool](https://www.yougetsignal.com/tools/open-ports/) to che
 - `Discovered new external address but ENR auto update is off...`
 
     It's possible that your ISP has changed your IP address without you knowing.
-    The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
+    The first thing to do it to try relaunching the beacon node with with `--enr-auto-update` (pass it as an option in the command line).
 
     If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).
     Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.

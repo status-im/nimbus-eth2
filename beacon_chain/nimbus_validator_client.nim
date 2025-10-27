@@ -142,7 +142,7 @@ proc initTimeConfig(
           let timeParams = resp.data.data.getTimeParams()
           if timeParams.isSome:
             debug "Received time configuration parameters", endpoint = nodes[i],
-                  seconds_per_slot = timeParams.get.SECONDS_PER_SLOT
+                  slot_duration_ms = timeParams.get.SLOT_DURATION.milliseconds
             if res.isNone:
               res = timeParams
             elif timeParams.get == res.get:
@@ -150,8 +150,10 @@ proc initTimeConfig(
             else:
               warn "Received incompatible time configuration parameters",
                     endpoint = nodes[i],
-                    seconds_per_slot = timeParams.get.SECONDS_PER_SLOT,
-                    expected_seconds_per_slot = res.get.SECONDS_PER_SLOT
+                    slot_duration_ms =
+                      timeParams.get.SLOT_DURATION.milliseconds,
+                    expected_slot_duration_ms =
+                      res.get.SLOT_DURATION.milliseconds
               didEncounterDisagreement = true
           else:
             debug "Received invalid time configuration parameters",
@@ -215,7 +217,7 @@ proc initClock(
         vc.timeParams, vc.beaconGenesis.genesis_time).valueOr:
       raise (ref ValidatorClientError)(
         msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time &
-             "; seconds_per_slot=" & $vc.timeParams.SECONDS_PER_SLOT)
+             "; slot_duration_ms=" & $vc.timeParams.SLOT_DURATION.milliseconds)
     currentSlot = res.currentSlot()
     currentEpoch = currentSlot.epoch()
     genesisTime = res.fromNow(Slot(0))
@@ -225,12 +227,12 @@ proc initClock(
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = "<n/a>", current_epoch = "<n/a>",
          time_to_genesis = genesisTime.offset,
-         seconds_per_slot = vc.timeParams.SECONDS_PER_SLOT
+         slot_duration_ms = vc.timeParams.SLOT_DURATION.milliseconds
   else:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = currentSlot, current_epoch = currentEpoch,
-         seconds_per_slot = vc.timeParams.SECONDS_PER_SLOT
+         slot_duration_ms = vc.timeParams.SLOT_DURATION.milliseconds
   res
 
 proc shutdownSlashingProtection(vc: ValidatorClientRef) =
