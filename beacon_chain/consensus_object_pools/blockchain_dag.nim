@@ -1078,12 +1078,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         BlockRef.init(
           blck.root,
           Opt.none Eth2Digest,
+          Opt.none Eth2Digest,
           OptimisticStatus.notValidated,
           blck.summary.slot,
         )
       else:
         BlockRef.init(
-          blck.root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.summary.slot
+          blck.root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+          OptimisticStatus.valid, blck.summary.slot
         )
 
     if headRef == nil:
@@ -2277,21 +2279,30 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
+proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, bid: BlockId):
+    (Opt[Eth2Digest], Opt[Eth2Digest]) =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
     # The initial `BlockRef` is created before the checkpoint block is loaded.
     # It is backfilled later, so return `none` and keep retrying.
-    return Opt.none(Eth2Digest)
+    return (Opt.none(Eth2Digest), Opt.none(Eth2Digest))
 
   withBlck(blockData):
-    debugGloasComment " "
     when consensusFork == ConsensusFork.Gloas:
-      Opt.some ZERO_HASH
+      (
+        Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash,
+        Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.parent_block_hash
+      )
     elif consensusFork >= ConsensusFork.Bellatrix:
-      Opt.some forkyBlck.message.body.execution_payload.block_hash
+      (
+        Opt.some forkyBlck.message.body.execution_payload.block_hash,
+        Opt.some forkyBlck.message.body.execution_payload.parent_hash
+      )
     else:
-      Opt.some ZERO_HASH
+      (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
+
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
+  dag.loadExecutionAndParentBlockHash(bid)[0]
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:

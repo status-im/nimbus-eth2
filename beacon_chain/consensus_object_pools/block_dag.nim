@@ -62,12 +62,14 @@ func init*(
     T: type BlockRef,
     root: Eth2Digest,
     executionBlockHash: Opt[Eth2Digest],
+    parentBlockHash: Opt[Eth2Digest],
     optimisticStatus: OptimisticStatus,
     slot: Slot,
 ): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
     executionBlockHash: executionBlockHash,
+    parentBlockHash: parentBlockHash,
     optimisticStatus: optimisticStatus,
   )
 
@@ -77,7 +79,8 @@ func init*(
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
-  BlockRef.init(root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.slot)
+  BlockRef.init(root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+    OptimisticStatus.valid, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
@@ -87,7 +90,11 @@ func init*(
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
           fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Opt.some blck.body.execution_payload.block_hash, optimisticStatus, blck.slot
+    root,
+    Opt.some blck.body.execution_payload.block_hash,
+    Opt.some blck.body.execution_payload.parent_hash,
+    optimisticStatus,
+    blck.slot
   )
 
 func init*(
@@ -96,6 +103,7 @@ func init*(
   BlockRef.init(
     root,
     Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
+    Opt.some blck.body.signed_execution_payload_bid.message.parent_block_hash,
     if optimisticStatus == OptimisticStatus.valid or
         blck.body.signed_execution_payload_bid.message.block_hash.isZero:
       OptimisticStatus.valid
