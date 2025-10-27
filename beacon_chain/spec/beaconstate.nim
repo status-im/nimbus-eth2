@@ -2873,7 +2873,7 @@ func can_advance_slots*(
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
+iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
     ValidatorIndex =
   ## Get the payload timeliness committee for the given ``slot``
   let epoch = slot.epoch()
