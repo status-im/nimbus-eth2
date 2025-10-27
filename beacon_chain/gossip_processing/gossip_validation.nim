@@ -600,7 +600,7 @@ proc validateDataColumnSidecar*(
   template block_header: untyped = data_column_sidecar.signed_block_header.message
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
   block:
-    let v = verify_data_column_sidecar(data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -732,7 +732,7 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
   block:
-    let v = verify_data_column_sidecar(data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -750,6 +750,9 @@ proc validateDataColumnSidecar*(
   debugGloasComment ""
   # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
   # execution payload header (builder's bid).
+  #
+  # _[REJECT]_ The sidecars's `slot` matches the slot of the block with root
+  # `beacon_block_root`.
   #
   # [REJECT] The hash of the sidecar's kzg_commitments matches the
   # blob_kzg_commitments_root in the corresponding builder's bid for

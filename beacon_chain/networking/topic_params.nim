@@ -29,10 +29,10 @@ type
     dampeningFactor: float64
 
 func slotsDuration(timeParams: TimeParams, number: int): chronos.Duration =
-  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT) * number)
+  timeParams.SLOT_DURATION * number
 
 func epochsDuration(timeParams: TimeParams, number: int): chronos.Duration =
-  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT * SLOTS_PER_EPOCH) * number)
+  timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH.int64 * number)
 
 const
   GossipD = 8
@@ -90,7 +90,7 @@ const
      BlsToExecutionChangeWeight)
 
 func DecayInterval(timeParams: TimeParams): Duration =
-  chronos.seconds(int64(timeParams.SECONDS_PER_SLOT))
+  timeParams.SLOT_DURATION
 
 func InvalidMessageDecayPeriod(timeParams: TimeParams): Duration =
   timeParams.epochsDuration(50)
@@ -152,7 +152,7 @@ func topicParams(
     meshMessageInfo: Opt[MeshMessageInfo] = Opt.none(MeshMessageInfo)
 ): TopicParams =
   let
-    timeInMeshCap = float64(3600) / float64(timeParams.SECONDS_PER_SLOT)
+    timeInMeshCap = float64(3600) / float64(timeParams.SLOT_DURATION.seconds)
     firstMessageDeliveriesDecay =
       timeParams.scoreParameterDecay(firstMessageDecayTime)
     firstMessageDeliveriesCap =
@@ -165,7 +165,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
+        timeParams.SLOT_DURATION,
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:
@@ -228,7 +228,7 @@ func topicParams(
       timeInMeshWeight:
         MaxInMeshScore / timeInMeshCap,
       timeInMeshQuantum:
-        chronos.seconds(int64(timeParams.SECONDS_PER_SLOT)),
+        timeParams.SLOT_DURATION,
       timeInMeshCap:
         timeInMeshCap,
       firstMessageDeliveriesDecay:

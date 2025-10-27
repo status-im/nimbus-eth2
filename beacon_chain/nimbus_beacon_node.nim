@@ -1817,8 +1817,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # slot does not interfere with propagation of messages and with VC duties.
   let
     endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
-      node.dag.timeParams.NANOSECONDS_PER_SLOT -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+      node.dag.timeParams.SLOT_DURATION.nanoseconds -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds) div 2)
     endCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
@@ -1938,7 +1938,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # int64 conversion is safe
       doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
       "in " & toTimeLeftString(
-        node.dag.timeParams.SECONDS_PER_SLOT.int64.seconds *
+        node.dag.timeParams.SLOT_DURATION *
         slotsToNextSyncCommitteePeriod.int64)
     else:
       "none"
@@ -1976,7 +1976,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time(node.dag.timeParams) +
-    chronos.seconds(int(node.dag.timeParams.SECONDS_PER_SLOT - 1)))
+    node.dag.timeParams.SLOT_DURATION - chronos.seconds(1))
 
   let proposalFcu =
     if advanceCutoff.inFuture:
@@ -2566,7 +2566,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
       node.dag.headState, finalized_checkpoint)),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
-    SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
     validators = node.attachedValidators[].count

@@ -212,7 +212,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
-            Base10.toString(cfg.timeParams.SECONDS_PER_SLOT),
+            Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),
+          SLOT_DURATION_MS:
+            Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.milliseconds)),
           SECONDS_PER_ETH1_BLOCK:
             Base10.toString(cfg.SECONDS_PER_ETH1_BLOCK),
           MIN_VALIDATOR_WITHDRAWABILITY_DELAY:

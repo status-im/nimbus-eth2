@@ -267,18 +267,53 @@ proc assemble_data_column_sidecars*(
 
     sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
-func verify_data_column_sidecar*(sidecar: fulu.DataColumnSidecar |
-                                          gloas.DataColumnSidecar):
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/fulu/p2p-interface.md#verify_data_column_sidecar
+func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
+  # The sidecar index must be within the valid range
   if sidecar.index >= NUMBER_OF_COLUMNS:
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
+  # A sidecar for zero blobs is invalid
   if sidecar.kzg_commitments.len == 0:
-    return err("Data column contains zero blob")
+    return err("Data column contains zero blobs")
 
+  # Check that the sidecar respects the blob limit
+  template epoch: untyped = sidecar.signed_block_header.message.slot.epoch()
+  if sidecar.kzg_commitments.lenu64 >
+      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
+    return err("Data column contains too many blobs")
+
+  # The column length must be equal to the number of commitments/proofs
+  if sidecar.column.len != sidecar.kzg_commitments.len or
+      sidecar.column.len != sidecar.kzg_proofs.len:
+    return err("Data column length must be equal to the number of commitments/proofs")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
+func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar):
+                                 Result[void, cstring] =
+  ## Verify if the data column sidecar is valid.
+
+  # The sidecar index must be within the valid range
+  if sidecar.index >= NUMBER_OF_COLUMNS:
+    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+
+  # A sidecar for zero blobs is invalid
+  if sidecar.kzg_commitments.len == 0:
+    return err("Data column contains zero blobs")
+
+  # [Modified in Gloas:EIP7732]
+  # Check that the sidecar respects the blob limit
+  template epoch: untyped = sidecar.slot.epoch()
+  if sidecar.kzg_commitments.lenu64 >
+      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
+    return err("Data column contains too many blobs")
+
+  # The column length must be equal to the number of commitments/proofs
   if sidecar.column.len != sidecar.kzg_commitments.len or
       sidecar.column.len != sidecar.kzg_proofs.len:
     return err("Data column length must be equal to the number of commitments/proofs")
