@@ -371,8 +371,12 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
       except CatchableError as exc:
         raiseAssert exc.msg
 
-    taskpool = Taskpool.new()
-  (await BeaconNode.init(rng, runNodeConf, taskpool)).expect("working node")
+    taskpool =
+      try:
+        Taskpool.new()
+      except CatchableError as exc:
+        raiseAssert exc.msg
+  (await noCancel BeaconNode.init(rng, runNodeConf, taskpool)).expect("working node")
 
 # proc startValidatorClient(basePort: int) {.async, thread.} =
 #   let rng = HmacDrbgContext.new()
