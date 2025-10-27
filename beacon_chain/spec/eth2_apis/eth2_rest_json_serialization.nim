@@ -522,7 +522,8 @@ proc writeValue*(w: var RestJsonWriter, value: HashArray | HashList) {.writer.} 
 
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
 proc readValue*(
-    r: var RestJsonReader, value: var (KzgCommitment | KzgProof | KzgCell)
+    r: var RestJsonReader,
+    value: var (KzgCommitment | KzgProof | KzgCell )
 ) {.reader.} =
   try:
     hexToByteArray(r.readValue(string), distinctBase(value.bytes))
@@ -530,7 +531,8 @@ proc readValue*(
     r.raiseUnexpectedValue(&"{$typeof(value)} should be a valid hex string")
 
 proc writeValue*(
-    w: var RestJsonWriter, value: KzgCommitment | KzgProof | KzgCell
+    w: var RestJsonWriter,
+    value: KzgCommitment | KzgProof | KzgCell
 ) {.writer.} =
   w.write0xHex(value.bytes)
 

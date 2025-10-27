@@ -1831,6 +1831,54 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
+  router.api2(MethodGet, "eth/v1/blobs/{block_id}") do (
+      block_id: BlockIdent, indices:seq[uint64]) -> RestApiResponse:
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bid = node.getBlockId(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http400, BlockNotFoundError,
+                                         $error)
+
+      contentType = block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, ContentNotAcceptableError)
+        res.get()
+
+    let
+      data_columns =
+        newClone(default(List[fulu.DataColumnSidecar, Limit NUMBER_OF_COLUMNS]))
+    for columnIndex in 0'u64 ..< node.dag.cfg.NUMBER_OF_COLUMNS:
+      var dataColumnSidecar = new fulu.DataColumnSidecar
+      if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
+        discard data_columns[].add dataColumnSidecar[]
+
+    if not(data_columns[].lenu64 == node.dag.cfg.NUMBER_OF_COLUMNS):
+      return RestApiResponse.jsonError(Http400, DataColumnsShortage)
+
+    let
+      corresponding_blobs = block:
+        let res = recover_blobs_from_data_columns(data_columns[].asSeq())
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, DataColumnsShortage)
+        res.get()
+
+    let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(
+        corresponding_blobs, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseFinalizedWVersion(
+        corresponding_blobs.asSeq(),
+        Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid),
+        consensusFork, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",

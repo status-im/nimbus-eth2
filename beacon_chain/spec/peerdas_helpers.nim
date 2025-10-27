@@ -24,6 +24,10 @@ from std/algorithm import sort
 from std/sequtils import toSeq
 from stew/staticfor import staticFor
 
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/polynomial-commitments.md#constants
+  BYTES_PER_FIELD_ELEMENT = 32
+
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
@@ -207,7 +211,6 @@ proc recover_cells_and_proofs_parallel*(
 
   ok(res)
 
-
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
@@ -365,3 +368,41 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+proc recover_blobs_from_data_columns*(
+  dataColumns: seq[fulu.DataColumnSidecar]
+): Result[List[Blob, Limit FIELD_ELEMENTS_PER_BLOB], cstring] =
+
+  var required = initHashSet[ColumnIndex]()
+  for i in 0'u64 ..< CELLS_PER_EXT_BLOB div 2:
+    required.incl(i)
+  var available: HashSet[ColumnIndex]
+  for dc in dataColumns:
+    available.incl(dc.index)
+  if not (required <= available):
+    return err("missing required sidecars")
+
+  var sorted = dataColumns
+  sorted.sort(proc(a, b: fulu.DataColumnSidecar): int =
+    if a.index < b.index: -1
+    elif a.index > b.index: 1
+    else: 0)
+
+  let
+    numCols = CELLS_PER_EXT_BLOB div 2
+    numBlobs = sorted[0].column.len
+  var
+    blobs = default(List[Blob, Limit FIELD_ELEMENTS_PER_BLOB])
+
+  for blobIndex in 0 ..< numBlobs:
+    var blobBytes: array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, uint8]
+    var offset = 0
+    for colIdx in 0 ..< numCols:
+      let cellBytes = sorted[colIdx].column[blobIndex].bytes
+      # compute destination pointer safely
+      let blobPtr = cast[pointer](cast[uint](addr blobBytes) + uint(offset))
+      copyMem(blobPtr, unsafeAddr cellBytes[0], fulu.BYTES_PER_CELL)
+      offset += fulu.BYTES_PER_CELL
+    discard blobs.add(Blob(blobBytes))
+
+  ok(blobs)
