@@ -52,20 +52,42 @@ suite "Execution Payload Bid Pool":
         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
     var pool = ExecutionPayloadBidPool.init(dag)
 
-  test "Add and retrieve bid by slot and builder":
-    let bid = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
+  test "Empty pool returns none":
+    check:
+      not pool.getHighestBidForSlotAndParent(1.Slot, parentHash1).isSome()
+      not pool.hasBidForBlockRoot(blockRoot)
+      not pool.getBidForBlockRoot(blockRoot).isSome()
+      not pool.hasSeenBidFromBuilder(1.Slot, 0)
 
-    check not pool.getBidForSlotAndBuilder(10.Slot, 1).isSome()
+  test "Add and retrieve highest bid":
+    let bid = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
 
     pool.addBid(bid, wallTime)
 
     check:
-      pool.getBidForSlotAndBuilder(10.Slot, 1).isSome()
-      pool.getBidForSlotAndBuilder(10.Slot, 1).get().message.value == 100.Gwei
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).isSome()
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.value == 100.Gwei
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.builder_index == 1
 
-  test "Highest bid selection":
+  test "Duplicate detection - same builder same slot":
+    let
+      bid1 = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
+      bid2 = makeBid(10.Slot, 1, blockRoot, parentHash1, 200.Gwei)
+
+    pool.addBid(bid1, wallTime)
+    check pool.hasSeenBidFromBuilder(10.Slot, 1)
+
+    pool.addBid(bid2, wallTime)
+
+    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+    check:
+      highest.isSome()
+      highest.get().message.value == 100.Gwei
+
+  test "Highest bid selection - different builders":
     pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
     pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
+    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 150.Gwei), wallTime)
 
     let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
     check:
@@ -81,14 +103,26 @@ suite "Execution Payload Bid Pool":
         "0x2222222222222222222222222222222222222222222222222222222222222222")
 
     pool.addBid(makeBid(10.Slot, 1, oldRoot, parentHash1, 100.Gwei), wallTime)
-    pool.addBid(makeBid(106.Slot, 2, newRoot, parentHash1, 200.Gwei), wallTime)
+    pool.addBid(makeBid(100.Slot, 2, newRoot, parentHash1, 200.Gwei), wallTime)
 
     check:
-      pool.hasBid(oldRoot)
-      pool.hasBid(newRoot)
+      pool.hasBidForBlockRoot(oldRoot)
+      pool.hasBidForBlockRoot(newRoot)
 
-    pool.prune(74.Slot)
+    pool.prune(50.Slot)
 
     check:
-      not pool.hasBid(oldRoot)
-      pool.hasBid(newRoot)
+      not pool.hasBidForBlockRoot(oldRoot)
+      pool.hasBidForBlockRoot(newRoot)
+
+  test "Seen bids tracking":
+    pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
+    pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
+    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 50.Gwei), wallTime)
+
+    check:
+      pool.hasSeenBidFromBuilder(10.Slot, 1)
+      pool.hasSeenBidFromBuilder(10.Slot, 2)
+      pool.hasSeenBidFromBuilder(10.Slot, 3)
+
+    check pool.highestBids.len == 1

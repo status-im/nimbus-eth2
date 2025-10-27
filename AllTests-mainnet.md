@@ -602,9 +602,12 @@ AllTests-mainnet
 ```
 ## Execution Payload Bid Pool
 ```diff
-+ Add and retrieve bid by slot and builder                                                   OK
-+ Highest bid selection                                                                      OK
++ Add and retrieve highest bid                                                               OK
++ Duplicate detection - same builder same slot                                               OK
++ Empty pool returns none                                                                    OK
++ Highest bid selection - different builders                                                 OK
 + Pruning removes old bids                                                                   OK
++ Seen bids tracking                                                                         OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff

@@ -8,36 +8,21 @@
 {.push raises: [].}
 
 import
-  std/tables,
-  stew/shims/hashes,
+  std/sets,
   chronicles,
+  ../spec/[digest, forks, helpers],
   ../beacon_clock,
-  ./blockchain_dag,
-  ../spec/[digest, forks, helpers]
+  ./blockchain_dag
 
 logScope: topics = "bidpool"
 
 type
-  BidKey* = object
-    slot*: Slot
-    builderIndex*: uint64
-
-  BidDetail* = object
-    bid*: SignedExecutionPayloadBid
-    receivedAt*: BeaconTime
-
   ExecutionPayloadBidPool* = object
     ## Pool for tracking execution payload bids received from builders
-    ## Bids are used for:
-    ## 1. Data column sidecar validation (check blob commitments match)
-    ## 2. Block production (proposers select highest-value bid)
-    bids*: Table[BidKey, BidDetail]
-    highestBids*: Table[(Slot, Eth2Digest), SignedExecutionPayloadBid]
-      ## Track highest value bid per (slot, parent_block_hash)
+    ## Only stores the highest-value bid per (slot, parent_block_hash)
     dag*: ChainDAGRef
-
-func hash*(x: BidKey): Hash =
-  hashAllFields(x)
+    highestBids*: Table[(Slot, Eth2Digest), SignedExecutionPayloadBid]
+    seenBySlot*: Table[Slot, HashSet[uint64]]
 
 func init*(
     T: type ExecutionPayloadBidPool,
@@ -49,63 +34,66 @@ proc addBid*(
     signedBid: SignedExecutionPayloadBid,
     wallTime: BeaconTime) =
   template bid: untyped = signedBid.message
-  let
-    key = BidKey(slot: bid.slot, builderIndex: bid.builder_index)
-    parentKey = (bid.slot, bid.parent_block_hash)
 
   logScope:
     bid_slot = bid.slot
     builder_index = bid.builder_index
     bid_value = bid.value
 
-  pool.bids[key] = BidDetail(bid: signedBid, receivedAt: wallTime)
-
-  debug "Bid added to pool"
-
-  # Update highest bid for (slot, parent_block_hash)
   try:
-    if parentKey notin pool.highestBids or
-        pool.highestBids[parentKey].message.value < bid.value:
+    if bid.slot in pool.seenBySlot and
+       bid.builder_index in pool.seenBySlot[bid.slot]:
+      debug "Duplicate bid from builder, ignoring"
+      return
+
+    if bid.slot notin pool.seenBySlot:
+      pool.seenBySlot[bid.slot] = initHashSet[uint64]()
+    pool.seenBySlot[bid.slot].incl(bid.builder_index)
+
+    debug "Bid marked as seen from builder"
+
+    let parentKey = (bid.slot, bid.parent_block_hash)
+
+    if parentKey in pool.highestBids:
+      let currentHighest = pool.highestBids[parentKey]
+      if bid.value > currentHighest.message.value:
+        let previousValue = currentHighest.message.value
+        pool.highestBids[parentKey] = signedBid
+        debug "Updated highest bid for slot and parent",
+          previous_value = previousValue,
+          previous_builder = currentHighest.message.builder_index
+      else:
+        debug "Bid value not higher than current best, not storing",
+          current_best = currentHighest.message.value
+    else:
       pool.highestBids[parentKey] = signedBid
-      debug "Updated highest bid for slot and parent"
-  except KeyError:
-    # Shouldn't happen since we check 'notin' first
-    pool.highestBids[parentKey] = signedBid
-    debug "Updated highest bid for slot and parent (first bid)"
+      debug "First bid for this slot and parent, storing"
 
-func getBid*(
-    pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
-  try:
-    for detail in pool.bids.values:
-      if detail.bid.message.parent_block_root == blockRoot:
-        return Opt.some(detail.bid)
-    Opt.none(SignedExecutionPayloadBid)
   except KeyError:
-    Opt.none(SignedExecutionPayloadBid)
-
-func hasBid*(
-    pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): bool =
-  pool.getBid(blockRoot).isSome()
+    error "Unexpected KeyError in addBid",
+      slot = bid.slot,
+      builder_index = bid.builder_index
 
 func getBidForSlotAndBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     builderIndex: uint64): Opt[SignedExecutionPayloadBid] =
-  let key = BidKey(slot: slot, builderIndex: builderIndex)
   try:
-    if key in pool.bids:
-      Opt.some(pool.bids[key].bid)
+    if (slot in pool.seenBySlot) and (builderIndex in pool.seenBySlot[slot]):
+      for signedBid in pool.highestBids.values:
+        if signedBid.message.slot == slot and
+           signedBid.message.builder_index == builderIndex:
+          return Opt.some(signedBid)
+      return Opt.none(SignedExecutionPayloadBid)
     else:
-      Opt.none(SignedExecutionPayloadBid)
+      return Opt.none(SignedExecutionPayloadBid)
   except KeyError:
-    Opt.none(SignedExecutionPayloadBid)
+    return Opt.none(SignedExecutionPayloadBid)
 
 func getHighestBidForSlotAndParent*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     parentBlockHash: Eth2Digest): Opt[SignedExecutionPayloadBid] =
-  let key = (slot, parentBlockHash)
   try:
+    let key = (slot, parentBlockHash)
     if key in pool.highestBids:
       Opt.some(pool.highestBids[key])
     else:
@@ -113,30 +101,54 @@ func getHighestBidForSlotAndParent*(
   except KeyError:
     Opt.none(SignedExecutionPayloadBid)
 
-proc prune*(pool: var ExecutionPayloadBidPool, finalizedSlot: Slot) =
+func getBidForBlockRoot*(pool: ExecutionPayloadBidPool,
+    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+  try:
+    for signedBid in pool.highestBids.values:
+      if signedBid.message.parent_block_root == blockRoot:
+        return Opt.some(signedBid)
+    return Opt.none(SignedExecutionPayloadBid)
+  except KeyError:
+    return Opt.none(SignedExecutionPayloadBid)
+
+func hasBidForBlockRoot*(
+    pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest): bool =
+  pool.getBidForBlockRoot(blockRoot).isSome()
+
+func hasSeenBidFromBuilder*(
+    pool: ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64): bool =
+  try:
+    slot in pool.seenBySlot and builderIndex in pool.seenBySlot[slot]
+  except KeyError:
+    false
+
+proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
   var
-    toRemoveBids: seq[BidKey]
-    toRemoveHighest: seq[(Slot, Eth2Digest)]
+    removedHighest = 0
+    removedSeenSlots = 0
 
   try:
-    for key, detail in pool.bids:
-      if detail.bid.message.slot < finalizedSlot:
-        toRemoveBids.add(key)
-
-    for key, bid in pool.highestBids:
-      if bid.message.slot < finalizedSlot:
-        toRemoveHighest.add(key)
-
-    for key in toRemoveBids:
-      pool.bids.del(key)
+    var toRemoveHighest: seq[(Slot, Eth2Digest)]
+    for (slot, parent) in pool.highestBids.keys:
+      if slot < beforeSlot:
+        toRemoveHighest.add((slot, parent))
 
     for key in toRemoveHighest:
       pool.highestBids.del(key)
+      inc removedHighest
 
-    if toRemoveBids.len > 0:
+    var toRemoveSeen: seq[Slot]
+    for slot in pool.seenBySlot.keys:
+      if slot < beforeSlot:
+        toRemoveSeen.add(slot)
+
+    for slot in toRemoveSeen:
+      pool.seenBySlot.del(slot)
+      inc removedSeenSlots
+
+    if removedHighest > 0 or removedSeenSlots > 0:
       debug "Pruned old bids from pool",
-        removed_bids = toRemoveBids.len,
-        removed_highest = toRemoveHighest.len
+        removed_highest_bids = removedHighest,
+        removed_seen_slots = removedSeenSlots
   except KeyError:
-    # Shouldn't happen, but handle gracefully
-    debug "KeyError during bid pruning"
+    error "KeyError during bid pruning"

@@ -751,7 +751,7 @@ proc validateDataColumnSidecar*(
   debugGloasComment ""
   # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
   # execution payload header (builder's bid).
-  if not executionPayloadBidPool[].hasBid(block_root):
+  if not executionPayloadBidPool[].hasBidForBlockRoot(block_root):
     return errIgnore("DataColumnSidecar: bid not seen for this block root")
   #
   # _[REJECT]_ The sidecars's `slot` matches the slot of the block with root
@@ -760,7 +760,7 @@ proc validateDataColumnSidecar*(
   # [REJECT] The hash of the sidecar's kzg_commitments matches the
   # blob_kzg_commitments_root in the corresponding builder's bid for
   # sidecar.beacon_block_root.
-  let signedBid = executionPayloadBidPool[].getBid(block_root).valueOr:
+  let signedBid = executionPayloadBidPool[].getBidForBlockRoot(block_root).valueOr:
     # Ideally this shouldn't happen since we just checked bid above
     return errIgnore("DataColumnSidecar: bid missing")
 
