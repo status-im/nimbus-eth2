@@ -692,7 +692,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add VoteTracker(
         # Move vote from root 0 to root 1
         current_root: fakeHash(0),
@@ -729,8 +729,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add fakeHash(1), 0
-    indices.add fakeHash(2), 1
+    indices[fakeHash(1)] = 0
+    indices[fakeHash(2)] = 1
 
     # 1 validator at the start, 2 at the end
     var deltas = newSeqUninit[Delta](2)
@@ -768,8 +768,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add fakeHash(1), 0
-    indices.add fakeHash(2), 1
+    indices[fakeHash(1)] = 0
+    indices[fakeHash(2)] = 1
 
     # 2 validator at the start, 1 at the end
     var deltas = newSeqUninit[Delta](2)

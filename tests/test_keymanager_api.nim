@@ -342,14 +342,6 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
     raiseAssert exc.msg
 
   let
-    metadata =
-      try:
-        loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-      except IOError as exc:
-        raiseAssert exc.msg
-      except PresetFileError as exc:
-        raiseAssert exc.msg
-
     runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
       "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
       "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
@@ -376,7 +368,7 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
 
   try:
     let taskpool = Taskpool.new()
-    await BeaconNode.init(rng, runNodeConf, metadata, taskpool)
+    await BeaconNode.init(rng, runNodeConf, taskpool)
   except CatchableError as exc:
     raiseAssert exc.msg
 
