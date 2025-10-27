@@ -194,7 +194,7 @@ func payloadStatus*(blck: BlockRef): PayloadStatus =
   ## https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-forkchoicenode
   ##
   ## logic is based on
-  ## https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#modified-get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-get_parent_payload_status
 
   if isNil(blck.parent) or
       # When block_hash is `Opt.none`, it means it requires loading data from
