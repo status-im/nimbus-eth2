@@ -208,14 +208,18 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
     quit 1
 
   let currentEpoch = block:
+    if config.eth2Network.isNone:
+      fatal "Please specify the intended network for the exits"
+      quit 1
     let
-      beaconClock = BeaconClock.init(genesis.genesis_time).valueOr:
+      metadata = config.loadEth2Network()
+      genesisTime = genesis.genesis_time
+      beaconClock = BeaconClock.init(
+          metadata.cfg.timeParams, genesisTime).valueOr:
         error "Server returned invalid genesis time", genesis
         quit 1
-
-      time = getTime()
-      slot = beaconClock.toSlot(time).slot
-    Epoch(slot.uint64 div 32)
+      currentSlot = beaconClock.currentSlot
+    currentSlot.epoch
 
   let exitAtEpoch = if config.exitAtEpoch.isSome:
     Epoch config.exitAtEpoch.get
@@ -370,7 +374,7 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:
     if config.eth2Network.isNone:
-      fatal "Please specify the intended testnet for the deposits"
+      fatal "Please specify the intended network for the deposits"
       quit 1
     let metadata = config.loadEth2Network()
     var seed: KeySeed

@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[options, os, unicode, uri],
+  std/[options, unicode, uri],
   metrics,
   results,
   chronicles, chronicles/options as chroniclesOptions,
@@ -19,7 +19,7 @@ import
   serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/net/nat,
-  eth/p2p/discoveryv5/enr,
+  eth/enr/enr,
   json_serialization, json_serialization/std/net as jsnet, web3/confutils_defs,
   chronos/transports/common,
   kzg4844/kzg,
@@ -30,6 +30,7 @@ import
   ./el/el_conf,
   ./[filepath, nimbus_binary_common]
 
+from std/os import dirExists, getHomeDir, `/`
 from std/strutils import parseBiggestUInt, replace
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
@@ -51,7 +52,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
-  defaultGasLimit* = 45_000_000
+  defaultGasLimit* = 60_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -64,7 +65,7 @@ else:
 
 type
   BNStartUpCmd* {.pure.} = enum
-    noCommand
+    beaconNode # match name in unified binary
     deposits
     wallets
     record
@@ -124,6 +125,7 @@ type
     Lenient = "lenient"
 
   BeaconNodeConf* = object
+    # When updating, coordinate option names with EL and other binaries
     configFile* {.
       desc: "Loads the configuration from a TOML file"
       name: "config-file" .}: Option[InputFile]
@@ -240,11 +242,15 @@ type
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
 
-    peerdasSupernode* {.
+    debugPeerdasSupernode* {.
       hidden
       defaultValue: false,
-      desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
       name: "debug-peerdas-supernode" .}: bool
+
+    peerdasSupernode* {.
+      defaultValue: false,
+      desc: "Subscribe to all column subnets, thereby becoming a PeerDAS supernode"
+      name: "peerdas-supernode" .}: bool
 
     slashingDbKind* {.
       hidden
@@ -264,9 +270,9 @@ type
 
     case cmd* {.
       command
-      defaultValue: BNStartUpCmd.noCommand .}: BNStartUpCmd
+      defaultValue: BNStartUpCmd.beaconNode .}: BNStartUpCmd
 
-    of BNStartUpCmd.noCommand:
+    of BNStartUpCmd.beaconNode:
       runAsServiceFlag* {.
         windowsOnly
         defaultValue: false,
@@ -607,9 +613,7 @@ type
       syncHorizon* {.
         hidden
         desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
-        defaultValue: defaultSyncHorizon
-        defaultValueDesc: $defaultSyncHorizon
-        name: "sync-horizon" .}: uint64
+        name: "sync-horizon" .}: Option[uint64]
 
       terminalTotalDifficultyOverride* {.
         hidden
@@ -1176,7 +1180,7 @@ proc shortNetworkName*(eth2Network: Option[string]): string =
   # network that can be used for directories etc.
   if eth2Network.isSome() and
       eth2Network.get() in
-      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "holesky", "sepolia"]:
+      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia"]:
     eth2Network.get()
   else:
     eth2Network.loadEth2Network().cfg.name()
@@ -1226,7 +1230,7 @@ proc createDumpDirs*(config: BeaconNodeConf) =
     raiseAssert "createDumpDirs should be used only in the right context"
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     if config.dumpEnabled:
       if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
         warn "Could not create dump directory",
@@ -1389,7 +1393,7 @@ template databaseDir*(config: AnyConf): string =
 
 func runAsService*(config: BeaconNodeConf): bool =
   case config.cmd
-  of noCommand:
+  of BNStartUpCmd.beaconNode:
     config.runAsServiceFlag
   else:
     false

@@ -299,8 +299,8 @@ proc getExecutionPayload*(
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
-    timestamp = withState(proposalState[]):
-      compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+    timestamp = withState(proposalState[]): node.dag.timeParams
+      .compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
     prevRandao = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
@@ -493,7 +493,7 @@ proc makeBuilderBlock*(
 func isExcludedTestnet(cfg: RuntimeConfig): bool =
   ## Ensure that builder API testing can still occur in certain circumstances.
   cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and
-    cfg.DEPOSIT_CHAIN_ID in [17000'u64, 560048] # Holesky and Hoodi, respectively
+    cfg.DEPOSIT_CHAIN_ID == 560048'u64  # Hoodi
 
 proc collectBids*(
     node: BeaconNode,

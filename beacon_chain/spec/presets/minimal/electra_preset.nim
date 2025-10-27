@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Electra
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/presets/minimal/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -17,30 +17,28 @@ const
   # 2**11 * 10**9 (= 2,048,000,000,000) Gwei
   MAX_EFFECTIVE_BALANCE_ELECTRA* = 2048000000000
 
-  # State list lengths
+  # Rewards and penalties
   # ---------------------------------------------------------------
-  # `uint64(2**27)` (= 134,217,728)
-  PENDING_DEPOSITS_LIMIT*: uint64 = 134217728
-  # customized] `uint64(2**6)` (= 64)
-  PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 64
-  # [customized] `uint64(2**6)` (= 64)
-  PENDING_CONSOLIDATIONS_LIMIT*: uint64 = 64
-
-  # Reward and penalty quotients
-  # ---------------------------------------------------------------
-  # `uint64(2**12)` (= 4,096)
+  # 2**12 (= 4,096)
   MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA*: uint64 = 4096
-  # `uint64(2**12)` (= 4,096)
+  # 2**12 (= 4,096)
   WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA*: uint64 = 4096
 
-  # # Max operations per block
+  # State list lengths
   # ---------------------------------------------------------------
-  # `uint64(2**0)` (= 1)
+  # 2**27 (= 134,217,728) pending deposits
+  PENDING_DEPOSITS_LIMIT*: uint64 = 134217728
+  # [customized] 2**6 (= 64) pending partial withdrawals
+  PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 64
+  # [customized] 2**6 (= 64) pending consolidations
+  PENDING_CONSOLIDATIONS_LIMIT*: uint64 = 64
+
+  # Max operations per block
+  # ---------------------------------------------------------------
+  # 2**0 (= 1) attester slashings
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
-  # `uint64(2**3)` (= 8)
+  # 2**3 (= 8) attestations
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
-  # `uint64(2**1)` (= 2)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
 
   # Execution
   # ---------------------------------------------------------------
@@ -48,13 +46,15 @@ const
   MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 8192
   # 2**4 (= 16) withdrawal requests
   MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
+  # 2**1 (= 2) consolidation requests
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD* = 2
 
   # Withdrawals processing
   # ---------------------------------------------------------------
-  # 2**0 ( = 1) pending withdrawals
+  # [customized] 2**1 (= 2) pending withdrawals
   MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 2
 
   # Pending deposits processing
   # ---------------------------------------------------------------
-  # 2**4 ( = 4) pending deposits
+  # 2**4 (= 16) pending deposits
   MAX_PENDING_DEPOSITS_PER_EPOCH* = 16

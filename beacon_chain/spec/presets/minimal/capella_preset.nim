@@ -8,19 +8,17 @@
 {.push raises: [].}
 
 # Minimal preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/presets/minimal/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
-  # 2**4 (= 16)
+  # 2**4 (= 16) credential changes
   MAX_BLS_TO_EXECUTION_CHANGES* = 16
-
 
   # Execution
   # ---------------------------------------------------------------
-  # [customized] 2**2 (= 4)
+  # [customized] 2**2 (= 4) withdrawals
   MAX_WITHDRAWALS_PER_PAYLOAD* = 4
-
 
   # Withdrawals processing
   # ---------------------------------------------------------------

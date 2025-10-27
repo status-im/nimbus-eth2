@@ -1,3 +1,4 @@
 pip-tools
 pyyaml >= 6.0.1
 mkdocs-material
+mkdocs-redirects

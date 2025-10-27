@@ -42,8 +42,8 @@ suite "Block processor" & preset():
         res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
         res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
         res
-      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
     var
       taskpool = Taskpool.new()
@@ -65,16 +65,15 @@ suite "Block processor" & preset():
     var
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
-      getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
+      getTimeFn = proc(): BeaconTime =
+        b2.message.slot.start_beacon_time(cfg.timeParams)
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
-    discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let missing = await processor[].addBlock(
-      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+    let missing = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
 
     check: missing.error == VerifierError.MissingParent
 
@@ -84,8 +83,7 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
-      status = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
+      status = await processor.addBlock(MsgSource.gossip, b1, noSidecars)
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -115,7 +113,7 @@ suite "Block processor" & preset():
 
     # check that init also reloads block graph
     var
-      validatorMonitor2 = newClone(ValidatorMonitor.init())
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     check:
@@ -133,20 +131,16 @@ suite "Block processor" & preset():
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn, invalidBlockRoots = @[b2.root])
-      processorFut = processor.runQueueProcessingLoop()
-    defer: await processorFut.cancelAndWait()
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+      let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1))
+      let res = await processor.addBlock(MsgSource.gossip, b1, noSidecars)
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -158,8 +152,7 @@ suite "Block processor" & preset():
         not dag.containsForkBlock(b2.root)
 
     block:
-      let res = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2))
+      let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)

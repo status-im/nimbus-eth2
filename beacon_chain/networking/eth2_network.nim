@@ -25,7 +25,7 @@ import
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
-  eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
+  eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
@@ -444,7 +444,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
 func getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
-proc getFuture(peer: Peer): Future[void] {.inline.} =
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
@@ -858,7 +858,8 @@ template gossipMaxSize(T: untyped): uint32 =
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar:
+         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
+         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -1628,13 +1629,16 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       default(CgcBits)
   )
 
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.getBeaconTime().slotOrZero(node.cfg.timeParams).epoch
+
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
     let
-      currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
+        node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
       wantedCgcnetsCount = wantedCgcnets.countOnes()
@@ -1707,12 +1711,9 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
 proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
   # Convert peer id to node id by extracting the peer's public key
-  let nodeId =
-    block:
-      var key: PublicKey
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
-  nodeId
+  var key: PublicKey
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -2180,14 +2181,11 @@ func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
 proc getMetadata_vx(node: Eth2Node, peer: Peer):
                     Future[NetRes[fulu.MetaData]]
                    {.async: (raises: [CancelledError]).} =
-  let
-    res =
-      if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
-        # Directly fetch fulu metadata if available
-        await getMetadata_v3(peer)
-      else:
-        updateMetadataV2ToV3(await getMetadata_v2(peer))
-  return res
+  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
+    # Directly fetch fulu metadata if available
+    await getMetadata_v3(peer)
+  else:
+    updateMetadataV2ToV3(await getMetadata_v2(peer))
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
@@ -2325,7 +2323,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
@@ -2378,11 +2376,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [CatchableError].} =
   let
-    enrForkId = getENRForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
-
-    discoveryForkId = getDiscoveryForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
+    wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
+    enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
+    discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 
     listenAddress =
       if config.listenAddress.isSome():
@@ -2457,7 +2453,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip = 3,
       fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
       gossipThreshold = -4000,
       publishThreshold = -8000,
       graylistThreshold = -16000, # also disconnect threshold
@@ -2511,10 +2507,22 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
 
   let metadata = peer.metadata
   if metadata.isOk:
-    return (if metadata.get.custody_group_count > NUMBER_OF_COLUMNS:
-              0'u64
-            else:
-              metadata.get.custody_group_count)
+    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+                metadata.get.custody_group_count
+              else:
+                0
+
+    # If a peer's metadata hasn't been updated since a Fulu transition, the
+    # metadata is present but has no initialized cgc.
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
+    # guarantees that the ENR will have this information though:
+    # "A new field is added to the ENR under the key cgc to facilitate custody
+    # data column discovery. This new field MUST be added once
+    # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
+    if cgc >= CUSTODY_REQUIREMENT:
+      return cgc
+
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
         peer_id = peer.peerId
@@ -2526,13 +2534,17 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          return 0'u64
+          return 0
+
+        if peer.metadata.isOk:
+          peer.metadata.get.custody_group_count = cgc
+
         return cgc.uint64
       except SszError, SerializationError:
         discard  # Ignore decoding errors and fallback to default
 
   # Return default value if no valid custody subnet count is found.
-  return CUSTODY_REQUIREMENT.uint64
+  CUSTODY_REQUIREMENT
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
@@ -2695,7 +2707,10 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+  node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
       enrCustodySubnetCountField: SSZ.encode(cgcnets)
@@ -2760,9 +2775,6 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
 
 func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
-
-proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId,

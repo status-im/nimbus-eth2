@@ -503,7 +503,7 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig = defaultRuntimeConfig
+          cfg: RuntimeConfig
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -653,7 +653,7 @@ proc new*(T: type BeaconChainDB,
 
 proc new*(T: type BeaconChainDB,
           dir: string,
-          cfg: RuntimeConfig = defaultRuntimeConfig,
+          cfg: RuntimeConfig,
           inMemory = false,
           readOnly = false
     ): BeaconChainDB =
@@ -855,6 +855,11 @@ proc putDataColumnSidecar*(
     value: fulu.DataColumnSidecar) =
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns.putSZSSZ(columnkey(block_root, value.index), value)
+
+proc putDataColumnSidecar*(
+    db: BeaconChainDB,
+    value: gloas.DataColumnSidecar) =
+  db.columns.putSZSSZ(columnkey(value.beacon_block_root, value.index), value)
 
 proc delDataColumnSidecar*(
     db: BeaconChainDB,
@@ -1370,10 +1375,11 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   )
   SELECT v FROM next;
   """
+  static: doAssert BeaconBlockSummary.isFixedSize
   let
     stmt = expectDb db.db.prepareStmt(
       summariesQuery, array[32, byte],
-      array[sizeof(BeaconBlockSummary), byte],
+      array[BeaconBlockSummary.fixedPortionSize, byte],
       managed = false)
 
   defer: # in case iteration is stopped along the way

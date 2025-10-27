@@ -8,11 +8,19 @@
 {.push raises: [], gcsafe.}
 
 # Minimal preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/presets/minimal/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/deneb.yaml
 const
-  # `uint64(4096)`
-  FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
-  # `uint64(4096)`
+  # Execution
+  # ---------------------------------------------------------------
+  # 2**12 (= 4,096) commitments
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 4096
-  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 12 = 17
+
+  # Networking
+  # ---------------------------------------------------------------
+  # floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK) (= 4 + 1 + 12 = 17)
   KZG_COMMITMENT_INCLUSION_PROOF_DEPTH* = 17
+
+  # Blob
+  # ---------------------------------------------------------------
+  # 2**12 (= 4,096) field elements
+  FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096

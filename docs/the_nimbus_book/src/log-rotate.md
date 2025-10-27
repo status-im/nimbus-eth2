@@ -70,9 +70,9 @@ The final step is to redirect logs to `rotatelogs` using a pipe when starting Ni
 
 ```bash
 build/nimbus_beacon_node \
-  --network:hoodi \
+  --network=hoodi \
   --web3-url="$WEB3URL" \
-  --data-dir:$DATADIR 2>&1 | rotatelogs -L "$DATADIR/nbc_bn.log" -p "/path/to/rotatelogs-compress.sh" -D -f -c "$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log" 3600
+  --data-dir=$DATADIR 2>&1 | rotatelogs -L "$DATADIR/nbc_bn.log" -p "/path/to/rotatelogs-compress.sh" -D -f -c "$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log" 3600
 ```
 
 The options used in this example do the following:

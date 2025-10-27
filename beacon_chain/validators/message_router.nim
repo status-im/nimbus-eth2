@@ -132,7 +132,7 @@ proc routeSignedBeaconBlock*(
 
   let
     sendTime = router[].getCurrentBeaconTime()
-    delay = sendTime - blck.message.slot.block_deadline()
+    delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
     # The block (and blobs, if present) passed basic gossip validation
     # - we can "safely" broadcast it now. In fact, per the spec, we
     # should broadcast it even if it later fails to apply to our
@@ -153,7 +153,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    var dataColumnRefs = Opt.none(fulu.DataColumnSidecars)
+    var sidecarOpt = Opt.none(fulu.DataColumnSidecars)
     let dataColumns = dataColumnsOpt.get()
     if dataColumnsOpt.isSome():
       var das_workers =
@@ -186,11 +186,9 @@ proc routeSignedBeaconBlock*(
       for dc in dataColumns:
         if dc.index in custody_columns:
           final_columns.add newClone(dc)
-      dataColumnRefs = Opt.some(final_columns)
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck), dataColumnRefs)
+      sidecarOpt = Opt.some(final_columns)
   elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    var blobRefs = Opt.none(BlobSidecars)
+    var sidecarOpt = Opt.none(BlobSidecars)
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       var workers = newSeq[Future[SendResult]](blobs.len)
@@ -208,13 +206,13 @@ proc routeSignedBeaconBlock*(
             blob = shortLog(blobs[i]), error = res.error[]
         else:
           notice "Blob sent", blob = shortLog(blobs[i])
-      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+      sidecarOpt = Opt.some(blobs.mapIt(newClone(it)))
 
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
   else:
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck))
+    const sidecarOpt = noSidecars
+
+  let added = await router[].blockProcessor.addBlock(
+    MsgSource.api, blck, sidecarOpt)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
@@ -251,9 +249,14 @@ proc routeAttestation*(
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
-    let res = await router[].processor.processAttestation(
-      MsgSource.api, attestation, subnet_id,
-      checkSignature = checkSignature, checkValidator = checkValidator)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
+      res = await router[].processor.processAttestation(
+        MsgSource.api, attestation, subnet_id,
+        checkSignature = checkSignature, checkValidator = checkValidator,
+        currentFork)
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -262,7 +265,8 @@ proc routeAttestation*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - attestation.data.slot.attestation_deadline()
+    slot = attestation.data.slot
+    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -318,9 +322,13 @@ proc routeSignedAggregateAndProof*(
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
     # that all processing happens anyway
-    let res = await router[].processor.processSignedAggregateAndProof(
-      MsgSource.api, proof, checkSignature = checkSignature,
-      checkCover = false)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
+      res = await router[].processor.processSignedAggregateAndProof(
+        MsgSource.api, proof, checkSignature = checkSignature,
+        checkCover = false, currentFork)
     if not res.isGoodForSending:
       warn "Aggregated attestation failed validation",
         attestation = shortLog(proof.message.aggregate),
@@ -330,7 +338,8 @@ proc routeSignedAggregateAndProof*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - proof.message.aggregate.data.slot.aggregate_deadline()
+    slot = proof.message.aggregate.data.slot
+    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -365,7 +374,8 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.slot.sync_committee_message_deadline()
+    delay = sendTime -
+      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -486,7 +496,8 @@ proc routeSignedContributionAndProof*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.message.contribution.slot.sync_contribution_deadline()
+    slot = msg.message.contribution.slot
+    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
@@ -581,8 +592,9 @@ proc routeBlsToExecutionChange*(
             error = res.error()
       return err(res.error()[1])
 
-  if  router[].getCurrentBeaconTime().slotOrZero.epoch <
-      router[].processor[].dag.cfg.CAPELLA_FORK_EPOCH:
+  let wallEpoch =
+    router[].getCurrentBeaconTime().slotOrZero(router[].dag.timeParams).epoch
+  if wallEpoch < router[].dag.cfg.CAPELLA_FORK_EPOCH:
     # Broadcast hasn't failed, it just hasn't happened; desire seems to be to
     # allow queuing up BLS to execution changes.
     return ok()

@@ -8,7 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import std/[strutils, sequtils], stew/endians2,
+import std/sequtils, stew/endians2,
        kzg4844/kzg,
        unittest2,
        ./testutil,
@@ -166,7 +166,7 @@ suite "BlobQuarantine data structure test suite " & preset():
   setup:
     let
       cfg {.used.} = defaultRuntimeConfig
-      db {.used.} = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      db {.used.} = BeaconChainDB.new("", cfg, inMemory = true)
       quarantine {.used.} = db.getQuarantineDB()
 
   teardown:
@@ -1065,106 +1065,11 @@ suite "ColumnQuarantine data structure test suite " & preset():
   setup:
     let
       cfg {.used.} = defaultRuntimeConfig
-      db {.used.} = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      db {.used.} = BeaconChainDB.new("", cfg, inMemory = true)
       quarantine {.used.} = db.getQuarantineDB()
 
   teardown:
     db.close()
-
-  test "ColumnMap test":
-    # Filling columns of different sizes with all bits [8, 128)
-    for columnSize in 8 .. 128:
-      let
-        columnsCount = 128 div columnSize
-        lastColumnSize = 128 mod columnSize
-
-      for i in 0 ..< columnsCount:
-        let
-          start = i * columnSize
-          finish = start + columnSize
-        var
-          columns: seq[ColumnIndex]
-          numbers: seq[int]
-        for k in start ..< finish:
-          columns.add(ColumnIndex(k))
-          numbers.add(k)
-
-        check:
-          $ColumnMap.init(columns) ==
-            "[" & $ numbers.mapIt($it).join(", ") & "]"
-
-      if lastColumnSize > 0:
-        let
-          start = columnsCount * columnSize
-          finish = start + lastColumnSize
-        var
-          columns: seq[ColumnIndex]
-          numbers: seq[int]
-        for k in start ..< finish:
-          columns.add(ColumnIndex(k))
-          numbers.add(k)
-
-        check:
-          $ColumnMap.init(columns) ==
-            "[" & $ numbers.mapIt($it).join(", ") & "]"
-
-    # Verify `and` operation is correct
-    const TestVectors = [
-      (
-        [1, 2, 3, 4, 5, 6, 7, 8],
-        [5, 6, 7, 8, 9, 10, 11, 12],
-        "[5, 6, 7, 8]"
-      ),
-      (
-        [56, 57, 58, 59, 60, 61, 62, 63],
-        [60, 61, 62, 63, 64, 65, 66, 67],
-        "[60, 61, 62, 63]"
-      ),
-      (
-        [1, 5, 10, 15, 20, 25, 64, 65],
-        [1, 5, 6, 7, 8, 9, 64, 65],
-        "[1, 5, 64, 65]"
-      ),
-      (
-        [60, 61, 62, 63, 124, 125, 126, 127],
-        [60, 61, 62, 63, 124, 125, 126, 127],
-        "[60, 61, 62, 63, 124, 125, 126, 127]"
-      ),
-      (
-        [0, 1, 63, 64, 65, 93, 126, 127],
-        [0, 2, 63, 64, 67, 94, 126, 127],
-        "[0, 63, 64, 126, 127]"
-      )
-    ]
-
-    for vector in TestVectors:
-      let
-        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)))
-        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)))
-      check:
-        $(map1 and map2) == vector[2]
-
-    for vector in TestVectors:
-      let
-        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)))
-        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)))
-        map3 = map1 and map2
-
-      check:
-        map1.items().toSeq().mapIt($int(it)).join(", ") ==
-          vector[0].mapIt($it).join(", ")
-        map2.items().toSeq().mapIt($int(it)).join(", ") ==
-          vector[1].mapIt($it).join(", ")
-        "[" & map3.items().toSeq().mapIt($int(it)).join(", ") & "]" ==
-          vector[2]
-
-    var columns: seq[ColumnIndex]
-    for i in 0 ..< NUMBER_OF_COLUMNS:
-      columns.add(ColumnIndex(i))
-    let map = ColumnMap.init(columns)
-    check:
-      map.items().toSeq().mapIt($int(it)).join(", ") ==
-        columns.mapIt($it).join(", ")
 
   test "put()/hasSidecar(index, slot, proposer_index)/remove() test":
     let custodyColumns =

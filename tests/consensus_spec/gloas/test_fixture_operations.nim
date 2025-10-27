@@ -21,6 +21,7 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
+from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
@@ -74,14 +75,18 @@ proc runTest[T, U](
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
-      let postState =
-        newClone(parseTest(
+      let
+        postState = newClone(parseTest(
           testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+        pass = preState[].hash_tree_root() == postState[].hash_tree_root()
 
-      reportDiff(preState, postState)
+      # TODO reportDiff doesn't understand at least one of HashArray or
+      # HashList merkle tree caching, so only check if htr's mismatch.
+      if not pass:
+        reportDiff(preState, postState)
       check:
         done.isOk()
-        preState[].hash_tree_root() == postState[].hash_tree_root()
+        pass
     else:
       check: done.isErr() # No post state = processing should fail
 
@@ -191,6 +196,44 @@ suite baseDescription & "Deposit Request " & preset():
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
+
+suite baseDescription & "Execution Payload " & preset():
+  proc makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
+        preState: var gloas.BeaconState,
+        signed_envelope: SignedExecutionPayloadEnvelope):
+        Result[void, cstring] =
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
+      var
+        cache: StateCache
+      let hashedState = (ref gloas.HashedBeaconState)(
+        data: preState, root: hash_tree_root(preState))
+
+      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
+      let res = process_execution_payload(
+        defaultRuntimeConfig, hashedState[],
+        signed_envelope, executePayload, cache)
+      preState = hashedState.data
+      res
+
+  for path in walkTests(OpExecutionPayloadDir):
+    let
+      testDir = OpExecutionPayloadDir / "pyspec_tests" / path
+      inputFile =
+        if fileExists(testDir/"signed_envelope.ssz_snappy"):
+          "signed_envelope"
+        # Skip test vectors with missing signed envelope files
+        # will be fixed in next consensus-spec-tests release
+        # https://github.com/ethereum/consensus-specs/issues/4545
+        else:
+          continue
+
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
+    runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, suiteName, "Execution Payload", inputFile,
+      applyExecutionPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(

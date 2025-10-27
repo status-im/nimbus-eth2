@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   presto/client,
@@ -70,13 +70,6 @@ proc getAggregatedAttestationPlainV2*(
     rest, endpoint: "/eth/v2/validator/aggregate_attestation"
     meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
-
-proc publishAggregateAndProofs*(
-       body: seq[phase0.SignedAggregateAndProof]
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/aggregate_and_proofs",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
 
 proc publishAggregateAndProofsV2Plain*(
     body: seq[ForkySignedAggregateAndProof]

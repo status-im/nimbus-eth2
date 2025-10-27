@@ -2248,6 +2248,9 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           # that.
           break
 
+        # eaSlot would be the earliest slot for which we can reliably
+        # serve a block (and sidecars if it's within the DA retention window)
+        dag.eaSlot = bid.slot + 1
         cur = dag.parent(bid)
 
     # TODO There have been varied reports of startup pruning causing long
@@ -2358,7 +2361,8 @@ func checkCompoundingChanges(
   # Since it tracks head, it's possible reorgs trigger reporting the same
   # validator indices multiple times; this is fine.
   withState(state):
-    anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
+    anyIt(vis, has_compounding_withdrawal_credential(
+      consensusFork, forkyState.data.validators[it]))
 
 func trackVanityState(
     dag: ChainDAGRef, knownValidators: openArray[ValidatorIndex]): auto =

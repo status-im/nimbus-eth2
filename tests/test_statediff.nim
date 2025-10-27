@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -40,10 +40,11 @@ when isMainModule:
 
 suite "state diff tests" & preset():
   setup:
+    let cfg = defaultRuntimeConfig
     var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
   test "random slot differences" & preset():
     let testStates = getTestStates(dag.headState, ConsensusFork.Capella)

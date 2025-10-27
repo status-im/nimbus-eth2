@@ -243,10 +243,11 @@ proc ETHBeaconClockCreateFromState(
   ## Returns:
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
-  let beaconClock = BeaconClock.new()
-  beaconClock[] =
-    BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
-      return nil
+  let
+    genesisTime = getStateField(state[], genesis_time)
+    beaconClock = BeaconClock.new()
+  beaconClock[] = BeaconClock.init(cfg[].timeParams, genesisTime).valueOr:
+    return nil
   beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
@@ -270,7 +271,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#custom-types
-  beaconClock[].now().slotOrZero().cint
+  beaconClock[].currentSlot.cint
 
 const lcDataFork = LightClientDataFork.high
 
@@ -427,7 +428,7 @@ proc ETHLightClientStoreGetNextSyncTask(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let syncTask = nextLightClientSyncTask(
-    current = beaconClock[].now().slotOrZero().sync_committee_period,
+    current = beaconClock[].currentSlot.sync_committee_period,
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
     isNextSyncCommitteeKnown = store[].is_next_sync_committee_known)
@@ -466,6 +467,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   asRef(rng).nextLcSyncTaskDelay(
+    beaconClock[].timeParams,
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
@@ -512,8 +514,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientUpdatesByRange
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var updates =
     try:
@@ -595,8 +596,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientFinalityUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var finalityUpdate =
     try:
@@ -680,8 +680,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var optimisticUpdate =
     try:

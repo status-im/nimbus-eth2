@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/algorithm, json, sequtils
 import stew/[byteutils, base10], chronicles
@@ -212,7 +212,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
-            Base10.toString(cfg.time.SECONDS_PER_SLOT),
+            Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),
+          SLOT_DURATION_MS:
+            Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.milliseconds)),
           SECONDS_PER_ETH1_BLOCK:
             Base10.toString(cfg.SECONDS_PER_ETH1_BLOCK),
           MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
@@ -238,11 +240,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           PROPOSER_SCORE_BOOST:
             Base10.toString(PROPOSER_SCORE_BOOST),
           REORG_HEAD_WEIGHT_THRESHOLD:
-            Base10.toString(REORG_HEAD_WEIGHT_THRESHOLD),
+            Base10.toString(cfg.REORG_HEAD_WEIGHT_THRESHOLD),
           REORG_PARENT_WEIGHT_THRESHOLD:
             Base10.toString(REORG_PARENT_WEIGHT_THRESHOLD),
           REORG_MAX_EPOCHS_SINCE_FINALIZATION:
-            Base10.toString(uint64(REORG_MAX_EPOCHS_SINCE_FINALIZATION)),
+            Base10.toString(cfg.REORG_MAX_EPOCHS_SINCE_FINALIZATION),
 
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
@@ -259,10 +261,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(EPOCHS_PER_SUBNET_SUBSCRIPTION),
           MIN_EPOCHS_FOR_BLOCK_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS),
-          TTFB_TIMEOUT:
-            Base10.toString(TTFB_TIMEOUT),
-          RESP_TIMEOUT:
-            Base10.toString(RESP_TIMEOUT),
           ATTESTATION_PROPAGATION_SLOT_RANGE:
             Base10.toString(ATTESTATION_PROPAGATION_SLOT_RANGE),
           MAXIMUM_GOSSIP_CLOCK_DISPARITY:
@@ -426,7 +424,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
             Base10.toString(uint64(MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD)),
           MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-            Base10.toString(MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD),
+            Base10.toString(uint64(MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD)),
           MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)),
           MAX_PENDING_DEPOSITS_PER_EPOCH:

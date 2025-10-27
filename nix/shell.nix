@@ -21,6 +21,7 @@ in pkgs.mkShell {
     openssl # for generating the JWT file
     lsof    # for killing processes by port
     killall # for killing processes manually
+    procps  # for killing processes with pkill
     curl    # for working with the node APIs
     jq      # for parsing beacon API for LC start
     openjdk # for running web3signer

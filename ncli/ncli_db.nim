@@ -227,8 +227,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
-    dbBenchmark = BeaconChainDB.new("benchmark")
+    db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
+    dbBenchmark = BeaconChainDB.new("benchmark", cfg)
   defer:
     db.close()
     dbBenchmark.close()
@@ -239,7 +239,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = withTimerRet(timers[tInit]):
       ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
@@ -390,8 +390,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     processBlocks(blocks[i])
   printTimers(false, timers)
 
-proc cmdDumpState(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+proc cmdDumpState(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   let
@@ -428,7 +428,7 @@ proc cmdDumpState(conf: DbConf) =
     echo "Couldn't load ", stateRoot
 
 proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   for file in conf.stateFile:
@@ -448,8 +448,8 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
     withState(state[]):
       db.putState(forkyState)
 
-proc cmdDumpBlock(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+proc cmdDumpBlock(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -469,7 +469,7 @@ proc cmdDumpBlock(conf: DbConf) =
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
 proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   for file in conf.blckFile:
@@ -521,7 +521,7 @@ proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -531,7 +531,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Initializing block pool..."
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let bid = dag.getBlockId(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
@@ -557,7 +557,7 @@ proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   echo root
 
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -569,7 +569,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tBlocks
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let tmpState = assignClone(dag.headState)
@@ -676,7 +676,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     quit QuitFailure
 
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   type Timers = enum
@@ -741,7 +741,7 @@ type
 proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+    db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer:
     db.close()
 
@@ -751,7 +751,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "# Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   var
@@ -978,7 +978,7 @@ proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
   info "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -987,7 +987,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
@@ -1214,11 +1214,11 @@ when isMainModule:
   of DbCmd.bench:
     cmdBench(conf, cfg)
   of DbCmd.dumpState:
-    cmdDumpState(conf)
+    cmdDumpState(conf, cfg)
   of DbCmd.putState:
     cmdPutState(conf, cfg)
   of DbCmd.dumpBlock:
-    cmdDumpBlock(conf)
+    cmdDumpBlock(conf, cfg)
   of DbCmd.putBlock:
     cmdPutBlock(conf, cfg)
   of DbCmd.putBlob:

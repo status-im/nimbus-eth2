@@ -87,6 +87,7 @@ type
     validatorPool*: ref ValidatorPool
     keystoreCache*: KeystoreCacheRef
     rng*: ref HmacDrbgContext
+    timeParams*: TimeParams
     keymanagerToken*: string
     validatorsDir*: string
     secretsDir*: string
@@ -126,6 +127,7 @@ func init*(T: type KeymanagerHost,
            validatorPool: ref ValidatorPool,
            keystoreCache: KeystoreCacheRef,
            rng: ref HmacDrbgContext,
+           timeParams: TimeParams,
            keymanagerToken: string,
            validatorsDir: string,
            secretsDir: string,
@@ -142,6 +144,7 @@ func init*(T: type KeymanagerHost,
   T(validatorPool: validatorPool,
     keystoreCache: keystoreCache,
     rng: rng,
+    timeParams: timeParams,
     keymanagerToken: keymanagerToken,
     validatorsDir: validatorsDir,
     secretsDir: secretsDir,

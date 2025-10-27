@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,8 +7,8 @@
 
 {.push raises: [].}
 
-# Electra preset - Electra
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/presets/mainnet/electra.yaml
+# Mainnet preset - Electra
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -17,44 +17,44 @@ const
   # 2**11 * 10**9 (= 2,048,000,000,000) Gwei
   MAX_EFFECTIVE_BALANCE_ELECTRA* = 2048000000000
 
-  # State list lengths
+  # Rewards and penalties
   # ---------------------------------------------------------------
-  # `uint64(2**27)` (= 134,217,728)
-  PENDING_DEPOSITS_LIMIT*: uint64 = 134217728
-  # `uint64(2**27)` (= 134,217,728)
-  PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 134217728
-  # `uint64(2**18)` (= 262,144)
-  PENDING_CONSOLIDATIONS_LIMIT*: uint64 = 262144
-
-  # Reward and penalty quotients
-  # ---------------------------------------------------------------
-  # `uint64(2**12)` (= 4,096)
+  # 2**12 (= 4,096)
   MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA*: uint64 = 4096
-  # `uint64(2**12)` (= 4,096)
+  # 2**12 (= 4,096)
   WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA*: uint64 = 4096
 
-  # # Max operations per block
+  # State list lengths
   # ---------------------------------------------------------------
-  # `uint64(2**0)` (= 1)
+  # 2**27 (= 134,217,728) pending deposits
+  PENDING_DEPOSITS_LIMIT*: uint64 = 134217728
+  # 2**27 (= 134,217,728) pending partial withdrawals
+  PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 134217728
+  # 2**18 (= 262,144) pending consolidations
+  PENDING_CONSOLIDATIONS_LIMIT*: uint64 = 262144
+
+  # Max operations per block
+  # ---------------------------------------------------------------
+  # 2**0 (= 1) attester slashings
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
-  # `uint64(2**3)` (= 8)
+  # 2**3 (= 8) attestations
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
-  # `uint64(2**1)` (= 2)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
 
   # Execution
   # ---------------------------------------------------------------
-  # 2**13 (= 8192) deposit requests
+  # 2**13 (= 8,192) deposit requests
   MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 8192
   # 2**4 (= 16) withdrawal requests
   MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
+  # 2**1 (= 2) consolidation requests
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD* = 2
 
   # Withdrawals processing
   # ---------------------------------------------------------------
-  # 2**3 ( = 8) pending withdrawals
+  # 2**3 (= 8) pending withdrawals
   MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 8
 
   # Pending deposits processing
   # ---------------------------------------------------------------
-  # 2**4 ( = 4) pending deposits
+  # 2**4 (= 16) pending deposits
   MAX_PENDING_DEPOSITS_PER_EPOCH* = 16

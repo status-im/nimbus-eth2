@@ -77,7 +77,7 @@ cli do(
   ChainDAGRef.preInit(db, genesisState[])
   let rng = HmacDrbgContext.new()
   var
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     taskpool =
       try:
@@ -87,9 +87,10 @@ cli do(
     verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init(cfg))
     attPool = AttestationPool.init(dag, quarantine)
-    batchCrypto = BatchCrypto
-      .new(rng, eager, genesis_validators_root = dag.genesis_validators_root, taskpool)
-      .expect("working batcher")
+    batchCrypto = BatchCrypto.new(
+      rng, cfg.timeParams, eager,
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -135,8 +136,7 @@ cli do(
                 attestation.aggregation_bits.len,
                 -1,
                 sig,
-                data.slot.start_beacon_time,
-              )
+                data.slot.start_beacon_time(cfg.timeParams))
             else:
               var data =
                 makeAttestationData(updatedState, slot, committee_index, bid.root)
@@ -158,8 +158,7 @@ cli do(
                 committee.len,
                 index_in_committee,
                 sig,
-                data.slot.start_beacon_time,
-              )
+                data.slot.start_beacon_time(cfg.timeParams))
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -173,8 +172,8 @@ cli do(
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
       genesis_validators_root = dag.genesis_validators_root
       fork = dag.forkAtEpoch(slot.epoch)
-      messagesTime = slot.attestation_deadline()
-      contributionsTime = slot.sync_contribution_deadline()
+      messagesTime = slot.attestation_deadline(cfg.timeParams)
+      contributionsTime = slot.sync_contribution_deadline(cfg.timeParams)
 
     var aggregators: seq[Aggregator]
 
@@ -313,7 +312,7 @@ cli do(
       # Callback add to fork choice if valid
       attPool.addForkChoice(
         epochRef, blckRef, unrealized, signedBlock.message,
-        blckRef.slot.start_beacon_time,
+        blckRef.slot.start_beacon_time(cfg.timeParams),
       )
 
     let added = dag.addHeadBlock(verifier, newBlock, onAdded)

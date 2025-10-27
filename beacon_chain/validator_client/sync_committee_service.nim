@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -62,7 +62,8 @@ proc serveSyncCommitteeMessage*(
     message = shortLog(message)
 
   debug "Sending sync committee message",
-        delay = vc.getDelay(message.slot.sync_committee_message_deadline())
+        delay = vc.getDelay(
+          message.slot.sync_committee_message_deadline(vc.timeParams))
 
   let res =
     try:
@@ -76,7 +77,8 @@ proc serveSyncCommitteeMessage*(
       return false
 
   let
-    delay = vc.getDelay(message.slot.sync_committee_message_deadline())
+    delay = vc.getDelay(
+      message.slot.sync_committee_message_deadline(vc.timeParams))
     dur = Moment.now() - startTime
 
   if res:
@@ -131,7 +133,7 @@ proc produceAndPublishSyncCommitteeMessages(
       (succeed, errored, failed)
 
   let
-    delay = vc.getDelay(slot.attestation_deadline())
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
@@ -174,7 +176,7 @@ proc serveContributionAndProof*(
       res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline())
+        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
 
   let restSignedProof = RestSignedContributionAndProof.init(
     proof, signature)
@@ -326,7 +328,7 @@ proc produceAndPublishContributions(
           (succeed, errored, failed)
 
     let
-      delay = vc.getDelay(slot.aggregate_deadline())
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
@@ -347,13 +349,14 @@ proc publishSyncMessagesAndContributions(
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
-  await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
+  await vc.waitForBlock(slot, vc.timeParams.syncCommitteeMessageSlotOffset)
 
   logScope:
     slot = slot
 
   block:
-    let delay = vc.getDelay(slot.sync_committee_message_deadline())
+    let delay = vc.getDelay(
+      slot.sync_committee_message_deadline(vc.timeParams))
     debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
@@ -393,15 +396,15 @@ proc publishSyncMessagesAndContributions(
     return
 
   let currentTime = vc.beaconClock.now()
-  if slot.sync_contribution_deadline() > currentTime:
-    let waitDur =
-      nanoseconds((slot.sync_contribution_deadline() - currentTime).nanoseconds)
+  if slot.sync_contribution_deadline(vc.timeParams) > currentTime:
+    let waitDur = nanoseconds((
+      slot.sync_contribution_deadline(vc.timeParams) - currentTime).nanoseconds)
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(slot.sync_contribution_deadline())
+    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
     debug "Producing contribution and proofs", delay = delay
 
   try:
@@ -417,7 +420,7 @@ proc processSyncCommitteeTasks(
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
-    timeout = vc.beaconClock.durationToNextSlot()
+    timeout = vc.beaconClock.fromNow(slot + 1).durationOrZero()
 
   logScope:
     slot = slot
@@ -460,7 +463,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlock(syncCommitteeMessageSlotOffset).
+          # waitForBlock(vc.timeParams.syncCommitteeMessageSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
                                                  false)
         if slot.isNone():

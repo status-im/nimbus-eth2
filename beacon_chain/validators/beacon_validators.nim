@@ -228,22 +228,23 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
-    wallSlot = beaconTime.toSlot()
+    wallSlot = beaconTime.toSlot(node.dag.timeParams)
 
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
   not wallSlot.afterGenesis or
-    head.slot + node.config.syncHorizon >= wallSlot.slot
+    head.slot + node.config.syncHorizon.get >= wallSlot.slot
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
     {.async: (raises: [CancelledError]).} =
   template pool: untyped = node.lightClientPool[]
 
-  static: doAssert lightClientFinalityUpdateSlotOffset ==
-    lightClientOptimisticUpdateSlotOffset
+  doAssert(
+    node.dag.timeParams.lightClientFinalityUpdateSlotOffset ==
+    node.dag.timeParams.lightClientOptimisticUpdateSlotOffset)
   let sendTime = node.beaconClock.fromNow(
-    slot.light_client_finality_update_time())
+    slot.light_client_finality_update_time(node.dag.timeParams))
   if sendTime.inFuture:
     debug "Waiting to send LC updates", slot, delay = shortLog(sendTime.offset)
     await sleepAsync(sendTime.offset)
@@ -916,19 +917,6 @@ proc signAndSendAggregate(
         return
 
     signAndSendAggregatedAttestations()
-  else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#aggregateandproof
-    var msg = phase0.SignedAggregateAndProof(
-      message: phase0.AggregateAndProof(
-        aggregator_index: distinctBase validator_index,
-        selection_proof: selectionProof))
-
-    msg.message.aggregate = node.attestationPool[].getPhase0AggregatedAttestation(
-      slot, committee_index).valueOr:
-        return
-
-    signAndSendAggregatedAttestations()
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -1248,10 +1236,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   let newHead = await handleProposal(node, head, slot)
   head = newHead
 
-  let
-    # The latest point in time when we'll be sending out attestations
-    attestationCutoff = node.beaconClock.fromNow(slot.attestation_deadline())
-
+  # The latest point in time when we'll be sending out attestations
+  let attestationCutoff = node.beaconClock.fromNow(
+    slot.attestation_deadline(node.dag.timeParams))
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
       head = shortLog(head),
@@ -1266,7 +1253,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.consensusManager[].updateHead(slot)
     head = node.dag.head
 
-  static: doAssert attestationSlotOffset == syncCommitteeMessageSlotOffset
+  doAssert(
+    node.dag.timeParams.attestationSlotOffset ==
+    node.dag.timeParams.syncCommitteeMessageSlotOffset)
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
@@ -1277,10 +1266,11 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
-  static:
-    doAssert aggregateSlotOffset == syncContributionSlotOffset, "Timing change?"
-  let
-    aggregateCutoff = node.beaconClock.fromNow(slot.aggregate_deadline())
+  doAssert(
+    node.dag.timeParams.aggregateSlotOffset ==
+    node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
+  let aggregateCutoff = node.beaconClock.fromNow(
+    slot.aggregate_deadline(node.dag.timeParams))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)

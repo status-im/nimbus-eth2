@@ -30,7 +30,7 @@ To start trusted node sync, run:
 === "Mainnet"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:mainnet \
+      --network=mainnet \
       --data-dir=build/data/shared_mainnet_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -38,7 +38,7 @@ To start trusted node sync, run:
 === "Hoodi"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:hoodi \
+      --network=hoodi \
       --data-dir=build/data/shared_hoodi_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -82,12 +82,12 @@ The `head` root is also printed in the log output at regular intervals.
 
 ## Advanced
 
-### Verify the downloaded state through the Nimbus light client
+### Verify the downloaded state through the Nimbus consensus light client
 
 !!! note ""
     This feature is available from `v23.4.0` onwards.
 
-The `--trusted-block-root` option enables you to leverage the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
+The `--trusted-block-root` option enables you to leverage the Nimbus consensus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the consensus light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
 
 ### Sync deposit history
 
@@ -122,9 +122,9 @@ While you can choose a different sync point using a state hash or a slot number,
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --state-id:1024
+  --state-id=1024
 ```
 
 ### Sync from checkpoint files
@@ -151,7 +151,7 @@ To recreate a historical index from before the checkpoint, it is necessary to fi
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
   --reindex=true
 ```

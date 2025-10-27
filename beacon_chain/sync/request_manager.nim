@@ -137,10 +137,6 @@ func checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
-func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
-                          y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
-  cmp(x.index, y[].index)
-
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
@@ -515,8 +511,8 @@ proc requestManagerBlockLoop(
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
     wallTime = rman.getBeaconTime()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
+    wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
+    delay = wallTime - wallSlot.start_beacon_time(rman.network.cfg.timeParams)
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var
@@ -627,8 +623,8 @@ proc requestManagerBlobLoop(
 proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
     wallTime = rman.getBeaconTime()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
+    wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
+    delay = wallTime - wallSlot.start_beacon_time(rman.network.cfg.timeParams)
 
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
@@ -727,8 +723,8 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-        if rman.custody_columns_set.lenu64 >
-            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64:
+        if rman.custody_columns_set.lenu64 >=
+            rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
           PARALLEL_DATA_COLUMNS_SUPER
         else:
           PARALLEL_DATA_COLUMNS
@@ -751,7 +747,7 @@ proc start*(rman: var RequestManager) =
 
 proc switchToColumnLoop*(rman: var RequestManager) =
   let currentEpoch =
-      rman.getBeaconTime().slotOrZero().epoch()
+    rman.getBeaconTime().slotOrZero(rman.network.cfg.timeParams).epoch()
 
   if currentEpoch >= rman.network.cfg.FULU_FORK_EPOCH and
      isNil(rman.dataColumnLoopFuture):

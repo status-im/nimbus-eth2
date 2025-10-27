@@ -173,7 +173,7 @@ suite baseDescription & "Execution Payload " & preset():
               assignClone(preState)[].hash_tree_root())))
       func executePayload(_: capella.ExecutionPayload): bool = payloadValid
       process_execution_payload(
-        preState, body.execution_payload, executePayload)
+        defaultRuntimeConfig, preState, body.execution_payload, executePayload)
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
