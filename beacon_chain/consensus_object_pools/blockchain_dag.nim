@@ -2307,7 +2307,9 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:
     # Execution block hashes are loaded lazily during startup
-    blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
+    let blockHashes = dag.loadExecutionAndParentBlockHash(blck.bid)
+    blck.executionBlockHash = blockHashes[0]
+    blck.parentBlockHash = blockHashes[1]
 
     if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
       # The block belongs to Bellatrix+ but the merge has not yet happened
@@ -2317,6 +2319,13 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] 
       var cur = blck.parent
       while cur != nil and cur.executionBlockHash.isNone:
         cur.executionBlockHash = blck.executionBlockHash
+        cur = cur.parent
+
+    if blck.parentBlockHash == static(Opt.some(ZERO_HASH)):
+      # Same as executionBlockHash
+      var cur = blck.parent
+      while cur != nil and cur.parentBlockHash.isNone:
+        cur.parentBlockHash = blck.parentBlockHash
         cur = cur.parent
 
   blck.executionBlockHash
