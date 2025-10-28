@@ -371,7 +371,7 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
 
 proc recover_blobs_from_data_columns*(
   dataColumns: seq[fulu.DataColumnSidecar]
-): Result[List[Blob, Limit FIELD_ELEMENTS_PER_BLOB], cstring] =
+): Result[Blobs, cstring] =
 
   var required = initHashSet[ColumnIndex]()
   for i in 0'u64 ..< CELLS_PER_EXT_BLOB div 2:
@@ -388,21 +388,21 @@ proc recover_blobs_from_data_columns*(
     elif a.index > b.index: 1
     else: 0)
 
-  let
+  const
     numCols = CELLS_PER_EXT_BLOB div 2
+  let
     numBlobs = sorted[0].column.len
   var
-    blobs = default(List[Blob, Limit FIELD_ELEMENTS_PER_BLOB])
+    blobs: Blobs
 
   for blobIndex in 0 ..< numBlobs:
-    var blobBytes: array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, uint8]
+    var blobBytes: Blob
     var offset = 0
     for colIdx in 0 ..< numCols:
       let cellBytes = sorted[colIdx].column[blobIndex].bytes
-      # compute destination pointer safely
       let blobPtr = cast[pointer](cast[uint](addr blobBytes) + uint(offset))
       copyMem(blobPtr, unsafeAddr cellBytes[0], fulu.BYTES_PER_CELL)
       offset += fulu.BYTES_PER_CELL
-    discard blobs.add(Blob(blobBytes))
+    discard blobs.add(blobBytes)
 
   ok(blobs)

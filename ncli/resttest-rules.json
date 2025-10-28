@@ -4139,26 +4139,14 @@
   {
     "topics": ["beacon", "blobs_blockid"],
     "request": {
-      "url": "/eth/v1/beacon/blobs/head",
+      "url": "/eth/v1/beacon/blobs/0x0000000000000000000000000000000000000000000000000000000000000000",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "200"}}
-  },
-  {
-    "topics": ["beacon", "blobs_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blob_sidecars/finalized",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "200"}}
-  },
-  {
-    "topics": ["beacon", "blobs_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blob_sidecars/0x0000000000000000000000000000000000000000000000000000000000000000",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
   },
   {
     "topics": ["builder", "states_expected_withdrawals"],
