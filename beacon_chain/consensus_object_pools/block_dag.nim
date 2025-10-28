@@ -189,13 +189,8 @@ func get_ancestor*(
 
     blck = blck.parent
 
-func payloadStatus*(blck: BlockRef): PayloadStatus =
-  ## field `payload_status` from `ForkChoiceNode`
-  ## https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-forkchoicenode
-  ##
-  ## logic is based on
-  ## https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-get_parent_payload_status
-
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-get_parent_payload_status
+func get_parent_payload_status*(blck: BlockRef): PayloadStatus =
   if isNil(blck.parent) or
       # When block_hash is `Opt.none`, it means it requires loading data from
       # dag. Returns as PENDING as it is waiting the data to be filled.
