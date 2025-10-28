@@ -1736,15 +1736,14 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
+      trace "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
-        warn "The node did not obtain 50%+ of all the columns"
         return
       # Ignore if the node has already obtained all the columns
       elif columns.lenu64 == maxColCount:
-        debug "The node has already obtained all the columns"
+        trace "The node has already obtained all the columns"
         return
 
       let startTime = Moment.now()
@@ -1781,7 +1780,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let reconstructedTime = Moment.now()
 
-      debug "Columns reconstructed",
+      trace "Columns reconstructed",
         columns = reconCounter,
         recoveryTime = recoveredTime - startTime,
         reconstructionTime = reconstructedTime - recoveredTime
