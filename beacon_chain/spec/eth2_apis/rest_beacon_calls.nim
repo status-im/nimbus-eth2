@@ -108,7 +108,7 @@ proc getBlockHeaderPlain*(block_id: BlockIdent): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
 
 proc getBlobs*(block_id: BlockIdent): RestResponse[GetBlobsResponse] {.
-     rest, endpoint: "eth/v1/beacon/blobs/{block_id}",
+     rest, endpoint: "/eth/v1/beacon/blobs/{block_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobs
 
