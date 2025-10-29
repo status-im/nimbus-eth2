@@ -602,13 +602,6 @@ proc popSidecars*(
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
 
-# proc popSidecars*(
-#     quarantine: var ColumnQuarantine,
-#     blck: fulu.SignedBeaconBlock
-# ): Opt[seq[ref fulu.DataColumnSidecar]] =
-#   ## Alias for `popSidecars()`.
-#   popSidecars(quarantine, blck.root, blck)
-
 func fetchMissingSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
