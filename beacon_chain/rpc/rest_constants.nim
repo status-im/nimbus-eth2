@@ -245,8 +245,6 @@ const
     "Requested slot is outside of blobs window"
   DataColumnsOutOfRange* =
     "Requested slot is outside of data columns window"
-  DataColumnsShortage* =
-    "All data columns not available for Block Id"
   InvalidBlsToExecutionChangeObjectError* =
     "Unable to decode BLS to execution change object(s)"
   BlsToExecutionChangeValidationError* =

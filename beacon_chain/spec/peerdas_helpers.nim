@@ -371,38 +371,28 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
 
 proc recover_blobs_from_data_columns*(
   dataColumns: seq[fulu.DataColumnSidecar]
-): Result[Blobs, cstring] =
+): Blobs =
+  const numCols = CELLS_PER_EXT_BLOB div 2
+  var blobs: Blobs
 
-  var required = initHashSet[ColumnIndex]()
-  for i in 0'u64 ..< CELLS_PER_EXT_BLOB div 2:
-    required.incl(i)
-  var available: HashSet[ColumnIndex]
-  for dc in dataColumns:
-    available.incl(dc.index)
-  if not (required <= available):
-    return err("missing required sidecars")
-
-  var sorted = dataColumns
-  sorted.sort(proc(a, b: fulu.DataColumnSidecar): int =
-    if a.index < b.index: -1
-    elif a.index > b.index: 1
-    else: 0)
-
-  const
-    numCols = CELLS_PER_EXT_BLOB div 2
-  let
-    numBlobs = sorted[0].column.len
-  var
-    blobs: Blobs
+  if dataColumns.len < numCols:
+    return blobs
+  for i in 0 ..< numCols:
+    if dataColumns[i].index != i.uint64:
+      return blobs
+  let numBlobs = dataColumns[0].column.len
 
   for blobIndex in 0 ..< numBlobs:
     var blobBytes: Blob
-    var offset = 0
     for colIdx in 0 ..< numCols:
-      let cellBytes = sorted[colIdx].column[blobIndex].bytes
-      let blobPtr = cast[pointer](cast[uint](addr blobBytes) + uint(offset))
-      copyMem(blobPtr, unsafeAddr cellBytes[0], fulu.BYTES_PER_CELL)
-      offset += fulu.BYTES_PER_CELL
+      let
+        cellBytes = dataColumns[colIdx].column[blobIndex].bytes
+        offset = colIdx * fulu.BYTES_PER_CELL
+      assign(
+        blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),
+        cellBytes[0 .. fulu.BYTES_PER_CELL - 1]
+      )
     discard blobs.add(blobBytes)
 
-  ok(blobs)
+  return blobs
+

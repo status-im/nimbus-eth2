@@ -1831,7 +1831,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
-  router.api2(MethodGet, "eth/v1/beacon/blobs/{block_id}") do (
+  router.api2(MethodGet, "/eth/v1/beacon/blobs/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
       blockIdent = block_id.valueOr:
@@ -1855,8 +1855,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         data_columns.add dataColumnSidecar[]
 
     let data = recover_blobs_from_data_columns(data_columns)
-    if data.isErr():
-      return RestApiResponse.jsonError(Http404, DataColumnsShortage)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
     if contentType == sszMediaType:
@@ -1884,7 +1882,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # in current version of database.
           return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                          $error)
+                                         $error)
 
     node.withStateForBlockSlotId(bslot):
       return withState(state):
