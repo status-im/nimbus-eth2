@@ -167,7 +167,7 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
             return err(VerifierError.Invalid)
   ok()
 
-proc addBackfillBlockData*(
+proc addLightForwardBlock*(
     clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   doAssert(not(isNil(clist)))
@@ -243,5 +243,5 @@ proc untrustedBackfillVerifier*(
 ): Future[Result[void, VerifierError]] {.
   async: (raises: [CancelledError], raw: true).} =
   let retFuture = newFuture[Result[void, VerifierError]]()
-  retFuture.complete(clist.addBackfillBlockData(signedBlock, blobs))
+  retFuture.complete(clist.addLightForwardBlock(signedBlock, blobs))
   retFuture
