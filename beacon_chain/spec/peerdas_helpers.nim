@@ -24,10 +24,6 @@ from std/algorithm import sort
 from std/sequtils import toSeq
 from stew/staticfor import staticFor
 
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/polynomial-commitments.md#constants
-  BYTES_PER_FIELD_ELEMENT = 32
-
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
