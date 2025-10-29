@@ -375,22 +375,18 @@ proc processDataColumnSidecar*(
     return v
 
   let block_root = hash_tree_root(block_header)
+
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
 
-  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    withBlck(o[]):
-      when consensusFork >= ConsensusFork.Fulu and
-          consensusFork < ConsensusFork.Gloas:
-        let cres =
-          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
-        if cres.isSome():
+  let cres = self.dataColumnQuarantine[].popSidecars(block_root)
+  if cres.isSome():
+    let bres = self.quarantine[].popSidecarless(block_root)
+    if bres.isSome():
+      withBlck(bres.get()):
+        when (consensusFork >= ConsensusFork.Fulu) and
+          (consensusFork < ConsensusFork.Gloas):
           self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
-        else:
-          discard self.quarantine[].addSidecarless(
-            self.dag.finalizedHead.slot, forkyBlck)
-      else:
-        raiseAssert "Could not be added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())
