@@ -479,7 +479,10 @@ proc initFullNode(
           let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
-            dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+            if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+              Opt.some(default(fulu.DataColumnSidecars))
+            else:
+              dataColumnQuarantine[].popSidecars(forkyBlck.root)
           if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -489,7 +492,8 @@ proc initFullNode(
               else:
                 err(VerifierError.MissingParent)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          let sidecarsOpt = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          let sidecarsOpt =
+            blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if sidecarsOpt.isNone():
             # We don't have all the sidecars for this block, so we have
             # to put it to the quarantine.
@@ -504,7 +508,7 @@ proc initFullNode(
           {.error: "Unkown fork: " & $consensusFork.}
 
         await blockProcessor.addBlock(
-          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized
+          MsgSource.sync, forkyBlck, sidecarsOpt, maybeFinalized
         )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
