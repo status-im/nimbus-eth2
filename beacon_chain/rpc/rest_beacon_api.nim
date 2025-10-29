@@ -1831,8 +1831,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobs
   router.api2(MethodGet, "/eth/v1/beacon/blobs/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
+    # https://github.com/ethereum/beacon-APIs/blob/v4.0.0/apis/beacon/blobs/blobs.yaml
     let
       blockIdent = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
