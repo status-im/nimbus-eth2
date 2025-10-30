@@ -379,11 +379,12 @@ proc processDataColumnSidecar*(
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
 
-  let cres = self.dataColumnQuarantine[].popSidecars(block_root)
-  if cres.isSome():
-    let bres = self.quarantine[].popSidecarless(block_root)
-    if bres.isSome():
-      withBlck(bres.get()):
+  if self.quarantine[].sidecarless.hasKey(block_root):
+    let cres = self.dataColumnQuarantine[].popSidecars(block_root)
+    if cres.isSome():
+      let blck = self.quarantine[].popSidecarless(block_root).valueOr:
+        raiseAssert "Block should be present at this moment"
+      withBlck(blck):
         when (consensusFork >= ConsensusFork.Fulu) and
           (consensusFork < ConsensusFork.Gloas):
           self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
