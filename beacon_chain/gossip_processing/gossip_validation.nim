@@ -49,7 +49,7 @@ type
   ValidationError* = (ValidationResult, cstring)
 
 template errIgnore*(msg: cstring): untyped =
-  err((ValidationResult.Ignore, cstring msg))
+  err((ValidationResult.Ignore, msg))
 template errReject*(msg: cstring): untyped =
   err((ValidationResult.Reject, msg))
 
