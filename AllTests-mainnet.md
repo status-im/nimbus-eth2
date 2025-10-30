@@ -172,7 +172,6 @@ AllTests-mainnet
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
-+ popSidecars()/hasSidecars() return []/true on block without columns                        OK
 + pruneAfterFinalization() test                                                              OK
 + put() duplicate items should not affect counters                                           OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
