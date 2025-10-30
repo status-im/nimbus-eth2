@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -498,7 +498,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add default(VoteTracker)
       old_balances.add 0.Gwei
       new_balances.add 0.Gwei
@@ -529,7 +529,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
         next_root: fakeHash(0), # Get a non-zero hash
@@ -568,7 +568,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
         next_root: fakeHash(i), # Each vote for a different root
@@ -605,7 +605,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add VoteTracker(
         # Move vote from root 0 to root 1
         current_root: fakeHash(0),
@@ -642,7 +642,7 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add a block
-    indices.add fakeHash(1), 0
+    indices[fakeHash(1)] = 0
 
     # 2 validators
     var deltas = newSeqUninit[Delta](2)
@@ -692,7 +692,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add fakeHash(i), i
+      indices[fakeHash(i)] = i
       votes.add VoteTracker(
         # Move vote from root 0 to root 1
         current_root: fakeHash(0),
@@ -729,8 +729,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add fakeHash(1), 0
-    indices.add fakeHash(2), 1
+    indices[fakeHash(1)] = 0
+    indices[fakeHash(2)] = 1
 
     # 1 validator at the start, 2 at the end
     var deltas = newSeqUninit[Delta](2)
@@ -768,8 +768,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add fakeHash(1), 0
-    indices.add fakeHash(2), 1
+    indices[fakeHash(1)] = 0
+    indices[fakeHash(2)] = 1
 
     # 2 validator at the start, 1 at the end
     var deltas = newSeqUninit[Delta](2)
