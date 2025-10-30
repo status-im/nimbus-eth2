@@ -575,13 +575,6 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Fork - bellatrix_fork_random_large_validator_set [Preset: minimal]        OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_low_balances [Preset: minimal]               OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_misc_balances [Preset: minimal]              OK
-+ EF - Bellatrix - Fork - fork_base_state [Preset: minimal]                                  OK
-+ EF - Bellatrix - Fork - fork_many_next_epoch [Preset: minimal]                             OK
-+ EF - Bellatrix - Fork - fork_next_epoch [Preset: minimal]                                  OK
-+ EF - Bellatrix - Fork - fork_next_epoch_with_block [Preset: minimal]                       OK
-+ EF - Bellatrix - Fork - fork_random_large_validator_set [Preset: minimal]                  OK
-+ EF - Bellatrix - Fork - fork_random_low_balances [Preset: minimal]                         OK
-+ EF - Bellatrix - Fork - fork_random_misc_balances [Preset: minimal]                        OK
 ```
 ## EF - Bellatrix - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -1043,13 +1036,6 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Fork - capella_fork_random_large_validator_set [Preset: minimal]            OK
 + EF - Capella - Fork - capella_fork_random_low_balances [Preset: minimal]                   OK
 + EF - Capella - Fork - capella_fork_random_misc_balances [Preset: minimal]                  OK
-+ EF - Capella - Fork - fork_base_state [Preset: minimal]                                    OK
-+ EF - Capella - Fork - fork_many_next_epoch [Preset: minimal]                               OK
-+ EF - Capella - Fork - fork_next_epoch [Preset: minimal]                                    OK
-+ EF - Capella - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
-+ EF - Capella - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
-+ EF - Capella - Fork - fork_random_low_balances [Preset: minimal]                           OK
-+ EF - Capella - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
 ## EF - Capella - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -1600,13 +1586,6 @@ ConsensusSpecPreset-minimal
 + EF - Deneb - Fork - deneb_fork_random_large_validator_set [Preset: minimal]                OK
 + EF - Deneb - Fork - deneb_fork_random_low_balances [Preset: minimal]                       OK
 + EF - Deneb - Fork - deneb_fork_random_misc_balances [Preset: minimal]                      OK
-+ EF - Deneb - Fork - fork_base_state [Preset: minimal]                                      OK
-+ EF - Deneb - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
-+ EF - Deneb - Fork - fork_next_epoch [Preset: minimal]                                      OK
-+ EF - Deneb - Fork - fork_next_epoch_with_block [Preset: minimal]                           OK
-+ EF - Deneb - Fork - fork_random_large_validator_set [Preset: minimal]                      OK
-+ EF - Deneb - Fork - fork_random_low_balances [Preset: minimal]                             OK
-+ EF - Deneb - Fork - fork_random_misc_balances [Preset: minimal]                            OK
 ```
 ## EF - Deneb - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -1839,7 +1818,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - success_exit_queue__scaled_churn      OK
-+ [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 ```
 ## EF - Deneb - Operations - Withdrawals  [Preset: minimal]
@@ -2246,20 +2224,13 @@ ConsensusSpecPreset-minimal
 + EF - Electra - Fork - electra_fork_random_large_validator_set [Preset: minimal]            OK
 + EF - Electra - Fork - electra_fork_random_low_balances [Preset: minimal]                   OK
 + EF - Electra - Fork - electra_fork_random_misc_balances [Preset: minimal]                  OK
-+ EF - Electra - Fork - fork_base_state [Preset: minimal]                                    OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_is_max_validator_exit_epoch [Preset: minima OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_less_than_current_epoch [Preset: minimal]   OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_no_validator_exits [Preset: minimal]        OK
 + EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: minimal]         OK
 + EF - Electra - Fork - fork_inactive_compounding_validator_with_excess_balance [Preset: min OK
-+ EF - Electra - Fork - fork_many_next_epoch [Preset: minimal]                               OK
-+ EF - Electra - Fork - fork_next_epoch [Preset: minimal]                                    OK
-+ EF - Electra - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
 + EF - Electra - Fork - fork_pending_deposits_are_sorted [Preset: minimal]                   OK
 + EF - Electra - Fork - fork_pre_activation [Preset: minimal]                                OK
-+ EF - Electra - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
-+ EF - Electra - Fork - fork_random_low_balances [Preset: minimal]                           OK
-+ EF - Electra - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
 ## EF - Electra - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -2551,7 +2522,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_current OK
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
-+ [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - basic                               OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
@@ -3042,13 +3012,6 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: minimal] OK
 + EF - Fulu - Fork - after_fork_deactivate_validators_wo_block_from_electra_to_fulu [Preset: OK
 + EF - Fulu - Fork - after_fork_new_validator_active_from_electra_to_fulu [Preset: minimal]  OK
-+ EF - Fulu - Fork - fork_base_state [Preset: minimal]                                       OK
-+ EF - Fulu - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
-+ EF - Fulu - Fork - fork_next_epoch [Preset: minimal]                                       OK
-+ EF - Fulu - Fork - fork_next_epoch_with_block [Preset: minimal]                            OK
-+ EF - Fulu - Fork - fork_random_large_validator_set [Preset: minimal]                       OK
-+ EF - Fulu - Fork - fork_random_low_balances [Preset: minimal]                              OK
-+ EF - Fulu - Fork - fork_random_misc_balances [Preset: minimal]                             OK
 + EF - Fulu - Fork - fulu_fork_random_0 [Preset: minimal]                                    OK
 + EF - Fulu - Fork - fulu_fork_random_1 [Preset: minimal]                                    OK
 + EF - Fulu - Fork - fulu_fork_random_2 [Preset: minimal]                                    OK
@@ -3350,7 +3313,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_fo OK
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
-+ [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - basic                                  OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit     OK
@@ -4052,8 +4014,18 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
@@ -4177,7 +4149,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
@@ -4524,11 +4495,6 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
-  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4947,25 +4913,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
 + [Valid]   EF - bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
 ```
-## EF - bellatrix - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - bellatrix - Random - randomized_0 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_1 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_10 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_11 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_12 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_13 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_14 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_15 [Preset: minimal]                        OK
-+ [Valid]   EF - bellatrix - Random - randomized_2 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_3 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_4 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_5 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_6 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_7 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_8 [Preset: minimal]                         OK
-+ [Valid]   EF - bellatrix - Random - randomized_9 [Preset: minimal]                         OK
-```
 ## EF - bellatrix - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
@@ -5031,25 +4978,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - capella - Finality - finality_rule_2 [Preset: minimal]                      OK
 + [Valid]   EF - capella - Finality - finality_rule_3 [Preset: minimal]                      OK
 + [Valid]   EF - capella - Finality - finality_rule_4 [Preset: minimal]                      OK
-```
-## EF - capella - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - capella - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - capella - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - capella - Random - randomized_9 [Preset: minimal]                           OK
 ```
 ## EF - capella - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -5130,25 +5058,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - deneb - Finality - finality_rule_2 [Preset: minimal]                        OK
 + [Valid]   EF - deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
 + [Valid]   EF - deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
-```
-## EF - deneb - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - deneb - Random - randomized_0 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_1 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_10 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_11 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_12 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_13 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_14 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_15 [Preset: minimal]                            OK
-+ [Valid]   EF - deneb - Random - randomized_2 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_3 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_4 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_5 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_6 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_7 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_8 [Preset: minimal]                             OK
-+ [Valid]   EF - deneb - Random - randomized_9 [Preset: minimal]                             OK
 ```
 ## EF - deneb - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -5238,25 +5147,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - electra - Finality - finality_rule_2 [Preset: minimal]                      OK
 + [Valid]   EF - electra - Finality - finality_rule_3 [Preset: minimal]                      OK
 + [Valid]   EF - electra - Finality - finality_rule_4 [Preset: minimal]                      OK
-```
-## EF - electra - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - electra - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - electra - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - electra - Random - randomized_9 [Preset: minimal]                           OK
 ```
 ## EF - electra - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -5369,25 +5259,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Finality - finality_rule_2 [Preset: minimal]                         OK
 + [Valid]   EF - fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
 + [Valid]   EF - fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
-```
-## EF - fulu - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - fulu - Random - randomized_0 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_1 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_10 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_11 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_12 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_13 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_14 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_15 [Preset: minimal]                             OK
-+ [Valid]   EF - fulu - Random - randomized_2 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_3 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_4 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_5 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_6 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_7 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_8 [Preset: minimal]                              OK
-+ [Valid]   EF - fulu - Random - randomized_9 [Preset: minimal]                              OK
 ```
 ## EF - fulu - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -5564,25 +5435,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
 + [Valid]   EF - phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
 + [Valid]   EF - phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
-```
-## EF - phase0 - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - phase0 - Random - randomized_0 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_1 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_10 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_11 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_12 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_13 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_14 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_15 [Preset: minimal]                           OK
-+ [Valid]   EF - phase0 - Random - randomized_2 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_3 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_4 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_5 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_6 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_7 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_8 [Preset: minimal]                            OK
-+ [Valid]   EF - phase0 - Random - randomized_9 [Preset: minimal]                            OK
 ```
 ## EF - phase0 - Sanity - Blocks  [Preset: minimal]
 ```diff
