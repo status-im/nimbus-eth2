@@ -1959,9 +1959,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
           int(sidecars[0].sidecar[].signed_block_header.message.slot))
       sidecars2 =
         sidecars.toOpenArray(0, len(custodyColumns) - 1).mapIt(it.sidecar)
-      commitments2 =
-        @[genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)]
-      blck = genFuluSignedBeaconBlock(blockRoot2, commitments2)
       dres = bq.popSidecars(blockRoot2)
 
     check:
@@ -2034,9 +2031,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars3 =
         sidecars.toOpenArray(i3, i3 + len(custodyColumns) - 1).
           mapIt(it.sidecar)
-      commitments3 =
-        @[genKzgCommitment(5), genKzgCommitment(6), genKzgCommitment(7)]
-      blck3 = genFuluSignedBeaconBlock(blockRoot3, commitments3)
       dres3 = bq.popSidecars(blockRoot3)
 
     check:
