@@ -999,6 +999,9 @@ proc applyBlock(
 
   ok()
 
+proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState, genesis_validators_root)
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1183,8 +1186,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     quit 1
 
   # Need to load state to find genesis validators root, before loading era db
-  dag.era = EraDB.new(
-    cfg, eraPath, getStateField(dag.headState, genesis_validators_root))
+  dag.era = EraDB.new(cfg, eraPath, dag.genesis_validators_root)
 
   # We used an interim finalizedHead while loading the head state above - now
   # that we have loaded the dag up to the finalized slot, we can also set
@@ -1255,8 +1257,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         slot: dag.tail.slot + 1,
         parent_root: dag.tail.root)
 
-  dag.forkDigests = newClone ForkDigests.init(
-    cfg, getStateField(dag.headState, genesis_validators_root))
+  dag.forkDigests = newClone ForkDigests.init(cfg, dag.genesis_validators_root)
 
   withState(dag.headState):
     dag.validatorMonitor[].registerState(forkyState.data)
@@ -1343,9 +1344,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.initLightClientDataCache()
 
   dag
-
-template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
-  getStateField(dag.headState, genesis_validators_root)
 
 proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
   dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")

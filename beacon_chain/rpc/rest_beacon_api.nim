@@ -17,7 +17,7 @@ import
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[
       peerdas_helpers, eth2_merkleization,
-      forks, network, validator],
+      forks, network, state_transition_block, validator],
   ../validators/message_router_mev
 
 export rest_utils
@@ -1831,6 +1831,66 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobs
+  router.api2(MethodGet, "/eth/v1/beacon/blobs/{block_id}") do (
+      block_id: BlockIdent, versioned_hashes: seq[string]) -> RestApiResponse:
+    # https://github.com/ethereum/beacon-APIs/blob/v4.0.0/apis/beacon/blobs/blobs.yaml
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      vhFilter = versioned_hashes.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidVersionedHashError)
+      bid = node.getBlockId(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError,
+                                         $error)
+
+      contentType = block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
+    var data_columns: seq[fulu.DataColumnSidecar]
+    for columnIndex in 0'u64 ..< node.dag.cfg.NUMBER_OF_COLUMNS:
+      var dataColumnSidecar = new fulu.DataColumnSidecar
+      if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
+        data_columns.add dataColumnSidecar[]
+
+    let data = recover_blobs_from_data_columns(data_columns)
+    let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+
+    let final_data = block:
+      var res: Blobs
+      if vhFilter.len == 0:
+        res = data
+      else:
+        for blb in data:
+          let
+            blb_comm = blobToKzgCommitment(KzgBlob(bytes: blb)).valueOr:
+              return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+            blb_vh = kzg_commitment_to_versioned_hash(blb_comm)
+
+          for vh in vhFilter:
+            try:
+              let vh_decoded = Hash32.fromHex(vh)
+              if blb_vh == vh_decoded:
+                discard res.add blb
+            except ValueError:
+              return RestApiResponse.jsonError(Http400, InvalidVersionedHashError)
+      res
+
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(
+        final_data, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseFinalized(
+        final_data,
+        Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",
@@ -1846,7 +1906,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # in current version of database.
           return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                          $error)
+                                         $error)
 
     node.withStateForBlockSlotId(bslot):
       return withState(state):

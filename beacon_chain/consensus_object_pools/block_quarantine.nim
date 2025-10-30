@@ -301,17 +301,17 @@ func pruneAfterFinalization*(
 proc addOrphan*(
     quarantine: var Quarantine,
     finalizedSlot: Slot,
-    signedBlock: ForkedSignedBeaconBlock
+    signedBlock: ForkySignedBeaconBlock
 ): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
 
-  if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
+  if not isViable(finalizedSlot, signedBlock.message.slot):
     quarantine.addUnviable(signedBlock.root) # will remove from missing
     return err("block unviable")
 
   quarantine.cleanupOrphans(finalizedSlot)
 
-  let parent_root = getForkedBlockField(signedBlock, parent_root)
+  let parent_root = signedBlock.message.parent_root
 
   if parent_root in quarantine.unviable:
     quarantine.addUnviable(signedBlock.root)
@@ -335,7 +335,8 @@ proc addOrphan*(
     quarantine.orphans.del oldest_orphan_key
     quarantine.sidecarless.del oldest_orphan_key[0]
 
-  quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
+  quarantine.orphans[(signedBlock.root, signedBlock.signature)] =
+    ForkedSignedBeaconBlock.init(signedBlock)
   quarantine.orphansEvent.fire()
 
   ok()
