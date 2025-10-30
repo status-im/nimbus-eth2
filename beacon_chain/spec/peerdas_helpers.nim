@@ -390,5 +390,4 @@ proc recover_blobs_from_data_columns*(
       )
     discard blobs.add(blobBytes)
 
-  return blobs
-
+  blobs

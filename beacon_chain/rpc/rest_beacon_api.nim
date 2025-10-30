@@ -1861,10 +1861,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     if contentType == sszMediaType:
       RestApiResponse.sszResponse(
-        data.get(), consensusFork, node.hasRestAllowedOrigin)
+        data, consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
       RestApiResponse.jsonResponseFinalized(
-        data.get(),
+        data,
         Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
