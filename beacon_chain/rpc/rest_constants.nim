@@ -109,6 +109,8 @@ const
     "Invalid state identifier value"
   InvalidBlockIdValueError* =
     "Invalid block identifier value"
+  InvalidVersionedHashError* =
+    "Invalid versioned hash value"
   InvalidValidatorIdValueError* =
     "Invalid validator identifier value(s)"
   NonUniqueValidatorIdError* =
