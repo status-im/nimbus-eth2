@@ -386,7 +386,7 @@ proc recover_blobs_from_data_columns*(
         offset = colIdx * fulu.BYTES_PER_CELL
       assign(
         blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),
-        cellBytes[0 .. fulu.BYTES_PER_CELL - 1]
+        cellBytes.toOpenArray(0, fulu.BYTES_PER_CELL - 1)
       )
     discard blobs.add(blobBytes)
 
