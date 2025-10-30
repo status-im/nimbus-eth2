@@ -335,6 +335,48 @@ ConsensusSpecPreset-mainnet
 + EF - Altair - Rewards - with_slashed_validators [Preset: mainnet]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: mainnet]                     OK
 ```
+## EF - Altair - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
 ## EF - Altair - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Altair - Slots - balance_change_affects_proposer [Preset: mainnet]                    OK
@@ -499,6 +541,12 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Fork - bellatrix_fork_random_3 [Preset: mainnet]                          OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_low_balances [Preset: mainnet]               OK
 + EF - Bellatrix - Fork - bellatrix_fork_random_misc_balances [Preset: mainnet]              OK
++ EF - Bellatrix - Fork - fork_base_state [Preset: mainnet]                                  OK
++ EF - Bellatrix - Fork - fork_many_next_epoch [Preset: mainnet]                             OK
++ EF - Bellatrix - Fork - fork_next_epoch [Preset: mainnet]                                  OK
++ EF - Bellatrix - Fork - fork_next_epoch_with_block [Preset: mainnet]                       OK
++ EF - Bellatrix - Fork - fork_random_low_balances [Preset: mainnet]                         OK
++ EF - Bellatrix - Fork - fork_random_misc_balances [Preset: mainnet]                        OK
 ```
 ## EF - Bellatrix - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -740,6 +788,51 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: mainnet]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: mainnet]                  OK
 ```
+## EF - Bellatrix - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
 ## EF - Bellatrix - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Bellatrix - Slots - balance_change_affects_proposer [Preset: mainnet]                 OK
@@ -897,6 +990,12 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Fork - capella_fork_random_3 [Preset: mainnet]                              OK
 + EF - Capella - Fork - capella_fork_random_low_balances [Preset: mainnet]                   OK
 + EF - Capella - Fork - capella_fork_random_misc_balances [Preset: mainnet]                  OK
++ EF - Capella - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - Capella - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
++ EF - Capella - Fork - fork_next_epoch [Preset: mainnet]                                    OK
++ EF - Capella - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - Capella - Fork - fork_random_low_balances [Preset: mainnet]                           OK
++ EF - Capella - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
 ## EF - Capella - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -1213,6 +1312,55 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 ```
+## EF - Capella - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
+```
 ## EF - Capella - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Capella - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
@@ -1377,6 +1525,12 @@ ConsensusSpecPreset-mainnet
 + EF - Deneb - Fork - deneb_fork_random_3 [Preset: mainnet]                                  OK
 + EF - Deneb - Fork - deneb_fork_random_low_balances [Preset: mainnet]                       OK
 + EF - Deneb - Fork - deneb_fork_random_misc_balances [Preset: mainnet]                      OK
++ EF - Deneb - Fork - fork_base_state [Preset: mainnet]                                      OK
++ EF - Deneb - Fork - fork_many_next_epoch [Preset: mainnet]                                 OK
++ EF - Deneb - Fork - fork_next_epoch [Preset: mainnet]                                      OK
++ EF - Deneb - Fork - fork_next_epoch_with_block [Preset: mainnet]                           OK
++ EF - Deneb - Fork - fork_random_low_balances [Preset: mainnet]                             OK
++ EF - Deneb - Fork - fork_random_misc_balances [Preset: mainnet]                            OK
 ```
 ## EF - Deneb - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -1611,6 +1765,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 ```
 ## EF - Deneb - Operations - Withdrawals  [Preset: mainnet]
 ```diff
@@ -1704,6 +1859,57 @@ ConsensusSpecPreset-mainnet
 + EF - Deneb - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]            OK
 + EF - Deneb - Rewards - with_slashed_validators [Preset: mainnet]                           OK
 + EF - Deneb - Rewards - with_slashed_validators_leak [Preset: mainnet]                      OK
+```
+## EF - Deneb - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
 ```
 ## EF - Deneb - Sanity - Slots  [Preset: mainnet]
 ```diff
@@ -1940,13 +2146,19 @@ ConsensusSpecPreset-mainnet
 + EF - Electra - Fork - electra_fork_random_3 [Preset: mainnet]                              OK
 + EF - Electra - Fork - electra_fork_random_low_balances [Preset: mainnet]                   OK
 + EF - Electra - Fork - electra_fork_random_misc_balances [Preset: mainnet]                  OK
++ EF - Electra - Fork - fork_base_state [Preset: mainnet]                                    OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_is_max_validator_exit_epoch [Preset: mainne OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_less_than_current_epoch [Preset: mainnet]   OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_no_validator_exits [Preset: mainnet]        OK
 + EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: mainnet]         OK
 + EF - Electra - Fork - fork_inactive_compounding_validator_with_excess_balance [Preset: mai OK
++ EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
++ EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
++ EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
 + EF - Electra - Fork - fork_pending_deposits_are_sorted [Preset: mainnet]                   OK
 + EF - Electra - Fork - fork_pre_activation [Preset: mainnet]                                OK
++ EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
++ EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -2210,6 +2422,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
 + [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - basic                               OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - exit_existing_churn_and_balance_mul OK
@@ -2364,6 +2577,65 @@ ConsensusSpecPreset-mainnet
 + EF - Electra - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - Electra - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Electra - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
+```
+## EF - Electra - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
 ```
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
@@ -2609,6 +2881,12 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: mainnet] OK
 + EF - Fulu - Fork - after_fork_deactivate_validators_wo_block_from_electra_to_fulu [Preset: OK
 + EF - Fulu - Fork - after_fork_new_validator_active_from_electra_to_fulu [Preset: mainnet]  OK
++ EF - Fulu - Fork - fork_base_state [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
++ EF - Fulu - Fork - fork_next_epoch [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
++ EF - Fulu - Fork - fork_random_low_balances [Preset: mainnet]                              OK
++ EF - Fulu - Fork - fork_random_misc_balances [Preset: mainnet]                             OK
 + EF - Fulu - Fork - fulu_fork_random_0 [Preset: mainnet]                                    OK
 + EF - Fulu - Fork - fulu_fork_random_1 [Preset: mainnet]                                    OK
 + EF - Fulu - Fork - fulu_fork_random_2 [Preset: mainnet]                                    OK
@@ -2881,6 +3159,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - basic                                  OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit     OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - exit_existing_churn_and_balance_multip OK
@@ -3035,6 +3314,68 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]             OK
 + EF - Fulu - Rewards - with_slashed_validators [Preset: mainnet]                            OK
 + EF - Fulu - Rewards - with_slashed_validators_leak [Preset: mainnet]                       OK
+```
+## EF - Fulu - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
 ```
 ## EF - Fulu - Sanity - Slots  [Preset: mainnet]
 ```diff
@@ -3457,18 +3798,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
@@ -3595,6 +3926,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_balance_multi OK
@@ -3716,6 +4048,79 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Rewards - with_slashed_validators [Preset: mainnet]                           OK
 + EF - Gloas - Rewards - with_slashed_validators_leak [Preset: mainnet]                      OK
 ```
+## EF - Gloas - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    BuilderPendingPayment                                                         OK
++   Testing    BuilderPendingWithdrawal                                                      OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
++   Testing    ExecutionPayloadEnvelope                                                      OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkChoiceNode                                                                OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    IndexedPayloadAttestation                                                     OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PayloadAttestation                                                            OK
++   Testing    PayloadAttestationData                                                        OK
++   Testing    PayloadAttestationMessage                                                     OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
++   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
+```
 ## EF - Gloas - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Gloas - Slots - balance_change_affects_proposer [Preset: mainnet]                     OK
@@ -3791,6 +4196,11 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
+  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
+  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4074,6 +4484,36 @@ ConsensusSpecPreset-mainnet
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 ```
+## EF - Phase 0 - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
 ## EF - Phase 0 - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Phase 0 - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
@@ -4169,6 +4609,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - bellatrix - Finality - finality_rule_3 [Preset: mainnet]                    OK
 + [Valid]   EF - bellatrix - Finality - finality_rule_4 [Preset: mainnet]                    OK
 ```
+## EF - bellatrix - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - bellatrix - Random - randomized_0 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_1 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_10 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_11 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_12 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_13 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_14 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_15 [Preset: mainnet]                        OK
++ [Valid]   EF - bellatrix - Random - randomized_2 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_3 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_4 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_5 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_6 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_7 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_8 [Preset: mainnet]                         OK
++ [Valid]   EF - bellatrix - Random - randomized_9 [Preset: mainnet]                         OK
+```
 ## EF - bellatrix - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]      OK
@@ -4229,6 +4688,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - capella - Finality - finality_rule_2 [Preset: mainnet]                      OK
 + [Valid]   EF - capella - Finality - finality_rule_3 [Preset: mainnet]                      OK
 + [Valid]   EF - capella - Finality - finality_rule_4 [Preset: mainnet]                      OK
+```
+## EF - capella - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - capella - Random - randomized_0 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_1 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_10 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_11 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_12 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_13 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_14 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_15 [Preset: mainnet]                          OK
++ [Valid]   EF - capella - Random - randomized_2 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_3 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_4 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_5 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_6 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_7 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_8 [Preset: mainnet]                           OK
++ [Valid]   EF - capella - Random - randomized_9 [Preset: mainnet]                           OK
 ```
 ## EF - capella - Sanity - Blocks  [Preset: mainnet]
 ```diff
@@ -4302,6 +4780,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - deneb - Finality - finality_rule_2 [Preset: mainnet]                        OK
 + [Valid]   EF - deneb - Finality - finality_rule_3 [Preset: mainnet]                        OK
 + [Valid]   EF - deneb - Finality - finality_rule_4 [Preset: mainnet]                        OK
+```
+## EF - deneb - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - deneb - Random - randomized_0 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_1 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_10 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_11 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_12 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_13 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_14 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_15 [Preset: mainnet]                            OK
++ [Valid]   EF - deneb - Random - randomized_2 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_3 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_4 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_5 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_6 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_7 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_8 [Preset: mainnet]                             OK
++ [Valid]   EF - deneb - Random - randomized_9 [Preset: mainnet]                             OK
 ```
 ## EF - deneb - Sanity - Blocks  [Preset: mainnet]
 ```diff
@@ -4384,6 +4881,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - electra - Finality - finality_rule_2 [Preset: mainnet]                      OK
 + [Valid]   EF - electra - Finality - finality_rule_3 [Preset: mainnet]                      OK
 + [Valid]   EF - electra - Finality - finality_rule_4 [Preset: mainnet]                      OK
+```
+## EF - electra - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - electra - Random - randomized_0 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_1 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_10 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_11 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_12 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_13 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_14 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_15 [Preset: mainnet]                          OK
++ [Valid]   EF - electra - Random - randomized_2 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_3 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_4 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_5 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_6 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_7 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_8 [Preset: mainnet]                           OK
++ [Valid]   EF - electra - Random - randomized_9 [Preset: mainnet]                           OK
 ```
 ## EF - electra - Sanity - Blocks  [Preset: mainnet]
 ```diff
@@ -4484,6 +5000,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Finality - finality_rule_2 [Preset: mainnet]                         OK
 + [Valid]   EF - fulu - Finality - finality_rule_3 [Preset: mainnet]                         OK
 + [Valid]   EF - fulu - Finality - finality_rule_4 [Preset: mainnet]                         OK
+```
+## EF - fulu - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - fulu - Random - randomized_0 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_1 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_10 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_11 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_12 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_13 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_14 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_15 [Preset: mainnet]                             OK
++ [Valid]   EF - fulu - Random - randomized_2 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_3 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_4 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_5 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_6 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_7 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_8 [Preset: mainnet]                              OK
++ [Valid]   EF - fulu - Random - randomized_9 [Preset: mainnet]                              OK
 ```
 ## EF - fulu - Sanity - Blocks  [Preset: mainnet]
 ```diff
@@ -4641,6 +5176,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - phase0 - Finality - finality_rule_2 [Preset: mainnet]                       OK
 + [Valid]   EF - phase0 - Finality - finality_rule_3 [Preset: mainnet]                       OK
 + [Valid]   EF - phase0 - Finality - finality_rule_4 [Preset: mainnet]                       OK
+```
+## EF - phase0 - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - phase0 - Random - randomized_0 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_1 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_10 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_11 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_12 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_13 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_14 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_15 [Preset: mainnet]                           OK
++ [Valid]   EF - phase0 - Random - randomized_2 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_3 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_4 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_5 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_6 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_7 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_8 [Preset: mainnet]                            OK
++ [Valid]   EF - phase0 - Random - randomized_9 [Preset: mainnet]                            OK
 ```
 ## EF - phase0 - Sanity - Blocks  [Preset: mainnet]
 ```diff

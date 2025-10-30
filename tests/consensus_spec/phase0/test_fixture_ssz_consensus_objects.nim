@@ -90,7 +90,8 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
 # ----------------------------------------------------------------
 
 suite "EF - Phase 0 - SSZ consensus objects " & preset():
-  for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = false):
+  doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
+  for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
     test &"  Testing    {sszType}":
