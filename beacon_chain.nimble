@@ -14,7 +14,6 @@ license       = "MIT or Apache License 2.0"
 
 requires(
   "nim == 2.2.4",
-  "https://github.com/status-im/NimYAML",
   "bearssl",
   "blscurve",
   "chronicles",
@@ -28,6 +27,7 @@ requires(
   "libbacktrace",
   "libp2p",
   "metrics",
+  "minilru",
   "nat_traversal",
   "nimcrypto",
   "normalize",
@@ -41,11 +41,12 @@ requires(
   "stint",
   "taskpools",
   "testutils",
+  "toml_serialization",
   "unicodedb >= 0.10",
   "unittest2",
+  "yaml",
   "web3",
   "zlib",
-  "toml_serialization",
   "https://github.com/status-im/nim-kzg4844.git",
   "zxcvbn"
 )
