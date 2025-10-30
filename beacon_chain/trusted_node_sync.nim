@@ -21,7 +21,7 @@ from "."/beacon_clock import
   BeaconClock, fromFloatSeconds, currentSlot, init
 
 const
-  largeRequestsTimeout = 3.minutes  # Downloading large items such as states.
+  largeRequestsTimeout = 6.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 from ./spec/datatypes/deneb import asSigVerified, shortLog
