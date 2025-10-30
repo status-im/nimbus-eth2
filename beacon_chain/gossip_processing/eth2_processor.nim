@@ -266,7 +266,10 @@ proc processSignedBeaconBlock*(
     let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
-      self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
+      if len(signedBlock.message.body.blob_kzg_commitments) == 0:
+        Opt.some(default(fulu.DataColumnSidecars))
+      else:
+        dataColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
