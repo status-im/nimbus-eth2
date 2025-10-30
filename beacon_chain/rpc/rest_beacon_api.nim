@@ -1866,7 +1866,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if vhFilter.len == 0:
         res = data
       else:
-        for blb in data.asSeq():
+        for blb in data:
           let
             blb_comm = blobToKzgCommitment(KzgBlob(bytes: blb)).valueOr:
               return RestApiResponse.jsonError(Http500, InvalidAcceptError)
