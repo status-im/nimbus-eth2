@@ -17,7 +17,7 @@ import
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[
       peerdas_helpers, eth2_merkleization,
-      forks, network, validator, state_transition_block],
+      forks, network, state_transition_block, validator],
   ../validators/message_router_mev
 
 export rest_utils
