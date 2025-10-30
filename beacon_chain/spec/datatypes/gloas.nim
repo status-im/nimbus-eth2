@@ -122,7 +122,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationmessage
   PayloadAttestationMessage* = object
-    validatorIndex*: uint64
+    validator_index*: uint64
     data*: PayloadAttestationData
     signature*: ValidatorSig
 

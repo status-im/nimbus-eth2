@@ -14,12 +14,12 @@ import
   ../beacon_chain/spec/datatypes/[phase0, deneb],
   ../beacon_chain/consensus_object_pools/block_quarantine
 
-func makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =
+func makeBlock(slot: Slot, parent: Eth2Digest): phase0.SignedBeaconBlock =
   var
     b = phase0.SignedBeaconBlock(
       message: phase0.BeaconBlock(slot: slot, parent_root: parent))
   b.root = hash_tree_root(b.message)
-  ForkedSignedBeaconBlock.init(b)
+  b
 
 func makeBlobbyBlock(slot: Slot, parent: Eth2Digest): deneb.SignedBeaconBlock =
   var
@@ -123,7 +123,7 @@ suite "Block quarantine":
     var quarantine = Quarantine.init(defaultRuntimeConfig)
     var blocks = @[makeBlock(Slot 0, ZERO_HASH)]
     for i in 0..<MaxMissingItems:
-      blocks.add makeBlock(blocks[^1].slot + 1, blocks[^1].root)
+      blocks.add makeBlock(blocks[^1].message.slot + 1, blocks[^1].root)
 
     # Fill missing list with junk
     for i in 0..<MaxMissingItems:

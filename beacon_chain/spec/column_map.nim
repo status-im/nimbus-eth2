@@ -43,8 +43,12 @@ func excl*(a: var ColumnMap, column: ColumnIndex) =
   a.data[index].clearBit(offset)
 
 func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
+  ## NOTE: `columns` array's content should be checked before running this
+  ## function. Function will assert if `ColumnIndex >= NUMBER_OF_COLUMNS`.
   var res: ColumnMap
   for column in columns:
+    if uint64(column) >= NUMBER_OF_COLUMNS:
+      raiseAssert "Incorrect column index, " & $uint64(column)
     let (index, offset) = column.getPos()
     res.data[index].setBit(offset)
   res
