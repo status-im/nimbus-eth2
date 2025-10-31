@@ -1,3 +1,54 @@
+2025-10-31 v25.10.0
+===================
+
+Nimbus `v25.10.0` is a low-urgency release which increases the default gas limit to 60M, improves beacon API support, and adds runtime configuration flexibility.
+
+### Improvements
+
+- Increase default builder API gas limit to 60M:
+  https://github.com/status-im/nimbus-eth2/pull/7555
+
+- Support `--peerdas-supernode` to require beacon node to operate as a supernode:
+  https://github.com/status-im/nimbus-eth2/pull/7629
+
+- Support runtime configuration of `SECONDS_PER_SLOT`:
+  https://github.com/status-im/nimbus-eth2/pull/7639
+  https://github.com/status-im/nimbus-eth2/pull/7643
+  https://github.com/status-im/nimbus-eth2/pull/7644
+  https://github.com/status-im/nimbus-eth2/pull/7645
+  https://github.com/status-im/nimbus-eth2/pull/7647
+  https://github.com/status-im/nimbus-eth2/pull/7652
+  https://github.com/status-im/nimbus-eth2/pull/7653
+  https://github.com/status-im/nimbus-eth2/pull/7654
+  https://github.com/status-im/nimbus-eth2/pull/7658
+  https://github.com/status-im/nimbus-eth2/pull/7661
+
+- Implement getBlobs beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7670
+
+- Ensure validator client uses non-deprecated beacon API attestation endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/7642
+
+- Double trusted node sync state download timeout to 6 minutes:
+  https://github.com/status-im/nimbus-eth2/pull/7677
+
+- Make `REORG_HEAD_WEIGHT_THRESHOLD` and `REORG_MAX_EPOCHS_SINCE_FINALIZATION` runtime-configurable:
+  https://github.com/status-im/nimbus-eth2/pull/7620
+
+### Fixes
+
+- Fix consensus fork when validator client publishes attestations:
+  https://github.com/status-im/nimbus-eth2/pull/7689
+
+- Fix Nix builds:
+  https://github.com/status-im/nimbus-eth2/pull/7585
+
+- Ensure validator client always targets the correct slot:
+  https://github.com/status-im/nimbus-eth2/pull/7571
+
+- Stop using obsolete `TTFB_TIMEOUT` and `RESP_TIMEOUT` configuration:
+  https://github.com/status-im/nimbus-eth2/pull/7619
+
 2025-09-26 v25.9.2
 ==================
 
