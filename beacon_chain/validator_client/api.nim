@@ -1495,7 +1495,7 @@ proc produceAttestationData*(
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceAttestationDataResponse,
-      vc.OneThirdDuration,
+      vc.AttestationToAggregationDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AttestationData},
       produceAttestationDataPlain(it, slot, committee_index)):
@@ -1537,8 +1537,8 @@ proc produceAttestationData*(
       RestPlainResponse,
       ProduceAttestationDataResponse,
       float64,
-      vc.OneThirdDurationSoft,
-      vc.OneThirdDuration,
+      vc.AttestationToAggregationDurationSoft,
+      vc.AttestationToAggregationDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AttestationData},
       produceAttestationDataPlain(it, slot, committee_index),
@@ -1578,7 +1578,7 @@ proc produceAttestationData*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestPlainResponse,
-      vc.OneThirdDuration,
+      vc.AttestationToAggregationDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AttestationData},
       produceAttestationDataPlain(it, slot, committee_index)):
@@ -1914,7 +1914,7 @@ proc getAggregatedAttestationV2*(
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       GetAggregatedAttestationV2Response,
-      vc.OneThirdDuration,
+      vc.AggregationToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
@@ -1958,8 +1958,8 @@ proc getAggregatedAttestationV2*(
       RestPlainResponse,
       GetAggregatedAttestationV2Response,
       float64,
-      vc.OneThirdDurationSoft,
-      vc.OneThirdDuration,
+      vc.AggregationToSlotEndDurationSoft,
+      vc.AggregationToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlainV2(it, root, slot, committee_index),
@@ -2004,7 +2004,7 @@ proc getAggregatedAttestationV2*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestPlainResponse,
-      vc.OneThirdDuration,
+      vc.AggregationToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
@@ -2054,7 +2054,7 @@ proc produceSyncCommitteeContribution*(
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
-      vc.OneThirdDuration,
+      vc.SyncContributionToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
@@ -2096,8 +2096,8 @@ proc produceSyncCommitteeContribution*(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
       float64,
-      vc.OneThirdDurationSoft,
-      vc.OneThirdDuration,
+      vc.SyncContributionToSlotEndDurationSoft,
+      vc.SyncContributionToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root),
@@ -2138,7 +2138,7 @@ proc produceSyncCommitteeContribution*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestPlainResponse,
-      vc.OneThirdDuration,
+      vc.SyncContributionToSlotEndDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
