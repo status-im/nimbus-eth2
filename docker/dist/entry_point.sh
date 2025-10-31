@@ -24,7 +24,7 @@ echo "Build Tools = ${BUILD_TOOLS}"
 
 if [[ "${BUILD_TOOLS}" == "1" ]]; then
   echo "Including tools in distribution"
-  BINARIES="${BINARIES} deposit_contract nimbus_signing_node nimbus_light_client"
+  BINARIES="${BINARIES} nimbus_signing_node nimbus_light_client"
 fi
 
 echo -e "\nPLATFORM=${PLATFORM}"
