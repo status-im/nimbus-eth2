@@ -13,7 +13,8 @@ import
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from std/times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
+from std/times import
+  Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds, inSeconds
 
 export timer.Duration, Moment, now, beacon_time
 
