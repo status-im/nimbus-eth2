@@ -266,7 +266,10 @@ proc processSignedBeaconBlock*(
     let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
-      self.dataColumnQuarantine[].popSidecars(signedBlock.root, signedBlock)
+      if len(signedBlock.message.body.blob_kzg_commitments) == 0:
+        Opt.some(default(fulu.DataColumnSidecars))
+      else:
+        self.dataColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
@@ -375,22 +378,19 @@ proc processDataColumnSidecar*(
     return v
 
   let block_root = hash_tree_root(block_header)
+
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
 
-  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    withBlck(o[]):
-      when consensusFork >= ConsensusFork.Fulu and
-          consensusFork < ConsensusFork.Gloas:
-        let cres =
-          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
-        if cres.isSome():
+  if self.quarantine[].sidecarless.hasKey(block_root):
+    let cres = self.dataColumnQuarantine[].popSidecars(block_root)
+    if cres.isSome():
+      let blck = self.quarantine[].popSidecarless(block_root).valueOr:
+        raiseAssert "Block should be present at this moment"
+      withBlck(blck):
+        when (consensusFork >= ConsensusFork.Fulu) and
+          (consensusFork < ConsensusFork.Gloas):
           self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
-        else:
-          discard self.quarantine[].addSidecarless(
-            self.dag.finalizedHead.slot, forkyBlck)
-      else:
-        raiseAssert "Could not be added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())

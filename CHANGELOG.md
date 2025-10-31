@@ -1,7 +1,7 @@
 2025-10-31 v25.10.0
 ===================
 
-Nimbus `v25.10.0` is a low-urgency release which increases the default gas limit to 60M, improves beacon API support, and adds runtime configuration flexibility.
+Nimbus `v25.10.0` is a low-urgency release which increases the default gas limit to 60M, improves beacon API support, adds runtime configuration flexibility, and removes macOS amd64 support.
 
 ### Improvements
 

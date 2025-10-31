@@ -378,7 +378,10 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
         const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
-          self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+            Opt.some(default(fulu.DataColumnSidecars))
+          else:
+            self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
       elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
         let sidecarsOpt = self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:

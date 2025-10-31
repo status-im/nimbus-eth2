@@ -97,7 +97,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-arm64 \
 	dist-arm \
 	dist-win64 \
-	dist-macos \
 	dist-macos-arm64 \
 	dist \
 	local-testnet-minimal \
@@ -818,10 +817,6 @@ dist-win64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
-dist-macos:
-	+ MAKE="$(MAKE)" \
-		scripts/make_dist.sh macos
-
 dist-macos-arm64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh macos-arm64
@@ -832,7 +827,6 @@ dist:
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64
-	+ $(MAKE) dist-macos
 	+ $(MAKE) dist-macos-arm64
 
 #- Build and run benchmarks using an external repo (which can be used easily on
