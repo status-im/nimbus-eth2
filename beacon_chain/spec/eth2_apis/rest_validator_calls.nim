@@ -80,15 +80,14 @@ proc publishAggregateAndProofsV2Plain*(
 
 proc publishAggregateAndProofsV2*[T: ForkySignedAggregateAndProof](
     client: RestClientRef,
+    fork: ConsensusFork,
     body: seq[T]
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
-  let
-    consensus = T.kind.toString()
   client.publishAggregateAndProofsV2Plain(
-    body, extraHeaders = @[("eth-consensus-version", consensus)])
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
 
 proc prepareBeaconCommitteeSubnet*(
        body: seq[RestCommitteeSubscription]
