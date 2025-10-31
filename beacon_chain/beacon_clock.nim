@@ -55,12 +55,12 @@ proc init*(
       unixGenesis = fromUnix(genesis_time.int64)
       # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
       # that offset to genesis instead of applying it at every time conversion
-      unixGenesisOffset = times.seconds(
+      unixGenesisOffset = fromUnix(
         (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
 
     Opt.some T(
       timeParams: timeParams,
-      genesis: unixGenesis - unixGenesisOffset)
+      genesis: (unixGenesis - unixGenesisOffset).inSeconds.fromUnix)
 
 func timeParams*(c: BeaconClock): TimeParams =
   c.timeParams  # Readonly
