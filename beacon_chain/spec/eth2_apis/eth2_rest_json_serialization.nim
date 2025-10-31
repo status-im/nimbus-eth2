@@ -534,6 +534,11 @@ proc writeValue*(
 ) {.writer.} =
   w.write0xHex(value.bytes)
 
+proc writeValue*(w: var RestJsonWriter, value: Blobs) {.writer.} =
+  w.writeArray:
+    for blob in value.asSeq():
+      w.writeValue(blob)
+
 proc writeValue*(w: var RestJsonWriter, value: GraffitiBytes) {.writer.} =
   w.write0xHex(distinctBase(value))
 

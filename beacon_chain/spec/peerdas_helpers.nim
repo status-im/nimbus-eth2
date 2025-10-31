@@ -207,7 +207,6 @@ proc recover_cells_and_proofs_parallel*(
 
   ok(res)
 
-
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
@@ -365,3 +364,30 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+proc recover_blobs_from_data_columns*(
+  dataColumns: seq[fulu.DataColumnSidecar]
+): Blobs =
+  const numCols = CELLS_PER_EXT_BLOB div 2
+  var blobs: Blobs
+
+  if dataColumns.len < numCols:
+    return blobs
+  for i in 0 ..< numCols:
+    if dataColumns[i].index != i.uint64:
+      return blobs
+  let numBlobs = dataColumns[0].column.len
+
+  for blobIndex in 0 ..< numBlobs:
+    var blobBytes: Blob
+    for colIdx in 0 ..< numCols:
+      let
+        cellBytes = dataColumns[colIdx].column[blobIndex].bytes
+        offset = colIdx * fulu.BYTES_PER_CELL
+      assign(
+        blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),
+        cellBytes.toOpenArray(0, fulu.BYTES_PER_CELL - 1)
+      )
+    discard blobs.add(blobBytes)
+
+  blobs

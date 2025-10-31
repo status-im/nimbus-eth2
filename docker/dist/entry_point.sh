@@ -102,36 +102,6 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
-elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
-  export PATH="/opt/osxcross/bin:${PATH}"
-  export OSXCROSS_MP_INC=1 # sets up include and library paths
-  export ZERO_AR_DATE=1 # avoid timestamps in binaries
-  DARWIN_VER="20.4"
-  CC="o64-clang"
-  ${CC} --version
-  echo
-
-  make \
-    -j$(nproc) \
-    USE_LIBBACKTRACE=0 \
-    QUICK_AND_DIRTY_COMPILER=1 \
-    deps-common build/generate_makefile
-  make \
-    -j$(nproc) \
-    CC="${CC}" \
-    LIBTOOL="x86_64-apple-darwin${DARWIN_VER}-libtool" \
-    OS="darwin" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC}" \
-    nat-libs
-  make \
-    LOG_LEVEL="TRACE" \
-    CC="${CC}" \
-    AR="x86_64-apple-darwin${DARWIN_VER}-ar" \
-    RANLIB="x86_64-apple-darwin${DARWIN_VER}-ranlib" \
-    DSYMUTIL="x86_64-apple-darwin${DARWIN_VER}-dsymutil" \
-    FORCE_DSYMUTIL=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC} --clang.linkerexe=${CC}" \
-    ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   export PATH="/opt/osxcross/bin:${PATH}"
   export OSXCROSS_MP_INC=1 # sets up include and library paths
@@ -227,8 +197,6 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
 elif [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   sed -i -e 's/^make dist$/make dist-win64/' "${DIST_PATH}/README.md"
   cp -a docker/dist/README-Windows.md.tpl "${DIST_PATH}/README-Windows.md"
-elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
-  sed -i -e 's/^make dist$/make dist-macos/' "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   sed -i -e 's/^make dist$/make dist-macos-arm64/' "${DIST_PATH}/README.md"
 fi
