@@ -1736,15 +1736,14 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
+      trace "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
-        warn "The node did not obtain 50%+ of all the columns"
         return
       # Ignore if the node has already obtained all the columns
       elif columns.lenu64 == maxColCount:
-        debug "The node has already obtained all the columns"
+        trace "The node has already obtained all the columns"
         return
 
       let startTime = Moment.now()
@@ -1781,7 +1780,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let reconstructedTime = Moment.now()
 
-      debug "Columns reconstructed",
+      trace "Columns reconstructed",
         columns = reconCounter,
         recoveryTime = recoveredTime - startTime,
         reconstructionTime = reconstructedTime - recoveredTime
@@ -1794,8 +1793,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # slot does not interfere with propagation of messages and with VC duties.
   let
     endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
-      node.dag.timeParams.NANOSECONDS_PER_SLOT -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+      node.dag.timeParams.SLOT_DURATION.nanoseconds -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds) div 2)
     endCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
@@ -1915,7 +1914,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # int64 conversion is safe
       doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
       "in " & toTimeLeftString(
-        node.dag.timeParams.SECONDS_PER_SLOT.int64.seconds *
+        node.dag.timeParams.SLOT_DURATION *
         slotsToNextSyncCommitteePeriod.int64)
     else:
       "none"
@@ -1953,7 +1952,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # logging slot end since the nextActionWaitTime can be short
   let advanceCutoff = node.beaconClock.fromNow(
     slot.start_beacon_time(node.dag.timeParams) +
-    chronos.seconds(int(node.dag.timeParams.SECONDS_PER_SLOT - 1)))
+    node.dag.timeParams.SLOT_DURATION - chronos.seconds(1))
 
   let proposalFcu =
     if advanceCutoff.inFuture:

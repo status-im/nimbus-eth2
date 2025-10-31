@@ -440,7 +440,8 @@ func compute_timestamp_at_slot*(
     timeParams: TimeParams, state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
-  state.genesis_time + slots_since_genesis * timeParams.SECONDS_PER_SLOT
+  state.genesis_time +
+    slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
 template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)

@@ -4052,8 +4052,18 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
@@ -4524,11 +4534,6 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
-  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
