@@ -9,7 +9,7 @@
 
 import
   std/[parseutils, tables, typetraits],
-  chronos/timer, results,
+  chronos/timer,
   stew/[byteutils], stint, eth/common/addresses as eth,
   ./datatypes/constants
 
