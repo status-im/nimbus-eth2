@@ -168,27 +168,11 @@ jobs:
           ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
           ./env.sh nim --version
 
-      - name: Get latest fixtures commit hash
-        id: fixtures_version
-        run: |
-          getHash() {
-            git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
-          }
-          fixturesHash=$(getHash status-im/nim-eth2-scenarios)
-          echo "fixtures=${fixturesHash}" >> $GITHUB_OUTPUT
-
       - name: Build binaries (with trace logging enabled)
         run: |
           ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${NIMFLAGS}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
-
-      - name: Restore Ethereum Foundation fixtures from cache
-        id: fixtures-cache
-        uses: actions/cache@v4
-        with:
-          path: fixturesCache
-          key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       # Important: even with a cache hit, this should be run
       # as it symlinks the cached items in their proper place

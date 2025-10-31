@@ -176,16 +176,12 @@ if canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 
---define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
-
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CStringConv:on")
 switch("warningAsError", "UnusedImport:on")
+switch("warningAsError", "CaseTransition:on")
 switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
 switch("hintAsError", "DuplicateModuleImport:on")
-
-# `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
-switch("warning", "CaseTransition:off")
 
 #   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 28) Hint: 'sszCheck' cannot raise 'YamlConstructionError' [XCannotRaiseY]
 #   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 51) Hint: 'sszCheck' cannot raise 'YamlParserError' [XCannotRaiseY]

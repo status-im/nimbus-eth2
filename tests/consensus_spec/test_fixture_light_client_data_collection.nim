@@ -195,10 +195,4 @@ suite "EF - Light client - Data collection" & preset():
       continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       withConsensusFork(consensusFork):
-        when consensusFork >= ConsensusFork.Fulu:
-          let relativePathComponent =
-            (testsPath/path).relativeTestPathComponent()
-          test "Light client - Data collection - " & relativePathComponent:
-            skip()  # https://github.com/ethereum/consensus-specs/pull/4652
-        else:
-          runTest(suiteName, testsPath/path, consensusFork)
+        runTest(suiteName, testsPath/path, consensusFork)
