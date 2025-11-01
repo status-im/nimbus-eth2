@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/validator-client.html">
+        <link rel="canonical" href="https://nimbus.guide/consensus-light-client.html">
       
       
-        <link rel="prev" href="additional-validator.html">
+        <link rel="prev" href="run-a-validator.html">
       
       
-        <link rel="next" href="withdrawals.html">
+        <link rel="next" href="execution-client.html">
       
       
       <link rel="icon" href="assets/images/favicon.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Run a separate validator client - The Nimbus Guide</title>
+        <title>Consensus light client - The Nimbus Guide</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#run-a-separate-validator-client" class="md-skip">
+        <a href="#consensus-light-client" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Run a separate validator client
+              Consensus light client
             
           </span>
         </div>
@@ -196,10 +196,12 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="quick-start.html" class="md-tabs__link">
           
   
@@ -214,20 +216,16 @@
         
   
   
-    
-  
   
     
     
       
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="install.html" class="md-tabs__link">
           
   
@@ -413,25 +411,28 @@
       
   
   
+    
   
   
+  
     
     
     
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -442,7 +443,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Getting started
@@ -495,10 +496,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="consensus-light-client.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Consensus light client
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="consensus-light-client.html" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -507,6 +528,134 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      Comparison
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building from source
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-the-nimbus-eth2-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Clone the nimbus-eth2 repository
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-run-the-build-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Run the build process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-el-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the EL client
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-consensus-light-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the consensus light client
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the consensus light client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-obtaining-a-trusted-block-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Obtaining a trusted block root
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-starting-the-consensus-light-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Starting the consensus light client
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observing-the-sync-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Observing the sync process
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observing the sync process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nimbus" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nimbus
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -565,28 +714,25 @@
       
   
   
-    
   
   
-  
     
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -597,7 +743,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             How-to
@@ -761,8 +907,6 @@
                 
   
   
-    
-  
   
   
     
@@ -772,11 +916,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
           <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
@@ -790,7 +936,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_2">
             <span class="md-nav__icon md-icon"></span>
             Validator
@@ -927,30 +1073,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Run a separate validator client
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="validator-client.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="validator-client.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -959,35 +1085,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Setup
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2229,11 +2326,110 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#comparison" class="md-nav__link">
     <span class="md-ellipsis">
-      Setup
+      Comparison
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building from source
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-the-nimbus-eth2-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Clone the nimbus-eth2 repository
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-run-the-build-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Run the build process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-el-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the EL client
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-consensus-light-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the consensus light client
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the consensus light client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-obtaining-a-trusted-block-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Obtaining a trusted block root
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-starting-the-consensus-light-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Starting the consensus light client
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observing-the-sync-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Observing the sync process
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observing the sync process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nimbus" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nimbus
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2255,41 +2451,183 @@
   
 
 
-<h1 id="run-a-separate-validator-client">Run a separate validator client</h1>
+<h1 id="consensus-light-client">Consensus light client</h1>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Some features of the validator client, such as the metrics server, are currently in BETA and details may change in response to community feedback.
-Please consult the <code>--help</code> screen for more details.</p>
+<p>The consensus light client is currently in BETA and details around running it may change.</p>
 </div>
-<p>By default, Nimbus integrates the validator client into the main beacon node process — this is a simple, safe and efficient way to run a validator.</p>
-<p>Advanced users may wish to run validators in a separate process, allowing more flexible deployment strategies.
-The Nimbus beacon node supports both its own and third-party validator clients via the built-in <a href="rest-api.html">REST API</a>.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>So far, all slashings with known causes have been linked to overly complex setups involving separation between beacon node and validator client!
-Only use this setup if you've taken steps to mitigate the increased risk.</p>
+<p>The Nimbus Consensus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.</p>
+<p>Execution layer (EL) clients provide the <a href="https://ethereum.github.io/execution-apis/api-documentation/">Web3 API</a> to expose information stored on the Ethereum blockchain.
+Since the merge 🐼, execution clients can no longer run standalone.</p>
+<h2 id="comparison">Comparison</h2>
+<p>Compared to a full beacon node, a consensus light client has several advantages and disadvantages.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Beacon Node</th>
+<th>Consensus Light Client</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disk usage</td>
+<td>~200GB</td>
+<td><strong>&lt;1MB</strong></td>
+</tr>
+<tr>
+<td>Bandwidth</td>
+<td><em>TBD</em></td>
+<td><strong>TBD (low)</strong></td>
+</tr>
+<tr>
+<td>Sync time</td>
+<td>Hours</td>
+<td><strong>Seconds</strong></td>
+</tr>
+<tr>
+<td>Head delay</td>
+<td><strong>None</strong></td>
+<td>4/3 slot (15 s)</td>
+</tr>
+<tr>
+<td>Security</td>
+<td><strong>Full</strong></td>
+<td>Light</td>
+</tr>
+</tbody>
+</table>
+<p>Consensus light clients delegate full validation to other network participants and operate under a honest supermajority (&gt; 2/3) assumption among elected participants.
+Due to this delegation, consensus light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are validating, you must run a full beacon node.
+To use Nimbus, follow the <a href="install.html">installation instructions</a>.</p>
 </div>
-<h2 id="setup">Setup</h2>
-<p>To run a separate validator client, you must first make sure that your beacon node has its REST API enabled: start it with the <code>--rest</code> option.</p>
-<p>Next, choose a data directory for the validator client and import the keys there:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/vc_shared_hoodi_0<span class="w"> </span><span class="s2">&quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;</span>
+<h2 id="building-from-source">Building from source</h2>
+<p>The Nimbus consensus light client is currently not bundled as part of the Docker images and needs to be built from source.</p>
+<h3 id="1-clone-the-nimbus-eth2-repository">1. Clone the <code>nimbus-eth2</code> repository</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/status-im/nimbus-eth2
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth2
 </code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Do not use the same data directory for beacon node and validator client!
-They will both try to load the same keys which may result in slashing!</p>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you are migrating your keys from the beacon node to the validator client, simply move the <code>secrets</code> and <code>validators</code> folders in the beacon node data directory to the data directory of the validator client</p>
-</div>
-<p>With the keys imported, you are ready to start validator client:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_validator_client<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/vc_shared_hoodi_0
+<h3 id="2-run-the-build-process">2. Run the build process</h3>
+<p>To build the Nimbus consensus light client and its dependencies, make sure you have <a href="install.html">all prerequisites</a> and then run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus_light_client
 </code></pre></div>
-<h1 id="options">Options</h1>
-<p>See the <a href="validator-client-options.html">validator client options</a> page for more information about beacon node roles, redundant setups and sentry nodes!</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Omit <code>-j4</code> on systems with 4GB of memory or less.</p>
+</div>
+<p>This may take a few minutes.
+When the process finishes, the <code>nimbus_light_client</code> executable can be found in the <code>build</code> subdirectory.</p>
+<h2 id="running-the-el-client">Running the EL client</h2>
+<p>Follow the <a href="eth1.html">regular instructions</a> for running the execution client, taking note of its JWT secret configuration that you will need in the next step.</p>
+<h2 id="running-the-consensus-light-client">Running the consensus light client</h2>
+<p>The consensus light client starts syncing from a trusted block.
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the consensus light client.</p>
+<h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
+<p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Trusted beacon node</label><label for="__tabbed_1_2">Beaconcha.in</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>The REST interface must be enabled on the trusted beacon node (<code>--rest --rest-port=5052</code> for Nimbus).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.data.root&#39;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://hoodi.beaconcha.in">Hoodi</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
+Then, scroll down to the bottom of the page.
+If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>.
+Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
+</div>
+</div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Selecting a block root from an untrusted source or using an outdated block root may lead to the consensus light client syncing to an unexpected state.
+If that happens, stop the consensus light client and restart it with a new trusted block root.
+Depending on the EL client, its database must be deleted and sync restarted from scratch.</p>
+</div>
+<h3 id="2-starting-the-consensus-light-client">2. Starting the consensus light client</h3>
+<p>To start the consensus light client, run the following commands (inserting your own trusted block root):</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">JWTSECRET</span><span class="o">=</span>path/to/execution/client/jwt.hex
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>build/nimbus_light_client<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$JWTSECRET</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">JWTSECRET</span><span class="o">=</span>path/to/execution/client/jwt.hex
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>build/nimbus_light_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$JWTSECRET</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The consensus light client can be left running in the background.
+Note that a new trusted block root is required when restarting.</p>
+</div>
+<h2 id="observing-the-sync-process">Observing the sync process</h2>
+<p>After a while, the consensus light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
+You should see logs similar to the following:</p>
+<h3 id="nimbus">Nimbus</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>NTC 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>...
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics=&quot;eth1&quot; terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>...
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>INF 2022-11-21 18:02:48.001+01:00 Slot start                                 slot=1109714 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=6 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms161us
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>WRN 2022-11-21 18:02:53.603+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=6 wanted_peers=160
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>INF 2022-11-21 18:03:00.001+01:00 Slot start                                 slot=1109715 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms154us
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>INF 2022-11-21 18:03:12.001+01:00 Slot start                                 slot=1109716 epoch=34678 sync=syncing peers=6 head=c092a1d1:1109216 finalized=c092a1d1:1109216 delay=1ms159us
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109715, proposer_index: 262, parent_root: \&quot;676f4fe4\&quot;, state_root: \&quot;2d13aa42\&quot;))&quot;
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>INF 2022-11-21 18:03:24.001+01:00 Slot start                                 slot=1109717 epoch=34678 sync=synced peers=7 head=58cae92a:1109715 finalized=c092a1d1:1109216 delay=1ms120us
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109716, proposer_index: 1281, parent_root: \&quot;58cae92a\&quot;, state_root: \&quot;de464f71\&quot;))&quot;
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109717, proposer_index: 835, parent_root: \&quot;c5464508\&quot;, state_root: \&quot;13f823f8\&quot;))&quot;
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+As this is a new protocol, not all implementations are supporting it yet.
+Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
+</div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Geth</label><label for="__tabbed_3_2">Nethermind</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>INFO [07-24|22:19:21.627] Block synchronisation started
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
+</code></pre></div>
+</div>
+</div>
+</div>
 
 
 

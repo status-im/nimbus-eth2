@@ -148,43 +148,6 @@
     
     
     
-      <label class="md-header__button md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-        </button>
-      </nav>
-      
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-    
     
       <div class="md-header__source">
         <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
@@ -533,11 +496,11 @@
   
   
     <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
+      <a href="consensus-light-client.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Light client
+    Consensus light client
   </span>
   
 
@@ -2503,7 +2466,7 @@ Lowering <code>max-peers</code> does not significantly improve bandwidth usage, 
 <p>You need to run the client with the <code>--metrics</code> option enabled in order for this to work</p>
 </div>
 <h2 id="set-an-explicit-external-ip">Set an explicit external IP</h2>
-<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP.
+<p>If you have a static public IP address, use the <code>--nat=extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP.
 See <a href="networking.html#determine-your-public-ip-address">here</a> for how to determine your public IP address.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2512,7 +2475,7 @@ See <a href="networking.html#determine-your-public-ip-address">here</a> for how 
 <h2 id="set-enr-auto-update">Set ENR auto update</h2>
 <p>The <code>--enr-auto-update</code> feature keeps your external IP address up to date based on information received from other peers on the network.
 This option is useful with ISPs that assign IP addresses dynamically.</p>
-<p>In practice this means relaunching the beacon node with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
+<p>In practice this means relaunching the beacon node with <code>--enr-auto-update</code> (pass it as an option in the command line).</p>
 <h2 id="set-up-port-forwarding">Set up port forwarding</h2>
 <p>If you're running on a home network and want to ensure you are able to receive incoming connections you may need to set up port forwarding (though some routers automagically set this up for you).</p>
 <div class="admonition note">
@@ -2583,7 +2546,7 @@ If you see this, you are missing attestations.</p>
 <li>
 <p><code>Discovered new external address but ENR auto update is off...</code></p>
 <p>It's possible that your ISP has changed your IP address without you knowing.
-The first thing to do it to try relaunching the beacon node with with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
+The first thing to do it to try relaunching the beacon node with with <code>--enr-auto-update</code> (pass it as an option in the command line).</p>
 <p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">this site</a>.
 Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.
 See above for how to set up port forwarding.</p>

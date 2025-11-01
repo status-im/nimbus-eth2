@@ -146,43 +146,6 @@
     
     
     
-      <label class="md-header__button md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-        </button>
-      </nav>
-      
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-    
     
       <div class="md-header__source">
         <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
@@ -652,11 +615,11 @@
   
   
     <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
+      <a href="consensus-light-client.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Light client
+    Consensus light client
   </span>
   
 
@@ -2429,7 +2392,7 @@
 <h1 id="the-nimbus-guide">The Nimbus Guide</h1>
 <p>Nimbus is a client for the Ethereum network that is <a href="https://our.status.im/ethereum-is-green/">lightweight</a>, <a href="audit.html">secure</a> and <a href="run-a-validator.html">easy to use</a>.</p>
 <p>Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks.</p>
-<p>This book describes the consensus protocol implementation which includes a <a href="quick-start.html">beacon node</a>, <a href="validator-client.html">validator client</a> and <a href="el-light-client.html">light client</a>.</p>
+<p>This book describes the consensus protocol implementation which includes a <a href="quick-start.html">beacon node</a>, <a href="validator-client.html">validator client</a> and <a href="consensus-light-client.html">consensus light client</a>.</p>
 <p>An <a href="https://github.com/status-im/nimbus-eth1">execution client</a> is also under development - see its <a href="execution-client.html">quickstart guide</a>.</p>
 <p>Our companion project <a href="https://github.com/status-im/nimbus-eth1/tree/master/fluffy">fluffy</a> connects to the <a href="https://ethportal.net/">Ethereum portal network</a> and has its <a href="https://fluffy.guide/">own guide</a>.</p>
 <h2 id="feature-highlights">Feature highlights</h2>
@@ -2440,7 +2403,7 @@
 <li><a href="https://docs.web3signer.consensys.net/en/latest/">Web3Signer</a> remote signing</li>
 <li><a href="validator-monitor.html">Validator monitoring</a> and <a href="attestation-performance.html">performance analysis</a> tooling</li>
 <li><a href="external-block-builder.html">External block builder</a> (PBS / mev-boost) support with execution client fallback</li>
-<li><a href="el-light-client.html">Light consensus client</a> for running an execution client without a full beacon node</li>
+<li><a href="consensus-light-client.html">Consensus light client</a> for running an execution client without a full beacon node</li>
 </ul>
 <h2 id="design-goals">Design goals</h2>
 <p>One of our most important design goals is an application architecture that makes it <strong>simple to embed Nimbus into other software.</strong></p>
@@ -2459,7 +2422,7 @@
 <li>Coming from a different client? Check out the <a href="migration.html">migration guide</a>.</li>
 <li>Visualize the important metrics with <a href="metrics-pretty-pictures.html">Grafana and Prometheus</a>.</li>
 <li>Interested in becoming a validator? Follow the <a href="run-a-validator.html">validator guide</a>.</li>
-<li>If you're not planning on becoming a validator, you can run the <a href="el-light-client.html">light client</a>.</li>
+<li>If you're not planning on becoming a validator, you can run the <a href="consensus-light-client.html">consensus light client</a>.</li>
 </ul>
 <h2 id="get-in-touch">Get in touch</h2>
 <p>Need help with anything?

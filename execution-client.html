@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://nimbus.guide/execution-client.html">
       
       
-        <link rel="prev" href="el-light-client.html">
+        <link rel="prev" href="consensus-light-client.html">
       
       
         <link rel="next" href="pi-guide.html">
@@ -147,43 +147,6 @@
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
-    
-      <label class="md-header__button md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-        </button>
-      </nav>
-      
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
     
     
       <div class="md-header__source">
@@ -536,11 +499,11 @@
   
   
     <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
+      <a href="consensus-light-client.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Light client
+    Consensus light client
   </span>
   
 
@@ -2417,7 +2380,7 @@
 <p>Have fun with it and let us know how it goes while keeping the above in mind.</p>
 <p>If you're looking for information about setting up an execution client for validator duties or any other production usage, see the <a href="eth1.html">execution clients guide</a>.</p>
 </div>
-<p>The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol. Paired with a <a href="quick-start.html">beacon node</a> or <a href="el-light-client.html">light client</a>, it provides access to Ethereum blockchain for dapps and users alike via the standard <a href="https://ethereum.github.io/execution-apis/api-documentation/">Web3 API</a>.</p>
+<p>The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol. Paired with a <a href="quick-start.html">beacon node</a> or <a href="consensus-light-client.html">consensus light client</a>, it provides access to Ethereum blockchain for dapps and users alike via the standard <a href="https://ethereum.github.io/execution-apis/api-documentation/">Web3 API</a>.</p>
 <h2 id="building-from-source">Building from source</h2>
 <p>The Nimbus execution client is currently only provided as a source code distribution.</p>
 <h3 id="clone-the-nimbus-eth1-repository">Clone the <code>nimbus-eth1</code> repository</h3>
@@ -2536,7 +2499,7 @@ For easier and fast download, please use the <code>era_downloader.sh</code> scri
 </div>
 </div>
 <h2 id="launch-the-client">Launch the client</h2>
-<p>In order for the execution client to operate, you need to connect a consensus node. This can be the <a href="quick-start.html">Nimbus beacon node</a>, a <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients">supported consensus client</a> or a <a href="el-light-client.html">light client</a>.</p>
+<p>In order for the execution client to operate, you need to connect a consensus node. This can be the <a href="quick-start.html">Nimbus beacon node</a>, a <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients">supported consensus client</a> or a <a href="consensus-light-client.html">consensus light client</a>.</p>
 <p>The consensus node connects to the execution client via the Engine API which is enabled using <code>--engine-api</code> and by default runs on port <code>8551</code>.</p>
 <p>During startup, a <code>jwt.hex</code> file will be placed in the data directory containing authentication information that the consensus node uses to connect - make sure to use the same <code>jwt.hex</code> file on both consensus and execution node.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Hoodi</label><label for="__tabbed_4_3">Holesky</label><label for="__tabbed_4_4">Sepolia</label></div>
