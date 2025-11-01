@@ -143,7 +143,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Colors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaBlink,
-      onUpgradeToDeneb:                denebColor,
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink,
       onUpgradeToFulu:                 fuluColor,
@@ -151,7 +150,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
-      onUpgradeToDeneb:                denebMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono,
       onUpgradeToFulu:                 fuluMono,
@@ -160,8 +158,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
     VanityLogs(
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
-      onUpgradeToDeneb:
-        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
       onUpgradeToElectra:
         (proc() = notice "🦒 Compounding is available 🦒"),
       onKnownCompoundingChange:

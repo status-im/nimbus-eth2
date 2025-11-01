@@ -19,10 +19,6 @@ type
     # known by this node appears in a head block
     onKnownBlsToExecutionChange*: LogProc
 
-    # Gets displayed on upgrade to Deneb. May be displayed multiple times
-    # in case of chain reorgs around the upgrade.
-    onUpgradeToDeneb*: LogProc
-
     # Gets displayed on upgrade to Electra. May be displayed multiple times
     # in case of chain reorgs around the upgrade.
     onUpgradeToElectra*: LogProc
