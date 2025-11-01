@@ -535,9 +535,6 @@ download_nimbus_eth1() {
       linux-arm64|linux-aarch64)
         NIMBUS_ETH1_PLATFORM=Linux_arm64v8
         ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_ETH1_PLATFORM=macOS_arm64
-        ;;
       macos-arm64|macos-aarch64)
         NIMBUS_ETH1_PLATFORM=macOS_amd64
         ;;
@@ -580,9 +577,6 @@ download_nimbus_eth2() {
         ;;
       linux-arm64|linux-aarch64)
         NIMBUS_PLATFORM=Linux_arm64v8
-        ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_PLATFORM=macOS_amd64
         ;;
       macos-arm64|macos-aarch64)
         NIMBUS_PLATFORM=macOS_arm64

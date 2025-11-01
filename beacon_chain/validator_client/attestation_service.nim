@@ -41,6 +41,7 @@ proc serveAttestation(
   let
     vc = service.client
     fork = vc.forkAtEpoch(registered.data.slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
     validator = registered.validator
     attestationSlot = registered.data.slot
     afterElectra = vc.isPastElectraFork(attestationSlot.epoch)
@@ -70,9 +71,11 @@ proc serveAttestation(
 
   template submitAttestation(atst: untyped): untyped =
     logScope:
+      fork = consensusFork
       attestation = shortLog(atst)
     try:
-      await vc.submitPoolAttestationsV2(@[atst], ApiStrategyKind.First)
+      await vc.submitPoolAttestationsV2(
+        @[atst], consensusFork, ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish attestation", reason = exc.getFailureReason()
       return false
@@ -108,12 +111,13 @@ proc serveAggregateAndProofV2*(
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     slot = proof.aggregate.data.slot
     fork = vc.forkAtEpoch(slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
 
   logScope:
     validator = validatorLog(validator)
     attestation = shortLog(proof.aggregate)
 
-  debug "Signing aggregate", fork = fork
+  debug "Signing aggregate", fork = consensusFork
 
   let signature =
     try:
@@ -142,14 +146,14 @@ proc serveAggregateAndProofV2*(
   logScope:
     delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
 
-  debug "Sending aggregated attestation", fork = fork
+  debug "Sending aggregated attestation", fork = consensusFork
 
   validator.doppelgangerActivity(proof.aggregate.data.slot.epoch)
 
   let res =
     try:
-      await vc.publishAggregateAndProofsV2(@[signedProof],
-                                           ApiStrategyKind.First)
+      await vc.publishAggregateAndProofsV2(
+        @[signedProof], consensusFork, ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish aggregated attestation",
             reason = exc.getFailureReason()

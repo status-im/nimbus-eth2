@@ -32,8 +32,6 @@ jobs:
           - os: linux
             cpu: amd64
           - os: macos
-            cpu: amd64
-          - os: macos
             cpu: arm64
           - os: windows
             cpu: amd64
@@ -52,10 +50,6 @@ jobs:
           - target:
               os: linux
             builder: ['self-hosted','ubuntu-22.04']
-          - target:
-              os: macos
-              cpu: amd64
-            builder: macos-13
           - target:
               os: macos
               cpu: arm64
