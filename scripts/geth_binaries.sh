@@ -29,9 +29,6 @@ download_geth_stable() {
       linux-arm64|linux-aarch64)
         GETH_TARBALL="geth-linux-arm64-${GETH_VERSION}.tar.gz"
         ;;
-      macos-amd64|macos-x86_64)
-        GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
-        ;;
       macos-arm64|macos-aarch64)
         GETH_TARBALL="geth-darwin-arm64-${GETH_VERSION}.tar.gz"
         ;;
@@ -69,9 +66,6 @@ download_status_geth_binary() {
         ;;
       linux-arm64|linux-aarch64)
         GETH_PLATFORM=linux-arm64
-        ;;
-      macos-amd64|macos-x86_64)
-        GETH_PLATFORM=macos-amd64
         ;;
       macos-arm64|macos-aarch64)
         GETH_PLATFORM=macos-arm64
