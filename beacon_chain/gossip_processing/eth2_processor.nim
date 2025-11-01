@@ -338,7 +338,7 @@ proc processBlobSidecar*(
         else:
           self.quarantine[].addSidecarless(forkyBlck)
       else:
-        raiseAssert "Could not be added as blobless"
+        raiseAssert "Wrong fork for blob: " & $consensusFork
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -382,15 +382,16 @@ proc processDataColumnSidecar*(
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
 
-  if self.quarantine[].sidecarless.hasKey(block_root):
+  if block_root in self.quarantine[].sidecarless:
     let cres = self.dataColumnQuarantine[].popSidecars(block_root)
     if cres.isSome():
-      let blck = self.quarantine[].popSidecarless(block_root).valueOr:
-        raiseAssert "Block should be present at this moment"
+      let blck = self.quarantine[].popSidecarless(block_root).expect("checked above")
       withBlck(blck):
         when (consensusFork >= ConsensusFork.Fulu) and
           (consensusFork < ConsensusFork.Gloas):
           self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
+        else:
+          raiseAssert "Wrong fork for columns: " & $consensusFork
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())

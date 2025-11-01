@@ -141,6 +141,7 @@ AllTests-mainnet
 ```diff
 + Don't re-download unviable blocks                                                          OK
 + Keep downloading parent chain even if we hit missing limit                                 OK
++ No new missing/orphans while processing                                                    OK
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
