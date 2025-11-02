@@ -52,6 +52,31 @@ type
   GetSyncCommitteePeriodCallback* =
     proc(): SyncCommitteePeriod {.gcsafe, raises: [].}
 
+  LightClientBootstrapProc = proc(
+    id: uint64, blockRoot: Eth2Digest
+  ): Future[NetRes[ForkedLightClientBootstrap]] {.async: (raises: [CancelledError]).}
+  LightClientUpdatesByRangeProc = proc(
+    id: uint64, startPeriod: SyncCommitteePeriod, count: uint64
+  ): Future[LightClientUpdatesByRangeResponse] {.async: (raises: [CancelledError]).}
+  LightClientFinalityUpdateProc = proc(
+    id: uint64
+  ): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
+    async: (raises: [CancelledError])
+  .}
+  LightClientOptimisticUpdateProc = proc(
+    id: uint64
+  ): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
+    async: (raises: [CancelledError])
+  .}
+  UpdateScoreProc = proc(id: uint64, value: int) {.gcsafe, raises: [].}
+
+  EthLCBackend* = object
+    getLightClientBootstrap*: LightClientBootstrapProc
+    getLightClientUpdatesByRange*: LightClientUpdatesByRangeProc
+    getLightClientFinalityUpdate*: LightClientFinalityUpdateProc
+    getLightClientOptimisticUpdate*: LightClientOptimisticUpdateProc
+    updateScore*: UpdateScoreProc
+
   LightClientManager* = object
     network: Eth2Node
     rng: ref HmacDrbgContext
