@@ -1567,14 +1567,14 @@ proc validateBlsToExecutionChange*(
         "SignedBLSToExecutionChange: can't validate against pre-Capella state")
     else:
       let res = check_bls_to_execution_change(
-        pool.dag.cfg.genesisFork, forkyState.data, signed_address_change,
+        pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, signed_address_change,
         {skipBlsValidation})
       if res.isErr:
         return pool.checkedReject(res.error)
 
       # BLS to execution change signatures are batch-verified
       let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-        pool.dag.cfg.genesisFork, signed_address_change)
+        pool.dag.cfg.GENESIS_FORK_VERSION, signed_address_change)
       if deferredCrypto.isErr():
         return pool.checkedReject(deferredCrypto.error)
 
