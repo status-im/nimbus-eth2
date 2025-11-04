@@ -1252,9 +1252,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(fuluBlock1) == false
-      bq.popSidecars(fuluBlock1).isNone() == true
+      bq.popSidecars(fuluBlock1.root).isNone() == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot1, sidecars1)
     check:
@@ -1270,8 +1270,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(fuluBlock1) == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
-    let dres = bq.popSidecars(fuluBlock1)
+      bq.popSidecars(fuluBlock2.root).isNone() == true
+    let dres = bq.popSidecars(fuluBlock1.root)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -1280,19 +1280,19 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 1
 
     bq.put(broot2, sidecars2[3])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 2
 
     bq.put(broot2, sidecars2[5])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 3
 
     bq.put(broot2, sidecars2[7])
@@ -1300,7 +1300,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(fuluBlock2) == true
       len(bq) == len(sidecars2)
 
-    let eres = bq.popSidecars(fuluBlock2)
+    let eres = bq.popSidecars(fuluBlock2.root)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -1337,9 +1337,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(fuluBlock1) == false
-      bq.popSidecars(fuluBlock1).isNone() == true
+      bq.popSidecars(fuluBlock1.root).isNone() == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot1, sidecars1)
 
@@ -1350,8 +1350,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(fuluBlock1) == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
-    let dres = bq.popSidecars(fuluBlock1)
+      bq.popSidecars(fuluBlock2.root).isNone() == true
+    let dres = bq.popSidecars(fuluBlock1.root)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -1359,23 +1359,23 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[3])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[5])
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2).isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[7])
     check:
       bq.hasSidecars(fuluBlock2) == true
 
-    let eres = bq.popSidecars(fuluBlock2)
+    let eres = bq.popSidecars(fuluBlock2.root)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -1569,37 +1569,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.remove(broot1)
     bq.remove(broot2)
     check len(bq) == 0
-
-  test "popSidecars()/hasSidecars() return []/true on block without columns":
-    let
-      custodyColumns =
-        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
-    var bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
-    let
-      blockRoot1 = genBlockRoot(100)
-      blockRoot2 = genBlockRoot(5337)
-      blockRoot3 = genBlockRoot(1294967295)
-      fuluBlock1 = genFuluSignedBeaconBlock(blockRoot1, [])
-      fuluBlock2 = genFuluSignedBeaconBlock(blockRoot2, [])
-      fuluBlock3 = genFuluSignedBeaconBlock(blockRoot3, [])
-
-    check:
-      bq.hasSidecars(fuluBlock1.root, fuluBlock1) == true
-      bq.hasSidecars(fuluBlock2.root, fuluBlock2) == true
-      bq.hasSidecars(fuluBlock3.root, fuluBlock3) == true
-
-    let
-      res1 = bq.popSidecars(fuluBlock1.root, fuluBlock1)
-      res2 = bq.popSidecars(fuluBlock2.root, fuluBlock2)
-      res3 = bq.popSidecars(fuluBlock3.root, fuluBlock3)
-
-    check:
-      res1.isOk()
-      len(res1.get()) == 0
-      res2.isOk()
-      len(res2.get()) == 0
-      res3.isOk()
-      len(res3.get()) == 0
 
   test "overfill protection test":
     let
@@ -1990,10 +1959,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           int(sidecars[0].sidecar[].signed_block_header.message.slot))
       sidecars2 =
         sidecars.toOpenArray(0, len(custodyColumns) - 1).mapIt(it.sidecar)
-      commitments2 =
-        @[genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)]
-      blck = genFuluSignedBeaconBlock(blockRoot2, commitments2)
-      dres = bq.popSidecars(blockRoot2, blck)
+      dres = bq.popSidecars(blockRoot2)
 
     check:
       dres.isOk()
@@ -2065,10 +2031,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars3 =
         sidecars.toOpenArray(i3, i3 + len(custodyColumns) - 1).
           mapIt(it.sidecar)
-      commitments3 =
-        @[genKzgCommitment(5), genKzgCommitment(6), genKzgCommitment(7)]
-      blck3 = genFuluSignedBeaconBlock(blockRoot3, commitments3)
-      dres3 = bq.popSidecars(blockRoot3, blck3)
+      dres3 = bq.popSidecars(blockRoot3)
 
     check:
       dres3.isOk()

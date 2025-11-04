@@ -4052,6 +4052,18 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
@@ -4063,12 +4075,24 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pr OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_sl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ti OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_blob_tx_type             OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_block_hash               OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitment               OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitments_order        OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_empty OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_no_blobs_but OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - no_commitments_for_transactions    OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - no_transactions_with_commitments   OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_max_blob OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_exe OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - zeroed_commitment                  OK
 ```
 ## EF - Gloas - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
@@ -4510,11 +4534,6 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__basic              Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__max_blobs          Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__multiple_blobs     Skip
-  Merkle proof - Single merkle proof - blob_kzg_commitments_merkle_proof__random_block_1     Skip
-  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK

@@ -22,7 +22,6 @@ import
   eth/enr/enr,
   json_serialization, json_serialization/std/net as jsnet, web3/confutils_defs,
   chronos/transports/common,
-  kzg4844/kzg,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
@@ -65,7 +64,7 @@ else:
 
 type
   BNStartUpCmd* {.pure.} = enum
-    noCommand
+    beaconNode # match name in unified binary
     deposits
     wallets
     record
@@ -125,6 +124,7 @@ type
     Lenient = "lenient"
 
   BeaconNodeConf* = object
+    # When updating, coordinate option names with EL and other binaries
     configFile* {.
       desc: "Loads the configuration from a TOML file"
       name: "config-file" .}: Option[InputFile]
@@ -269,9 +269,9 @@ type
 
     case cmd* {.
       command
-      defaultValue: BNStartUpCmd.noCommand .}: BNStartUpCmd
+      defaultValue: BNStartUpCmd.beaconNode .}: BNStartUpCmd
 
-    of BNStartUpCmd.noCommand:
+    of BNStartUpCmd.beaconNode:
       runAsServiceFlag* {.
         windowsOnly
         defaultValue: false,
@@ -679,13 +679,12 @@ type
         defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
-      # https://notes.ethereum.org/@bbusa/dencun-devnet-6
-      # "Please ensure that there is a way for us to specify the file through a
-      # runtime flag such as --trusted-setup-file (or similar)."
       trustedSetupFile* {.
         hidden
-        desc: "Experimental, debug option; could disappear at any time without warning"
-        name: "temporary-debug-trusted-setup-file" .}: Option[string]
+        desc: "Alternative EIP-4844 trusted setup file"
+        defaultValue: none(string)
+        defaultValueDesc: "Baked in trusted setup"
+        name: "debug-trusted-setup-file" .}: Option[string]
 
       bandwidthEstimate* {.
         hidden
@@ -758,11 +757,6 @@ type
         newWalletFileFlag* {.
           desc: "Output wallet file"
           name: "new-wallet-file" .}: Option[OutFile]
-
-      #[
-      of DepositsCmd.status:
-        discard
-      ]#
 
       of DepositsCmd.`import`:
         importedDepositsDir* {.
@@ -1229,7 +1223,7 @@ proc createDumpDirs*(config: BeaconNodeConf) =
     raiseAssert "createDumpDirs should be used only in the right context"
 
   case config.cmd
-  of BNStartUpCmd.noCommand:
+  of BNStartUpCmd.beaconNode:
     if config.dumpEnabled:
       if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
         warn "Could not create dump directory",
@@ -1392,7 +1386,7 @@ template databaseDir*(config: AnyConf): string =
 
 func runAsService*(config: BeaconNodeConf): bool =
   case config.cmd
-  of noCommand:
+  of BNStartUpCmd.beaconNode:
     config.runAsServiceFlag
   else:
     false
@@ -1528,16 +1522,6 @@ proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(
     config.jwtSecret.configJwtSecretOpt)
-
-proc loadKzgTrustedSetup*(): Result[void, string] =
-  static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  loadTrustedSetupFromString(kzg.trustedSetup, 0)
-
-proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
-  try:
-    loadTrustedSetupFromString(readFile(trustedSetupPath), 0)
-  except IOError as err:
-    err(err.msg)
 
 proc formatIt*(v: Option[IpAddress]): string =
   if v.isSome():

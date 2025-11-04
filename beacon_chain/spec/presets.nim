@@ -49,7 +49,7 @@ const
 
 type
   TimeParams* = object
-    SECONDS_PER_SLOT*: uint64
+    SLOT_DURATION*: Duration
 
   Version* = distinct array[4, byte]
 
@@ -180,9 +180,6 @@ when const_preset == "mainnet":
   import ./presets/mainnet
   export mainnet
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -255,8 +252,8 @@ when const_preset == "mainnet":
     # Time parameters
     # ---------------------------------------------------------------
     timeParams: TimeParams(
-      # 12 seconds
-      SECONDS_PER_SLOT: 12),
+      # 12000 milliseconds
+      SLOT_DURATION: milliseconds(12000)),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
@@ -356,9 +353,6 @@ elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
 
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 5
-
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
   # confugration values (which will be then taken from this config object).
@@ -427,7 +421,7 @@ elif const_preset == "gnosis":
     # ---------------------------------------------------------------
     timeParams: TimeParams(
       # 5 seconds
-      SECONDS_PER_SLOT: 5),
+      SLOT_DURATION: milliseconds(5000)),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
@@ -528,8 +522,6 @@ elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
 
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
@@ -595,8 +587,8 @@ elif const_preset == "minimal":
     # Time parameters
     # ---------------------------------------------------------------
     timeParams: TimeParams(
-      # [customized] Faster for testing purposes
-      SECONDS_PER_SLOT: 6),
+      # [customized] 6000 milliseconds
+      SLOT_DURATION: milliseconds(6000)),
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs
@@ -695,39 +687,16 @@ elif const_preset == "minimal":
 
 else:
   {.error: "Only mainnet, gnosis, and minimal presets supported".}
-  # macro createConstantsFromPreset*(path: static string): untyped =
-  #   result = newStmtList()
-
-  #   let preset = try: readPresetFile(path)
-  #                except CatchableError as err:
-  #                  error err.msg # TODO: This should be marked as noreturn
-  #                  return
-
-  #   for name, value in preset.values:
-  #     let
-  #       typ = getType(name)
-  #       value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
-  #               else: "parse(" & typ & ", \"" & value & "\")"
-  #     try:
-  #       result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
-  #     except ValueError:
-  #       doAssert false, "All values in the presets are printable"
-
-  #   if preset.missingValues.card > 0:
-  #     warning "Missing constants in preset: " & $preset.missingValues
-
-  # createConstantsFromPreset const_preset
 
 const IsMainnetSupported*: bool =
-  const_preset == "mainnet" and SECONDS_PER_SLOT == 12
+  const_preset == "mainnet"
 
 const IsGnosisSupported*: bool =
-  const_preset == "gnosis" and SECONDS_PER_SLOT == 5
+  const_preset == "gnosis"
 
 const
-  MIN_SECONDS_PER_SLOT* = 1'u64
-  MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
-  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
+  MIN_SLOT_DURATION* = seconds(1)
+  MAX_SLOT_DURATION* = seconds(Duration.high.seconds)
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -915,10 +884,6 @@ proc readRuntimeConfig*(
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
 
-  checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
-  # checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-  #                    "SECONDS_PER_SLOT", `in`
-
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
   checkCompatibility MAX_COMMITTEES_PER_SLOT
@@ -998,7 +963,6 @@ proc readRuntimeConfig*(
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
 
-  checkCompatibility SLOT_DURATION_MS
   checkCompatibility ATTESTATION_DUE_BPS
   checkCompatibility AGGREGATE_DUE_BPS
   checkCompatibility SYNC_MESSAGE_DUE_BPS
@@ -1006,18 +970,42 @@ proc readRuntimeConfig*(
   checkCompatibility PROPOSER_REORG_CUTOFF_BPS
 
   template assignValue(name: static string, field: untyped): untyped =
-    if values.hasKey(name):
-      when field is seq[BlobParameters]:
-        field = blobScheduleEntries
+    when name == "SLOT_DURATION":
+      if values.hasKey("SLOT_DURATION_MS"):
+        let rawValue =
+          try:
+            parse(uint64, values["SLOT_DURATION_MS"])
+          except ValueError:
+            fail("Unable to parse " & "SLOT_DURATION_MS")
+        if rawValue > Duration.high.milliseconds.uint64:
+          fail("Too large " & "SLOT_DURATION_MS")
+        field = milliseconds(rawValue.int64)
+        values.del("SLOT_DURATION_MS")
+      elif values.hasKey("SECONDS_PER_SLOT"):
+        let rawValue =
+          try:
+            parse(uint64, values["SECONDS_PER_SLOT"])
+          except ValueError:
+            fail("Unable to parse " & "SECONDS_PER_SLOT")
+        if rawValue > Duration.high.seconds.uint64:
+          fail("Too large " & "SECONDS_PER_SLOT")
+        field = seconds(rawValue.int64)
+        values.del("SECONDS_PER_SLOT")
       else:
-        try:
-          field = parse(typeof(field), values[name])
-        except ValueError:
-          fail("Unable to parse " & name)
-      values.del(name)
-    elif name == "BLOB_SCHEDULE":
-      when field is seq[BlobParameters]:
-        field = blobScheduleEntries
+        discard  # Stay on default value
+    else:
+      if values.hasKey(name):
+        when field is seq[BlobParameters]:
+          field = blobScheduleEntries
+        else:
+          try:
+            field = parse(typeof(field), values[name])
+          except ValueError:
+            fail("Unable to parse " & name)
+        values.del(name)
+      elif name == "BLOB_SCHEDULE":
+        when field is seq[BlobParameters]:
+          field = blobScheduleEntries
 
   for name, field in cfg.fieldPairs():
     assignValue(name, field)
@@ -1028,7 +1016,34 @@ proc readRuntimeConfig*(
     raise (ref PresetIncompatibleError)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
+  template checkParsedValue(
+      name: string, value: auto,
+      constValue: untyped, operator: untyped = `==`): untyped =
+    const opDesc = astToStr(operator)
+    try:
+      when constValue is distinct:
+        if not operator(distinctBase(value), distinctBase(constValue)):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " &
+            opDesc & " " & $distinctBase(constValue) &
+            " - config: " & name & "=" & $value & ")")
+      else:
+        if not operator(value, constValue):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " & opDesc & " " & $constValue &
+            " - config: " & name & "=" & $value & ")")
+    except ValueError:
+      raise (ref PresetFileError)(msg: "Unable to parse " & name)
+
+  checkParsedValue(
+    "SLOT_DURATION_MS", cfg.timeParams.SLOT_DURATION.milliseconds,
+    MIN_SLOT_DURATION.milliseconds .. MAX_SLOT_DURATION.milliseconds, `in`)
+
   # Requires initialized `cfg`
+  checkCompatibility cfg.timeParams.SLOT_DURATION.seconds.uint64,
+                     "SECONDS_PER_SLOT"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
@@ -1061,5 +1076,5 @@ func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod
 
 func defaultSyncHorizon*(timeParams: TimeParams): uint64 =
-  (uint64(10 * 60) + timeParams.SECONDS_PER_SLOT - 1) div
-    timeParams.SECONDS_PER_SLOT
+  (uint64(10 * 60) + timeParams.SLOT_DURATION.seconds.uint64 - 1) div
+    timeParams.SLOT_DURATION.seconds.uint64

@@ -234,7 +234,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
         for bdata in bchunk.blocks:
           block:
             let res = withBlck(bdata.blck):
-              addBackfillBlockData(
+              addLightForwardBlock(
                 dag,
                 consensusFork,
                 bdata,
@@ -257,7 +257,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
 
         bchunk.resfut.complete(Result[void, string].ok())
 
-proc verifyBlockProposer(
+proc verifyBlockSignature(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -285,7 +285,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     clist =
       block:
         overseer.clist.seekForSlot(dag.head.slot).isOkOr:
-          fatal "Unable to find slot in backfill data", reason = error,
+          fatal "Unable to find slot in light forward sync data", reason = error,
                 path = overseer.clist.path
           quit 1
         overseer.clist
@@ -306,7 +306,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     while true:
       let res = getChainFileTail(handle.handle)
       if res.isErr():
-        fatal "Unable to read backfill data", reason = res.error
+        fatal "Unable to read light forward sync data", reason = res.error
         quit 1
       let bres = res.get()
       if bres.isNone():
@@ -337,12 +337,12 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               genesis_validators_root =
                 getStateField(dag.clearanceState, genesis_validators_root)
 
-            verifyBlockProposer(batchVerifier[], fork, genesis_validators_root,
-                                dag.db.immutableValidators, blocksOnly).isOkOr:
+            verifyBlockSignatures(batchVerifier[], fork, genesis_validators_root,
+                                  dag.db.immutableValidators, blocksOnly).isOkOr:
               for signedBlock in blocksOnly:
-                verifyBlockProposer(fork, genesis_validators_root,
-                                    dag.db.immutableValidators,
-                                    signedBlock).isOkOr:
+                verifyBlockSignature(fork, genesis_validators_root,
+                                     dag.db.immutableValidators,
+                                     signedBlock).isOkOr:
                   fatal "Unable to verify block proposer",
                         blck = shortLog(signedBlock), reason = error
               return err(VerifierError.Invalid)
@@ -396,7 +396,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
 
   overseer.statusMsg = Opt.some("storing block")
 
-  let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
+  let res = overseer.clist.addLightForwardBlock(blck.blck, blck.blob)
   if res.isErr():
     warn "Unable to store initial block", reason = res.error
     return
@@ -543,7 +543,7 @@ proc mainLoop*(
         return
 
       clist.clear().isOkOr:
-        warn "Unable to remove backfill data file",
+        warn "Unable to remove light forward sync data file",
              path = clist.path.chainFilePath(), reason = error
         quit 1
 

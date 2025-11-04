@@ -207,7 +207,6 @@ proc recover_cells_and_proofs_parallel*(
 
   ok(res)
 
-
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
@@ -267,18 +266,53 @@ proc assemble_data_column_sidecars*(
 
     sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar
-func verify_data_column_sidecar*(sidecar: fulu.DataColumnSidecar |
-                                          gloas.DataColumnSidecar):
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/fulu/p2p-interface.md#verify_data_column_sidecar
+func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
+  # The sidecar index must be within the valid range
   if sidecar.index >= NUMBER_OF_COLUMNS:
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
+  # A sidecar for zero blobs is invalid
   if sidecar.kzg_commitments.len == 0:
-    return err("Data column contains zero blob")
+    return err("Data column contains zero blobs")
 
+  # Check that the sidecar respects the blob limit
+  template epoch: untyped = sidecar.signed_block_header.message.slot.epoch()
+  if sidecar.kzg_commitments.lenu64 >
+      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
+    return err("Data column contains too many blobs")
+
+  # The column length must be equal to the number of commitments/proofs
+  if sidecar.column.len != sidecar.kzg_commitments.len or
+      sidecar.column.len != sidecar.kzg_proofs.len:
+    return err("Data column length must be equal to the number of commitments/proofs")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
+func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar):
+                                 Result[void, cstring] =
+  ## Verify if the data column sidecar is valid.
+
+  # The sidecar index must be within the valid range
+  if sidecar.index >= NUMBER_OF_COLUMNS:
+    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+
+  # A sidecar for zero blobs is invalid
+  if sidecar.kzg_commitments.len == 0:
+    return err("Data column contains zero blobs")
+
+  # [Modified in Gloas:EIP7732]
+  # Check that the sidecar respects the blob limit
+  template epoch: untyped = sidecar.slot.epoch()
+  if sidecar.kzg_commitments.lenu64 >
+      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
+    return err("Data column contains too many blobs")
+
+  # The column length must be equal to the number of commitments/proofs
   if sidecar.column.len != sidecar.kzg_commitments.len or
       sidecar.column.len != sidecar.kzg_proofs.len:
     return err("Data column length must be equal to the number of commitments/proofs")
@@ -330,3 +364,30 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   let count = total_node_balance div cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+proc recover_blobs_from_data_columns*(
+  dataColumns: seq[fulu.DataColumnSidecar]
+): Blobs =
+  const numCols = CELLS_PER_EXT_BLOB div 2
+  var blobs: Blobs
+
+  if dataColumns.len < numCols:
+    return blobs
+  for i in 0 ..< numCols:
+    if dataColumns[i].index != i.uint64:
+      return blobs
+  let numBlobs = dataColumns[0].column.len
+
+  for blobIndex in 0 ..< numBlobs:
+    var blobBytes: Blob
+    for colIdx in 0 ..< numCols:
+      let
+        cellBytes = dataColumns[colIdx].column[blobIndex].bytes
+        offset = colIdx * fulu.BYTES_PER_CELL
+      assign(
+        blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),
+        cellBytes.toOpenArray(0, fulu.BYTES_PER_CELL - 1)
+      )
+    discard blobs.add(blobBytes)
+
+  blobs

@@ -335,7 +335,8 @@ proc prepareNextSlot*(
     elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
-        timestamp = compute_timestamp_at_slot(forkyState.data, proposalSlot)
+        timestamp = dag.timeParams
+          .compute_timestamp_at_slot(forkyState.data, proposalSlot)
         # If the current head block still forms the basis of the eventual proposal
         # state, then its `get_randao_mix` will remain unchanged as well, as it is
         # constant until the next block.

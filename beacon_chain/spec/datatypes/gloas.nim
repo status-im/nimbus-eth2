@@ -51,12 +51,19 @@ const
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex
     column*: DataColumn
     kzg_commitments*: KzgCommitments
     kzg_proofs*: deneb.KzgProofs
+    # [Modified in Gloas:EIP7732]
+    # Removed `signed_block_header`
+    # [Modified in Gloas:EIP7732]
+    # Removed `kzg_commitments_inclusion_proof`
+    # [New in Gloas:EIP7732]
+    slot*: Slot
+    # [New in Gloas:EIP7732]
     beacon_block_root*: Eth2Digest
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
@@ -128,7 +135,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationmessage
   PayloadAttestationMessage* = object
-    validatorIndex*: uint64
+    validator_index*: uint64
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
@@ -576,6 +583,7 @@ func shortLog*(v: DataColumnSidecar): auto =
     index: v.index,
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
+    slot: v.slot,
     beacon_block_root: shortLog(v.beacon_block_root),
   )
 

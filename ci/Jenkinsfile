@@ -80,7 +80,7 @@ pipeline {
     }
 
     stage('Deps') {
-      steps { timeout(20) {
+      steps { timeout(30) {
         /* To allow the following parallel stages. */
         sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
         /* Allow the following parallel stages. */
@@ -105,7 +105,7 @@ pipeline {
     stage('Tests') {
       parallel {
         stage('General') {
-          steps { timeout(60) {
+          steps { timeout(75) {
             sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
             sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
           } }
@@ -128,7 +128,7 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { timeout(26) {
+          steps { timeout(35) {  /* 30 + [6 epochs * 8 slots / epoch * 6 seconds / slot]/60 */
             sh 'make local-testnet-minimal'
           } }
           post { always {
@@ -137,7 +137,7 @@ pipeline {
         }
 
         stage('mainnet') {
-          steps { timeout(62) {
+          steps { timeout(70) {  /* 30 + [6 epochs * 32 slots / epoch * 12 seconds / slot]/60 */
             sh 'make local-testnet-mainnet'
           } }
           post { always {

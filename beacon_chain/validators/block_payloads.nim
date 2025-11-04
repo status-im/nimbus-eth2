@@ -299,8 +299,8 @@ proc getExecutionPayload*(
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
-    timestamp = withState(proposalState[]):
-      compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+    timestamp = withState(proposalState[]): node.dag.timeParams
+      .compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
     prevRandao = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):

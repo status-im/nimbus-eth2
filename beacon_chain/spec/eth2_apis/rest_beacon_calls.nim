@@ -409,13 +409,13 @@ proc submitPoolAttestationsV2Plain*(
 
 proc submitPoolAttestationsV2*[T: ForkyAttestation](
     client: RestClientRef,
+    fork: ConsensusFork,
     body: seq[T]
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
-  let consensus = T.kind.toString()
   client.submitPoolAttestationsV2Plain(
-    body, extraHeaders = @[("eth-consensus-version", consensus)])
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
 
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",

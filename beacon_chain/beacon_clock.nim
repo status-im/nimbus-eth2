@@ -13,7 +13,8 @@ import
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from std/times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
+from std/times import
+  Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds, inSeconds
 
 export timer.Duration, Moment, now, beacon_time
 
@@ -41,14 +42,13 @@ proc init*(
     timeParams: TimeParams,
     genesis_time: uint64): Opt[T] =
   let
-    SECONDS_PER_SLOT = timeParams.SECONDS_PER_SLOT
-    MIN_GENESIS_TIME = GENESIS_SLOT * SECONDS_PER_SLOT
+    MIN_GENESIS_TIME = GENESIS_SLOT * timeParams.SLOT_DURATION.seconds.uint64
     MAX_GENESIS_TIME =
       # Since we'll be converting beacon time differences to nanoseconds,
       # the time can't be outrageously far from now
       getTime().toUnix().uint64 +
       100'u64 * 365'u64 * 24'u64 * 60'u64 * 60'u64
-  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT or
+  if timeParams.SLOT_DURATION notin MIN_SLOT_DURATION .. MAX_SLOT_DURATION or
       genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
     Opt.none(BeaconClock)
   else:
@@ -56,11 +56,12 @@ proc init*(
       unixGenesis = fromUnix(genesis_time.int64)
       # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
       # that offset to genesis instead of applying it at every time conversion
-      unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
+      unixGenesisOffset = fromUnix(
+        (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
 
     Opt.some T(
       timeParams: timeParams,
-      genesis: unixGenesis - unixGenesisOffset)
+      genesis: (unixGenesis - unixGenesisOffset).inSeconds.fromUnix)
 
 func timeParams*(c: BeaconClock): TimeParams =
   c.timeParams  # Readonly

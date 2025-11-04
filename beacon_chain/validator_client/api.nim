@@ -1615,6 +1615,7 @@ proc produceAttestationData*(
 proc submitPoolAttestationsV2*(
     vc: ValidatorClientRef,
     data: seq[ForkyAttestation],
+    fork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   const
@@ -1629,7 +1630,7 @@ proc submitPoolAttestationsV2*(
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.AttestationPublish},
-                                      submitPoolAttestationsV2(it, data)):
+                                      submitPoolAttestationsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -1657,7 +1658,7 @@ proc submitPoolAttestationsV2*(
                               vc.SlotDuration,
                               ViableNodeStatus,
                               {BeaconNodeRole.AttestationPublish},
-                              submitPoolAttestationsV2(it, data)):
+                              submitPoolAttestationsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -2169,6 +2170,7 @@ proc produceSyncCommitteeContribution*(
 proc publishAggregateAndProofsV2*(
     vc: ValidatorClientRef,
     data: seq[ForkySignedAggregateAndProof],
+    fork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   const
@@ -2178,12 +2180,10 @@ proc publishAggregateAndProofsV2*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      bool,
-                                      vc.SlotDuration,
-                                      ViableNodeStatus,
-                                      {BeaconNodeRole.AggregatedPublish},
-                                      publishAggregateAndProofsV2(it, data)):
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse, bool, vc.SlotDuration, ViableNodeStatus,
+      {BeaconNodeRole.AggregatedPublish},
+      publishAggregateAndProofsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -2210,11 +2210,10 @@ proc publishAggregateAndProofsV2*(
     res.get()
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse,
-                              vc.SlotDuration,
-                              ViableNodeStatus,
-                              {BeaconNodeRole.AggregatedPublish},
-                              publishAggregateAndProofsV2(it, data)):
+    vc.firstSuccessSequential(
+      RestPlainResponse, vc.SlotDuration, ViableNodeStatus,
+      {BeaconNodeRole.AggregatedPublish},
+      publishAggregateAndProofsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false

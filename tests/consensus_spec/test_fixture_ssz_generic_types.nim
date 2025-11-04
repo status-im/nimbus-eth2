@@ -179,7 +179,7 @@ proc checkProgressiveList(
   var typeIdent: string
   let wasMatched =
     try:
-      scanf(sszSubType, "proglist_$+", typeIdent)
+      scanf(sszSubType, "proglist_$+_", typeIdent)
     except ValueError:
       false  # Parsed `size` is out of range
   doAssert wasMatched
@@ -199,6 +199,8 @@ proc checkProgressiveList(
     checkBasic(seq[UInt128], dir, expectedHash)
   of "uint256":
     checkBasic(seq[UInt256], dir, expectedHash)
+  else:
+    raise newException(ValueError, "unknown ssz type in test: " & sszSubType)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test

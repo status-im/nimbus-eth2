@@ -24,7 +24,7 @@ suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 4.SyncCommitteePeriod
   let
-    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+    cfg = block:  # Fork schedule that covers each `LightClientDataFork`
       static: doAssert ConsensusFork.high == ConsensusFork.Gloas
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch

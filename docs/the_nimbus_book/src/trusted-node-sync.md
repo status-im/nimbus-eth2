@@ -30,7 +30,7 @@ To start trusted node sync, run:
 === "Mainnet"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:mainnet \
+      --network=mainnet \
       --data-dir=build/data/shared_mainnet_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -38,7 +38,7 @@ To start trusted node sync, run:
 === "Hoodi"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:hoodi \
+      --network=hoodi \
       --data-dir=build/data/shared_hoodi_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -122,9 +122,9 @@ While you can choose a different sync point using a state hash or a slot number,
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --state-id:1024
+  --state-id=1024
 ```
 
 ### Sync from checkpoint files
@@ -151,7 +151,7 @@ To recreate a historical index from before the checkpoint, it is necessary to fi
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
   --reindex=true
 ```
