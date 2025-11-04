@@ -18,8 +18,8 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    light_client_pool, spec_cache, sync_committee_msg_pool,
-    validator_change_pool],
+    envelope_quarantine, light_client_pool, spec_cache,
+    sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -973,9 +973,10 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
     Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
@@ -996,11 +997,27 @@ proc validateExecutionPayload*(
             break
       seen
   if not blockSeen:
+    quarantine[].addMissing(envelope.beacon_block_root)
+    envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
   # for this block root from this builder.
-  debugGloasComment("")
+  #
+  # Validation of an envelope requires a valid block. There is a check to ensure
+  # that the builder index are the same from the envelope and the bid from the
+  # block. Meaning that checking builder index here would not be helpful due to
+  # the check later.
+  var validEnvelope: TrustedSignedExecutionPayloadEnvelope
+  if dag.db.getExecutionPayloadEnvelope(
+      envelope.beacon_block_root, validEnvelope):
+    return errIgnore("ExecutionPayload: already seen")
+
+  # [IGNORE] The envelope is from a slot greater than or equal to the latest
+  # finalized slot -- i.e. validate that `envelope.slot >=
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)`
+  if envelope.slot <= dag.finalizedHead.slot:
+    return errIgnore("ExecutionPayload: slot already finalized")
 
   # [REJECT] block passes validation.
   let blck =
@@ -1012,23 +1029,21 @@ proc validateExecutionPayload*(
         when consensusFork >= ConsensusFork.Gloas:
           forkyBlck.asSigned().message
         else:
-          return errReject("ExecutionPayload: invalid fork")
+          return dag.checkedReject("ExecutionPayload: invalid fork")
 
   # [REJECT] block.slot equals envelope.slot.
   if blck.slot != envelope.slot:
-    return errReject("ExecutionPayload: slot mismatch")
+    return dag.checkedReject("ExecutionPayload: slot mismatch")
 
-  # TODO: check if it needs fallback to `state.latest_execution_payload_bid`
   template bid: untyped = blck.body.signed_execution_payload_bid.message
-  debug "Validating execution payload", bid = shortLog(bid)
 
   # [REJECT] envelope.builder_index == bid.builder_index
   if envelope.builder_index != bid.builder_index:
-    return errReject("ExecutionPayload: builder index mismatch")
+    return dag.checkedReject("ExecutionPayload: builder index mismatch")
 
   # [REJECT] payload.block_hash == bid.block_hash
   if envelope.payload.block_hash != bid.block_hash:
-    return errReject("ExecutionPayload: block hash mismatch")
+    return dag.checkedReject("ExecutionPayload: block hash mismatch")
 
   # [REJECT] signed_execution_payload_envelope.signature is valid with respect
   # to the builder's public key.

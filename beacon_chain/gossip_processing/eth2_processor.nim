@@ -16,9 +16,9 @@ import
   ../el/el_manager,
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
-    blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    attestation_pool, blob_quarantine, block_clearance,
+    block_quarantine, blockchain_dag, envelope_quarantine,
+    light_client_pool, sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -45,6 +45,10 @@ declareCounter beacon_blocks_received,
   "Number of valid blocks processed by this node"
 declareCounter beacon_blocks_dropped,
   "Number of invalid blocks dropped by this node", labels = ["reason"]
+declareCounter execution_payload_envelopes_received,
+  "Number of valid execution payload envelope processed by this node"
+declareCounter execution_payload_envelopes_dropped,
+  "Number of invalid execution payload envelope dropped by this node", labels = ["reason"]
 declareCounter blob_sidecars_received,
   "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
@@ -92,6 +96,9 @@ declareHistogram beacon_aggregate_delay,
 
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram execution_payload_envelope_delay,
+  "Time(s) between slot start and execution payload envelope reception", buckets = delayBuckets
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
@@ -156,6 +163,8 @@ type
     blobQuarantine*: ref BlobQuarantine
 
     dataColumnQuarantine*: ref ColumnQuarantine
+
+    envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -288,6 +297,37 @@ proc processSignedBeaconBlock*(
   # Validator monitor registration for blocks is done by the processor
   beacon_blocks_received.inc()
   beacon_block_delay.observe(delay.toFloatSeconds())
+
+  ok()
+
+proc processExecutionPayloadEnvelope*(
+    self: var Eth2Processor, src: MsgSource,
+    signedEnvelope: SignedExecutionPayloadEnvelope): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
+  logScope:
+    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
+    envelope = shortLog(signedEnvelope.message)
+    wallSlot
+
+  if not afterGenesis:
+    notice "Execution payload envelope before genesis"
+    return errIgnore("Execution payload envelope before genesis")
+
+  let delay = wallTime -
+    signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
+
+  self.dag.validateExecutionPayload(
+      self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
+    execution_payload_envelopes_dropped.inc(1, [$error[0]])
+    return err(error)
+
+  debugGloasComment("process execution payload")
+
+  execution_payload_envelopes_received.inc()
+  execution_payload_envelope_delay.observe(delay.toFloatSeconds())
 
   ok()
 
