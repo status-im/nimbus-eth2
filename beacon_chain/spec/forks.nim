@@ -388,7 +388,6 @@ template kind*(
       phase0.TrustedBeaconBlockBody |
       phase0.SigVerifiedSignedBeaconBlock |
       phase0.TrustedSignedBeaconBlock |
-      phase0.Attestation |
       phase0.AggregateAndProof |
       phase0.SignedAggregateAndProof]): ConsensusFork =
   ConsensusFork.Phase0
@@ -468,8 +467,6 @@ template kind*(
       electra.TrustedBeaconBlockBody |
       electra.SigVerifiedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
-      electra.Attestation |
-      electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
       electra_mev.BlindedBeaconBlock |

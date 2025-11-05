@@ -535,19 +535,12 @@ proc popSidecars*(
 
 proc popSidecars*(
     quarantine: var ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock
+    blockRoot: Eth2Digest
 ): Opt[seq[ref fulu.DataColumnSidecar]] =
-  ## Function returns sequence of column sidecars for block root ``blockRoot``
-  ## and block ``blck``.
+  ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
-  ## If block do not have any column sidecars bundledd Opt.some([]) is returned.
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref fulu.DataColumnSidecar]))
-
+  ## Note: Blocks should be checked for sidecars count first, otherwise
+  ## result of this function would be always Opt.none().
   var record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not allocated.
@@ -606,13 +599,6 @@ proc popSidecars*(
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
-  ## Alias for `popSidecars()`.
-  popSidecars(quarantine, blck.root, blck)
-
-proc popSidecars*(
-    quarantine: var ColumnQuarantine,
-    blck: fulu.SignedBeaconBlock
-): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
 
