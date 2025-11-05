@@ -41,7 +41,7 @@ export json_serialization, base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
-  FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
+  FIELD_ELEMENTS_PER_EXT_BLOB = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
   # Number of field elements in a Reed-Solomon extended blob |
   BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |

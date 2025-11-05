@@ -428,7 +428,15 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)),
           MAX_PENDING_DEPOSITS_PER_EPOCH:
-            Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH))
+            Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH)),
+          KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH:
+            Base10.toString(KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH),
+          FIELD_ELEMENTS_PER_CELL:
+            Base10.toString(FIELD_ELEMENTS_PER_CELL),
+          FIELD_ELEMENTS_PER_EXT_BLOB:
+            Base10.toString(FIELD_ELEMENTS_PER_EXT_BLOB),
+          CELLS_PER_EXT_BLOB:
+            Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB))
         )
       )
     cachedDepositContract =

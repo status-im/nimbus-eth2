@@ -18,9 +18,9 @@ const
   # Blob
   # ---------------------------------------------------------------
   # 2**6 (= 64) field elements
-  FIELD_ELEMENTS_PER_CELL*: uint64 = 64
+  FIELD_ELEMENTS_PER_CELL* = 64
   # 2**1 * FIELD_ELEMENTS_PER_BLOB (= 8,192) field elements
-  FIELD_ELEMENTS_PER_EXT_BLOB*: uint64 = 8192
+  FIELD_ELEMENTS_PER_EXT_BLOB* = 8192
   # FIELD_ELEMENTS_PER_EXT_BLOB // FIELD_ELEMENTS_PER_CELL (= 128) cells
   CELLS_PER_EXT_BLOB* = 128
   # CELLS_PER_EXT_BLOB (= 128) columns
