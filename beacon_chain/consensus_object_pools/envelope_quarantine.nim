@@ -12,7 +12,7 @@ import ../spec/[digest, forks]
 
 type
   EnvelopeQuarantine* = object
-    orphans*: Table[Eth2Digest, SignedExecutionPayloadEnvelope]
+    orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
       ## Envelopes that we have received but did not have a block yet. In the
       ## ideal scenario, block should arrive before envelope but that is not
       ## guaranteed.
@@ -36,17 +36,41 @@ func addMissing*(
 func addOrphan*(
     self: var EnvelopeQuarantine,
     envelope: SignedExecutionPayloadEnvelope) =
-  self.orphans[envelope.root] = envelope
+  discard self.orphans
+    .mgetOrPut(envelope.root)
+    .hasKeyOrPut(envelope.message.builder_index, envelope)
 
-func removeOrphan*(self: var EnvelopeQuarantine, root: Eth2Digest) =
-  self.orphans.del(root)
+func popOrphan*(
+    self: var EnvelopeQuarantine,
+    blck: gloas.SignedBeaconBlock,
+): Opt[SignedExecutionPayloadEnvelope] =
+  if blck.root notin self.orphans:
+    return Opt.none(SignedExecutionPayloadEnvelope)
+
+  template builderIdx: untyped =
+    blck.message.body.signed_execution_payload_bid.message.builder_index
+  try:
+    var envelope: SignedExecutionPayloadEnvelope
+    if self.orphans[blck.root].pop(builderIdx, envelope):
+      Opt.some(envelope)
+    else:
+      Opt.none(SignedExecutionPayloadEnvelope)
+  except KeyError:
+    Opt.none(SignedExecutionPayloadEnvelope)
+  finally:
+    # After poping an envelope by block, the rest will no longer be valid due to
+    # the mismatch builder index.
+    self.orphans.del(blck.root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in self.orphans:
-    if finalizedSlot >= v.message.slot:
-      toDel.add(k)
+    for _, e in v:
+      if finalizedSlot >= e.message.slot:
+        toDel.add(k)
+      # check only the first envelope as slot should be the same by block root.
+      break
 
   for k in toDel:
     self.orphans.del(k)

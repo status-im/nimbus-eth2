@@ -594,7 +594,7 @@ AllTests-mainnet
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
 + Clean up orphans                                                                           OK
-+ Remove orphan                                                                              OK
++ Pop orphan                                                                                 OK
 ```
 ## Eth1 monitor
 ```diff
