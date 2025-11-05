@@ -1397,7 +1397,7 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
 func makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
-func prepareDeposit*(cfg: RuntimeConfig,
+func prepareDeposit*(genesis_fork_version: Version,
                      withdrawalPubKey: CookedPubKey,
                      signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
@@ -1406,5 +1406,6 @@ func prepareDeposit*(cfg: RuntimeConfig,
     pubkey: signingPubKey.toPubKey(),
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  res.signature = get_deposit_signature(cfg, res, signingKey).toValidatorSig()
-  return res
+  res.signature =
+    get_deposit_signature(genesis_fork_version, res, signingKey).toValidatorSig()
+  res

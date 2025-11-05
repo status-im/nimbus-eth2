@@ -780,6 +780,8 @@ AllTests-mainnet
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ BLS to execution change signatures                                                         OK
++ Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -813,7 +815,6 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
-+ Signing deposit message (getDepositMessageSignature())                                     OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK

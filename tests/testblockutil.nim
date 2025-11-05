@@ -64,7 +64,8 @@ proc makeDeposit*(
     amount: MAX_EFFECTIVE_BALANCE.Gwei)
 
   if skipBlsValidation notin flags:
-    result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
+    result.signature =
+      get_deposit_signature(cfg.GENESIS_FORK_VERSION, result, privkey).toValidatorSig()
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): seq[DepositData] =

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -40,7 +40,8 @@ func mockDepositData(
 ): DepositData =
   var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
-    ret.signature = defaultRuntimeConfig.get_deposit_signature(ret, privkey).toValidatorSig()
+    ret.signature = get_deposit_signature(
+      defaultRuntimeConfig.GENESIS_FORK_VERSION, ret, privkey).toValidatorSig()
   ret
 
 template mockGenesisDepositsImpl(

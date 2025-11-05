@@ -10,7 +10,7 @@ library 'status-jenkins-lib@v1.9.2'
 
 pipeline {
   /* This way we run the same Jenkinsfile on different platforms. */
-  agent { label 'macos && aarch64 && !macm4-01' }
+  agent { label 'macos && aarch64' }
 
   parameters {
     choice(

@@ -213,14 +213,14 @@ proc installApiHandlers*(node: SigningNodeRef) =
           signature = get_slot_signature(forkInfo.fork,
             forkInfo.genesis_validators_root,
             request.aggregationSlot.slot,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.AggregateAndProof:
         let
           forkInfo = request.forkInfo.get()
           signature = get_aggregate_and_proof_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.aggregateAndProof,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.AggregateAndProofV2:
         let
@@ -229,14 +229,14 @@ proc installApiHandlers*(node: SigningNodeRef) =
             withAggregateAndProof(request.forkedAggregateAndProof):
               get_aggregate_and_proof_signature(forkInfo.fork,
                 forkInfo.genesis_validators_root, forkyProof,
-                validator.data.privateKey).toValidatorSig().toHex()
+                validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
           forkInfo = request.forkInfo.get()
           signature = get_attestation_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.attestation,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.BlockV2:
         if node.config.expectedFeeRecipient.isNone():
@@ -246,7 +246,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
             signature = get_block_signature(
               forkInfo.fork, forkInfo.genesis_validators_root,
               request.beaconBlockHeader.data.slot, blockRoot,
-              validator.data.privateKey).toValidatorSig().toHex()
+              validator.data.privateKey).toHex()
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
@@ -286,30 +286,30 @@ proc installApiHandlers*(node: SigningNodeRef) =
           signature = get_block_signature(forkInfo.fork,
             forkInfo.genesis_validators_root,
             request.beaconBlockHeader.data.slot, blockRoot,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Deposit:
         let
           data = DepositMessage(pubkey: request.deposit.pubkey,
             withdrawal_credentials: request.deposit.withdrawalCredentials,
             amount: request.deposit.amount)
-          signature = get_deposit_signature(data,
-            request.deposit.genesisForkVersion,
-            validator.data.privateKey).toValidatorSig().toHex()
+          signature = get_deposit_signature(
+            request.deposit.genesisForkVersion, data,
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.RandaoReveal:
         let
           forkInfo = request.forkInfo.get()
           signature = get_epoch_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.randaoReveal.epoch,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.VoluntaryExit:
         let
           forkInfo = request.forkInfo.get()
           signature = get_voluntary_exit_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.voluntaryExit,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeMessage:
         let
@@ -317,7 +317,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
           msg = request.syncCommitteeMessage
           signature = get_sync_committee_message_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, msg.slot, msg.beaconBlockRoot,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeSelectionProof:
         let
@@ -328,7 +328,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
               return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
           signature = get_sync_committee_selection_proof(forkInfo.fork,
             forkInfo.genesis_validators_root, msg.slot, subcommittee,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
         let
@@ -336,7 +336,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
           msg = request.syncCommitteeContributionAndProof
           signature = get_contribution_and_proof_signature(
             forkInfo.fork, forkInfo.genesis_validators_root, msg,
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
         let
@@ -348,7 +348,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),
-            validator.data.privateKey).toValidatorSig().toHex()
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
 
 proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =

@@ -94,7 +94,7 @@ proc update_justified(
   trace "Updating justified",
     store = self.justified.checkpoint, state = justified
   self.justified = BalanceCheckpoint(
-    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    checkpoint: justified,
     total_active_balance: epochRef.total_active_balance,
     balances: epochRef.effective_balances)
 
