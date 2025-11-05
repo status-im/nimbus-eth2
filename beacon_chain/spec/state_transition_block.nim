@@ -339,7 +339,7 @@ proc apply_deposit(
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-    if verify_deposit_signature(cfg, deposit_data):
+    if verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit_data):
       when typeof(state).kind >= ConsensusFork.Electra:
         ? add_validator_to_registry(state, deposit_data, 0.Gwei)
         let new_vidx = state.validators.lenu64 - 1
@@ -488,7 +488,7 @@ proc process_bls_to_execution_change*(
                 fulu.BeaconState | gloas.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(
-    cfg.genesisFork, state, signed_address_change, {})
+    cfg.GENESIS_FORK_VERSION, state, signed_address_change, {})
   let address_change = signed_address_change.message
   var withdrawal_credentials =
     state.validators.item(address_change.validator_index).withdrawal_credentials
@@ -1140,8 +1140,9 @@ proc process_execution_payload*(
         return err("process_execution_payload: invalid builder index")
       builder_pubkey = state.data.validators.item(builder_index).pubkey
     if not verify_execution_payload_envelope_signature(
-        state.data.fork, state.data.genesis_validators_root, signed_envelope,
-        state.data, builder_pubkey, signed_envelope.signature):
+        state.data.fork, state.data.genesis_validators_root,
+        get_current_epoch(state.data), envelope, builder_pubkey,
+        signed_envelope.signature):
       return err("process_execution_payload: invalid envelope signature")
 
   # Cache latest block header state root
@@ -1257,6 +1258,7 @@ proc process_execution_payload_bid*(
       return err("process_execution_payload_bid: invalid builder index")
     builder = addr state.validators.item(builder_index)
     amount = bid.value
+    epoch = get_current_epoch(state)
 
   # For self-builds, amount must be zero regardless of withdrawal credential prefix
   if builder_index == blck.proposer_index:
@@ -1270,11 +1272,11 @@ proc process_execution_payload_bid*(
       return err("process_execution_payload_bid: builder missing withdrawal credential")
     # Verify the bid signature for non-self builds
     if not verify_execution_payload_bid_signature(
-        state.fork, state.genesis_validators_root, signed_bid,
-        state, builder[].pubkey, signed_bid.signature):
+        state.fork, state.genesis_validators_root, epoch, signed_bid.message,
+        builder[].pubkey, signed_bid.signature):
       return err("payload_bid: invalid bid signature")
 
-  if not is_active_validator(builder[], get_current_epoch(state)):
+  if not is_active_validator(builder[], epoch):
     return err("process_execution_payload_bid: builder not active")
   if builder[].slashed:
     return err("process_execution_payload_bid: builder is slashed")

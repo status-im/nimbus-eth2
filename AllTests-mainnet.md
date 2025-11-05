@@ -172,7 +172,6 @@ AllTests-mainnet
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
-+ popSidecars()/hasSidecars() return []/true on block without columns                        OK
 + pruneAfterFinalization() test                                                              OK
 + put() duplicate items should not affect counters                                           OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -783,6 +782,8 @@ AllTests-mainnet
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ BLS to execution change signatures                                                         OK
++ Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -816,7 +817,6 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
-+ Signing deposit message (getDepositMessageSignature())                                     OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK

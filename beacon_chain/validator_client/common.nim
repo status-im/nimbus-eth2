@@ -955,6 +955,13 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
       break
   res
 
+proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return key
+  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
+
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
   doAssert(vc.forkConfig.isSome())

@@ -788,19 +788,6 @@ proc getValidatorExitSignature*(v: AttachedValidator, fork: Fork,
                                           voluntary_exit)
     await v.signData(request)
 
-proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
-                                 deposit_message: DepositMessage
-                                ): Future[SignatureResult]
-                                {.async: (raises: [CancelledError]).} =
-  case v.kind
-  of ValidatorKind.Local:
-    SignatureResult.ok(get_deposit_signature(
-      deposit_message, version,
-      v.data.privateKey).toValidatorSig())
-  of ValidatorKind.Remote:
-    let request = Web3SignerRequest.init(version, deposit_message)
-    await v.signData(request)
-
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 proc getBuilderSignature*(v: AttachedValidator, genesis_fork_version: Version,
     validatorRegistration: ValidatorRegistrationV1):

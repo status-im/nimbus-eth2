@@ -228,7 +228,7 @@ proc validateValidatorChangeMessage(
 proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState,
     msg: SignedBLSToExecutionChange): bool =
-  check_bls_to_execution_change(cfg.genesisFork, state, msg, {}).isOk
+  check_bls_to_execution_change(cfg.GENESIS_FORK_VERSION, state, msg, {}).isOk
 
 proc getValidatorChangeMessagesForBlock(
     subpool: var Deque, cfg: RuntimeConfig, state: ForkyBeaconState,
