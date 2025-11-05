@@ -536,7 +536,7 @@ download_nimbus_eth1() {
         NIMBUS_ETH1_PLATFORM=Linux_arm64v8
         ;;
       macos-arm64|macos-aarch64)
-        NIMBUS_ETH1_PLATFORM=macOS_amd64
+        NIMBUS_ETH1_PLATFORM=macOS_arm64
         ;;
       windows-amd64|windows-x86_64)
         NIMBUS_ETH1_PLATFORM=Windows_amd64

@@ -63,7 +63,8 @@ proc doTrustedNodeSync*(
     syncTarget: TrustedNodeSyncTarget,
     backfill: bool,
     reindex: bool,
-    genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
+    genesisState: ref ForkedHashedBeaconState = nil,
+) {.async: (raises: [CancelledError]).} =
   logScope:
     restUrl
     syncTarget

@@ -2382,8 +2382,6 @@ proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
         handler()
 
     # Policy: Retain back through Mainnet's second latest fork.
-    ConsensusFork.Deneb.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToDeneb)
     ConsensusFork.Electra.logForkUpgrade(
       dag.vanityLogs.onUpgradeToElectra)
     ConsensusFork.Fulu.logForkUpgrade(

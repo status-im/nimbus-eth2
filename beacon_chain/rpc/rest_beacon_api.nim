@@ -188,11 +188,9 @@ proc handleDataSidecarRequest*[
   ](node, mediaType, block_id, indices, DataSidecarsType.maxLen.uint64)
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
     ) -> RestApiResponse:
-    return RestApiResponse.jsonError(Http404,
-                                     NoFinalizedSnapshotAvailableError)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -1008,56 +1006,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.isFinalized(bid)
       )
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   router.api(MethodPost, "/eth/v1/beacon/blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let res =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let
-          body = contentBody.get()
-          currentEpochFork =
-            node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
-          rawVersion = request.headers.getString("eth-consensus-version")
-
-          # The V1 endpoint doesn't require the version to be specified but the
-          # only fork which works is the current gossip fork. Either it can use
-          # and broadcast a block in that fork or that broadcast will not prove
-          # useful anyway, so allow it to fail at the decoding stage.
-          version =
-            if rawVersion == "":
-              currentEpochFork.toString
-            else:
-              rawVersion
-
-        let restBlock = decodeBody(
-          RestPublishedSignedBlockContents, body, version).valueOr:
-            return RestApiResponse.jsonError(error)
-
-        withForkyBlck(restBlock):
-          if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
-              forkyBlck.message.slot.epoch):
-            doAssert strictVerification notin node.dag.updateFlags
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-
-          when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
-              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
-          else:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
-              Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
-
-    if res.isErr():
-      return RestApiResponse.jsonError(
-        Http503, BeaconNodeInSyncError, $res.error)
-    if res.get().isNone():
-      return RestApiResponse.jsonError(Http202, BlockValidationError)
-
-    RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
   router.api(MethodPost, "/eth/v2/beacon/blocks") do (
@@ -1169,96 +1120,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-  # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml
   router.api(MethodPost, "/eth/v1/beacon/blinded_blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    ## Instructs the beacon node to use the components of the
-    ## `SignedBlindedBeaconBlock` to construct and publish a
-    ## `SignedBeaconBlock` by swapping out the transactions_root for the
-    ## corresponding full list of transactions. The beacon node should
-    ## broadcast a newly constructed `SignedBeaconBlock` to the beacon network,
-    ## to be included in the beacon chain. The beacon node is not required to
-    ## validate the signed `BeaconBlock`, and a successful response (20X) only
-    ## indicates that the broadcast has been successful.
-    if contentBody.isNone():
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-
-    let
-      currentEpochFork =
-        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
-      rawVersion = request.headers.getString("eth-consensus-version")
-      body = contentBody.get()
-
-      # The V1 endpoint doesn't require the version to be specified but the
-      # only fork which works is the current gossip fork. Either it can use
-      # and broadcast a block in that fork or that broadcast will not prove
-      # useful anyway, so allow it to fail at the decoding stage.
-      version =
-        if rawVersion == "":
-          currentEpochFork.toString
-        else:
-          rawVersion
-
-    if (body.contentType == OctetStreamMediaType) and
-       (currentEpochFork.toString != version):
-      return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
-
-    withConsensusFork(currentEpochFork):
-      when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
-        return RestApiResponse.jsonError(
-          Http400, $consensusFork & " builder API unsupported")
-      elif consensusFork >= ConsensusFork.Electra:
-        let
-          restBlock = decodeBodyJsonOrSsz(
-              consensusFork.SignedBlindedBeaconBlock, body).valueOr:
-            return RestApiResponse.jsonError(error)
-          payloadBuilderClient = node.getPayloadBuilderClient(
-              restBlock.message.proposer_index).valueOr:
-            return RestApiResponse.jsonError(
-              Http400, "Unable to initialize payload builder client: " & $error)
-          res = await node.unblindAndRouteBlockMEV(
-            payloadBuilderClient, restBlock)
-
-        if res.isErr():
-          return RestApiResponse.jsonError(
-            Http500, InternalServerError, $res.error)
-        if res.get().isNone():
-          return RestApiResponse.jsonError(Http202, BlockValidationError)
-
-        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        return RestApiResponse.jsonError(
-          Http400, $consensusFork & " builder API unsupported")
-      else:
-        # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
-        #
-        # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
-        # altair.
-        var
-          restBlock = decodeBody(
-              RestPublishedSignedBeaconBlock, body, version).valueOr:
-            return RestApiResponse.jsonError(error)
-          forked = ForkedSignedBeaconBlock(restBlock)
-
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
-            getForkedBlockField(forked, slot).epoch):
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-
-        let res = withBlck(forked):
-          forkyBlck.root = hash_tree_root(forkyBlck.message)
-          await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
-            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
-
-        if res.isErr():
-          return RestApiResponse.jsonError(
-            Http503, BeaconNodeInSyncError, $res.error)
-        elif res.get().isNone():
-          return RestApiResponse.jsonError(Http202, BlockValidationError)
-
-        RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlockV2
   router.api(MethodPost, "/eth/v2/beacon/blinded_blocks") do (
@@ -1410,24 +1274,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.dag.isFinalized(bid)
     )
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
   router.api2(MethodGet,
-             "/eth/v1/beacon/blocks/{block_id}/attestations") do (
+              "/eth/v1/beacon/blocks/{block_id}/attestations") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let
-      blockIdent = block_id.valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                         $error)
-      bdata = node.getForkedBlock(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-    withBlck(bdata):
-      let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
-      RestApiResponse.jsonResponseFinalized(
-        forkyBlck.message.body.attestations.asSeq(),
-        node.getBlockOptimistic(bdata),
-        node.dag.isFinalized(bid)
-      )
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
   router.api2(MethodGet,
@@ -1448,33 +1298,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.isFinalized(bid),
         consensusFork, node.hasRestAllowedOrigin)
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
   router.api2(MethodGet, "/eth/v1/beacon/pool/attestations") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
-    let vindex =
-      if committee_index.isSome():
-        let rindex = committee_index.get()
-        if rindex.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidCommitteeIndexValueError,
-                                           $rindex.error)
-        Opt.some(rindex.get())
-      else:
-        Opt.none(CommitteeIndex)
-    let vslot =
-      if slot.isSome():
-        let rslot = slot.get()
-        if rslot.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           $rslot.error)
-        Opt.some(rslot.get())
-      else:
-        Opt.none(Slot)
-    var res: seq[phase0.Attestation]
-    for item in node.attestationPool[].attestations(vslot, vindex):
-      res.add(item)
-    RestApiResponse.jsonResponse(res)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
   router.api2(MethodGet, "/eth/v2/beacon/pool/attestations") do (
@@ -1515,48 +1342,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
         consensusFork, node.hasRestAllowedOrigin)
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let attestations =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[phase0.Attestation], contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidAttestationObjectError,
-                                           $dres.error)
-        dres.get()
-
-    # Since our validation logic supports batch processing, we will submit all
-    # attestations for validation.
-    let pending =
-      mapIt(attestations, node.router.routeAttestation(it))
-    let failures =
-      block:
-        var res: seq[RestIndexedErrorMessageItem]
-        await allFutures(pending)
-        for index, future in pending:
-          if future.completed():
-            let fres = future.value()
-            if fres.isErr():
-              let failure = RestIndexedErrorMessageItem(index: index,
-                                                        message: $fres.error)
-              res.add(failure)
-          elif future.failed() or future.cancelled():
-            # This is unexpected failure, so we log the error message.
-            let exc = future.error()
-            let failure = RestIndexedErrorMessageItem(index: index,
-                                                      message: $exc.msg)
-            res.add(failure)
-        res
-
-    if len(failures) > 0:
-      RestApiResponse.jsonErrorList(Http400, AttestationValidationError,
-                                    failures)
-    else:
-      RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
   router.api2(MethodPost, "/eth/v2/beacon/pool/attestations") do (
@@ -1614,31 +1402,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
   router.api2(MethodGet, "/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:
-    RestApiResponse.jsonResponse(
-      toSeq(node.validatorChangePool.phase0_attester_slashings))
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
-  # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/attester_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let slashing =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(phase0.AttesterSlashing, contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidAttesterSlashingObjectError,
-                                           $dres.error)
-        dres.get()
-    let res = await node.router.routeAttesterSlashing(slashing)
-    if res.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       AttesterSlashingValidationError,
-                                       $res.error)
-    RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashingsV2
   router.api2(MethodGet, "/eth/v2/beacon/pool/attester_slashings") do (
