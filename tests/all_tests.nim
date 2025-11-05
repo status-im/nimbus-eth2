@@ -26,6 +26,7 @@ import # Unit test
   ./test_discovery,
   ./test_engine_api_conversions,
   ./test_engine_authentication,
+  ./test_envelope_quarantine,
   ./test_el_manager,
   ./test_el_conf,
   ./test_eth2_rest_serialization,

@@ -589,6 +589,13 @@ AllTests-mainnet
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
+## Envelope Quarantine
+```diff
++ Add missing                                                                                OK
++ Add orphan                                                                                 OK
++ Clean up orphans                                                                           OK
++ Remove orphan                                                                              OK
+```
 ## Eth1 monitor
 ```diff
 + Rewrite URLs                                                                               OK

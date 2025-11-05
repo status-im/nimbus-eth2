@@ -25,23 +25,21 @@ type
 func init*(T: typedesc[EnvelopeQuarantine]): T =
   T()
 
+template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
+  v.message.beacon_block_root
+
 func addMissing*(
     self: var EnvelopeQuarantine,
     envelope: SignedExecutionPayloadEnvelope) =
-  self.missing.incl(envelope.message.beacon_block_root)
+  self.missing.incl(envelope.root)
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
     envelope: SignedExecutionPayloadEnvelope) =
-  self.orphans[envelope.message.beacon_block_root] = envelope
+  self.orphans[envelope.root] = envelope
 
-func removeOrphan*(self: var EnvelopeQuarantine, root: Eth2Digest):
-    Opt[SignedExecutionPayloadEnvelope] =
-  var envelope: SignedExecutionPayloadEnvelope
-  if self.orphans.pop(root, envelope):
-    Opt.some(envelope)
-  else:
-    Opt.none(SignedExecutionPayloadEnvelope)
+func removeOrphan*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+  self.orphans.del(root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
