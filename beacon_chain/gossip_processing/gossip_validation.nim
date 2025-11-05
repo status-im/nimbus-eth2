@@ -1025,7 +1025,8 @@ proc validateExecutionPayload*(
       if not verify_execution_payload_envelope_signature(
           dag.forkAtEpoch(envelope.slot.epoch),
           getStateField(dag.headState, genesis_validators_root),
-          signed_execution_payload_envelope, forkyState.data,
+          envelope.slot.epoch,
+          signed_execution_payload_envelope.message,
           dag.validatorKey(envelope.builder_index).get(),
           signed_execution_payload_envelope.signature):
         return dag.checkedReject("ExecutionPayload: invalid builder signature")
