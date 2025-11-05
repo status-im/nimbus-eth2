@@ -195,7 +195,7 @@ func get_deposit_signature*(genesis_fork_version: Version,
 func get_deposit_signature*(genesis_fork_version: Version,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =
-  get_deposit_signature(genesis_fork_version, deposit.getDepositMessage(), privKey)
+  get_deposit_signature(genesis_fork_version, deposit.getDepositMessage(), privkey)
 
 proc verify_deposit_signature(genesis_fork_version: Version,
                               deposit: DepositData,
