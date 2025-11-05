@@ -481,9 +481,6 @@ proc verifyPayload(
         # There are no `blob_kzg_commitments` before Deneb to compare against
         discard
 
-      if signedBlock.root in self.invalidBlockRoots:
-        returnWithError "Block root treated as invalid via config", $signedBlock.root
-
       ok OptimisticStatus.notValidated
     else:
       ok OptimisticStatus.valid
@@ -571,6 +568,12 @@ proc storeBlock(
       self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
     return err(VerifierError.UnviableFork)
+
+  if signedBlock.root in self.invalidBlockRoots:
+    warn "Block root treated as invalid via config",
+      blck = shortLog(signedBlock.message),
+      blockRoot = shortLog(signedBlock.root)
+    return err(VerifierError.Invalid)
 
   # We have to be careful that there exists only one in-flight entry point
   # for adding blocks or the checks performed in `checkHeadBlock` might

@@ -135,6 +135,7 @@ AllTests-mainnet
 ## Block processor [Preset: mainnet]
 ```diff
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Process a block from each fork (without blobs) [Preset: mainnet]                           OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 ## Block quarantine

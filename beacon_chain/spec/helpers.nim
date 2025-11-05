@@ -535,19 +535,36 @@ func toExecutionBlockHeader(
     requestsHash          : requestsHash)          # EIP-7685
 
 func compute_execution_block_hash*(
-    body: ForkyBeaconBlockBody,
-    parentRoot: Eth2Digest): Eth2Digest =
-  when typeof(body).kind >= ConsensusFork.Electra:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot, Opt.some body.execution_requests.computeRequestsHash())
-      .computeRlpHash().to(Eth2Digest)
-  elif typeof(body).kind >= ConsensusFork.Deneb:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot)
-      .computeRlpHash().to(Eth2Digest)
+    consensusFork: static ConsensusFork,
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest,
+    requestsHash = Opt.none(EthHash32),
+): Eth2Digest =
+  let header =
+    when consensusFork >= ConsensusFork.Electra:
+      payload.toExecutionBlockHeader(Opt.some parentRoot, requestsHash)
+    elif consensusFork >= ConsensusFork.Deneb:
+      payload.toExecutionBlockHeader(Opt.some parentRoot)
+    else:
+      payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
+
+  header.computeRlpHash().to(Eth2Digest)
+
+func compute_execution_block_hash*(
+    body: ForkyBeaconBlockBody, parentRoot: Eth2Digest
+): Eth2Digest =
+  const consensusFork = typeof(body).kind
+  when consensusFork >= ConsensusFork.Electra:
+    compute_execution_block_hash(
+      consensusFork,
+      body.execution_payload,
+      parentRoot,
+      Opt.some body.execution_requests.computeRequestsHash(),
+    )
   else:
-    body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
-      .computeRlpHash().to(Eth2Digest)
+    compute_execution_block_hash(
+      consensusFork, body.execution_payload, parentRoot
+    )
 
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
