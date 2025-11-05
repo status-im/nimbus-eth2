@@ -547,38 +547,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     RestApiResponse.jsonResponse(adata)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
-    let attestation =
-      block:
-        let qslot =
-          block:
-            if slot.isNone():
-              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-            let res = slot.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                               $res.error())
-            res.get()
-        let qroot =
-          block:
-            if attestation_data_root.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                           MissingAttestationDataRootValueError)
-            let res = attestation_data_root.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                             InvalidAttestationDataRootValueError, $res.error())
-            res.get()
-        let res =
-          node.attestationPool[].getPhase0AggregatedAttestation(qslot, qroot)
-        if res.isNone():
-          return RestApiResponse.jsonError(Http400,
-                                          UnableToGetAggregatedAttestationError)
-        res.get()
-    RestApiResponse.jsonResponse(attestation)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
   router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
@@ -637,39 +609,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonResponsePlain(forked, qfork, node.hasRestAllowedOrigin)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
   router.api2(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let proofs =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidAggregateAndProofObjectError,
-                                           $dres.error())
-        dres.get()
-    # Since our validation logic supports batch processing, we will submit all
-    # aggregated attestations for validation.
-    let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for proof in proofs:
-          res.add(node.router.routeSignedAggregateAndProof(proof))
-        res
-    await allFutures(pending)
-    for future in pending:
-      if future.completed():
-        let res = future.value()
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           AggregateAndProofValidationError,
-                                           $res.error())
-      else:
-        return RestApiResponse.jsonError(Http500,
-               "Unexpected server failure, while sending aggregate and proof")
-    RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
   router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
