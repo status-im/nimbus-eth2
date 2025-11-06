@@ -26,8 +26,7 @@ suite "Envelope Quarantine":
 
   test "Add missing":
     check root1 notin quarantine.missing
-    quarantine.addMissing(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root1)))
+    quarantine.addMissing(root1)
     check root1 in quarantine.missing
 
   test "Add orphan":

@@ -30,8 +30,8 @@ template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
 
 func addMissing*(
     self: var EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope) =
-  self.missing.incl(envelope.root)
+    root: Eth2Digest) =
+  self.missing.incl(root)
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
