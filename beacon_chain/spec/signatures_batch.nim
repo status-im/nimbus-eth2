@@ -219,11 +219,11 @@ func contribution_and_proof_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 func bls_to_execution_change_signature_set*(
-    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    genesis_fork_version: Version, genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_bls_to_execution_change_signing_root(
-    genesisFork, genesis_validators_root, msg)
+    genesis_fork_version, genesis_validators_root, msg)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
@@ -264,7 +264,7 @@ proc collectSignatureSets*(
        signed_block: ForkySignedBeaconBlock,
        validatorKeys: openArray[ImmutableValidatorData2],
        state: ForkedHashedBeaconState,
-       genesis_fork: Fork,
+       genesis_fork_version: Version,
        capella_fork_version: Version,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
@@ -298,7 +298,6 @@ proc collectSignatureSets*(
     proposer_key = validatorKeys.load(proposer_index).valueOr:
       return err("collectSignatureSets: invalid proposer index")
 
-  doAssert genesis_fork.previous_version == genesis_fork.current_version
 
   # 1. Block proposer
   # ----------------------------------------------------
@@ -469,7 +468,7 @@ proc collectSignatureSets*(
     for bls_change in signed_block.message.body.bls_to_execution_changes:
       # Otherwise, expensive loadWithCache can be spammed with irrelevant pubkeys
       ?check_bls_to_execution_change(
-        genesis_fork, forkyState.data, bls_change, {skipBlsValidation}
+        genesis_fork_version, forkyState.data, bls_change, {skipBlsValidation}
       )
 
       let
@@ -480,7 +479,8 @@ proc collectSignatureSets*(
           return err("collectSignatureSets: cannot load BLS to execution change pubkey")
 
       sigs.add bls_to_execution_change_signature_set(
-        genesis_fork, genesis_validators_root, bls_change.message, validator_pubkey, sig
+        genesis_fork_version, genesis_validators_root, bls_change.message,
+        validator_pubkey, sig,
       )
 
   ok()

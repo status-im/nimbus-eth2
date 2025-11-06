@@ -41,6 +41,7 @@ proc serveAttestation(
   let
     vc = service.client
     fork = vc.forkAtEpoch(registered.data.slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
     validator = registered.validator
     attestationSlot = registered.data.slot
     afterElectra = vc.isPastElectraFork(attestationSlot.epoch)
@@ -70,9 +71,11 @@ proc serveAttestation(
 
   template submitAttestation(atst: untyped): untyped =
     logScope:
+      fork = consensusFork
       attestation = shortLog(atst)
     try:
-      await vc.submitPoolAttestationsV2(@[atst], ApiStrategyKind.First)
+      await vc.submitPoolAttestationsV2(
+        @[atst], consensusFork, ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish attestation", reason = exc.getFailureReason()
       return false
@@ -108,12 +111,13 @@ proc serveAggregateAndProofV2*(
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     slot = proof.aggregate.data.slot
     fork = vc.forkAtEpoch(slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
 
   logScope:
     validator = validatorLog(validator)
     attestation = shortLog(proof.aggregate)
 
-  debug "Signing aggregate", fork = fork
+  debug "Signing aggregate", fork = consensusFork
 
   let signature =
     try:
@@ -142,14 +146,14 @@ proc serveAggregateAndProofV2*(
   logScope:
     delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
 
-  debug "Sending aggregated attestation", fork = fork
+  debug "Sending aggregated attestation", fork = consensusFork
 
   validator.doppelgangerActivity(proof.aggregate.data.slot.epoch)
 
   let res =
     try:
-      await vc.publishAggregateAndProofsV2(@[signedProof],
-                                           ApiStrategyKind.First)
+      await vc.publishAggregateAndProofsV2(
+        @[signedProof], consensusFork, ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish aggregated attestation",
             reason = exc.getFailureReason()
@@ -164,103 +168,6 @@ proc serveAggregateAndProofV2*(
   else:
     warn "Aggregated attestation was not accepted by beacon node"
   res
-
-proc produceAndPublishAttestations*(
-    service: AttestationServiceRef,
-    slot: Slot,
-    committee_index: CommitteeIndex,
-    duties: seq[DutyAndProof]
-): Future[AttestationData] {.
-   async: (raises: [CancelledError, ValidatorApiError]).} =
-  doAssert(MAX_VALIDATORS_PER_COMMITTEE <= uint64(high(int)))
-  let
-    vc = service.client
-    fork = vc.forkAtEpoch(slot.epoch)
-
-  let data = await vc.produceAttestationData(slot, committee_index,
-                                             ApiStrategyKind.Best)
-
-  let registeredRes = vc.attachedValidators[].slashingProtection.withContext:
-    var tmp: seq[RegisteredAttestation]
-    for duty in duties:
-      if (duty.data.slot != data.slot) or
-          (uint64(duty.data.committee_index) != data.index):
-        warn "Inconsistent validator duties during attestation signing",
-              pubkey = shortLog(duty.data.pubkey),
-              duty_slot = duty.data.slot,
-              duty_index = duty.data.committee_index,
-              attestation_slot = data.slot, attestation_index = data.index
-        continue
-
-      let validator = vc.getValidatorForDuties(
-          duty.data.pubkey, duty.data.slot).valueOr:
-        continue
-
-      doAssert(validator.index.isSome())
-      let validator_index = validator.index.get()
-
-      logScope:
-        validator = validatorLog(validator)
-
-      # TODO: signing_root is recomputed in getAttestationSignature just after,
-      # but not for locally attached validators.
-      let
-        signingRoot = compute_attestation_signing_root(
-          fork, vc.beaconGenesis.genesis_validators_root, data)
-        registered = registerAttestationInContext(
-              validator_index, validator.pubkey, data.source.epoch,
-              data.target.epoch, signingRoot)
-      if registered.isErr():
-        warn "Slashing protection activated for attestation",
-            attestationData = shortLog(data),
-            signingRoot = shortLog(signingRoot),
-            badVoteDetails = $registered.error()
-        continue
-
-      tmp.add(RegisteredAttestation(
-        validator: validator,
-        validator_index: validator_index,
-        committee_index: duty.data.committee_index,
-        index_in_committee: duty.data.validator_committee_index,
-        committee_len: int duty.data.committee_length,
-        data: data
-      ))
-    tmp
-
-  if registeredRes.isErr():
-    warn "Could not update slashing database, skipping attestation duties",
-      error = registeredRes.error()
-  else:
-    let
-      pendingAttestations = registeredRes[].mapIt(service.serveAttestation(it))
-      statistics =
-        block:
-          var errored, succeed, failed = 0
-          try:
-            await allFutures(pendingAttestations)
-          except CancelledError as exc:
-            let pending = pendingAttestations
-              .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-            await noCancel allFutures(pending)
-            raise exc
-
-          for future in pendingAttestations:
-            if future.completed():
-              if future.value:
-                inc(succeed)
-              else:
-                inc(failed)
-            else:
-              inc(errored)
-          (succeed, errored, failed)
-
-    let delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
-    debug "Attestation statistics", total = len(pendingAttestations),
-          succeed = statistics[0], failed_to_deliver = statistics[1],
-          not_accepted = statistics[2], delay = delay, slot = slot,
-          committee_index = committee_index, duties_count = len(duties)
-
-  data
 
 proc produceAndPublishAttestationsV2*(
     service: AttestationServiceRef,

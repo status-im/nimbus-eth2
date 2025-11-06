@@ -172,7 +172,6 @@ AllTests-mainnet
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
-+ popSidecars()/hasSidecars() return []/true on block without columns                        OK
 + pruneAfterFinalization() test                                                              OK
 + put() duplicate items should not affect counters                                           OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -600,6 +599,16 @@ AllTests-mainnet
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
 ```
+## Execution Payload Bid Pool
+```diff
++ Add and retrieve highest bid                                                               OK
++ Duplicate detection - same builder same slot                                               OK
++ Empty pool returns none                                                                    OK
++ Highest bid selection - different builders                                                 OK
++ Multiple bids for different parents same slot                                              OK
++ Pruning removes old bids                                                                   OK
++ Track seen bids                                                                            OK
+```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
@@ -774,6 +783,8 @@ AllTests-mainnet
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ BLS to execution change signatures                                                         OK
++ Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -807,7 +818,6 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
-+ Signing deposit message (getDepositMessageSignature())                                     OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK

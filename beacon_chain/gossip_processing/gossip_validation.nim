@@ -17,9 +17,9 @@ import
     beaconstate, state_transition_block, forks,
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
-    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    spec_cache, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
+    block_quarantine, execution_payload_pool, spec_cache, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -510,11 +510,13 @@ proc validateBlobSidecar*(
   # `block_header.parent_root`) passes validation.
   let parent = dag.getBlockRef(block_header.parent_root).valueOr:
     if block_header.parent_root in quarantine[].unviable:
+      # If the parent was unviable, this block is unviable for the same reason
       quarantine[].addUnviable(block_root)
-      return dag.checkedReject("BlobSidecar: parent not validated")
-    else:
-      quarantine[].addMissing(block_header.parent_root)
-      return errIgnore("BlobSidecar: parent not found")
+      # TODO keep track of unviable invalid
+      return errIgnore("BlobSidecar: parent from unviable fork")
+
+    quarantine[].addMissing(block_header.parent_root)
+    return errIgnore("BlobSidecar: parent not found")
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
   # block's parent (defined by `block_header.parent_root`).
@@ -547,23 +549,13 @@ proc validateBlobSidecar*(
   # shuffling, the sidecar MAY be queued for later processing while proposers
   # for the block's branch are calculated -- in such a case do not
   # REJECT, instead IGNORE this message.
-  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
-    warn "cannot compute proposer for blob"
-    return errIgnore("BlobSidecar: Cannot compute proposer") # internal issue
-
-  if uint64(proposer) != block_header.proposer_index:
-    return dag.checkedReject("BlobSidecar: Unexpected proposer")
-
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
-  if not verify_block_signature(
-      dag.forkAtEpoch(block_header.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      block_header.slot,
-      block_root,
-      dag.validatorKey(proposer).get(),
-      blob_sidecar.signed_block_header.signature):
-    return dag.checkedReject("BlobSidecar: Invalid proposer signature")
+  dag.verifyBlockProposer(
+    parent, block_header.slot, block_header.proposer_index, block_root,
+    blob_sidecar.signed_block_header.signature,
+  ).isOkOr:
+    return dag.checkedReject(error.msg)
 
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
@@ -647,11 +639,13 @@ proc validateDataColumnSidecar*(
   # `block_header.parent_root`) passes validation.
   let parent = dag.getBlockRef(block_header.parent_root).valueOr:
     if block_header.parent_root in quarantine[].unviable:
+      # If the parent was unviable, this block is unviable for the same reason
       quarantine[].addUnviable(block_root)
-      return dag.checkedReject("DataColumnSidecar: parent not validated")
-    else:
-      quarantine[].addMissing(block_header.parent_root)
-      return errIgnore("DataColumnSidecar: parent not found")
+      # TODO keep track of unviable invalid
+      return errIgnore("DataColumnSidecar: parent from unviable fork")
+
+    quarantine[].addMissing(block_header.parent_root)
+    return errIgnore("DataColumnSidecar: parent not found")
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
   # block's parent (defined by `block_header.parent_root`).
@@ -684,23 +678,14 @@ proc validateDataColumnSidecar*(
   # shuffling, the sidecar MAY be queued for later processing while proposers
   # for the block's branch are calculated -- in such a case do not
   # REJECT, instead IGNORE this message.
-  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
-    warn "cannot compute proposer for data column"
-    return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
-
-  if uint64(proposer) != block_header.proposer_index:
-    return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
-
   # [REJECT] The proposer signature of `data_column_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
-  if not verify_block_signature(
-      dag.forkAtEpoch(block_header.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      block_header.slot,
-      block_root,
-      dag.validatorKey(proposer).get(),
-      data_column_sidecar.signed_block_header.signature):
-    return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
+
+  dag.verifyBlockProposer(
+    parent, block_header.slot, block_header.proposer_index, block_root,
+    data_column_sidecar.signed_block_header.signature,
+  ).isOkOr:
+    return dag.checkedReject(error.msg)
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
@@ -726,6 +711,7 @@ proc validateDataColumnSidecar*(
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
+    executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -750,6 +736,8 @@ proc validateDataColumnSidecar*(
   debugGloasComment ""
   # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
   # execution payload header (builder's bid).
+  if not executionPayloadBidPool[].hasBidForBlockRoot(block_root):
+    return errIgnore("DataColumnSidecar: bid not seen for this block root")
   #
   # _[REJECT]_ The sidecars's `slot` matches the slot of the block with root
   # `beacon_block_root`.
@@ -757,10 +745,14 @@ proc validateDataColumnSidecar*(
   # [REJECT] The hash of the sidecar's kzg_commitments matches the
   # blob_kzg_commitments_root in the corresponding builder's bid for
   # sidecar.beacon_block_root.
-  #
-  # TODO: Implement getExecutionPayloadBid(block_root)
-  # This requires storing bids received via execution_payload_bid gossip topic,
-  # indexed by the beacon block root they commit to.
+  let signedBid = executionPayloadBidPool[].getBidForBlockRoot(block_root).valueOr:
+    # Ideally this shouldn't happen since we just checked bid above
+    return errIgnore("DataColumnSidecar: bid missing")
+
+  template bid: untyped = signedBid.message
+  if hash_tree_root(data_column_sidecar.kzg_commitments) !=
+      bid.blob_kzg_commitments_root:
+    return dag.checkedReject("DataColumnSidecar: kzgCommitments root mismatch")
 
   # [REJECT] The sidecar's column data is valid
   block:
@@ -858,6 +850,7 @@ proc validateBeaconBlock*(
   # passes validation.
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     if signed_beacon_block.message.parent_root in quarantine[].unviable:
+      # If the parent was unviable, this block is unviable for the same reason
       quarantine[].addUnviable(signed_beacon_block.root)
 
       # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
@@ -883,26 +876,22 @@ proc validateBeaconBlock*(
 
         # Implementation restrictions:
         #
-        # - We don't know if the parent state had execution enabled.
-        #   If it had, and the block doesn't have it enabled anymore,
-        #   we end up in the pre-Merge path below (`else`) and REJECT.
-        #   Such a block is clearly invalid, though, without asking the EL.
-        #
         # - We know that the parent was marked unviable, but don't know
         #   whether it was marked unviable due to consensus (REJECT) or
         #   execution (IGNORE) verification failure. We err on the IGNORE side.
         return errIgnore("BeaconBlock: ignored, parent from unviable fork")
       else:
-        # [REJECT] The block's parent (defined by `block.parent_root`) passes
-        # validation.
-        return dag.checkedReject(
-          "BeaconBlock: rejected, parent from unviable fork")
+        # For non-execution blocks, we also don't keep track of unviable forks
+        # or invalid blocks
+        # TODO keep track of unviable invalid
+        return errIgnore("BeaconBlock: ignored, parent from unviable fork")
 
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
-    if (let r = quarantine[].addOrphan(
-        dag.finalizedHead.slot,
-        ForkedSignedBeaconBlock.init(signed_beacon_block)); r.isErr):
+    if (
+      let r = quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
+      r.isErr
+    ):
       debug "validateBeaconBlock: could not add orphan",
        blockRoot = shortLog(signed_beacon_block.root),
        blck = shortLog(signed_beacon_block.message),
@@ -952,27 +941,14 @@ proc validateBeaconBlock*(
   # against the expected shuffling, the block MAY be queued for later
   # processing while proposers for the block's branch are calculated -- in such
   # a case do not REJECT, instead IGNORE this message.
-  let
-    proposer = getProposer(
-        dag, parent, signed_beacon_block.message.slot).valueOr:
-      warn "cannot compute proposer for block"
-      return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
-
-  if uint64(proposer) != signed_beacon_block.message.proposer_index:
-    quarantine[].addUnviable(signed_beacon_block.root)
-    return dag.checkedReject("BeaconBlock: Unexpected proposer")
-
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
-  if not verify_block_signature(
-      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      signed_beacon_block.message.slot,
-      signed_beacon_block.root,
-      dag.validatorKey(proposer).get(),
-      signed_beacon_block.signature):
-    quarantine[].addUnviable(signed_beacon_block.root)
-    return dag.checkedReject("BeaconBlock: Invalid proposer signature")
+  dag.verifyBlockProposer(
+    parent, signed_beacon_block.message.slot,
+    signed_beacon_block.message.proposer_index, signed_beacon_block.root,
+    signed_beacon_block.signature,
+  ).isOkOr:
+    return dag.checkedReject(error.msg)
 
   ok()
 
@@ -1598,14 +1574,14 @@ proc validateBlsToExecutionChange*(
         "SignedBLSToExecutionChange: can't validate against pre-Capella state")
     else:
       let res = check_bls_to_execution_change(
-        pool.dag.cfg.genesisFork, forkyState.data, signed_address_change,
+        pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, signed_address_change,
         {skipBlsValidation})
       if res.isErr:
         return pool.checkedReject(res.error)
 
       # BLS to execution change signatures are batch-verified
       let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-        pool.dag.cfg.genesisFork, signed_address_change)
+        pool.dag.cfg.GENESIS_FORK_VERSION, signed_address_change)
       if deferredCrypto.isErr():
         return pool.checkedReject(deferredCrypto.error)
 
@@ -1758,7 +1734,8 @@ proc validateSyncCommitteeMessage*(
     blockRoot = msg.beacon_block_root
     blck = dag.getBlockRef(blockRoot).valueOr:
       if blockRoot in quarantine[].unviable:
-        return dag.checkedReject("SyncCommitteeMessage: target invalid")
+        # TODO keep track of unviable invalid blocks
+        return errIgnore("SyncCommitteeMessage: target from unviable fork")
       quarantine[].addMissing(blockRoot)
       return errIgnore("SyncCommitteeMessage: target not found")
 
@@ -1883,7 +1860,9 @@ proc validateContribution*(
     blockRoot = msg.message.contribution.beacon_block_root
     blck = dag.getBlockRef(blockRoot).valueOr:
       if blockRoot in quarantine[].unviable:
-        return dag.checkedReject("Contribution: target invalid")
+        # TODO keep track of unviable invalid blocks
+        return errIgnore("Contribution: target from unviable fork")
+
       quarantine[].addMissing(blockRoot)
       return errIgnore("Contribution: target not found")
 
@@ -2042,4 +2021,107 @@ proc validateLightClientOptimisticUpdate*(
     return errIgnore("LightClientOptimisticUpdate: not matching local")
 
   pool.latestForwardedOptimisticSlot = attested_slot
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+proc validateExecutionPayloadBid*(
+    dag: ChainDAGRef,
+    executionPayloadBidPool: ref ExecutionPayloadBidPool,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template bid: untyped = signed_execution_payload_bid.message
+  
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
+      # Check builder index is valid
+      if bid.builder_index >= forkyState.data.validators.lenu64:
+        return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
+
+      let validator = forkyState.data.validators.item(bid.builder_index)
+
+      # Check builder is active
+      let currentEpoch = get_current_epoch(forkyState.data)
+      if not is_active_validator(validator, currentEpoch):
+        return dag.checkedReject("ExecutionPayloadBid: builder not active")
+
+      # Check builder is not slashed
+      if validator.slashed:
+        return dag.checkedReject("ExecutionPayloadBid: builder is slashed")
+
+      # [REJECT] The builder's withdrawal credentials' prefix is BUILDER_WITHDRAWAL_PREFIX
+      if not is_builder_withdrawal_credential(validator.withdrawal_credentials):
+        return dag.checkedReject(
+          "ExecutionPayloadBid: invalid withdrawal credentials")
+
+      # [IGNORE] This is the first signed bid seen with a valid signature from
+      # the given builder for this slot
+      let existingBid = executionPayloadBidPool[].getBidForSlotAndBuilder(
+        bid.slot, bid.builder_index)
+      if existingBid.isSome():
+        return errIgnore(
+          "ExecutionPayloadBid: already seen bid from this builder for this slot")
+      
+      # [IGNORE] This bid is the highest value bid seen for the corresponding
+      # slot and the given parent block hash
+      let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
+        bid.slot, bid.parent_block_hash)
+      if highestBid.isSome() and highestBid.get().message.value > bid.value:
+        return errIgnore(
+          "ExecutionPayloadBid: not the highest value bid for this slot and parent")
+
+      # [IGNORE] bid.value is less or equal than the builder's excess balance
+      # i.e. MIN_ACTIVATION_BALANCE + bid.value <= state.balances[bid.builder_index]
+      if forkyState.data.balances.item(bid.builder_index) < 
+          MIN_ACTIVATION_BALANCE.Gwei + bid.value:
+        return errIgnore(
+          "ExecutionPayloadBid: insufficient builder balance")
+
+      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
+      # payload in fork choice
+      let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
+        return errIgnore("Bid: parent block root not found in fork choice")
+
+      try:
+        let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
+          return errIgnore("Bid: parent has no execution payload")
+        
+        # Verify the bid references the correct execution payload
+        if parentExecHash != bid.parent_block_hash:
+          return dag.checkedReject(
+            "Bid: parent_block_hash doesn't match parent beacon block")
+      except KeyError:
+        return errIgnore("Bid: error loading parent execution hash")
+
+      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
+      # block in fork choice
+      if dag.getBlockRef(bid.parent_block_root).isNone():
+        return errIgnore(
+          "ExecutionPayloadBid: parent block root not found in fork choice")
+ 
+      # [IGNORE] bid.slot is the current slot or the next slot
+      let currentSlot = wallTime.slotOrZero(dag.timeParams)
+      if bid.slot != currentSlot and bid.slot != currentSlot + 1:
+        return errIgnore(
+          "ExecutionPayloadBid: slot not current or next slot")
+
+      # [REJECT] signed_execution_payload_bid.signature is valid with respect
+      # to the bid.builder_index
+      let builderPubkey = dag.validatorKey(bid.builder_index).valueOr:
+        return dag.checkedReject(
+          "ExecutionPayloadBid: cannot get builder public key")
+
+      if not verify_execution_payload_bid_signature(
+          dag.forkAtEpoch(bid.slot.epoch),
+          getStateField(dag.headState, genesis_validators_root),
+          bid.slot.epoch,
+          bid,
+          builderPubkey,
+          signed_execution_payload_bid.signature):
+        return dag.checkedReject(
+          "ExecutionPayloadBid: invalid signature")
+    else:
+      return dag.checkedReject(
+        "ExecutionPayloadBid: only valid for Gloas fork or later")
+
   ok()

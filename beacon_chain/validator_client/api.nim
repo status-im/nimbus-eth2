@@ -1615,6 +1615,7 @@ proc produceAttestationData*(
 proc submitPoolAttestationsV2*(
     vc: ValidatorClientRef,
     data: seq[ForkyAttestation],
+    fork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   const
@@ -1629,7 +1630,7 @@ proc submitPoolAttestationsV2*(
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.AttestationPublish},
-                                      submitPoolAttestationsV2(it, data)):
+                                      submitPoolAttestationsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -1657,7 +1658,7 @@ proc submitPoolAttestationsV2*(
                               vc.SlotDuration,
                               ViableNodeStatus,
                               {BeaconNodeRole.AttestationPublish},
-                              submitPoolAttestationsV2(it, data)):
+                              submitPoolAttestationsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -1754,146 +1755,6 @@ proc submitPoolSyncCommitteeSignature*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to submit sync committee message", data: failures)
-
-proc getAggregatedAttestation*(
-    vc: ValidatorClientRef,
-    slot: Slot,
-    root: Eth2Digest,
-    strategy: ApiStrategyKind
-): Future[phase0.Attestation] {.
-   async: (raises: [CancelledError, ValidatorApiError]).} =
-  const
-    RequestName = "getAggregatedAttestation"
-
-  var failures: seq[ApiNodeFailure]
-
-  case strategy
-  of ApiStrategyKind.First:
-    let res = vc.firstSuccessParallel(
-      RestPlainResponse,
-      GetAggregatedAttestationResponse,
-      vc.OneThirdDuration,
-      ViableNodeStatus,
-      {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlain(it, root, slot)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            handleUnexpectedData()
-            ApiResponse[GetAggregatedAttestationResponse].err($res.error)
-          else:
-            ApiResponse[GetAggregatedAttestationResponse].ok(res.get())
-        of 400:
-          handle400()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseInvalidError)
-        of 404:
-          handle404()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseNotFoundError)
-        of 500:
-          handle500()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseInternalError)
-        else:
-          handleUnexpectedCode()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseUnexpectedError)
-
-    if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    res.get().data
-
-  of ApiStrategyKind.Best:
-    let res = vc.bestSuccess(
-      RestPlainResponse,
-      GetAggregatedAttestationResponse,
-      float64,
-      vc.OneThirdDurationSoft,
-      vc.OneThirdDuration,
-      ViableNodeStatus,
-      {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlain(it, root, slot),
-      getAggregatedAttestationDataScore(itresponse)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            handleUnexpectedData()
-            ApiResponse[GetAggregatedAttestationResponse].err($res.error)
-          else:
-            ApiResponse[GetAggregatedAttestationResponse].ok(res.get())
-        of 400:
-          handle400()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseInvalidError)
-        of 404:
-          # A 404 error must be returned if no attestation is available for the
-          # requested `attestation_data_root`. To address the issue #6184, we
-          # use empty GetAggregatedAttestationResponse.
-          ApiResponse[GetAggregatedAttestationResponse].ok(
-            GetAggregatedAttestationResponse(
-              data: LowestScoreAggregatedAttestation))
-        of 500:
-          handle500()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseInternalError)
-        else:
-          handleUnexpectedCode()
-          ApiResponse[GetAggregatedAttestationResponse].err(
-            ResponseUnexpectedError)
-
-    if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    res.get().data
-
-  of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(
-      RestPlainResponse,
-      vc.OneThirdDuration,
-      ViableNodeStatus,
-      {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlain(it, root, slot)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        false
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
-                                response.contentType)
-          if res.isOk(): return res.get().data
-          handleUnexpectedData()
-          false
-        of 400:
-          handle400()
-          false
-        of 404:
-          handle404()
-          false
-        of 500:
-          handle500()
-          false
-        else:
-          handleUnexpectedCode()
-          false
-
-    raise (ref ValidatorApiError)(
-      msg: "Failed to get aggregated attestation", data: failures)
 
 proc getAggregatedAttestationV2*(
     vc: ValidatorClientRef,
@@ -2169,6 +2030,7 @@ proc produceSyncCommitteeContribution*(
 proc publishAggregateAndProofsV2*(
     vc: ValidatorClientRef,
     data: seq[ForkySignedAggregateAndProof],
+    fork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   const
@@ -2178,12 +2040,10 @@ proc publishAggregateAndProofsV2*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      bool,
-                                      vc.SlotDuration,
-                                      ViableNodeStatus,
-                                      {BeaconNodeRole.AggregatedPublish},
-                                      publishAggregateAndProofsV2(it, data)):
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse, bool, vc.SlotDuration, ViableNodeStatus,
+      {BeaconNodeRole.AggregatedPublish},
+      publishAggregateAndProofsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -2210,11 +2070,10 @@ proc publishAggregateAndProofsV2*(
     res.get()
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse,
-                              vc.SlotDuration,
-                              ViableNodeStatus,
-                              {BeaconNodeRole.AggregatedPublish},
-                              publishAggregateAndProofsV2(it, data)):
+    vc.firstSuccessSequential(
+      RestPlainResponse, vc.SlotDuration, ViableNodeStatus,
+      {BeaconNodeRole.AggregatedPublish},
+      publishAggregateAndProofsV2(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false

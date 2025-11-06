@@ -433,7 +433,7 @@ proc collectFromDeposits(
           rewardsAndPenalties[index.get()].deposits += amount
         except KeyError:
           raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
-      elif verify_deposit_signature(cfg, deposit.data):
+      elif verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit.data):
         pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
         rewardsAndPenalties.add(
           RewardsAndPenalties(deposits: amount))

@@ -54,14 +54,6 @@ proc produceAttestationDataPlain*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
 
-proc getAggregatedAttestationPlain*(
-       attestation_data_root: Eth2Digest,
-       slot: Slot
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/aggregate_attestation"
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
-
 proc getAggregatedAttestationPlainV2*(
     attestation_data_root: Eth2Digest,
     slot: Slot,
@@ -80,15 +72,14 @@ proc publishAggregateAndProofsV2Plain*(
 
 proc publishAggregateAndProofsV2*[T: ForkySignedAggregateAndProof](
     client: RestClientRef,
+    fork: ConsensusFork,
     body: seq[T]
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
-  let
-    consensus = T.kind.toString()
   client.publishAggregateAndProofsV2Plain(
-    body, extraHeaders = @[("eth-consensus-version", consensus)])
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
 
 proc prepareBeaconCommitteeSubnet*(
        body: seq[RestCommitteeSubscription]

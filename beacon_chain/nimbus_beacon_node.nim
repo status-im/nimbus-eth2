@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list, execution_payload_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -109,7 +109,8 @@ proc doRunTrustedNodeSync(
     trustedBlockRoot: Option[Eth2Digest],
     backfill: bool,
     reindex: bool,
-    genesisState: ref ForkedHashedBeaconState) {.async.} =
+    genesisState: ref ForkedHashedBeaconState,
+) {.async: (raises: [CancelledError]).} =
   let syncTarget =
     if stateId.isSome:
       if trustedBlockRoot.isSome:
@@ -143,7 +144,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Colors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaBlink,
-      onUpgradeToDeneb:                denebColor,
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink,
       onUpgradeToFulu:                 fuluColor,
@@ -151,7 +151,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
-      onUpgradeToDeneb:                denebMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono,
       onUpgradeToFulu:                 fuluMono,
@@ -160,8 +159,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
     VanityLogs(
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
-      onUpgradeToDeneb:
-        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
       onUpgradeToElectra:
         (proc() = notice "🦒 Compounding is available 🦒"),
       onKnownCompoundingChange:
@@ -291,7 +288,8 @@ proc initFullNode(
     dag: ChainDAGRef,
     clist: ChainListRef,
     taskpool: Taskpool,
-    getBeaconTime: GetBeaconTimeFn) {.async.} =
+    getBeaconTime: GetBeaconTimeFn,
+) {.async: (raises: [CancelledError]).} =
   template config(): auto = node.config
 
   proc onPhase0AttestationReceived(data: phase0.Attestation) =
@@ -415,6 +413,7 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
+    executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
@@ -479,7 +478,10 @@ proc initFullNode(
           let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
-            dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+            if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+              Opt.some(default(fulu.DataColumnSidecars))
+            else:
+              dataColumnQuarantine[].popSidecars(forkyBlck.root)
           if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -489,7 +491,8 @@ proc initFullNode(
               else:
                 err(VerifierError.MissingParent)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          let sidecarsOpt = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          let sidecarsOpt =
+            blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if sidecarsOpt.isNone():
             # We don't have all the sidecars for this block, so we have
             # to put it to the quarantine.
@@ -504,7 +507,7 @@ proc initFullNode(
           {.error: "Unkown fork: " & $consensusFork.}
 
         await blockProcessor.addBlock(
-          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized
+          MsgSource.sync, forkyBlck, sidecarsOpt, maybeFinalized
         )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -528,7 +531,7 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
+      lightClientPool, executionPayloadBidPool, quarantine, blobQuarantine, dataColumnQuarantine,
       rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -715,11 +718,25 @@ proc init*(
     T: type BeaconNode,
     rng: ref HmacDrbgContext,
     config: BeaconNodeConf,
-    metadata: Eth2NetworkMetadata,
     taskpool: Taskpool,
-): Future[BeaconNode] {.async.} =
-  var
-    genesisState: ref ForkedHashedBeaconState = nil
+): Future[Opt[BeaconNode]] {.async: (raises: [CancelledError]).} =
+  var config = config
+
+  config.createDumpDirs()
+
+  let metadata = config.loadEth2Network()
+
+  # Updating the config based on the metadata certainly is not beautiful but it
+  # works
+  for node in metadata.bootstrapNodes:
+    config.bootstrapNodes.add node
+  if config.syncHorizon.isNone:
+    config.syncHorizon = some(metadata.cfg.timeParams.defaultSyncHorizon)
+
+  if ProcessState.stopIt(notice("Shutting down", reason = it)):
+    return Opt.none(BeaconNode)
+
+  var genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
 
@@ -734,7 +751,7 @@ proc init*(
       beaconClock = BeaconClock.init(
           metadata.cfg.timeParams, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
-        quit 1
+        return Opt.none(BeaconNode)
       currentSlot = beaconClock.currentSlot
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
@@ -752,7 +769,7 @@ proc init*(
         if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
           fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
-          quit 1
+          return Opt.none(BeaconNode)
 
   if metadata.genesis.kind == BakedIn:
     if config.genesisState.isSome:
@@ -838,15 +855,15 @@ proc init*(
     except SszError as err:
       fatal "Checkpoint state loading failed",
             err = formatMsg(err, checkpointStatePath)
-      quit 1
+      return Opt.none(BeaconNode)
     except CatchableError as err:
       fatal "Failed to read checkpoint state file", err = err.msg
-      quit 1
+      return Opt.none(BeaconNode)
 
     if not getStateField(tmp[], slot).is_epoch:
       fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
         slot = getStateField(tmp[], slot)
-      quit 1
+      return Opt.none(BeaconNode)
     tmp
   else:
     nil
@@ -873,7 +890,7 @@ proc init*(
     if genesisState.isNil and checkpointState.isNil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
-      quit 1
+      return Opt.none(BeaconNode)
 
     if not genesisState.isNil and not checkpointState.isNil:
       if getStateField(genesisState[], genesis_validators_root) !=
@@ -883,7 +900,7 @@ proc init*(
             genesisState[], genesis_validators_root),
           rootFromCheckpoint = getStateField(
             checkpointState[], genesis_validators_root)
-        quit 1
+        return Opt.none(BeaconNode)
 
     try:
       # Always store genesis state if we have it - this allows reindexing and
@@ -901,12 +918,11 @@ proc init*(
       doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
       error "Failed to initialize database", err = exc.msg
-      quit 1
-  else:
-    if not checkpointState.isNil:
-      fatal "A database already exists, cannot start from given checkpoint",
-        dataDir = config.dataDir
-      quit 1
+      return Opt.none(BeaconNode)
+  elif not checkpointState.isNil:
+    fatal "A database already exists, cannot start from given checkpoint",
+      dataDir = config.dataDir
+    return Opt.none(BeaconNode)
 
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
@@ -929,9 +945,9 @@ proc init*(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
+    beaconClock = BeaconClock.init(metadata.cfg.timeParams, genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
-      quit 1
+      return Opt.none(BeaconNode)
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
@@ -951,7 +967,7 @@ proc init*(
           res.clear().isOkOr:
             fatal "Unable to reset backfill database",
                   path = config.databaseDir(), reason = error
-            quit 1
+            return Opt.none(BeaconNode)
       res
 
   info "Backfill database initialized", path = config.databaseDir(),
@@ -977,8 +993,16 @@ proc init*(
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     network = createEth2Node(
-      rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
-      getStateField(dag.headState, genesis_validators_root))
+      rng,
+      config,
+      netKeys,
+      cfg,
+      dag.forkDigests,
+      getBeaconTime,
+      getStateField(dag.headState, genesis_validators_root),
+    ).valueOr:
+      error "Failed to initialize node", err = error
+      return Opt.none(BeaconNode)
 
   case config.slashingDbKind
   of SlashingDbKind.v2:
@@ -1078,7 +1102,7 @@ proc init*(
 
   node.updateLightClientFromDag()
 
-  node
+  ok node
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
@@ -1736,15 +1760,14 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
           indices.incl(i)
-      debug "PeerDAS: Data columns before reconstruction", columns = indices.len
+      trace "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
       if columns.lenu64 < (maxColCount div 2):
-        warn "The node did not obtain 50%+ of all the columns"
         return
       # Ignore if the node has already obtained all the columns
       elif columns.lenu64 == maxColCount:
-        debug "The node has already obtained all the columns"
+        trace "The node has already obtained all the columns"
         return
 
       let startTime = Moment.now()
@@ -1781,7 +1804,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let reconstructedTime = Moment.now()
 
-      debug "Columns reconstructed",
+      trace "Columns reconstructed",
         columns = reconCounter,
         recoveryTime = recoveredTime - startTime,
         reconstructionTime = reconstructedTime - recoveredTime
@@ -2263,7 +2286,7 @@ func connectedPeersCount(node: BeaconNode): int =
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
-  restServer.router.installBuilderApiHandlers(node)
+  restServer.router.installBuilderApiHandlers()
   restServer.router.installConfigApiHandlers(node)
   restServer.router.installDebugApiHandlers(node)
   restServer.router.installEventApiHandlers(node)
@@ -2302,6 +2325,18 @@ proc installMessageValidators(node: BeaconNode) =
               toValidationResult(
                 node.processor[].processSignedBeaconBlock(
                   MsgSource.gossip, signedBlock)))
+
+        # execution_payload_bid
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addValidator(
+            getExecutionPayloadBidTopic(digest), proc (
+              signedBid: SignedExecutionPayloadBid,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processExecutionPayloadBid(
+                  MsgSource.gossip, signedBid)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -2603,7 +2638,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-
 func formatGwei(amount: Gwei): string =
   # TODO This is implemented in a quite a silly way.
   # Better routines for formatting decimal numbers
@@ -2747,56 +2781,57 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode*(
-    config: var BeaconNodeConf,
-    rng: ref HmacDrbgContext,
-    taskpool: Taskpool,
-    stopper: StopFuture,
-) {.raises: [CatchableError], gcsafe.} =
-  doAssert taskpool != nil
+proc doRunBeaconNode(
+    config: var BeaconNodeConf, rng: ref HmacDrbgContext
+) {.raises: [CatchableError].} =
   info "Launching beacon node",
-      version = fullVersionStr,
-      bls_backend = $BLS_BACKEND,
-      const_preset,
-      cmdParams = commandLineParams(),
-      config
+    version = fullVersionStr,
+    bls_backend = $BLS_BACKEND,
+    const_preset,
+    cmdParams = commandLineParams(),
+    config
 
-  config.createDumpDirs()
+  ProcessState.setupStopHandlers()
 
-  # There are no managed event loops in here, to do a graceful shutdown, but
-  # letting the default Ctrl+C handler exit is safe, since we only read from
-  # the db.
-  let metadata = config.loadEth2Network()
+  createPidFile(config.dataDir.string / "beacon_node.pid")
 
-  # Updating the config based on the metadata certainly is not beautiful but it
-  # works
-  for node in metadata.bootstrapNodes:
-    config.bootstrapNodes.add node
-  if config.syncHorizon.isNone:
-    config.syncHorizon = some(metadata.cfg.timeParams.defaultSyncHorizon)
+  if config.rpcEnabled.isSome:
+    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
-  block:
-    let res =
-      if config.trustedSetupFile.isNone:
-        conf.loadKzgTrustedSetup()
-      else:
-        conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
-    if res.isErr():
-      raiseAssert res.error()
+  template ignoreDeprecatedOption(option: untyped): untyped =
+    if config.option.isSome:
+      warn "Ignoring deprecated configuration option", option = config.option.get
+
+  ignoreDeprecatedOption requireEngineAPI
+  ignoreDeprecatedOption safeSlotsToImportOptimistically
+  ignoreDeprecatedOption terminalTotalDifficultyOverride
+  ignoreDeprecatedOption optimistic
+  ignoreDeprecatedOption validatorMonitorTotals
+  ignoreDeprecatedOption web3ForcePolling
+  ignoreDeprecatedOption finalizedDepositTreeSnapshot
+  ignoreDeprecatedOption finalizedCheckpointBlock
+
+  # Trusted setup is needed for Cancun+ blocks and is shared between threads,
+  # so it needs to be initalized from the main thread before anything else tries
+  # to use it
+  if config.trustedSetupFile.isSome:
+    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 0).isOkOr:
+      fatal "Cannot load KZG trusted setup from file", msg = error
+      quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
 
-  let node = waitFor BeaconNode.init(rng, config, metadata, taskpool)
+  let
+    taskpool = setupTaskpool(config.numThreads)
+    node = waitFor(BeaconNode.init(rng, config, taskpool)).valueOr:
+      return
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
   setSystemMetricsAutomaticUpdate(false)
 
-  node.metricsServer = (waitFor config.initMetricsServer()).valueOr:
-    return
-
-  if ProcessState.stopIt(notice("Shutting down", reason = it)):
+  node.metricsServer = waitFor(config.initMetricsServer()).valueOr:
     return
 
   when not defined(windows):
@@ -2805,9 +2840,10 @@ proc doRunBeaconNode*(
     initStatusBar(node)
 
   if node.nickname != "":
-    dynamicLogScope(node = node.nickname): node.run(stopper)
+    dynamicLogScope(node = node.nickname):
+      node.run(nil)
   else:
-    node.run(stopper)
+    node.run(nil)
 
 proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [CatchableError].} =
@@ -2903,29 +2939,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   case config.cmd
-  of BNStartUpCmd.beaconNode:
-    createPidFile(config.dataDir.string / "beacon_node.pid")
-    ProcessState.setupStopHandlers()
-
-    if config.rpcEnabled.isSome:
-      warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
-
-    template ignoreDeprecatedOption(option: untyped): untyped =
-      if config.option.isSome:
-        warn "Ignoring deprecated configuration option",
-          option = config.option.get
-    ignoreDeprecatedOption requireEngineAPI
-    ignoreDeprecatedOption safeSlotsToImportOptimistically
-    ignoreDeprecatedOption terminalTotalDifficultyOverride
-    ignoreDeprecatedOption optimistic
-    ignoreDeprecatedOption validatorMonitorTotals
-    ignoreDeprecatedOption web3ForcePolling
-    ignoreDeprecatedOption finalizedDepositTreeSnapshot
-    ignoreDeprecatedOption finalizedCheckpointBlock
-
-    let taskpool = setupTaskpool(config.numThreads)
-
-    doRunBeaconNode(config, rng, taskpool, nil)
+  of BNStartUpCmd.beaconNode: doRunBeaconNode(config, rng)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
