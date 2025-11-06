@@ -2114,8 +2114,8 @@ proc validateExecutionPayloadBid*(
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
           getStateField(dag.headState, genesis_validators_root),
-          signed_execution_payload_bid,
-          forkyState.data,
+          bid.slot.epoch,
+          bid,
           builderPubkey,
           signed_execution_payload_bid.signature):
         return dag.checkedReject(

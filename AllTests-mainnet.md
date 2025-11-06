@@ -605,8 +605,9 @@ AllTests-mainnet
 + Duplicate detection - same builder same slot                                               OK
 + Empty pool returns none                                                                    OK
 + Highest bid selection - different builders                                                 OK
++ Multiple bids for different parents same slot                                              OK
 + Pruning removes old bids                                                                   OK
-+ Seen bids tracking                                                                         OK
++ Track seen bids                                                                            OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff

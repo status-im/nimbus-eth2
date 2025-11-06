@@ -115,7 +115,7 @@ suite "Execution Payload Bid Pool":
       not pool.hasBidForBlockRoot(oldRoot)
       pool.hasBidForBlockRoot(newRoot)
 
-  test "Seen bids tracking":
+  test "Track seen bids":
     pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
     pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
     pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 50.Gwei), wallTime)
@@ -125,4 +125,31 @@ suite "Execution Payload Bid Pool":
       pool.hasSeenBidFromBuilder(10.Slot, 2)
       pool.hasSeenBidFromBuilder(10.Slot, 3)
 
-    check pool.highestBids.len == 1
+    check pool.slotBids.len == 1
+
+  test "Multiple bids for different parents same slot":
+    pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
+    pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash2, 150.Gwei), wallTime)
+    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 120.Gwei), wallTime)
+
+    let
+      highest1 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+      highest2 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash2)
+
+    check:
+      highest1.isSome()
+      highest1.get().message.value == 120.Gwei
+      highest1.get().message.builder_index == 3
+
+      highest2.isSome()
+      highest2.get().message.value == 150.Gwei
+      highest2.get().message.builder_index == 2
+
+    check:
+      pool.hasSeenBidFromBuilder(10.Slot, 1)
+      pool.hasSeenBidFromBuilder(10.Slot, 2)
+      pool.hasSeenBidFromBuilder(10.Slot, 3)
+
+    check pool.slotBids.len == 1
+
+    check pool.slotBids[10.Slot].highestBids.len == 2
