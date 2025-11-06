@@ -1155,7 +1155,7 @@ proc check_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
-    genesisFork: Fork,
+    genesis_fork_version: Version,
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState |
            fulu.BeaconState | gloas.BeaconState,
     signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
@@ -1178,7 +1178,7 @@ proc check_bls_to_execution_change*(
   doAssert flags + {skipBlsValidation} == {skipBlsValidation}
   if  skipBlsValidation notin flags and
       not verify_bls_to_execution_change_signature(
-        genesisFork, state.genesis_validators_root, signed_address_change,
+        genesis_fork_version, state.genesis_validators_root, signed_address_change,
         address_change.from_bls_pubkey, signed_address_change.signature):
     return err("process_bls_to_execution_change: invalid signature")
 
@@ -1981,7 +1981,7 @@ proc initialize_beacon_state_from_eth1(
       increase_balance(state, foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
-         verify_deposit_signature(cfg, deposit):
+         verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit):
         pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
         if not state.validators.add(get_validator_from_deposit(
             state, deposit.pubkey, deposit.withdrawal_credentials,
@@ -2088,7 +2088,7 @@ proc initialize_beacon_state_from_eth1*(
       increase_balance(state, foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
-         verify_deposit_signature(cfg, deposit):
+         verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit):
         pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
         if not state.validators.add get_validator_from_deposit(
             state, deposit.pubkey, deposit.withdrawal_credentials,

@@ -237,6 +237,13 @@ const
   DeprecatedRemovalValidatorBlocksV2* =
     "v2/validator/blocks/{slot} was deprecated, removed, and replaced " &
     "by produceBlockV3: https://github.com/ethereum/beacon-APIs/pull/466"
+  DeprecatedRemovalElectra* =
+    "v1/beacon/deposit_snapshot, /eth/v1/beacon/blocks/{block_id}/attestations," &
+    "v1/beacon/pool/attestations, v1/beacon/pool/attester_slashings, " &
+    "v1/validator/aggregate_attestation, v1/validator/aggregate_and_proofs, " &
+    "v1/beacon/blocks, v1/beacon/blinded_blocks, and " &
+    "v1/builder/states/{state_id}/expected_withdrawals have been removed: " &
+    "https://github.com/ethereum/beacon-APIs/pull/549"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =

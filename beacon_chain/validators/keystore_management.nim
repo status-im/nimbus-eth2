@@ -1686,7 +1686,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
                    salt, mode)
 
     deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
+      cfg.GENESIS_FORK_VERSION, withdrawalPubKey, derivedKey, signingPubKey)
 
   for i in 0 ..< remoteValidatorsCount:
     let validatorIdx = int(firstValidatorIdx) + localValidatorsCount + int(i)
@@ -1720,7 +1720,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
                                mode)
 
     deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
+      cfg.GENESIS_FORK_VERSION, withdrawalPubKey, derivedKey, signingPubKey)
 
   ok deposits
 

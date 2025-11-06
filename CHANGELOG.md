@@ -1,7 +1,17 @@
+2025-11-03 v25.11.0
+===================
+
+Nimbus `v25.11.0` is a `high-urgency` release for mainnet due to the impending Fusaka fork and a `low-urgency` release on other networks.
+
+### Improvements
+
+- Schedule Fulu on mainnet:
+  https://github.com/status-im/nimbus-eth2/pull/7702
+
 2025-10-31 v25.10.0
 ===================
 
-Nimbus `v25.10.0` is a low-urgency release which increases the default gas limit to 60M, improves beacon API support, adds runtime configuration flexibility, and removes macOS amd64 support.
+Nimbus `v25.10.0` is a `low-urgency` release which increases the default gas limit to 60M, improves beacon API support, adds runtime configuration flexibility, and removes macOS amd64 support.
 
 ### Improvements
 

@@ -550,7 +550,8 @@ proc scheduleContributionChecks*(
 
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
-    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange):
+    genesis_fork_version: Version,
+    signedBLSToExecutionChange: SignedBLSToExecutionChange):
     Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
@@ -562,9 +563,6 @@ proc scheduleBlsToExecutionChangeCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred check otherwise.
 
-  # Must be genesis fork
-  doAssert genesis_fork.previous_version == genesis_fork.current_version
-
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
@@ -575,7 +573,7 @@ proc scheduleBlsToExecutionChangeCheck*(
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
-        genesis_fork, batchCrypto[].genesis_validators_root,
+        genesis_fork_version, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         pubkey, sig)
 

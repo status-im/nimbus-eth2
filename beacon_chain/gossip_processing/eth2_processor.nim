@@ -17,7 +17,7 @@ import
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool,
+    attestation_pool, execution_payload_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -82,6 +82,13 @@ declareCounter beacon_light_client_optimistic_update_received,
 declareCounter beacon_light_client_optimistic_update_dropped,
   "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
 
+declareCounter beacon_execution_payload_bids_received,
+  "Number of valid execution payload bids processed by this node"
+
+declareCounter beacon_execution_payload_bids_dropped,
+  "Number of invalid execution payload bids dropped by this node", 
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -131,6 +138,7 @@ type
     validatorPool*: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
+    executionPayloadBidPool*: ref ExecutionPayloadBidPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -178,6 +186,7 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
+          executionPayloadBidPool: ref ExecutionPayloadBidPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
@@ -197,6 +206,7 @@ proc new*(T: type Eth2Processor,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
+    executionPayloadBidPool: executionPayloadBidPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
@@ -261,9 +271,10 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  debugGloasComment " "
   when consensusFork == ConsensusFork.Gloas:
-    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+    debugGloasComment ""
+    # gloas needs proper data column handling
+    let sidecarsOpt = Opt.some(default(seq[ref gloas.DataColumnSidecar]))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
@@ -416,7 +427,7 @@ proc processDataColumnSidecar*(
   debug "Data column received (Gloas - quarantine not implemented)"
 
   let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.dataColumnQuarantine,
+    self.quarantine, self.dataColumnQuarantine, self.executionPayloadBidPool,
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
@@ -837,3 +848,27 @@ proc processLightClientOptimisticUpdate*(
   else:
     beacon_light_client_optimistic_update_dropped.inc(1, [$v.error[0]])
   v
+
+proc processExecutionPayloadBid*(
+    self: var Eth2Processor,
+    src: MsgSource,
+    signedBid: SignedExecutionPayloadBid
+): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+
+  logScope:
+    bidSlot = signedBid.message.slot
+    builderIndex = signedBid.message.builder_index
+    blockRoot = signedBid.message.parent_block_root
+
+  let v = validateExecutionPayloadBid(
+    self.dag, self.executionPayloadBidPool, signedBid, wallTime)
+  if v.isOk():
+    debug "Execution payload bid validated"
+    self.executionPayloadBidPool[].addBid(signedBid, wallTime)
+    beacon_execution_payload_bids_received.inc()
+    ok()
+  else:
+    debug "Dropping execution payload bid", reason = $v.error
+    beacon_execution_payload_bids_dropped.inc(1, [$v.error[0]])
+    err(v.error())
