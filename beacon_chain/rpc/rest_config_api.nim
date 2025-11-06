@@ -432,9 +432,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH:
             Base10.toString(KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH),
           FIELD_ELEMENTS_PER_CELL:
-            Base10.toString(FIELD_ELEMENTS_PER_CELL),
+            Base10.toString(uint64(FIELD_ELEMENTS_PER_CELL)),
           FIELD_ELEMENTS_PER_EXT_BLOB:
-            Base10.toString(FIELD_ELEMENTS_PER_EXT_BLOB),
+            Base10.toString(fulu_preset.FIELD_ELEMENTS_PER_EXT_BLOB),
           CELLS_PER_EXT_BLOB:
             Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB))
         )

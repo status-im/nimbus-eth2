@@ -197,6 +197,10 @@ type
     electra_mev.BuilderBid |
     fulu_mev.BuilderBid
 
+  ForkyBlobsBundle* =
+    deneb.BlobsBundle |
+    fulu.BlobsBundle
+
   ForkySignedBuilderBid* =
     electra_mev.SignedBuilderBid |
     fulu_mev.SignedBuilderBid
