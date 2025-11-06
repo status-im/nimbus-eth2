@@ -12,7 +12,6 @@ import
   unittest2,
   ../beacon_chain/consensus_object_pools/envelope_quarantine,
   ../beacon_chain/spec/forks
-  # ./testdbutil, ./consensus_spec/fixtures_utils
 
 from stew/byteutils import hexToByteArray
 
