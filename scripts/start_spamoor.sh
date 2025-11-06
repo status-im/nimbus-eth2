@@ -11,32 +11,51 @@ set -euo pipefail
 
 SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
-source "${SCRIPTS_DIR}/geth_vars.sh"
-source "${SCRIPTS_DIR}/nimbus_el_vars.sh"
 source "${SCRIPTS_DIR}/spamoor_binaries.sh"
 
 # This is private key which corresponds to
 # 0xC9D2DaA6dd812745B5732aFd0b367dbcB2c38d88 address which was allocated in
 # `execution_genesis.json.template`.
 SPAMOOR_PRIVATE_KEY="65975debdc6b09ef5d40871d371861e98cbf1582ccf3f5466ed8ca8999f09388"
+# Default value.
+SPAMOOR_SECONDS_PER_SLOT="12"
+SPAMOOR_TRANSACTIONS_COUNT="10000"
 
 log "Using ${SPAMOOR_BINARY}"
 
 SPAMOOR_RPC_ENDPOINTS=""
 
-for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
-  SPAMOOR_RPC_ENDPOINTS+="--rpchost http://127.0.0.1:${GETH_RPC_PORTS[GETH_NODE_IDX]} "
-done
+if [[ "${RUN_GETH}" == "1" ]]; then
+  for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
+    # GETH_NODE_IDX == 0 has not been used.
+    if [[ "${GETH_NODE_IDX}" != "0" ]]; then
+      SPAMOOR_RPC_ENDPOINTS+="--rpchost http://127.0.0.1:${GETH_RPC_PORTS[GETH_NODE_IDX]} "
+    fi
+  done
+fi
 
-for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
-  SPAMOOR_RPC_ENDPOINTS+="--rpchost http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]} "
-done
+if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
+  for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
+    SPAMOOR_RPC_ENDPOINTS+="--rpchost http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]} "
+  done
+fi
+
+if [ -z "$SPAMOOR_RPC_ENDPOINTS" ]; then
+  echo "Could not find any supported EL instances for spamoor"
+  exit 1
+fi
+
+if [[ "${CONST_PRESET}" == "minimal" ]]; then
+  SPAMOOR_SECONDS_PER_SLOT="6"
+fi
 
 ${SPAMOOR_BINARY} \
   blobs \
   --privkey "${SPAMOOR_PRIVATE_KEY}" \
   ${SPAMOOR_RPC_ENDPOINTS} \
-  --count 100 \
+  --seconds-per-slot ${SPAMOOR_SECONDS_PER_SLOT} \
+  --count ${SPAMOOR_TRANSACTIONS_COUNT} \
+  --log-txs --verbose --trace \
   &> "${DATA_DIR}/logs/spamoor.txt" &
 
 PID=$!
