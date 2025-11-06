@@ -606,6 +606,16 @@ AllTests-mainnet
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
 ```
+## Execution Payload Bid Pool
+```diff
++ Add and retrieve highest bid                                                               OK
++ Duplicate detection - same builder same slot                                               OK
++ Empty pool returns none                                                                    OK
++ Highest bid selection - different builders                                                 OK
++ Multiple bids for different parents same slot                                              OK
++ Pruning removes old bids                                                                   OK
++ Track seen bids                                                                            OK
+```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
