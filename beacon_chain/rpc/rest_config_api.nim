@@ -223,6 +223,17 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.SHARD_COMMITTEE_PERIOD),
           ETH1_FOLLOW_DISTANCE:
             Base10.toString(cfg.ETH1_FOLLOW_DISTANCE),
+          PROPOSER_REORG_CUTOFF_BPS:
+            Base10.toString(cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS),
+          ATTESTATION_DUE_BPS:
+            Base10.toString(cfg.timeParams.ATTESTATION_DUE_BPS),
+          AGGREGATE_DUE_BPS:
+            Base10.toString(cfg.timeParams.AGGREGATE_DUE_BPS),
+
+          SYNC_MESSAGE_DUE_BPS:
+            Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS),
+          CONTRIBUTION_DUE_BPS:
+            Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS),
 
           INACTIVITY_SCORE_BIAS:
             Base10.toString(cfg.INACTIVITY_SCORE_BIAS),

@@ -206,7 +206,7 @@ suite "Validator change pool testing suite":
             validator_index: j,
             from_bls_pubkey: MockPubKeys[j]))
         msg.signature = toValidatorSig(get_bls_to_execution_change_signature(
-          dag.cfg.genesisFork(), dag.genesis_validators_root, msg.message,
+          dag.cfg.GENESIS_FORK_VERSION, dag.genesis_validators_root, msg.message,
           MockPrivKeys[msg.message.validator_index]))
         if i == 0:
           check not pool[].isSeen(msg)
@@ -237,7 +237,7 @@ suite "Validator change pool testing suite":
             validator_index: j,
             from_bls_pubkey: MockPubKeys[j]))
         msg.signature = toValidatorSig(get_bls_to_execution_change_signature(
-          dag.cfg.genesisFork(), dag.genesis_validators_root, msg.message,
+          dag.cfg.GENESIS_FORK_VERSION, dag.genesis_validators_root, msg.message,
           MockPrivKeys[msg.message.validator_index]))
         if i == 0:
           check not pool[].isSeen(msg)

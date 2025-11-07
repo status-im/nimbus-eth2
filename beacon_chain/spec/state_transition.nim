@@ -198,102 +198,26 @@ func noRollback*(state: var electra.HashedBeaconState) =
 func noRollback*(state: var fulu.HashedBeaconState) =
   trace "Skipping rollback of broken Fulu state"
 
-func maybeUpgradeStateToAltair(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
-      state.kind == ConsensusFork.Phase0:
-    let newState = upgrade_to_altair(cfg, state.phase0Data.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Altair,
-      altairData: altair.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToBellatrix(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.BELLATRIX_FORK_EPOCH and
-      state.kind == ConsensusFork.Altair:
-    let newState = upgrade_to_bellatrix(cfg, state.altairData.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Bellatrix,
-      bellatrixData: bellatrix.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToCapella(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.CAPELLA_FORK_EPOCH and
-      state.kind == ConsensusFork.Bellatrix:
-    let newState = upgrade_to_capella(cfg, state.bellatrixData.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Capella,
-      capellaData: capella.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToDeneb(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.DENEB_FORK_EPOCH and
-      state.kind == ConsensusFork.Capella:
-    let newState = upgrade_to_deneb(cfg, state.capellaData.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Deneb,
-      denebData: deneb.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToElectra(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
-    cache: var StateCache) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.ELECTRA_FORK_EPOCH and
-      state.kind == ConsensusFork.Deneb:
-    let newState = upgrade_to_electra(cfg, state.denebData.data, cache)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Electra,
-      electraData: electra.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToFulu(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
-    cache: var StateCache) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.FULU_FORK_EPOCH and
-      state.kind == ConsensusFork.Electra:
-    let newState = upgrade_to_fulu(cfg, state.electraData.data, cache)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Fulu,
-      fuluData: fulu.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
-func maybeUpgradeStateToGloas(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
-  # Both process_slots() and state_transition_block() call this, so only run it
-  # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.GLOAS_FORK_EPOCH and
-      state.kind == ConsensusFork.Fulu:
-    let newState = upgrade_to_gloas(cfg, state.fuluData.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Gloas,
-      gloasData: gloas.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
-
 func maybeUpgradeState*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
-    cache: var StateCache) =
-  cfg.maybeUpgradeStateToAltair(state)
-  cfg.maybeUpgradeStateToBellatrix(state)
-  cfg.maybeUpgradeStateToCapella(state)
-  cfg.maybeUpgradeStateToDeneb(state)
-  cfg.maybeUpgradeStateToElectra(state, cache)
-  cfg.maybeUpgradeStateToFulu(state, cache)
-  cfg.maybeUpgradeStateToGloas(state)
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, cache: var StateCache
+) =
+  let curFork = cfg.consensusForkAtEpoch(getStateField(state, slot).epoch)
+
+  if state.kind < curFork:
+    # Typically, only one upgrade is done here but when generating a genesis
+    # state that starts at a later fork, we'll start at phase0 and move through
+    # all the forks
+    while state.kind < curFork:
+      withState(state):
+        when consensusFork < high(ConsensusFork):
+          const nextFork = succ(consensusFork)
+          let newState = (ref ForkedHashedBeaconState)(kind: nextFork)
+          newState[].forky(nextFork).data =
+            upgrade_to_next(cfg, state.forky(consensusFork).data, cache)
+          state = move(newState[])
+
+    withState(state):
+      forkyState.root = hash_tree_root(forkyState.data)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,

@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list, execution_payload_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -413,6 +413,7 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
+    executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
@@ -530,7 +531,7 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
+      lightClientPool, executionPayloadBidPool, quarantine, blobQuarantine, dataColumnQuarantine,
       rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -2324,6 +2325,18 @@ proc installMessageValidators(node: BeaconNode) =
               toValidationResult(
                 node.processor[].processSignedBeaconBlock(
                   MsgSource.gossip, signedBlock)))
+
+        # execution_payload_bid
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addValidator(
+            getExecutionPayloadBidTopic(digest), proc (
+              signedBid: SignedExecutionPayloadBid,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processExecutionPayloadBid(
+                  MsgSource.gossip, signedBid)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
