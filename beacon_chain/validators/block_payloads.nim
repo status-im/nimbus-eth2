@@ -97,7 +97,7 @@ template toBlockContents(
   elif consensusFork >= ConsensusFork.Deneb:
     consensusFork.BlockContents(
       `block`: engineBlock.blck,
-      kzg_proofs: deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+      kzg_proofs: engineBlock.blobsBundle.proofs,
       blobs: engineBlock.blobsBundle.blobs,
     )
   else:
