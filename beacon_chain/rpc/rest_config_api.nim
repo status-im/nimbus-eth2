@@ -312,25 +312,25 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(cfg.NUMBER_OF_COLUMNS.uint64),
+            Base10.toString(cfg.NUMBER_OF_COLUMNS),
           NUMBER_OF_CUSTODY_GROUPS:
-            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS.uint64),
+            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
+            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT),
           MAX_REQUEST_DATA_COLUMN_SIDECARS:
             Base10.toString(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS),
           SAMPLES_PER_SLOT:
-            Base10.toString(cfg.SAMPLES_PER_SLOT.uint64),
+            Base10.toString(cfg.SAMPLES_PER_SLOT),
           CUSTODY_REQUIREMENT:
-            Base10.toString(cfg.CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.CUSTODY_REQUIREMENT),
           VALIDATOR_CUSTODY_REQUIREMENT:
-            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
-            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP.uint64),
+            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
           BLOB_SCHEDULE:
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
-            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS.uint64),
+            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
