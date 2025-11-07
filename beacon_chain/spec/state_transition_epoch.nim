@@ -1199,7 +1199,7 @@ func apply_pending_deposit(
       pubkey: deposit.pubkey,
       withdrawal_credentials: deposit.withdrawal_credentials,
       amount: deposit.amount, signature: deposit.signature)
-    if verify_deposit_signature(cfg, deposit_data):
+    if verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit_data):
       ? add_validator_to_registry(state, deposit_data, deposit_data.amount)
   else:
     # Increase balance

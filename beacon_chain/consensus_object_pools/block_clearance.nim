@@ -299,13 +299,12 @@ proc addHeadBlockWithParent*(
   if skipBlsValidation notin dag.updateFlags:
     # TODO: remove skipBlsValidation
     var sigs: seq[SignatureSet]
-    if (let e = sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.CAPELLA_FORK_VERSION,
-        cache); e.isErr()):
+    sigs.collectSignatureSets(
+      signedBlock, dag.db.immutableValidators, dag.clearanceState,
+      dag.cfg.GENESIS_FORK_VERSION, dag.cfg.CAPELLA_FORK_VERSION, cache,
+    ).isOkOr:
       # A PublicKey or Signature isn't on the BLS12-381 curve
-      info "Unable to load signature sets",
-        err = e.error()
+      info "Unable to load signature sets", err = error
       return err(VerifierError.Invalid)
 
     if not verifier.batchVerify(sigs):

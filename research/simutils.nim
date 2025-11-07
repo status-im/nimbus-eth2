@@ -9,7 +9,7 @@
 
 import
   stew/io2,
-  ../tests/testblockutil, ../tests/consensus_spec/os_ops,
+  ../tests/[testblockutil, teststateutil], ../tests/consensus_spec/os_ops,
   ../beacon_chain/spec/[beaconstate, forks]
 
 from std/stats import RunningStat, mean, push, standardDeviationS
@@ -113,18 +113,16 @@ proc loadGenesis*(
     warn "Genesis file not found, making one up",
       hint = "use nimbus_beacon_node createTestnet to make one"
 
-    info "Preparing validators..."
-    let
-      flags = if validate: {} else: {skipBlsValidation}
-      deposits = makeInitialDeposits(validators.uint64, flags)
+    let flags = if validate: {} else: {skipBlsValidation}
 
     info "Generating Genesis..."
-    let res = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Electra,
-      electraData: electra.HashedBeaconState(
-        data: initialize_beacon_state_from_eth1(
-          cfg, ConsensusFork.Electra, ZERO_HASH, 0, deposits,
-          default(deneb.ExecutionPayloadHeader), {skipBlsValidation})))
+    let res = initGenesisState(
+      cfg,
+      mockEth1BlockHash,
+      0,
+      makeInitialDeposits(cfg, validators.uint64, flags),
+      flags,
+    )
 
     info "Saving genesis file", fileName = genesisFn
     try:

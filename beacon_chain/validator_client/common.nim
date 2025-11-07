@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
   results,
   stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
@@ -316,13 +316,28 @@ func SlotDuration*(vc: ValidatorClientRef): Duration =
   vc.timeParams.SLOT_DURATION
 
 func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
-  vc.timeParams.SLOT_DURATION div 2
+  vc.SlotDuration div 2
 
-func OneThirdDuration*(vc: ValidatorClientRef): Duration =
-  vc.timeParams.SLOT_DURATION div INTERVALS_PER_SLOT
+func AttestationToAggregationDuration*(vc: ValidatorClientRef): Duration =
+  nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds) -
+  nanoseconds(vc.timeParams.attestationSlotOffset.nanoseconds)
 
-func OneThirdDurationSoft*(vc: ValidatorClientRef): Duration =
-  (vc.timeParams.SLOT_DURATION div INTERVALS_PER_SLOT) div 2
+func AttestationToAggregationDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.AttestationToAggregationDuration div 2
+
+func AggregationToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds)
+
+func AggregationToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.AggregationToSlotEndDuration div 2
+
+func SyncContributionToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.syncContributionSlotOffset.nanoseconds)
+
+func SyncContributionToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SyncContributionToSlotEndDuration div 2
 
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
@@ -514,8 +529,8 @@ chronicles.expandIt(SyncCommitteeDuty):
   validator_index = it.validator_index
   validator_sync_committee_indices = it.validator_sync_committee_indices
 
-func parseConfigValue[T: uint64](_: typedesc[T], str: string): Opt[T] =
-  let res = Base10.decode(uint64, str).valueOr:
+func parseConfigValue[T: uint16 | uint64](_: typedesc[T], str: string): Opt[T] =
+  let res = Base10.decode(T, str).valueOr:
     return Opt.none T
   Opt.some res
 
@@ -592,9 +607,24 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
       seconds(rawValue.int64)
     else:
       defaultRuntimeConfig.timeParams.SLOT_DURATION
-  if SLOT_DURATION notin MIN_SLOT_DURATION .. MAX_SLOT_DURATION:
+
+  macro parseBps(key: static[string]): uint16 =
+    let keyId = ident key
+    quote do:
+      const defaultStr = Base10.toString(
+        defaultRuntimeConfig.timeParams.`keyId`)
+      ? uint16.parseConfigValue(c.getOrDefault(`key`, defaultStr))
+
+  let res = Opt.some TimeParams(
+    SLOT_DURATION: SLOT_DURATION,
+    PROPOSER_REORG_CUTOFF_BPS: parseBps "PROPOSER_REORG_CUTOFF_BPS",
+    ATTESTATION_DUE_BPS: parseBps "ATTESTATION_DUE_BPS",
+    AGGREGATE_DUE_BPS: parseBps "AGGREGATE_DUE_BPS",
+    SYNC_MESSAGE_DUE_BPS: parseBps "SYNC_MESSAGE_DUE_BPS",
+    CONTRIBUTION_DUE_BPS: parseBps "CONTRIBUTION_DUE_BPS")
+  if not res.get.isValid:
     return Opt.none TimeParams
-  Opt.some TimeParams(SLOT_DURATION: SLOT_DURATION)
+  res
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,

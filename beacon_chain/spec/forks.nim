@@ -1037,7 +1037,7 @@ template forky*(
   elif kind == ConsensusFork.Phase0:
     x.phase0Data
   else:
-    {.error: "Unreachable".}
+    {.error: "Unreachable: " & $kind.}
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind

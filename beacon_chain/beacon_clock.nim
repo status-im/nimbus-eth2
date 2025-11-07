@@ -41,6 +41,9 @@ proc init*(
     T: type BeaconClock,
     timeParams: TimeParams,
     genesis_time: uint64): Opt[T] =
+  if not timeParams.isValid:
+    return Opt.none(BeaconClock)
+
   let
     MIN_GENESIS_TIME = GENESIS_SLOT * timeParams.SLOT_DURATION.seconds.uint64
     MAX_GENESIS_TIME =
@@ -48,20 +51,18 @@ proc init*(
       # the time can't be outrageously far from now
       getTime().toUnix().uint64 +
       100'u64 * 365'u64 * 24'u64 * 60'u64 * 60'u64
-  if timeParams.SLOT_DURATION notin MIN_SLOT_DURATION .. MAX_SLOT_DURATION or
-      genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
-    Opt.none(BeaconClock)
-  else:
-    let
-      unixGenesis = fromUnix(genesis_time.int64)
-      # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
-      # that offset to genesis instead of applying it at every time conversion
-      unixGenesisOffset = fromUnix(
-        (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
+  if genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
+    return Opt.none(BeaconClock)
 
-    Opt.some T(
-      timeParams: timeParams,
-      genesis: (unixGenesis - unixGenesisOffset).inSeconds.fromUnix)
+  let
+    unixGenesis = fromUnix(genesis_time.int64)
+    # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
+    # that offset to genesis instead of applying it at every time conversion
+    unixGenesisOffset = fromUnix(
+      (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
+  Opt.some T(
+    timeParams: timeParams,
+    genesis: (unixGenesis - unixGenesisOffset).inSeconds.fromUnix)
 
 func timeParams*(c: BeaconClock): TimeParams =
   c.timeParams  # Readonly

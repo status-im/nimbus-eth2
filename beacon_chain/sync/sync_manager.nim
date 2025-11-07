@@ -580,7 +580,7 @@ proc syncStep[A, B](
   if man.remainingSlots() <= man.maxHeadAge:
     case man.direction
     of SyncQueueKind.Forward:
-      info "We are in sync with network",
+      info "Beacon node in sync with consensus network",
             peer = peer,
             peer_score = peer.getScore(),
             peer_speed = peer.netKbps(),
