@@ -254,6 +254,7 @@ local-testnet-minimal:
 		--timeout 648 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no \
