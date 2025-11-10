@@ -18,8 +18,12 @@ source "${SCRIPTS_DIR}/spamoor_binaries.sh"
 # `execution_genesis.json.template`.
 SPAMOOR_PRIVATE_KEY="65975debdc6b09ef5d40871d371861e98cbf1582ccf3f5466ed8ca8999f09388"
 # Default value.
-SPAMOOR_SECONDS_PER_SLOT="12"
-SPAMOOR_TRANSACTIONS_COUNT="10000"
+SPAMOOR_SECONDS_PER_SLOT="12"        # seconds
+SPAMOOR_MAX_WALLETS="200"            #
+SPAMOOR_REFILL_AMOUNT="5000"         # ETH
+SPAMOOR_REFILL_BALANCE="2"           # ETH
+SPAMOOR_REFILL_INTERVAL="600"        # seconds
+SPAMOOR_SIDECARS_PER_TRANSACTION="5" #
 
 log "Using ${SPAMOOR_BINARY}"
 
@@ -54,7 +58,11 @@ ${SPAMOOR_BINARY} \
   --privkey "${SPAMOOR_PRIVATE_KEY}" \
   ${SPAMOOR_RPC_ENDPOINTS} \
   --seconds-per-slot ${SPAMOOR_SECONDS_PER_SLOT} \
-  --count ${SPAMOOR_TRANSACTIONS_COUNT} \
+  --sidecars ${SPAMOOR_SIDECARS_PER_TRANSACTION} \
+  --max-wallets ${SPAMOOR_MAX_WALLETS} \
+  --refill-amount ${SPAMOOR_REFILL_AMOUNT} \
+  --refill-balance ${SPAMOOR_REFILL_BALANCE} \
+  --refill-interval ${SPAMOOR_REFILL_INTERVAL} \
   --log-txs --verbose --trace \
   &> "${DATA_DIR}/logs/spamoor.txt" &
 
