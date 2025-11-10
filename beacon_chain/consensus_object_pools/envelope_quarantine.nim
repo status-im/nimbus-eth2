@@ -58,7 +58,7 @@ func popOrphan*(
   except KeyError:
     Opt.none(SignedExecutionPayloadEnvelope)
   finally:
-    # After poping an envelope by block, the rest will no longer be valid due to
+    # After popping an envelope by block, the rest will no longer be valid due to
     # the mismatch builder index.
     self.orphans.del(blck.root)
 

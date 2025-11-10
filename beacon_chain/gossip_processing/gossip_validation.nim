@@ -996,7 +996,7 @@ proc validateExecutionPayload*(
   # [IGNORE] The envelope is from a slot greater than or equal to the latest
   # finalized slot -- i.e. validate that `envelope.slot >=
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)`
-  if envelope.slot <= dag.finalizedHead.slot:
+  if not (envelope.slot >= dag.finalizedHead.slot):
     return errIgnore("ExecutionPayload: slot already finalized")
 
   # [REJECT] block passes validation.
@@ -1012,33 +1012,32 @@ proc validateExecutionPayload*(
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
   # [REJECT] block.slot equals envelope.slot.
-  if blck.slot != envelope.slot:
+  if not (blck.slot == envelope.slot):
     return dag.checkedReject("ExecutionPayload: slot mismatch")
 
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   # [REJECT] envelope.builder_index == bid.builder_index
-  if envelope.builder_index != bid.builder_index:
+  if not (envelope.builder_index == bid.builder_index):
     return dag.checkedReject("ExecutionPayload: builder index mismatch")
 
   # [REJECT] payload.block_hash == bid.block_hash
-  if envelope.payload.block_hash != bid.block_hash:
+  if not (envelope.payload.block_hash == bid.block_hash):
     return dag.checkedReject("ExecutionPayload: block hash mismatch")
 
   # [REJECT] signed_execution_payload_envelope.signature is valid with respect
   # to the builder's public key.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not verify_execution_payload_envelope_signature(
-          dag.forkAtEpoch(envelope.slot.epoch),
-          getStateField(dag.headState, genesis_validators_root),
-          envelope.slot.epoch,
-          signed_execution_payload_envelope.message,
-          dag.validatorKey(envelope.builder_index).get(),
-          signed_execution_payload_envelope.signature):
-        return dag.checkedReject("ExecutionPayload: invalid builder signature")
-    else:
-      return dag.checkedReject("ExecutionPayload: invalid fork")
+  if dag.headState.kind >= ConsensusFork.Gloas:
+    if not verify_execution_payload_envelope_signature(
+        dag.forkAtEpoch(envelope.slot.epoch),
+        dag.genesis_validators_root,
+        envelope.slot.epoch,
+        signed_execution_payload_envelope.message,
+        dag.validatorKey(envelope.builder_index).get(),
+        signed_execution_payload_envelope.signature):
+      return dag.checkedReject("ExecutionPayload: invalid builder signature")
+  else:
+    return dag.checkedReject("ExecutionPayload: invalid fork")
 
   ok()
 
