@@ -22,6 +22,7 @@ from std/random import rand
 type
   MockPrivKeysT = object
   MockPubKeysT = object
+
 const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
@@ -44,33 +45,47 @@ proc `[]`*(pk: MockPubKeysT, index: uint64): ValidatorPubKey =
 proc `[]`*(pk: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
   pk[index.uint64]
 
-func makeFakeHash*(i: int): Eth2Digest =
-  var bytes = uint64(i).toBytesLE()
-  static: doAssert sizeof(bytes) <= sizeof(result.data)
-  copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
-
-proc makeDeposit*(
+proc makeDepositData*(
     i: int,
+    amount = MAX_EFFECTIVE_BALANCE.Gwei,
     flags: UpdateFlags = {},
-    cfg = defaultRuntimeConfig): DepositData =
+    version = defaultRuntimeConfig.GENESIS_FORK_VERSION,
+): DepositData =
+  var cache {.threadvar.}: Table[int, DepositData]
+
+  if amount == MAX_EFFECTIVE_BALANCE.Gwei and skipBlsValidation notin flags and
+      version == defaultRuntimeConfig.GENESIS_FORK_VERSION:
+    cache.withValue(i, data):
+      return data[]
+
   let
     privkey = MockPrivKeys[i.ValidatorIndex]
     pubkey = MockPubKeys[i.ValidatorIndex]
     withdrawal_credentials = makeWithdrawalCredentials(pubkey)
 
   result = DepositData(
-    pubkey: pubkey,
-    withdrawal_credentials: withdrawal_credentials,
-    amount: MAX_EFFECTIVE_BALANCE.Gwei)
+    pubkey: pubkey, withdrawal_credentials: withdrawal_credentials, amount: amount
+  )
 
   if skipBlsValidation notin flags:
-    result.signature =
-      get_deposit_signature(cfg.GENESIS_FORK_VERSION, result, privkey).toValidatorSig()
+    result.signature = get_deposit_signature(version, result, privkey).toValidatorSig()
+
+  if amount == MAX_EFFECTIVE_BALANCE.Gwei and skipBlsValidation notin flags and
+      version == defaultRuntimeConfig.GENESIS_FORK_VERSION:
+    cache[i] = result
+
+func makeFakeHash*(i: int): Eth2Digest =
+  var bytes = uint64(i).toBytesLE()
+  static: doAssert sizeof(bytes) <= sizeof(result.data)
+  copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
 proc makeInitialDeposits*(
-    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): seq[DepositData] =
-  for i in 0..<n.int:
-    result.add makeDeposit(i, flags, cfg = cfg)
+    cfg: RuntimeConfig, n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}
+): seq[DepositData] =
+  for i in 0 ..< n.int:
+    result.add makeDepositData(
+      i, MAX_EFFECTIVE_BALANCE.Gwei, flags, cfg.GENESIS_FORK_VERSION
+    )
 
 func signBlock(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: ForkyBeaconBlock,

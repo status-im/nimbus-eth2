@@ -496,10 +496,6 @@ proc popSidecars*(
   ## If some of the blob sidecars are missing Opt.none() is returned.
   ## If block do not have any blob sidecars Opt.some([]) is returned.
 
-  when blck is gloas.SignedBeaconBlock:
-    quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref BlobSidecar]))
-
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
@@ -596,8 +592,7 @@ proc popSidecars*(
 
 proc popSidecars*(
     quarantine: var BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
 ): Opt[seq[ref BlobSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)

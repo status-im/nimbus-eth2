@@ -953,19 +953,23 @@ proc getBeaconHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
-  if newHeadRoot.isErr:
-    error "Couldn't select head", err = newHeadRoot.error
-    return err()
+  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
+    error "Couldn't select head", err = error
+    return Opt.none(BeaconHead)
 
-  let headBlock = pool.dag.getBlockRef(newHeadRoot.get()).valueOr:
+  let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice
     # get out of sync, we'll need to try to download the selected head - in
     # the meantime, return nil to indicate that no new head was chosen
-    warn "Fork choice selected unknown head, trying to sync",
-      root = newHeadRoot.get()
-    pool.quarantine[].addMissing(newHeadRoot.get())
-    return err()
+
+    pool.quarantine[].addMissing(newHeadRoot).isOkOr:
+      # The newly selected head is unviable for some reason - the only way out
+      # here is that fork choice gets information about some other head
+      warn "Fork choice selected unviable head - cannot sync", newHeadRoot, err = error
+      return Opt.none(BeaconHead)
+
+    warn "Fork choice selected unknown head, trying to sync", newHeadRoot
+    return Opt.none(BeaconHead)
 
   ok pool.getBeaconHead(headBlock)
 

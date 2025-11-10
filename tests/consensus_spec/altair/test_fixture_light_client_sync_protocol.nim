@@ -18,10 +18,8 @@ import
   ../../../beacon_chain/spec/
     [beaconstate, forks, helpers, light_client_sync, signatures,
     state_transition],
-  # Mock helpers
-  ../../mocking/mock_genesis,
   # Test utilities
-  ../../testutil, ../../testblockutil
+  ../../[testblockutil, teststateutil, testutil]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(

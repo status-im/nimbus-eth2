@@ -43,9 +43,6 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#constant
-  INTERVALS_PER_SLOT* = 3
-
 func FAR_FUTURE_BEACON_TIME(timeParams: TimeParams): BeaconTime =
   # Ensure all representable slots are complete
   BeaconTime(ns_since_genesis:
@@ -141,35 +138,33 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 # Offsets from the start of the slot to when the corresponding message should
 # be sent
 
+func slotOffset(timeParams: TimeParams, bps: uint16): TimeDiff =
+  let oneBps = timeParams.SLOT_DURATION.nanoseconds div MAX_BPS.int64
+  TimeDiff(nanoseconds: bps.int64 * oneBps)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#attesting
 func attestationSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.ATTESTATION_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
 func aggregateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 * 2 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#prepare-sync-committee-message
 func syncCommitteeMessageSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.SYNC_MESSAGE_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
 func syncContributionSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 * 2 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
 func lightClientFinalityUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.syncCommitteeMessageSlotOffset
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#sync-committee
 func lightClientOptimisticUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.syncCommitteeMessageSlotOffset
 
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0

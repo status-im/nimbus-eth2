@@ -15,7 +15,6 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
