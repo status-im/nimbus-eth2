@@ -235,6 +235,17 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           CONTRIBUTION_DUE_BPS:
             Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS),
 
+          ATTESTATION_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS),
+          AGGREGATE_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS),
+          SYNC_MESSAGE_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS),
+          CONTRIBUTION_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS),
+          PAYLOAD_ATTESTATION_DUE_BPS:
+            Base10.toString(cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS),
+
           INACTIVITY_SCORE_BIAS:
             Base10.toString(cfg.INACTIVITY_SCORE_BIAS),
           INACTIVITY_SCORE_RECOVERY_RATE:
