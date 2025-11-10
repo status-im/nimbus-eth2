@@ -1686,8 +1686,8 @@ proc process_block*(
           cfg, state, blck.body,
           func(_: deneb.ExecutionPayload): bool = true)
     debug "process_block: execution durations",
-      process_withdrawals = process_withdrawals_duration,
-      process_execution_payload = process_execution_payload_duration
+      process_withdrawals = $process_withdrawals_duration,
+      process_execution_payload = $process_execution_payload_duration
   withDuration(process_randao_duration):
     ? process_randao(state, blck.body, flags, cache)
   withDuration(process_eth1_data_duration):

@@ -102,7 +102,9 @@ proc routeSignedBeaconBlock*(
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
+  var s0, s1: Moment
   block:
+    s0 = Moment.now()
     let res = validateBeaconBlock(
       router[].dag, router[].quarantine, blck, wallTime, {})
 
@@ -112,6 +114,7 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
+    s1 = Moment.now()
     when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
@@ -131,6 +134,7 @@ proc routeSignedBeaconBlock*(
             return err(res.error())
 
   let
+    s2 = Moment.now()
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
     # The block (and blobs, if present) passed basic gossip validation
@@ -140,13 +144,18 @@ proc routeSignedBeaconBlock*(
 
   let res = await router[].network.broadcastBeaconBlock(blck)
 
+  let s3 = Moment.now()
+
   if res.isOk():
     beacon_blocks_sent.inc()
     beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
 
     notice "Block sent",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature), delay
+      signature = shortLog(blck.signature), delay,
+      validation_duration = $(s1 - s0),
+      blob_validation_duration = $(s2 - s1),
+      block_broadcast_duration = $(s3 - s2)
   else: # "no broadcast" is not a fatal error
     notice "Block not sent",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
