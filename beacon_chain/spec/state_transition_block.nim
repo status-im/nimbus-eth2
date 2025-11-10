@@ -45,11 +45,12 @@ template payload(body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBod
     body.execution_payload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#block-header
-func process_block_header*(
+proc process_block_header*(
     state: var ForkyBeaconState,
     blck: SomeForkyBeaconBlock | SomeForkyBlindedBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
+  let s0 = Moment.now()
   if not (blck.slot == state.slot):
     return err("process_block_header: slot mismatch")
 
@@ -57,20 +58,21 @@ func process_block_header*(
   if not (blck.slot > state.latest_block_header.slot):
     return err("process_block_header: block not newer than latest block header")
 
+  let s1 = Moment.now()
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
-
+  let s2 = Moment.now()
   if not (blck.proposer_index == proposer_index):
     return err("process_block_header: proposer index incorrect")
-
+  let s3 = Moment.now()
   # Verify that the parent matches
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     return err("process_block_header: previous block root mismatch")
-
+  let s4 = Moment.now()
   # Verify proposer is not slashed
   if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
-
+  let s5 = Moment.now()
   # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
@@ -79,6 +81,14 @@ func process_block_header*(
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
   )
+  let s6 = Moment.now()
+
+  debug "process_block_header: durations",
+    proposer_index_duration = $(s2 - s1),
+    previos_block_root_duration = $(s4 - s3),
+    proposer_slash_duration = $(s5 - s4),
+    header_creation_duration = $(s6 - s5),
+    function_duration = $(s6 - s0)
 
   ok()
 
@@ -1044,25 +1054,33 @@ proc process_execution_payload*(
     body: SomeElectraBeaconBlockBody | electra_mev.SigVerifiedBlindedBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload
-
+  let s0 = Moment.now()
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
   if not (payload.parent_hash ==
       state.latest_execution_payload_header.block_hash):
     return err("process_execution_payload: payload and state parent hash mismatch")
 
+  let s1 = Moment.now()
+
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
     return err("process_execution_payload: payload and state randomness mismatch")
+
+  let s2 = Moment.now()
 
   # Verify timestamp
   if not (payload.timestamp == cfg.timeParams
       .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
+  let s3 = Moment.now()
+
   # [New in Deneb] Verify commitments are under limit
   if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
     return err("process_execution_payload: too many KZG commitments")
+
+  let s4 = Moment.now()
 
   when payload is ForkyExecutionPayloadHeader:
     # Assume valid, when blinded
@@ -1075,6 +1093,13 @@ proc process_execution_payload*(
     # Cache execution payload header
     state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
 
+  let s5 = Moment.now()
+
+  debug "process_execution_payload: durations",
+    randao_mix_duration = $(s2 - s1),
+    compute_timestamp_at_slot_duration = $(s3 - s2),
+    payload_notification_duration = $(s5 - s4),
+    function_duration = $(s5 - s0)
   ok()
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -1681,11 +1706,11 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
   let third = Moment.now()
   debug "process_block: durations",
-    process_block_header = process_block_header_duration,
-    process_randao = process_randao_duration,
-    process_eth1_data = process_eth1_data_duration,
-    operations = second - start,
-    sync_aggregate = third - second
+    process_block_header = $process_block_header_duration,
+    process_randao = $process_randao_duration,
+    process_eth1_data = $process_eth1_data_duration,
+    operations = $(second - start),
+    sync_aggregate = $(third - second)
 
   ok(operations_rewards)
 
