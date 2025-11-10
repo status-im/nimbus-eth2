@@ -166,23 +166,23 @@ func lightClientFinalityUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
 func lightClientOptimisticUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.syncCommitteeMessageSlotOffset
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.2/specs/gloas/validator.md#attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#attestation
 func attestationSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.ATTESTATION_DUE_BPS_GLOAS)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.2/specs/gloas/validator.md#time-parameters
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#time-parameters
 func aggregateSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS_GLOAS)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.2/specs/gloas/validator.md#sync-committee-participations
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#sync-committee-participations
 func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.2/specs/gloas/validator.md#sync-committee-participations
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#sync-committee-participations
 func syncContributionSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS_GLOAS)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.2/specs/gloas/validator.md#payload-timeliness-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#payload-timeliness-attestation
 func payloadAttestationSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
 
