@@ -1005,7 +1005,7 @@ proc validateExecutionPayload*(
             break
       seen
   if not blockSeen:
-    quarantine[].addMissing(envelope.beacon_block_root)
+    discard quarantine[].addMissing(envelope.beacon_block_root)
     envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
 
