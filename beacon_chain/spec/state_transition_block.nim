@@ -25,7 +25,7 @@
 #   motivated by security or performance considerations
 
 import
-  chronicles, metrics,
+  chronicles, metrics, chronos/timer,
   ../extras,
   ./[beaconstate, eth2_merkleization, forks, helpers, validator, signatures],
   kzg4844/kzg_abi, kzg4844/kzg
@@ -1631,6 +1631,11 @@ proc process_block*(
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
+template withDuration(name, body): untyped =
+  let start = Moment.now()
+  body
+  let `name` {.inject.} = Moment.now() - start
+
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeElectraBlock =
   electra.BeaconBlock | electra.SigVerifiedBeaconBlock | electra.TrustedBeaconBlock
@@ -1643,26 +1648,44 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_block_header(state, blck, flags, cache)
+  withDuration(process_block_header_duration):
+    ? process_block_header(state, blck, flags, cache)
 
   # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
   # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
-    ? process_withdrawals(state, blck.body.payload)
-    ? process_execution_payload(
-        cfg, state, blck.body,
-        func(_: deneb.ExecutionPayload): bool = true)
-  ? process_randao(state, blck.body, flags, cache)
-  ? process_eth1_data(state, blck.body)
+    withDuration(process_withdrawals_duration):
+      ? process_withdrawals(state, blck.body.payload)
+    withDuration(process_execution_payload_duration):
+      ? process_execution_payload(
+          cfg, state, blck.body,
+          func(_: deneb.ExecutionPayload): bool = true)
+    debug "process_block: execution durations",
+      process_withdrawals = process_withdrawals_duration,
+      process_execution_payload = process_execution_payload_duration
+  withDuration(process_randao_duration):
+    ? process_randao(state, blck.body, flags, cache)
+  withDuration(process_eth1_data_duration):
+    ? process_eth1_data(state, blck.body)
 
   let
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    start = Moment.now()
+  var operations_rewards =
+    ? process_operations(
+      cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  let second = Moment.now()
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+  let third = Moment.now()
+  debug "process_block: durations",
+    process_block_header = process_block_header_duration,
+    process_randao = process_randao_duration,
+    process_eth1_data = process_eth1_data_duration,
+    operations = second - start,
+    sync_aggregate = third - second
 
   ok(operations_rewards)
 
