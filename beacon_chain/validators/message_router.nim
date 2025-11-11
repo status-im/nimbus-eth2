@@ -102,9 +102,7 @@ proc routeSignedBeaconBlock*(
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
-  var s0, s1: Moment
   block:
-    s0 = Moment.now()
     let res = validateBeaconBlock(
       router[].dag, router[].quarantine, blck, wallTime, {})
 
@@ -114,27 +112,7 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    s1 = Moment.now()
-    # when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    #   if blobsOpt.isSome:
-    #     let blobs = blobsOpt.get()
-    #     let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
-    #     if blobs.len > 0 or kzgCommits.len > 0:
-    #       let res = validate_blobs(
-    #         kzgCommits,
-    #         blobs.mapIt(KzgBlob(bytes: it.blob)),
-    #         blobs.mapIt(it.kzg_proof))
-    #       if res.isErr():
-    #         warn "blobs failed validation",
-    #           blockRoot = shortLog(blck.root),
-    #           blobs = shortLog(blobs),
-    #           blck = shortLog(blck.message),
-    #           signature = shortLog(blck.signature),
-    #           msg = res.error()
-    #         return err(res.error())
-
   let
-    s2 = Moment.now()
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
     # The block (and blobs, if present) passed basic gossip validation
@@ -144,18 +122,13 @@ proc routeSignedBeaconBlock*(
 
   let res = await router[].network.broadcastBeaconBlock(blck)
 
-  let s3 = Moment.now()
-
   if res.isOk():
     beacon_blocks_sent.inc()
     beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
 
     notice "Block sent",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature), delay,
-      validation_duration = $(s1 - s0),
-      blob_validation_duration = $(s2 - s1),
-      block_broadcast_duration = $(s3 - s2)
+      signature = shortLog(blck.signature), delay
   else: # "no broadcast" is not a fatal error
     notice "Block not sent",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -254,7 +227,7 @@ proc routeAttestation*(
     router: ref MessageRouter,
     attestation: phase0.Attestation | SingleAttestation,
     subnet_id: SubnetId, checkSignature, checkValidator: bool):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
+    Future[SendResult]` {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
