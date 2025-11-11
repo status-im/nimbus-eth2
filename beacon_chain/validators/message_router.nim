@@ -227,7 +227,7 @@ proc routeAttestation*(
     router: ref MessageRouter,
     attestation: phase0.Attestation | SingleAttestation,
     subnet_id: SubnetId, checkSignature, checkValidator: bool):
-    Future[SendResult]` {.async: (raises: [CancelledError]).} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
