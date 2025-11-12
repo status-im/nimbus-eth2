@@ -326,7 +326,7 @@ proc processBlobSidecar*(
   let delay = wallTime -
     block_header.slot.start_beacon_time(self.dag.timeParams)
   debug "Blob received", delay
-  let s0 = Moment.now()
+
   let v =
     self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
                                  blobSidecar, wallTime, subnet_id)
@@ -335,11 +335,9 @@ proc processBlobSidecar*(
     debug "Dropping blob", error = v.error()
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
-  let s1 = Moment.now()
+
   let block_root = hash_tree_root(block_header)
-  let s2 = Moment.now()
-  debug "Blob validated, putting in blob quarantine",
-    validation_time = $(s1 - s0), hashing_time = $(s2 - s1)
+  debug "Blob validated, putting in blob quarantine"
   self.blobQuarantine[].put(block_root, newClone(blobSidecar))
 
   if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
