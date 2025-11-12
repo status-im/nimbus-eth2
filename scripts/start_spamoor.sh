@@ -18,12 +18,15 @@ source "${SCRIPTS_DIR}/spamoor_binaries.sh"
 # `execution_genesis.json.template`.
 SPAMOOR_PRIVATE_KEY="65975debdc6b09ef5d40871d371861e98cbf1582ccf3f5466ed8ca8999f09388"
 # Default value.
-SPAMOOR_SECONDS_PER_SLOT="12"        # seconds
-SPAMOOR_MAX_WALLETS="200"            #
-SPAMOOR_REFILL_AMOUNT="5000"         # ETH
-SPAMOOR_REFILL_BALANCE="2"           # ETH
-SPAMOOR_REFILL_INTERVAL="600"        # seconds
-SPAMOOR_SIDECARS_PER_TRANSACTION="5" #
+SPAMOOR_SECONDS_PER_SLOT="12"               # seconds
+SPAMOOR_MAX_WALLETS="2000"                  # count
+SPAMOOR_TRANSACTIONS_COUNT="1000"           # transactions count
+SPAMOOR_THROUGHPUT="10"                     # transactions per second
+SPAMOOR_REFILL_AMOUNT="5000"                # ETH
+SPAMOOR_REFILL_BALANCE="2"                  # ETH
+SPAMOOR_REFILL_INTERVAL="600"               # seconds
+SPAMOOR_SIDECARS_PER_TRANSACTION="5"        # count
+SPAMOOR_LOG="${DATA_DIR}/logs/spamoor.txt"  # path
 
 log "Using ${SPAMOOR_BINARY}"
 
@@ -53,18 +56,22 @@ if [[ "${CONST_PRESET}" == "minimal" ]]; then
   SPAMOOR_SECONDS_PER_SLOT="6"
 fi
 
+set -x
 ${SPAMOOR_BINARY} \
   blobs \
   --privkey "${SPAMOOR_PRIVATE_KEY}" \
   ${SPAMOOR_RPC_ENDPOINTS} \
   --seconds-per-slot ${SPAMOOR_SECONDS_PER_SLOT} \
   --sidecars ${SPAMOOR_SIDECARS_PER_TRANSACTION} \
+  --count ${SPAMOOR_TRANSACTIONS_COUNT} \
+  --throughput ${SPAMOOR_THROUGHPUT} \
   --max-wallets ${SPAMOOR_MAX_WALLETS} \
   --refill-amount ${SPAMOOR_REFILL_AMOUNT} \
   --refill-balance ${SPAMOOR_REFILL_BALANCE} \
   --refill-interval ${SPAMOOR_REFILL_INTERVAL} \
   --log-txs --verbose --trace \
-  &> "${DATA_DIR}/logs/spamoor.txt" &
+  &> "${SPAMOOR_LOG}" &
+set +x
 
 PID=$!
 echo $PID > "${DATA_DIR}/pids/spamoor.pid"
