@@ -45,7 +45,7 @@ template payload(body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBod
     body.execution_payload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#block-header
-proc process_block_header*(
+func process_block_header*(
     state: var ForkyBeaconState,
     blck: SomeForkyBeaconBlock | SomeForkyBlindedBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -59,14 +59,18 @@ proc process_block_header*(
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
+
   if not (blck.proposer_index == proposer_index):
     return err("process_block_header: proposer index incorrect")
+
   # Verify that the parent matches
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     return err("process_block_header: previous block root mismatch")
+
   # Verify proposer is not slashed
   if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
+
   # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
@@ -1040,6 +1044,7 @@ proc process_execution_payload*(
     body: SomeElectraBeaconBlockBody | electra_mev.SigVerifiedBlindedBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload
+
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
   if not (payload.parent_hash ==
@@ -1637,6 +1642,7 @@ proc process_block*(
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
+
   ? process_block_header(state, blck, flags, cache)
 
   # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
@@ -1653,11 +1659,11 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  var operations_rewards =
-    ? process_operations(
-      cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
   ok(operations_rewards)
 
 type SomeFuluBlock =
