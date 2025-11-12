@@ -129,7 +129,7 @@ func makeExecutionPayloadForSigning*(
     blobsBundle: BlobsBundle,
 ): consensusFork.ExecutionPayloadForSigning =
   ## Construct an execution payload that is sufficiently valid to pass consensus
-  ## validations (without necessarily making sense on the execuction side, which
+  ## validations (without necessarily making sense on the execution side, which
   ## requires execution state) - in Bellatrix, it _should_ be EL-valid as well!
 
   let
