@@ -282,6 +282,7 @@ local-testnet-mainnet:
 		--timeout 2784 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no
