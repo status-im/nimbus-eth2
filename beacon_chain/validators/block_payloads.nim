@@ -46,18 +46,24 @@ export results
 type
   BuilderBidResult[BB: ForkyBuilderBid] = Result[BB, string]
 
-  EngineBlock[BB: ForkyBeaconBlock] = object
+  NoBlobsBundle = object
+
+  MaybeBlobsBundle =
+    ForkyBlobsBundle |
+    NoBlobsBundle
+
+  EngineBlock[BB: ForkyBeaconBlock, FB: MaybeBlobsBundle] = object
     blck*: BB
     executionValue*: Wei
     consensusValue*: UInt256
-    blobsBundle*: fulu.BlobsBundle
+    blobsBundle*: FB
 
   BuilderBlock[BBB: ForkyBlindedBeaconBlock] = object
     blck*: BBB
     executionValue*: Wei
     consensusValue*: UInt256
 
-  EngineBlockResult[BB: ForkyBeaconBlock] = Result[EngineBlock[BB], string]
+  EngineBlockResult[BB: ForkyBeaconBlock, FB: MaybeBlobsBundle] = Result[EngineBlock[BB, FB], string]
   BuilderBlockResult[BBB: ForkyBlindedBeaconBlock] = Result[BuilderBlock[BBB], string]
 
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
@@ -91,11 +97,19 @@ template toBlockContents(
   elif consensusFork >= ConsensusFork.Deneb:
     consensusFork.BlockContents(
       `block`: engineBlock.blck,
-      kzg_proofs: deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+      kzg_proofs: engineBlock.blobsBundle.proofs,
       blobs: engineBlock.blobsBundle.blobs,
     )
   else:
     engineBlock.blck
+
+template toBlobsBundle(consensusFork: static ConsensusFork): untyped =
+  when consensusFork >= ConsensusFork.Fulu:
+    fulu.BlobsBundle
+  elif consensusFork >= ConsensusFork.Deneb:
+    deneb.BlobsBundle
+  else:
+    NoBlobsBundle
 
 func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Local, value8: value)
@@ -216,7 +230,7 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
-): EngineBlockResult[consensusFork.BeaconBlock] =
+): EngineBlockResult[consensusFork.BeaconBlock, toBlobsBundle(consensusFork)] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
@@ -249,25 +263,15 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
-  template getFuluBlobsBundle(bb: fulu.BlobsBundle):
-      fulu.BlobsBundle {.used.} =
-    bb
-  template getFuluBlobsBundle(bb: deneb.BlobsBundle):
-      fulu.BlobsBundle {.used.} =
-    fulu.BlobsBundle(
-      commitments: bb.commitments,
-      proofs: fulu.KzgProofs(bb.proofs),
-      blobs: bb.blobs)
-
-  ok EngineBlock[consensusFork.BeaconBlock](
+  ok EngineBlock[consensusFork.BeaconBlock, toBlobsBundle(consensusFork)](
     blck: blockAndRewards.blck,
     executionValue: eps.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
     blobsBundle:
       when consensusFork >= ConsensusFork.Deneb:
-        getFuluBlobsBundle(eps.blobsBundle)
+        eps.blobsBundle
       else:
-        default(fulu.BlobsBundle),
+        default(NoBlobsBundle),
   )
 
 proc getExecutionPayload*(

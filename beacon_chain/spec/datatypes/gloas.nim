@@ -102,9 +102,22 @@ type
     blob_kzg_commitments*: KzgCommitments
     state_root*: Eth2Digest
 
+  TrustedExecutionPayloadEnvelope* = object
+    payload*: deneb.ExecutionPayload
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    blob_kzg_commitments*: KzgCommitments
+    state_root*: Eth2Digest
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
   SignedExecutionPayloadEnvelope* = object
     message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
+
+  TrustedSignedExecutionPayloadEnvelope* = object
+    message*: TrustedExecutionPayloadEnvelope
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationdata
@@ -616,10 +629,22 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     blob_kzg_commitments_root: shortLog(v.blob_kzg_commitments_root),
   )
 
+func shortLog*(v: ExecutionPayloadEnvelope): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    slot: v.slot,
+    builder_index: v.builder_index,
+    state_root: shortLog(v.state_root)
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
+
+template asSigned*(
+    x: TrustedSignedExecutionPayloadEnvelope): SignedExecutionPayloadEnvelope =
+  isomorphicCast[SignedExecutionPayloadEnvelope](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |

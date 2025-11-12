@@ -197,6 +197,10 @@ type
     electra_mev.BuilderBid |
     fulu_mev.BuilderBid
 
+  ForkyBlobsBundle* =
+    deneb.BlobsBundle |
+    fulu.BlobsBundle
+
   ForkySignedBuilderBid* =
     electra_mev.SignedBuilderBid |
     fulu_mev.SignedBuilderBid
@@ -1037,7 +1041,7 @@ template forky*(
   elif kind == ConsensusFork.Phase0:
     x.phase0Data
   else:
-    {.error: "Unreachable".}
+    {.error: "Unreachable: " & $kind.}
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind

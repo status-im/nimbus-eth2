@@ -17,10 +17,10 @@ import
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
-  ./testutil, ./testdbutil, ./testblockutil
+  ./[testblockutil, testdbutil, teststateutil, testutil]
 
 from std/random import rand, randomize, sample
-from std/sequtils import toSeq
+from std/sequtils import mapIt, toSeq
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
 from ./testbcutil import addHeadBlock
@@ -661,10 +661,7 @@ suite "Old database versions" & preset():
     let
       rng = HmacDrbgContext.new()
       cfg = defaultRuntimeConfig
-      genState = newClone(initialize_hashed_beacon_state_from_eth1(
-        cfg, ZERO_HASH, 0,
-        makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
-        {skipBlsValidation}))
+      genState = newClone(initGenesisState(cfg, SLOTS_PER_EPOCH).phase0Data)
       genBlock = get_initial_beacon_block(genState[])
     var
       taskpool = Taskpool.new()
@@ -784,12 +781,7 @@ suite "Backfill":
   setup:
     let
       cfg = defaultRuntimeConfig
-      genState = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Phase0,
-        phase0Data: initialize_hashed_beacon_state_from_eth1(
-          cfg, ZERO_HASH, 0,
-          makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
-          {skipBlsValidation}))
+      genState = initGenesisState(cfg, SLOTS_PER_EPOCH)
       tailState = assignClone(genState[])
 
       blocks = block:
@@ -1043,12 +1035,7 @@ suite "Starting states":
   setup:
     let
       cfg = defaultRuntimeConfig
-      genState = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.Phase0,
-        phase0Data: initialize_hashed_beacon_state_from_eth1(
-          cfg, ZERO_HASH, 0,
-          makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
-          {skipBlsValidation}))
+      genState = initGenesisState(cfg, SLOTS_PER_EPOCH)
       tailState = assignClone(genState[])
       db = BeaconChainDB.new("", cfg, inMemory = true)
       quarantine = newClone(Quarantine.init(cfg))
@@ -1702,7 +1689,9 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
   var deposits = newSeqOfCap[Deposit](targetNumValidators)
   for depositIndex in 0 ..< targetNumValidators:
-    deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
+    deposits.add Deposit(
+      data: makeDepositData(depositIndex.int, version = cfg.GENESIS_FORK_VERSION)
+    )
   let
     eth1Data = Eth1Data(
       deposit_root: deposits.attachMerkleProofs(),
@@ -1710,7 +1699,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
     dag = ChainDAGRef.init(
       cfg, cfg.makeTestDB(
-        numValidators, eth1Data = Opt.some(eth1Data), flags = {}),
+        numValidators, eth1Data = Opt.some(eth1Data)),
       validatorMonitor, {})
     quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()

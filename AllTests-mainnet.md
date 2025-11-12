@@ -142,6 +142,7 @@ AllTests-mainnet
 ```diff
 + Don't re-download unviable blocks                                                          OK
 + Keep downloading parent chain even if we hit missing limit                                 OK
++ No new missing/orphans while processing                                                    OK
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
@@ -590,6 +591,13 @@ AllTests-mainnet
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
+## Envelope Quarantine
+```diff
++ Add missing                                                                                OK
++ Add orphan                                                                                 OK
++ Clean up orphans                                                                           OK
++ Pop orphan                                                                                 OK
+```
 ## Eth1 monitor
 ```diff
 + Rewrite URLs                                                                               OK
@@ -599,6 +607,16 @@ AllTests-mainnet
 + Invalid attnets field                                                                      OK
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
+```
+## Execution Payload Bid Pool
+```diff
++ Add and retrieve highest bid                                                               OK
++ Duplicate detection - same builder same slot                                               OK
++ Empty pool returns none                                                                    OK
++ Highest bid selection - different builders                                                 OK
++ Multiple bids for different parents same slot                                              OK
++ Pruning removes old bids                                                                   OK
++ Track seen bids                                                                            OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff

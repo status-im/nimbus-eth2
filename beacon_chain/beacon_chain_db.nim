@@ -121,6 +121,8 @@ type
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
+    envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
+
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
     stateDiffs: KvStoreRef ##\
@@ -604,6 +606,10 @@ proc new*(T: type BeaconChainDB,
   if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
     columns = kvStore db.openKvStore("fulu_columns").expectDb()
 
+  var envelopes: KvStoreRef
+  if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
+
   let quarantine = db.initQuarantineDB().expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
@@ -642,6 +648,7 @@ proc new*(T: type BeaconChainDB,
     blocks: blocks,
     blobs: blobs,
     columns: columns,
+    envelopes: envelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -866,6 +873,14 @@ proc delDataColumnSidecar*(
     root: Eth2Digest, index: ColumnIndex): bool =
   db.columns.del(columnkey(root, index)).expectDb()
 
+proc putExecutionPayloadEnvelope*(
+    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
+  template key: untyped = value.message.beacon_block_root
+  db.envelopes.putSZSSZ(key.data, value)
+
+proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
+  db.envelopes.del(root.data).expectDb()
+
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
@@ -1077,6 +1092,13 @@ proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnInd
   if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
     return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
+
+proc getExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest,
+    value: var TrustedSignedExecutionPayloadEnvelope): bool =
+  if db.envelopes == nil:
+    return false
+  db.envelopes.getSZSSZ(root.data, value) == GetResult.found
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,

@@ -13,9 +13,9 @@ import
   stew/bitops2,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/[bellatrix, capella],
+  ./teststateutil,
   # Test utilities
-  unittest2, mocking/mock_genesis
+  unittest2
 
 suite "Spec helpers":
   test "integer_squareroot":
@@ -34,7 +34,7 @@ suite "Spec helpers":
 
   test "build_proof - BeaconState":
     var
-      forked = newClone(initGenesisState())
+      forked = newClone(initGenesisState(defaultRuntimeConfig))
       cache = StateCache()
       info = ForkedEpochInfo()
     process_slots(

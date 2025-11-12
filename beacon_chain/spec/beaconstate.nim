@@ -1930,7 +1930,7 @@ func compute_deposit_root(deposits: openArray[DepositData]): Eth2Digest =
 
   mixInLength(merkleizer.getFinalHash(), deposits.len)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
@@ -2027,123 +2027,6 @@ proc initialize_hashed_beacon_state_from_eth1*(
       cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
   result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
-proc initialize_beacon_state_from_eth1*(
-    cfg: RuntimeConfig,
-    consensusFork: static ConsensusFork,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): consensusFork.BeaconState =
-  ## Get the genesis ``BeaconState``.
-  ##
-  ## Before the beacon chain starts, validators will register in the Eth1 chain
-  ## and deposit ETH. When enough many validators have registered, a
-  ## `ChainStart` log will be emitted and the beacon chain can start beaconing.
-  ##
-  ## Because the state root hash is part of the genesis block, the beacon state
-  ## must be calculated before creating the genesis block.
-
-  # Induct validators
-  # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
-  # validators - there needs to be at least one member in each committee -
-  # good to know for testing, though arguably the system is not that useful at
-  # at that point :)
-  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
-
-  let
-    forkVersion = cfg.forkVersion(consensusFork)
-    fork = Fork(
-      previous_version: forkVersion,
-      current_version: forkVersion,
-      epoch: GENESIS_EPOCH)
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  template state(): untyped = result
-  result = consensusFork.BeaconState(
-    fork: fork,
-    genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
-    eth1_data: Eth1Data(
-      deposit_count: deposits.lenu64,
-      deposit_root: compute_deposit_root(deposits),
-      block_hash: eth1_block_hash),
-    eth1_deposit_index: deposits.lenu64,
-    latest_block_header: BeaconBlockHeader(
-      body_root: hash_tree_root(default consensusFork.BeaconBlockBody)))
-
-  # Seed RANDAO with Eth1 entropy
-  state.randao_mixes.data.fill(eth1_block_hash)
-
-  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-  for idx, deposit in deposits:
-    let
-      pubkey = deposit.pubkey
-      amount = deposit.amount
-
-    pubkeyToIndex.withValue(pubkey, foundIdx) do:
-      # Increase balance by deposit amount
-      increase_balance(state, foundIdx[], amount)
-    do:
-      if skipBlsValidation in flags or
-         verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit):
-        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
-        if not state.validators.add get_validator_from_deposit(
-            state, deposit.pubkey, deposit.withdrawal_credentials,
-            deposit.amount):
-          raiseAssert "too many validators"
-        if not state.balances.add(amount):
-          raiseAssert "same as validators"
-
-      else:
-        # Invalid deposits are perfectly possible
-        trace "Skipping deposit with invalid signature",
-          deposit = shortLog(deposit)
-
-  # Initialize epoch participations - TODO (This must be added to the spec)
-  var
-    empty_participation: EpochParticipationFlags
-    inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
-
-  doAssert empty_participation.asList.setLen(state.validators.len)
-  doAssert inactivity_scores.data.setLen(state.validators.len)
-  inactivity_scores.resetCache()
-
-  state.previous_epoch_participation = empty_participation
-  state.current_epoch_participation = empty_participation
-  state.inactivity_scores = inactivity_scores
-
-  # Process activations
-  for vidx in state.validators.vindices:
-    let
-      balance = state.balances.item(vidx)
-      validator = addr state.validators.mitem(vidx)
-
-    validator.effective_balance = min(
-      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
-      MAX_EFFECTIVE_BALANCE.Gwei)
-
-    if validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei:
-      validator.activation_eligibility_epoch = GENESIS_EPOCH
-      validator.activation_epoch = GENESIS_EPOCH
-
-  # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root = hash_tree_root(state.validators)
-
-  # Fill in sync committees
-  # Note: A duplicate committee is assigned for the current and next committee at genesis
-  state.current_sync_committee = get_next_sync_committee(state)
-  state.next_sync_committee = get_next_sync_committee(state)
-
-  # [New in Bellatrix] Initialize the execution payload header
-  # If empty, will initialize a chain that has not yet gone through the Merge transition
-  state.latest_execution_payload_header = execution_payload_header
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  # state
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
@@ -2166,8 +2049,9 @@ func translate_participation(
         state.previous_epoch_participation[index] =
           add_flag(state.previous_epoch_participation.item(index), flag_index)
 
-func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
-    ref altair.BeaconState =
+# upgrade_to_altair
+func upgrade_to_next*(cfg: RuntimeConfig, pre: phase0.BeaconState, _: var StateCache):
+    altair.BeaconState =
   var
     empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
@@ -2177,7 +2061,8 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()
 
-  let post = (ref altair.BeaconState)(
+  template post: untyped = result
+  post = altair.BeaconState(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
@@ -2220,21 +2105,22 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 
   # Fill in previous epoch participation from the pre state's pending
   # attestations
-  translate_participation(post[], pre.previous_epoch_attestations.asSeq)
+  translate_participation(post, pre.previous_epoch_attestations.asSeq)
 
   # Fill in sync committees
   # Note: A duplicate committee is assigned for the current and next committee
   # at the fork boundary
-  post[].current_sync_committee = get_next_sync_committee(post[])
-  post[].next_sync_committee = get_next_sync_committee(post[])
+  post.current_sync_committee = get_next_sync_committee(post)
+  post.next_sync_committee = get_next_sync_committee(post)
 
-  post
+  # result = post
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/fork.md#upgrading-the-state
-func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
-    ref bellatrix.BeaconState =
+# upgrade_to_bellatrix
+func upgrade_to_next*(cfg: RuntimeConfig, pre: altair.BeaconState, _: var StateCache):
+    bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
-  (ref bellatrix.BeaconState)(
+  bellatrix.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2288,8 +2174,9 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/fork.md#upgrading-the-state
-func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
-    ref capella.BeaconState =
+# upgrade_to_capella
+func upgrade_to_next*(cfg: RuntimeConfig, pre: bellatrix.BeaconState, _: var StateCache):
+    capella.BeaconState =
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = capella.ExecutionPayloadHeader(
@@ -2310,7 +2197,7 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
       withdrawals_root: Eth2Digest()  # [New in Capella]
     )
 
-  (ref capella.BeaconState)(
+  capella.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2371,8 +2258,9 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/deneb/fork.md#upgrading-the-state
-func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
-    ref deneb.BeaconState =
+# upgrade_to_deneb
+func upgrade_to_next*(cfg: RuntimeConfig, pre: capella.BeaconState, _: var StateCache):
+    deneb.BeaconState =
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = deneb.ExecutionPayloadHeader(
@@ -2395,7 +2283,7 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
       excess_blob_gas: 0 # [New in Deneb]
     )
 
-  (ref deneb.BeaconState)(
+  deneb.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2456,9 +2344,10 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/fork.md#upgrading-the-state
-func upgrade_to_electra*(
+# upgrade_to_electra
+func upgrade_to_next*(
     cfg: RuntimeConfig, pre: deneb.BeaconState, cache: var StateCache):
-    ref electra.BeaconState =
+    electra.BeaconState =
   let epoch = get_current_epoch(pre)
 
   var earliest_exit_epoch =
@@ -2469,7 +2358,8 @@ func upgrade_to_electra*(
         earliest_exit_epoch = v.exit_epoch
   earliest_exit_epoch += 1
 
-  let post = (ref electra.BeaconState)(
+  template post: untyped = result
+  post = electra.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2544,9 +2434,9 @@ func upgrade_to_electra*(
   )
 
   post.exit_balance_to_consume =
-    get_activation_exit_churn_limit(cfg, post[], cache)
+    get_activation_exit_churn_limit(cfg, post, cache)
   post.consolidation_balance_to_consume =
-    get_consolidation_churn_limit(cfg, post[], cache)
+    get_consolidation_churn_limit(cfg, post, cache)
 
   # [New in Electra:EIP7251]
   # add validators that are not yet active to pending balance deposits
@@ -2574,18 +2464,19 @@ func upgrade_to_electra*(
   # Ensure early adopters of compounding credentials go through the activation
   # churn
   for index, validator in post.validators:
-    if has_compounding_withdrawal_credential(type(post[]).kind, validator):
-      queue_excess_active_balance(post[], index.uint64)
+    if has_compounding_withdrawal_credential(type(post).kind, validator):
+      queue_excess_active_balance(post, index.uint64)
 
-  post
+  # result = post
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/fulu/fork.md#upgrading-the-state
-func upgrade_to_fulu*(
+# upgrade_to_fulu
+func upgrade_to_next*(
     cfg: RuntimeConfig, pre: electra.BeaconState, cache: var StateCache):
-    ref fulu.BeaconState =
+    fulu.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  let post = (ref fulu.BeaconState)(
+  fulu.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2659,11 +2550,10 @@ func upgrade_to_fulu*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-  post
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/fork.md#upgrading-the-state
-func upgrade_to_gloas*(
-    cfg: RuntimeConfig, pre: fulu.BeaconState): ref gloas.BeaconState =
+# upgrade_to_gloas
+func upgrade_to_next*(
+    cfg: RuntimeConfig, pre: fulu.BeaconState, _: var StateCache): gloas.BeaconState =
   let epoch = get_current_epoch(pre)
 
   const full_execution_payload_availability = block:
@@ -2672,7 +2562,7 @@ func upgrade_to_gloas*(
       setBit(res, i)
     res
 
-  let post = (ref gloas.BeaconState)(
+  gloas.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2743,8 +2633,6 @@ func upgrade_to_gloas*(
     execution_payload_availability: full_execution_payload_availability,
     latest_block_hash: pre.latest_execution_payload_header.block_hash
   )
-
-  post
 
 func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =

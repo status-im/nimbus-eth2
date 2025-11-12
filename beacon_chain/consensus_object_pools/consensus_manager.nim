@@ -487,7 +487,8 @@ proc forkchoiceUpdated(
 
       head.blck.markExecutionValid(false)
       self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
-      self.quarantine[].addUnviable(head.blck.root)
+      # TODO differentiate invalid execution from invalid consensus
+      discard self.quarantine[].addUnviable(head.blck.root, UnviableKind.Invalid)
       false
 
 proc updateExecutionHead*(

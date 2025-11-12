@@ -13,7 +13,7 @@ import
   ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
   ../beacon_chain/consensus_object_pools/block_dag,
   ../beacon_chain/spec/forks,
-  ./testutil
+  ./[testutil, teststateutil]
 
 from std/algorithm import sort
 from std/sequtils import allIt, toSeq
@@ -26,10 +26,8 @@ from ../beacon_chain/spec/beaconstate import
 from ../beacon_chain/spec/state_transition import noRollback
 from ../beacon_chain/validators/validator_monitor import ValidatorMonitor
 from ./consensus_spec/fixtures_utils import genesisTestruntimeConfig
-from ./mocking/mock_genesis import mockEth1BlockHash
 from ./testblockutil import makeInitialDeposits
 from ./testdbutil import makeTestDB
-from ./teststateutil import getTestStates
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -332,7 +330,7 @@ suite "Beacon chain DB" & preset():
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
         cfg, mockEth1BlockHash, 0,
-        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
+        makeInitialDeposits(cfg, SLOTS_PER_EPOCH), {skipBlsValidation}))
 
     db.putState(state[].root, state[].data)
 
