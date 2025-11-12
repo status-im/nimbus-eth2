@@ -432,7 +432,6 @@ proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine, blob_sidecar: BlobSidecar,
     wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
-  let s0 = Moment.now()
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -445,13 +444,13 @@ proc validateBlobSidecar*(
   # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
   if not (blob_sidecar.index < dag.cfg.getMaxBlobsPerBlock(block_header.slot)):
     return dag.checkedReject("BlobSidecar: index inconsistent")
-  let s1 = Moment.now()
+
   # [REJECT] The sidecar is for the correct subnet -- i.e.
   # `compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id`.
   if not (dag.cfg.compute_subnet_for_blob_sidecar(
       block_header.slot, blob_sidecar.index) == subnet_id):
     return dag.checkedReject("BlobSidecar: subnet incorrect")
-  let s2 = Moment.now()
+
   # [IGNORE] The sidecar is not from a future slot (with a
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
   # `block_header.slot <= current_slot` (a client MAY queue future sidecars
@@ -459,20 +458,20 @@ proc validateBlobSidecar*(
   if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
     return errIgnore("BlobSidecar: slot too high")
-  let s3 = Moment.now()
+
   # [IGNORE] The sidecar is from a slot greater than the latest
   # finalized slot -- i.e. validate that `block_header.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
   if not (block_header.slot > dag.finalizedHead.slot):
     return errIgnore("BlobSidecar: slot already finalized")
-  let s4 = Moment.now()
+
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
   if dag.getBlockRef(block_root).isSome():
     return errIgnore("BlobSidecar: already have block")
-  let s5 = Moment.now()
+
   # This adds block root matching to the spec gossip validation. It's an
   # IGNORE condition, so it shouldn't affect Nimbus's scoring, and when some
   # (slashable) double proposals happen with blobs present, without this one
@@ -529,14 +528,13 @@ proc validateBlobSidecar*(
                                  block_header.proposer_index,
                                  blob_sidecar.index):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
-  let s6 = Moment.now()
+
   # [REJECT] The sidecar's inclusion proof is valid as verified by
   # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
   block:
     let v = check_blob_sidecar_inclusion_proof(blob_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
-  let s7 = Moment.now()
 
   # [IGNORE] The sidecar's block's parent (defined by
   # `block_header.parent_root`) has been seen (via both gossip and
@@ -549,13 +547,13 @@ proc validateBlobSidecar*(
     return quarantine[].addMissingValid(
       block_header.parent_root, block_root, "BlobSidecar: parent"
     )
-  let s8 = Moment.now()
+
   # [REJECT] The sidecar is from a higher slot than the sidecar's
   # block's parent (defined by `block_header.parent_root`).
   if not (block_header.slot > parent.bid.slot):
     discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject("BlobSidecar: slot lower than parents'")
-  let s9 = Moment.now()
+
   # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
   # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
@@ -568,16 +566,12 @@ proc validateBlobSidecar*(
     # to the finalized checkpoint (else it wouldn't be in the DAG)
     return errIgnore("BlobSidecar: Can't find ancestor")
 
-  let s10 = Moment.now()
-
   if not (
       finalized_checkpoint.root == ancestor.root or
       finalized_checkpoint.root.isZero):
     discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(
       "BlobSidecar: Finalized checkpoint not an ancestor")
-
-  let s11 = Moment.now()
 
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
@@ -596,8 +590,6 @@ proc validateBlobSidecar*(
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
 
-  let s12 = Moment.now()
-
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
   block:
@@ -608,8 +600,6 @@ proc validateBlobSidecar*(
       return dag.checkedReject("BlobSidecar: blob verify failed")
     if not ok:
       return dag.checkedReject("BlobSidecar: blob invalid")
-
-  let s13 = Moment.now()
 
   # Send notification about new blob sidecar via callback
   let onBlobSidecarCallback = blobQuarantine[].onBlobSidecarCallback()
@@ -622,15 +612,6 @@ proc validateBlobSidecar*(
       versioned_hash:
         blob_sidecar.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex())
 
-  let s14 = Moment.now()
-
-  debug "Blob validation durations",
-    full_time = $(s14 - s0),
-    stage0 = $(s1 - s0), stage1 = $(s2 - s1), stage2 = $(s3 - s2),
-    stage3 = $(s4 - s3), stage4 = $(s5 - s4), stage5 = $(s6 - s5),
-    stage6 = $(s7 - s6), stage7 = $(s8 - s7), stage8 = $(s9 - s8),
-    stage9 = $(s10 - s9), stage10 = $(s11 - s10), stage11 = $(s12 - s11),
-    stage12 = $(s13 - s12), stage13 = $(s14 - s13)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
