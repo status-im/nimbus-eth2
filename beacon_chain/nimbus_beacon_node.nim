@@ -2112,15 +2112,19 @@ proc attemptGetBlobs(node: BeaconNode,
             # and add these columns to column quarantine
             let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
 
-            let filteredCols = recovered_columns
-              .filterIt(it.index in node.dataColumnQuarantine[].custodyColumns)
-              .mapIt(newClone(it))
+            var batch: seq[ref DataColumnSidecar]
+            batch.reserve(MaxColsPerPut)
 
-            var i = 0
-            while i < filteredCols.len:
-              let batch = filteredCols[i ..< min(i + MaxColsPerPut, filteredCols.len)]
+            for col in recovered_columns:
+              if col.index notin node.dataColumnQuarantine[].custodyColumns:
+                continue
+
+              batch.add(newClone(col))
+              if batch.len == MaxColsPerPut:
+                break
+
+            if batch.len > 0:
               node.dataColumnQuarantine[].put(forkyBlck.root, batch)
-              i.inc(MaxColsPerPut)
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
