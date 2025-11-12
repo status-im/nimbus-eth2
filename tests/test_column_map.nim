@@ -103,7 +103,7 @@ suite "ColumnMap test suite":
           vector[2]
 
   test "supernode test":
-    for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
+    for max in (NUMBER_OF_COLUMNS div 2) ..< NUMBER_OF_COLUMNS:
       var columns: seq[ColumnIndex]
       for i in 0 ..< max:
         columns.add(ColumnIndex(i))

@@ -469,7 +469,7 @@ func hasSidecars*(
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
     columnsCount =
       if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
+        NUMBER_OF_COLUMNS div 2
       else:
         len(quarantine.custodyColumns)
 
@@ -555,7 +555,7 @@ proc popSidecars*(
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
     columnsCount =
       if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
+        NUMBER_OF_COLUMNS div 2
       else:
         len(quarantine.custodyColumns)
 
@@ -576,10 +576,10 @@ proc popSidecars*(
           "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
-      if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
+      if len(sidecars) >= NUMBER_OF_COLUMNS div 2:
         break
 
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
+    doAssert(len(sidecars) >= NUMBER_OF_COLUMNS div 2,
       "Incorrect amount of sidecars in record for supernode - " &
         $len(sidecars))
   else:
