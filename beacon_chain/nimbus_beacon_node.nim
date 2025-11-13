@@ -2112,8 +2112,7 @@ proc attemptGetBlobs(node: BeaconNode,
             # and add these columns to column quarantine
             let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
 
-            var batch: seq[ref fulu.DataColumnSidecar]
-            batch.reserve(MaxColsPerPut)
+            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
 
             for col in recovered_columns:
               if col.index notin node.dataColumnQuarantine[].custodyColumns:
