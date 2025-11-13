@@ -1315,14 +1315,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
@@ -1493,14 +1493,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
@@ -1513,59 +1513,44 @@ suite "ColumnQuarantine data structure test suite " & preset():
       fuluBlock1 = genFuluSignedBeaconBlock(broot1, commitments1)
       fuluBlock2 = genFuluSignedBeaconBlock(broot2, commitments2)
 
-    func checkSupernodeExpected(
-      root: Eth2Digest,
-      index: int,
-      missing: DataColumnsByRootIdentifier
-    ): bool =
-      const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
-      ]
+    func expectedFor(i: int): seq[int] =
+      let peer = @[63,64,65,66,95,96,97,98]
+      if i < 56:
+        return peer
+      let want = 64 - i
+      result = peer[0 ..< min(want, peer.len)]
 
-      doAssert(index in 0 .. 65)
-      for expect in ExpectedVectors:
-        if index in expect[1]:
-          if len(expect[0]) != len(missing.indices):
-            return false
-          for i in 0 ..< len(missing.indices):
-            if missing.block_root != root:
-              return false
-            if (int(missing.indices[i]) != expect[0][i]):
-              return false
-          return true
-      false
+    func checkSupernodeExpected(root: Eth2Digest, i: int, missing: DataColumnsByRootIdentifier): bool =
+      let exp = expectedFor(i)
+      if exp.len != missing.indices.len: return false
+      if missing.block_root != root: return false
+      for j in 0 ..< exp.len:
+        if int(missing.indices[j]) != exp[j]: return false
+      return true
 
-    for i in 0 ..< len(sidecars1) + 1:
+    for i in 0 ..< len(sidecars1):
       let
         missing1 = bq.fetchMissingSidecars(broot1, fuluBlock1)
         missing2 = bq.fetchMissingSidecars(broot2, fuluBlock2)
-        missing3 =
-          bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
+        missing3 = bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
+
       check:
         compareSidecars(
           broot1,
-          sidecars1.toOpenArray(i, len(sidecars1) - 1), missing1) == true
+          sidecars1.toOpenArray(i, len(sidecars1) - 1),
+          missing1
+        ) == true
+
         compareSidecars(
           broot2,
-          sidecars2.toOpenArray(i, len(sidecars2) - 1), missing2) == true
-        checkSupernodeExpected(
-          broot1,
-          i, missing3) == true
+          sidecars2.toOpenArray(i, len(sidecars2) - 1),
+          missing2
+        ) == true
 
-      if i >= len(sidecars1):
-        break
+        checkSupernodeExpected(broot1, i, missing3) == true
 
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
-
     bq.remove(broot1)
     bq.remove(broot2)
     check len(bq) == 0

@@ -689,13 +689,13 @@ func fetchMissingSidecars*(
   if supernode:
     if len(record.sidecars) == 0:
       for column in peerMap.items():
-        if len(res) > columnsCount:
+        if len(res) >= columnsCount:
           # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
           # columns.
           break
         res.incl(column)
     else:
-      if record.count > columnsCount:
+      if record.count >= columnsCount:
         # We already have enough columns for reconstruction.
         return
           DataColumnsByRootIdentifier(
@@ -703,7 +703,7 @@ func fetchMissingSidecars*(
             indices: DataColumnIndices(default(seq[ColumnIndex])))
 
       for column in peerMap.items():
-        if record.count + len(res) > columnsCount:
+        if record.count + len(res) >= columnsCount:
           # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
           # columns.
           break
