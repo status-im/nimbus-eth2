@@ -43,6 +43,7 @@ import # Unit test
   ./test_light_client_processor,
   ./test_light_client,
   ./test_network_metadata,
+  ./test_payload_attestation_pool,
   ./test_peer_pool,
   ./test_peerdas_helpers,
   ./test_remote_keystore,
