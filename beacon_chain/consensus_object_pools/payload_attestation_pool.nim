@@ -16,7 +16,7 @@ import
   "."/[spec_cache, blockchain_dag],
   ../beacon_clock
 
-from ../spec/beaconstate import get_ptc
+from ../spec/beaconstate import get_ptc_list
 
 logScope: topics = "payattpool"
 
@@ -33,7 +33,7 @@ type
     dag*: ChainDAGRef
     attestations: Table[Slot, Table[Eth2Digest, PayloadAttestationEntry]]
 
-proc init*(T: type PayloadAttestationPool, dag: ChainDAGRef): T =
+func init*(T: type PayloadAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)
 
 func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
@@ -77,47 +77,29 @@ proc addPayloadAttestation*(
 
   true
 
-func findAllPtcPositions(
-    ptc: seq[ValidatorIndex], validator_index: ValidatorIndex
-): seq[int] =
-  # Find all positions where validator appears in the PTC
-  var positions: seq[int]
-  for i, ptc_member in ptc:
-    if ptc_member == validator_index:
-      positions.add(i)
-  positions
-
 proc aggregateMessages(
     pool: PayloadAttestationPool, slot: Slot,
-    entry: ptr PayloadAttestationEntry, cache: var StateCache
+    entry: var PayloadAttestationEntry, cache: var StateCache
 ): Opt[PayloadAttestation] =
-  ## Aggregate individual messages into a single PayloadAttestation
 
-  if entry[].messages.len == 0:
+  if entry.messages.len == 0:
     return Opt.none(PayloadAttestation)
 
   withState(pool.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var ptc = newSeqOfCap[ValidatorIndex](PTC_SIZE)
-      for validator_index in get_ptc(forkyState.data, slot, cache):
-        ptc.add(validator_index)
-
       var
-        aggregation_bits = BitArray[int(PTC_SIZE)].init()
+        aggregation_bits: BitArray[int(PTC_SIZE)]
         signatures: seq[CookedSig]
+        ptc_index = 0
 
-      for validator_index, message in entry.messages:
-        # Find all positions where this validator appears in PTC,
-        # a single member might appear multiple times in a committee
-        let ptc_positions = findAllPtcPositions(ptc, validator_index)
-
-        let cookedSig = message.signature.load().valueOr:
-          continue
-
-        # set the aggregation bits and add the signature for each position
-        for ptc_index in ptc_positions:
+      let ptc_list = get_ptc_list(forkyState.data, slot, cache)
+      for ptc_validator_index in ptc_list:
+        entry.messages.withValue(ptc_validator_index, message):
+          let cookedSig = message[].signature.load().valueOr:
+            continue
           aggregation_bits[ptc_index] = true
           signatures.add(cookedSig)
+        ptc_index += 1
 
       if signatures.len == 0:
         return Opt.none(PayloadAttestation)
@@ -126,13 +108,13 @@ proc aggregateMessages(
       for i in 1..<signatures.len:
         aggregated_signature.aggregate(signatures[i])
 
-      return Opt.some(PayloadAttestation(
+      Opt.some(PayloadAttestation(
         aggregation_bits: aggregation_bits,
         data: entry.data,
         signature: aggregated_signature.finish().toValidatorSig()
       ))
     else:
-      return Opt.none(PayloadAttestation)
+      Opt.none(PayloadAttestation)
 
 proc getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
@@ -143,7 +125,7 @@ proc getAggregatedPayloadAttestation*(
   pool.attestations.withValue(slot, slotEntries):
     slotEntries[].withValue(beacon_block_root, entry):
       if entry[].aggregated.isNone():
-        entry[].aggregated = pool.aggregateMessages(slot, entry, cache)
+        entry[].aggregated = pool.aggregateMessages(slot, entry[], cache)
       return entry[].aggregated
 
   Opt.none(PayloadAttestation)
