@@ -417,7 +417,7 @@ proc proposeBlockAux(
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
         )
-      elif consensusFork in ConsensusFork.Electra..ConsensusFork.Fulu:
+      elif consensusFork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -508,15 +508,8 @@ proc proposeBlockAux(
                 return head
 
             if unblindedBlockRef.isNone:
-              when consensusFork >= ConsensusFork.Fulu:
-                # This corresponds to 202 in Fulu MEV.
-                return head
-              else:
-                warn "Failed to unblind or route builder payload",
-                  validator = shortLog(validator),
-                  blck = shortLog(blindedBlock.message),
-                  err = "Unblinded block not returned to proposer"
-                return head
+              # This corresponds to 202 in Fulu MEV.
+              return head
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get
@@ -538,6 +531,9 @@ proc proposeBlockAux(
             return head
 
         bids.engineBid
+      elif consensusFork == ConsensusFork.Electra:
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey)
       else:
         static: raiseAssert "Unsupported fork " & $consensusFork
 

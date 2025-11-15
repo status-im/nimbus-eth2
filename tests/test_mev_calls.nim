@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,21 +15,19 @@ import
   chronos/unittest2/asynctests,
   ../beacon_chain/spec/[presets, crypto, signatures, eth2_ssz_serialization,
                         helpers, forks],
-  ../beacon_chain/spec/mev/[electra_mev, fulu_mev, rest_mev_calls],
+  ../beacon_chain/spec/mev/[fulu_mev, rest_mev_calls],
   ../beacon_chain/rpc/rest_utils
 
 from std/times import Time, toUnix, fromUnix, getTime
 
 const
-  ElectraSlot = Slot(64000)
   FuluSlot = Slot(96000)
   emptyFork = Fork()
   emptyVersion = emptyFork.current_version
   emptyRoot = Eth2Digest()
 
 type
-  MevBlocks = electra_mev.SignedBlindedBeaconBlock |
-              fulu_mev.SignedBlindedBeaconBlock
+  MevBlocks = fulu_mev.SignedBlindedBeaconBlock
 
   TestNodeRef* = ref object
     validators: seq[ValidatorPubKey]
@@ -106,7 +104,7 @@ proc prepare(
 
 proc jsonResponseSignedBuilderBid(
     t: typedesc[RestApiResponse],
-    bid: electra_mev.SignedBuilderBid | fulu_mev.SignedBuilderBid
+    bid: fulu_mev.SignedBuilderBid
 ): RestApiResponse =
   let
     consensusFork = typeof(bid).kind()
@@ -124,29 +122,9 @@ proc jsonResponseSignedBuilderBid(
         default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseExecutionPayloadAndBlobsBundle(
-    t: typedesc[RestApiResponse],
-    payload: electra_mev.ExecutionPayloadAndBlobsBundle
-): RestApiResponse =
-  let
-    consensusFork = typeof(payload).kind()
-    headers = [("eth-consensus-version", consensusFork.toString())]
-    res =
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("version", consensusFork.toString())
-        writer.writeField("data", payload)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default(seq[byte])
-  RestApiResponse.response(res, Http200, "application/json", headers = headers)
-
 proc sszResponseSignedBuilderBid*(
     t: typedesc[RestApiResponse],
-    bid: electra_mev.SignedBuilderBid | fulu_mev.SignedBuilderBid,
+    bid: fulu_mev.SignedBuilderBid,
 ): RestApiResponse =
   mixin kind
   let
@@ -157,25 +135,6 @@ proc sszResponseSignedBuilderBid*(
         var stream = memoryOutput()
         var writer = SszWriter.init(stream)
         writer.writeValue(bid)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default(seq[byte])
-  RestApiResponse.response(res, Http200, "application/octet-stream",
-                           headers = headers)
-
-proc sszResponseExecutionPayloadAndBlobsBundle*(
-    t: typedesc[RestApiResponse],
-    payload: electra_mev.ExecutionPayloadAndBlobsBundle
-): RestApiResponse =
-  mixin kind
-  let
-    consensusFork = typeof(payload).kind()
-    headers = [("eth-consensus-version", consensusFork.toString())]
-    res =
-      try:
-        var stream = memoryOutput()
-        var writer = SszWriter.init(stream)
-        writer.writeValue(payload)
         stream.getOutput(seq[byte])
       except IOError:
         default(seq[byte])
@@ -224,13 +183,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
       else:
         RestApiResponse.jsonError(Http415, "Invalid Accept")
 
-    if qslot == ElectraSlot:
-      let bid = electra_mev.SignedBuilderBid(
-        message: electra_mev.BuilderBid(
-          header: deneb.ExecutionPayloadHeader(parent_hash: qhash))
-      )
-      respondSszOrJson(contentType, bid)
-    elif qslot == FuluSlot:
+    if qslot == FuluSlot:
       let bid = fulu_mev.SignedBuilderBid(
         message: fulu_mev.BuilderBid(
           header: deneb.ExecutionPayloadHeader(parent_hash: qhash))
@@ -238,47 +191,6 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
       respondSszOrJson(contentType, bid)
     else:
       RestApiResponse.jsonError(Http500, "Unsupported slot number")
-
-  router.api2(MethodPost, "/eth/v1/builder/blinded_blocks") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-
-    if contentBody.isNone:
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-
-    let
-      rawVersion = request.headers.getString("eth-consensus-version")
-      consensusFork = ConsensusFork.decodeString(rawVersion).valueOr:
-        return RestApiResponse.jsonError(Http400, "Invalid consensus version")
-      contentType = preferredContentType(jsonMediaType,
-                                         sszMediaType).valueOr:
-        return RestApiResponse.jsonError(Http406, "Content type not acceptable")
-
-    if consensusFork < ConsensusFork.Electra:
-      return RestApiResponse.jsonError(Http400, "Unsupported fork version")
-
-    template respondSszOrJson(contentType, payload: auto): RestApiResponse =
-      if contentType == sszMediaType:
-        RestApiResponse.sszResponseExecutionPayloadAndBlobsBundle(payload)
-      elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponseExecutionPayloadAndBlobsBundle(payload)
-      else:
-        RestApiResponse.jsonError(Http415, "Invalid Accept")
-
-    if consensusFork == ConsensusFork.Electra:
-      let
-        blck =
-          decodeBodyJsonOrSsz(electra_mev.SignedBlindedBeaconBlock,
-                              contentBody.get()).valueOr:
-            return RestApiResponse.jsonError(error)
-        payload = electra_mev.ExecutionPayloadAndBlobsBundle(
-          execution_payload: deneb.ExecutionPayload(
-            parent_hash: blck.message.body.execution_payload_header.parent_hash
-          ),
-          blobs_bundle: deneb.BlobsBundle()
-        )
-      respondSszOrJson(contentType, payload)
-    else:
-      raiseAssert "Unsupported fork version"
 
   router.api2(MethodPost, "/eth/v2/builder/blinded_blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -368,10 +280,10 @@ proc testSuite() =
 
       let
         response1 =
-          await client.getHeaderPlain(ElectraSlot, parent_hash,
+          await client.getHeaderPlain(FuluSlot, parent_hash,
             publicKey, restAcceptType = restAcceptType1)
         response2 =
-          await client.getHeaderPlain(ElectraSlot, parent_hash,
+          await client.getHeaderPlain(FuluSlot, parent_hash,
             publicKey, restAcceptType = restAcceptType2)
         response3 =
           await client.getHeaderPlain(FuluSlot, parent_hash,
@@ -394,16 +306,16 @@ proc testSuite() =
         version3 = response3.headers.getString("eth-consensus-version")
 
       check:
-        version1 == ConsensusFork.Electra.toString()
-        version2 == ConsensusFork.Electra.toString()
+        version1 == ConsensusFork.Fulu.toString()
+        version2 == ConsensusFork.Fulu.toString()
         version3 == ConsensusFork.Fulu.toString()
 
       let
         bid1res =
-          decodeBytesJsonOrSsz(GetHeaderResponseElectra, response1.data,
+          decodeBytesJsonOrSsz(GetHeaderResponseFulu, response1.data,
             response1.contentType, version1)
         bid2res =
-          decodeBytesJsonOrSsz(GetHeaderResponseElectra, response2.data,
+          decodeBytesJsonOrSsz(GetHeaderResponseFulu, response2.data,
             response2.contentType, version2)
         bid3res =
           decodeBytesJsonOrSsz(GetHeaderResponseFulu, response3.data,
@@ -442,10 +354,10 @@ proc testSuite() =
 
       let
         blck1 =
-          prepare(electra_mev.SignedBlindedBeaconBlock, ElectraSlot, parent_hash1,
+          prepare(fulu_mev.SignedBlindedBeaconBlock, FuluSlot, parent_hash1,
                   0'u64, privateKey1)
         blck2 =
-          prepare(electra_mev.SignedBlindedBeaconBlock, ElectraSlot, parent_hash2,
+          prepare(fulu_mev.SignedBlindedBeaconBlock, FuluSlot, parent_hash2,
                   1'u64, privateKey2)
         blck3 =
           prepare(fulu_mev.SignedBlindedBeaconBlock, FuluSlot, parent_hash3,
@@ -466,12 +378,12 @@ proc testSuite() =
             "application/octet-stream"
           else:
             "application/json"
-        (restAcceptType1, responseMediaType1) =
+        (restAcceptType1, _) =
           if responseKind == TestKind.Ssz:
             ("application/octet-stream", OctetStreamMediaType)
           else:
             ("application/json", ApplicationJsonMediaType)
-        (restAcceptType2, responseMediaType2) =
+        (restAcceptType2, _) =
           if responseKind == TestKind.Ssz:
             ("application/octet-stream,application/json;q=0.9",
              OctetStreamMediaType)
@@ -487,19 +399,19 @@ proc testSuite() =
              ApplicationJsonMediaType)
 
         response1 =
-          await client.submitBlindedBlockPlain(
+          await client.submitBlindedBlockV2Plain(
             blck1,
             restContentType = restContentType1,
             restAcceptType = restAcceptType1,
             extraHeaders = @[("eth-consensus-version",
-                              toString(ConsensusFork.Electra))])
+                              toString(ConsensusFork.Fulu))])
         response2 =
-          await client.submitBlindedBlockPlain(
+          await client.submitBlindedBlockV2Plain(
             blck2,
             restContentType = restContentType2,
             restAcceptType = restAcceptType2,
             extraHeaders = @[("eth-consensus-version",
-                              toString(ConsensusFork.Electra))])
+                              toString(ConsensusFork.Fulu))])
         response3 =
           await client.submitBlindedBlockV2Plain(
             blck3,
@@ -508,8 +420,8 @@ proc testSuite() =
             extraHeaders = @[("eth-consensus-version",
                               toString(ConsensusFork.Fulu))])
       check:
-        response1.status == 200
-        response2.status == 200
+        response1.status == 202
+        response2.status == 202
         response3.status == 202
 
       let
@@ -518,27 +430,9 @@ proc testSuite() =
         version3 = response3.headers.getString("eth-consensus-version")
 
       check:
-        response1.contentType.isSome()
-        response2.contentType.isSome()
-        response1.contentType.get().mediaType == responseMediaType1
-        response2.contentType.get().mediaType == responseMediaType2
-        version1 == ConsensusFork.Electra.toString()
-        version2 == ConsensusFork.Electra.toString()
+        version1 == ConsensusFork.Fulu.toString()
+        version2 == ConsensusFork.Fulu.toString()
         version3 == ConsensusFork.Fulu.toString()
-
-      let
-        payload1res =
-          decodeBytesJsonOrSsz(SubmitBlindedBlockResponseElectra,
-            response1.data, response1.contentType, version1)
-        payload2res =
-          decodeBytesJsonOrSsz(SubmitBlindedBlockResponseElectra,
-            response2.data, response2.contentType, version2)
-
-      check:
-        payload1res.isOk()
-        payload2res.isOk()
-        payload1res.get().data.execution_payload.parent_hash == parent_hash1
-        payload2res.get().data.execution_payload.parent_hash == parent_hash2
 
     asyncTest "/eth/v1/builder/status test":
       let response = await client.getStatus()
@@ -571,16 +465,16 @@ proc testSuite() =
     asyncTest "/eth/v1/builder/header [ssz] test":
       getHeaderTest(TestKind.Ssz)
 
-    asyncTest "/eth/v1/builder/blinded_blocks [json/json] test":
+    asyncTest "/eth/v2/builder/blinded_blocks [json/json] test":
       submitBlindedBlockTest(TestKind.Json, TestKind.Json)
 
-    asyncTest "/eth/v1/builder/blinded_blocks [json/ssz] test":
+    asyncTest "/eth/v2/builder/blinded_blocks [json/ssz] test":
       submitBlindedBlockTest(TestKind.Json, TestKind.Ssz)
 
-    asyncTest "/eth/v1/builder/blinded_blocks [ssz/ssz] test":
+    asyncTest "/eth/v2/builder/blinded_blocks [ssz/ssz] test":
       submitBlindedBlockTest(TestKind.Ssz, TestKind.Ssz)
 
-    asyncTest "/eth/v1/builder/blinded_blocks [ssz/json] test":
+    asyncTest "/eth/v2/builder/blinded_blocks [ssz/json] test":
       submitBlindedBlockTest(TestKind.Ssz, TestKind.Json)
 
     suiteTeardown:
