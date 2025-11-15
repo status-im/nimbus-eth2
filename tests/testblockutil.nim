@@ -221,7 +221,6 @@ proc addTestEngineBlock*(
         deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash,
       )
-    blobs = BlobsBundle()
 
     eps =
       when consensusFork >= ConsensusFork.Gloas:
@@ -229,7 +228,8 @@ proc addTestEngineBlock*(
         default(gloas.ExecutionPayloadForSigning)
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
-          makeExecutionPayloadForSigning(cfg, consensusFork, state.data, blobs)
+          makeExecutionPayloadForSigning(
+            cfg, consensusFork, state.data, BlobsBundle())
         else:
           default(consensusFork.ExecutionPayloadForSigning)
       else:
