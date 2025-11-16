@@ -223,6 +223,11 @@ func sync_contribution_deadline*(
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffset
 
+func payload_attestation_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.payloadAttestationSlotOffset
+
 func light_client_finality_update_time*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +

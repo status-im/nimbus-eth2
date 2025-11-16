@@ -2870,3 +2870,12 @@ proc broadcastLightClientOptimisticUpdate*(
   let topic = getLightClientOptimisticUpdateTopic(
     node.forkDigestAtEpoch(msg.contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastPayloadAttestationMessage*(
+    node: Eth2Node, msg: PayloadAttestationMessage):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.data.slot.epoch
+    topic = getPayloadAttestationMessageTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)

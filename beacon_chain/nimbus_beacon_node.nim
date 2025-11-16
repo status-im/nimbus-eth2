@@ -17,7 +17,8 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, execution_payload_pool],
+    blob_quarantine, blockchain_list, execution_payload_pool,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -414,6 +415,7 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
+    payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
@@ -531,8 +533,9 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, executionPayloadBidPool, quarantine, blobQuarantine, dataColumnQuarantine,
-      rng, getBeaconTime, taskpool)
+      lightClientPool, executionPayloadBidPool, payloadAttestationPool,
+      quarantine, blobQuarantine, dataColumnQuarantine, rng,
+      getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -647,6 +650,8 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.executionPayloadBidPool = executionPayloadBidPool
+  node.payloadAttestationPool = payloadAttestationPool
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -2347,6 +2352,20 @@ proc installMessageValidators(node: BeaconNode) =
               toValidationResult(
                 node.processor[].processExecutionPayloadBid(
                   MsgSource.gossip, signedBid)))
+
+        # payload_attestation_message
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addAsyncValidator(
+            getPayloadAttestationMessageTopic(digest), proc (
+              payloadAttestationMessage: PayloadAttestationMessage,
+              src: PeerId
+            ): Future[ValidationResult] {.
+                 async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processPayloadAttestationMessage(
+                  MsgSource.gossip, payloadAttestationMessage,
+                  checkSignature = true, checkValidator = false)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id

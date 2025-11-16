@@ -24,14 +24,14 @@ declareGauge payload_attestation_pool_block_packing_time,
   "Time it took to create list of payload attestations for block"
 
 type
-  PayloadAttestationEntry = object
-    data: PayloadAttestationData
-    messages: Table[ValidatorIndex, PayloadAttestationMessage]
-    aggregated: Opt[PayloadAttestation]
+  PayloadAttestationEntry* = object
+    data*: PayloadAttestationData
+    messages*: Table[ValidatorIndex, PayloadAttestationMessage]
+    aggregated*: Opt[PayloadAttestation]
 
   PayloadAttestationPool* = object
     dag*: ChainDAGRef
-    attestations: Table[Slot, Table[Eth2Digest, PayloadAttestationEntry]]
+    attestations*: Table[Slot, Table[Eth2Digest, PayloadAttestationEntry]]
 
 func init*(T: type PayloadAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)

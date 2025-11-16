@@ -23,7 +23,8 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    attestation_pool, execution_payload_pool, payload_attestation_pool,
+    sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
@@ -87,6 +88,8 @@ type
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
+    executionPayloadBidPool*: ref ExecutionPayloadBidPool
+    payloadAttestationPool*: ref PayloadAttestationPool
     elManager*: ELManager
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
