@@ -117,6 +117,11 @@ type LightClientConf* = object
     desc: "Recent trusted finalized block root to initialize light client from"
     name: "trusted-block-root" .}: Eth2Digest
 
+  syncLightClientFinality* {.
+    desc: "Whether the light client should including finality information when syncing execution layers"
+    defaultValue: false
+    name: "sync-light-client-finality" .}: bool
+
   # Execution layer
   web3Urls* {.
     desc: "One or more execution layer Engine API URLs"
