@@ -219,20 +219,9 @@ suite baseDescription & "Execution Payload " & preset():
       res
 
   for path in walkTests(OpExecutionPayloadDir):
-    let
-      testDir = OpExecutionPayloadDir / "pyspec_tests" / path
-      inputFile =
-        if fileExists(testDir/"signed_envelope.ssz_snappy"):
-          "signed_envelope"
-        # Skip test vectors with missing signed envelope files
-        # will be fixed in next consensus-spec-tests release
-        # https://github.com/ethereum/consensus-specs/issues/4545
-        else:
-          continue
-
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", inputFile,
+      OpExecutionPayloadDir, suiteName, "Execution Payload", "signed_envelope",
       applyExecutionPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
