@@ -1601,7 +1601,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1628,6 +1628,7 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   ? process_pending_consolidations(cfg, state)
   process_effective_balance_updates(state)
   process_slashings_reset(state)
@@ -1636,6 +1637,5 @@ proc process_epoch*(
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
   ? process_proposer_lookahead(state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
 
   ok()
