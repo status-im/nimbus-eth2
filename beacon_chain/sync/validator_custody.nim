@@ -18,7 +18,6 @@ import
   ../consensus_object_pools/block_dag,
   ../consensus_object_pools/blob_quarantine
 
-from std/algorithm import sort
 from std/sequtils import toSeq
 from ../beacon_clock import GetBeaconTimeFn
 
@@ -65,7 +64,7 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
     vcus.diff_set = toSeq(newer_columns.difference(vcus.older_column_set))
   # else declare the difference to be 0
   else:
-    vcus.diff_set = 0.ColumnIndex
+    vcus.diff_set = @[]
 
   vcus.older_column_set = vcus.newer_column_set
   vcus.newer_column_set = newer_columns
