@@ -2276,20 +2276,16 @@ proc validatePayloadAttestationMessage*(
   # processing the block up to the current slot as determined by fork choice
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var
-        cache = StateCache()
-        isMember = false
-      for member in get_ptc(forkyState.data, data.slot, cache):
-        if member == payload_attestation_message.validator_index:
-          isMember = true
-          break
-
-        if not isMember:
-          return dag.checkedReject(
-            "PayloadAttestationMessage: validator not in ptc")
+      var cache = StateCache()
+      let 
+        ptc = get_ptc_list(forkyState.data, data.slot, cache)
+        vidx = ValidatorIndex(payload_attestation_message.validator_index)
+      if vidx notin ptc:
+        return dag.checkedReject(
+          "PayloadAttestationMessage: validator not in ptc")
     else:
       return dag.checkedReject(
-        "PayloadAttestationMessage: only valid for Gloas fork and above")
+        "PayloadAttestationMessage: only valid for Gloas fork")
 
   # [REJECT] `payload_attestation_message.signature` is valid with respect
   # to the validator's public key.
