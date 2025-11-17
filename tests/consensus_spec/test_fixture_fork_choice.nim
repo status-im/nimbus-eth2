@@ -270,7 +270,7 @@ proc stepOnBlock(
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
-      state: consensusFork.Beaconstate,
+      state: consensusFork.BeaconState,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
     # 4. Update fork choice if valid

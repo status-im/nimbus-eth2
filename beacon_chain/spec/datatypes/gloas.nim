@@ -74,17 +74,18 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#executionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
-    # Execution block header fields
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
+    prev_randao*: Eth2Digest
     fee_recipient*: ExecutionAddress
     gas_limit*: uint64
     builder_index*: uint64
     slot*: Slot
     value*: Gwei
+    execution_payment*: Gwei
     blob_kzg_commitments_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#signedexecutionpayloadbid

@@ -2550,7 +2550,7 @@ func upgrade_to_next*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork.md#upgrading-the-state
 # upgrade_to_gloas
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: fulu.BeaconState, _: var StateCache): gloas.BeaconState =
@@ -2612,7 +2612,9 @@ func upgrade_to_next*(
     next_sync_committee: pre.next_sync_committee,
 
     # [Modified in Gloas:EIP7732]
-    latest_execution_payload_bid: gloas.ExecutionPayloadBid(),
+    latest_execution_payload_bid: gloas.ExecutionPayloadBid(
+      block_hash: pre.latest_execution_payload_header.block_hash
+    ),
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,
