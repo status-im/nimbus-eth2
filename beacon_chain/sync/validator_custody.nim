@@ -65,7 +65,7 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
     vcus.diff_set = toSeq(newer_columns.difference(vcus.older_column_set))
   # else declare the difference to be 0
   else:
-    vcus.diff_set = 0
+    vcus.diff_set = 0.ColumnIndex
 
   vcus.older_column_set = vcus.newer_column_set
   vcus.newer_column_set = newer_columns
