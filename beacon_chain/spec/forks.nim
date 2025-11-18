@@ -1310,6 +1310,9 @@ template root*(x: ForkedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Eth2Digest =
   withBlck(x): forkyBlck.root
 
+template root*(v: gloas.SignedExecutionPayloadEnvelope): Eth2Digest =
+  v.message.beacon_block_root
+
 template slot*(x: ForkedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Slot =
   withBlck(x): forkyBlck.message.slot
@@ -1822,6 +1825,9 @@ func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
 func toBlockId*(blck: ForkedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock): BlockId =
   withBlck(blck): BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
+
+func toBlockId*(envelope: gloas.SignedExecutionPayloadEnvelope): BlockId =
+  BlockId(root: envelope.message.beacon_block_root, slot: envelope.message.slot)
 
 func historical_summaries*(state: ForkedHashedBeaconState):
     HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT] =
