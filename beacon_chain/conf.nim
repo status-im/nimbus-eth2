@@ -123,6 +123,391 @@ type
     Light = "light",
     Lenient = "lenient"
 
+  BeaconNodeOptsConf* = object
+    runAsServiceFlag* {.
+      windowsOnly
+      defaultValue: false,
+      desc: "Run as a Windows service"
+      name: "run-as-service" .}: bool
+
+    bootstrapNodes* {.
+      desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
+      abbr: "b"
+      name: "bootstrap-node" .}: seq[string]
+
+    bootstrapNodesFile* {.
+      desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
+      defaultValue: ""
+      name: "bootstrap-file" .}: InputFile
+
+    listenAddress* {.
+      desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
+      defaultValueDesc: "*"
+      name: "listen-address" .}: Option[IpAddress]
+
+    maxPeers* {.
+      desc: "The target number of peers to connect to"
+      defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
+      name: "max-peers" .}: int
+
+    hardMaxPeers* {.
+      desc: "The maximum number of peers to connect to. Defaults to maxPeers * 1.5"
+      name: "hard-max-peers" .}: Option[int]
+
+    nat* {.
+      desc: "Specify method to use for determining public address. " &
+            "Must be one of: any, none, upnp, pmp, extip:<IP>"
+      defaultValue: NatConfig(hasExtIp: false, nat: NatAny)
+      defaultValueDesc: "any"
+      name: "nat" .}: NatConfig
+
+    enrAutoUpdate* {.
+      desc: "Discovery can automatically update its ENR with the IP address " &
+            "and UDP port as seen by other nodes it communicates with. " &
+            "This option allows to enable/disable this functionality"
+      defaultValue: false
+      name: "enr-auto-update" .}: bool
+
+    weakSubjectivityCheckpoint* {.
+      desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
+      name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
+
+    externalBeaconApiUrl* {.
+      desc: "External beacon API to use for syncing (on empty database)"
+      name: "external-beacon-api-url" .}: Option[string]
+
+    syncLightClient* {.
+      desc: "Accelerate sync using light client"
+      defaultValue: true
+      name: "sync-light-client" .}: bool
+
+    trustedBlockRoot* {.
+      desc: "Recent trusted finalized block root to sync from external " &
+            "beacon API (with `--external-beacon-api-url`). " &
+            "Uses the light client sync protocol to obtain the latest " &
+            "finalized checkpoint (LC is initialized from trusted block root)"
+      name: "trusted-block-root" .}: Option[Eth2Digest]
+
+    trustedStateRoot* {.
+      desc: "Recent trusted finalized state root to sync from external " &
+            "beacon API (with `--external-beacon-api-url`)"
+      name: "trusted-state-root" .}: Option[Eth2Digest]
+
+    finalizedCheckpointState* {.
+      desc: "SSZ file specifying a recent finalized state"
+      name: "finalized-checkpoint-state" .}: Option[InputFile]
+
+    genesisState* {.
+      desc: "SSZ file specifying the genesis state of the network (for networks without a built-in genesis state)"
+      name: "genesis-state" .}: Option[InputFile]
+
+    genesisStateUrl* {.
+      desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
+      name: "genesis-state-url" .}: Option[Uri]
+
+    finalizedDepositTreeSnapshot* {.
+      hidden
+      name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
+
+    finalizedCheckpointBlock* {.
+      hidden
+      desc: "SSZ file specifying a recent finalized block"
+      name: "finalized-checkpoint-block" .}: Option[InputFile]
+
+    nodeName* {.
+      desc: "A name for this node that will appear in the logs. " &
+            "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
+      defaultValue: ""
+      name: "node-name" .}: string
+
+    graffiti* {.
+      desc: "The graffiti value that will appear in proposed blocks. " &
+            "You can use a 0x-prefixed hex encoded string to specify raw bytes"
+      name: "graffiti" .}: Option[GraffitiBytes]
+
+    strictVerification* {.
+      hidden
+      desc: "Specify whether to verify finalization occurs on schedule (debug only)"
+      defaultValue: false
+      name: "verify-finalization" .}: bool
+
+    stopAtEpoch* {.
+      hidden
+      desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
+      defaultValue: 0
+      name: "debug-stop-at-epoch" .}: uint64
+
+    stopAtSyncedEpoch* {.
+      hidden
+      desc: "The synced epoch at which to exit the program. (for testing purposes)"
+      defaultValue: 0
+      name: "stop-at-synced-epoch" .}: uint64
+
+    statusBarEnabled* {.
+      posixOnly
+      desc: "Display a status bar at the bottom of the terminal screen"
+      defaultValue: true
+      name: "status-bar" .}: bool
+
+    statusBarContents* {.
+      posixOnly
+      desc: "Textual template for the contents of the status bar"
+      defaultValue: "peers: $connected_peers;" &
+                    "finalized: $finalized_root:$finalized_epoch;" &
+                    "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
+                    "time: $epoch:$epoch_slot ($slot);" &
+                    "sync: $sync_status|" &
+                    "ETH: $attached_validators_balance"
+      defaultValueDesc: ""
+      name: "status-bar-contents" .}: string
+
+    rpcEnabled* {.
+      # Deprecated > 1.7.0
+      hidden
+      desc: "Deprecated for removal"
+      name: "rpc" .}: Option[bool]
+
+    rpcPort* {.
+      # Deprecated > 1.7.0
+      hidden
+      desc: "Deprecated for removal"
+      name: "rpc-port" .}: Option[Port]
+
+    rpcAddress* {.
+      # Deprecated > 1.7.0
+      hidden
+      desc: "Deprecated for removal"
+      name: "rpc-address" .}: Option[IpAddress]
+
+    restEnabled* {.
+      desc: "Enable the REST server"
+      defaultValue: false
+      name: "rest" .}: bool
+
+    restPort* {.
+      desc: "Port for the REST server"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
+      name: "rest-port" .}: Port
+
+    restAddress* {.
+      desc: "Listening address of the REST server"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "rest-address" .}: IpAddress
+
+    restAllowedOrigin* {.
+      desc: "Limit the access to the REST API to a particular hostname " &
+            "(for CORS-enabled clients such as browsers)"
+      name: "rest-allow-origin" .}: Option[string]
+
+    restCacheSize* {.
+      defaultValue: 3
+      desc: "The maximum number of recently accessed states that are kept in " &
+            "memory. Speeds up requests obtaining information for consecutive " &
+            "slots or epochs."
+      name: "rest-statecache-size" .}: Natural
+
+    restCacheTtl* {.
+      defaultValue: 60
+      desc: "The number of seconds to keep recently accessed states in memory"
+      name: "rest-statecache-ttl" .}: Natural
+
+    restRequestTimeout* {.
+      defaultValue: 0
+      defaultValueDesc: "infinite"
+      desc: "The number of seconds to wait until complete REST request " &
+            "will be received"
+      name: "rest-request-timeout" .}: Natural
+
+    restMaxRequestBodySize* {.
+      defaultValue: 16_384
+      desc: "Maximum size of REST request body (kilobytes)"
+      name: "rest-max-body-size" .}: Natural
+
+    restMaxRequestHeadersSize* {.
+      defaultValue: 128
+      desc: "Maximum size of REST request headers (kilobytes)"
+      name: "rest-max-headers-size" .}: Natural
+      ## NOTE: If you going to adjust this value please check value
+      ## ``ClientMaximumValidatorIds`` and comments in
+      ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
+
+    keymanagerEnabled* {.
+      desc: "Enable the REST keymanager API"
+      defaultValue: false
+      name: "keymanager" .}: bool
+
+    keymanagerPort* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
+      name: "keymanager-port" .}: Port
+
+    keymanagerAddress* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "keymanager-address" .}: IpAddress
+
+    keymanagerAllowedOrigin* {.
+      desc: "Limit the access to the Keymanager API to a particular hostname " &
+            "(for CORS-enabled clients such as browsers)"
+      name: "keymanager-allow-origin" .}: Option[string]
+
+    keymanagerTokenFile* {.
+      desc: "A file specifying the authorization token required for accessing the keymanager API"
+      name: "keymanager-token-file" .}: Option[InputFile]
+
+    lightClientDataServe* {.
+      desc: "Serve data for enabling light clients to stay in sync with the network"
+      defaultValue: true
+      name: "light-client-data-serve" .}: bool
+
+    lightClientDataImportMode* {.
+      desc: "Which classes of light client data to import. " &
+            "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
+      defaultValue: LightClientDataImportMode.OnlyNew
+      defaultValueDesc: $LightClientDataImportMode.OnlyNew
+      name: "light-client-data-import-mode" .}: LightClientDataImportMode
+
+    lightClientDataMaxPeriods* {.
+      desc: "Maximum number of sync committee periods to retain light client data"
+      name: "light-client-data-max-periods" .}: Option[uint64]
+
+    longRangeSync* {.
+      hidden
+      desc: "Enable long-range syncing (genesis sync)",
+      defaultValue: LongRangeSyncMode.Lenient,
+      name: "debug-long-range-sync".}: LongRangeSyncMode
+
+    inProcessValidators* {.
+      desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
+      defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
+      name: "in-process-validators" .}: bool
+
+    discv5Enabled* {.
+      desc: "Enable Discovery v5"
+      defaultValue: true
+      name: "discv5" .}: bool
+
+    dumpEnabled* {.
+      desc: "Write SSZ dumps of blocks and states to data dir"
+      defaultValue: false
+      name: "dump" .}: bool
+
+    # Because certain EL (e.g., Geth) may return SYNCING/ACCEPTED even for
+    # execution payloads that have already been deemed INVALID in the past,
+    # this flag is needed to avoid optimistically importing beacon blocks
+    # that contain such payloads into fork choice when Nimbus is restarted.
+    # This helps manual recovery when the justified checkpoint is advanced
+    # optimistically based on attestations in blocks with invalid payloads,
+    # such as the botched Prague/Electra deployment onto the Holesky testnet.
+    #
+    # The recovery flow is as follows:
+    # (1) Upgrade to an EL version that correctly identifies the invalid block
+    # (2) Restart Nimbus with `--debug-invalidate-block-root` set to the first
+    #     block known to have an invalid execution payload. Multiple blocks
+    #     may be specified if necessary
+    # (3) If Nimbus is already synced to the canonical (but invalid) branch,
+    #     wait until the EL informs Nimbus that this head is INVALID.
+    #     Nimbus then rewinds back to the latest valid head
+    # (4) Restart Nimbus again, ensuring that `--debug-invalidate-block-root`
+    #     is set up correctly. Nimbus will re-discover the invalid branch,
+    #     but this time will not optimistically import it, preventing the
+    #     invalid branch to become canonical in its local fork choice
+    # (5) Wait for a different branch to become canonical, and keep the
+    #     `--debug-invalidate-block-root` flag present until finality has
+    #     advanced beyond the problematic chain segment
+    invalidBlockRoots* {.
+      hidden
+      desc: "List of beacon block roots that, if the EL responds with SYNCING/ACCEPTED, are treated as if their execution payload was INVALID"
+      name: "debug-invalidate-block-root" .}: seq[Eth2Digest]
+
+    directPeers* {.
+      desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
+      name: "direct-peer" .}: seq[string]
+
+    doppelgangerDetection* {.
+      desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This protects against slashing (due to double-voting) but means you will miss two attestations when restarting."
+      defaultValue: true
+      name: "doppelganger-detection" .}: bool
+
+    syncHorizon* {.
+      hidden
+      desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
+      name: "sync-horizon" .}: Option[uint64]
+
+    terminalTotalDifficultyOverride* {.
+      hidden
+      desc: "Deprecated for removal"
+      name: "terminal-total-difficulty-override" .}: Option[string]
+
+    validatorMonitorAuto* {.
+      desc: "Monitor validator activity automatically for validators active on this beacon node"
+      defaultValue: true
+      name: "validator-monitor-auto" .}: bool
+
+    validatorMonitorPubkeys* {.
+      desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
+      name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
+
+    validatorMonitorDetails* {.
+      desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
+      defaultValue: false
+      name: "validator-monitor-details" .}: bool
+
+    validatorMonitorTotals* {.
+      hidden
+      desc: "Deprecated in favour of --validator-monitor-details"
+      name: "validator-monitor-totals" .}: Option[bool]
+
+    safeSlotsToImportOptimistically* {.
+      # Never unhidden or documented, and deprecated > 22.9.1
+      hidden
+      desc: "Deprecated for removal"
+      name: "safe-slots-to-import-optimistically" .}: Option[uint16]
+
+    # Same option as appears in Lighthouse and Prysm
+    # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+    # https://github.com/prysmaticlabs/prysm/pull/10312
+    suggestedFeeRecipient* {.
+      desc: "Suggested fee recipient"
+      name: "suggested-fee-recipient" .}: Option[Eth1Address]
+
+    suggestedGasLimit* {.
+      desc: "Suggested gas limit"
+      defaultValue: defaultGasLimit
+      name: "suggested-gas-limit" .}: uint64
+
+    payloadBuilderEnable* {.
+      desc: "Enable external payload builder"
+      defaultValue: false
+      name: "payload-builder" .}: bool
+
+    payloadBuilderUrl* {.
+      desc: "Payload builder URL"
+      defaultValue: ""
+      name: "payload-builder-url" .}: string
+
+    # Flag name and semantics borrowed from Prysm
+    # https://github.com/prysmaticlabs/prysm/pull/12227/files
+    localBlockValueBoost* {.
+      desc: "Increase execution layer block values for builder bid " &
+            "comparison by a percentage"
+      defaultValue: 10
+      name: "local-block-value-boost" .}: uint8
+
+    historyMode* {.
+      desc: "Retention strategy for historical data (archive/prune)"
+      defaultValue: HistoryMode.Prune
+      name: "history".}: HistoryMode
+
+    bandwidthEstimate* {.
+      hidden
+      desc: "Bandwidth estimate for the node (bits per second)"
+      name: "debug-bandwidth-estimate" .}: Option[Natural]
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -155,9 +540,6 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" .}: int
 
-    core* {.flatten.}: BeaconNodeCoreConf
-
-  BeaconNodeCoreConf* = object
     # When updating, coordinate option names with EL and other binaries
     logFile* {.
       desc: "Specifies a path for the written JSON log file (deprecated)"
@@ -275,137 +657,6 @@ type
       defaultValue: BNStartUpCmd.beaconNode .}: BNStartUpCmd
 
     of BNStartUpCmd.beaconNode:
-      runAsServiceFlag* {.
-        windowsOnly
-        defaultValue: false,
-        desc: "Run as a Windows service"
-        name: "run-as-service" .}: bool
-
-      bootstrapNodes* {.
-        desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
-        abbr: "b"
-        name: "bootstrap-node" .}: seq[string]
-
-      bootstrapNodesFile* {.
-        desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
-        defaultValue: ""
-        name: "bootstrap-file" .}: InputFile
-
-      listenAddress* {.
-        desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
-        defaultValueDesc: "*"
-        name: "listen-address" .}: Option[IpAddress]
-
-      tcpPort* {.
-        desc: "Listening TCP port for Ethereum LibP2P traffic"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "tcp-port" .}: Port
-
-      udpPort* {.
-        desc: "Listening UDP port for node discovery"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "udp-port" .}: Port
-
-      maxPeers* {.
-        desc: "The target number of peers to connect to"
-        defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
-        name: "max-peers" .}: int
-
-      hardMaxPeers* {.
-        desc: "The maximum number of peers to connect to. Defaults to maxPeers * 1.5"
-        name: "hard-max-peers" .}: Option[int]
-
-      nat* {.
-        desc: "Specify method to use for determining public address. " &
-              "Must be one of: any, none, upnp, pmp, extip:<IP>"
-        defaultValue: NatConfig(hasExtIp: false, nat: NatAny)
-        defaultValueDesc: "any"
-        name: "nat" .}: NatConfig
-
-      enrAutoUpdate* {.
-        desc: "Discovery can automatically update its ENR with the IP address " &
-              "and UDP port as seen by other nodes it communicates with. " &
-              "This option allows to enable/disable this functionality"
-        defaultValue: false
-        name: "enr-auto-update" .}: bool
-
-      weakSubjectivityCheckpoint* {.
-        desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
-        name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
-
-      externalBeaconApiUrl* {.
-        desc: "External beacon API to use for syncing (on empty database)"
-        name: "external-beacon-api-url" .}: Option[string]
-
-      syncLightClient* {.
-        desc: "Accelerate sync using light client"
-        defaultValue: true
-        name: "sync-light-client" .}: bool
-
-      trustedBlockRoot* {.
-        desc: "Recent trusted finalized block root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`). " &
-              "Uses the light client sync protocol to obtain the latest " &
-              "finalized checkpoint (LC is initialized from trusted block root)"
-        name: "trusted-block-root" .}: Option[Eth2Digest]
-
-      trustedStateRoot* {.
-        desc: "Recent trusted finalized state root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`)"
-        name: "trusted-state-root" .}: Option[Eth2Digest]
-
-      finalizedCheckpointState* {.
-        desc: "SSZ file specifying a recent finalized state"
-        name: "finalized-checkpoint-state" .}: Option[InputFile]
-
-      genesisState* {.
-        desc: "SSZ file specifying the genesis state of the network (for networks without a built-in genesis state)"
-        name: "genesis-state" .}: Option[InputFile]
-
-      genesisStateUrl* {.
-        desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
-        name: "genesis-state-url" .}: Option[Uri]
-
-      finalizedDepositTreeSnapshot* {.
-        hidden
-        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
-
-      finalizedCheckpointBlock* {.
-        hidden
-        desc: "SSZ file specifying a recent finalized block"
-        name: "finalized-checkpoint-block" .}: Option[InputFile]
-
-      nodeName* {.
-        desc: "A name for this node that will appear in the logs. " &
-              "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
-        defaultValue: ""
-        name: "node-name" .}: string
-
-      graffiti* {.
-        desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify raw bytes"
-        name: "graffiti" .}: Option[GraffitiBytes]
-
-      strictVerification* {.
-        hidden
-        desc: "Specify whether to verify finalization occurs on schedule (debug only)"
-        defaultValue: false
-        name: "verify-finalization" .}: bool
-
-      stopAtEpoch* {.
-        hidden
-        desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
-        defaultValue: 0
-        name: "debug-stop-at-epoch" .}: uint64
-
-      stopAtSyncedEpoch* {.
-        hidden
-        desc: "The synced epoch at which to exit the program. (for testing purposes)"
-        defaultValue: 0
-        name: "stop-at-synced-epoch" .}: uint64
-
       metricsEnabled* {.
         desc: "Enable the metrics server"
         defaultValue: false
@@ -422,265 +673,17 @@ type
         defaultValue: 8008
         name: "metrics-port" .}: Port
 
-      statusBarEnabled* {.
-        posixOnly
-        desc: "Display a status bar at the bottom of the terminal screen"
-        defaultValue: true
-        name: "status-bar" .}: bool
+      tcpPort* {.
+        desc: "Listening TCP port for Ethereum LibP2P traffic"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "tcp-port" .}: Port
 
-      statusBarContents* {.
-        posixOnly
-        desc: "Textual template for the contents of the status bar"
-        defaultValue: "peers: $connected_peers;" &
-                      "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
-                      "time: $epoch:$epoch_slot ($slot);" &
-                      "sync: $sync_status|" &
-                      "ETH: $attached_validators_balance"
-        defaultValueDesc: ""
-        name: "status-bar-contents" .}: string
-
-      rpcEnabled* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc" .}: Option[bool]
-
-      rpcPort* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-port" .}: Option[Port]
-
-      rpcAddress* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-address" .}: Option[IpAddress]
-
-      restEnabled* {.
-        desc: "Enable the REST server"
-        defaultValue: false
-        name: "rest" .}: bool
-
-      restPort* {.
-        desc: "Port for the REST server"
-        defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
-        name: "rest-port" .}: Port
-
-      restAddress* {.
-        desc: "Listening address of the REST server"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "rest-address" .}: IpAddress
-
-      restAllowedOrigin* {.
-        desc: "Limit the access to the REST API to a particular hostname " &
-              "(for CORS-enabled clients such as browsers)"
-        name: "rest-allow-origin" .}: Option[string]
-
-      restCacheSize* {.
-        defaultValue: 3
-        desc: "The maximum number of recently accessed states that are kept in " &
-              "memory. Speeds up requests obtaining information for consecutive " &
-              "slots or epochs."
-        name: "rest-statecache-size" .}: Natural
-
-      restCacheTtl* {.
-        defaultValue: 60
-        desc: "The number of seconds to keep recently accessed states in memory"
-        name: "rest-statecache-ttl" .}: Natural
-
-      restRequestTimeout* {.
-        defaultValue: 0
-        defaultValueDesc: "infinite"
-        desc: "The number of seconds to wait until complete REST request " &
-              "will be received"
-        name: "rest-request-timeout" .}: Natural
-
-      restMaxRequestBodySize* {.
-        defaultValue: 16_384
-        desc: "Maximum size of REST request body (kilobytes)"
-        name: "rest-max-body-size" .}: Natural
-
-      restMaxRequestHeadersSize* {.
-        defaultValue: 128
-        desc: "Maximum size of REST request headers (kilobytes)"
-        name: "rest-max-headers-size" .}: Natural
-        ## NOTE: If you going to adjust this value please check value
-        ## ``ClientMaximumValidatorIds`` and comments in
-        ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
-
-      keymanagerEnabled* {.
-        desc: "Enable the REST keymanager API"
-        defaultValue: false
-        name: "keymanager" .}: bool
-
-      keymanagerPort* {.
-        desc: "Listening port for the REST keymanager API"
-        defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
-        name: "keymanager-port" .}: Port
-
-      keymanagerAddress* {.
-        desc: "Listening port for the REST keymanager API"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "keymanager-address" .}: IpAddress
-
-      keymanagerAllowedOrigin* {.
-        desc: "Limit the access to the Keymanager API to a particular hostname " &
-              "(for CORS-enabled clients such as browsers)"
-        name: "keymanager-allow-origin" .}: Option[string]
-
-      keymanagerTokenFile* {.
-        desc: "A file specifying the authorization token required for accessing the keymanager API"
-        name: "keymanager-token-file" .}: Option[InputFile]
-
-      lightClientDataServe* {.
-        desc: "Serve data for enabling light clients to stay in sync with the network"
-        defaultValue: true
-        name: "light-client-data-serve" .}: bool
-
-      lightClientDataImportMode* {.
-        desc: "Which classes of light client data to import. " &
-              "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
-        defaultValue: LightClientDataImportMode.OnlyNew
-        defaultValueDesc: $LightClientDataImportMode.OnlyNew
-        name: "light-client-data-import-mode" .}: LightClientDataImportMode
-
-      lightClientDataMaxPeriods* {.
-        desc: "Maximum number of sync committee periods to retain light client data"
-        name: "light-client-data-max-periods" .}: Option[uint64]
-
-      longRangeSync* {.
-        hidden
-        desc: "Enable long-range syncing (genesis sync)",
-        defaultValue: LongRangeSyncMode.Lenient,
-        name: "debug-long-range-sync".}: LongRangeSyncMode
-
-      inProcessValidators* {.
-        desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
-        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
-        name: "in-process-validators" .}: bool
-
-      discv5Enabled* {.
-        desc: "Enable Discovery v5"
-        defaultValue: true
-        name: "discv5" .}: bool
-
-      dumpEnabled* {.
-        desc: "Write SSZ dumps of blocks and states to data dir"
-        defaultValue: false
-        name: "dump" .}: bool
-
-      # Because certain EL (e.g., Geth) may return SYNCING/ACCEPTED even for
-      # execution payloads that have already been deemed INVALID in the past,
-      # this flag is needed to avoid optimistically importing beacon blocks
-      # that contain such payloads into fork choice when Nimbus is restarted.
-      # This helps manual recovery when the justified checkpoint is advanced
-      # optimistically based on attestations in blocks with invalid payloads,
-      # such as the botched Prague/Electra deployment onto the Holesky testnet.
-      #
-      # The recovery flow is as follows:
-      # (1) Upgrade to an EL version that correctly identifies the invalid block
-      # (2) Restart Nimbus with `--debug-invalidate-block-root` set to the first
-      #     block known to have an invalid execution payload. Multiple blocks
-      #     may be specified if necessary
-      # (3) If Nimbus is already synced to the canonical (but invalid) branch,
-      #     wait until the EL informs Nimbus that this head is INVALID.
-      #     Nimbus then rewinds back to the latest valid head
-      # (4) Restart Nimbus again, ensuring that `--debug-invalidate-block-root`
-      #     is set up correctly. Nimbus will re-discover the invalid branch,
-      #     but this time will not optimistically import it, preventing the
-      #     invalid branch to become canonical in its local fork choice
-      # (5) Wait for a different branch to become canonical, and keep the
-      #     `--debug-invalidate-block-root` flag present until finality has
-      #     advanced beyond the problematic chain segment
-      invalidBlockRoots* {.
-        hidden
-        desc: "List of beacon block roots that, if the EL responds with SYNCING/ACCEPTED, are treated as if their execution payload was INVALID"
-        name: "debug-invalidate-block-root" .}: seq[Eth2Digest]
-
-      directPeers* {.
-        desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
-        name: "direct-peer" .}: seq[string]
-
-      doppelgangerDetection* {.
-        desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This protects against slashing (due to double-voting) but means you will miss two attestations when restarting."
-        defaultValue: true
-        name: "doppelganger-detection" .}: bool
-
-      syncHorizon* {.
-        hidden
-        desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
-        name: "sync-horizon" .}: Option[uint64]
-
-      terminalTotalDifficultyOverride* {.
-        hidden
-        desc: "Deprecated for removal"
-        name: "terminal-total-difficulty-override" .}: Option[string]
-
-      validatorMonitorAuto* {.
-        desc: "Monitor validator activity automatically for validators active on this beacon node"
-        defaultValue: true
-        name: "validator-monitor-auto" .}: bool
-
-      validatorMonitorPubkeys* {.
-        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
-        name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
-
-      validatorMonitorDetails* {.
-        desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
-        defaultValue: false
-        name: "validator-monitor-details" .}: bool
-
-      validatorMonitorTotals* {.
-        hidden
-        desc: "Deprecated in favour of --validator-monitor-details"
-        name: "validator-monitor-totals" .}: Option[bool]
-
-      safeSlotsToImportOptimistically* {.
-        # Never unhidden or documented, and deprecated > 22.9.1
-        hidden
-        desc: "Deprecated for removal"
-        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
-
-      # Same option as appears in Lighthouse and Prysm
-      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
-      # https://github.com/prysmaticlabs/prysm/pull/10312
-      suggestedFeeRecipient* {.
-        desc: "Suggested fee recipient"
-        name: "suggested-fee-recipient" .}: Option[Eth1Address]
-
-      suggestedGasLimit* {.
-        desc: "Suggested gas limit"
-        defaultValue: defaultGasLimit
-        name: "suggested-gas-limit" .}: uint64
-
-      payloadBuilderEnable* {.
-        desc: "Enable external payload builder"
-        defaultValue: false
-        name: "payload-builder" .}: bool
-
-      payloadBuilderUrl* {.
-        desc: "Payload builder URL"
-        defaultValue: ""
-        name: "payload-builder-url" .}: string
-
-      # Flag name and semantics borrowed from Prysm
-      # https://github.com/prysmaticlabs/prysm/pull/12227/files
-      localBlockValueBoost* {.
-        desc: "Increase execution layer block values for builder bid " &
-              "comparison by a percentage"
-        defaultValue: 10
-        name: "local-block-value-boost" .}: uint8
-
-      historyMode* {.
-        desc: "Retention strategy for historical data (archive/prune)"
-        defaultValue: HistoryMode.Prune
-        name: "history".}: HistoryMode
+      udpPort* {.
+        desc: "Listening UDP port for node discovery"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "udp-port" .}: Port
 
       trustedSetupFile* {.
         hidden
@@ -689,10 +692,7 @@ type
         defaultValueDesc: "Baked in trusted setup"
         name: "debug-trusted-setup-file" .}: Option[string]
 
-      bandwidthEstimate* {.
-        hidden
-        desc: "Bandwidth estimate for the node (bits per second)"
-        name: "debug-bandwidth-estimate" .}: Option[Natural]
+      bnOpts* {.flatten.} = BeaconNodeOptsConf
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
