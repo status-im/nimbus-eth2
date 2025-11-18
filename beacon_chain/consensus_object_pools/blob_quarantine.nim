@@ -247,9 +247,18 @@ proc unloadRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
 
   let blockRoot = quarantine.getOldestInMemoryRoot()
 
+  # There's some condition whereby `quarantine.roots` becomes desynced with
+  # `quarantine.diskUsage`, such that `removeRoot` functions as a no-op and
+  # the `fitsOnDisk/pruneOnDiskRoot` becomes an infinite loop. Pending some
+  # more principled/correct approach, kludge around this.
+  var retries = 0
+
   quarantine.roots.withValue(blockRoot, record):
     while not(quarantine.fitsOnDisk(record[].count)):
       quarantine.pruneOnDiskRoot()
+      inc retries
+      if retries > 10:
+        break
 
     var res: seq[ref A]
     for index in 0 ..< len(record[].sidecars):
