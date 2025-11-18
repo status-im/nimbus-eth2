@@ -2839,7 +2839,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let netKeys = getPersistentNetKeys(rng, config)
 
     var fieldPairs: seq[FieldPair]
-    for field in config.fields:
+    for field in config.core.fields:
       let fieldPair = field.split(":")
       if fieldPair.len > 1:
         fieldPairs.add(toFieldPair(fieldPair[0], hexToSeqByte(fieldPair[1])))

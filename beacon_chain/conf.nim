@@ -124,7 +124,6 @@ type
     Lenient = "lenient"
 
   BeaconNodeConf* = object
-    # When updating, coordinate option names with EL and other binaries
     configFile* {.
       desc: "Loads the configuration from a TOML file"
       name: "config-file" .}: Option[InputFile]
@@ -141,10 +140,6 @@ type
       defaultValue: StdoutLogKind.Auto
       name: "log-format" .}: StdoutLogKind
 
-    logFile* {.
-      desc: "Specifies a path for the written JSON log file (deprecated)"
-      name: "log-file" .}: Option[OutFile]
-
     eth2Network* {.
       desc: "The Eth2 network to join"
       defaultValueDesc: "mainnet"
@@ -154,6 +149,19 @@ type
       desc: "The directory where nimbus will store all blockchain data"
       abbr: "d"
       name: "data-dir" .}: Option[OutDir]
+
+    numThreads* {.
+      defaultValue: 0,
+      desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
+      name: "num-threads" .}: int
+
+    core* {.flatten.}: BeaconNodeCoreConf
+
+  BeaconNodeCoreConf* = object
+    # When updating, coordinate option names with EL and other binaries
+    logFile* {.
+      desc: "Specifies a path for the written JSON log file (deprecated)"
+      name: "log-file" .}: Option[OutFile]
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
@@ -256,11 +264,6 @@ type
       defaultValue: SlashingDbKind.v2
       desc: "The slashing DB flavour to use"
       name: "slashing-db-kind" .}: SlashingDbKind
-
-    numThreads* {.
-      defaultValue: 0,
-      desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
-      name: "num-threads" .}: int
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
     jwtSecret* {.
@@ -1145,6 +1148,8 @@ type
       name: "tls-key" .}: Option[InputFile]
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
+
+flattenedAccessors(BeaconNodeConf)
 
 proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
   let metadata =
