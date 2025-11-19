@@ -15,7 +15,7 @@ import stew/endians2, std/sequtils,
        ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
        ../beacon_chain/spec/datatypes/[deneb, electra, fulu],
        ../beacon_chain/spec/[presets, helpers],
-       ../beacon_chain/consensus_object_pools/blob_quarantine_lru
+       ../beacon_chain/consensus_object_pools/blob_quarantine
 
 func genBlockRoot(index: int): Eth2Digest =
   var res: Eth2Digest
