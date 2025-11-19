@@ -113,6 +113,7 @@ AllTests-mainnet
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
++ overfill test [maximum number of blobs]                                                    OK
 + popSidecars()/hasSidecars() return []/true on block without blobs                          OK
 + pruneAfterFinalization() test                                                              OK
 + put() duplicate items should not affect counters                                           OK
@@ -171,11 +172,17 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
++ Empty in-memory scenario test [node]                                                       OK
++ Empty in-memory scenario test [supernode]                                                  OK
++ Mixed entries scenario test [node]                                                         OK
++ Mixed entries scenario test [supernode]                                                    OK
++ database and memory overfill protection and pruning test [node]                            OK
++ database unload/load test [node]                                                           OK
++ overfill protection test [node]                                                            OK
++ overfill test [node]                                                                       OK
++ overfill test [supernode]                                                                  OK
++ pruneAfterFinalization() test [node]                                                       OK
++ put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
 + put()/fetchMissingSidecars/remove test [supernode]                                         OK
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
