@@ -47,8 +47,8 @@ type
       data: ref A
 
   RootTableRecord[A] = object
-    blockRoot*: Eth2Digest
-    slot*: Slot
+    blockRoot: Eth2Digest
+    slot: Slot
     unloaded: int
     count: int
     sidecars: seq[SidecarHolder[A]]
@@ -62,7 +62,7 @@ type
     maxSidecarsPerBlockCount: int
     custodyColumns*: seq[ColumnIndex]
     custodyMap*: ColumnMap
-    lastMemoryNode*: DoublyLinkedNode[RootTableRecord[A]]
+    lastMemoryNode: DoublyLinkedNode[RootTableRecord[A]]
     roots: Table[Eth2Digest, DoublyLinkedNode[RootTableRecord[A]]]
     list: DoublyLinkedList[RootTableRecord[A]]
     indexMap: seq[int]
