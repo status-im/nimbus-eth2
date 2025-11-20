@@ -29,6 +29,8 @@ from ../consensus_object_pools/block_quarantine import
   remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
+from ../consensus_object_pools/envelope_quarantine import
+  EnvelopeQuarantine, addMissing, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -97,6 +99,7 @@ type
 
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    envelopeQuarantine*: ref EnvelopeQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -121,6 +124,7 @@ proc new*(T: type BlockProcessor,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
           invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
   if invalidBlockRoots.len > 0:
@@ -137,6 +141,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: batchVerifier[]
   )
