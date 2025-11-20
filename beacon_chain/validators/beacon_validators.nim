@@ -1237,8 +1237,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
-  let attestationCutoff = node.beaconClock.fromNow(
-    slot.attestation_deadline(node.dag.timeParams))
+  let
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
+    attestationCutoff = node.beaconClock.fromNow(
+      slot.attestation_deadline(node.dag.timeParams, consensusFork))
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
       head = shortLog(head),
@@ -1247,7 +1249,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      await waitAfterBlockCutoff(node.beaconClock, slot, Opt.some(head))
+      await waitAfterBlockCutoff(
+        node.beaconClock, slot, consensusFork, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -1270,7 +1273,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.aggregateSlotOffset ==
     node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
   let aggregateCutoff = node.beaconClock.fromNow(
-    slot.aggregate_deadline(node.dag.timeParams))
+    slot.aggregate_deadline(node.dag.timeParams, consensusFork))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)

@@ -879,6 +879,24 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
   else:
     Opt.none(Slot)
 
+proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return key
+  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
+
+proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
+  # If schedule is present, it MUST not be empty.
+  doAssert(len(vc.forks) > 0)
+  var res: Fork
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      res = item
+    else:
+      break
+  res
+
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
   ## Returns all `DutyAndProof` for the given `slot`.
@@ -903,7 +921,10 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
-  let currentEpoch = slot.epoch()
+  let 
+    currentEpoch = slot.epoch()
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(currentEpoch))
+
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
     for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
@@ -916,7 +937,7 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.attestation_deadline(vc.timeParams) -
+    $(minSlot.attestation_deadline(vc.timeParams, consensusFork) -
       slot.start_beacon_time(vc.timeParams))
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
@@ -978,24 +999,6 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             key: ValidatorPubKey, slot: Slot,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
-
-proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
-  # If schedule is present, it MUST not be empty.
-  doAssert(len(vc.forks) > 0)
-  var res: Fork
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      res = item
-    else:
-      break
-  res
-
-proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
-  doAssert(vc.forkConfig.isSome())
-  for key, value in vc.forkConfig.get().pairs():
-    if value.version == fork.current_version:
-      return key
-  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
@@ -1492,12 +1495,13 @@ proc waitForBlock*(
         shortLog(blocks[0])
       else:
         "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
 
   debug "Block proposal awaited", duration = dur,
         block_root = blockRoot
 
   try:
-    await waitAfterBlockCutoff(vc.beaconClock, slot)
+    await waitAfterBlockCutoff(vc.beaconClock, slot, consensusFork)
   except CancelledError as exc:
     let dur = Moment.now() - startTime
     debug "Waiting for block cutoff was interrupted", duration = dur

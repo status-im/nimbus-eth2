@@ -172,8 +172,9 @@ cli do(
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
       genesis_validators_root = dag.genesis_validators_root
       fork = dag.forkAtEpoch(slot.epoch)
-      messagesTime = slot.attestation_deadline(cfg.timeParams)
-      contributionsTime = slot.sync_contribution_deadline(cfg.timeParams)
+      consensusFork = dag.cfg.consensusForkAtEpoch(slot.epoch)
+      messagesTime = slot.attestation_deadline(cfg.timeParams, consensusFork)
+      contributionsTime = slot.sync_contribution_deadline(cfg.timeParams, consensusFork)
 
     var aggregators: seq[Aggregator]
 

@@ -37,6 +37,7 @@ proc serveSyncCommitteeMessage*(
     vc = service.client
     startTime = Moment.now()
     fork = vc.forkAtEpoch(slot.epoch)
+    currentFork = vc.getConsensusFork(fork)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
     vindex = duty.validator_index
     validator = vc.getValidatorForDuties(
@@ -63,7 +64,8 @@ proc serveSyncCommitteeMessage*(
 
   debug "Sending sync committee message",
         delay = vc.getDelay(
-          message.slot.sync_committee_message_deadline(vc.timeParams))
+          message.slot.sync_committee_message_deadline(
+            vc.timeParams, currentFork))
 
   let res =
     try:
@@ -78,7 +80,8 @@ proc serveSyncCommitteeMessage*(
 
   let
     delay = vc.getDelay(
-      message.slot.sync_committee_message_deadline(vc.timeParams))
+      message.slot.sync_committee_message_deadline(
+        vc.timeParams, currentFork))
     dur = Moment.now() - startTime
 
   if res:
@@ -133,7 +136,9 @@ proc produceAndPublishSyncCommitteeMessages(
       (succeed, errored, failed)
 
   let
-    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+    delay = vc.getDelay(slot.attestation_deadline(
+      vc.timeParams, consensusFork))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
@@ -154,6 +159,7 @@ proc serveContributionAndProof*(
     slot = proof.contribution.slot
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.forkAtEpoch(slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
 
   logScope:
     validator = validatorLog(validator)
@@ -176,7 +182,8 @@ proc serveContributionAndProof*(
       res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
+        delay = vc.getDelay(slot.sync_contribution_deadline(
+          vc.timeParams, consensusFork))
 
   let restSignedProof = RestSignedContributionAndProof.init(
     proof, signature)
@@ -328,7 +335,8 @@ proc produceAndPublishContributions(
           (succeed, errored, failed)
 
     let
-      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
+      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams, consensusFork))
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
@@ -355,8 +363,10 @@ proc publishSyncMessagesAndContributions(
     slot = slot
 
   block:
-    let delay = vc.getDelay(
-      slot.sync_committee_message_deadline(vc.timeParams))
+    let 
+      currentFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+      delay = vc.getDelay(
+        slot.sync_committee_message_deadline(vc.timeParams, currentFork))
     debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
@@ -396,15 +406,19 @@ proc publishSyncMessagesAndContributions(
     return
 
   let currentTime = vc.beaconClock.now()
-  if slot.sync_contribution_deadline(vc.timeParams) > currentTime:
+  let consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+  if slot.sync_contribution_deadline(
+      vc.timeParams, consensusFork) > currentTime:
     let waitDur = nanoseconds((
-      slot.sync_contribution_deadline(vc.timeParams) - currentTime).nanoseconds)
+      slot.sync_contribution_deadline(
+        vc.timeParams, consensusFork) - currentTime).nanoseconds)
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
+    let delay = vc.getDelay(
+      slot.sync_contribution_deadline(vc.timeParams, consensusFork))
     debug "Producing contribution and proofs", delay = delay
 
   try:

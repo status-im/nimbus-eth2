@@ -223,6 +223,32 @@ func sync_contribution_deadline*(
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffset
 
+# Gloas
+func attestation_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.attestationSlotOffsetGloas
+
+func aggregate_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.aggregateSlotOffsetGloas
+
+func sync_committee_message_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.syncCommitteeMessageSlotOffsetGloas
+
+func sync_contribution_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.syncContributionSlotOffsetGloas
+
+func payload_attestation_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.payloadAttestationSlotOffset
+
 func light_client_finality_update_time*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +

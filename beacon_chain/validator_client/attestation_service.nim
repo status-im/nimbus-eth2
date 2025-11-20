@@ -63,7 +63,8 @@ proc serveAttestation(
       raise exc
 
   logScope:
-    delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams))
+    delay = vc.getDelay(attestationSlot.attestation_deadline(
+      vc.timeParams, consensusFork))
 
   debug "Sending attestation"
 
@@ -92,7 +93,8 @@ proc serveAttestation(
       submitAttestation(attestation)
 
   if res:
-    let delay = vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams))
+    let delay = vc.getDelay(attestationSlot.attestation_deadline(
+      vc.timeParams, consensusFork))
     beacon_attestations_sent.inc()
     beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
     notice "Attestation published"
@@ -144,7 +146,7 @@ proc serveAggregateAndProofV2*(
         raiseAssert "Unsupported SignedAggregateAndProof"
 
   logScope:
-    delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
+    delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams, consensusFork))
 
   debug "Sending aggregated attestation", fork = consensusFork
 
@@ -258,8 +260,10 @@ proc produceAndPublishAttestationsV2*(
           else:
             inc(errored)
         (succeed, errored, failed)
-
-    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
+    
+    consensusFork = vc.getConsensusFork(fork)
+    delay = vc.getDelay(slot.attestation_deadline(
+      vc.timeParams, consensusFork))
 
   debug "Attestation statistics", total = len(pendingAttestations),
         succeed = statistics[0], failed_to_deliver = statistics[1],
@@ -372,7 +376,10 @@ proc produceAndPublishAggregatesV2(
           inc(errored)
       (succeed, errored, failed)
 
-  let delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
+  let
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+    delay = vc.getDelay(
+      slot.aggregate_deadline(vc.timeParams, consensusFork))
   debug "Aggregated attestation statistics", total = len(aggregates),
         succeed = statistics[0], failed_to_deliver = statistics[1],
         not_accepted = statistics[2], delay = delay, slot = slot,
@@ -387,7 +394,10 @@ proc publishAttestationsAndAggregatesV2(
     vc = service.client
 
   block:
-    let delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
+    let
+      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+      delay = vc.getDelay(slot.attestation_deadline(
+        vc.timeParams, consensusFork))
     debug "Producing attestations", delay = delay, slot = slot,
                                     duties_count = len(duties)
 
@@ -402,14 +412,17 @@ proc publishAttestationsAndAggregatesV2(
       debug "Publish attestation request was interrupted"
       raise exc
 
-  let aggregateTime = vc.beaconClock.fromNow(
-    slot.aggregate_deadline(vc.timeParams))
+  let
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+    aggregateTime = vc.beaconClock.fromNow(
+      slot.aggregate_deadline(vc.timeParams, consensusFork))
   if aggregateTime.inFuture:
     await sleepAsync(aggregateTime.offset)
 
   block:
     let
-      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
+      delay = vc.getDelay(
+        slot.aggregate_deadline(vc.timeParams, consensusFork))
       dutiesByCommittee = getAttesterDutiesByCommittee(duties)
     debug "Producing aggregate and proofs", delay = delay
     var tasks: seq[Future[void].Raising([CancelledError])]
