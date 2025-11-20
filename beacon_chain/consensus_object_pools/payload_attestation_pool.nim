@@ -61,9 +61,7 @@ proc addPayloadAttestation*(
 
   # create an entry for this block and slot
   let
-    slotEntries = addr pool.attestations.mgetOrPut(
-      slot, initTable[Eth2Digest, PayloadAttestationEntry]())
-    entry = addr slotEntries[].mgetOrPut(
+    entry = addr pool.attestations.mgetOrPut(slot).mgetOrPut(
       beacon_block_root, PayloadAttestationEntry(data: message.data))
 
   # Check for duplicate
