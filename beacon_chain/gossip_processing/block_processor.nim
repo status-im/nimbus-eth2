@@ -725,18 +725,19 @@ proc addBlock*(
     return self[].storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
+
+  # If the lock is acquired already, the current block will be put on hold
+  # meaning that we'll form an unbounded queue of blocks to be processed
+  # waiting for the lock - this is similar to using an `AsyncQueue` but
+  # without the copying and transition to/from `Forked`.
+  # The lock is important to ensure that we don't process blocks out-of-order
+  # which both would upset the `storeBlock` logic and cause unnecessary
+  # quarantine traffic.
+  self.pendingStores += 1
+  await self.storeLock.acquire()
+
   let res =
     try:
-      # If the lock is acquired already, the current block will be put on hold
-      # meaning that we'll form an unbounded queue of blocks to be processed
-      # waiting for the lock - this is similar to using an `AsyncQueue` but
-      # without the copying and transition to/from `Forked`.
-      # The lock is important to ensure that we don't process blocks out-of-order
-      # which both would upset the `storeBlock` logic and cause unnecessary
-      # quarantine traffic.
-      self.pendingStores += 1
-      await self.storeLock.acquire()
-
       # Since block processing is async, we want to make sure it doesn't get
       # (re)added there while we're busy - the start of processing also removes
       # the block from the various quarantines.
