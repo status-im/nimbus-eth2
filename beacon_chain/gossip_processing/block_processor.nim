@@ -111,7 +111,13 @@ type
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
 
-const noSidecars* = default(NoSidecars)
+  NoEnvelope = typeof(())
+  SomeOptEnvelope =
+    NoEnvelope | Opt[gloas.SignedExecutionPayloadEnvelope]
+
+const
+  noSidecars* = default(NoSidecars)
+  noEnvelope = default(NoEnvelope)
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -183,6 +189,7 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
+    envelopeOpt: SomeOptEnvelope,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
@@ -229,6 +236,12 @@ proc verifySidecars(
     {.error: "Unknown consensus fork " & $consensusFork.}
 
   ok()
+
+proc verifySidecars(
+    signedBlock: ForkySignedBeaconBlock,
+    sidecarsOpt: SomeOptSidecars,
+): Result[void, VerifierError] =
+  verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
   if sidecarsOpt.isSome():
@@ -464,7 +477,9 @@ proc onBlockAdded*(
         )
 
 proc verifyPayload(
-    self: ref BlockProcessor, signedBlock: ForkySignedBeaconBlock
+    self: ref BlockProcessor,
+    signedBlock: ForkySignedBeaconBlock,
+    envelopeOpt: SomeOptEnvelope,
 ): Result[OptimisticStatus, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
@@ -509,6 +524,11 @@ proc verifyPayload(
       ok OptimisticStatus.valid
   else:
     ok OptimisticStatus.valid
+
+proc verifyPayload(
+    self: ref BlockProcessor, signedBlock: ForkySignedBeaconBlock
+): Result[OptimisticStatus, VerifierError] =
+  verifyPayload(self, signedBlock, noEnvelope)
 
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
