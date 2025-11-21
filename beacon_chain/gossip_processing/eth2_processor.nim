@@ -282,10 +282,11 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  when consensusFork == ConsensusFork.Gloas:
-    debugGloasComment ""
-    # gloas needs proper data column handling
-    let sidecarsOpt = Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+  when consensusFork >= ConsensusFork.Gloas:
+    # Passing none for Gloas to disable processing sidecars at block time. They
+    # should be retrieved from quarantine and processed at the end of
+    # `storeBlock` or `storeBackfillBlock`.
+    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
@@ -340,7 +341,8 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
-  debugGloasComment("process execution payload")
+  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.blockProcessor.enqueuePayload(signedEnvelope.root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
@@ -478,10 +480,8 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debugGloasComment ""
-  # TODO: Implement quarantine logic for Gloas
-  # For now, just validate and drop
-  debug "Data column validated (not stored - quarantine TODO)"
+  debugGloasComment("put into ColumnQuarantine")
+  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
   v

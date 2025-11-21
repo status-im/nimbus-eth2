@@ -194,10 +194,24 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork == ConsensusFork.Gloas:
-    # For Gloas, we still need to store the columns if they're provided
-    # but skip validation since we don't have kzg_commitments in the block
-    debugGloasComment "potentially validate against payload envelope"
+  when consensusFork >= ConsensusFork.Gloas:
+    if sidecarsOpt.isSome:
+      let
+        signedEnvelope = envelopeOpt.valueOr:
+          return err(VerifierError.Invalid)
+        columns = sidecarsOpt.get()
+        kzgCommits = signedEnvelope.message.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0 ..< columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr():
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+            return err(VerifierError.Invalid)
   elif consensusFork == ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
@@ -262,7 +276,7 @@ proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
 
 proc storeBackfillBlock(
-    self: var BlockProcessor,
+    self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
@@ -270,7 +284,10 @@ proc storeBackfillBlock(
   # In case the block was added to any part of the quarantine..
   quarantine[].remove(signedBlock)
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  const consensusFork = typeof(signedBlock).kind
+
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -300,8 +317,13 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    # Only store side cars after successfully establishing block viability.
-    self.storeSidecars(sidecarsOpt)
+    when consensusFork >= ConsensusFork.Gloas:
+      # Columns are in quarantine as they didn't pop from `rmanBlockVerifier`,
+      # we simply enqueue with the valid block.
+      self.enqueuePayload(signedBlock)
+    else:
+      # Only store side cars after successfully establishing block viability.
+      self[].storeSidecars(sidecarsOpt)
 
     res
 
@@ -387,7 +409,7 @@ proc enqueueBlock*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    discard self[].storeBackfillBlock(blck, sidecarsOpt)
+    discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
   # `discard` here means that the `async` task will continue running even though
@@ -411,9 +433,8 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
-        const sidecarsOpt = noSidecars
+      when consensusFork >= ConsensusFork.Gloas:
+        let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -649,7 +670,8 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let blck =
     ?dag.addHeadBlockWithParent(
@@ -667,7 +689,8 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  self[].storeSidecars(sidecarsOpt)
+  when consensusFork <= ConsensusFork.Fulu:
+    self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
 
@@ -717,6 +740,11 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
+  when consensusFork >= ConsensusFork.Gloas:
+    # Enqueue payload here instead of `addBlock` for the consistency of payload
+    # processing with backfilling.
+    self.enqueuePayload(signedBlock)
+
   ok(blck)
 
 proc addBlock*(
@@ -749,7 +777,7 @@ proc addBlock*(
   if blck.message.slot <= dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    return self[].storeBackfillBlock(blck, sidecarsOpt)
+    return self.storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
   let res =

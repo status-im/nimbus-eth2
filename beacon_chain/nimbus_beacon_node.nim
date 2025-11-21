@@ -475,8 +475,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment "no blob_kzg_commitments field for gloas"
+        when consensusFork >= ConsensusFork.Gloas:
           let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
