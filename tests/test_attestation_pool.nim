@@ -83,7 +83,7 @@ suite "Attestation pool electra processing" & preset():
     const TOTAL_COMMITTEES = 2
     var
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(
         ChainDAGRef, cfg,
         cfg.makeTestDB(

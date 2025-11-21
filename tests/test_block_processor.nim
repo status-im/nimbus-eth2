@@ -47,7 +47,7 @@ suite "Block processor" & preset():
         res.FULU_FORK_EPOCH = Epoch(4)
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
@@ -126,7 +126,7 @@ suite "Block processor" & preset():
 
     # check that init also reloads block graph
     var
-      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     check:

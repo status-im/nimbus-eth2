@@ -43,7 +43,7 @@ suite "state diff tests" & preset():
     let cfg = defaultRuntimeConfig
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
   test "random slot differences" & preset():

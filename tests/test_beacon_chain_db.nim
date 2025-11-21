@@ -113,7 +113,7 @@ proc getTestStates(
     consensusFork: ConsensusFork): seq[ref ForkedHashedBeaconState] =
   let
     db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
   var testStates = getTestStates(dag.headState, consensusFork)
 
@@ -256,7 +256,7 @@ suite "Beacon chain DB" & preset():
     block:
       var
         db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-        validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+        validatorMonitor = newClone(ValidatorMonitor.init(cfg))
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
         state = ForkedHashedBeaconState.new(
           (ref consensusFork.BeaconState)(slot: 10.Slot)[])
