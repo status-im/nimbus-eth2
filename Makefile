@@ -238,7 +238,6 @@ local-testnet-minimal:
 		--fulu-fork-epoch 100000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-payload-builder \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -254,6 +253,7 @@ local-testnet-minimal:
 		--timeout 648 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no \
@@ -282,6 +282,7 @@ local-testnet-mainnet:
 		--timeout 2784 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no

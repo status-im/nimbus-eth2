@@ -18,9 +18,10 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager],
+    block_clearance, consensus_manager,
+  ],
   ../beacon_chain/el/el_manager,
-  ./testutil, ./testdbutil, ./testblockutil
+  ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
@@ -40,43 +41,57 @@ suite "Block processor" & preset():
         var res = defaultRuntimeConfig
         res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
         res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+        res.CAPELLA_FORK_EPOCH = Epoch(1)
+        res.DENEB_FORK_EPOCH = Epoch(2)
+        res.ELECTRA_FORK_EPOCH = Epoch(3)
+        res.FULU_FORK_EPOCH = Epoch(4)
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-    var
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
-      actionTracker: ActionTracker
+      actionTracker = default(ActionTracker)
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, elManager, actionTracker,
-        newClone(DynamicFeeRecipientsStore.init()), "",
-        Opt.some default(Eth1Address), defaultGasLimit)
+        dag,
+        attestationPool,
+        quarantine,
+        elManager,
+        actionTracker,
+        newClone(DynamicFeeRecipientsStore.init()),
+        "",
+        Opt.some default(Eth1Address),
+        defaultGasLimit,
+      )
       state = newClone(dag.headState)
+      getTimeFn = proc(): BeaconTime =
+        getStateField(state[], slot).start_beacon_time(cfg.timeParams)
+      batchVerifier = BatchVerifier.new(rng, taskpool)
+    var
       cache: StateCache
       info: ForkedEpochInfo
-    cfg.process_slots(
-      state[], cfg.lastPremergeSlotInTestCfg, cache, info, {}).expect("OK")
-    var
-      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
-      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
-      getTimeFn = proc(): BeaconTime =
-        b2.message.slot.start_beacon_time(cfg.timeParams)
-      batchVerifier = BatchVerifier.new(rng, taskpool)
-      processor = BlockProcessor.new(
-        false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
+
+    cfg.process_slots(state[], cfg.lastPremergeSlotInTestCfg, cache, info, {}).expect(
+      "OK"
+    )
 
   asyncTest "Reverse order block add & get" & preset():
-    let missing = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
+    let
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        blobQuarantine, dataColumnQuarantine, getTimeFn,
+      )
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
 
-    check: missing.error == VerifierError.MissingParent
+      missing = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
 
     check:
+      missing.error == VerifierError.MissingParent
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
 
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
@@ -94,8 +109,7 @@ suite "Block processor" & preset():
     while processor[].hasBlocks():
       poll()
 
-    let
-      b2Get = dag.getBlockRef(b2.root)
+    let b2Get = dag.getBlockRef(b2.root)
 
     check:
       b2Get.isSome()
@@ -126,6 +140,8 @@ suite "Block processor" & preset():
 
   asyncTest "Invalidate block root" & preset():
     let
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
@@ -156,3 +172,30 @@ suite "Block processor" & preset():
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
+
+  asyncTest "Process a block from each fork (without blobs)" & preset():
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor, blobQuarantine,
+      dataColumnQuarantine, getTimeFn,
+    )
+
+    debugGloasComment "TODO testing"
+    for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      process_slots(
+        cfg,
+        state[],
+        max(
+          getStateField(state[], slot) + 1,
+          cfg.consensusForkEpoch(consensusFork).start_slot,
+        ),
+        cache,
+        info,
+        {},
+      )
+      .expect("OK")
+
+      withState(state[]):
+        let b0 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
+        discard await processor.addBlock(
+          MsgSource.gossip, b0.blck, b0.blobsBundle.toSidecarsOpt(consensusFork)
+        )

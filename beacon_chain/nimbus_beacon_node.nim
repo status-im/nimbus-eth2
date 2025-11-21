@@ -2110,9 +2110,20 @@ proc attemptGetBlobs(node: BeaconNode,
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
+            let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
+
+            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
+
             for col in recovered_columns:
-              if col.index in node.dataColumnQuarantine[].custodyColumns:
-                node.dataColumnQuarantine[].put(forkyBlck.root, newClone(col))
+              if col.index notin node.dataColumnQuarantine[].custodyColumns:
+                continue
+
+              batch.add(newClone(col))
+              if batch.len == MaxColsPerPut:
+                break
+
+            if batch.len > 0:
+              node.dataColumnQuarantine[].put(forkyBlck.root, batch)
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
@@ -2816,6 +2827,10 @@ proc doRunBeaconNode(
   if config.trustedSetupFile.isSome:
     kzg.loadTrustedSetup(config.trustedSetupFile.get(), 0).isOkOr:
       fatal "Cannot load KZG trusted setup from file", msg = error
+      quit(QuitFailure)
+  else:
+    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 0).isOkOr:
+      fatal "Cannot load KZG trusted setup using default data", msg = error
       quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):

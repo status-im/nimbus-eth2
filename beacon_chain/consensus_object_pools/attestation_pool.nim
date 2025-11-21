@@ -26,8 +26,7 @@ export blockchain_dag, fork_choice
 
 const
   # TODO since deneb, this is looser (whole previous epoch)
-  ATTESTATION_LOOKBACK =
-    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+  ATTESTATION_LOOKBACK = SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
@@ -625,7 +624,7 @@ func init(
         let committee = get_beacon_committee(
             state.data, slot, committee_index, cache)
         var
-          validator_bits = typeof(result).B.init(committee.len)
+          validator_bits = ElectraCommitteeValidatorsBits.init(committee.len)
         for index_in_committee, validator_index in committee:
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.

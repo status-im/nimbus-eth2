@@ -112,24 +112,6 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      if blobsOpt.isSome:
-        let blobs = blobsOpt.get()
-        let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
-        if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(
-            kzgCommits,
-            blobs.mapIt(KzgBlob(bytes: it.blob)),
-            blobs.mapIt(it.kzg_proof))
-          if res.isErr():
-            warn "blobs failed validation",
-              blockRoot = shortLog(blck.root),
-              blobs = shortLog(blobs),
-              blck = shortLog(blck.message),
-              signature = shortLog(blck.signature),
-              msg = res.error()
-            return err(res.error())
-
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
