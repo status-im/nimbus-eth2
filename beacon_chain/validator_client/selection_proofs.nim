@@ -173,8 +173,8 @@ proc fillAttestationSelectionProofs*(
       let sresponse =
         try:
           # Query middleware for aggregated signatures.
-          await vc.submitBeaconCommitteeSelections(selections,
-                                                   ApiStrategyKind.Best)
+          await vc.submitBeaconCommitteeSelections(
+            selections, vc.getMode()[FnKind.submitBeaconCommitteeSelections])
         except ValidatorApiError as exc:
           warn "Unable to submit beacon committee selections",
                reason = exc.getFailureReason()
@@ -455,8 +455,8 @@ proc fillSyncCommitteeSelectionProofs*(
       let sresponse =
         try:
           # Query middleware for aggregated signatures.
-          await vc.submitSyncCommitteeSelections(selections,
-                                                 ApiStrategyKind.Best)
+          await vc.submitSyncCommitteeSelections(
+            selections, vc.getMode()[FnKind.submitSyncCommitteeSelections])
         except ValidatorApiError as exc:
           warn "Unable to submit sync committee selections",
                reason = exc.getFailureReason()
