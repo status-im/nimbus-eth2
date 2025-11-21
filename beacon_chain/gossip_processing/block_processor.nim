@@ -195,10 +195,9 @@ proc verifySidecars(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork >= ConsensusFork.Gloas:
-    if sidecarsOpt.isSome:
+    if envelopeOpt.isSome and sidecarsOpt.isSome:
       let
-        signedEnvelope = envelopeOpt.valueOr:
-          return err(VerifierError.Invalid)
+        signedEnvelope = envelopeOpt.get()
         columns = sidecarsOpt.get()
         kzgCommits = signedEnvelope.message.blob_kzg_commitments.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
