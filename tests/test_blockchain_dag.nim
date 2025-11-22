@@ -712,7 +712,7 @@ suite "Diverging hardforks":
     var
       db = phase0RuntimeConfig.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(
-        ValidatorMonitor.init(phase0RuntimeConfig.timeParams))
+        ValidatorMonitor.init(phase0RuntimeConfig))
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -738,7 +738,7 @@ suite "Diverging hardforks":
     dag.updateHead(b1Add[], quarantine[], [])
 
     let validatorMonitorAltair = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig.timeParams))
+      ValidatorMonitor.init(altairRuntimeConfig))
 
     let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitorAltair, {})
@@ -771,7 +771,7 @@ suite "Diverging hardforks":
     dag.updateHead(b2Add[], quarantine[], [])
 
     let validatorMonitor = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig.timeParams))
+      ValidatorMonitor.init(altairRuntimeConfig))
 
     let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitor, {})
