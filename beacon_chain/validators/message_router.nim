@@ -94,27 +94,6 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 
 type RouteBlockResult = Result[Opt[BlockRef], string]
 
-proc validateBlock(router: ref MessageRouter,
-                   blck: ForkySignedBeaconBlock,
-                   checkValidator: bool):
-                   Result[void, string] =
-  let wallTime = router[].getCurrentBeaconTime()
-
-  # validator ownership check
-  if checkValidator:
-    let vindex = ValidatorIndex(blck.message.proposer_index)
-    if vindex in router.processor.validatorPool[]:
-      return err("Validator also managed by beacon node.")
-
-  # gossip validation check
-  let res =
-    validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
-
-  if not res.isGoodForSending():
-    return err($(res.error()[1]))
-
-  ok()
-
 proc validateRouteBlock(
     router: ref MessageRouter,
     blck: ForkySignedBeaconBlock,
