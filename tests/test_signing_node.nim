@@ -837,6 +837,42 @@ block:
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
 
+    asyncTest "Signing payload attestation message (getPayloadAttestationSignature())":
+      let
+        payloadMessage = PayloadAttestationMessage(
+          validator_index: 100,
+          data: PayloadAttestationData(
+            beacon_block_root: SomeOtherRoot,
+            slot: Slot(10),
+            payload_present: true,
+            blob_data_available: true
+          ),
+          signature: ValidatorSig.fromHex(SomeSignature).get()
+        )
+        sres1 = await validator1.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        sres2 = await validator2.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        rres1 = await validator4.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        # rres2 = await validator5.getPayloadAttestationSignature(SigningFork,
+        #   GenesisValidatorsRoot, payloadMessage)
+        # rres3 = await validator6.getPayloadAttestationSignature(SigningFork,
+        #   GenesisValidatorsRoot, payloadMessage)
+
+      check:
+        sres1.isOk()
+        sres2.isOk()
+        sres3.isOk()
+        rres1.isOk()
+        # rres2.isOk()
+        # rres3.isOk()
+        # sres1.get() == rres1.get()
+        # sres2.get() == rres2.get()
+        # sres3.get() == rres3.get()
+
     asyncTest "Connection timeout test":
       let
         request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,

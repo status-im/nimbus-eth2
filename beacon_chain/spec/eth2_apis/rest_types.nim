@@ -440,6 +440,7 @@ type
     SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
     SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
     ValidatorRegistration = "VALIDATOR_REGISTRATION"
+    PayloadAttestationMessage = "PAYLOAD_ATTESTATION_MESSAGE"
 
   Web3SignerRequest* = object
     signingRoot*: Opt[Eth2Digest]
@@ -485,6 +486,10 @@ type
       validatorRegistration* {.
         serializedFieldName: "validator_registration".}:
           Web3SignerValidatorRegistration
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      payloadAttestationMessage* {.
+        serializedFieldName: "payload_attestation_message".}:
+          PayloadAttestationMessage
 
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
@@ -1072,6 +1077,21 @@ func init*(t: typedesc[RestSignedContributionAndProof],
       message.contribution
     ),
     signature: signature)
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: PayloadAttestationMessage,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.PayloadAttestationMessage,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork,
+      genesis_validators_root: genesis_validators_root,
+    )),
+    signingRoot: signingRoot,
+    payloadAttestationMessage: data
+  )
 
 func len*(p: RestWithdrawalPrefix): int = sizeof(p)
 

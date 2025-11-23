@@ -763,6 +763,9 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
     of Web3SignerRequestKind.ValidatorRegistration:
       # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
       w.writeField("validator_registration", value.validatorRegistration)
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
+      w.writeField("payload_attestation_message", value.payloadAttestationMessage)
 
 type RawWeb3SignerRequest = object
   `type`: Web3SignerRequestKind
@@ -782,6 +785,7 @@ type RawWeb3SignerRequest = object
   sync_aggregator_selection_data: Opt[SyncAggregatorSelectionData]
   contribution_and_proof: Opt[ContributionAndProof]
   validator_registration: Opt[Web3SignerValidatorRegistration]
+  payload_attestation_message: Opt[PayloadAttestationMessage]
 
 RestJson.useDefaultSerializationFor RawWeb3SignerRequest
 proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} =
@@ -891,6 +895,13 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         kind: Web3SignerRequestKind.ValidatorRegistration,
         signingRoot: v.signingRoot,
         validatorRegistration: expectedField(validator_registration),
+      )
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.PayloadAttestationMessage,
+        forkInfo: expectedForkInfo,
+        signingRoot: v.signingRoot,
+        payloadAttestationMessage: expectedField(payload_attestation_message),
       )
 
 proc writeValue*(w: var RestJsonWriter, value: RemoteKeystoreStatus) {.writer.} =
