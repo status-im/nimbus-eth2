@@ -574,25 +574,24 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-    blobsOpt =
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        Opt.some(
-          signedBlock.create_blob_sidecars(
-            engineBlock.blobsBundle.proofs,
-            engineBlock.blobsBundle.blobs))
-      else:
-        Opt.none(seq[BlobSidecar])
+  when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+    let sidecarsOpt =
+      Opt.some(
+        signedBlock.create_blob_sidecars(
+          engineBlock.blobsBundle.proofs,
+          engineBlock.blobsBundle.blobs))
+  elif consensusFork >= ConsensusFork.Fulu:
+    let sidecarsOpt =
+      Opt.some(signedBlock.assemble_data_column_sidecars(
+        engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+  else:
+    const sidecarsOpt = noSidecarsAtFork
 
-    columnsOpt =
-      when consensusFork >= ConsensusFork.Fulu:
-        Opt.some(signedBlock.assemble_data_column_sidecars(
-          engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-          @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
-      else:
-        Opt.none(seq[fulu.DataColumnSidecar])
+  let
     newBlockRef = await(
-      node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
-        columnsOpt, checkValidator = false)
+      node.router.routeSignedBeaconBlock(signedBlock, sidecarsOpt,
+        checkValidator = false)
     ).valueOr:
       # TODO Is this an error?
       beacon_block_production_errors.inc()

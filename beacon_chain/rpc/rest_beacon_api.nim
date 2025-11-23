@@ -1052,20 +1052,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
-              Opt.none(seq[fulu.DataColumnSidecar]),
               checkValidator = true)
           elif consensusFork >= ConsensusFork.Fulu:
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               @(kzg_proofs.mapIt(kzg.KzgProof(it))))
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
+              forkyBlck,
               Opt.some(data_columns),
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
-              Opt.none(seq[fulu.DataColumnSidecar]),
+              forkyBlck,
+              noSidecarsAtFork,
               checkValidator = true)
 
     if res.isErr():
@@ -1199,8 +1198,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
-            Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = true)
+            forkyBlck, noSidecarsAtFork, checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(

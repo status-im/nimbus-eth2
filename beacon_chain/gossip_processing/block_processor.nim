@@ -9,6 +9,7 @@
 
 import
   chronicles, chronos, metrics,
+  kzg4844/kzg,
   ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
@@ -207,7 +208,7 @@ proc verifySidecars(
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
         let r = validate_blobs(
-          kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
+          kzgCommits, blobs.mapIt(kzg.KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
         )
         if r.isErr():
           debug "blob validation failed",
