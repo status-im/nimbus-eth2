@@ -167,7 +167,6 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
         let res = decodeBytes(Web3SignerErrorResponse, response.data,
                               response.contentType)
         if res.isErr():
-          echo "Raw 400 response: ", fromBytes(string, response.data)
           "Remote signer returns 400 Bad Request Format Error"
         else:
           res.get().error

@@ -815,5 +815,4 @@ proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
   of ValidatorKind.Remote:
     let request =
       Web3SignerRequest.init(fork, genesis_validators_root, message)
-    echo "PayloadAttestationMessage JSON: ", RestJson.encode(request)
     await v.signData(request)
