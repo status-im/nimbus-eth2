@@ -417,9 +417,12 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
+    lightSupernode = node.config.lightSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+      elif lightSupernode:
+        dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2
       else:
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
@@ -1294,9 +1297,13 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
+  let
+    custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+    vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
   if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
-    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+    custodyGroups
+  elif node.config.lightSupernode:
+    custodyGroups div 2
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
     vcus_count
   else:
@@ -1304,10 +1311,19 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
 
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
   let
+    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId, targetSubnets.uint64)
+    custody =
+      if node.config.lightSupernode:
+        # Light supernode serves only half of the custody groups
+        var res = newSeqOfCap[CustodyIndex](custody_groups div 2)
+        for i in 0..<custody_groups div 2:
+          res.add CustodyIndex(i)
+        res
+      else:
+        node.dag.cfg.get_custody_groups(
+        node.network.nodeId, targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1736,6 +1752,9 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/das-core.md#reconstruction-and-cross-seeding
   # "If the node obtains 50%+ of all the columns, it SHOULD reconstruct the
   # full data matrix via the recover_matrix helper."
+  if node.config.lightSupernode:
+    return
+
   if node.dataColumnQuarantine.custodyColumns.lenu64 <
       node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
     return
@@ -2014,6 +2033,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if (not node.config.peerdasSupernode) and
      (not node.config.debugPeerdasSupernode) and
+     (not node.config.lightSupernode) and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
