@@ -857,21 +857,21 @@ block:
           GenesisValidatorsRoot, payloadMessage)
         rres1 = await validator4.getPayloadAttestationSignature(SigningFork,
           GenesisValidatorsRoot, payloadMessage)
-        # rres2 = await validator5.getPayloadAttestationSignature(SigningFork,
-        #   GenesisValidatorsRoot, payloadMessage)
-        # rres3 = await validator6.getPayloadAttestationSignature(SigningFork,
-        #   GenesisValidatorsRoot, payloadMessage)
+        rres2 = await validator5.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        rres3 = await validator6.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
 
       check:
         sres1.isOk()
         sres2.isOk()
         sres3.isOk()
         rres1.isOk()
-        # rres2.isOk()
-        # rres3.isOk()
-        # sres1.get() == rres1.get()
-        # sres2.get() == rres2.get()
-        # sres3.get() == rres3.get()
+        rres2.isOk()
+        rres3.isOk()
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
 
     asyncTest "Connection timeout test":
       let
