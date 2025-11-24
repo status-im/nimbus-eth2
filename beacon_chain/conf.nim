@@ -253,7 +253,7 @@ type
 
     lightSupernode* {.
       defaultValue: false,
-      desc: "Subscribe to the first half of column subnets, therefore custodying half the columns than a usual supernode"
+      desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
     slashingDbKind* {.

@@ -426,8 +426,15 @@ proc initFullNode(
       else:
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
-      dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId, localCustodyGroups)
+      if node.config.lightSupernode:
+        # Just the first half of custody columns
+        var res: HashSet[ColumnIndex]
+        for i in 0..<dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
+          res.incl ColumnIndex(i)
+        res
+      else:
+        dag.cfg.resolve_columns_from_custody_groups(
+          node.network.nodeId, localCustodyGroups)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
