@@ -450,11 +450,10 @@ template validateBeaconBlockGloas(
   let
     parentRef = dag.getBlockRef(bid.parent_block_root)
     parentBlock =
-      block:
-        if parentRef.isSome():
-          dag.getForkedBlock(parentRef.get().bid)
-        else:
-          Opt.none(ForkedTrustedSignedBeaconBlock)
+      if parentRef.isSome():
+        dag.getForkedBlock(parentRef.get().bid)
+      else:
+        Opt.none(ForkedTrustedSignedBeaconBlock)
   if parentBlock.isSome():
     withBlck(parentBlock.get()):
       if forkyBlck.message.is_execution_block:
