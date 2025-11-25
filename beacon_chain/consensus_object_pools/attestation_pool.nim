@@ -26,7 +26,8 @@ export blockchain_dag, fork_choice
 
 const
   # TODO since deneb, this is looser (whole previous epoch)
-  ATTESTATION_LOOKBACK = SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
+  ATTESTATION_LOOKBACK =
+    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
