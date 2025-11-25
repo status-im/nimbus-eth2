@@ -64,7 +64,7 @@ suite "Payload attestation pool" & preset():
     const TOTAL_COMMITTEES = 1
     var
       cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(
         ChainDAGRef, cfg,
         cfg.makeTestDB(
