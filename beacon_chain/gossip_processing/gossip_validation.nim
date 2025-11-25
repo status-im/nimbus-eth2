@@ -340,7 +340,7 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   else:
     cfg.MAX_BLOBS_PER_BLOCK
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BlockRef): untyped =
@@ -847,8 +847,8 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/bellatrix/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
