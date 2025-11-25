@@ -350,14 +350,6 @@ proc installApiHandlers*(node: SigningNodeRef) =
             ),
             validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
-      of Web3SignerRequestKind.PayloadAttestationMessage:
-        let
-          forkInfo = request.forkInfo.get()
-          signature = get_payload_attestation_message_signature(
-            forkInfo.fork, forkInfo.genesis_validators_root,
-            request.payloadAttestationMessage,
-            validator.data.privateKey).toHex()
-        signatureResponse(Http200, signature)
 
 proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   notice "Launching signing node", version = fullVersionStr,

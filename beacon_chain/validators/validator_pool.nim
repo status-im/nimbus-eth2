@@ -813,6 +813,4 @@ proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, message,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    let request =
-      Web3SignerRequest.init(fork, genesis_validators_root, message)
-    await v.signData(request)
+    return SignatureResult.err("Remote signer lacks payload attestation support")

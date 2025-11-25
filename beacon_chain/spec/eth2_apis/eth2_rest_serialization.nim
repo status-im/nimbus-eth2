@@ -62,8 +62,7 @@ type
     SignedVoluntaryExit |
     Web3SignerRequest |
     RestNimbusTimestamp1 |
-    SetGraffitiRequest |
-    PayloadAttestationMessage
+    SetGraffitiRequest
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
