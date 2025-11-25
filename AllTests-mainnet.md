@@ -834,6 +834,7 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing payload attestation message (getPayloadAttestationSignature())                     OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
