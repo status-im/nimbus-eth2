@@ -40,7 +40,7 @@ suite "Execution Payload Bid Pool":
   setup:
     let
       cfg = defaultRuntimeConfig
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       wallTime = BeaconTime(ns_since_genesis: 0)

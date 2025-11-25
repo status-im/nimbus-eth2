@@ -179,12 +179,25 @@ proc main() {.noinline, raises: [CatchableError].} =
               not isSynced(bid.slot, beaconClock.currentSlot):
             return
 
+          let finalizedBlockHash =
+            if config.syncLightClientFinality:
+              let finalizedHeader = lightClient.finalizedHeader
+              withForkyHeader(finalizedHeader):
+                when lcDataFork >= LightClientDataFork.Capella:
+                  forkyHeader.execution.block_hash
+                else:
+                  ZERO_HASH
+            else:
+              ZERO_HASH
+
           withConsensusFork(consensusFork):
             when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+              debug "Sending forkchoiceUpdated",
+                finalizedBlockHash = finalizedBlockHash
               optimisticFcuFut = elManager.forkchoiceUpdated(
                 headBlockHash = blockHash,
-                safeBlockHash = blockHash,  # stub value
-                finalizedBlockHash = ZERO_HASH,
+                safeBlockHash = finalizedBlockHash,  # justified not available
+                finalizedBlockHash = finalizedBlockHash,
                 payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
               optimisticFcuFut.addCallback do (future: pointer):
                 optimisticFcuFut = nil

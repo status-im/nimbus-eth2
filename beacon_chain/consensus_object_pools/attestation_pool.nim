@@ -624,7 +624,7 @@ func init(
         let committee = get_beacon_committee(
             state.data, slot, committee_index, cache)
         var
-          validator_bits = typeof(result).B.init(committee.len)
+          validator_bits = ElectraCommitteeValidatorsBits.init(committee.len)
         for index_in_committee, validator_index in committee:
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.

@@ -3810,6 +3810,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_bid_prev OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
@@ -3842,6 +3843,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Execution Payload Bid  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK

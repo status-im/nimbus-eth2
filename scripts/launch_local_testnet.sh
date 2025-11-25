@@ -49,7 +49,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,electra-fork-epoch:,fulu-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,electra-fork-epoch:,fulu-fork-epoch:"
 
 # default values
 BINARIES=""
@@ -91,6 +91,7 @@ LC_NODES=1
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
+RUN_SPAMOOR="0"
 : ${DL_NIMBUS_ETH1:="0"}
 : ${DL_NIMBUS_ETH2:="0"}
 
@@ -159,6 +160,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --light-clients             number of light clients
   --run-nimbus-eth1           Run nimbush-eth1 as EL
   --run-geth                  Run geth EL clients
+  --run-spamoor               Run spamoor for EL clients
   --dl-geth                   Download geth binary if not found
   --dl-nimbus-eth2            Download Nimbus CL binary
   --verbose                   Verbose output
@@ -341,6 +343,10 @@ while true; do
       DL_NIMBUS_ETH1="1"
       shift
       ;;
+    --run-spamoor)
+      RUN_SPAMOOR="1"
+      shift
+      ;;
     --verbose)
       VERBOSE="1"
       shift
@@ -451,6 +457,13 @@ fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
   . ./scripts/nimbus_el_vars.sh
+fi
+
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  source "${SCRIPTS_DIR}/spamoor_binaries.sh"
+
+  download_spamoor_stable
+  SPAMOOR_BINARY="$STABLE_SPAMOOR_BINARY"
 fi
 
 # kill lingering processes from a previous run
@@ -866,6 +879,15 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  if [[ ! -e "${SPAMOOR_BINARY}" ]]; then
+    echo "Missing spamoor executable"
+    exit 1
+  fi
+
+  source "./scripts/start_spamoor.sh"
+fi
+
 for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
@@ -965,6 +987,10 @@ fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
   NUM_JOBS=$(( NUM_JOBS + NIMBUS_ETH1_NUM_NODES ))
+fi
+
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  NUM_JOBS=$(( NUM_JOBS + 1 ))
 fi
 
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))

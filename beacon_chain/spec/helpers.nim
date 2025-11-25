@@ -583,3 +583,35 @@ func is_builder_payment_withdrawable*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_bid.block_hash == state.latest_block_hash
+
+func attestation_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    attestation_deadline_gloas(s, timeParams)
+  else:
+    attestation_deadline(s, timeParams)
+
+func aggregate_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    aggregate_deadline_gloas(s, timeParams)
+  else:
+    aggregate_deadline(s, timeParams)
+
+func sync_committee_message_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_committee_message_deadline_gloas(s, timeParams)
+  else:
+    sync_committee_message_deadline(s, timeParams)
+
+func sync_contribution_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_contribution_deadline_gloas(s, timeParams)
+  else:
+    sync_contribution_deadline(s, timeParams)
