@@ -171,7 +171,7 @@ proc recover_cells_and_proofs_parallel*(
       return err("DataColumns do not have the same length")
 
   var
-    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]] = newSeq[Flowvar[Result[CellsAndProofs, void]]]()
+    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]]
     res = newSeq[CellsAndProofs](blobCount)
 
   pendingFuts.setLen(blobCount)
