@@ -202,8 +202,6 @@ proc recover_cells_and_proofs_parallel*(
     for i in 0 ..< dataColumns.len:
       cellIndices.add(dataColumns[i][].index)
       cells.add(dataColumns[i][].column[blobIdx])
-
-    # Spawn task with explicit copies so worker sees a stable header/data
     pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
 
     # If too many in-flight tasks, await the oldest one
