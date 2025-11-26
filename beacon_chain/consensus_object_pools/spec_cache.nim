@@ -325,3 +325,18 @@ func is_aggregator*(shufflingRef: ShufflingRef, slot: Slot,
   let
     committee_len = get_beacon_committee_len(shufflingRef, slot, index)
   return is_aggregator(committee_len, slot_signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/validator.md#payload-timeliness-committee
+iterator get_ptc_assignment*(
+    state: gloas.BeaconState, epoch: Epoch,
+    validator_indices: HashSet[ValidatorIndex]):
+    tuple[slot: Slot, validator_index: ValidatorIndex] =
+  let next_epoch = state.get_current_epoch + 1
+  doAssert epoch <= next_epoch
+
+  var cache = StateCache()
+
+  for slot in epoch.slots():
+    for validator_index in get_ptc(state, slot, cache):
+      if validator_index in validator_indices:
+        yield(slot, validator_index)

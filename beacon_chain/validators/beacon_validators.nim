@@ -43,7 +43,7 @@ import
     validator_pool,
   ]
 
-from std/sequtils import mapIt
+from std/sequtils import mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 
@@ -1327,3 +1327,19 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
+
+  if wallSlot == wallSlot.epoch.start_slot():
+    let nextEpoch = wallSlot.epoch + 1
+
+    if node.dag.cfg.consensusForkAtEpoch(nextEpoch) >= ConsensusFork.Gloas:
+      let validatorIndices = toHashSet(toSeq(node.attachedValidators[].indices()))
+
+      withState(node.dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          for (slot, validator_index) in get_ptc_assignment(
+              forkyState.data, nextEpoch, validatorIndices):
+            node.consensusManager[].actionTracker.registerPTCDuty(
+              slot, validator_index)
+
+            debug "PTC duty registered",
+              slot = slot, epoch = nextEpoch

@@ -38,6 +38,10 @@ type
     subnet_id*: SubnetId
     slot*: Slot
 
+  PTCDuty* = object
+    slot*: Slot
+    validator_index: ValidatorIndex
+
   ActionTracker* = object
     nodeId: UInt256
 
@@ -72,6 +76,9 @@ type
 
     lastSyncUpdate*: Opt[SyncCommitteePeriod]
     syncDuties*: Table[ValidatorPubKey, Epoch]
+
+    ptcSlots: array[2, uint32]
+    ptcDuties*: HashSet[PTCDuty]
 
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
@@ -116,6 +123,34 @@ func hasSyncDuty*(
     tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
+proc registerPTCDuty*(
+    tracker: var ActionTracker, slot: Slot, vidx: ValidatorIndex) =
+  if slot < tracker.currentSlot or
+      slot + (SLOTS_PER_EPOCH + 2) <= tracker.currentSlot:
+    debug "Irrelevant PTC duty", slot, vidx
+    return
+
+  tracker.knownValidators[vidx] = slot
+
+  let newDuty = PTCDuty(slot: slot, validator_index: vidx)
+
+  if newDuty in tracker.ptcDuties:
+    return
+
+  debug "Registering PTC duty", slot, vidx
+  tracker.ptcDuties.incl(newDuty)
+
+func hasPTCDuty*(tracker: ActionTracker, slot: Slot): bool =
+  let epoch = slot.epoch
+  if epoch > tracker.lastCalculatedEpoch + 1:
+    return false
+  ((tracker.ptcSlots[epoch mod 2] and (1'u32 shl (slot mod SLOTS_PER_EPOCH))) != 0)
+
+func getPTCDuties*(tracker: ActionTracker, slot: Slot): seq[ValidatorIndex] =
+  for duty in tracker.ptcDuties:
+    if duty.slot == slot:
+      result.add(duty.validator_index)
+
 func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits
   # Subscribe to subnets for upcoming duties
@@ -145,6 +180,7 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # Prune duties from the past - this collection is kept small because there
   # are only so many slot/subnet combos - prune both internal and API-supplied
   # duties at the same time
+  tracker.duties.keepItIf(it.slot >= wallSlot)
   tracker.duties.keepItIf(it.slot >= wallSlot)
 
   block:
@@ -232,6 +268,7 @@ func updateActions*(
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)
 
   tracker.attestingSlots[epoch mod 2] = 0
+  tracker.ptcSlots[epoch mod 2] = 0
 
   # The relevant bitmaps are 32 bits each.
   static: doAssert SLOTS_PER_EPOCH <= 32
@@ -256,6 +293,12 @@ func updateActions*(
     tracker.attestingSlots[epoch mod 2] =
       tracker.attestingSlots[epoch mod 2] or
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
+
+  for duty in tracker.ptcDuties:
+    if duty.slot.epoch == epoch:
+      tracker.ptcSlots[epoch mod 2] =
+        tracker.ptcSlots[epoch mod 2] or
+          (1'u32 shl (duty.slot mod SLOTS_PER_EPOCH))
 
 func init*(
     T: type ActionTracker, nodeId: UInt256, subscribeAllAttnets: bool): T =
