@@ -191,7 +191,7 @@ proc recover_cells_and_proofs_parallel*(
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out while preparing columns",
+      trace "PeerDAS reconstruction timed out while preparing columns",
         spawned = pendingFuts.len, total = blobCount
       drainPending(0)
       return err("Data column reconstruction timed out")
@@ -210,7 +210,7 @@ proc recover_cells_and_proofs_parallel*(
     while pendingFuts.len - completed >= maxInFlight:
       let now2 = Moment.now()
       if (now2 - startTime) > reconstructionTimeout:
-        debug "PeerDAS reconstruction timed out while awaiting tasks",
+        trace "PeerDAS reconstruction timed out while awaiting tasks",
           completed = completed, totalSpawned = pendingFuts.len
         drainPending(completed)
         return err("Data column reconstruction timed out")
@@ -227,7 +227,7 @@ proc recover_cells_and_proofs_parallel*(
   for i in completed ..< pendingFuts.len:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out during final sync",
+      trace "PeerDAS reconstruction timed out during final sync",
         completed = i, totalSpawned = pendingFuts.len
       drainPending(i)
       return err("Data column reconstruction timed out")
