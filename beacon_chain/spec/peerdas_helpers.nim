@@ -153,56 +153,95 @@ proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
-  ## This helper recovers blobs from the data column sidecars parallelly
+  ## Recover blobs from data column sidecars in parallel.
+  ## - Avoids passing stack-owned seq headers to tasks (uses heap-backed seqs + .copy).
+  ## - Bounds in-flight tasks to limit peak memory.
+  ## - Ensures all spawned tasks are awaited (drained) on any early return.
+
   if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
+  if dataColumns.len > NUMBER_OF_COLUMNS:
+    return err("DataColumnSidecar: Length exceeds NUMBER_OF_COLUMNS")
 
   let
     columnCount = dataColumns.len
     blobCount = dataColumns[0].column.len
 
   for column in dataColumns:
-    if not (blobCount == column.column.len):
+    if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
   var
-    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]]
+    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]] = newSeq[Flowvar[Result[CellsAndProofs, void]]]()
     res = newSeq[CellsAndProofs](blobCount)
+
+  pendingFuts.setLen(blobCount)
+  # Choose a sane limit for concurrent tasks to reduce peak memory/alloc pressure.
+  let maxInFlight = if blobCount < 9: blobCount else: 9
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
-  # ---- Spawn phase with time limit ----
+  proc drainPending(startIdx: int) =
+    for j in startIdx ..< pendingFuts.len:
+      discard sync pendingFuts[j]
+
+  var completed = 0
+
+  # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
       debug "PeerDAS reconstruction timed out while preparing columns",
         spawned = pendingFuts.len, total = blobCount
-      break  # Stop spawning new tasks
+      drainPending(0)
+      return err("Data column reconstruction timed out")
 
     var
-      cellIndices = newSeq[CellIndex](columnCount)
-      cells = newSeq[Cell](columnCount)
+      cellIndices = newSeqOfCap[CellIndex](columnCount)
+      cells = newSeqOfCap[Cell](columnCount)
     for i in 0 ..< dataColumns.len:
-      cellIndices[i] = dataColumns[i][].index
-      cells[i] = dataColumns[i][].column[blobIdx]
+      cellIndices.add(dataColumns[i][].index)
+      cells.add(dataColumns[i][].column[blobIdx])
+
+    # Spawn task with explicit copies so worker sees a stable header/data
     pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
 
-  # ---- Sync phase ----
-  for i in 0 ..< pendingFuts.len:
+    # If too many in-flight tasks, await the oldest one
+    while pendingFuts.len - completed >= maxInFlight:
+      let now2 = Moment.now()
+      if (now2 - startTime) > reconstructionTimeout:
+        debug "PeerDAS reconstruction timed out while awaiting tasks",
+          completed = completed, totalSpawned = pendingFuts.len
+        drainPending(completed)
+        return err("Data column reconstruction timed out")
+
+      let futRes = sync pendingFuts[completed]
+      if futRes.isErr:
+        # Ensure remaining spawned tasks are awaited before returning
+        drainPending(completed + 1)
+        return err("KZG cells and proofs recovery failed")
+      res[completed] = futRes.get
+      inc completed
+
+  # ---- Wait for remaining spawned tasks ----
+  for i in completed ..< pendingFuts.len:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out",
+      debug "PeerDAS reconstruction timed out during final sync",
         completed = i, totalSpawned = pendingFuts.len
+      drainPending(i)
       return err("Data column reconstruction timed out")
 
     let futRes = sync pendingFuts[i]
     if futRes.isErr:
+      drainPending(i + 1)
       return err("KZG cells and proofs recovery failed")
-
     res[i] = futRes.get
 
+  # If we spawned fewer than blobCount, spawn-phase timed out earlier
   if pendingFuts.len < blobCount:
+    drainPending(0)
     return err("Data column reconstruction timed out")
 
   ok(res)
