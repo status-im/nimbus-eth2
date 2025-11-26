@@ -154,8 +154,7 @@ proc recover_cells_and_proofs_parallel*(
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## Recover blobs from data column sidecars in parallel.
-  ## - Use unmanaged C buffers for worker inputs so no Nim GC objects
-  ##   (seq headers) cross thread-local heaps.
+  ## - Uses unmanaged C buffers for worker inputs so no Nim GC objects
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Ensures all spawned tasks are awaited (drained) on any early return.
 
@@ -184,10 +183,12 @@ proc recover_cells_and_proofs_parallel*(
     ## Worker runs on a taskpool thread. It receives raw C buffers (ptr) and
     ## converts them into worker-local seqs before calling the KZG recovery
     ## routine, so no Nim GC objects cross thread-local heaps.
-    var localIndices = newSeq[CellIndex](columnCount)
-    var localCells = newSeq[Cell](columnCount)
-    let idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
-    let cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    var
+      localIndices = newSeq[CellIndex](columnCount)
+      localCells = newSeq[Cell](columnCount)
+    let
+      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
+      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
     for j in 0 ..< columnCount:
       localIndices[j] = idxArr[j]
       localCells[j] = cellsArr[j]
