@@ -1282,6 +1282,24 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
 
+proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
+  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
+    return
+
+  let validatorIndices = toHashSet(toSeq(node.attachedValidators[].indices()))
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      for (slot, validator_index) in get_ptc_assignment(
+          forkyState.data, epoch, validatorIndices):
+
+        node.consensusManager[].actionTracker.registerPTCDuty(
+          slot, validator_index)
+
+        debug "PTC duty registered",
+          slot = slot,
+          epoch = epoch
+
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [CancelledError]).} =
   ## Register upcoming duties of attached validators with the duty tracker
 
@@ -1329,17 +1347,4 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
           slot, subnet_id, validator_index, isAggregator)
 
   if wallSlot == wallSlot.epoch.start_slot():
-    let nextEpoch = wallSlot.epoch + 1
-
-    if node.dag.cfg.consensusForkAtEpoch(nextEpoch) >= ConsensusFork.Gloas:
-      let validatorIndices = toHashSet(toSeq(node.attachedValidators[].indices()))
-
-      withState(node.dag.headState):
-        when consensusFork >= ConsensusFork.Gloas:
-          for (slot, validator_index) in get_ptc_assignment(
-              forkyState.data, nextEpoch, validatorIndices):
-            node.consensusManager[].actionTracker.registerPTCDuty(
-              slot, validator_index)
-
-            debug "PTC duty registered",
-              slot = slot, epoch = nextEpoch
+    node.registerPTCDuties(wallSlot.epoch + 1)
