@@ -238,10 +238,11 @@ proc recover_cells_and_proofs_parallel*(
       drainPending(0)
       return err("Data column reconstruction timed out")
 
-    # Allocate unmanaged C buffers and copy data into them (main thread)
-    let idxBytes = csize_t(columnCount) * csize_t(sizeof(CellIndex))
-    let cellsBytes = csize_t(columnCount) * csize_t(sizeof(Cell))
-    let idxPtr = cast[ptr CellIndex](c_malloc(idxBytes))
+    # Allocate unmanaged C buffers and copy data into them
+    let
+      idxBytes = csize_t(columnCount) * csize_t(sizeof(CellIndex))
+      cellsBytes = csize_t(columnCount) * csize_t(sizeof(Cell))
+      idxPtr = cast[ptr CellIndex](c_malloc(idxBytes))
     if idxPtr == nil:
       drainPending(0)
       return err("Out of memory")
@@ -252,8 +253,9 @@ proc recover_cells_and_proofs_parallel*(
       return err("Out of memory")
 
     # populate C buffers via UncheckedArray casts
-    let idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
-    let cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    let
+      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
+      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
     for i in 0 ..< dataColumns.len:
       idxArr[i] = dataColumns[i][].index
       cellsArr[i] = dataColumns[i][].column[blobIdx]
