@@ -1154,9 +1154,11 @@ AllTests-mainnet
 ```
 ## subnet tracker
 ```diff
++ should register and prune PTC duties                                                       OK
 + should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
++ should track PTC duties in slot bitmaps                                                    OK
 ```
 ## test_fixture_ssz_generic_types.nim
 ```diff

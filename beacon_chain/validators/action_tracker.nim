@@ -77,7 +77,7 @@ type
     lastSyncUpdate*: Opt[SyncCommitteePeriod]
     syncDuties*: Table[ValidatorPubKey, Epoch]
 
-    ptcSlots: array[2, uint32]
+    ptcSlots*: array[2, uint32]
     ptcDuties*: HashSet[PTCDuty]
 
 func hash*(x: AggregatorDuty): Hash =
@@ -126,7 +126,7 @@ func hasSyncDuty*(
 proc registerPTCDuty*(
     tracker: var ActionTracker, slot: Slot, vidx: ValidatorIndex) =
   if slot < tracker.currentSlot or
-      slot + (SLOTS_PER_EPOCH + 2) <= tracker.currentSlot:
+      slot >= Slot(uint64(tracker.currentSlot) + (SLOTS_PER_EPOCH * 2)):
     debug "Irrelevant PTC duty", slot, vidx
     return
 
@@ -140,11 +140,10 @@ proc registerPTCDuty*(
   debug "Registering PTC duty", slot, vidx
   tracker.ptcDuties.incl(newDuty)
 
+from std/sequtils import toSeq, anyIt
+
 func hasPTCDuty*(tracker: ActionTracker, slot: Slot): bool =
-  let epoch = slot.epoch
-  if epoch > tracker.lastCalculatedEpoch + 1:
-    return false
-  ((tracker.ptcSlots[epoch mod 2] and (1'u32 shl (slot mod SLOTS_PER_EPOCH))) != 0)
+  tracker.ptcDuties.anyIt(it.slot == slot)
 
 func getPTCDuties*(tracker: ActionTracker, slot: Slot): seq[ValidatorIndex] =
   for duty in tracker.ptcDuties:
@@ -181,7 +180,7 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # are only so many slot/subnet combos - prune both internal and API-supplied
   # duties at the same time
   tracker.duties.keepItIf(it.slot >= wallSlot)
-  tracker.duties.keepItIf(it.slot >= wallSlot)
+  tracker.ptcDuties.keepItIf(it.slot >= wallSlot)
 
   block:
     var dels: seq[ValidatorPubKey]
@@ -246,8 +245,6 @@ func needsUpdate*(
   # and the action tracker is speculative in nature.
   tracker.attesterDepRoot !=
     state.dependent_root(if epoch > Epoch(0): epoch - 1 else: epoch)
-
-from std/sequtils import toSeq
 
 func updateActions*(
     tracker: var ActionTracker, shufflingRef: ShufflingRef,
