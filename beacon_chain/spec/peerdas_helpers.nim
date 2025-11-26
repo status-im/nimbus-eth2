@@ -154,7 +154,6 @@ proc recover_cells_and_proofs_parallel*(
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## Recover blobs from data column sidecars in parallel.
-  ## - Avoids passing stack-owned seq headers to tasks (uses heap-backed seqs + .copy).
   ## - Bounds in-flight tasks to limit peak memory.
   ## - Ensures all spawned tasks are awaited (drained) on any early return.
 
