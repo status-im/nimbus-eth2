@@ -172,6 +172,18 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
++ ColumnQuarantine: update(empty:grow) [node->node] test                                     OK
++ ColumnQuarantine: update(empty:grow) [node->supernode] test                                OK
++ ColumnQuarantine: update(empty:shrink) [node->node] test                                   OK
++ ColumnQuarantine: update(empty:shrink) [supernode->node] test                              OK
++ ColumnQuarantine: update(memory+disk:grow) [node->node] test                               OK
++ ColumnQuarantine: update(memory+disk:grow) [node->supernode] test                          OK
++ ColumnQuarantine: update(memory+disk:shrink) [node->node] test                             OK
++ ColumnQuarantine: update(memory+disk:shrink) [supernode->node] test                        OK
++ ColumnQuarantine: update(memory:grow) [node->node] test                                    OK
++ ColumnQuarantine: update(memory:grow) [node->supernode] test                               OK
++ ColumnQuarantine: update(memory:shrink) [node->node] test                                  OK
++ ColumnQuarantine: update(memory:shrink) [supernode->node] test                             OK
 + Empty in-memory scenario test [node]                                                       OK
 + Empty in-memory scenario test [supernode]                                                  OK
 + Mixed entries scenario test [node]                                                         OK
