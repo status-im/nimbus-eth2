@@ -65,6 +65,9 @@ func `xor`*(a, b: ColumnMap): ColumnMap =
 func `not`*(a: ColumnMap): ColumnMap =
   ColumnMap(data: [not(a.data[0]), not(a.data[1])])
 
+func `==`*(a, b: ColumnMap): bool =
+  (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
+
 func empty*(a: ColumnMap): bool =
   (a.data[0] == 0'u64) and (a.data[1] == 0'u64)
 
@@ -88,6 +91,12 @@ iterator items*(a: ColumnMap): ColumnIndex =
       res = firstOne(data1)
     yield ColumnIndex(64 + res - 1)
     data1 = data1 xor t
+
+iterator pairs*(a: ColumnMap): (int, ColumnIndex) =
+  var index = 0
+  for item in a.items():
+    yield (index, item)
+    inc(index)
 
 func len*(a: ColumnMap): int =
   # Returns number of columns in map.
