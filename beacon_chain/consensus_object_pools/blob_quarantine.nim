@@ -922,9 +922,6 @@ proc init*(
     onSidecarCallback: onDataColumnSidecarCallback
   )
 
-proc shortLog*(a: openArray[SidecarHolder[fulu.DataColumnSidecar]]): string =
-  "[" & a.mapIt($it.index & ":" & $it.kind).join(", ") & "]"
-
 proc update*(
     quarantine: var ColumnQuarantine,
     cfg: RuntimeConfig,
