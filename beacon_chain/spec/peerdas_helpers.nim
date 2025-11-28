@@ -23,6 +23,7 @@ import
 from std/algorithm import sort
 from std/sequtils import toSeq
 from stew/staticfor import staticFor
+from system/ansi_c import c_malloc, c_free
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -170,10 +171,6 @@ proc recover_cells_and_proofs_parallel*(
   for column in dataColumns:
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
-
-  # C malloc/free bindings
-  proc c_malloc(n: csize_t): pointer {.importc: "malloc", header: "<stdlib.h>".}
-  proc c_free(p: pointer) {.importc: "free", header: "<stdlib.h>".}
 
   # Worker that runs on a taskpool thread. It only sees raw pointers and
   # constructs its own worker-local seqs (on the worker's heap) before calling
