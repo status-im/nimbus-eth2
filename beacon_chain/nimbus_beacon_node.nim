@@ -422,7 +422,7 @@ proc initFullNode(
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       elif lightSupernode:
-        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2)+ 1
+        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
       else:
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
