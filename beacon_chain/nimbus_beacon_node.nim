@@ -422,14 +422,14 @@ proc initFullNode(
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       elif lightSupernode:
-        dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2
+        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2)+ 1
       else:
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
       if node.config.lightSupernode:
         # Just the first half of custody columns
         var res: HashSet[ColumnIndex]
-        for i in 0..<dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
+        for i in 0..<(dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
           res.incl ColumnIndex(i)
         res
       else:
@@ -1310,7 +1310,7 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
     custodyGroups
   elif node.config.lightSupernode:
-    custodyGroups div 2
+    (custodyGroups div 2) + 1
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
     vcus_count
   else:
@@ -1324,8 +1324,8 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     custody =
       if node.config.lightSupernode:
         # Light supernode serves only half of the custody groups
-        var res = newSeqOfCap[CustodyIndex](custody_groups div 2)
-        for i in 0..<custody_groups div 2:
+        var res = newSeqOfCap[CustodyIndex]((custody_groups div 2) + 1)
+        for i in 0..<(custody_groups div 2) + 1:
           res.add CustodyIndex(i)
         res
       else:
