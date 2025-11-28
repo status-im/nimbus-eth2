@@ -50,6 +50,7 @@ The following options are available:
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --peerdas-supernode       Subscribe to all column subnets, thereby becoming a PeerDAS supernode [=false].
+     --light-supernode         Subscribe to the first half of column subnets [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
      --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for
@@ -112,7 +113,6 @@ The following options are available:
      --light-client-data-import-mode  Which classes of light client data to import. Must be one of: none, only-new,
                                full (slow startup), on-demand (may miss validator duties) [=only-new].
      --light-client-data-max-periods  Maximum number of sync committee periods to retain light client data.
-     --light-supernode         Subscribe to the first half of column subnets [=false].
      --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
                                keys of the validators what to sign and when) and load the validators in the
                                beacon node itself [=true].
