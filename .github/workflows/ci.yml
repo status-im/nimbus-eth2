@@ -259,11 +259,11 @@ jobs:
       - name: Check exception tracking
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
-          sh scripts/check_exception_headers.sh
+          scripts/check_exception_headers.sh
       - name: Check submodules
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
-          sh scripts/check_submodule_branches.sh
+          scripts/check_submodule_branches.sh
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
