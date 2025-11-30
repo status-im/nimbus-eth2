@@ -134,21 +134,20 @@ proc registerPTCDuty*(
 
   let newDuty = PTCDuty(slot: slot, validator_index: vidx)
 
-  if newDuty in tracker.ptcDuties:
-    return
-
   debug "Registering PTC duty", slot, vidx
   tracker.ptcDuties.incl(newDuty)
 
-from std/sequtils import toSeq, anyIt
+from std/sequtils import anyIt, toSeq
 
 func hasPTCDuty*(tracker: ActionTracker, slot: Slot): bool =
   tracker.ptcDuties.anyIt(it.slot == slot)
 
 func getPTCDuties*(tracker: ActionTracker, slot: Slot): seq[ValidatorIndex] =
+  var duties: seq[ValidatorIndex]
   for duty in tracker.ptcDuties:
     if duty.slot == slot:
-      result.add(duty.validator_index)
+      duties.add(duty.validator_index)
+  duties
 
 func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits

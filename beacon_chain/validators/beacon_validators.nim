@@ -1286,14 +1286,18 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
     return
 
-  let validatorIndices = toHashSet(toSeq(node.attachedValidators[].indices()))
+  let validatorIndices = block:
+    var res: HashSet[ValidatorIndex]
+    for idx in node.attachedValidators[].indices():
+      res.incl(idx)
+    res
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var cache = new StateCache
+      var cache: StateCache
       
       for slot in epoch.slots():
-        for validator_index in get_ptc(forkyState.data, slot, cache[]):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           if validator_index in validatorIndices:
             node.consensusManager[].actionTracker.registerPTCDuty(
               slot, validator_index)
