@@ -45,7 +45,7 @@ static void *readEntireFile(const char *path, int *numBytes)
     err = fseek(file, 0, SEEK_SET);
     check(!err);
 
-    char *buffer = malloc((size_t) size + 1);
+    char *buffer = (char *)malloc((size_t) size + 1);
     check(buffer);
 
     size_t actualSize = fread(buffer, 1, (size_t) size, file);
@@ -66,7 +66,7 @@ ETH_RESULT_USE_CHECK
 static ETHConsensusConfig *loadCfg(const char *path)
 {
     void *fileContent = readEntireFile(path, /* numBytes: */ NULL);
-    ETHConsensusConfig *cfg = ETHConsensusConfigCreateFromYaml(fileContent);
+    ETHConsensusConfig *cfg = ETHConsensusConfigCreateFromYaml((const char *)fileContent);
     check(cfg);
     free(fileContent);
     return cfg;
@@ -90,7 +90,7 @@ static ETHBeaconState *loadGenesis(const ETHConsensusConfig *cfg, const char *pa
 
 static void printHexString(const void *bytes, int numBytes)
 {
-    const uint8_t *bytes_ = bytes;
+    const uint8_t *bytes_ = (const uint8_t *)bytes;
     printf("0x");
     for (int i = 0; i < numBytes; i++) {
         printf("%02x", bytes_[i]);
@@ -99,7 +99,7 @@ static void printHexString(const void *bytes, int numBytes)
 
 static void printHexStringReversed(const void *bytes, int numBytes)
 {
-    const uint8_t *bytes_ = bytes;
+    const uint8_t *bytes_ = (const uint8_t *)bytes;
     printf("0x");
     for (int i = numBytes - 1; i >= 0; i--) {
         printf("%02x", bytes_[i]);
@@ -369,7 +369,7 @@ int main(void)
     void *blockHeaderJson = readEntireFile(
         __DIR__ "/test_files/executionBlockHeader.json", /* numBytes: */ NULL);
     ETHExecutionBlockHeader *executionBlockHeader =
-        ETHExecutionBlockHeaderCreateFromJson(copiedExecutionHash, blockHeaderJson);
+        ETHExecutionBlockHeaderCreateFromJson(copiedExecutionHash, (const char *)blockHeaderJson);
     check(executionBlockHeader);
     free(blockHeaderJson);
     ETHRootDestroy(copiedExecutionHash);
@@ -434,7 +434,7 @@ int main(void)
     void *sampleTransactionsJson = readEntireFile(
         __DIR__ "/test_files/transactions.json", /* numBytes: */ NULL);
     ETHTransactions *transactions =
-        ETHTransactionsCreateFromJson(&sampleTransactionsRoot, sampleTransactionsJson);
+        ETHTransactionsCreateFromJson(&sampleTransactionsRoot, (const char *)sampleTransactionsJson);
     check(transactions);
     free(sampleTransactionsJson);
 
@@ -447,7 +447,7 @@ int main(void)
     void *sampleReceiptsJson = readEntireFile(
         __DIR__ "/test_files/receipts.json", /* numBytes: */ NULL);
     ETHReceipts *receipts =
-        ETHReceiptsCreateFromJson(&sampleReceiptsRoot, sampleReceiptsJson, transactions);
+        ETHReceiptsCreateFromJson(&sampleReceiptsRoot, (const char *)sampleReceiptsJson, transactions);
     check(receipts);
     free(sampleReceiptsJson);
 
