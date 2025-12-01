@@ -111,13 +111,10 @@ type
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
 
-  NoEnvelope = typeof(())
   SomeOptEnvelope =
     NoEnvelope | Opt[gloas.SignedExecutionPayloadEnvelope]
 
-const
-  noSidecars* = default(NoSidecars)
-  noEnvelope = default(NoEnvelope)
+const noSidecars* = default(NoSidecars)
 
 # Initialization
 # ------------------------------------------------------------------------------

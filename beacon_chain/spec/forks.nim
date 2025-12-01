@@ -380,6 +380,10 @@ type
     fuluInt:   ForkDigest
     bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
+  NoEnvelope* = typeof(())
+
+const noEnvelope* = default(NoEnvelope)
+
 template kind*(
     x: typedesc[
       phase0.BeaconState |
