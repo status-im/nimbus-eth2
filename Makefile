@@ -720,6 +720,7 @@ test_libnimbus_lc: libnimbus_lc.a
 				--std=c17 -flto \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
+				-Wno-stringop-overflow \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \

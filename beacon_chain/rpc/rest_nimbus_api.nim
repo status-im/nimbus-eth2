@@ -259,10 +259,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestFutureInfo]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
-        let futureId = Base10.toString(item.id)
+        let futureId = Base10.toString(item.internalId)
         let childId =
-          if isNil(item.child): ""
-          else: Base10.toString(item.child.id)
+          if isNil(item.internalChild): ""
+          else: Base10.toString(item.internalChild.internalId)
         res.add(
           RestFutureInfo(
             id: futureId,
@@ -270,7 +270,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
             procname: $loc.procedure,
             filename: $loc.file,
             line: loc.line,
-            state: $item.state
+            state: $item.internalState
           )
         )
       RestApiResponse.jsonResponse(res)

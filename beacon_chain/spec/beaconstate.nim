@@ -2764,7 +2764,7 @@ func can_advance_slots*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
 iterator get_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
-    ValidatorIndex =
+    ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]
@@ -2783,12 +2783,6 @@ iterator get_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
   for candidate_index in compute_balance_weighted_selection(
       state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
     yield candidate_index
-
-func get_ptc_list*(state: gloas.BeaconState, slot: Slot,
-    cache: var StateCache): seq[ValidatorIndex] =
-  # workaround for https://github.com/nim-lang/Nim/issues/25287
-  # TODO: Remove if issue gets fixed and use iterator directly
-  toSeq(get_ptc(state, slot, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(

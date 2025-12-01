@@ -21,7 +21,7 @@ import
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
-from ../beacon_chain/spec/beaconstate import get_ptc_list
+from ../beacon_chain/spec/beaconstate import get_ptc
 
 proc makePayloadAttestationMessage(
     state: gloas.HashedBeaconState,
@@ -86,14 +86,15 @@ suite "Payload attestation pool" & preset():
   test "Can add and retrieve payload attestations" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_member: ValidatorIndex
         var found = false
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
             ptc_member = validator_index
             found = true
             break
@@ -120,7 +121,8 @@ suite "Payload attestation pool" & preset():
   test "Multiple validators in PTC can attest" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
@@ -128,7 +130,7 @@ suite "Payload attestation pool" & preset():
         var messages: seq[PayloadAttestationMessage]
         var ptc_members: seq[ValidatorIndex]
 
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           if ptc_members.len >= 3:
             break
           ptc_members.add(validator_index)
@@ -151,7 +153,8 @@ suite "Payload attestation pool" & preset():
   test "Duplicate validator in PTC - multiple signatures" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
@@ -160,7 +163,7 @@ suite "Payload attestation pool" & preset():
           validator_positions: Table[ValidatorIndex, seq[int]]
           ptc_index = 0
 
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           if validator_index notin validator_positions:
             validator_positions[validator_index] = @[]
           validator_positions[validator_index].add(ptc_index)
@@ -182,12 +185,14 @@ suite "Payload attestation pool" & preset():
           let
             privkey = MockPrivKeys[multi_position_validator]
             message = makePayloadAttestationMessage(
-              forkyState, beacon_block_root, multi_position_validator, privkey, cache)
+              forkyState, beacon_block_root,
+              multi_position_validator, privkey, cache)
 
           check pool[].addPayloadAttestation(message, wallTime)
 
-          let aggregated = pool[].getAggregatedPayloadAttestation(
-            slot, beacon_block_root, cache)
+          let aggregated =
+            pool[].getAggregatedPayloadAttestation(
+              slot, beacon_block_root, cache)
           check aggregated.isSome()
 
           # Check that all positions are set in aggregation bits
@@ -197,14 +202,15 @@ suite "Payload attestation pool" & preset():
   test "Can get payload attestations for block production" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
       target_slot = slot + 1
 
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var added_count = 0
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           if added_count >= 2:
             break
           let
@@ -214,21 +220,23 @@ suite "Payload attestation pool" & preset():
           check pool[].addPayloadAttestation(message, wallTime)
           added_count += 1
 
-        let attestations = pool[].getPayloadAttestationsForBlock(target_slot, cache)
+        let attestations =
+          pool[].getPayloadAttestationsForBlock(target_slot, cache)
         check attestations.len > 0
         check attestations[0].data.slot == slot
 
   test "Payload attestations get pruned" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
       future_time = (slot + 5).start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_member: ValidatorIndex
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           ptc_member = validator_index
           break
 
@@ -244,19 +252,21 @@ suite "Payload attestation pool" & preset():
         check pool[].addPayloadAttestation(message, future_time)
 
         # Old attestation should no longer be retrievable
-        let attestations = pool[].getPayloadAttestationsForBlock(slot + 6, cache)
+        let attestations =
+          pool[].getPayloadAttestationsForBlock(slot + 6, cache)
         check attestations.len == 0
 
   test "Different payload presence values" & preset():
     let
       slot = getStateField(state[], slot)
-      beacon_block_root = withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
+      beacon_block_root =
+        withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_members: seq[ValidatorIndex]
-        for validator_index in get_ptc_list(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot, cache):
           if ptc_members.len >= 2:
             break
           ptc_members.add(validator_index)
@@ -277,5 +287,6 @@ suite "Payload attestation pool" & preset():
         check pool[].addPayloadAttestation(message2, wallTime)
 
         let
-          agg1 = pool[].getAggregatedPayloadAttestation(slot, beacon_block_root, cache)
+          agg1 = pool[].getAggregatedPayloadAttestation(
+            slot, beacon_block_root, cache)
         check agg1.isSome()

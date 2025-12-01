@@ -82,6 +82,9 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
 
+  ColumnQuarantineNode* =
+    DoublyLinkedNode[RootTableRecord[fulu.DataColumnSidecar]]
+
 func indexLog*[T: SomeSidecarRef](sidecars: openArray[ref T]): string =
   "[" & sidecars.mapIt($uint64(it[].index)).join(",") & "]"
 
@@ -886,12 +889,13 @@ proc init*(
     onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+
+  let custodyMap = ColumnMap.init(custodyColumns)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyColumns) < NUMBER_OF_COLUMNS:
     for i in 0 ..< len(indexMap):
       indexMap[i] = -1
-  for index, item in custodyColumns.pairs():
-    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+  for index, item in custodyMap.pairs():
     indexMap[int(item)] = index
 
   let size = maxSidecars(NUMBER_OF_COLUMNS)
@@ -911,27 +915,84 @@ proc init*(
     memSidecarsCount: 0,
     diskSidecarsCount: 0,
     indexMap: indexMap,
-    custodyColumns: @custodyColumns,
-    custodyMap: ColumnMap.init(custodyColumns),
+    custodyColumns: toSeq(custodyMap.items),
+    custodyMap: custodyMap,
     list: initDoublyLinkedList[RootTableRecord[fulu.DataColumnSidecar]](),
     db: database,
     onSidecarCallback: onDataColumnSidecarCallback
   )
 
-func updateColumnQuarantine*(
-    quarantine: ref ColumnQuarantine,
+proc update*(
+    quarantine: var ColumnQuarantine,
     cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex]) =
+    custodyColumns: openArray[ColumnIndex]
+) =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  let
+    custodyMap = ColumnMap.init(custodyColumns)
+    maxSidecarsPerBlockCount = len(custodyMap)
+
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyColumns) < NUMBER_OF_COLUMNS:
     for i in 0 ..< len(indexMap):
       indexMap[i] = -1
-  for index, item in custodyColumns.pairs():
-    doAssert(item < uint64(NUMBER_OF_COLUMNS))
+  for index, item in custodyMap.pairs():
     indexMap[int(item)] = index
 
-  quarantine.maxSidecarsPerBlockCount = len(custodyColumns)
+  var
+    memSidecarsCount = 0
+    diskSidecarsCount = 0
+    nodesToRemove: seq[ColumnQuarantineNode]
+
+  for node in quarantine.list.nodes():
+    var
+      sidecars =
+        newSeq[SidecarHolder[fulu.DataColumnSidecar]](len(custodyMap))
+      count = 0
+      unloaded = 0
+
+    for cindex in quarantine.custodyMap.items():
+      let
+        index = quarantine.getIndex(cindex)
+        sidecar = node[].value.sidecars[index]
+
+      if not(isEmpty(sidecar)):
+        if cindex in custodyMap:
+          let dindex = indexMap[int(cindex)]
+          if dindex >= 0:
+            sidecars[dindex] = sidecar
+            inc(count)
+            if not(sidecar.isLoaded()):
+              inc(unloaded)
+
+    node.value.sidecars.reset()
+
+    if count > 0:
+      node[].value.sidecars = sidecars
+      node[].value.count = count
+      node[].value.unloaded = unloaded
+      # We do account sidecars which are useful in new configuration, but
+      # its possible that some sidecars will be left on disk which can't be
+      # used in new configuration, and we can't delete it easily. But this
+      # sidecars will be deleted as soon as sidecars with same `block_root`
+      # will be popped out from quarantine.
+      diskSidecarsCount.inc(unloaded)
+      memSidecarsCount.inc(count - unloaded)
+    else:
+      # If there no useful columns, we will mark this node for deletion.
+      nodesToRemove.add(node)
+
+  for node in nodesToRemove:
+    quarantine.removeNode(node, 0)
+
+  quarantine.diskSidecarsCount = diskSidecarsCount
+  quarantine.memSidecarsCount = memSidecarsCount
+  blob_quarantine_memory_slots_occupied.set(
+    int64(quarantine.memSidecarsCount))
+  blob_quarantine_database_slots_occupied.set(
+    int64(quarantine.diskSidecarsCount))
+
+  quarantine.maxSidecarsPerBlockCount = maxSidecarsPerBlockCount
   quarantine.indexMap = indexMap
-  quarantine.custodyColumns = @custodyColumns
-  quarantine.custodyMap = ColumnMap.init(custodyColumns)
+  quarantine.custodyColumns = toSeq(custodyMap.items)
+  quarantine.custodyMap = custodyMap

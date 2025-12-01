@@ -16,7 +16,7 @@ import
   "."/[spec_cache, blockchain_dag],
   ../beacon_clock
 
-from ../spec/beaconstate import get_ptc_list
+from ../spec/beaconstate import get_ptc
 
 logScope: topics = "payattpool"
 
@@ -90,8 +90,7 @@ proc aggregateMessages(
         signatures: seq[CookedSig]
         ptc_index = 0
 
-      let ptc_list = get_ptc_list(forkyState.data, slot, cache)
-      for ptc_validator_index in ptc_list:
+      for ptc_validator_index in get_ptc(forkyState.data, slot, cache):
         entry.messages.withValue(ptc_validator_index, message):
           let cookedSig = message[].signature.load().valueOr:
             continue
@@ -138,12 +137,13 @@ proc getPayloadAttestationsForBlock*(
     return @[]
 
   let attestation_slot = target_slot - 1
-  var
-    payload_attestations: seq[PayloadAttestation]
-    totalCandidates = 0
 
   if attestation_slot notin pool.attestations:
     return @[]
+
+  var
+    payload_attestations: seq[PayloadAttestation]
+    totalCandidates = 0
 
   pool.attestations.withValue(attestation_slot, slotEntries):
     for beacon_block_root, entry in slotEntries[]:
@@ -153,7 +153,6 @@ proc getPayloadAttestationsForBlock*(
           attestation_slot, beacon_block_root, cache)
       if aggregated.isSome():
         payload_attestations.add(aggregated.get())
-
         if payload_attestations.len >= MAX_PAYLOAD_ATTESTATIONS.int:
           break
 

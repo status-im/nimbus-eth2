@@ -2283,9 +2283,8 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    debugGloasComment " "
-    when consensusFork == ConsensusFork.Gloas:
-      Opt.some ZERO_HASH
+    when consensusFork >= ConsensusFork.Gloas:
+      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
     elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:

@@ -400,9 +400,9 @@ func is_merge_transition_complete*(state: gloas.BeaconState): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind == ConsensusFork.Gloas:
-    debugGloasComment ""
-    false
+  when typeof(body).kind >= ConsensusFork.Gloas:
+    # Execution payload should always be enabled since Gloas.
+    true
   elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
