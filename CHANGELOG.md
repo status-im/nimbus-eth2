@@ -1,3 +1,27 @@
+2025-11-28 v25.11.1
+===================
+
+The Nimbus consensus client `v25.11.1` is a `high-urgency` release for mainnet due to the impending Fusaka fork and a `medium-urgency` release on other networks due to stability fixes. To access blobs in Fusaka and later in this release, use the `--light-supernode` option. The undocumented `--debug-peerdas-supernode` option will be removed in a pending release.
+
+### Improvements
+
+- Introduce light supernodes to provide blobs with less resource usage:
+  https://github.com/status-im/nimbus-eth2/pull/7752
+
+- Allow the consensus light client to specify finalized block hashes to sync:
+  https://github.com/status-im/nimbus-eth2/pull/7735
+
+- Allow updating column custody during any slot:
+  https://github.com/status-im/nimbus-eth2/pull/7724
+
+### Fixes
+
+- Fix blob and column quarantine-related hang:
+  https://github.com/status-im/nimbus-eth2/pull/7743
+
+- Fix blocking of command-line-supplied invalid blocks:
+  https://github.com/status-im/nimbus-eth2/pull/7714
+
 2025-11-03 v25.11.0
 ===================
 

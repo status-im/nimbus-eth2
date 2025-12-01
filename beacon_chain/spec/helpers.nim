@@ -400,9 +400,9 @@ func is_merge_transition_complete*(state: gloas.BeaconState): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind == ConsensusFork.Gloas:
-    debugGloasComment ""
-    false
+  when typeof(body).kind >= ConsensusFork.Gloas:
+    # Execution payload should always be enabled since Gloas.
+    true
   elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
@@ -594,3 +594,35 @@ func is_builder_payment_withdrawable*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_bid.block_hash == state.latest_block_hash
+
+func attestation_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    attestation_deadline_gloas(s, timeParams)
+  else:
+    attestation_deadline(s, timeParams)
+
+func aggregate_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    aggregate_deadline_gloas(s, timeParams)
+  else:
+    aggregate_deadline(s, timeParams)
+
+func sync_committee_message_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_committee_message_deadline_gloas(s, timeParams)
+  else:
+    sync_committee_message_deadline(s, timeParams)
+
+func sync_contribution_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_contribution_deadline_gloas(s, timeParams)
+  else:
+    sync_contribution_deadline(s, timeParams)

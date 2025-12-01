@@ -340,8 +340,7 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   else:
     cfg.MAX_BLOBS_PER_BLOCK
 
-debugGloasComment ""
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | gloas.SignedBeaconBlock,
     _: BlockRef): untyped =
@@ -401,8 +400,7 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-debugGloasComment ""
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
     _:
@@ -427,6 +425,49 @@ template validateBeaconBlockDeneb(
   if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
       blob_params.MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
+
+template validateBeaconBlockGloas(
+    _: ChainDAGRef,
+    _:
+      phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+      fulu.SignedBeaconBlock): untyped =
+  discard
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+template validateBeaconBlockGloas(
+    dag: ChainDAGRef,
+    signed_beacon_block: gloas.SignedBeaconBlock): untyped =
+  template blck: untyped = signed_beacon_block.message
+  template bid: untyped = blck.body.signed_execution_payload_bid.message
+
+  # If execution_payload verification of block's execution payload parent by an
+  # execution node is complete:
+  #
+  # - [REJECT] The block's execution payload parent (defined by
+  #   bid.parent_block_hash) passes all validation.
+  let
+    parentRef = dag.getBlockRef(bid.parent_block_root)
+    parentBlock =
+      if parentRef.isSome():
+        dag.getForkedBlock(parentRef.get().bid)
+      else:
+        Opt.none(ForkedTrustedSignedBeaconBlock)
+  if parentBlock.isSome():
+    withBlck(parentBlock.get()):
+      if forkyBlck.message.is_execution_block:
+        let parentHash = dag.loadExecutionBlockHash(parentRef.get()).valueOr:
+          return dag.checkedReject(
+            "validateBeaconBlockGloas: invalid execution parent")
+        if not (bid.parent_block_hash == parentHash):
+          return dag.checkedReject(
+            "validateBeaconBlockGloas: invalid execution parent")
+
+  # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
+  # block's parent (defined by `block.parent_root`).
+  if not (bid.parent_block_root == blck.parent_root):
+    return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
@@ -806,8 +847,9 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: ForkySignedBeaconBlock,
@@ -888,9 +930,10 @@ proc validateBeaconBlock*(
     quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block).isOkOr:
       # Queueing failed because the parent was unviable - this means this block
       # is unviable as well, for the same reason
-      return
-        case error
-        of UnviableKind.Invalid:
+      case error
+      of UnviableKind.Invalid:
+        when typeof(signed_beacon_block).kind <= ConsensusFork.Fulu:
+          # These checks are removed in Gloas.
           if signed_beacon_block.message.is_execution_block:
             # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
             #
@@ -917,11 +960,11 @@ proc validateBeaconBlock*(
             #   whether it was marked unviable due to consensus (REJECT) or
             #   execution (IGNORE) verification failure. We err on the IGNORE side.
             #   TODO track this as a separate UnviableKind
-            errIgnore("BeaconBlock: parent invalid")
+            return errIgnore("BeaconBlock: parent invalid")
           else:
-            errReject("BeaconBlock: parent invalid")
-        of UnviableKind.UnviableFork:
-          errIgnore("BeaconBlock: parent from unviable fork")
+            return errReject("BeaconBlock: parent invalid")
+      of UnviableKind.UnviableFork:
+        return errIgnore("BeaconBlock: parent from unviable fork")
 
     debug "Block quarantined",
       blockRoot = shortLog(signed_beacon_block.root),
@@ -936,6 +979,8 @@ proc validateBeaconBlock*(
   validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
+
+  dag.validateBeaconBlockGloas(signed_beacon_block)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):

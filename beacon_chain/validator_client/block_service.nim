@@ -598,8 +598,10 @@ proc runBlockPollMonitor(service: BlockServiceRef,
     let
       currentTime = vc.beaconClock.now()
       afterSlot = currentTime.slotOrZero(vc.timeParams)
+      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(afterSlot.epoch))
 
-    if currentTime > afterSlot.attestation_deadline(vc.timeParams):
+    if currentTime > afterSlot.attestation_deadline(
+        vc.timeParams, consensusFork):
       # Attestation time already, lets wait for next slot.
       continue
 

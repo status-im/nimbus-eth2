@@ -50,6 +50,7 @@ The following options are available:
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --peerdas-supernode       Subscribe to all column subnets, thereby becoming a PeerDAS supernode [=false].
+     --light-supernode         Subscribe to the first half of column subnets [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
      --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for

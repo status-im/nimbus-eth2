@@ -251,6 +251,11 @@ type
       desc: "Subscribe to all column subnets, thereby becoming a PeerDAS supernode"
       name: "peerdas-supernode" .}: bool
 
+    lightSupernode* {.
+      defaultValue: false,
+      desc: "Subscribe to the first half of column subnets"
+      name: "light-supernode" .}: bool
+
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2

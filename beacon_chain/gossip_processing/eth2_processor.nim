@@ -546,8 +546,11 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime -
-    attestation.data.slot.attestation_deadline(self.dag.timeParams)
+  let 
+    consensusFork =
+      self.dag.cfg.consensusForkAtEpoch(attestation.data.slot.epoch)
+    delay = wallTime - attestation.data.slot.attestation_deadline(
+      self.dag.timeParams, consensusFork)
   debug "Attestation received", delay
 
   let v = when attestation is phase0.Attestation:
@@ -614,7 +617,7 @@ proc processSignedAggregateAndProof*(
   # Potential under/overflows are fine; would just create odd logs
   let
     slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams)
+    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams, fork)
   debug "Aggregate received", delay
 
   let v = await self.attestationPool.validateAggregate(

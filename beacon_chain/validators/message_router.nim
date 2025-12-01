@@ -248,7 +248,9 @@ proc routeAttestation*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = attestation.data.slot
-    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -321,7 +323,9 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay =
+     sendTime - slot.aggregate_deadline(router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -356,8 +360,9 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime -
-      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
+    delay = sendTime - msg.slot.sync_committee_message_deadline(
+      router[].dag.timeParams, currentFork)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -479,7 +484,9 @@ proc routeSignedContributionAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime -
+      slot.sync_contribution_deadline(router[].dag.timeParams, currentFork)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():

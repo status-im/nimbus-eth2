@@ -43,7 +43,7 @@ import
     validator_pool,
   ]
 
-from std/sequtils import mapIt
+from std/sequtils import mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 
@@ -1237,8 +1237,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
-  let attestationCutoff = node.beaconClock.fromNow(
-    slot.attestation_deadline(node.dag.timeParams))
+  let
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
+    attestationCutoff = node.beaconClock.fromNow(
+      slot.attestation_deadline(node.dag.timeParams, consensusFork))
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
       head = shortLog(head),
@@ -1247,7 +1249,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      await waitAfterBlockCutoff(node.beaconClock, slot, Opt.some(head))
+      await waitAfterBlockCutoff(
+        node.beaconClock, slot, consensusFork, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -1270,7 +1273,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.aggregateSlotOffset ==
     node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
   let aggregateCutoff = node.beaconClock.fromNow(
-    slot.aggregate_deadline(node.dag.timeParams))
+    slot.aggregate_deadline(node.dag.timeParams, consensusFork))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)
@@ -1278,6 +1281,30 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
+
+proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
+  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
+    return
+
+  let validatorIndices = block:
+    var res: HashSet[ValidatorIndex]
+    for idx in node.attachedValidators[].indices():
+      res.incl(idx)
+    res
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var cache: StateCache
+      
+      for slot in epoch.slots():
+        for validator_index in get_ptc(forkyState.data, slot, cache):
+          if validator_index in validatorIndices:
+            node.consensusManager[].actionTracker.registerPTCDuty(
+              slot, validator_index)
+            
+            debug "PTC duty registered",
+              slot = slot,
+              epoch = epoch
 
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [CancelledError]).} =
   ## Register upcoming duties of attached validators with the duty tracker
@@ -1324,3 +1351,6 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
+
+  if wallSlot == wallSlot.epoch.start_slot():
+    node.registerPTCDuties(wallSlot.epoch + 1)
