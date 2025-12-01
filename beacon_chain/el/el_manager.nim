@@ -827,27 +827,44 @@ proc sendGetBlobsV2*(
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(blck).kind
+
+  template forkyExecutionPayload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
+  template forkyExecutionRequests(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.execution_requests
+    else:
+      blck.body.execution_requests
+  template forkyKzgCommitments(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.blob_kzg_commitments
+    elif consensusFork >= ConsensusFork.Deneb:
+      blck.body.blob_kzg_commitments
+
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(blck.body.execution_payload)
+      executionPayload = shortLog(forkyExecutionPayload)
     return Opt.none(PayloadExecutionStatus)
-
-  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
-    payload = blck.body.execution_payload.asEngineExecutionPayload
+    payload = forkyExecutionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
-      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      versioned_hashes = forkyKzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
-    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+    let execution_requests = forkyExecutionRequests.asEngineExecutionRequests()
 
   var
     responseProcessor = ELConsensusViolationDetector.init()

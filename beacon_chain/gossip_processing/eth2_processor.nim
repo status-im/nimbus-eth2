@@ -283,10 +283,8 @@ proc processSignedBeaconBlock*(
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
   when consensusFork >= ConsensusFork.Gloas:
-    # Passing none for Gloas to disable processing sidecars at block time. They
-    # should be retrieved from quarantine and processed at the end of
-    # `storeBlock` or `storeBackfillBlock`.
-    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+    # Disable processing sidecars at block time.
+    const sidecarsOpt = noSidecars
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:

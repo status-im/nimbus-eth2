@@ -569,6 +569,17 @@ func compute_execution_block_hash*(
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
+func compute_execution_block_hash*(
+    blck: gloas.BeaconBlock,
+    envelope: gloas.ExecutionPayloadEnvelope): Eth2Digest =
+  const consensusFork = typeof(blck).kind
+  compute_execution_block_hash(
+    consensusFork,
+    envelope.payload,
+    blck.parent_root,
+    Opt.some envelope.execution_requests.computeRequestsHash(),
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
 func is_builder_payment_withdrawable*(
     state: gloas.BeaconState,

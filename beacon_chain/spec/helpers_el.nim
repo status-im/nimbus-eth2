@@ -20,22 +20,38 @@ func readExecutionTransaction(
     err("Invalid transaction: " & exc.msg)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
-func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
-  static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
-  template transactions: untyped = blck.body.execution_payload.transactions
-  template commitments: untyped = blck.body.blob_kzg_commitments
+func is_valid_versioned_hashes*(
+    blck: ForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
+): Result[void, string] =
+  const consensusFork = typeof(blck).kind
+  static: doAssert consensusFork >= ConsensusFork.Deneb
+
+  template forkyTransactions: untyped =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload.transactions
+    else:
+      blck.body.execution_payload.transactions
+  template forkyCommitments: untyped =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.blob_kzg_commitments
+    else:
+      blck.body.blob_kzg_commitments
 
   var i = 0
-  for txBytes in transactions:
+  for txBytes in forkyTransactions:
     if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
       continue  # Only blob transactions may have blobs
     let tx = ? txBytes.readExecutionTransaction()
     for vHash in tx.versionedHashes:
-      if commitments.len <= i:
+      if forkyCommitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")
-      if vHash != kzg_commitment_to_versioned_hash(commitments[i]):
+      if vHash != kzg_commitment_to_versioned_hash(forkyCommitments[i]):
         return err("Invalid `blob_versioned_hash` at index " & $i)
       inc i
-  if i != commitments.len:
+  if i != forkyCommitments.len:
     return err("Extra `blob_kzg_commitments` without matching blobs")
   ok()
+
+func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
+  is_valid_versioned_hashes(blck, noEnvelope)
