@@ -191,26 +191,15 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork >= ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
-      let
-        columns = sidecarsOpt.get()
-        kzgCommits = envelope.message.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0 ..< columns.len:
-          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr():
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            return err(VerifierError.Invalid)
-  elif consensusFork == ConsensusFork.Fulu:
-    if sidecarsOpt.isSome:
+      template forkyKzgCommits(): auto =
+        when consensusFork >= ConsensusFork.Gloas:
+          envelope.message.blob_kzg_commitments
+        else:
+          signedBlock.message.body.blob_kzg_commitments
       let columns = sidecarsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      let kzgCommits = forkyKzgCommits.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
@@ -517,30 +506,40 @@ proc verifyPayload(
   # required checks on the CL instead and proceed as if the EL was syncing
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-  when consensusFork == ConsensusFork.Gloas:
-    debugGloasComment "no exection payload field for gloas"
-    ok OptimisticStatus.valid
-  elif consensusFork >= ConsensusFork.Bellatrix:
+  when consensusFork >= ConsensusFork.Bellatrix:
+    # Since Gloas, is_execution_block should always be true.
     if signedBlock.message.is_execution_block:
-      template payload(): auto =
-        signedBlock.message.body.execution_payload
+      template forkyPayload(): auto =
+        when consensusFork >= ConsensusFork.Gloas:
+          signedEnvelope.message.payload
+        else:
+          signedBlock.message.body.execution_payload
 
       template returnWithError(msg: string, extraMsg = ""): untyped =
         if extraMsg != "":
-          debug msg, reason = extraMsg, executionPayload = shortLog(payload)
+          debug msg, reason = extraMsg, executionPayload = shortLog(forkyPayload)
         else:
-          debug msg, executionPayload = shortLog(payload)
+          debug msg, executionPayload = shortLog(forkyPayload)
         return err(VerifierError.Invalid)
 
-      if payload.transactions.anyIt(it.len == 0):
+      if forkyPayload.transactions.anyIt(it.len == 0):
         returnWithError "Execution block contains zero length transactions"
 
-      if payload.block_hash != signedBlock.message.compute_execution_block_hash():
+      let computedBlockHash =
+        when consensusFork >= ConsensusFork.Gloas:
+          signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
+        else:
+          signedBlock.message.compute_execution_block_hash()
+      if forkyPayload.block_hash != computedBlockHash:
         returnWithError "Execution block hash validation failed"
 
       # [New in Deneb:EIP4844]
       when consensusFork >= ConsensusFork.Deneb:
-        let blobsRes = signedBlock.message.is_valid_versioned_hashes
+        let blobsRes =
+          when consensusFork >= ConsensusFork.Gloas:
+            signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
+          else:
+            signedBlock.message.is_valid_versioned_hashes()
         if blobsRes.isErr:
           returnWithError "Blob versioned hashes invalid", blobsRes.error
       else:
@@ -918,12 +917,34 @@ proc storePayload(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  let optimisticStatus =
-    ?verifyPayload(self, signedBlock, Opt.some(signedEnvelope))
+  let
+    dag = self.consensusManager.dag
+    wallTime = self.getBeaconTime()
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineTime =
+      block:
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+        if slotTime <= wallTime:
+          chronos.seconds(0)
+        else:
+          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+    deadline = sleepAsync(deadlineTime)
+
+  let
+    optimisticStatusRes =
+      block:
+        debugGloasComment("handle (maybe)finalized slot")
+        func shouldRetry(): bool =
+          not dag.is_optimistic(dag.head.bid)
+        await self.consensusManager.elManager.getExecutionValidity(
+          signedBlock, signedEnvelope, deadline, shouldRetry())
+    optimisticStatus =
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
   ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
 
-  debugGloasComment("verify and process")
+  debugGloasComment("process and store")
   debugGloasComment("update optimistic status")
   ok()
 
