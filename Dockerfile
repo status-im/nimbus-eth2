@@ -12,15 +12,16 @@ FROM debian:testing-slim AS build
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get clean && apt update \
- && apt -y install build-essential git-lfs
+ && apt -y install build-essential git-lfs clang
 
 RUN ldd --version ldd
+RUN clang --version
 
 ADD . /root/nimbus-eth2
 
 RUN cd /root/nimbus-eth2 \
  && make -j$(nproc) update \
- && make -j$(nproc) V=1 NIMFLAGS="-d:const_preset=mainnet -d:disableMarchNative" LOG_LEVEL=TRACE nimbus_beacon_node
+ && make -j$(nproc) V=1 NIMFLAGS="-d:const_preset=mainnet -d:disableMarchNative -d:disableLTO" LOG_LEVEL=TRACE nimbus_beacon_node
 
 
 # --------------------------------- #
@@ -39,6 +40,7 @@ RUN rm -rf /home/user/nimbus-eth2/build/nimbus_beacon_node
 
 # "COPY" creates new image layers, so we cram all we can into one command
 COPY --from=build /root/nimbus-eth2/build/nimbus_beacon_node /home/user/nimbus-eth2/build/nimbus_beacon_node
+# COPY build/nimbus_beacon_node /home/user/nimbus-eth2/build/nimbus_beacon_node
 
 ENV PATH="/home/user/nimbus-eth2/build:${PATH}"
 ENTRYPOINT ["nimbus_beacon_node"]

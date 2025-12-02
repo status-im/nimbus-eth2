@@ -24,6 +24,7 @@ when nimCachePathOverride == "":
 else:
   let nimCachePath = nimCachePathOverride
 switch("nimcache", nimCachePath)
+switch("cc", "clang")
 
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!

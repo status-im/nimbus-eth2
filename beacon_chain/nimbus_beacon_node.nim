@@ -7,6 +7,10 @@
 
 {.push raises: [].}
 
+{.emit: """
+#include "antithesis_instrumentation.h"
+""".}
+
 import
   system/ansi_c,
   std/[os, random, strutils, terminal, times],
