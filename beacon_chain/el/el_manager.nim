@@ -833,38 +833,42 @@ proc sendNewPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blck).kind
 
-  template forkyExecutionPayload(): auto =
+  template executionPayload(): auto =
     when consensusFork >= ConsensusFork.Gloas:
       envelope.payload
     else:
       blck.body.execution_payload
-  template forkyExecutionRequests(): auto =
-    when consensusFork >= ConsensusFork.Gloas:
-      envelope.execution_requests
-    else:
-      blck.body.execution_requests
-  template forkyKzgCommitments(): auto =
-    when consensusFork >= ConsensusFork.Gloas:
-      envelope.blob_kzg_commitments
-    elif consensusFork >= ConsensusFork.Deneb:
-      blck.body.blob_kzg_commitments
 
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(forkyExecutionPayload)
+      executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
 
   let
     startTime = Moment.now()
-    payload = forkyExecutionPayload.asEngineExecutionPayload()
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
-      versioned_hashes = forkyKzgCommitments.asEngineVersionedHashes()
+      versioned_hashes =
+        block:
+          let kzgCommitments =
+            when consensusFork >= ConsensusFork.Gloas:
+              envelope.blob_kzg_commitments
+            elif consensusFork >= ConsensusFork.Deneb:
+              blck.body.blob_kzg_commitments
+          kzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
-    let execution_requests = forkyExecutionRequests.asEngineExecutionRequests()
+    let execution_requests =
+      block:
+        let executionRequests =
+          when consensusFork >= ConsensusFork.Gloas:
+            envelope.execution_requests
+          else:
+            blck.body.execution_requests
+        executionRequests.asEngineExecutionRequests()
 
   var
     responseProcessor = ELConsensusViolationDetector.init()

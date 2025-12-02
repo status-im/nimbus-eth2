@@ -193,13 +193,15 @@ proc verifySidecars(
 
   when consensusFork >= ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
-      template forkyKzgCommits(): auto =
-        when consensusFork >= ConsensusFork.Gloas:
-          envelope.message.blob_kzg_commitments
-        else:
-          signedBlock.message.body.blob_kzg_commitments
       let columns = sidecarsOpt.get()
-      let kzgCommits = forkyKzgCommits.asSeq
+      let kzgCommits =
+        block:
+          let kzgCommits =
+            when consensusFork >= ConsensusFork.Gloas:
+              envelope.message.blob_kzg_commitments
+            else:
+              signedBlock.message.body.blob_kzg_commitments
+          kzgCommits.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
@@ -317,22 +319,22 @@ proc newExecutionPayload*(
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  template forkyExecutionPayload: untyped =
+  template executionPayload: untyped =
     when typeof(blck).kind >= ConsensusFork.Gloas:
       envelope.payload
     else:
       blck.body.execution_payload
 
   debug "newPayload: inserting block into execution engine",
-    executionPayload = shortLog(forkyExecutionPayload)
+    executionPayload = shortLog(executionPayload)
 
   let payloadStatus = ?await elManager.sendNewPayload(
     blck, envelope, deadline, retry)
 
   debug "newPayload: succeeded",
-    parentHash = forkyExecutionPayload.parent_hash,
-    blockHash = forkyExecutionPayload.block_hash,
-    blockNumber = forkyExecutionPayload.block_number,
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    blockNumber = executionPayload.block_number,
     payloadStatus = payloadStatus
 
   Opt.some payloadStatus
@@ -374,14 +376,14 @@ proc getExecutionValidity(
     # former case, they've passed libp2p gossip validation which implies
     # correct signature for correct proposer,which makes spam expensive,
     # while for the latter, spam is limited by the request manager.
-    template forkyExecutionPayload(): auto =
+    template executionPayload(): auto =
       when consensusFork >= ConsensusFork.Gloas:
         envelope.message.payload
       else:
         blck.message.body.execution_payload
     info "execution payload invalid from EL client newPayload",
       executionPayloadStatus = status,
-      executionPayload = shortLog(forkyExecutionPayload),
+      executionPayload = shortLog(executionPayload),
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
@@ -509,7 +511,7 @@ proc verifyPayload(
   when consensusFork >= ConsensusFork.Bellatrix:
     # Since Gloas, is_execution_block should always be true.
     if signedBlock.message.is_execution_block:
-      template forkyPayload(): auto =
+      template paylaod(): auto =
         when consensusFork >= ConsensusFork.Gloas:
           signedEnvelope.message.payload
         else:
@@ -517,12 +519,12 @@ proc verifyPayload(
 
       template returnWithError(msg: string, extraMsg = ""): untyped =
         if extraMsg != "":
-          debug msg, reason = extraMsg, executionPayload = shortLog(forkyPayload)
+          debug msg, reason = extraMsg, executionPayload = shortLog(paylaod)
         else:
-          debug msg, executionPayload = shortLog(forkyPayload)
+          debug msg, executionPayload = shortLog(paylaod)
         return err(VerifierError.Invalid)
 
-      if forkyPayload.transactions.anyIt(it.len == 0):
+      if paylaod.transactions.anyIt(it.len == 0):
         returnWithError "Execution block contains zero length transactions"
 
       let computedBlockHash =
@@ -530,7 +532,7 @@ proc verifyPayload(
           signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
         else:
           signedBlock.message.compute_execution_block_hash()
-      if forkyPayload.block_hash != computedBlockHash:
+      if paylaod.block_hash != computedBlockHash:
         returnWithError "Execution block hash validation failed"
 
       # [New in Deneb:EIP4844]

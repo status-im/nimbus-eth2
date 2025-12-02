@@ -27,29 +27,29 @@ func is_valid_versioned_hashes*(
   const consensusFork = typeof(blck).kind
   static: doAssert consensusFork >= ConsensusFork.Deneb
 
-  template forkyTransactions: untyped =
+  template transactions: untyped =
     when consensusFork >= ConsensusFork.Gloas:
       envelope.payload.transactions
     else:
       blck.body.execution_payload.transactions
-  template forkyCommitments: untyped =
+  template commitments: untyped =
     when consensusFork >= ConsensusFork.Gloas:
       envelope.blob_kzg_commitments
     else:
       blck.body.blob_kzg_commitments
 
   var i = 0
-  for txBytes in forkyTransactions:
+  for txBytes in transactions:
     if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
       continue  # Only blob transactions may have blobs
     let tx = ? txBytes.readExecutionTransaction()
     for vHash in tx.versionedHashes:
-      if forkyCommitments.len <= i:
+      if commitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")
-      if vHash != kzg_commitment_to_versioned_hash(forkyCommitments[i]):
+      if vHash != kzg_commitment_to_versioned_hash(commitments[i]):
         return err("Invalid `blob_versioned_hash` at index " & $i)
       inc i
-  if i != forkyCommitments.len:
+  if i != commitments.len:
     return err("Extra `blob_kzg_commitments` without matching blobs")
   ok()
 
