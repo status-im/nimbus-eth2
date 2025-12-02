@@ -186,7 +186,8 @@ proc recover_cells_and_proofs_parallel*(
     for i in 0 ..< dataColumns.len:
       cellIndices[i] = dataColumns[i][].index
       cells[i] = dataColumns[i][].column[blobIdx]
-    pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
+    when false:
+      pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
 
   # ---- Sync phase ----
   for i in 0 ..< pendingFuts.len:
