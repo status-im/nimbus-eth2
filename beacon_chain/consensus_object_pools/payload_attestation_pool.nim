@@ -49,12 +49,12 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
   for slot in slotsToRemove:
     pool.attestations.del(slot)
 
-proc addPayloadAttestation*(
+func addPayloadAttestation*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
     wallTime: BeaconTime): bool =
+  template beacon_block_root: untyped = message.data.beacon_block_root
   let
     slot = message.data.slot
-    beacon_block_root = message.data.beacon_block_root
     validator_index = message.validator_index
 
   pool.pruneOldEntries(wallTime)
@@ -75,7 +75,7 @@ proc addPayloadAttestation*(
 
   true
 
-proc aggregateMessages(
+func aggregateMessages(
     pool: PayloadAttestationPool, slot: Slot,
     entry: var PayloadAttestationEntry, cache: var StateCache
 ): Opt[PayloadAttestation] =
@@ -113,7 +113,7 @@ proc aggregateMessages(
     else:
       Opt.none(PayloadAttestation)
 
-proc getAggregatedPayloadAttestation*(
+func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
     beacon_block_root: Eth2Digest, cache: var StateCache
 ): Opt[PayloadAttestation] =

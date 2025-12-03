@@ -60,7 +60,6 @@ proc makePayloadAttestationMessage(
 suite "Payload attestation pool" & preset():
   setup:
     # Genesis state that results in 512 members in a committee
-    let rng = HmacDrbgContext.new()
     const TOTAL_COMMITTEES = 1
     var
       cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
