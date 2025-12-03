@@ -43,6 +43,9 @@ const
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
+  defaultEth2QuicPort* = 9001
+  defaultEth2QuicPortDesc* = $defaultEth2QuicPort
+
   # This is not part of the spec! But it's port which Lighthouse uses
   defaultEth2RestPort* = 5052
   defaultEth2RestPortDesc* = $defaultEth2RestPort

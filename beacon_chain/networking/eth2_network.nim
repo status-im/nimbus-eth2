@@ -1836,7 +1836,7 @@ proc new(T: type Eth2Node,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          switch: Switch, pubsub: GossipSub,
-         ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
+         ip: Opt[IpAddress], tcpPort, quicPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
          rng: ref HmacDrbgContext): T =
@@ -1871,7 +1871,7 @@ proc new(T: type Eth2Node,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
-      config, ip, tcpPort, udpPort, privKey,
+      config, ip, tcpPort, quicPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
@@ -2231,6 +2231,9 @@ func asEthKey*(key: PrivateKey): keys.PrivateKey =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
+template quicEndPoint(address, port): auto =
+  MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1")
+
 func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -2327,7 +2330,7 @@ func gossipId(
 proc newBeaconSwitch(
     config: BeaconNodeConf | LightClientConf,
     seckey: PrivateKey,
-    address: MultiAddress,
+    addresses: seq[MultiAddress],
     rng: ref HmacDrbgContext,
 ): Result[Switch, string] =
   let service: Service = WildcardAddressResolverService.new()
@@ -2337,12 +2340,13 @@ proc newBeaconSwitch(
   try:
     ok sb
     .withPrivateKey(seckey)
-    .withAddress(address)
+    .withAddresses(addresses)
     .withRng(rng)
     .withNoise()
-    .withMplex(chronos.minutes(5), chronos.minutes(5))
+    .withQuicTransport()
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
+    .withMplex(chronos.minutes(5), chronos.minutes(5))
     .withTcpTransport({ServerFlags.ReuseAddr})
     .withServices(@[service])
     .build()
@@ -2369,9 +2373,11 @@ proc createEth2Node*(
       else:
         getAutoAddress(Port(0)).toIpAddress()
 
+    # TODO: setupAddress only receives a single tcpPort and udpPort, 
+    # We need a way to pass the quic port
     (extIp, extTcpPort, extUdpPort) =
       setupAddress(config.nat, listenAddress, config.tcpPort,
-                   config.udpPort, clientId)
+                   config.quicPort, config.udpPort, clientId)
 
     directPeers = block:
       var res: DirectPeers
@@ -2396,10 +2402,16 @@ proc createEth2Node*(
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
-    announcedAddresses =
-      if extIp.isNone() or extTcpPort.isNone(): @[]
-      else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
+    hostAddress = @[
+      quicEndpoint(listenAddress, config.quicUdpPort),
+      tcpEndPoint(listenAddress, config.tcpPort)
+    ]
+
+  var announcedAddresses = newSeq[Multiaddr]()
+  if not(extIp.isNone() or extTcpPort.isNone()):
+    announcedAddresses.add  tcpEndPoint(extIp.get(), extTcpPort.get())
+  if not(extIp.isNone() or extQuicUdpPort.isNone()):
+    announcedAddresses.add  quicEndpoint(extIp.get(), extQuicUdpPort.get())
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,

@@ -69,6 +69,12 @@ type LightClientConf* = object
     defaultValueDesc: $defaultEth2TcpPortDesc
     name: "tcp-port" .}: Port
 
+  quicPort* {.
+    desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
+    defaultValue: defaultEth2QuicPort
+    defaultValueDesc: $defaultEth2QuicPortDesc
+    name: "quic-port" .}: Port
+
   udpPort* {.
     desc: "Listening UDP port for node discovery"
     defaultValue: defaultEth2TcpPort
