@@ -8,7 +8,6 @@
 {.push raises: [], gcsafe.}
 
 import
-  stew/bitops2,
   std/[sets, sequtils, strutils, lists],
   results, metrics,
   ../spec/[presets, helpers, column_map],
@@ -558,7 +557,7 @@ proc popSidecars*(
 
   Opt.some(sidecars)
 
-proc popSidecars*[A: fulu.DataColumnSidecar | gloas.DataColumnSidecar, B: OnDataColumnSidecarCallback](
+proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest
 ): Opt[seq[ref A]] =
