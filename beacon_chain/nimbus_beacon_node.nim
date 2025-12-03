@@ -12,6 +12,7 @@ import
   std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
+  lsquic/lsquic_ffi,
   stew/[byteutils, io2],
   kzg4844/kzg,
   eth/enr/enr,
@@ -2865,9 +2866,9 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       config.seqNumber,
       netKeys.seckey.asEthKey,
       Opt.some(config.ipExt),
-      Opt.some(config.tcpPortExt),
+      if config.tcpEnabled: Opt.some(config.tcpPortExt) else: Opt.none(Port),
       Opt.some(config.udpPortExt),
-      Opt.none(Port),
+      if config.quicEnabled: Opt.some(config.quicPortExt) else: Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()

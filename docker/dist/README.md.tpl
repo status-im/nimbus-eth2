@@ -42,7 +42,7 @@ To connect to mainnet with default options:
 The script will forward all supplied options to the beacon node executable:
 
 ```bash
-./run-mainnet-beacon-node.sh --log-level=DEBUG --tcp-port=9050
+./run-mainnet-beacon-node.sh --log-level=DEBUG --tcp-port=9050 --debug-quic=true --debug-quic-port=9051
 ```
 
 To monitor the Eth1 validator deposit contract, you'll need to pair

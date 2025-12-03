@@ -54,6 +54,18 @@ type
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
 
+    tcpEnabled* {.
+      hidden
+      desc: "Enable TCP transport"
+      defaultValue: true
+      name: "tcp" .}: bool
+
+    quicEnabled* {.
+      hidden
+      desc: "Enable QUIC transport"
+      defaultValue: false
+      name: "debug-quic" .}: bool
+
     case cmd* {.command.}: StartUpCommand
     of StartUpCommand.deployDepositContract:
       discard
@@ -108,12 +120,25 @@ type
         defaultValueDesc: $defaultAdminListenAddressDesc
         name: "bootstrap-address" .}: IpAddress
 
-      bootstrapPort* {.
-        desc: "The TCP/UDP port that will be used by the bootstrap node"
+      bootstrapTcpPort* {.
+        desc: "The TCP port that will be used by the bootstrap node"
         defaultValue: defaultEth2TcpPort
         defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "bootstrap-port" .}: Port
+        name: "bootstrap-tcp-port" .}: Port
 
+      bootstrapUdpPort* {.
+        desc: "The UDP port that will be used by the bootstrap node"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "bootstrap-udp-port" .}: Port
+
+      bootstrapQuicPort* {.
+        hidden
+        desc: "The QUIC UDP port that will be used by the bootstrap node"
+        defaultValue: defaultEth2QuicPort
+        defaultValueDesc: $defaultEth2QuicPortDesc
+        name: "debug-bootstrap-quic-port" .}: Port
+ 
       dataDir* {.
         desc: "Nimbus data directory where the keys of the bootstrap node will be placed"
         name: "data-dir" .}: OutDir
@@ -196,12 +221,25 @@ type
         defaultValueDesc: $defaultAdminListenAddressDesc
         name: "enr-address" .}: IpAddress
 
-      enrPort* {.
+      enrTcpPort* {.
         desc: "The TCP/UDP port of that ENR"
         defaultValue: defaultEth2TcpPort
         defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "enr-port" .}: Port
+        name: "enr-tcp-port" .}: Port
 
+      enrUdpPort* {.
+        desc: "The UDP port of that ENR"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "enr-udp-port" .}: Port
+
+      enrQuicPort* {.
+        hidden
+        desc: "The QUIC UDP port of that ENR"
+        defaultValue: defaultEth2QuicPort
+        defaultValueDesc: $defaultEth2QuicPortDesc
+        name: "debug-enr-quic-port" .}: Port
+ 
     of StartUpCommand.sendDeposits:
       depositsFile* {.
         desc: "A LaunchPad deposits file"
@@ -307,7 +345,7 @@ proc createEnr(rng: var HmacDrbgContext,
                cfg: RuntimeConfig,
                forkId: seq[byte],
                address: IpAddress,
-               port: Port): enr.Record
+               tcpPort: Opt[Port], udpPort: Port, quicPort: Opt[Port]): enr.Record
                {.raises: [CatchableError].} =
   type MetaData = altair.MetaData
   let
@@ -319,9 +357,9 @@ proc createEnr(rng: var HmacDrbgContext,
       1, # sequence number
       networkKeys.seckey.asEthKey,
       Opt.some(address),
-      Opt.some(port),
-      Opt.some(port),
-      Opt.none(Port),
+      tcpPort,
+      Opt.some(udpPort),
+      quicPort,
       [
         toFieldPair(enrForkIdField, forkId),
         toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
@@ -428,7 +466,10 @@ proc doCreateTestnet*(config: CliConfig,
       enr =
         createEnr(rng, string config.dataDir, string config.netKeyFile,
           config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
-          config.bootstrapAddress, config.bootstrapPort)
+          config.bootstrapAddress, 
+          if config.tcpEnabled: Opt.some(config.bootstrapTcpPort) else: Opt.none(Port),
+          config.bootstrapUdpPort, 
+          if config.quicEnabled: Opt.some(config.bootstrapQuicPort) else: Opt.none(Port))
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
@@ -472,7 +513,10 @@ when isMainModule:
       enr =
         createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
           config.enrNetKeyInsecurePassword, cfg, forkIdField,
-          config.enrAddress, config.enrPort)
+          config.enrAddress, 
+          if config.tcpEnabled: Opt.some(config.enrTcpPort) else: Opt.none(Port),
+          config.enrUdpPort,
+          if config.quicEnabled: Opt.some(config.enrQuicPort) else: Opt.none(Port))
     stderr.writeLine(enr.toURI)
 
   proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =

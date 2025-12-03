@@ -67,6 +67,11 @@ if defined(limitStackUsage):
   # stack size of each function.
   switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
   switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
+  
+  # QUIC does variable stack allocations
+  put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
+  put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
+  put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
