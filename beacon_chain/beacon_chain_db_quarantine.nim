@@ -25,7 +25,8 @@ export chronicles
 logScope: topics = "qudata"
 
 type
-  ForkyDataSidecar* = deneb.BlobSidecar | fulu.DataColumnSidecar
+  ForkyDataSidecar* = deneb.BlobSidecar | fulu.DataColumnSidecar |
+                      gloas.DataColumnSidecar
 
   DataSidecarStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
@@ -41,12 +42,16 @@ type
       ## Proposer signature verified data blob sidecars.
     fuluDataSidecar: DataSidecarStore
       ## Proposer signature verified data column sidecars.
+    gloasDataSidecar: DataSidecarStore
+      ## Proposer signature verified data column sidecars.
 
 template tableName(sidecar: typedesc[ForkyDataSidecar]): string =
   when sidecar is deneb.BlobSidecar:
     "electra_sidecars_quarantine"
   elif sidecar is fulu.DataColumnSidecar:
     "fulu_sidecars_quarantine"
+  elif sidecar is gloas.DataColumnSidecar:
+    "gloas_sidecars_quarantine"
   else:
     static: raiseAssert "Sidecar's fork is not supported"
 
@@ -119,6 +124,11 @@ iterator sidecars*(
       db.fuluDataSidecar.getStmt
     template storeName: untyped =
       "fuluDataSidecar"
+  elif T is gloas.DataColumnSidecar:
+    template statement: untyped =
+      db.gloasDataSidecar.getStmt
+    template storeName: untyped =
+      "gloasDataSidecar"
   else:
     static: raiseAssert "Sidecar's fork is not supported"
 
@@ -146,6 +156,9 @@ proc putDataSidecars*[T: ForkyDataSidecar](
   elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.putStmt
+  elif T is gloas.DataColumnSidecar:
+    template statement: untyped =
+      db.gloasDataSidecar.putStmt
   else:
     static: raiseAssert "Sidecar's fork is not supported"
 
@@ -170,6 +183,9 @@ proc removeDataSidecars*(
   elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.delStmt
+  elif T is gloas.DataColumnSidecar:
+    template statement: untyped =
+      db.gloasDataSidecar.delStmt
   else:
     static: raiseAssert "Sidecar's fork is not supported"
 
@@ -188,6 +204,9 @@ proc sidecarsCount*(
   elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.countStmt
+  elif T is gloas.DataColumnSidecar:
+    template statement: untyped =
+      db.gloasDataSidecar.countStmt
   else:
     static: raiseAssert "Sidecar's fork is not supported"
 
@@ -208,15 +227,19 @@ proc initQuarantineDB*(
       ? backend.initDataSidecarStore(tableName(deneb.BlobSidecar))
     fuluDataSidecar =
       ? backend.initDataSidecarStore(tableName(fulu.DataColumnSidecar))
+    gloasDataSidecar =
+      ? backend.initDataSidecarStore(tableName(gloas.DataColumnSidecar))
 
   ok QuarantineDB(
     backend: backend,
     electraDataSidecar: electraDataSidecar,
-    fuluDataSidecar: fuluDataSidecar
+    fuluDataSidecar: fuluDataSidecar,
+    gloasDataSidecar: gloasDataSidecar
   )
 
 proc close*(db: QuarantineDB) =
   if not(isNil(db.backend)):
     db.electraDataSidecar.close()
     db.fuluDataSidecar.close()
+    db.gloasDataSidecar.close()
     db[].reset()
