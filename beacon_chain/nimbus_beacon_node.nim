@@ -2585,11 +2585,6 @@ proc installMessageValidators(node: BeaconNode) =
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  if not node.config.inProcessValidators:
-    try:
-      node.vcProcess.close()
-    except Exception as exc:
-      warn "Couldn't close vc process", msg = exc.msg
   try:
     waitFor node.network.stop()
   except CatchableError as exc:
@@ -2869,6 +2864,7 @@ proc doRunBeaconNode(
   ignoreDeprecatedOption web3ForcePolling
   ignoreDeprecatedOption finalizedDepositTreeSnapshot
   ignoreDeprecatedOption finalizedCheckpointBlock
+  ignoreDeprecatedOption inProcessValidators
 
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries

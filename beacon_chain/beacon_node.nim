@@ -97,7 +97,6 @@ type
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
-    vcProcess*: Process
     requestManager*: RequestManager
     validatorCustody*: ValidatorCustodyRef
     syncManager*: SyncManager[Peer, PeerId]

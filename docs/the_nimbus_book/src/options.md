@@ -113,9 +113,6 @@ The following options are available:
      --light-client-data-import-mode  Which classes of light client data to import. Must be one of: none, only-new,
                                full (slow startup), on-demand (may miss validator duties) [=only-new].
      --light-client-data-max-periods  Maximum number of sync committee periods to retain light client data.
-     --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
-                               keys of the validators what to sign and when) and load the validators in the
-                               beacon node itself [=true].
      --discv5                  Enable Discovery v5 [=true].
      --dump                    Write SSZ dumps of blocks and states to data dir [=false].
      --direct-peer             The list of privileged, secure and known peers to connect and maintain the
