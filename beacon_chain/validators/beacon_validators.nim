@@ -838,6 +838,89 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
+proc checkPayloadPresent*(
+    node: BeaconNode, beacon_block_root: Eth2Digest
+): bool = 
+  ## Check if we received the payload envelope for this slot
+  debugGloasComment"TODO - check for envelope availability"
+  return true
+
+proc checkBlobDataAvailable*(
+    node: BeaconNode, beacon_block_root: Eth2Digest
+): bool = 
+  ## Check if the blob(s) for this slot is/are available
+  debugGloasComment"TODO - check for blob availability"
+  return true
+
+proc createAndSendPayloadAttestation(node: BeaconNode,
+                                   fork: Fork,
+                                   genesis_validators_root: Eth2Digest,
+                                   validator: AttachedValidator,
+                                   validator_index: ValidatorIndex,
+                                   slot: Slot,
+                                   beacon_block_root: Eth2Digest)
+                                   {.async: (raises: [CancelledError]).} =
+  let
+    payload_present = node.checkPayloadPresent(beacon_block_root)
+    blob_data_available = node.checkBlobDataAvailable(beacon_block_root)
+
+  let data = PayloadAttestationData(
+    beacon_block_root: beacon_block_root,
+    slot: slot,
+    payload_present: payload_present,
+    blob_data_available: blob_data_available
+  )
+
+  let signature = block:
+    let res = await validator.getPayloadAttestationSignature(
+      fork, genesis_validators_root, data)
+    if res.isErr():
+      warn "Unble to sign payload attestation",
+        validator = shortLog(validator),
+        data = shortLog(data),
+        error_msg = res.error()
+      return
+    res.get()
+  
+  let message = PayloadAttestationMessage(
+    validator_index: validator_index.uint64,
+    data: data,
+    signature: signature
+  )
+
+  discard await node.router.routePayloadAttestationMessage(
+    message, checkSignature = false, checkValidator = false)
+
+proc sendPayloadAttestations(
+    node: BeaconNode, head: BlockRef, slot: Slot) =
+  ## Perform payload attestation duties for PTC members
+  
+  let consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
+  if consensusFork < ConsensusFork.Gloas:
+    return
+
+  # Get the beacon block root for the slot we are attesting to
+  let target = head.atSlot(slot)
+  if head != target.blck:
+    notice "Payload attestation to a state in the past",
+      attestationTarget = shortLog(target),
+      head = shortLog(head)
+  
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+    
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var cache: StateCache
+      for vidx in get_ptc(forkyState.data, slot, cache):
+        let validator = node.getValidatorForDuties(vidx, slot).valueOr:
+          continue
+
+        asyncSpawn createAndSendPayloadAttestation(
+          node, fork, genesis_validators_root, validator, vidx, slot,
+          target.blck.root )
+
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
   ## Perform the proposal for the given slot, iff we have a validator attached
@@ -1262,6 +1345,15 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
+
+  let payloadAttestationCutOff = node.beaconClock.fromNow(
+    slot.payload_attestation_deadline(node.dag.timeParams))
+  if payloadAttestationCutOff.inFuture:
+    debug "Waiting to send payload attestations",
+      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
+    await sleepAsync(payloadAttestationCutOff.offset)
+
+  sendPayloadAttestations(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
