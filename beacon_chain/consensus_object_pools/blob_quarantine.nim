@@ -173,6 +173,8 @@ func getIndex[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 
 template slot*(
     b: BlobSidecar | fulu.DataColumnSidecar | gloas.DataColumnSidecar): Slot =
+  # For some reasons, the function only works when it is public though it is
+  # only used internally.
   when b is gloas.DataColumnSidecar:
     b.slot
   else:
@@ -193,6 +195,8 @@ template blob_kzg_commitments(x: SomeSignedBlockOrEnvelope): KzgCommitments =
     x.message.body.blob_kzg_commitments
 
 template root*(x: SomeSignedBlockOrEnvelope): Eth2Digest =
+  # For some reasons, the function only works when it is public though it is
+  # only used internally.
   when typeof(x).kind >= ConsensusFork.Gloas:
     x.message.beacon_block_root
   else:
