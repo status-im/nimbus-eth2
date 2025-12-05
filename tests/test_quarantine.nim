@@ -43,7 +43,7 @@ func genBlobSidecar(
         slot: Slot(slot),
         proposer_index: uint64(proposer_index))))
 
-func genDataColumnSidecar(
+func genFuluDataColumnSidecar(
     index: int,
     slot: int,
     proposer_index: int
@@ -1140,22 +1140,22 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot4 = genBlockRoot(4)
       broot5 = genBlockRoot(5)
       sidecar1 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 0, slot = 1, proposer_index = 5))
       sidecar2 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 31, slot = 1, proposer_index = 5))
       sidecar3 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 32, slot = 1, proposer_index = 5))
       sidecar4 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 127, slot = 2, proposer_index = 6))
       sidecar5 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 0, slot = 3, proposer_index = 7))
       sidecar6 =
-        newClone(genDataColumnSidecar(
+        newClone(genFuluDataColumnSidecar(
           index = 31, slot = 3, proposer_index = 8))
 
     check:
@@ -1289,14 +1289,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
       commitments1 = [
@@ -1374,14 +1374,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
       commitments1 = [
@@ -1488,14 +1488,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
       commitments1 = [
@@ -1552,14 +1552,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
-            res.add(newClone(genDataColumnSidecar(
+            res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
       commitments1 = [
@@ -1645,8 +1645,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
         slot = i div len(custodyColumns) + 100
         blockRoot = genBlockRoot(slot)
         sidecar = newClone(
-          genDataColumnSidecar(index = int(custodyColumns[index]),
-                               slot, proposer_index = i))
+          genFuluDataColumnSidecar(index = int(custodyColumns[index]),
+                                   slot, proposer_index = i))
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
@@ -1671,8 +1671,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     let
       sidecar = newClone(
-        genDataColumnSidecar(index = int(custodyColumns[0]),
-                             slot = 10000, proposer_index = 1000000))
+        genFuluDataColumnSidecar(index = int(custodyColumns[0]),
+                                 slot = 10000, proposer_index = 1000000))
       blockRoot = genBlockRoot(10000)
     check:
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
@@ -1706,9 +1706,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
           var res: seq[ref fulu.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             let sidecar =
-              newClone(genDataColumnSidecar(index = int(custodyColumns[i]),
-                                            slot = 100_000,
-                                            proposer_index = 2000000))
+              newClone(genFuluDataColumnSidecar(index = int(custodyColumns[i]),
+                                                slot = 100_000,
+                                                proposer_index = 2000000))
             res.add(sidecar)
           res
       mblockRoot = genBlockRoot(20000)
@@ -1762,10 +1762,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for index in custodyColumns:
       let
-        sidecar1 = newClone(genDataColumnSidecar(int(index), 1, 64))
-        sidecar1d = newClone(genDataColumnSidecar(int(index), 1, 64))
-        sidecar2 = newClone(genDataColumnSidecar(int(index), 2, 65))
-        sidecar2d = newClone(genDataColumnSidecar(int(index), 2, 65))
+        sidecar1 = newClone(genFuluDataColumnSidecar(int(index), 1, 64))
+        sidecar1d = newClone(genFuluDataColumnSidecar(int(index), 1, 64))
+        sidecar2 = newClone(genFuluDataColumnSidecar(int(index), 2, 65))
+        sidecar2d = newClone(genFuluDataColumnSidecar(int(index), 2, 65))
       sidecars1.add(sidecar1)
       sidecars1d.add(sidecar1d)
       sidecars2.add(sidecar2)
@@ -1863,8 +1863,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
     for item in TestVectors:
       let sidecar =
         newClone(
-          genDataColumnSidecar(index = item.index, slot = item.slot,
-                               proposer_index = item.proposer_index))
+          genFuluDataColumnSidecar(index = item.index, slot = item.slot,
+                                   proposer_index = item.proposer_index))
       bq.put(genBlockRoot(item.root), sidecar)
 
     check:
@@ -1948,8 +1948,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
         slot = i div len(custodyColumns) + 100
         blockRoot = genBlockRoot(slot)
         sidecar = newClone(
-          genDataColumnSidecar(index = int(custodyColumns[index]),
-                               slot, proposer_index = i))
+          genFuluDataColumnSidecar(index = int(custodyColumns[index]),
+                                   slot, proposer_index = i))
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
@@ -1978,8 +1978,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     let
       sidecar = newClone(
-        genDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000,
-                             proposer_index = 1000000))
+        genFuluDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000,
+                                 proposer_index = 1000000))
       blockRoot1 = genBlockRoot(10000)
     check:
       bq.hasSidecar(
@@ -2035,7 +2035,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           for i in 0 ..< len(custodyColumns):
             let sidecar =
               newClone(
-                genDataColumnSidecar(
+                genFuluDataColumnSidecar(
                   index = int(custodyColumns[i]), slot = 100_000,
                   proposer_index = 2000000))
             res.add(sidecar)
@@ -2122,10 +2122,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
         blockRoot1 = genBlockRoot(slot1)
         blockRoot2 = genBlockRoot(slot2)
         sidecar1 = newClone(
-          genDataColumnSidecar(int(custodyColumns[index]), slot1,
+          genFuluDataColumnSidecar(int(custodyColumns[index]), slot1,
             proposer_index = i))
         sidecar2 = newClone(
-          genDataColumnSidecar(int(custodyColumns[index]), slot2,
+          genFuluDataColumnSidecar(int(custodyColumns[index]), slot2,
             proposer_index = 100 + i))
 
       sidecars1.add((sidecar1, blockRoot1))
@@ -2185,7 +2185,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         ) == true
 
     let
-      sidecar = newClone(genDataColumnSidecar(
+      sidecar = newClone(genFuluDataColumnSidecar(
         index = int(custodyColumns[0]), slot = 1000000,
         proposer_index = 2000000))
       blockRoot = genBlockRoot(1000000)
@@ -2280,7 +2280,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(int(custodyColumns[index]),
+          sidecar = newClone(genFuluDataColumnSidecar(int(custodyColumns[index]),
             slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
 
@@ -2339,7 +2339,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(int(custodyColumns[index]),
+          sidecar = newClone(genFuluDataColumnSidecar(int(custodyColumns[index]),
             slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
 
@@ -2370,7 +2370,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 1000000
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(int(custodyColumns[index]),
+          sidecar = newClone(genFuluDataColumnSidecar(int(custodyColumns[index]),
             slot, proposer_index = i))
         sidecars2.add((sidecar, blockRoot))
 
@@ -2396,7 +2396,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(int(custodyColumns[index]),
+          sidecar = newClone(genFuluDataColumnSidecar(int(custodyColumns[index]),
             slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
 
@@ -2690,7 +2690,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(bq.custodyColumns)
           slot = i div len(bq.custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(
+          sidecar = newClone(genFuluDataColumnSidecar(
             int(bq.custodyColumns[index]), slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
         bq.put(blockRoot, sidecar)
@@ -2784,7 +2784,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = i mod len(bq.custodyColumns)
           slot = i div len(bq.custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genDataColumnSidecar(
+          sidecar = newClone(genFuluDataColumnSidecar(
             int(bq.custodyColumns[index]), slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
         bq.put(blockRoot, sidecar)
