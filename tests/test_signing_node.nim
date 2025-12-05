@@ -837,25 +837,21 @@ block:
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
 
-    asyncTest "Signing payload attestation message (getPayloadAttestationSignature())":
+    asyncTest "Signing payload attestation (getPayloadAttestationSignature())":
       let
-        payloadMessage = PayloadAttestationMessage(
-          validator_index: 100,
-          data: PayloadAttestationData(
-            beacon_block_root: SomeOtherRoot,
-            slot: Slot(10),
-            payload_present: true,
-            blob_data_available: true
-          ),
-          signature: ValidatorSig.fromHex(SomeSignature).get()
+        payloadData = PayloadAttestationData(
+          beacon_block_root: SomeOtherRoot,
+          slot: Slot(10),
+          payload_present: true,
+          blob_data_available: true
         )
-        sres1 = await validator1.getPayloadAttestationSignature(SigningFork,
-          GenesisValidatorsRoot, payloadMessage)
-        sres2 = await validator2.getPayloadAttestationSignature(SigningFork,
-          GenesisValidatorsRoot, payloadMessage)
-        sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
-          GenesisValidatorsRoot, payloadMessage)
 
+        sres1 = await validator1.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        sres2 = await validator2.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
       check:
         sres1.isOk()
         sres2.isOk()

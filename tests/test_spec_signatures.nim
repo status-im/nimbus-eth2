@@ -244,8 +244,8 @@ suite "Message signatures":
 
   test "payload attestation message signatures":
     let
-      data0 = default(PayloadAttestationMessage)
-      data1 = (var m = data0; m.data.slot = m.data.slot + 1; m)
+      data0 = default(PayloadAttestationData)
+      data1 = (var d = data0; d.slot = d.slot + 1; d)
       sig = get_payload_attestation_message_signature(fork0, gvr0, data0, privkey0).toValidatorSig
 
     check:
