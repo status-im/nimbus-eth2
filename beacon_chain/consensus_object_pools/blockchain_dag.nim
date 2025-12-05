@@ -61,7 +61,6 @@ const
     ## to be pruned every time the prune call is made (once per slot typically)
     ## unless head is moving faster (ie during sync)
 
-
 proc putBlock*(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
@@ -444,6 +443,7 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
+type LRUCache[I: static[int], T] = block_pools_types.LRUCache[I, T]
 func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
   if cache.timestamp == uint32.high:
     for i in 0 ..< I:
@@ -999,6 +999,9 @@ proc applyBlock(
 
   ok()
 
+proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState, genesis_validators_root)
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1183,8 +1186,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     quit 1
 
   # Need to load state to find genesis validators root, before loading era db
-  dag.era = EraDB.new(
-    cfg, eraPath, getStateField(dag.headState, genesis_validators_root))
+  dag.era = EraDB.new(cfg, eraPath, dag.genesis_validators_root)
 
   # We used an interim finalizedHead while loading the head state above - now
   # that we have loaded the dag up to the finalized slot, we can also set
@@ -1255,8 +1257,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         slot: dag.tail.slot + 1,
         parent_root: dag.tail.root)
 
-  dag.forkDigests = newClone ForkDigests.init(
-    cfg, getStateField(dag.headState, genesis_validators_root))
+  dag.forkDigests = newClone ForkDigests.init(cfg, dag.genesis_validators_root)
 
   withState(dag.headState):
     dag.validatorMonitor[].registerState(forkyState.data)
@@ -1343,9 +1344,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.initLightClientDataCache()
 
   dag
-
-template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
-  getStateField(dag.headState, genesis_validators_root)
 
 proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
   dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")
@@ -2248,6 +2246,9 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           # that.
           break
 
+        # eaSlot would be the earliest slot for which we can reliably
+        # serve a block (and sidecars if it's within the DA retention window)
+        dag.eaSlot = bid.slot + 1
         cur = dag.parent(bid)
 
     # TODO There have been varied reports of startup pruning causing long
@@ -2282,9 +2283,8 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    debugGloasComment " "
-    when consensusFork == ConsensusFork.Gloas:
-      Opt.some ZERO_HASH
+    when consensusFork >= ConsensusFork.Gloas:
+      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
     elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
@@ -2381,8 +2381,6 @@ proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
         handler()
 
     # Policy: Retain back through Mainnet's second latest fork.
-    ConsensusFork.Deneb.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToDeneb)
     ConsensusFork.Electra.logForkUpgrade(
       dag.vanityLogs.onUpgradeToElectra)
     ConsensusFork.Fulu.logForkUpgrade(

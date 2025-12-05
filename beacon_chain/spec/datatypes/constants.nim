@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import chronos/timer
 
@@ -64,9 +64,7 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
-  REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
-  REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64

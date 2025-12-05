@@ -197,6 +197,10 @@ type
     electra_mev.BuilderBid |
     fulu_mev.BuilderBid
 
+  ForkyBlobsBundle* =
+    deneb.BlobsBundle |
+    fulu.BlobsBundle
+
   ForkySignedBuilderBid* =
     electra_mev.SignedBuilderBid |
     fulu_mev.SignedBuilderBid
@@ -388,7 +392,6 @@ template kind*(
       phase0.TrustedBeaconBlockBody |
       phase0.SigVerifiedSignedBeaconBlock |
       phase0.TrustedSignedBeaconBlock |
-      phase0.Attestation |
       phase0.AggregateAndProof |
       phase0.SignedAggregateAndProof]): ConsensusFork =
   ConsensusFork.Phase0
@@ -468,8 +471,6 @@ template kind*(
       electra.TrustedBeaconBlockBody |
       electra.SigVerifiedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
-      electra.Attestation |
-      electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
       electra_mev.BlindedBeaconBlock |
@@ -1040,7 +1041,7 @@ template forky*(
   elif kind == ConsensusFork.Phase0:
     x.phase0Data
   else:
-    {.error: "Unreachable".}
+    {.error: "Unreachable: " & $kind.}
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind

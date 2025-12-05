@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/uri,
@@ -77,12 +77,6 @@ proc sourceDesc*(metadata: GenesisMetadata): string =
     metadata.path
 
 when isMainModule:
-  let holeskyMetadata = getMetadataForNetwork("holesky")
-  io2.writeFile(
-    "holesky-genesis.ssz",
-    waitFor holeskyMetadata.fetchGenesisBytes()
-  ).expect("success")
-
   let hoodiMetadata = getMetadataForNetwork("hoodi")
   io2.writeFile(
     "hoodi-genesis.ssz",

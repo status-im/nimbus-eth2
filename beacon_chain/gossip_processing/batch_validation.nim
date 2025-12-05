@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -116,6 +116,7 @@ type
 
     taskpool: Taskpool
     rng: ref HmacDrbgContext
+    timeParams: TimeParams
 
     verifiers: array[InflightVerifications, VerifierItem]
       ## Each batch verification reqires a separate verifier
@@ -143,11 +144,11 @@ type
     signal: ThreadSignalPtr
 
 proc new*(
-    T: type BatchCrypto, rng: ref HmacDrbgContext,
+    T: type BatchCrypto, rng: ref HmacDrbgContext, timeParams: TimeParams,
     eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
     Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
-    rng: rng, taskpool: taskpool,
+    taskpool: taskpool, rng: rng, timeParams: timeParams,
     eager: eager,
     genesis_validators_root: genesis_validators_root,
     pruneTime: Moment.now())
@@ -282,14 +283,16 @@ proc processBatch(
     # there being any signatures successfully added to it
     return
 
-  let startTick = Moment.now()
+  let
+    startTick = Moment.now()
+    slotDuration = batchCrypto.timeParams.SLOT_DURATION
 
   # If the hardware is too slow to keep up or an event caused a temporary
   # buildup of signature verification tasks, the batch will be dropped so as to
   # recover and not cause even further buildup - this puts an (elastic) upper
   # bound on the amount of queued-up work
-  if batch[].created + SECONDS_PER_SLOT.int64.seconds < startTick:
-    if batchCrypto.pruneTime + SECONDS_PER_SLOT.int64.seconds < startTick:
+  if batch[].created + slotDuration < startTick:
+    if batchCrypto.pruneTime + slotDuration < startTick:
       notice "Batch queue pruned, skipping attestation validation",
         batches = batchCrypto.batches.len()
       batchCrypto.pruneTime = startTick
@@ -547,7 +550,8 @@ proc scheduleContributionChecks*(
 
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
-    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange):
+    genesis_fork_version: Version,
+    signedBLSToExecutionChange: SignedBLSToExecutionChange):
     Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
@@ -559,9 +563,6 @@ proc scheduleBlsToExecutionChangeCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred check otherwise.
 
-  # Must be genesis fork
-  doAssert genesis_fork.previous_version == genesis_fork.current_version
-
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
@@ -572,8 +573,33 @@ proc scheduleBlsToExecutionChangeCheck*(
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
-        genesis_fork, batchCrypto[].genesis_validators_root,
+        genesis_fork_version, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         pubkey, sig)
+
+  ok((fut, sig))
+
+proc schedulePayloadAttestationCheck*(
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      genesis_validators_root: Eth2Digest,
+      msg: PayloadAttestationMessage,
+      pubkey: CookedPubKey,
+      signature: ValidatorSig
+    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of a payload attestation
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred payload attestation check otherwise.
+  ##
+  let
+    sig = signature.load().valueOr:
+      return err("payload attestation: cannot load signature")
+    fut = batchCrypto.verifySoon("batch_validation.schedulePayloadAttestationCheck"):
+      payload_attestation_signature_set(
+        fork, genesis_validators_root, msg, pubkey, sig)
 
   ok((fut, sig))

@@ -43,7 +43,6 @@ type
   Eth1Network* = enum
     mainnet
     sepolia
-    holesky
     hoodi
 
   GenesisMetadataKind* = enum
@@ -289,13 +288,6 @@ elif IsMainnetSupported:
       Opt.some sepolia,
       useBakedInGenesis = Opt.some "sepolia")
 
-    holeskyMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/holesky/metadata",
-      Opt.some holesky,
-      downloadGenesisFrom = Opt.some DownloadInfo(
-        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
-        digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
-
     # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
     # `git lfs pull`, and then from repo root:
     #
@@ -324,17 +316,11 @@ elif IsMainnetSupported:
         digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    for network in [
-        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
+    doAssert ConsensusFork.high == ConsensusFork.Gloas
+    for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Gloas
-
-    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert mainnetMetadata.cfg.BLOB_SCHEDULE.len == 0
-
-    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
@@ -379,8 +365,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         mainnetMetadata
       of "hoodi":
         hoodiMetadata
-      of "holesky":
-        holeskyMetadata
       of "sepolia":
         sepoliaMetadata
       else:

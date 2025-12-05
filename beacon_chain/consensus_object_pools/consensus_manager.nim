@@ -213,7 +213,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   # Grab the new head according to our latest attestation data
   let
     newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time).valueOr:
+        wallSlot.start_beacon_time(self.dag.timeParams)).valueOr:
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
@@ -229,7 +229,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
   # not yet be updated) won't be visible.
-  if dag.head.slot + defaultSyncHorizon < wallSlot:
+  if dag.head.slot + dag.timeParams.defaultSyncHorizon < wallSlot:
     false
   else:
     dag.head.executionValid
@@ -335,7 +335,8 @@ proc prepareNextSlot*(
     elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
-        timestamp = compute_timestamp_at_slot(forkyState.data, proposalSlot)
+        timestamp = dag.timeParams
+          .compute_timestamp_at_slot(forkyState.data, proposalSlot)
         # If the current head block still forms the basis of the eventual proposal
         # state, then its `get_randao_mix` will remain unchanged as well, as it is
         # constant until the next block.
@@ -486,7 +487,8 @@ proc forkchoiceUpdated(
 
       head.blck.markExecutionValid(false)
       self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
-      self.quarantine[].addUnviable(head.blck.root)
+      # TODO differentiate invalid execution from invalid consensus
+      discard self.quarantine[].addUnviable(head.blck.root, UnviableKind.Invalid)
       false
 
 proc updateExecutionHead*(
@@ -515,7 +517,8 @@ proc updateExecutionHead*(
     wallTime = getBeaconTimeFn()
     head = self.attestationPool[].getBeaconHead(self.dag.head)
 
-  while not (await self.forkchoiceUpdated(head, wallTime.slotOrZero(), deadline, retry)):
+  while not (await self.forkchoiceUpdated(
+      head, wallTime.slotOrZero(self.dag.timeParams), deadline, retry)):
     # Each failed call to forkchoiceUpdated that fails should reveal new
     # information about the suggested new head - a side effect of the failure is
     # that the block should be marked as invalid and removed from fork choice
@@ -533,9 +536,10 @@ proc updateExecutionHead*(
 
     # Select new head for next attempt
     wallTime = getBeaconTimeFn()
-    let nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+    let nextHead = self.attestationPool[]
+        .selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed after invalid block, using previous head",
-        head, wallSlot = wallTime.slotOrZero
+        head, wallSlot = wallTime.slotOrZero(self.dag.timeParams)
       break
 
     warn "updateHeadWithExecution: attempting to recover from invalid payload",

@@ -22,8 +22,7 @@ import
 
 from std/os import changeFileExt, fileExists
 from ../beacon_chain/el/engine_api_conversions import asEth2Digest
-from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
-from ../tests/mocking/mock_genesis import mockEth1BlockHash
+from ../tests/teststateutil import initGenesisState, mockEth1BlockHash
 
 # For nim-confutils, which uses this kind of init(Type, value) pattern
 func init(T: type IpAddress, ip: IpAddress): T = ip
@@ -162,6 +161,11 @@ type
         defaultValue: FAR_FUTURE_EPOCH
         desc: "The epoch of the Fulu hard-fork"
         name: "fulu-fork-epoch" .}: Epoch
+
+      gloasForkEpoch* {.
+        defaultValue: FAR_FUTURE_EPOCH
+        desc: "The epoch of the Gloas hard-fork"
+        name: "gloas-fork-epoch" .}: Epoch
 
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot"
@@ -363,7 +367,15 @@ proc doCreateTestnet*(config: CliConfig,
       uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
     outGenesis = config.outputGenesis.string
     eth1Hash = mockEth1BlockHash # TODO: Can we set a more appropriate value?
-    cfg = getRuntimeConfig(config.eth2Network)
+
+  var cfg = getRuntimeConfig(config.eth2Network)
+  cfg.ALTAIR_FORK_EPOCH = Epoch(0)
+  cfg.BELLATRIX_FORK_EPOCH = Epoch(0)
+  cfg.CAPELLA_FORK_EPOCH = config.capellaForkEpoch
+  cfg.DENEB_FORK_EPOCH = config.denebForkEpoch
+  cfg.ELECTRA_FORK_EPOCH = config.electraForkEpoch
+  cfg.FULU_FORK_EPOCH = config.fuluForkEpoch
+  cfg.GLOAS_FORK_EPOCH = config.gloasForkEpoch
 
   # This is intentionally left default initialized, when the user doesn't
   # provide an execution genesis block. The generated genesis state will
@@ -392,41 +404,37 @@ proc doCreateTestnet*(config: CliConfig,
             err = err.msg
       quit 1
 
-  template createAndSaveState(consensusFork: static ConsensusFork): Eth2Digest =
-    var initialState = newClone(initialize_beacon_state_from_eth1(
-        cfg, consensusFork, eth1Hash, startTime, deposits,
-        genesisBlock as consensusFork.ExecutionPayloadHeader,
-        {skipBlsValidation}))
-    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
-    initialState.genesis_time = startTime
+  template createAndSaveState(): Eth2Digest =
+    var initialState =
+      initGenesisState(cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
+    withState(initialState[]):
+      # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
+      forkyState.data.genesis_time = startTime
 
-    doAssert initialState.validators.len > 0
+      when consensusFork >= ConsensusFork.Bellatrix and
+          consensusFork < ConsensusFork.Gloas:
+        debugGloasComment ""
+        forkyState.data.latest_execution_payload_header =
+          genesisBlock as consensusFork.ExecutionPayloadHeader
+      forkyState.root.reset()
 
-    # let outGenesisExt = splitFile(outGenesis).ext
-    #if cmpIgnoreCase(outGenesisExt, ".json") == 0:
+      doAssert forkyState.data.validators.len > 0
 
-    # let outGenesisJson = outGenesis & ".json"
-    # RestJson.saveFile(outGenesisJson, initialState, pretty = true)
-    # info "JSON genesis file written", path = outGenesisJson
+      # let outGenesisExt = splitFile(outGenesis).ext
+      #if cmpIgnoreCase(outGenesisExt, ".json") == 0:
 
-    let outSszGenesis = outGenesis.changeFileExt "ssz"
-    SSZ.saveFile(outSszGenesis, initialState[])
-    info "SSZ genesis file written",
-          path = outSszGenesis, fork = kind(typeof initialState[])
+      # let outGenesisJson = outGenesis & ".json"
+      # RestJson.saveFile(outGenesisJson, initialState, pretty = true)
+      # info "JSON genesis file written", path = outGenesisJson
 
-    initialState[].genesis_validators_root
+      let outSszGenesis = outGenesis.changeFileExt "ssz"
+      SSZ.saveFile(outSszGenesis, forkyState.data)
+      info "SSZ genesis file written",
+            path = outSszGenesis, fork = consensusFork
 
-  let genesisValidatorsRoot =
-    if config.fuluForkEpoch == 0:
-      createAndSaveState(ConsensusFork.Fulu)
-    elif config.electraForkEpoch == 0:
-      createAndSaveState(ConsensusFork.Electra)
-    elif config.denebForkEpoch == 0:
-      createAndSaveState(ConsensusFork.Deneb)
-    elif config.capellaForkEpoch == 0:
-      createAndSaveState(ConsensusFork.Capella)
-    else:
-      createAndSaveState(ConsensusFork.Bellatrix)
+      forkyState.data.genesis_validators_root
+
+  let genesisValidatorsRoot = createAndSaveState()
 
   let bootstrapFile = string config.outputBootstrapFile
   if bootstrapFile.len > 0:

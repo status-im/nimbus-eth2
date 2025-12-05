@@ -24,7 +24,7 @@ suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 4.SyncCommitteePeriod
   let
-    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+    cfg = block:  # Fork schedule that covers each `LightClientDataFork`
       static: doAssert ConsensusFork.high == ConsensusFork.Gloas
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
@@ -77,9 +77,9 @@ suite "Light client" & preset():
   setup:
     const num_validators = SLOTS_PER_EPOCH
     let
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(num_validators, cfg = cfg), validatorMonitor, {},
+        cfg, cfg.makeTestDB(num_validators), validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true,
           importMode: LightClientDataImportMode.OnlyNew))
@@ -233,7 +233,7 @@ suite "Light client" & preset():
     dag.advanceToSlot(finalizedSlot, verifier, quarantine[])
 
     # Initialize new DAG from checkpoint
-    let cpDb = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+    let cpDb = BeaconChainDB.new("", cfg, inMemory = true)
     ChainDAGRef.preInit(cpDb, genesisState[])
     ChainDAGRef.preInit(cpDb, dag.headState) # dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(

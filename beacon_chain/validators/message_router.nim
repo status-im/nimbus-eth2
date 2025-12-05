@@ -112,27 +112,9 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      if blobsOpt.isSome:
-        let blobs = blobsOpt.get()
-        let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
-        if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(
-            kzgCommits,
-            blobs.mapIt(KzgBlob(bytes: it.blob)),
-            blobs.mapIt(it.kzg_proof))
-          if res.isErr():
-            warn "blobs failed validation",
-              blockRoot = shortLog(blck.root),
-              blobs = shortLog(blobs),
-              blck = shortLog(blck.message),
-              signature = shortLog(blck.signature),
-              msg = res.error()
-            return err(res.error())
-
   let
     sendTime = router[].getCurrentBeaconTime()
-    delay = sendTime - blck.message.slot.block_deadline()
+    delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
     # The block (and blobs, if present) passed basic gossip validation
     # - we can "safely" broadcast it now. In fact, per the spec, we
     # should broadcast it even if it later fails to apply to our
@@ -249,9 +231,14 @@ proc routeAttestation*(
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
-    let res = await router[].processor.processAttestation(
-      MsgSource.api, attestation, subnet_id,
-      checkSignature = checkSignature, checkValidator = checkValidator)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
+      res = await router[].processor.processAttestation(
+        MsgSource.api, attestation, subnet_id,
+        checkSignature = checkSignature, checkValidator = checkValidator,
+        currentFork)
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -260,7 +247,10 @@ proc routeAttestation*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - attestation.data.slot.attestation_deadline()
+    slot = attestation.data.slot
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -316,9 +306,13 @@ proc routeSignedAggregateAndProof*(
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
     # that all processing happens anyway
-    let res = await router[].processor.processSignedAggregateAndProof(
-      MsgSource.api, proof, checkSignature = checkSignature,
-      checkCover = false)
+    let
+      wallTime = router[].processor.getCurrentBeaconTime()
+      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
+      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
+      res = await router[].processor.processSignedAggregateAndProof(
+        MsgSource.api, proof, checkSignature = checkSignature,
+        checkCover = false, currentFork)
     if not res.isGoodForSending:
       warn "Aggregated attestation failed validation",
         attestation = shortLog(proof.message.aggregate),
@@ -328,7 +322,10 @@ proc routeSignedAggregateAndProof*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - proof.message.aggregate.data.slot.aggregate_deadline()
+    slot = proof.message.aggregate.data.slot
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay =
+     sendTime - slot.aggregate_deadline(router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -363,7 +360,9 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.slot.sync_committee_message_deadline()
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
+    delay = sendTime - msg.slot.sync_committee_message_deadline(
+      router[].dag.timeParams, currentFork)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -484,7 +483,10 @@ proc routeSignedContributionAndProof*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime - msg.message.contribution.slot.sync_contribution_deadline()
+    slot = msg.message.contribution.slot
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime -
+      slot.sync_contribution_deadline(router[].dag.timeParams, currentFork)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
@@ -579,8 +581,9 @@ proc routeBlsToExecutionChange*(
             error = res.error()
       return err(res.error()[1])
 
-  if  router[].getCurrentBeaconTime().slotOrZero.epoch <
-      router[].processor[].dag.cfg.CAPELLA_FORK_EPOCH:
+  let wallEpoch =
+    router[].getCurrentBeaconTime().slotOrZero(router[].dag.timeParams).epoch
+  if wallEpoch < router[].dag.cfg.CAPELLA_FORK_EPOCH:
     # Broadcast hasn't failed, it just hasn't happened; desire seems to be to
     # allow queuing up BLS to execution changes.
     return ok()
@@ -594,5 +597,36 @@ proc routeBlsToExecutionChange*(
     notice "BLS to execution change not sent",
       bls_to_execution_change = shortLog(bls_to_execution_change),
       error = res.error()
+
+  return ok()
+
+proc routePayloadAttestationMessage*(
+    router: ref MessageRouter,
+    message: PayloadAttestationMessage,
+    checkSignature, checkValidator: bool = true):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = await router.processor.processPayloadAttestationMessage(
+      MsgSource.api, message, checkSignature = checkSignature,
+      checkValidator = checkValidator)
+
+    if not res.isGoodForSending:
+      warn "Payload attestation failed validation",
+        message = shortLog(message), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = message.data.slot
+    delay = sendTime -
+      slot.payload_attestation_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastPayloadAttestationMessage(message)
+
+  if res.isOk():
+    info "Payload attestation sent",
+      message = shortLog(message), delay
+  else:
+    notice "Payload attestation not sent",
+      message = shortLog(message), error = res.error()
 
   return ok()

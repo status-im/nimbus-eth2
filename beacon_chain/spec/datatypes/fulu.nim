@@ -41,20 +41,12 @@ export json_serialization, base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
-  FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
+  FIELD_ELEMENTS_PER_EXT_BLOB = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
   # Number of field elements in a Reed-Solomon extended blob |
-  FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
-  BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
-  # The number of bytes in a cell |
-  CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
+  BYTES_PER_CELL* = kzg_abi.FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#preset
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
-  NUMBER_OF_COLUMNS* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
@@ -75,8 +67,8 @@ type
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
-  Coset* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
-  CosetEvals* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
+  Coset* = array[kzg_abi.FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
+  CosetEvals* = array[kzg_abi.FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   Cell* = KzgCell
   Cells* = KzgCells
   CellsAndProofs* = KzgCellsAndKzgProofs

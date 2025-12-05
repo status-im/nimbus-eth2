@@ -100,9 +100,9 @@ proc initialLoad(
   ChainDAGRef.preInit(db, forkedState[])
 
   let
-    validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = ChainDAGRef.init(
-      forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
+    cfg = forkedState[].kind.genesisTestRuntimeConfig
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
@@ -235,7 +235,8 @@ proc stepOnBlock(
   # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
-    dag.getBlockIdAtSlot(time.slotOrZero).expect("block exists"),
+    dag.getBlockIdAtSlot(time.slotOrZero(dag.timeParams))
+      .expect("block exists"),
     save = false,
     stateCache,
     dag.updateFlags
@@ -269,7 +270,7 @@ proc stepOnBlock(
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
-      state: consensusFork.Beaconstate,
+      state: consensusFork.BeaconState,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
     # 4. Update fork choice if valid
@@ -297,7 +298,8 @@ proc stepChecks(
   for check, val in checks:
     if check == "time":
       doAssert time.ns_since_genesis == val.getInt().seconds.nanoseconds()
-      doAssert fkChoice.checkpoints.time.slotOrZero == time.slotOrZero
+      let slot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
+      doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
       let headRef = dag.getBlockRef(headRoot).get()
@@ -453,9 +455,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
           runTest(suiteName, basePath/path, fork)
-
-from ../../beacon_chain/conf import loadKzgTrustedSetup
-discard loadKzgTrustedSetup()  # Required for Deneb tests
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

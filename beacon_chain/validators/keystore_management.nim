@@ -87,6 +87,7 @@ type
     validatorPool*: ref ValidatorPool
     keystoreCache*: KeystoreCacheRef
     rng*: ref HmacDrbgContext
+    timeParams*: TimeParams
     keymanagerToken*: string
     validatorsDir*: string
     secretsDir*: string
@@ -126,6 +127,7 @@ func init*(T: type KeymanagerHost,
            validatorPool: ref ValidatorPool,
            keystoreCache: KeystoreCacheRef,
            rng: ref HmacDrbgContext,
+           timeParams: TimeParams,
            keymanagerToken: string,
            validatorsDir: string,
            secretsDir: string,
@@ -142,6 +144,7 @@ func init*(T: type KeymanagerHost,
   T(validatorPool: validatorPool,
     keystoreCache: keystoreCache,
     rng: rng,
+    timeParams: timeParams,
     keymanagerToken: keymanagerToken,
     validatorsDir: validatorsDir,
     secretsDir: secretsDir,
@@ -1683,7 +1686,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
                    salt, mode)
 
     deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
+      cfg.GENESIS_FORK_VERSION, withdrawalPubKey, derivedKey, signingPubKey)
 
   for i in 0 ..< remoteValidatorsCount:
     let validatorIdx = int(firstValidatorIdx) + localValidatorsCount + int(i)
@@ -1717,7 +1720,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
                                mode)
 
     deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
+      cfg.GENESIS_FORK_VERSION, withdrawalPubKey, derivedKey, signingPubKey)
 
   ok deposits
 

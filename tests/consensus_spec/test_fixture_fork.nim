@@ -19,7 +19,7 @@ import
 
 proc runTest(
     BeaconStateAnte, BeaconStatePost: type, forkName, forkDir: static[string],
-    upgrade_func: auto, suiteName, unitTestName: string) =
+    suiteName, unitTestName: string) =
   let testDir = forkDir / unitTestName
 
   test "EF - " & forkName & " - Fork - " & unitTestName & preset():
@@ -35,10 +35,7 @@ proc runTest(
     when BeaconStateAnte is phase0.BeaconState:
       cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
 
-    when compiles(upgrade_func(cfg, preState[], cache)):
-      let upgradedState = upgrade_func(cfg, preState[], cache)
-    else:
-      let upgradedState = upgrade_func(cfg, preState[])
+    let upgradedState = newClone(upgrade_to_next(cfg, preState[], cache))
     check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
     reportDiff(upgradedState, postState)
 
@@ -49,7 +46,7 @@ suite "EF - Altair - Fork " & preset():
     SszTestsDir/const_preset/"altair"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(phase0.BeaconState, altair.BeaconState, "Altair", OpForkDir,
-            upgrade_to_altair, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/bellatrix import BeaconState
 
@@ -58,7 +55,7 @@ suite "EF - Bellatrix - Fork " & preset():
     SszTestsDir/const_preset/"bellatrix"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(altair.BeaconState, bellatrix.BeaconState, "Bellatrix", OpForkDir,
-            upgrade_to_bellatrix, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
 
@@ -67,7 +64,7 @@ suite "EF - Capella - Fork " & preset():
     SszTestsDir/const_preset/"capella"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(bellatrix.BeaconState, capella.BeaconState, "Capella", OpForkDir,
-            upgrade_to_capella, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
@@ -76,7 +73,7 @@ suite "EF - Deneb - Fork " & preset():
     SszTestsDir/const_preset/"deneb"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(capella.BeaconState, deneb.BeaconState, "Deneb", OpForkDir,
-            upgrade_to_deneb, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/electra import BeaconState
 
@@ -85,7 +82,7 @@ suite "EF - Electra - Fork " & preset():
     SszTestsDir/const_preset/"electra"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(deneb.BeaconState, electra.BeaconState, "Electra", OpForkDir,
-            upgrade_to_electra, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/fulu import BeaconState
 
@@ -94,7 +91,7 @@ suite "EF - Fulu - Fork " & preset():
     SszTestsDir/const_preset/"fulu"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(electra.BeaconState, fulu.BeaconState, "Fulu", OpForkDir,
-            upgrade_to_fulu, suiteName, path)
+            suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/gloas import BeaconState
 
@@ -103,4 +100,4 @@ suite "EF - Gloas - Fork " & preset():
     SszTestsDir/const_preset/"gloas"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(fulu.BeaconState, gloas.BeaconState, "Gloas", OpForkDir,
-            upgrade_to_gloas, suiteName, path)
+            suiteName, path)

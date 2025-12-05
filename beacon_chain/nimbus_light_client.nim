@@ -73,7 +73,7 @@ proc main() {.noinline, raises: [CatchableError].} =
         raiseAssert "Invalid baked-in state: " & err.msg
 
     genesisTime = getStateField(genesisState[], genesis_time)
-    beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+    beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
@@ -87,8 +87,10 @@ proc main() {.noinline, raises: [CatchableError].} =
     rng = HmacDrbgContext.new()
     netKeys = getRandomNetKeys(rng[])
     network = createEth2Node(
-      rng, config, netKeys, cfg,
-      forkDigests, getBeaconTime, genesis_validators_root)
+      rng, config, netKeys, cfg, forkDigests, getBeaconTime, genesis_validators_root
+    ).valueOr:
+      error "Failed to initialize node", err = error
+      quit QuitFailure
     engineApiUrls = config.engineApiUrls
     elManager =
       if engineApiUrls.len > 0:
@@ -108,7 +110,7 @@ proc main() {.noinline, raises: [CatchableError].} =
               discard await elManager.newExecutionPayload(forkyBlck.message)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
-      getBeaconTime, optimisticHandler)
+      cfg.timeParams, getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
@@ -174,15 +176,28 @@ proc main() {.noinline, raises: [CatchableError].} =
 
           info "New LC optimistic header"
           if elManager == nil or blockHash.isZero or
-              not isSynced(bid.slot, getBeaconTime().slotOrZero()):
+              not isSynced(bid.slot, beaconClock.currentSlot):
             return
+
+          let finalizedBlockHash =
+            if config.syncLightClientFinality:
+              let finalizedHeader = lightClient.finalizedHeader
+              withForkyHeader(finalizedHeader):
+                when lcDataFork >= LightClientDataFork.Capella:
+                  forkyHeader.execution.block_hash
+                else:
+                  ZERO_HASH
+            else:
+              ZERO_HASH
 
           withConsensusFork(consensusFork):
             when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+              debug "Sending forkchoiceUpdated",
+                finalizedBlockHash = finalizedBlockHash
               optimisticFcuFut = elManager.forkchoiceUpdated(
                 headBlockHash = blockHash,
-                safeBlockHash = blockHash,  # stub value
-                finalizedBlockHash = ZERO_HASH,
+                safeBlockHash = finalizedBlockHash,  # justified not available
+                finalizedBlockHash = finalizedBlockHash,
                 payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
               optimisticFcuFut.addCallback do (future: pointer):
                 optimisticFcuFut = nil
@@ -257,16 +272,17 @@ proc main() {.noinline, raises: [CatchableError].} =
     for gossipEpoch in targetGossipState - currentGossipState:
       let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
       network.subscribe(
-        getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
+        getBeaconBlocksTopic(forkDigest),
+        getBlockTopicParams(cfg.timeParams),
         enableTopicMetrics = true)
 
     blocksGossipState = targetGossipState
 
   proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
     let
-      wallSlot = wallTime.slotOrZero()
+      wallSlot = wallTime.slotOrZero(cfg.timeParams)
       expectedSlot = lastSlot + 1
-      delay = wallTime - expectedSlot.start_beacon_time()
+      delay = wallTime - expectedSlot.start_beacon_time(cfg.timeParams)
 
       finalizedHeader = lightClient.finalizedHeader
       optimisticHeader = lightClient.optimisticHeader
@@ -301,24 +317,26 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   proc runOnSlotLoop() {.async.} =
     var
-      curSlot = getBeaconTime().slotOrZero()
+      curSlot = beaconClock.currentSlot
       nextSlot = curSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+      timeToNextSlot =
+        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
     while true:
       await sleepAsync(timeToNextSlot)
 
       let
-        wallTime = getBeaconTime()
-        wallSlot = wallTime.slotOrZero()
+        wallTime = beaconClock.now
+        wallSlot = wallTime.slotOrZero(cfg.timeParams)
 
       onSlot(wallTime, curSlot)
 
       curSlot = wallSlot
       nextSlot = wallSlot + 1
-      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+      timeToNextSlot =
+        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
 
   proc onSecond(time: Moment) =
-    let wallSlot = getBeaconTime().slotOrZero()
+    let wallSlot = beaconClock.currentSlot
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 

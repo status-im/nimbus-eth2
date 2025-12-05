@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,8 +7,8 @@
 
 {.push raises: [].}
 
-# Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/presets/mainnet/electra.yaml
+# Gnosis preset - Electra
+# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -40,7 +40,7 @@ const
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
   # `uint64(2**1)` (= 2)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD* = 2
 
   # Execution
   # ---------------------------------------------------------------
@@ -52,9 +52,9 @@ const
   # Withdrawals processing
   # ---------------------------------------------------------------
   # 2**3 ( = 8) pending withdrawals
-  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 8
+  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 6
 
   # Pending deposits processing
   # ---------------------------------------------------------------
-  # 2**4 ( = 4) pending deposits
+  # 2**4 ( = 16) pending deposits
   MAX_PENDING_DEPOSITS_PER_EPOCH* = 16

@@ -23,9 +23,10 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError
+  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, pop, removeOrphan, removeSidecarless
+  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
+  remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
@@ -103,7 +104,9 @@ type
       ## time
 
   NoSidecars* = typeof(())
-  SomeOptSidecars = NoSidecars | Opt[BlobSidecars] | Opt[DataColumnSidecars]
+  SomeOptSidecars =
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
+    Opt[gloas.DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
 
@@ -144,6 +147,11 @@ proc new*(T: type BlockProcessor,
 func hasBlocks*(self: BlockProcessor): bool =
   self.pendingStores > 0
 
+func toVerifierError(v: UnviableKind): VerifierError =
+  case v
+  of UnviableKind.UnviableFork: VerifierError.UnviableFork
+  of UnviableKind.Invalid: VerifierError.Invalid
+
 # Storage
 # ------------------------------------------------------------------------------
 
@@ -155,7 +163,7 @@ proc dumpInvalidBlock*(
 proc dumpBlock(
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[void, VerifierError]) =
+    res: Result[BlockRef, VerifierError]) =
   if self.dumpEnabled and res.isErr:
     case res.error
     of VerifierError.Invalid:
@@ -166,7 +174,7 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock
+  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
@@ -177,10 +185,7 @@ proc verifySidecars(
   when consensusFork == ConsensusFork.Gloas:
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
-    if sidecarsOpt.isSome:
-      debugGloasComment "potentially validate against payload envelope"
-      let columns = sidecarsOpt.get()
-      discard
+    debugGloasComment "potentially validate against payload envelope"
   elif consensusFork == ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
@@ -222,13 +227,14 @@ proc verifySidecars(
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
   if sidecarsOpt.isSome():
-    debug "Inserting blobs into database", blobs = sidecarsOpt[].len
     for b in sidecarsOpt[]:
       self.consensusManager.dag.db.putBlobSidecar(b[])
 
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[DataColumnSidecars]) =
+proc storeSidecars(
+    self: BlockProcessor,
+    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
+) =
   if sidecarsOpt.isSome():
-    debug "Inserting columns into database", columns = sidecarsOpt[].len
     for c in sidecarsOpt[]:
       self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
@@ -240,8 +246,9 @@ proc storeBackfillBlock(
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
-  # The block is certainly not missing any more
-  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+  let quarantine = self.consensusManager.quarantine
+  # In case the block was added to any part of the quarantine..
+  quarantine[].remove(signedBlock)
 
   ?verifySidecars(signedBlock, sidecarsOpt)
 
@@ -250,22 +257,33 @@ proc storeBackfillBlock(
   if res.isErr():
     case res.error
     of VerifierError.MissingParent:
-      if signedBlock.message.parent_root in
-          self.consensusManager.quarantine[].unviable:
+      quarantine[].unviable.get(signedBlock.message.parent_root).isErrOr:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
-        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-        return err(VerifierError.UnviableFork)
+        return err(quarantine[].addUnviable(signedBlock.root, value).toVerifierError())
+
+      # TODO Is the block always from an unviable fork? It didn't match the
+      #      expected backfill block, so we could potentially mark it as
+      #      UnviableFork here
+      res
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
-      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-    else: discard
-    return res
+        err(
+          quarantine[]
+          .addUnviable(signedBlock.root, UnviableKind.UnviableFork)
+          .toVerifierError()
+        )
+    of VerifierError.Invalid:
+      # TODO track invalid blocks once we can differentiate between invalid
+      #      proposer signature and other errors
+      res
+    of VerifierError.Duplicate:
+      res
+  else:
+    # Only store side cars after successfully establishing block viability.
+    self.storeSidecars(sidecarsOpt)
 
-  # Only store side cars after successfully establishing block viability.
-  self.storeSidecars(sidecarsOpt)
-
-  res
+    res
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, sendNewPayload
@@ -329,29 +347,6 @@ proc getExecutionValidity(
 
   Opt.some(optimisticStatus)
 
-proc checkBlobOrColumnlessSignature(
-    self: BlockProcessor,
-    signed_beacon_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                         fulu.SignedBeaconBlock):
-    Result[void, cstring] =
-  let dag = self.consensusManager.dag
-  let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
-    return err("checkBlobOrColumnlessSignature called with orphan block")
-  let proposer = getProposer(
-        dag, parent, signed_beacon_block.message.slot).valueOr:
-    return err("checkBlobOrColumnlessSignature: Cannot compute proposer")
-  if distinctBase(proposer) != signed_beacon_block.message.proposer_index:
-    return err("checkBlobOrColumnlessSignature: Incorrect proposer")
-  if not verify_block_signature(
-      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      signed_beacon_block.message.slot,
-      signed_beacon_block.root,
-      dag.validatorKey(proposer).get(),
-      signed_beacon_block.signature):
-    return err("checkBlobOrColumnlessSignature: Invalid proposer signature")
-  ok()
-
 proc addBlock*(
   self: ref BlockProcessor,
   src: MsgSource,
@@ -384,53 +379,48 @@ proc enqueueBlock*(
   # `addBlock` should be used where managing backpressure is appropriate.
   discard self.addBlock(src, blck, sidecarsOpt, maybeFinalized, validationDur)
 
-proc enqueueQuarantine(self: ref BlockProcessor, root: Eth2Digest) =
-  ## Enqueue blocks whose parent is `root` - ie when `root` has been added to
-  ## the blockchain dag, its direct descendants are now candidates for
-  ## processing
-  for quarantined in self.consensusManager.quarantine[].pop(root):
+proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
+  ## Enqueue the blocks that are no longer orphans as a result of `parent` being
+  ## added to the DAG
+  let
+    dag = self.consensusManager[].dag
+    quarantine = self.consensusManager[].quarantine
+
+  for quarantined in quarantine[].pop(parent.root):
     # Process the blocks that had the newly accepted block as parent
-    debug "Block from quarantine",
-      blockRoot = shortLog(root), quarantined = shortLog(quarantined.root)
+    debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
       when consensusFork == ConsensusFork.Gloas:
         debugGloasComment ""
-        self.enqueueBlock(MsgSource.gossip, forkyBlck, Opt.none(DataColumnSidecars))
+        const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
-        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          self.enqueueBlock(
-            MsgSource.gossip, forkyBlck, Opt.some(DataColumnSidecars @[])
-          )
-        else:
-          if (let res = checkBlobOrColumnlessSignature(self[], forkyBlck); res.isErr):
-            warn "Failed to verify signature of unorphaned blobless block",
-              blck = shortLog(forkyBlck), error = res.error()
-            continue
-          let cres = self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if cres.isSome:
-            self.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
+        let sidecarsOpt =
+          if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+            Opt.some(default(fulu.DataColumnSidecars))
           else:
-            discard self.consensusManager.quarantine[].addSidecarless(
-              self.consensusManager[].dag.finalizedHead.slot, forkyBlck
-            )
+            self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
       elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          self.enqueueBlock(MsgSource.gossip, forkyBlck, Opt.some(BlobSidecars @[]))
-        else:
-          if (let res = checkBlobOrColumnlessSignature(self[], forkyBlck); res.isErr):
-            warn "Failed to verify signature of unorphaned columnless block",
-              blck = shortLog(forkyBlck), error = res.error()
-            continue
-          let bres = self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if bres.isSome():
-            self.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
-          else:
-            self.consensusManager.quarantine[].addSidecarless(forkyBlck)
+        let sidecarsOpt = self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-        self.enqueueBlock(MsgSource.gossip, forkyBlck, noSidecars)
+        const sidecarsOpt = noSidecars
       else:
         {.error: "Unknown consensus fork " & $consensusFork.}
+
+      when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
+        if not sidecarsOpt.isSome():
+          dag.verifyBlockProposer(
+            parent, forkyBlck.message.slot, forkyBlck.message.proposer_index,
+            forkyBlck.root, forkyBlck.signature,
+          ).isOkOr:
+            warn "Failed to verify signature of unorphaned blobless block",
+              blck = shortLog(forkyBlck), error = error.msg
+            continue
+
+          discard quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck)
+          continue
+
+      self.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
 
 proc onBlockAdded*(
     dag: ChainDAGRef,
@@ -509,9 +499,6 @@ proc verifyPayload(
         # There are no `blob_kzg_commitments` before Deneb to compare against
         discard
 
-      if signedBlock.root in self.invalidBlockRoots:
-        returnWithError "Block root treated as invalid via config", $signedBlock.root
-
       ok OptimisticStatus.notValidated
     else:
       ok OptimisticStatus.valid
@@ -534,6 +521,7 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
 
     let sidecarsOpt =
       when consensusFork >= ConsensusFork.Fulu:
+        debugGloasComment ""
         var data_column_sidecars: fulu.DataColumnSidecars
         for i in self.dataColumnQuarantine[].custodyColumns:
           let data_column = fulu.DataColumnSidecar.new()
@@ -567,57 +555,39 @@ proc storeBlock(
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
-  ## to know about it, such as the fork choice and the monitoring
+  ## to know about it, such as the fork choice and the monitoring.
 
   let
     ap = self.consensusManager.attestationPool
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
-    wallSlot = wallTime.slotOrZero
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
     deadlineTime =
       block:
-        let slotTime = (wallSlot + 1).start_beacon_time() - 1.seconds
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
         if slotTime <= wallTime:
-          0.seconds
+          chronos.seconds(0)
         else:
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  # If the block is missing its parent, it will be re-orphaned below
-  self.consensusManager.quarantine[].removeOrphan(signedBlock)
-  self.consensusManager.quarantine[].removeSidecarless(signedBlock)
-  # The block is certainly not missing any more
-  self.consensusManager.quarantine[].missing.del(signedBlock.root)
-
-  if signedBlock.message.parent_root in
-      self.consensusManager.quarantine[].unviable:
-    # DAG doesn't know about unviable ancestor blocks - we do however!
-    return err(VerifierError.UnviableFork)
+  if signedBlock.root in self.invalidBlockRoots:
+    warn "Block root treated as invalid via config",
+      blck = shortLog(signedBlock.message),
+      blockRoot = shortLog(signedBlock.root)
+    return err(VerifierError.Invalid)
 
   # We have to be careful that there exists only one in-flight entry point
   # for adding blocks or the checks performed in `checkHeadBlock` might
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
-  let parent = dag.checkHeadBlock(signedBlock).valueOr:
-    if error == VerifierError.MissingParent:
-      # This indicates that no `BlockRef` is available for the `parent_root`.
-      # However, the block may still be available in local storage. On startup,
-      # only the canonical branch is imported into `blockchain_dag`, while
-      # non-canonical branches are re-discovered with sync/request managers.
-      # Data from non-canonical branches that has already been verified during
-      # a previous run of the beacon node is already stored in the database but
-      # only lacks a `BlockRef`. Loading the branch from the database saves a
-      # lot of time, especially when a non-canonical branch has non-trivial
-      # depth. Note that if it turns out that a non-canonical branch eventually
-      # becomes canonical, it is vital to import it as quickly as possible.
-      self.enqueueFromDb(signedBlock.message.parent_root)
-
-    return err(error)
+  let parent = ?dag.checkHeadBlock(signedBlock)
 
   const consensusFork = typeof(signedBlock).kind
   let
@@ -720,7 +690,7 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
-  ok()
+  ok(blck)
 
 proc addBlock*(
     self: ref BlockProcessor,
@@ -730,37 +700,49 @@ proc addBlock*(
     maybeFinalized = false,
     validationDur = Duration(),
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  ## Enqueue a Gossip-validated block for consensus verification
+  ## Enqueue a Gossip-validated block for consensus verification - only one
+  ## block at a time gets processed
   # Backpressure:
-  #   There is no backpressure here - producers must wait for `resfut` to
-  #   constrain their own processing
+  #   Callers that don't await the returned future are responsible for implementing
+  #   their own backpressure handling, limiting concurrent `addBlock` calls to
+  #   reasonable amounts
   # Producers:
   # - Gossip (when synced)
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
   # - API
-  let blockRoot = blck.root
+  let
+    blockRoot = blck.root
+    dag = self.consensusManager.dag
+    quarantine = self.consensusManager.quarantine
 
   logScope:
     blockRoot = shortLog(blockRoot)
 
-  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+  if blck.message.slot <= dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
     return self[].storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
+
+  # If the lock is acquired already, the current block will be put on hold
+  # meaning that we'll form an unbounded queue of blocks to be processed
+  # waiting for the lock - this is similar to using an `AsyncQueue` but
+  # without the copying and transition to/from `Forked`.
+  # The lock is important to ensure that we don't process blocks out-of-order
+  # which both would upset the `storeBlock` logic and cause unnecessary
+  # quarantine traffic.
+  self.pendingStores += 1
+  await self.storeLock.acquire()
+
   let res =
     try:
-      # If the lock is acquired already, the current block will be put on hold
-      # meaning that we'll form an unbounded queue of blocks to be processed
-      # waiting for the lock - this is similar to using an `AsyncQueue` but
-      # without the copying and transition to/from `Forked`.
-      # The lock is important to ensure that we don't process blocks out-of-order
-      # which both would upset the `storeBlock` logic and cause unnecessary
-      # quarantine traffic.
-      self.pendingStores += 1
-      await self.storeLock.acquire()
+      # Since block processing is async, we want to make sure it doesn't get
+      # (re)added there while we're busy - the start of processing also removes
+      # the block from the various quarantines.
+      # The processing status is cleared in the finally block below.
+      quarantine[].startProcessing(blck)
 
       # Cooperative concurrency: one block per loop iteration - because
       # we run both networking and CPU-heavy things like block processing
@@ -771,15 +753,12 @@ proc addBlock*(
         # taking up all CPU - we don't want to _completely_ stop processing blocks
         # in this case - doing so also allows us to benefit from more batching /
         # larger network reads when under load.
-        idleTimeout = 10.milliseconds
+        idleTimeout = chronos.milliseconds(10)
 
       discard await idleAsync().withTimeout(idleTimeout)
 
-      let
-        wallTime = self.getBeaconTime()
-        (afterGenesis, _) = wallTime.toSlot()
-
-      if not afterGenesis:
+      let wallTime = self.getBeaconTime()
+      if not wallTime.afterGenesis:
         fatal "Processing block before genesis, clock turned back?"
         quit 1
 
@@ -787,6 +766,8 @@ proc addBlock*(
         src, wallTime, blck, sidecarsOpt, maybeFinalized, queueTick, validationDur
       )
     finally:
+      quarantine[].clearProcessing()
+
       try:
         self.storeLock.release()
         self.pendingStores -= 1
@@ -797,40 +778,64 @@ proc addBlock*(
 
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
-    self.enqueueQuarantine(blockRoot)
+    self.enqueueQuarantine(res[])
+    res.mapConvert(void)
   else:
     case res.error()
     of VerifierError.MissingParent:
-      let finalizedSlot = self.consensusManager.dag.finalizedHead.slot
-      if (
-        let r = self.consensusManager.quarantine[].addOrphan(
-          finalizedSlot, ForkedSignedBeaconBlock.init(blck)
-        )
-        r.isErr()
-      ):
+      quarantine[].addOrphan(dag.finalizedHead.slot, blck).isOkOr:
         debug "Could not add orphan",
-          blck = shortLog(blck), signature = shortLog(blck.signature), err = r.error()
-      else:
-        when sidecarsOpt is Opt[BlobSidecars]:
-          if sidecarsOpt.isSome:
-            self.blobQuarantine[].put(blockRoot, sidecarsOpt.get)
-        elif sidecarsOpt is Opt[DataColumnSidecars]:
-          if sidecarsOpt.isSome:
-            self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
-        elif sidecarsOpt is NoSidecars:
-          discard
-        else:
-          {.error.}
+          blck = shortLog(blck), signature = shortLog(blck.signature), err = error
+        return err(error.toVerifierError())
 
-        debug "Block quarantined",
-          blck = shortLog(blck), signature = shortLog(blck.signature)
+      # This indicates that no `BlockRef` is available for the `parent_root`.
+      # However, the block may still be available in local storage. On startup,
+      # only the canonical branch is imported into `blockchain_dag`, while
+      # non-canonical branches are re-discovered with sync/request managers.
+      # Data from non-canonical branches that has already been verified during
+      # a previous run of the beacon node is already stored in the database but
+      # only lacks a `BlockRef`. Loading the branch from the database saves a
+      # lot of time, especially when a non-canonical branch has non-trivial
+      # depth. Note that if it turns out that a non-canonical branch eventually
+      # becomes canonical, it is vital to import it as quickly as possible.
+      self.enqueueFromDb(blck.message.parent_root)
+
+      when sidecarsOpt is Opt[BlobSidecars]:
+        if sidecarsOpt.isSome:
+          self.blobQuarantine[].put(blockRoot, sidecarsOpt.get)
+      elif sidecarsOpt is Opt[fulu.DataColumnSidecars]:
+        if sidecarsOpt.isSome:
+          self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
+      elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
+        if sidecarsOpt.isSome:
+          debugGloasComment ""
+      elif sidecarsOpt is NoSidecars:
+        discard
+      else:
+        {.error.}
+
+      debug "Block quarantined",
+        blck = shortLog(blck), signature = shortLog(blck.signature)
+
+      err(res.error())
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
-      # TODO Invalid and unviable should be treated separately, to correctly
-      #      respond when a descendant of an invalid block is validated
-      # TODO re-add VeriferError.Invalid handling
-      self.consensusManager.quarantine[].addUnviable(blockRoot)
-    else:
-      discard
-
-  res
+      err(
+        self.consensusManager.quarantine[]
+        .addUnviable(blockRoot, UnviableKind.UnviableFork)
+        .toVerifierError()
+      )
+    of VerifierError.Invalid:
+      # TODO track invalid blocks once we can differentiate between invalid
+      #      proposer signature and other errors
+      # TODO fix https://github.com/status-im/nimbus-eth2/issues/7583
+      #      before marking as Invalid here to allow retrying with a fresh
+      #      state
+      # err(
+      #   self.consensusManager.quarantine[]
+      #   .addUnviable(blockRoot, UnviableKind.Invalid)
+      #   .toVerifierError()
+      # )
+      err(res.error())
+    of VerifierError.Duplicate:
+      err(res.error())

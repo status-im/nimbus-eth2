@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -259,7 +260,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api2(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
     let
-      wallSlot = node.beaconClock.now().slotOrZero()
+      wallSlot = node.currentSlot
       headSlot = node.dag.head.slot
       distance = wallSlot - headSlot
       isSyncing =

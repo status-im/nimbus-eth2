@@ -18,10 +18,10 @@ import
 
 from presto import RestDecodingError
 from "."/beacon_clock import
-  BeaconClock, fromFloatSeconds, getBeaconTimeFn, init
+  BeaconClock, fromFloatSeconds, currentSlot, init
 
 const
-  largeRequestsTimeout = 3.minutes  # Downloading large items such as states.
+  largeRequestsTimeout = 6.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 from ./spec/datatypes/deneb import asSigVerified, shortLog
@@ -63,7 +63,8 @@ proc doTrustedNodeSync*(
     syncTarget: TrustedNodeSyncTarget,
     backfill: bool,
     reindex: bool,
-    genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
+    genesisState: ref ForkedHashedBeaconState = nil,
+) {.async: (raises: [CancelledError]).} =
   logScope:
     restUrl
     syncTarget
@@ -175,10 +176,9 @@ proc doTrustedNodeSync*(
         doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
           genesisTime = getStateField(genesisState[], genesis_time)
-          beaconClock = BeaconClock.init(cfg.time, genesisTime).valueOr:
+          beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
             error "Invalid genesis time in state", genesisTime
             quit 1
-          getBeaconTime = beaconClock.getBeaconTimeFn()
 
           genesis_validators_root =
             getStateField(genesisState[], genesis_validators_root)
@@ -219,7 +219,7 @@ proc doTrustedNodeSync*(
             optimistic =
               store.optimistic_header.beacon.slot.sync_committee_period
             current =
-              getBeaconTime().slotOrZero().sync_committee_period
+              beaconClock.currentSlot.sync_committee_period
             isNextSyncCommitteeKnown =
               store.is_next_sync_committee_known
 
@@ -262,7 +262,7 @@ proc doTrustedNodeSync*(
             updates[i].migrateToDataFork(lcDataFork)
             let res = process_light_client_update(
               store, updates[i].forky(lcDataFork),
-              getBeaconTime().slotOrZero(), cfg, genesis_validators_root)
+              beaconClock.currentSlot, cfg, genesis_validators_root)
             if not res.isOk:
               error "`process_light_client_update` failed", resError = res.error
               quit 1
@@ -287,7 +287,7 @@ proc doTrustedNodeSync*(
 
         let res = process_light_client_update(
           store, finalityUpdate.forky(lcDataFork),
-          getBeaconTime().slotOrZero(), cfg, genesis_validators_root)
+          beaconClock.currentSlot, cfg, genesis_validators_root)
         if not res.isOk:
           error "`process_light_client_update` failed", resError = res.error
           quit 1
@@ -377,7 +377,8 @@ proc doTrustedNodeSync*(
   # Coming this far, we've done what ChainDAGRef.preInit would normally do -
   # we can now load a ChainDAG to start backfilling it
   let
-    validatorMonitor = newClone(ValidatorMonitor.init(false, false))
+    validatorMonitor = newClone(
+      ValidatorMonitor.init(cfg, false, false))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
     backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)

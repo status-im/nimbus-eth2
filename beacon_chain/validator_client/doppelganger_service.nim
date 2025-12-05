@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -70,7 +70,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async: (raises: []).} =
   # the epoch - there's no activity in the genesis slot, so if we start at or
   # before that, we can safely perform the check for epoch 0 and thus keep
   # validating in epoch 1
-  if vc.beaconClock.now().slotOrZero() > GENESIS_SLOT:
+  if vc.currentSlot() > GENESIS_SLOT:
     try:
       await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
     except CancelledError:

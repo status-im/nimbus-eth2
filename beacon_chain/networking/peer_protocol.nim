@@ -75,15 +75,18 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
+proc getWallEpoch(state: PeerSyncNetworkState): Epoch =
+  state.getBeaconTime().slotOrZero(state.cfg.timeParams).epoch
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#status
 proc getCurrentStatusV1(state: PeerSyncNetworkState): StatusMsg =
   let
     dag = state.dag
-    wallSlot = state.getBeaconTime().slotOrZero
+    wallEpoch = state.getWallEpoch
 
   if dag != nil:
     StatusMsg(
-      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      forkDigest: state.forkDigestAtEpoch(wallEpoch),
       finalizedRoot:
         (if dag.finalizedHead.slot.epoch != GENESIS_EPOCH:
            dag.finalizedHead.blck.root
@@ -96,7 +99,7 @@ proc getCurrentStatusV1(state: PeerSyncNetworkState): StatusMsg =
       headSlot: dag.head.slot)
   else:
     StatusMsg(
-      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      forkDigest: state.forkDigestAtEpoch(wallEpoch),
       # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
       # checkpoint
       finalizedRoot: ZERO_HASH,
@@ -108,11 +111,11 @@ proc getCurrentStatusV1(state: PeerSyncNetworkState): StatusMsg =
 proc getCurrentStatusV2(state: PeerSyncNetworkState): StatusMsgV2 =
   let
     dag = state.dag
-    wallSlot = state.getBeaconTime().slotOrZero
+    wallEpoch = state.getWallEpoch
 
   if dag != nil:
     StatusMsgV2(
-      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      forkDigest: state.forkDigestAtEpoch(wallEpoch),
       finalizedRoot:
         (if dag.finalizedHead.slot.epoch != GENESIS_EPOCH:
            dag.finalizedHead.blck.root
@@ -126,7 +129,7 @@ proc getCurrentStatusV2(state: PeerSyncNetworkState): StatusMsgV2 =
       earliestAvailableSlot: dag.earliestAvailableSlot())
   else:
     StatusMsgV2(
-      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      forkDigest: state.forkDigestAtEpoch(wallEpoch),
       # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
       # checkpoint
       finalizedRoot: ZERO_HASH,
@@ -139,7 +142,9 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2
     Result[void, cstring] =
   let
     dag = state.dag
-    wallSlot = (state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero
+    wallSlot = (
+      state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    ).slotOrZero(state.cfg.timeParams)
 
   if status.finalizedEpoch > status.headSlot.epoch:
     # Can be equal during genesis or checkpoint start
@@ -203,10 +208,8 @@ p2pProtocol PeerSync(version = 1,
     #      this needs more thinking around the ordering of events and the
     #      given incoming flag
 
-    let
-      remoteFork = peer.networkState.getBeaconTime().slotOrZero.epoch()
-
-    if remoteFork >= peer.networkState.cfg.FULU_FORK_EPOCH:
+    let wallEpoch = peer.networkState.getWallEpoch
+    if wallEpoch >= peer.networkState.cfg.FULU_FORK_EPOCH:
       let
         ourStatus = peer.networkState.getCurrentStatusV2()
         theirStatus =
@@ -330,10 +333,8 @@ proc handleStatusV2(peer: Peer,
 
 proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Request `status` of remote peer ``peer``.
-  let
-    nstate = peer.networkState(PeerSync)
-
-  if nstate.getBeaconTime().slotOrZero.epoch() >= nstate.cfg.FULU_FORK_EPOCH:
+  let nstate = peer.networkState(PeerSync)
+  if nstate.getWallEpoch >= nstate.cfg.FULU_FORK_EPOCH:
     let
       ourStatus = getCurrentStatusV2(nstate)
       theirStatus =
@@ -380,6 +381,54 @@ proc getFinalizedEpoch*(peer: Peer): Epoch =
     pstate.statusMsgV2.get.finalizedEpoch
   else:
     pstate.statusMsg.finalizedEpoch
+
+proc getFinalizedRoot*(peer: Peer): Eth2Digest =
+  ## Returns finalized checkpoint's root for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.finalizedRoot
+  else:
+    pstate.statusMsg.finalizedRoot
+
+proc getForkDigest*(peer: Peer): ForkDigest =
+  ## Returns fork for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    pstate.statusMsgV2.get.forkDigest
+  else:
+    pstate.statusMsg.forkDigest
+
+proc getFinalizedCheckpoint*(peer: Peer): Checkpoint =
+  ## Returns finalized checkpoint's root for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    Checkpoint(
+      root: pstate.statusMsgV2.get.finalizedRoot,
+      epoch: pstate.statusMsgV2.get.finalizedEpoch)
+  else:
+    Checkpoint(
+      root: pstate.statusMsg.finalizedRoot,
+      epoch: pstate.statusMsg.finalizedEpoch)
+
+proc getHeadBlockId*(peer: Peer): BlockId =
+  ## Returns head BlockId for specific peer ``peer``.
+  let pstate = peer.state(PeerSync)
+  if pstate.statusMsgV2.isSome():
+    BlockId(
+      root: pstate.statusMsgV2.get.headRoot,
+      slot: pstate.statusMsgV2.get.headSlot)
+  else:
+    BlockId(
+      root: pstate.statusMsg.headRoot,
+      slot: pstate.statusMsg.headSlot)
+
+proc getEarliestAvailableSlot*(peer: Peer): Opt[Slot] =
+  ## Returns earliest available slot for specific peer ``peer``.
+  let
+    pstate = peer.state(PeerSync)
+    msg = pstate.statusMsgV2.valueOr:
+      return Opt.none(Slot)
+  Opt.some(msg.earliestAvailableSlot)
 
 proc getStatusLastTime*(peer: Peer): chronos.Moment =
   ## Returns head slot for specific peer ``peer``.

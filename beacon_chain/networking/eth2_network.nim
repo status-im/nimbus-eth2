@@ -193,8 +193,6 @@ type
     # erroneous request-specific responses.
     PeerScoreLow = 237 # 79 * 3
 
-  TransmissionError* = object of CatchableError
-
   Eth2NetworkingErrorKind* = enum
     # Potentially benign errors (network conditions)
     BrokenConnection
@@ -381,12 +379,6 @@ proc openStream(node: Eth2Node,
   except LPError as exc:
     debug "Dialing failed", exc = exc.msg
     neterr BrokenConnection
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    # TODO remove once libp2p supports `raises`
-    debug "Unexpected error when opening stream", exc = exc.msg
-    neterr UnknownError
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
@@ -444,7 +436,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
 func getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
-proc getFuture(peer: Peer): Future[void] {.inline.} =
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
@@ -620,9 +612,12 @@ func add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
   pos += bytes.len
 
 proc writeChunkSZ(
-    conn: Connection, responseCode: Opt[ResponseCode],
-    uncompressedLen: uint64, payloadSZ: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
+    conn: Connection,
+    responseCode: Opt[ResponseCode],
+    uncompressedLen: uint64,
+    payloadSZ: openArray[byte],
+    contextBytes: openArray[byte] = [],
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   let
     uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
 
@@ -639,10 +634,12 @@ proc writeChunkSZ(
   data.add(pos, payloadSZ)
   conn.write(data)
 
-proc writeChunk(conn: Connection,
-                responseCode: Opt[ResponseCode],
-                payload: openArray[byte],
-                contextBytes: openArray[byte] = []): Future[void] =
+proc writeChunk(
+    conn: Connection,
+    responseCode: Opt[ResponseCode],
+    payload: openArray[byte],
+    contextBytes: openArray[byte] = [],
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   let
     uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
   var
@@ -676,16 +673,16 @@ func formatErrorMsg(msg: ErrorMsg): string =
 
   string.fromBytes(asSeq(msg))
 
-proc sendErrorResponse(peer: Peer,
-                       conn: Connection,
-                       responseCode: ResponseCode,
-                       errMsg: ErrorMsg): Future[void] =
+proc sendErrorResponse(
+    peer: Peer, conn: Connection, responseCode: ResponseCode, errMsg: ErrorMsg
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   debug "Error processing request",
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
   conn.writeChunk(Opt.some responseCode, SSZ.encode(errMsg))
 
-proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte])
-    {.async: (raises: [CancelledError]).} =
+proc sendNotificationMsg(
+    peer: Peer, protocolId: string, requestBytes: seq[byte]
+) {.async: (raises: [CancelledError]).} =
   # Notifications are sent as a best effort, ie errors are not reported back
   # to the caller
   let
@@ -701,34 +698,33 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte]
 
   try:
     await stream.writeChunk(Opt.none ResponseCode, requestBytes)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
+  except LPError as exc:
     debug "Error while writing notification", peer, protocolId, exc = exc.msg
   finally:
-    try:
-      await noCancel stream.close()
-    except CatchableError as exc:
-      debug "Unexpected error while closing notification stream",
-        peer, protocolId, exc = exc.msg
+    await noCancel stream.close()
 
 proc sendResponseChunkBytesSZ(
-    response: UntypedResponse, uncompressedLen: uint64,
+    response: UntypedResponse,
+    uncompressedLen: uint64,
     payloadSZ: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
+    contextBytes: openArray[byte] = [],
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   inc response.writtenChunks
   response.stream.writeChunkSZ(
-    Opt.some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
+    Opt.some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes
+  )
 
 proc sendResponseChunkBytes(
-    response: UntypedResponse, payload: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
+    response: UntypedResponse,
+    payload: openArray[byte],
+    contextBytes: openArray[byte] = [],
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   inc response.writtenChunks
   response.stream.writeChunk(Opt.some ResponseCode.Success, payload, contextBytes)
 
 proc sendResponseChunk(
-    response: UntypedResponse, val: auto,
-    contextBytes: openArray[byte] = []): Future[void] =
+    response: UntypedResponse, val: auto, contextBytes: openArray[byte] = []
+): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
   sendResponseChunkBytes(response, SSZ.encode(val), contextBytes)
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
@@ -748,9 +744,7 @@ proc uncompressFramedStream(conn: Connection,
     await conn.readExactly(addr header[0], header.len)
   except LPStreamEOFError, LPStreamIncompleteError:
     return err "Unexpected EOF before snappy header"
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
+  except LPStreamError as exc:
     return err "Unexpected error reading header: " & exc.msg
 
   if header != framingHeader:
@@ -770,9 +764,7 @@ proc uncompressFramedStream(conn: Connection,
       await conn.readExactly(addr frameHeader[0], frameHeader.len)
     except LPStreamEOFError, LPStreamIncompleteError:
       return err "Snappy frame header missing"
-    except CancelledError as exc:
-      raise exc
-    except CatchableError as exc:
+    except LPStreamError as exc:
       return err "Unexpected error reading frame header: " & exc.msg
 
     let (id, dataLen) = decodeFrameHeader(frameHeader)
@@ -788,9 +780,7 @@ proc uncompressFramedStream(conn: Connection,
         await conn.readExactly(addr frameData[0], dataLen)
       except LPStreamEOFError, LPStreamIncompleteError:
         return err "Incomplete snappy frame"
-      except CancelledError as exc:
-        raise exc
-      except CatchableError as exc:
+      except LPStreamError as exc:
         return err "Unexpected error reading frame data: " & exc.msg
 
     if id == chunkCompressed:
@@ -858,7 +848,8 @@ template gossipMaxSize(T: untyped): uint32 =
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar:
+         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
+         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -887,9 +878,7 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     neterr UnexpectedEOF
   except InvalidVarintError:
     neterr InvalidSizePrefix
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
+  except LPStreamError as exc:
     debug "Unexpected error", exc = exc.msg
     neterr UnknownError
 
@@ -940,9 +929,7 @@ proc readResponseChunk(
     # the stream. It also means that our connection with remote peer is not
     # broken and new streams could be initiated.
     return neterr PotentiallyExpectedEOF
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
+  except LPStreamError as exc:
     warn "Unexpected error", exc = exc.msg
     return neterr UnknownError
 
@@ -1044,15 +1031,11 @@ proc doMakeEth2Request(
     res
   except CancelledError as exc:
     raise exc
-  except CatchableError:
+  except LPStreamError:
     peer.updateScore(PeerScorePoorRequest)
     neterr BrokenConnection
   finally:
-    try:
-      await noCancel stream.closeWithEOF()
-    except CatchableError as exc:
-      debug "Unexpected error while closing stream",
-        peer, protocolId, exc = exc.msg
+    await stream.closeWithEOF()
 
 proc makeEth2Request(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
@@ -1235,8 +1218,6 @@ proc handleIncomingStream(network: Eth2Node,
         when isEmptyMsg:
           NetRes[MsgRec].ok default(MsgRec)
         else:
-          # TODO(zah) The TTFB timeout is not implemented in LibP2P streams
-          # back-end
           let deadline = sleepAsync RESP_TIMEOUT_DUR
 
           awaitWithTimeout(
@@ -1336,10 +1317,7 @@ proc handleIncomingStream(network: Eth2Node,
     debug "Error processing an incoming request", exc = exc.msg, msgName
 
   finally:
-    try:
-      await noCancel conn.closeWithEOF()
-    except CatchableError as exc:
-      debug "Unexpected error while closing incoming connection", exc = exc.msg
+    await noCancel conn.closeWithEOF()
     releasePeer(peer)
 
 func toPeerAddr*(r: enr.TypedRecord,
@@ -1628,13 +1606,16 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       default(CgcBits)
   )
 
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.getBeaconTime().slotOrZero(node.cfg.timeParams).epoch
+
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
     let
-      currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
+        node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
       wantedCgcnetsCount = wantedCgcnets.countOnes()
@@ -1707,12 +1688,9 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
 proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
   # Convert peer id to node id by extracting the peer's public key
-  let nodeId =
-    block:
-      var key: PublicKey
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
-  nodeId
+  var key: PublicKey
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -2180,14 +2158,11 @@ func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
 proc getMetadata_vx(node: Eth2Node, peer: Peer):
                     Future[NetRes[fulu.MetaData]]
                    {.async: (raises: [CancelledError]).} =
-  let
-    res =
-      if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
-        # Directly fetch fulu metadata if available
-        await getMetadata_v3(peer)
-      else:
-        updateMetadataV2ToV3(await getMetadata_v2(peer))
-  return res
+  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
+    # Directly fetch fulu metadata if available
+    await getMetadata_v3(peer)
+  else:
+    updateMetadataV2ToV3(await getMetadata_v2(peer))
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
@@ -2325,7 +2300,7 @@ proc getPersistentNetKeys*(
 proc getPersistentNetKeys*(
     rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+  of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
@@ -2349,15 +2324,18 @@ func gossipId(
 
   messageDigest.data[0..19]
 
-proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
-                     seckey: PrivateKey, address: MultiAddress,
-                     rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
+proc newBeaconSwitch(
+    config: BeaconNodeConf | LightClientConf,
+    seckey: PrivateKey,
+    address: MultiAddress,
+    rng: ref HmacDrbgContext,
+): Result[Switch, string] =
   let service: Service = WildcardAddressResolverService.new()
 
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
-
-  sb
+  try:
+    ok sb
     .withPrivateKey(seckey)
     .withAddress(address)
     .withRng(rng)
@@ -2368,21 +2346,22 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
     .withTcpTransport({ServerFlags.ReuseAddr})
     .withServices(@[service])
     .build()
+  except LPError as exc:
+    err(exc.msg)
 
-proc createEth2Node*(rng: ref HmacDrbgContext,
-                     config: BeaconNodeConf | LightClientConf,
-                     netKeys: NetKeyPair,
-                     cfg: RuntimeConfig,
-                     forkDigests: ref ForkDigests,
-                     getBeaconTime: GetBeaconTimeFn,
-                     genesis_validators_root: Eth2Digest): Eth2Node
-                    {.raises: [CatchableError].} =
+proc createEth2Node*(
+    rng: ref HmacDrbgContext,
+    config: BeaconNodeConf | LightClientConf,
+    netKeys: NetKeyPair,
+    cfg: RuntimeConfig,
+    forkDigests: ref ForkDigests,
+    getBeaconTime: GetBeaconTimeFn,
+    genesis_validators_root: Eth2Digest,
+): Result[Eth2Node, string] =
   let
-    enrForkId = getENRForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
-
-    discoveryForkId = getDiscoveryForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
+    wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
+    enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
+    discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
 
     listenAddress =
       if config.listenAddress.isSome():
@@ -2401,16 +2380,18 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
           if s.startsWith("enr:"):
             let
               enr = parseBootstrapAddress(s).valueOr:
-                fatal "Failed to parse bootstrap address", enr=s
-                quit 1
+                warn "Failed to parse direct peer address, skipping", enr=s, err = error
+                return err("Invalid direct peer")
               typedEnr = TypedRecord.fromRecord(enr)
               peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
-            parseFullAddress(s).tryGet()
+            parseFullAddress(s).valueOr:
+              warn "Failed to parse direct peer address, skipping", s, err = error
+              return err("Invalid direct peer")
           else:
-            fatal "direct peers address should start with / (multiaddress) or enr:", conf=s
-            quit 1
+            warn "Direct peers address should start with / (multiaddress) or enr:, skipping", s
+            return err("Invalid direct peer")
         res.mgetOrPut(peerId, @[]).add(address)
         info "Adding privileged direct peer", peerId, address
       res
@@ -2427,9 +2408,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
-  var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
-
-  let phase0Prefix = "/eth2/" & $forkDigests.phase0
+  let
+    switch = ?newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
+    phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
     try:
@@ -2457,7 +2438,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip = 3,
       fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
       gossipThreshold = -4000,
       publishThreshold = -8000,
       graylistThreshold = -16000, # also disconnect threshold
@@ -2474,18 +2455,26 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       directPeers = directPeers,
       bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
-    pubsub = GossipSub.init(
-      switch = switch,
-      msgIdProvider = msgIdProvider,
-      # We process messages in the validator, so we don't need data callbacks
-      triggerSelf = false,
-      sign = false,
-      verifySignature = false,
-      anonymize = true,
-      maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
-      parameters = params)
+    pubsub =
+      try:
+        GossipSub.init(
+          switch = switch,
+          msgIdProvider = msgIdProvider,
+          # We process messages in the validator, so we don't need data callbacks
+          triggerSelf = false,
+          sign = false,
+          verifySignature = false,
+          anonymize = true,
+          maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
+          parameters = params,
+        )
+      except InitializationError as exc:
+        raiseAssert "Invalid gossipsub parameters: " & exc.msg
 
-  switch.mount(pubsub)
+  try:
+    switch.mount(pubsub)
+  except LPError as exc: # Invalid params..
+    return err("Cannot mount pubsub: " & exc.msg)
 
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
@@ -2497,7 +2486,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     proc(topic: string): bool {.gcsafe, raises: [].} =
       topic in node.validTopics
 
-  node
+  ok node
 
 func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -2652,14 +2641,7 @@ func gossipEncode(msg: auto): seq[byte] =
 
 proc broadcast(node: Eth2Node, topic: string, msg: seq[byte]):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
-  let peers =
-    try:
-      await node.pubsub.publish(topic, msg)
-    except CancelledError as exc:
-      raise exc
-    except CatchableError as exc:
-      debug "Unexpected error during broadcast", exc = exc.msg
-      return err("Broadcast failed")
+  let peers = await node.pubsub.publish(topic, msg)
 
   # TODO remove workaround for sync committee BN/VC log spam
   if peers > 0 or find(topic, "sync_committee_") != -1:
@@ -2780,9 +2762,6 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
 func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
-proc getWallEpoch(node: Eth2Node): Epoch =
-  node.getBeaconTime().slotOrZero.epoch
-
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId,
     attestation: phase0.Attestation | SingleAttestation):
@@ -2890,4 +2869,13 @@ proc broadcastLightClientOptimisticUpdate*(
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getLightClientOptimisticUpdateTopic(
     node.forkDigestAtEpoch(msg.contextEpoch))
+  node.broadcast(topic, msg)
+
+proc broadcastPayloadAttestationMessage*(
+    node: Eth2Node, msg: PayloadAttestationMessage):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.data.slot.epoch
+    topic = getPayloadAttestationMessageTopic(
+      node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)

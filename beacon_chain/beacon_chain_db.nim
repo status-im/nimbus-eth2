@@ -121,6 +121,8 @@ type
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
+    envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
+
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
     stateDiffs: KvStoreRef ##\
@@ -503,7 +505,7 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig = defaultRuntimeConfig
+          cfg: RuntimeConfig
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -604,6 +606,10 @@ proc new*(T: type BeaconChainDB,
   if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
     columns = kvStore db.openKvStore("fulu_columns").expectDb()
 
+  var envelopes: KvStoreRef
+  if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
+
   let quarantine = db.initQuarantineDB().expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
@@ -642,6 +648,7 @@ proc new*(T: type BeaconChainDB,
     blocks: blocks,
     blobs: blobs,
     columns: columns,
+    envelopes: envelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -653,7 +660,7 @@ proc new*(T: type BeaconChainDB,
 
 proc new*(T: type BeaconChainDB,
           dir: string,
-          cfg: RuntimeConfig = defaultRuntimeConfig,
+          cfg: RuntimeConfig,
           inMemory = false,
           readOnly = false
     ): BeaconChainDB =
@@ -856,10 +863,23 @@ proc putDataColumnSidecar*(
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns.putSZSSZ(columnkey(block_root, value.index), value)
 
+proc putDataColumnSidecar*(
+    db: BeaconChainDB,
+    value: gloas.DataColumnSidecar) =
+  db.columns.putSZSSZ(columnkey(value.beacon_block_root, value.index), value)
+
 proc delDataColumnSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: ColumnIndex): bool =
   db.columns.del(columnkey(root, index)).expectDb()
+
+proc putExecutionPayloadEnvelope*(
+    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
+  template key: untyped = value.message.beacon_block_root
+  db.envelopes.putSZSSZ(key.data, value)
+
+proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
+  db.envelopes.del(root.data).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -1072,6 +1092,13 @@ proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnInd
   if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
     return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
+
+proc getExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest,
+    value: var TrustedSignedExecutionPayloadEnvelope): bool =
+  if db.envelopes == nil:
+    return false
+  db.envelopes.getSZSSZ(root.data, value) == GetResult.found
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
@@ -1370,10 +1397,11 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   )
   SELECT v FROM next;
   """
+  static: doAssert BeaconBlockSummary.isFixedSize
   let
     stmt = expectDb db.db.prepareStmt(
       summariesQuery, array[32, byte],
-      array[sizeof(BeaconBlockSummary), byte],
+      array[BeaconBlockSummary.fixedPortionSize, byte],
       managed = false)
 
   defer: # in case iteration is stopped along the way

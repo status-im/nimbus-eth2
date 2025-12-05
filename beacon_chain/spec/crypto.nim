@@ -391,7 +391,7 @@ template toRaw*(x: ValidatorPubKey | SomeSig): auto =
   x.blob
 
 func toHex*(x: BlsCurveType): string =
-  toHex(toRaw(x))
+  byteutils.toHex(toRaw(x))
 
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
@@ -404,6 +404,9 @@ func toValidatorSig*(x: TrustedSig): ValidatorSig =
 
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
+
+func toHex*(x: TrustedSig | CookedSig): string =
+  toHex(toValidatorSig(x))
 
 func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   var val: SecretKey

@@ -38,12 +38,13 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
-    let rng = HmacDrbgContext.new()
+    let
+      rng = HmacDrbgContext.new()
+      cfg = defaultRuntimeConfig
     var
-      validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(
-        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(dag.cfg))
@@ -52,14 +53,12 @@ suite "Gossip validation " & preset():
       cache = StateCache()
       info = ForkedEpochInfo()
       batchCrypto {.used.} = BatchCrypto.new(
-        rng, eager = proc(): bool = false,
+        rng, cfg.timeParams, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    check:
-      process_slots(
-        defaultRuntimeConfig, state[], getStateField(state[], slot) + 1,
-        cache, info, {}).isOk()
+    check cfg.process_slots(
+      state[], getStateField(state[], slot) + 1, cache, info, {}).isOk()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
@@ -89,7 +88,7 @@ suite "Gossip validation " & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(
           epochRef, blckRef, unrealized, signedBlock.message,
-          blckRef.slot.start_beacon_time)
+          blckRef.slot.start_beacon_time(cfg.timeParams))
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[], [])
@@ -112,7 +111,7 @@ suite "Gossip validation " & preset():
         committees_per_slot,
         att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
 
-      beaconTime = att_1_0.data.slot.start_beacon_time()
+      beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 
     check:
       validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
@@ -137,8 +136,8 @@ suite "Gossip validation " & preset():
     check:
       # Too far in the past
       validateAttestation(
-        pool, batchCrypto, att_1_0,
-        beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
+        pool, batchCrypto, att_1_0, beaconTime -
+        cfg.timeParams.SLOT_DURATION * SLOTS_PER_EPOCH.int64 - 1.seconds,
         subnet, true).waitFor().isErr
 
     block:
@@ -297,7 +296,7 @@ suite "Gossip validation - Altair":
 
   setup:
     let
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
@@ -308,9 +307,9 @@ suite "Gossip validation - Altair":
   template prepare(numValidators: Natural): untyped {.dirty.} =
     let
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+        cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       batchCrypto = BatchCrypto.new(
-        rng, eager = proc(): bool = false,
+        rng, cfg.timeParams, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
     var
@@ -358,7 +357,7 @@ suite "Gossip validation - Altair":
           signatureSlot = Opt.some(signatureSlot))
         msgVerdict = waitFor noCancel dag.validateSyncCommitteeMessage(
           quarantine, batchCrypto, syncCommitteePool,
-          msg, subcommitteeIdx, slot.start_beacon_time(),
+          msg, subcommitteeIdx, slot.start_beacon_time(cfg.timeParams),
           checkSignature = true)
       check msgVerdict.isOk == expectValid
 
@@ -406,7 +405,7 @@ suite "Gossip validation - Altair":
       syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
       let contribVerdict = waitFor noCancel dag.validateContribution(
         quarantine, batchCrypto, syncCommitteePool,
-        contrib[], slot.start_beacon_time(),
+        contrib[], slot.start_beacon_time(cfg.timeParams),
         checkSignature = true)
       check contribVerdict.isOk == expectValid
 
@@ -440,7 +439,7 @@ suite "Gossip validation - Altair":
 
       res = waitFor validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, slot.start_beacon_time(),
+        msg, subcommitteeIdx, slot.start_beacon_time(cfg.timeParams),
         checkSignature = true)
       (bid, cookedSig, positions) = res.get()
 
@@ -479,5 +478,6 @@ suite "Gossip validation - Altair":
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(), true
-      ).waitFor().isErr()
+        msg, subcommitteeIdx,
+        state[].data.slot.start_beacon_time(cfg.timeParams),
+        true).waitFor().isErr()

@@ -802,39 +802,6 @@ block:
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
 
-    asyncTest "Signing deposit message (getDepositMessageSignature())":
-      let
-        depositMessage = default(DepositMessage)
-        sres1 =
-          await validator1.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres2 =
-          await validator2.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres3 =
-          await validator3.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres1 =
-          await validator4.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres2 =
-          await validator5.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres3 =
-          await validator6.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
-
     asyncTest "Signing BeaconBlock (getBlockSignature(electra))":
       let
         forked = getBlock(ConsensusFork.Electra)
@@ -869,6 +836,30 @@ block:
         sres1.get() == rres1.get()
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
+
+    asyncTest "Signing payload attestation message (getPayloadAttestationSignature())":
+      let
+        payloadMessage = PayloadAttestationMessage(
+          validator_index: 100,
+          data: PayloadAttestationData(
+            beacon_block_root: SomeOtherRoot,
+            slot: Slot(10),
+            payload_present: true,
+            blob_data_available: true
+          ),
+          signature: ValidatorSig.fromHex(SomeSignature).get()
+        )
+        sres1 = await validator1.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        sres2 = await validator2.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+        sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadMessage)
+
+      check:
+        sres1.isOk()
+        sres2.isOk()
+        sres3.isOk()
 
     asyncTest "Connection timeout test":
       let

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,18 +13,14 @@ import
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/[forks, state_transition],
   eth/db/[kvstore, kvstore_sqlite3],
-  ./testblockutil
-
-from ../beacon_chain/spec/beaconstate import
-  initialize_hashed_beacon_state_from_eth1
+  ./[testblockutil, teststateutil]
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
+    cfg: RuntimeConfig,
     validators: Natural,
-    eth1Data = Opt.none(Eth1Data),
-    flags: UpdateFlags = {},
-    cfg = defaultRuntimeConfig): BeaconChainDB =
+    eth1Data = Opt.none(Eth1Data)): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires FULU_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
@@ -37,14 +33,7 @@ proc makeTestDB*(
   if cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH:
     cfg.FULU_FORK_EPOCH = 120000.Epoch
 
-  var genState = (ref ForkedHashedBeaconState)(
-    kind: ConsensusFork.Phase0,
-    phase0Data: initialize_hashed_beacon_state_from_eth1(
-      cfg,
-      ZERO_HASH,
-      0,
-      makeInitialDeposits(validators.uint64, flags),
-      flags))
+  let genState = initGenesisState(cfg, validators.uint64)
 
   # Override Eth1Data on request, skipping the lengthy Eth1 voting process
   if eth1Data.isOk:
@@ -52,18 +41,7 @@ proc makeTestDB*(
       forkyState.data.eth1_data = eth1Data.get
       forkyState.root = hash_tree_root(forkyState.data)
 
-  # Upgrade genesis state to later fork, if required by fork schedule
-  var cache: StateCache
-  cfg.maybeUpgradeState(genState[], cache)
-  withState(genState[]):
-    when consensusFork > ConsensusFork.Phase0:
-      forkyState.data.fork.previous_version =
-        forkyState.data.fork.current_version
-      forkyState.data.latest_block_header.body_root =
-        hash_tree_root(default(BeaconBlockBody(consensusFork)))
-      forkyState.root = hash_tree_root(forkyState.data)
-
-  result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+  result = BeaconChainDB.new("", cfg, inMemory = true)
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(

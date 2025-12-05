@@ -97,7 +97,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-arm64 \
 	dist-arm \
 	dist-win64 \
-	dist-macos \
 	dist-macos-arm64 \
 	dist \
 	local-testnet-minimal \
@@ -111,7 +110,7 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
-# We don't need these `vendor/holesky` and `vendor/hoodi` files but
+# We don't need these `vendor/hoodi` files but
 # fetching them may trigger 'This repository is over its data quota' from GitHub
 #
 # MSYS_NO_PATHCONV=1: On Windows MSYS2, 1st path gets mangled without this flag!
@@ -125,7 +124,7 @@ ifeq ($(NIM_PARAMS),)
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
 
-# `vendor/holesky` and `vendor/hoodi` require Git LFS
+# `vendor/hoodi` requires Git LFS
 ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
 $(error Git LFS not installed. Run 'brew install git-lfs' to set up)
@@ -239,7 +238,6 @@ local-testnet-minimal:
 		--fulu-fork-epoch 100000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-payload-builder \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -255,6 +253,7 @@ local-testnet-minimal:
 		--timeout 648 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no \
@@ -283,6 +282,7 @@ local-testnet-mainnet:
 		--timeout 2784 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -299,6 +299,8 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	block_sim \
+	fork_choice \
+	proto_array \
 	test_libnimbus_lc \
 	process_state
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
@@ -718,6 +720,7 @@ test_libnimbus_lc: libnimbus_lc.a
 				--std=c17 -flto \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
+				-Wno-stringop-overflow \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \
@@ -816,10 +819,6 @@ dist-win64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
-dist-macos:
-	+ MAKE="$(MAKE)" \
-		scripts/make_dist.sh macos
-
 dist-macos-arm64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh macos-arm64
@@ -830,7 +829,6 @@ dist:
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64
-	+ $(MAKE) dist-macos
 	+ $(MAKE) dist-macos-arm64
 
 #- Build and run benchmarks using an external repo (which can be used easily on

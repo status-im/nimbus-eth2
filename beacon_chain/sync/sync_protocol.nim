@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, chronos, snappy, snappy/codec,
@@ -175,29 +175,33 @@ template getBlobSidecarsByRange(
       dag.getBlockRange(startSlot, blockIds.toOpenArray(0, endIndex))
 
   var
-    found = 0
+    found = 0'u64
     bytes: seq[byte]
 
-  for i in startIndex..endIndex:
-    for j in 0..<blobsPerBlock:
-      if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read blobs sidecar size, database corrupt?",
-            bytes = bytes.len(), blck = shortLog(blockIds[i])
-          continue
+  block outer:
+    for i in startIndex .. endIndex:
+      for j in 0 ..< blobsPerBlock:
+        if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
+          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+            warn "Cannot read blobs sidecar size, database corrupt?",
+              bytes = bytes.len(), blck = shortLog(blockIds[i])
+            continue
 
-        # TODO extract from libp2pProtocol
-        peer.awaitQuota(
-          blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
-        peer.network.awaitQuota(
-          blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
+          # TODO extract from libp2pProtocol
+          peer.awaitQuota(
+            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
+          peer.network.awaitQuota(
+            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
-          peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-        inc found
-      else:
-        break
+          await response.writeBytesSZ(
+            uncompressedLen, bytes,
+            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+          inc found
+        else:
+          break
+
+        if found >= maxReqSidecars:
+          break outer
 
   debug "BlobSidecar v" & versionNumber & " range request done",
     peer, startSlot, count = reqCount, found
@@ -375,7 +379,7 @@ p2pProtocol BeaconSync(version = 1,
       peer.networkState.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
-  # https://github.com/ethereum/consensus-specs/blob/b8b5fbb8d16f52d42a716fa93289062fe2124c7c/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
       colIds: DataColumnsByRootIdentifierList,
@@ -387,6 +391,8 @@ p2pProtocol BeaconSync(version = 1,
     if colIds.len == 0:
       raise newException(InvalidInputsError, "No data columns request for root")
 
+    static: doAssert MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS ==
+      MAX_REQUEST_DATA_COLUMN_SIDECARS
     if colIds.lenu64 > MAX_REQUEST_BLOCKS_DENEB:
       raise newException(InvalidInputsError, "Exceeding data column request limit")
 
@@ -455,14 +461,13 @@ p2pProtocol BeaconSync(version = 1,
 
     let
       dag = peer.networkState.dag
-      # Using MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS until
-      # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS is released in
-      # Fulu. Effectively both the values are same
       epochBoundary =
-        if dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+        if dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS >=
+            dag.head.slot.epoch:
           GENESIS_EPOCH
         else:
-          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+          dag.head.slot.epoch -
+            dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
@@ -475,32 +480,32 @@ p2pProtocol BeaconSync(version = 1,
         dag.getBlockRange(startSlot, blockIds.toOpenArray(0, endIndex))
 
     var
-      found = 0
+      found = 0'u64
       bytes: seq[byte]
 
-    for i in startIndex..endIndex:
-      for k in reqColumns:
-        if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
-          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read data column sidecar size, database corrup?",
-              bytes = bytes.len, blck = shortLog(blockIds[i])
-            continue
+    block outer:
+      for i in startIndex..endIndex:
+        for k in reqColumns:
+          if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
+            let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+              warn "Cannot read data column sidecar size, database corrup?",
+                bytes = bytes.len, blck = shortLog(blockIds[i])
+              continue
 
-          peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
-          peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
 
-          await response.writeBytesSZ(
-            uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-          inc found
+            await response.writeBytesSZ(
+              uncompressedLen, bytes,
+              peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+            inc found
 
-          var
-            respondedCols: seq[ColumnIndex]
-          respondedCols.add(k)
+            # additional logging for devnets
+            trace "responded to data column sidecar range request",
+              peer, blck = shortLog(blockIds[i]), column = k
 
-          # additional logging for devnets
-          trace "responded to data column sidecar range request",
-            peer, blck = shortLog(blockIds[i]), columns = respondedCols
+            if found >= MAX_REQUEST_DATA_COLUMN_SIDECARS:
+              break outer
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found

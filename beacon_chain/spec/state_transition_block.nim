@@ -339,7 +339,7 @@ proc apply_deposit(
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-    if verify_deposit_signature(cfg, deposit_data):
+    if verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit_data):
       when typeof(state).kind >= ConsensusFork.Electra:
         ? add_validator_to_registry(state, deposit_data, 0.Gwei)
         let new_vidx = state.validators.lenu64 - 1
@@ -488,7 +488,7 @@ proc process_bls_to_execution_change*(
                 fulu.BeaconState | gloas.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(
-    cfg.genesisFork, state, signed_address_change, {})
+    cfg.GENESIS_FORK_VERSION, state, signed_address_change, {})
   let address_change = signed_address_change.message
   var withdrawal_credentials =
     state.validators.item(address_change.validator_index).withdrawal_credentials
@@ -919,7 +919,8 @@ proc process_sync_aggregate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
+    cfg: RuntimeConfig, state: var bellatrix.BeaconState,
+    payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
@@ -933,7 +934,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
@@ -947,7 +949,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
-    state: var capella.BeaconState, payload: capella.ExecutionPayload,
+    cfg: RuntimeConfig, state: var capella.BeaconState,
+    payload: capella.ExecutionPayload,
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
@@ -960,7 +963,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
@@ -1011,7 +1015,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
@@ -1051,7 +1056,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
@@ -1095,7 +1101,8 @@ proc process_execution_payload*(
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
-  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+  if not (payload.timestamp == cfg.timeParams
+      .compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
   # Verify commitments are under limit
@@ -1117,7 +1124,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
     signed_envelope: SignedExecutionPayloadEnvelope,
@@ -1133,8 +1140,9 @@ proc process_execution_payload*(
         return err("process_execution_payload: invalid builder index")
       builder_pubkey = state.data.validators.item(builder_index).pubkey
     if not verify_execution_payload_envelope_signature(
-        state.data.fork, state.data.genesis_validators_root, signed_envelope,
-        state.data, builder_pubkey, signed_envelope.signature):
+        state.data.fork, state.data.genesis_validators_root,
+        get_current_epoch(state.data), envelope, builder_pubkey,
+        signed_envelope.signature):
       return err("process_execution_payload: invalid envelope signature")
 
   # Cache latest block header state root
@@ -1155,6 +1163,8 @@ proc process_execution_payload*(
   if committed_bid.blob_kzg_commitments_root !=
       hash_tree_root(envelope.blob_kzg_commitments):
     return err("process_execution_payload: blob KZG commitments root mismatch")
+  if not(committed_bid.prev_randao == payload.prev_randao):
+    return err("process_execution_payload: prev_randao mismatch")
 
   # Verify the withdrawals root
   if hash_tree_root(payload.withdrawals) != state.data.latest_withdrawals_root:
@@ -1172,13 +1182,9 @@ proc process_execution_payload*(
   if payload.parent_hash != state.data.latest_block_hash:
     return err("process_execution_payload: parent hash mismatch")
 
-  # Verify prev_randao
-  if payload.prev_randao !=
-      get_randao_mix(state.data, get_current_epoch(state.data)):
-    return err("process_execution_payload: prev_randao mismatch")
-
   # Verify timestamp
-  if payload.timestamp != compute_timestamp_at_slot(state.data, state.data.slot):
+  if payload.timestamp != cfg.timeParams
+      .compute_timestamp_at_slot(state.data, state.data.slot):
     return err("process_execution_payload: timestamp mismatch")
 
   # Verify commitments are under limit
@@ -1249,6 +1255,7 @@ proc process_execution_payload_bid*(
       return err("process_execution_payload_bid: invalid builder index")
     builder = addr state.validators.item(builder_index)
     amount = bid.value
+    epoch = get_current_epoch(state)
 
   # For self-builds, amount must be zero regardless of withdrawal credential prefix
   if builder_index == blck.proposer_index:
@@ -1262,11 +1269,11 @@ proc process_execution_payload_bid*(
       return err("process_execution_payload_bid: builder missing withdrawal credential")
     # Verify the bid signature for non-self builds
     if not verify_execution_payload_bid_signature(
-        state.fork, state.genesis_validators_root, signed_bid,
-        state, builder[].pubkey, signed_bid.signature):
+        state.fork, state.genesis_validators_root, epoch, signed_bid.message,
+        builder[].pubkey, signed_bid.signature):
       return err("payload_bid: invalid bid signature")
 
-  if not is_active_validator(builder[], get_current_epoch(state)):
+  if not is_active_validator(builder[], epoch):
     return err("process_execution_payload_bid: builder not active")
   if builder[].slashed:
     return err("process_execution_payload_bid: builder is slashed")
@@ -1303,18 +1310,19 @@ proc process_execution_payload_bid*(
   if bid.parent_block_root != blck.parent_root:
     return err("process_execution_payload_bid: parent block root mismatch")
 
-  # Record the pending payment
-  let
-    pending_payment = BuilderPendingPayment(
-      weight: 0.Gwei,
-      withdrawal: BuilderPendingWithdrawal(
-        fee_recipient: bid.fee_recipient,
-        amount: amount,
-        builder_index: builder_index.uint64
+  # Record the pending payment if there is some payment
+  if amount > 0.Gwei:
+    let
+      pending_payment = BuilderPendingPayment(
+        weight: 0.Gwei,
+        withdrawal: BuilderPendingWithdrawal(
+          fee_recipient: bid.fee_recipient,
+          amount: amount,
+          builder_index: builder_index.uint64,
+          withdrawable_epoch: FAR_FUTURE_EPOCH)
       )
-    )
-  state.builder_pending_payments.mitem(
-    SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
+    state.builder_pending_payments.mitem(
+      SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
   # Cache the signed execution payload bid
   state.latest_execution_payload_bid = bid
@@ -1531,7 +1539,7 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   if is_execution_enabled(state, blck.body):
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        cfg, state, blck.body.execution_payload,
         func(_: bellatrix.ExecutionPayload): bool = true)  # [New in Bellatrix]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1567,7 +1575,7 @@ proc process_block*(
     ? process_withdrawals(
         state, blck.body.execution_payload)  # [New in Capella]
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        cfg, state, blck.body.execution_payload,
         func(_: capella.ExecutionPayload): bool = true)  # [Modified in Capella]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)

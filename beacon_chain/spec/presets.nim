@@ -29,7 +29,6 @@ const
 
   # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
-  TTFB_TIMEOUT* = 5'u64
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
@@ -37,21 +36,49 @@ const
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/validator.md#time-parameters
-  ATTESTATION_DUE_BPS: uint64 = 3333
-  AGGREGATE_DUE_BPS: uint64 = 6667
+type TimeParams* = object
+  SLOT_DURATION*: Duration
+  PROPOSER_REORG_CUTOFF_BPS*: uint16
+  ATTESTATION_DUE_BPS*: uint16
+  AGGREGATE_DUE_BPS*: uint16
+  SYNC_MESSAGE_DUE_BPS*: uint16
+  CONTRIBUTION_DUE_BPS*: uint16
+  ATTESTATION_DUE_BPS_GLOAS*: uint16
+  AGGREGATE_DUE_BPS_GLOAS*: uint16
+  SYNC_MESSAGE_DUE_BPS_GLOAS*: uint16
+  CONTRIBUTION_DUE_BPS_GLOAS*: uint16
+  PAYLOAD_ATTESTATION_DUE_BPS*: uint16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/altair/validator.md#time-parameters
-  SYNC_MESSAGE_DUE_BPS: uint64 = 3333
-  CONTRIBUTION_DUE_BPS: uint64 = 6667
+const
+  MIN_SLOT_DURATION* = seconds(1)
+  MAX_SLOT_DURATION* = seconds(Duration.high.seconds)
+  MAX_BPS* = 10_000'u16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/phase0/fork-choice.md#time-parameters
-  PROPOSER_REORG_CUTOFF_BPS: uint64 = 1667
-
+func isValid*(timeParams: TimeParams): bool =
+  # /!\ Keep in sync with `readRuntimeConfig`
+  timeParams.SLOT_DURATION in
+    MIN_SLOT_DURATION .. MAX_SLOT_DURATION and
+  timeParams.PROPOSER_REORG_CUTOFF_BPS in
+    0'u16 ..< MAX_BPS and
+  timeParams.ATTESTATION_DUE_BPS in
+    timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
+  timeParams.AGGREGATE_DUE_BPS in
+    timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS and
+  timeParams.SYNC_MESSAGE_DUE_BPS ==
+    timeParams.ATTESTATION_DUE_BPS and
+  timeParams.CONTRIBUTION_DUE_BPS ==
+    timeParams.AGGREGATE_DUE_BPS and
+  timeParams.ATTESTATION_DUE_BPS_GLOAS in
+    timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
+  timeParams.AGGREGATE_DUE_BPS_GLOAS in
+    timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS and
+  timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS ==
+    timeParams.ATTESTATION_DUE_BPS_GLOAS and
+  timeParams.CONTRIBUTION_DUE_BPS_GLOAS ==
+    timeParams.AGGREGATE_DUE_BPS_GLOAS and
+  timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
+    timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
 type
-  TimeConfig* = object
-    SECONDS_PER_SLOT*: uint64
-
   Version* = distinct array[4, byte]
 
   Eth1Address* = eth.Address
@@ -94,7 +121,7 @@ type
     GLOAS_FORK_EPOCH*: Epoch
 
     # Time parameters
-    time*: TimeConfig
+    timeParams*: TimeParams
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
@@ -110,9 +137,9 @@ type
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
-    # TODO REORG_HEAD_WEIGHT_THRESHOLD*: uint64
+    REORG_HEAD_WEIGHT_THRESHOLD*: uint64
     # TODO REORG_PARENT_WEIGHT_THRESHOLD*: uint64
-    # TODO REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
 
     # Deposit contract
     DEPOSIT_CHAIN_ID*: uint64
@@ -124,8 +151,6 @@ type
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO TTFB_TIMEOUT*: uint64
-    # TODO RESP_TIMEOUT*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
@@ -158,7 +183,6 @@ type
     CUSTODY_REQUIREMENT*: uint64
     VALIDATOR_CUSTODY_REQUIREMENT*: uint64
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
-    MAX_BLOBS_PER_BLOCK_FULU*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
     BLOB_SCHEDULE*: seq[BlobParameters]
 
@@ -174,9 +198,8 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
-    "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
+    "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
+    "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
     "  - EPOCH",                       # parsed separately
   ]
@@ -184,9 +207,6 @@ const
 when const_preset == "mainnet":
   import ./presets/mainnet
   export mainnet
-
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
@@ -259,9 +279,35 @@ when const_preset == "mainnet":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
-      # 12 seconds
-      SECONDS_PER_SLOT: 12),
+    timeParams: TimeParams(
+      # 12000 milliseconds
+      SLOT_DURATION: milliseconds(12000),
+
+      # 1667 basis points, ~17% of SLOT_DURATION_MS
+      PROPOSER_REORG_CUTOFF_BPS: 1667,
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS: 6667,
+
+      # Altair
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
@@ -270,7 +316,6 @@ when const_preset == "mainnet":
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -286,6 +331,11 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
+
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -304,10 +354,6 @@ when const_preset == "mainnet":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -354,16 +400,12 @@ when const_preset == "mainnet":
     CUSTODY_REQUIREMENT: 4,
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
-    MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
 
 elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
-
-  # TODO Move this to RuntimeConfig
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 5
 
   # The default run-time config specifies the default configuration values
   # that will be used if a particular run-time config is missing specific
@@ -431,9 +473,35 @@ elif const_preset == "gnosis":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
+    timeParams: TimeParams(
       # 5 seconds
-      SECONDS_PER_SLOT: 5),
+      SLOT_DURATION: milliseconds(5000),
+
+      # 1667 basis points, ~17% of SLOT_DURATION_MS
+      PROPOSER_REORG_CUTOFF_BPS: 1667,
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS: 6667,
+
+      # Altair
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
@@ -459,6 +527,11 @@ elif const_preset == "gnosis":
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
+
     # Deposit contract
     # ---------------------------------------------------------------
     # Gnosis PoW Mainnet
@@ -476,10 +549,6 @@ elif const_preset == "gnosis":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -526,15 +595,12 @@ elif const_preset == "gnosis":
     CUSTODY_REQUIREMENT: 4,
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
-    MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
 elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
-
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
@@ -600,9 +666,35 @@ elif const_preset == "minimal":
 
     # Time parameters
     # ---------------------------------------------------------------
-    time: TimeConfig(
-      # [customized] Faster for testing purposes
-      SECONDS_PER_SLOT: 6),
+    timeParams: TimeParams(
+      # [customized] 6000 milliseconds
+      SLOT_DURATION: milliseconds(6000),
+
+      # 1667 basis points, ~17% of SLOT_DURATION_MS
+      PROPOSER_REORG_CUTOFF_BPS: 1667,
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS: 6667,
+
+      # Altair
+      # 3333 basis points, ~33% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS: 3333,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs
@@ -611,7 +703,6 @@ elif const_preset == "minimal":
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure
     ETH1_FOLLOW_DISTANCE: 16,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -628,6 +719,10 @@ elif const_preset == "minimal":
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    REORG_HEAD_WEIGHT_THRESHOLD: 20,
+    REORG_MAX_EPOCHS_SINCE_FINALIZATION: 2,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -647,10 +742,6 @@ elif const_preset == "minimal":
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # 5s
-    # TODO TTFB_TIMEOUT: 5,
-    # 10s
-    # TODO RESP_TIMEOUT: 10,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
@@ -697,45 +788,17 @@ elif const_preset == "minimal":
     CUSTODY_REQUIREMENT: 4,
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
-    MAX_BLOBS_PER_BLOCK_FULU: 12,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
 
 else:
   {.error: "Only mainnet, gnosis, and minimal presets supported".}
-  # macro createConstantsFromPreset*(path: static string): untyped =
-  #   result = newStmtList()
-
-  #   let preset = try: readPresetFile(path)
-  #                except CatchableError as err:
-  #                  error err.msg # TODO: This should be marked as noreturn
-  #                  return
-
-  #   for name, value in preset.values:
-  #     let
-  #       typ = getType(name)
-  #       value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
-  #               else: "parse(" & typ & ", \"" & value & "\")"
-  #     try:
-  #       result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
-  #     except ValueError:
-  #       doAssert false, "All values in the presets are printable"
-
-  #   if preset.missingValues.card > 0:
-  #     warning "Missing constants in preset: " & $preset.missingValues
-
-  # createConstantsFromPreset const_preset
 
 const IsMainnetSupported*: bool =
-  const_preset == "mainnet" and SECONDS_PER_SLOT == 12
+  const_preset == "mainnet"
 
 const IsGnosisSupported*: bool =
-  const_preset == "gnosis" and SECONDS_PER_SLOT == 5
-
-const
-  MIN_SECONDS_PER_SLOT* = 1'u64
-  MAX_SECONDS_PER_SLOT* = int64.high.uint64 div 1_000_000_000'u64
-  SLOT_DURATION_MS = SECONDS_PER_SLOT * 1000
+  const_preset == "gnosis"
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -744,16 +807,21 @@ const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
 func safeMinEpochsForBlockRequests*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 
-func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
+func parse[T: uint16 | uint64](
+    _: typedesc[T], input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if parseHex(input, res) != input.len:
-      raise newException(ValueError, "The constant value should be a valid hex integer")
+      raise newException(
+        ValueError, "The constant value should be a valid hex integer")
   else:
     if parseBiggestUInt(input, res) != input.len:
-      raise newException(ValueError, "The constant value should be a valid unsigned integer")
-
-  uint64(res)
+      raise newException(
+        ValueError, "The constant value should be a valid unsigned integer")
+  when T.high < BiggestUInt.high:
+    if res > T.high.BiggestUInt:
+      raise newException(ValueError, "The constant value is too large")
+  res.T
 
 template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
@@ -788,8 +856,8 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
-func parse(T: typedesc[TimeConfig], input: string): T {.raises: [ValueError].} =
-  raise (ref ValueError)(msg: "Unexpected TimeConfig value")
+func parse(T: typedesc[TimeParams], input: string): T {.raises: [ValueError].} =
+  raise (ref ValueError)(msg: "Unexpected TimeParams value")
 
 func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
@@ -923,10 +991,6 @@ proc readRuntimeConfig*(
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
 
-  checkCompatibility MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT,
-                     "SECONDS_PER_SLOT", `in`
-  checkCompatibility SECONDS_PER_SLOT  # Temporary, until removed from presets
-
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
   checkCompatibility MAX_COMMITTEES_PER_SLOT
@@ -981,8 +1045,6 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility TTFB_TIMEOUT
-  checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
                      "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
@@ -1006,41 +1068,118 @@ proc readRuntimeConfig*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
-  checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
   checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
-  checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
-
-  checkCompatibility SLOT_DURATION_MS
-  checkCompatibility ATTESTATION_DUE_BPS
-  checkCompatibility AGGREGATE_DUE_BPS
-  checkCompatibility SYNC_MESSAGE_DUE_BPS
-  checkCompatibility CONTRIBUTION_DUE_BPS
-  checkCompatibility PROPOSER_REORG_CUTOFF_BPS
 
   template assignValue(name: static string, field: untyped): untyped =
-    if values.hasKey(name):
-      when field is seq[BlobParameters]:
-        field = blobScheduleEntries
+    when name == "SLOT_DURATION":
+      if values.hasKey("SLOT_DURATION_MS"):
+        let rawValue =
+          try:
+            parse(uint64, values["SLOT_DURATION_MS"])
+          except ValueError:
+            fail("Unable to parse " & "SLOT_DURATION_MS")
+        if rawValue > Duration.high.milliseconds.uint64:
+          fail("Too large " & "SLOT_DURATION_MS")
+        field = milliseconds(rawValue.int64)
+        values.del("SLOT_DURATION_MS")
+      elif values.hasKey("SECONDS_PER_SLOT"):
+        let rawValue =
+          try:
+            parse(uint64, values["SECONDS_PER_SLOT"])
+          except ValueError:
+            fail("Unable to parse " & "SECONDS_PER_SLOT")
+        if rawValue > Duration.high.seconds.uint64:
+          fail("Too large " & "SECONDS_PER_SLOT")
+        field = seconds(rawValue.int64)
+        values.del("SECONDS_PER_SLOT")
       else:
-        try:
-          field = parse(typeof(field), values[name])
-        except ValueError:
-          fail("Unable to parse " & name)
-      values.del(name)
-    elif name == "BLOB_SCHEDULE":
-      when field is seq[BlobParameters]:
-        field = blobScheduleEntries
+        discard  # Stay on default value
+    else:
+      if values.hasKey(name):
+        when field is seq[BlobParameters]:
+          field = blobScheduleEntries
+        else:
+          try:
+            field = parse(typeof(field), values[name])
+          except ValueError:
+            fail("Unable to parse " & name)
+        values.del(name)
+      elif name == "BLOB_SCHEDULE":
+        when field is seq[BlobParameters]:
+          field = blobScheduleEntries
 
   for name, field in cfg.fieldPairs():
     assignValue(name, field)
-  for name, field in cfg.time.fieldPairs():
+  for name, field in cfg.timeParams.fieldPairs():
     assignValue(name, field)
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
+  template checkParsedValue(
+      name: string, value: auto,
+      constValue: untyped, operator: untyped = `==`): untyped =
+    const opDesc = astToStr(operator)
+    try:
+      when constValue is distinct:
+        if not operator(distinctBase(value), distinctBase(constValue)):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " &
+            opDesc & " " & $distinctBase(constValue) &
+            " - config: " & name & "=" & $value & ")")
+      else:
+        if not operator(value, constValue):
+          raise (ref PresetFileError)(msg:
+            "Cannot override config" &
+            " (required: " & name & " " & opDesc & " " & $constValue &
+            " - config: " & name & "=" & $value & ")")
+    except ValueError:
+      raise (ref PresetFileError)(msg: "Unable to parse " & name)
+
+  block:  # /!\ Keep in sync with `isValid`
+    checkParsedValue(
+      "SLOT_DURATION_MS", cfg.timeParams.SLOT_DURATION.milliseconds,
+      MIN_SLOT_DURATION.milliseconds .. MAX_SLOT_DURATION.milliseconds, `in`)
+
+    checkParsedValue(
+      "PROPOSER_REORG_CUTOFF_BPS", cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS,
+      0'u16 ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "ATTESTATION_DUE_BPS", cfg.timeParams.ATTESTATION_DUE_BPS,
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATE_DUE_BPS", cfg.timeParams.AGGREGATE_DUE_BPS,
+      cfg.timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS, `in`)
+
+    checkParsedValue(
+      "SYNC_MESSAGE_DUE_BPS", cfg.timeParams.SYNC_MESSAGE_DUE_BPS,
+      cfg.timeParams.ATTESTATION_DUE_BPS)
+    checkParsedValue(
+      "CONTRIBUTION_DUE_BPS", cfg.timeParams.CONTRIBUTION_DUE_BPS,
+      cfg.timeParams.AGGREGATE_DUE_BPS)
+
+    checkParsedValue(
+      "ATTESTATION_DUE_BPS_GLOAS", cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS,
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATE_DUE_BPS_GLOAS", cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "SYNC_MESSAGE_DUE_BPS_GLOAS", cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "CONTRIBUTION_DUE_BPS_GLOAS", cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS,
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+  doAssert cfg.timeParams.isValid
+
   # Requires initialized `cfg`
+  checkCompatibility cfg.timeParams.SLOT_DURATION.seconds.uint64,
+                     "SECONDS_PER_SLOT"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
@@ -1071,3 +1210,7 @@ func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD
   let maxEpochs = cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
   (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod
+
+func defaultSyncHorizon*(timeParams: TimeParams): uint64 =
+  (uint64(10 * 60) + timeParams.SLOT_DURATION.seconds.uint64 - 1) div
+    timeParams.SLOT_DURATION.seconds.uint64
