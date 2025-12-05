@@ -852,7 +852,7 @@ proc readRuntimeConfig*(
     if inBlobSchedule:
       let entry = strip(noComment, leading=true, trailing=false)
       if entry.startsWith("- EPOCH:"):
-        if currentBPO.MAX_BLOBS_PER_BLOCK != 0.uint64:
+        if currentBPO.MAX_BLOBS_PER_BLOCK.uint64 != 0.uint64:
           blobScheduleEntries.add(currentBPO)
         currentBPO = BlobParameters()
         let epochStr = entry.split(":")[1].strip()
@@ -870,7 +870,7 @@ proc readRuntimeConfig*(
         continue
       # Exit section on non-indented line
       elif noComment[0] notin {' ', '\t'}:
-        if currentBPO.MAX_BLOBS_PER_BLOCK != 0.uint64:
+        if currentBPO.MAX_BLOBS_PER_BLOCK.uint64 != 0.uint64:
           blobScheduleEntries.add(currentBPO)
         inBlobSchedule = false
       else:
@@ -886,7 +886,7 @@ proc readRuntimeConfig*(
         values[key] = parts[1].strip()
 
   # Final BLOB_SCHEDULE entry
-  if inBlobSchedule and currentBPO.MAX_BLOBS_PER_BLOCK != 0.uint64:
+  if inBlobSchedule and currentBPO.MAX_BLOBS_PER_BLOCK.uint64 != 0.uint64:
     blobScheduleEntries.add(currentBPO)
 
   # BPO entries must be sorted in reverse epoch order
