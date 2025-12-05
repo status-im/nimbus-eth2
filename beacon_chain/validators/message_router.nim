@@ -603,7 +603,8 @@ proc routeBlsToExecutionChange*(
 proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
     message: PayloadAttestationMessage,
-    checkSignature, checkValidator: bool = true):
+    checkSignature: bool = true,
+    checkValidator: bool = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
