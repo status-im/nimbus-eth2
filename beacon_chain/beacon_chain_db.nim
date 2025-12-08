@@ -1087,9 +1087,11 @@ proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
     assign(dataPtr[], data)
   db.columns.get(columnkey(root, index), decode).expectDb()
 
-proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
-                           value: var fulu.DataColumnSidecar): bool =
-  if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
+proc getDataColumnSidecar*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    db: BeaconChainDB, root: Eth2Digest,
+    index: ColumnIndex, value: var T): bool =
+  if db.columns == nil:  # Gloas has not been scheduled; DB table does not exist
     return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
 

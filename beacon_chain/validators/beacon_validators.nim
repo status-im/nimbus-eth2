@@ -852,11 +852,10 @@ proc checkPayloadPresent(
       node.dag.db.getExecutionPayloadEnvelope(beacon_block_root, envelope) and
         envelope.message.beacon_block_root == beacon_block_root
     else:
-      return true
+      true
 
 proc checkBlobDataAvailable(
-    node: BeaconNode, beacon_block_root: Eth2Digest
-): bool = 
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
   ## Check if the blob sidecars for this slot and envelope are available
 
   let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
@@ -873,22 +872,24 @@ proc checkBlobDataAvailable(
       if commitments.len == 0:
         return true # No blobs required for this slot
 
-      for i in 0..<commitments.len:
-        var blob: BlobSidecar
-        if not node.dag.db.getBlobSidecar(beacon_block_root, BlobIndex(i), blob):
+      # check that our custody columns are available
+      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+        var column: gloas.DataColumnSidecar
+        if not node.dag.db.getDataColumnSidecar(
+            beacon_block_root, columnIdx, column):
           return false
-      return true
+      true
     else:
-      return true
+      true
 
 proc createAndSendPayloadAttestation(node: BeaconNode,
-                                   fork: Fork,
-                                   genesis_validators_root: Eth2Digest,
-                                   validator: AttachedValidator,
-                                   validator_index: ValidatorIndex,
-                                   slot: Slot,
-                                   beacon_block_root: Eth2Digest)
-                                   {.async: (raises: [CancelledError]).} =
+                                     fork: Fork,
+                                     genesis_validators_root: Eth2Digest,
+                                     validator: AttachedValidator,
+                                     validator_index: ValidatorIndex,
+                                     slot: Slot,
+                                     beacon_block_root: Eth2Digest)
+                                     {.async: (raises: [CancelledError]).} =
   let
     payload_present = node.checkPayloadPresent(beacon_block_root)
     blob_data_available = node.checkBlobDataAvailable(beacon_block_root)
