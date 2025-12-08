@@ -237,3 +237,6 @@
 	path = vendor/nim-quic
 	url = https://github.com/vacp2p/nim-quic
 	branch = main
+[submodule "vendor/nim-lsquic"]
+	path = vendor/nim-lsquic
+	url = https://github.com/vacp2p/nim-lsquic.git

@@ -2232,7 +2232,10 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 template quicEndPoint(address, port): auto =
-  MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1")
+  try:
+    MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1").tryGet()
+  except LPError:
+    raiseAssert "invalid quic address"
 
 func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
@@ -2338,18 +2341,22 @@ proc newBeaconSwitch(
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
   try:
-    ok sb
+    sb = sb
     .withPrivateKey(seckey)
     .withAddresses(addresses)
     .withRng(rng)
     .withNoise()
-    .withQuicTransport()
+    # TODO: uncomment the following two lines to enable TCP back
+    #.withMplex(chronos.minutes(5), chronos.minutes(5))
+    #.withTcpTransport({ServerFlags.ReuseAddr})
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
-    .withMplex(chronos.minutes(5), chronos.minutes(5))
-    .withTcpTransport({ServerFlags.ReuseAddr})
     .withServices(@[service])
-    .build()
+
+    if config.quicEnabled:
+      sb = sb.withQuicTransport()
+        
+    ok sb.build()
   except LPError as exc:
     err(exc.msg)
 
@@ -2373,6 +2380,15 @@ proc createEth2Node*(
       else:
         getAutoAddress(Port(0)).toIpAddress()
 
+  var ports = @[
+        (port: config.udpPort, protocol: PortProtocol.UDP),
+        (port: config.tcpPort, protocol: PortProtocol.TCP),
+      ]
+
+  if config.quicEnabled:
+    ports.add((port: config.quicPort, protocol: PortProtocol.UDP))
+
+  let
     (extIp, extPorts) = setupAddress(
       config.nat,
       listenAddress,
@@ -2383,9 +2399,9 @@ proc createEth2Node*(
       ],
       clientId,
     )
-
     extUdpPort = extPorts[0].toPort()
     extTcpPort = extPorts[1].toPort()
+    extQuicPort = if config.quicEnabled: extPorts[2].toPort() else: Opt.none(Port)
 
     directPeers = block:
       var res: DirectPeers
@@ -2410,16 +2426,15 @@ proc createEth2Node*(
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = @[
-      quicEndpoint(listenAddress, config.quicUdpPort),
-      tcpEndPoint(listenAddress, config.tcpPort)
-    ]
+  var hostAddress = @[tcpEndPoint(listenAddress, config.tcpPort)]
 
-  var announcedAddresses = newSeq[Multiaddr]()
-  if not(extIp.isNone() or extTcpPort.isNone()):
-    announcedAddresses.add  tcpEndPoint(extIp.get(), extTcpPort.get())
-  if not(extIp.isNone() or extQuicUdpPort.isNone()):
-    announcedAddresses.add  quicEndpoint(extIp.get(), extQuicUdpPort.get())
+  var announcedAddresses = newSeq[Multiaddress]()
+  # TODO: uncomment the following lines to add back TCP support
+  #if not(extIp.isNone() or extTcpPort.isNone()):
+  #  announcedAddresses.add  tcpEndPoint(extIp.get(), extTcpPort.get().port)
+  if config.quicEnabled and not(extIp.isNone() or extQuicPort.isNone()):
+    hostAddress.add(quicEndpoint(listenAddress, config.quicPort))
+    announcedAddresses.add(quicEndpoint(extIp.get(), extQuicPort.get()))
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,
@@ -2498,7 +2513,7 @@ proc createEth2Node*(
 
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
-    extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
+    extTcpPort, extQuicPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
 

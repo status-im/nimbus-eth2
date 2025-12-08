@@ -12,6 +12,7 @@ import
   chronos, chronicles,
   eth/p2p/discoveryv5/[protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
+  ../spec/network,
   ../spec/eth2_ssz_serialization,
   ".."/[conf, conf_light_client]
 
@@ -96,15 +97,15 @@ proc new*(T: type Eth2DiscoveryProtocol,
     if fileExists(persistentBootstrapFile):
       loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  let listenAddress =
-    if config.listenAddress.isSome():
-      Opt.some(config.listenAddress.get())
-    else:
-      Opt.none(IpAddress)
+  var customEnrFields: seq[FieldPair]
+  for enrField in enrFields:
+    customEnrFields.add(toFieldPair(enrField[0], enrField[1]))
 
-  # TODO: what to do with enrQuicPort?
-  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-    bindPort = config.udpPort, bindIp = listenAddress,
+  if enrQuicPort.isSome():
+    customEnrFields.add(toFieldPair(quicField, enrQuicPort.get().uint16))
+
+  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, customEnrFields, bootstrapEnrs,
+    bindPort = config.udpPort, bindIp = config.listenAddress.get(IPv4_any()),
     enrAutoUpdate = config.enrAutoUpdate, rng = rng)
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =

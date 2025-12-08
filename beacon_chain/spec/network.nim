@@ -55,6 +55,7 @@ const
   enrCustodySubnetCountField* = "cgc"
   enrNextForkDigestField* = "nfd"
   enrForkIdField* = "eth2"
+  quicField* = "quic"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
   "/eth2/" & $forkDigest & "/"
