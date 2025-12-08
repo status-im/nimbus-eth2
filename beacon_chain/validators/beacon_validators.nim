@@ -843,29 +843,43 @@ proc checkPayloadPresent(
   ## Check if we received the payload envelope for
   ## this slot and a corresponding block
 
-  let blockData = node.dag.getForkedBlock(beacon_block_root).valueOr:
+  let blokData = node.dag.getForkedBlock(beacon_block_root).valueOr:
     return false
 
-  withBlck(blockData):
+  withBlck(blokData):
+    when consensusFork >= ConsensusFork.Gloas:
+      var envelope: TrustedSignedExecutionPayloadEnvelope
+      node.dag.db.getExecutionPayloadEnvelope(beacon_block_root, envelope) and
+        envelope.message.beacon_block_root == beacon_block_root
+    else:
+      return true
+
+proc checkBlobDataAvailable(
+    node: BeaconNode, beacon_block_root: Eth2Digest
+): bool = 
+  ## Check if the blob sidecars for this slot and envelope are available
+
+  let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
+    return false
+
+  withBlck(blckData):
     when consensusFork >= ConsensusFork.Gloas:
       var envelope: TrustedSignedExecutionPayloadEnvelope
       if not node.dag.db.getExecutionPayloadEnvelope(
           beacon_block_root, envelope):
         return false
 
-      # check that the envelope correctly references this block
-      if envelope.message.beacon_block_root != beacon_block_root:
-        return false
+      template commitments: untyped = envelope.message.blob_kzg_commitments
+      if commitments.len == 0:
+        return true # No blobs required for this slot
+
+      for i in 0..<commitments.len:
+        var blob: BlobSidecar
+        if not node.dag.db.getBlobSidecar(beacon_block_root, BlobIndex(i), blob):
+          return false
       return true
     else:
       return true
-
-proc checkBlobDataAvailable*(
-    node: BeaconNode, beacon_block_root: Eth2Digest
-): bool = 
-  ## Check if the blob sidecars for this slot are available
-  debugGloasComment"TODO - check for blob availability"
-  return true
 
 proc createAndSendPayloadAttestation(node: BeaconNode,
                                    fork: Fork,
