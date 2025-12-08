@@ -509,9 +509,7 @@ template kind*(
       gloas.SigVerifiedBeaconBlockBody |
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
-      gloas.TrustedSignedBeaconBlock |
-      gloas.ExecutionPayloadEnvelope |
-      gloas.SignedExecutionPayloadEnvelope]): ConsensusFork =
+      gloas.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Gloas
 
 template BeaconState*(kind: static ConsensusFork): typedesc =

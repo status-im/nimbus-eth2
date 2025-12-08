@@ -189,7 +189,7 @@ template proposer_index(
     b.signed_block_header.message.proposer_index
 
 template blob_kzg_commitments(x: SomeSignedBlockOrEnvelope): KzgCommitments =
-  when typeof(x).kind >= ConsensusFork.Gloas:
+  when x is gloas.SignedExecutionPayloadEnvelope:
     x.message.blob_kzg_commitments
   else:
     x.message.body.blob_kzg_commitments
@@ -197,7 +197,7 @@ template blob_kzg_commitments(x: SomeSignedBlockOrEnvelope): KzgCommitments =
 template root*(x: SomeSignedBlockOrEnvelope): Eth2Digest =
   # For some reasons, the function only works when it is public though it is
   # only used internally.
-  when typeof(x).kind >= ConsensusFork.Gloas:
+  when x is gloas.SignedExecutionPayloadEnvelope:
     x.message.beacon_block_root
   else:
     x.root
