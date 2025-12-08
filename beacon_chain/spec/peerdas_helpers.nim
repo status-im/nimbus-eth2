@@ -213,8 +213,8 @@ proc recover_cells_and_proofs_parallel*(
   const reconstructionTimeout = 2.seconds
 
   proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
-      c_free(idxPtr)
-      c_free(cellsPtr)
+    c_free(idxPtr)
+    c_free(cellsPtr)
 
   proc drainPending(startIdx: int) =
     for j in startIdx ..< spawned:
