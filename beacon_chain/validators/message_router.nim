@@ -599,3 +599,34 @@ proc routeBlsToExecutionChange*(
       error = res.error()
 
   return ok()
+
+proc routePayloadAttestationMessage*(
+    router: ref MessageRouter,
+    message: PayloadAttestationMessage,
+    checkSignature, checkValidator: bool = true):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = await router.processor.processPayloadAttestationMessage(
+      MsgSource.api, message, checkSignature = checkSignature,
+      checkValidator = checkValidator)
+
+    if not res.isGoodForSending:
+      warn "Payload attestation failed validation",
+        message = shortLog(message), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = message.data.slot
+    delay = sendTime -
+      slot.payload_attestation_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastPayloadAttestationMessage(message)
+
+  if res.isOk():
+    info "Payload attestation sent",
+      message = shortLog(message), delay
+  else:
+    notice "Payload attestation not sent",
+      message = shortLog(message), error = res.error()
+
+  return ok()

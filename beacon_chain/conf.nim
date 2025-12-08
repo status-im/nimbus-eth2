@@ -563,9 +563,9 @@ type
         name: "debug-long-range-sync".}: LongRangeSyncMode
 
       inProcessValidators* {.
-        desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
-        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
-        name: "in-process-validators" .}: bool
+        hidden
+        desc: "Deprecated for removal"
+        name: "in-process-validators" .}: Option[bool]
 
       discv5Enabled* {.
         desc: "Enable Discovery v5"

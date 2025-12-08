@@ -18,7 +18,8 @@ import
   ../consensus_object_pools/[
     attestation_pool, blob_quarantine, block_clearance, block_quarantine,
     blockchain_dag, envelope_quarantine, execution_payload_pool,
-    light_client_pool, sync_committee_msg_pool, validator_change_pool],
+    payload_attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -146,6 +147,7 @@ type
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
+    payloadAttestationPool*: ref PayloadAttestationPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -196,6 +198,7 @@ proc new*(T: type Eth2Processor,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
+          payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
@@ -216,6 +219,7 @@ proc new*(T: type Eth2Processor,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
     executionPayloadBidPool: executionPayloadBidPool,
+    payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
@@ -916,3 +920,24 @@ proc processExecutionPayloadBid*(
     debug "Dropping execution payload bid", reason = $v.error
     beacon_execution_payload_bids_dropped.inc(1, [$v.error[0]])
     err(v.error())
+
+proc processPayloadAttestationMessage*(
+    self: ref Eth2Processor, src: MsgSource,
+    payload_attestation_message: PayloadAttestationMessage,
+    checkSignature, checkValidator: bool
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    v = await validatePayloadAttestationMessage(
+      self.dag, self.payloadAttestationPool, self.batchCrypto,
+      payload_attestation_message, wallTime, checkSignature)
+
+  if v.isErr():
+    debug "Dropping payload attestation", reason = $v.error
+    return err(v.error())
+
+  discard self.payloadAttestationPool[].addPayloadAttestation(
+    payload_attestation_message, wallTime)
+
+  trace "Payload attestation validated"
+  return ok()

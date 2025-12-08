@@ -638,6 +638,21 @@ func shortLog*(v: ExecutionPayloadEnvelope): auto =
     state_root: shortLog(v.state_root)
   )
 
+func shortLog*(v: PayloadAttestationData): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    slot: v.slot,
+    payload_present: v.payload_present,
+    blob_data_available: v.blob_data_available
+  )
+
+func shortLog*(v: PayloadAttestationMessage): auto =
+  (
+    validator_index: v.validator_index,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =

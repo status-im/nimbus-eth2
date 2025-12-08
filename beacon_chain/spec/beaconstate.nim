@@ -2762,6 +2762,8 @@ func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
+# {.closure.} prevents stack overflow from inline expansion.
+# See: https://github.com/nim-lang/Nim/issues/25287
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
 iterator get_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
     ValidatorIndex {.closure.} =
