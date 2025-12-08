@@ -698,8 +698,7 @@ func getMissingSidecarIndices*(
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: fulu.SignedBeaconBlock |
-                     gloas.SignedExecutionPayloadEnvelope,
+    blockOrEnvelope: SomeSignedBlockOrEnvelope,
     peerMap: ColumnMap
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns
@@ -773,8 +772,7 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: fulu.SignedBeaconBlock |
-                     gloas.SignedExecutionPayloadEnvelope,
+    blockOrEnvelope: SomeSignedBlockOrEnvelope,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): DataColumnsByRootIdentifier =
   if len(peerCustodyColumns) == 0:
@@ -787,8 +785,7 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: fulu.SignedBeaconBlock |
-                     gloas.SignedExecutionPayloadEnvelope,
+    blockOrEnvelope: SomeSignedBlockOrEnvelope,
 ): ColumnMap =
   var res: ColumnMap
   let node = quarantine.roots.getOrDefault(blockRoot)
@@ -816,8 +813,7 @@ func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 func getMissingSidecarIndices*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: fulu.SignedBeaconBlock |
-                     gloas.SignedExecutionPayloadEnvelope,
+    blockOrEnvelope: SomeSignedBlockOrEnvelope,
 ): seq[ColumnIndex] =
   var res: seq[ColumnIndex]
   let map = quarantine.getMissingColumnsMap(blockRoot, blockOrEnvelope)
