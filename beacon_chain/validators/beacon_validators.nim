@@ -838,17 +838,32 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent*(
-    node: BeaconNode, beacon_block_root: Eth2Digest
-): bool = 
-  ## Check if we received the payload envelope for this slot
-  debugGloasComment"TODO - check for envelope availability"
-  return true
+proc checkPayloadPresent(
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
+  ## Check if we received the payload envelope for
+  ## this slot and a corresponding block
+
+  let blockData = node.dag.getForkedBlock(beacon_block_root).valueOr:
+    return false
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Gloas:
+      var envelope: TrustedSignedExecutionPayloadEnvelope
+      if not node.dag.db.getExecutionPayloadEnvelope(
+          beacon_block_root, envelope):
+        return false
+
+      # check that the envelope correctly references this block
+      if envelope.message.beacon_block_root != beacon_block_root:
+        return false
+      return true
+    else:
+      return true
 
 proc checkBlobDataAvailable*(
     node: BeaconNode, beacon_block_root: Eth2Digest
 ): bool = 
-  ## Check if the blob(s) for this slot is/are available
+  ## Check if the blob sidecars for this slot are available
   debugGloasComment"TODO - check for blob availability"
   return true
 
