@@ -23,7 +23,7 @@ import
 from std/algorithm import sort
 from std/sequtils import toSeq
 from stew/staticfor import staticFor
-from system/ansi_c import c_malloc, c_free
+from system/ansi_c import c_malloc, c_free, c_calloc
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -190,7 +190,7 @@ proc recover_cells_and_proofs_parallel*(
       localIndices[j] = idxArr[j]
       localCells[j] = cellsArr[j]
     # use the task wrapper which maps string errors to void
-    return recoverCellsAndKzgProofsTask(localIndices, localCells)
+    recoverCellsAndKzgProofsTask(localIndices, localCells)
 
   var
     pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]] = @[]
@@ -207,15 +207,13 @@ proc recover_cells_and_proofs_parallel*(
   var spawned = 0
 
   # Choose a sane limit for concurrent tasks to reduce peak memory/alloc pressure.
-  let maxInFlight = if blobCount < 9: blobCount else: 9
+  let maxInFlight = min(blobCount, 9)
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
   proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
-    if idxPtr != nil:
       c_free(idxPtr)
-    if cellsPtr != nil:
       c_free(cellsPtr)
 
   proc drainPending(startIdx: int) =
@@ -243,12 +241,12 @@ proc recover_cells_and_proofs_parallel*(
       idxPtr = cast[ptr CellIndex](c_malloc(idxBytes))
     if idxPtr == nil:
       drainPending(0)
-      return err("Out of memory")
+      return err("Failed to allocate memory for cell indices during reconstruction")
     let cellsPtr = cast[ptr Cell](c_malloc(cellsBytes))
     if cellsPtr == nil:
       c_free(idxPtr)
       drainPending(0)
-      return err("Out of memory")
+      return err("Failed to allocate memory for cell data during reconstruction")
 
     # populate C buffers via UncheckedArray casts
     let
