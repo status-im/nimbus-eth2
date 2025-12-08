@@ -58,7 +58,6 @@ func genFuluDataColumnSidecar(
 func genGloasDataColumnSidecar(
     index: int,
     slot: int,
-    proposer_index: int = 0,
 ): gloas.DataColumnSidecar =
   gloas.DataColumnSidecar(
     index: ColumnIndex(index),
@@ -3027,14 +3026,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       commitments1 = [
         genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
@@ -3112,14 +3111,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       commitments1 = [
         genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
@@ -3226,14 +3225,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
+              index = int(custodyColumns[i]), slot = 2)))
           res
       commitments1 = [
         genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
@@ -3290,14 +3289,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
+              index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< (len(custodyColumns) div 2 + 1):
             res.add(newClone(genGloasDataColumnSidecar(
-              index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
+              index = int(custodyColumns[i]), slot = 2)))
           res
       commitments1 = [
         genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
@@ -3383,9 +3382,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         blockRoot = genBlockRoot(slot)
         sidecar = newClone(
           genGloasDataColumnSidecar(
-            index = int(custodyColumns[index]),
-            slot,
-            proposer_index = i))
+            index = int(custodyColumns[index]), slot))
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
@@ -3411,8 +3408,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecar = newClone(
         genGloasDataColumnSidecar(
           index = int(custodyColumns[0]),
-          slot = 10000,
-          proposer_index = 1000000))
+          slot = 10000))
       blockRoot = genBlockRoot(10000)
     check:
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
@@ -3444,9 +3440,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           var res: seq[ref gloas.DataColumnSidecar]
           for i in 0 ..< len(custodyColumns):
             let sidecar =
-              newClone(genGloasDataColumnSidecar(index = int(custodyColumns[i]),
-                                            slot = 100_000,
-                                            proposer_index = 2000000))
+              newClone(genGloasDataColumnSidecar(
+                index = int(custodyColumns[i]), slot = 100_000))
             res.add(sidecar)
           res
       mblockRoot = genBlockRoot(20000)
@@ -3499,10 +3494,10 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     for index in custodyColumns:
       let
-        sidecar1 = newClone(genGloasDataColumnSidecar(int(index), 1, 64))
-        sidecar1d = newClone(genGloasDataColumnSidecar(int(index), 1, 64))
-        sidecar2 = newClone(genGloasDataColumnSidecar(int(index), 2, 65))
-        sidecar2d = newClone(genGloasDataColumnSidecar(int(index), 2, 65))
+        sidecar1 = newClone(genGloasDataColumnSidecar(int(index), 1))
+        sidecar1d = newClone(genGloasDataColumnSidecar(int(index), 1))
+        sidecar2 = newClone(genGloasDataColumnSidecar(int(index), 2))
+        sidecar2d = newClone(genGloasDataColumnSidecar(int(index), 2))
       sidecars1.add(sidecar1)
       sidecars1d.add(sidecar1d)
       sidecars2.add(sidecar2)
@@ -3560,40 +3555,40 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
 
     const TestVectors = [
-      (root: 1, slot: 1, index: 63, proposer_index: 20),
-      (root: 1, slot: 1, index: 64, proposer_index: 20),
-      (root: 1, slot: 1, index: 65, proposer_index: 20),
-      (root: 1, slot: 1, index: 66, proposer_index: 20),
-      (root: 1, slot: 1, index: 96, proposer_index: 20),
-      (root: 2, slot: 32, index: 63, proposer_index: 21),
-      (root: 2, slot: 32, index: 64, proposer_index: 21),
-      (root: 2, slot: 32, index: 65, proposer_index: 21),
-      (root: 3, slot: 33, index: 63, proposer_index: 22),
-      (root: 3, slot: 33, index: 64, proposer_index: 22),
-      (root: 4, slot: 63, index: 63, proposer_index: 23),
-      (root: 5, slot: 64, index: 63, proposer_index: 24),
-      (root: 5, slot: 64, index: 64, proposer_index: 24),
-      (root: 5, slot: 64, index: 65, proposer_index: 24),
-      (root: 6, slot: 65, index: 63, proposer_index: 25),
-      (root: 6, slot: 65, index: 64, proposer_index: 25),
-      (root: 7, slot: 67, index: 63, proposer_index: 26),
-      (root: 7, slot: 67, index: 64, proposer_index: 26),
-      (root: 8, slot: 95, index: 63, proposer_index: 27),
-      (root: 8, slot: 95, index: 64, proposer_index: 27),
-      (root: 8, slot: 95, index: 65, proposer_index: 27),
-      (root: 8, slot: 95, index: 66, proposer_index: 27),
-      (root: 8, slot: 95, index: 98, proposer_index: 27),
-      (root: 9, slot: 96, index: 63, proposer_index: 28),
-      (root: 9, slot: 96, index: 64, proposer_index: 28),
-      (root: 9, slot: 96, index: 65, proposer_index: 28),
-      (root: 9, slot: 96, index: 66, proposer_index: 28),
-      (root: 9, slot: 96, index: 95, proposer_index: 28),
-      (root: 9, slot: 96, index: 96, proposer_index: 28),
-      (root: 9, slot: 96, index: 97, proposer_index: 28),
-      (root: 9, slot: 96, index: 98, proposer_index: 28),
-      (root: 10, slot: 127, index: 96, proposer_index: 29),
-      (root: 10, slot: 127, index: 97, proposer_index: 29),
-      (root: 10, slot: 127, index: 98, proposer_index: 29)
+      (root: 1, slot: 1, index: 63),
+      (root: 1, slot: 1, index: 64),
+      (root: 1, slot: 1, index: 65),
+      (root: 1, slot: 1, index: 66),
+      (root: 1, slot: 1, index: 96),
+      (root: 2, slot: 32, index: 63),
+      (root: 2, slot: 32, index: 64),
+      (root: 2, slot: 32, index: 65),
+      (root: 3, slot: 33, index: 63),
+      (root: 3, slot: 33, index: 64),
+      (root: 4, slot: 63, index: 63),
+      (root: 5, slot: 64, index: 63),
+      (root: 5, slot: 64, index: 64),
+      (root: 5, slot: 64, index: 65),
+      (root: 6, slot: 65, index: 63),
+      (root: 6, slot: 65, index: 64),
+      (root: 7, slot: 67, index: 63),
+      (root: 7, slot: 67, index: 64),
+      (root: 8, slot: 95, index: 63),
+      (root: 8, slot: 95, index: 64),
+      (root: 8, slot: 95, index: 65),
+      (root: 8, slot: 95, index: 66),
+      (root: 8, slot: 95, index: 98),
+      (root: 9, slot: 96, index: 63),
+      (root: 9, slot: 96, index: 64),
+      (root: 9, slot: 96, index: 65),
+      (root: 9, slot: 96, index: 66),
+      (root: 9, slot: 96, index: 95),
+      (root: 9, slot: 96, index: 96),
+      (root: 9, slot: 96, index: 97),
+      (root: 9, slot: 96, index: 98),
+      (root: 10, slot: 127, index: 96),
+      (root: 10, slot: 127, index: 97),
+      (root: 10, slot: 127, index: 98)
     ]
 
     var bq = GloasColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
@@ -3601,8 +3596,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       let sidecar =
         newClone(
           genGloasDataColumnSidecar(
-            index = item.index, slot = item.slot,
-            proposer_index = item.proposer_index))
+            index = item.index, slot = item.slot))
       bq.put(genBlockRoot(item.root), sidecar)
 
     check:
@@ -3686,8 +3680,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         slot = i div len(custodyColumns) + 100
         blockRoot = genBlockRoot(slot)
         sidecar = newClone(
-          genGloasDataColumnSidecar(index = int(custodyColumns[index]),
-                              slot, proposer_index = i))
+          genGloasDataColumnSidecar(index = int(custodyColumns[index]), slot))
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
@@ -3714,8 +3707,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     let
       sidecar = newClone(
-        genGloasDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000,
-                            proposer_index = 1000000))
+        genGloasDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000))
       blockRoot1 = genBlockRoot(10000)
     check:
       bq.hasSidecar(
@@ -3770,8 +3762,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             let sidecar =
               newClone(
                 genGloasDataColumnSidecar(
-                  index = int(custodyColumns[i]), slot = 100_000,
-                  proposer_index = 2000000))
+                  index = int(custodyColumns[i]), slot = 100_000))
             res.add(sidecar)
           res
       mblockRoot = genBlockRoot(20000)
@@ -3852,11 +3843,9 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         blockRoot1 = genBlockRoot(slot1)
         blockRoot2 = genBlockRoot(slot2)
         sidecar1 = newClone(
-          genGloasDataColumnSidecar(int(custodyColumns[index]), slot1,
-            proposer_index = i))
+          genGloasDataColumnSidecar(int(custodyColumns[index]), slot1))
         sidecar2 = newClone(
-          genGloasDataColumnSidecar(int(custodyColumns[index]), slot2,
-            proposer_index = 100 + i))
+          genGloasDataColumnSidecar(int(custodyColumns[index]), slot2))
 
       sidecars1.add((sidecar1, blockRoot1))
       sidecars2.add((sidecar2, blockRoot2))
@@ -3912,8 +3901,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     let
       sidecar = newClone(genGloasDataColumnSidecar(
-        index = int(custodyColumns[0]), slot = 1000000,
-        proposer_index = 2000000))
+        index = int(custodyColumns[0]), slot = 1000000))
       blockRoot = genBlockRoot(1000000)
 
     check:
@@ -3999,8 +3987,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genGloasDataColumnSidecar(int(custodyColumns[index]),
-            slot, proposer_index = i))
+          sidecar = newClone(genGloasDataColumnSidecar(
+            int(custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
@@ -4054,8 +4042,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genGloasDataColumnSidecar(int(custodyColumns[index]),
-            slot, proposer_index = i))
+          sidecar = newClone(genGloasDataColumnSidecar(
+            int(custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
@@ -4085,8 +4073,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 1000000
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genGloasDataColumnSidecar(int(custodyColumns[index]),
-            slot, proposer_index = i))
+          sidecar = newClone(genGloasDataColumnSidecar(
+            int(custodyColumns[index]), slot))
         sidecars2.add((sidecar, blockRoot))
 
       # Now we should be able to add new columns to in-memory storage.
@@ -4111,8 +4099,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           index = i mod len(custodyColumns)
           slot = i div len(custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
-          sidecar = newClone(genGloasDataColumnSidecar(int(custodyColumns[index]),
-            slot, proposer_index = i))
+          sidecar = newClone(genGloasDataColumnSidecar(
+            int(custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
 
       case cvec[0]
@@ -4400,7 +4388,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           slot = i div len(bq.custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
           sidecar = newClone(genGloasDataColumnSidecar(
-            int(bq.custodyColumns[index]), slot, proposer_index = i))
+            int(bq.custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
         bq.put(blockRoot, sidecar)
 
@@ -4492,7 +4480,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           slot = i div len(bq.custodyColumns) + 100
           blockRoot = genBlockRoot(slot)
           sidecar = newClone(genGloasDataColumnSidecar(
-            int(bq.custodyColumns[index]), slot, proposer_index = i))
+            int(bq.custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
         bq.put(blockRoot, sidecar)
 
