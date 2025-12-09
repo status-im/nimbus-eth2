@@ -963,9 +963,6 @@ proc readRuntimeConfig*(
   # BPO entries must be sorted in reverse epoch order
   blobScheduleEntries.sort(cmp = cmpBlobParameters)
 
-  # BPO entries must be sorted in reverse epoch order
-  blobScheduleEntries.sort(cmp = cmpBlobParameters)
-
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(
