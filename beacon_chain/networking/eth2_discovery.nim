@@ -97,15 +97,14 @@ proc new*(T: type Eth2DiscoveryProtocol,
     if fileExists(persistentBootstrapFile):
       loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  var customEnrFields: seq[FieldPair]
-  for enrField in enrFields:
-    customEnrFields.add(toFieldPair(enrField[0], enrField[1]))
+  let listenAddress =
+    if config.listenAddress.isSome():
+      Opt.some(config.listenAddress.get())
+    else:
+      Opt.none(IpAddress)
 
-  if enrQuicPort.isSome():
-    customEnrFields.add(toFieldPair(quicField, enrQuicPort.get().uint16))
-
-  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, customEnrFields, bootstrapEnrs,
-    bindPort = config.udpPort, bindIp = config.listenAddress.get(IPv4_any()),
+  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrQuicPort, enrFields,
+    bootstrapEnrs, bindPort = config.udpPort, bindIp = listenAddress,
     enrAutoUpdate = config.enrAutoUpdate, rng = rng)
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =

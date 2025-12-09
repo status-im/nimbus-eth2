@@ -228,6 +228,13 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
+    ## 
+  
+  PeerAddrProto* {.pure.} = enum
+    TCP
+    UDP
+    QUIC
+
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
@@ -1320,8 +1327,20 @@ proc handleIncomingStream(network: Eth2Node,
     await noCancel conn.closeWithEOF()
     releasePeer(peer)
 
+template tcpEndPoint(address, port): auto =
+  MultiAddress.init(address, tcpProtocol, port)
+
+template udpEndPoint(address, port): auto =
+  MultiAddress.init(address, udpProtocol, port)
+
+template quicEndPoint(address, port): auto =
+  try:
+    MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1").tryGet()
+  except LPError:
+    raiseAssert "invalid quic address"
+
 func toPeerAddr*(r: enr.TypedRecord,
-                 proto: IpTransportProtocol): Result[PeerAddr, cstring] =
+                 peerAddrProto: seq[PeerAddrProto]): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 
@@ -1332,42 +1351,61 @@ func toPeerAddr*(r: enr.TypedRecord,
 
   var addrs = newSeq[MultiAddress]()
 
-  case proto
-  of tcpProtocol:
-    if r.ip.isSome and r.tcp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+  for proto in peerAddrProto:
+    case proto
+    of PeerAddrProto.TCP:
+      if r.ip.isSome and r.tcp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add tcpEndpoint(ip, Port r.tcp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.tcp6.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
-      elif r.tcp.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.tcp6.isSome:
+          addrs.add tcpEndpoint(ip, Port r.tcp6.get)
+        elif r.tcp.isSome:
+          addrs.add tcpEndpoint(ip, Port r.tcp.get)
+        else:
+          discard
 
-  of udpProtocol:
-    if r.ip.isSome and r.udp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
+    of PeerAddrProto.UDP:
+      if r.ip.isSome and r.udp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add udpEndpoint(ip, Port r.udp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.udp6.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
-      elif r.udp.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.udp6.isSome:
+          addrs.add udpEndpoint(ip, Port r.udp6.get)
+        elif r.udp.isSome:
+          addrs.add udpEndpoint(ip, Port r.udp.get)
+        else:
+          discard
+
+    of PeerAddrProto.QUIC:
+      if r.ip.isSome and r.quic.isSome:
+        let ip = IpAddress(
+            family: IpAddressFamily.IPv4,
+            address_v4: r.ip.get)
+        addrs.add quicEndPoint(ip, Port r.quic.get)
+
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.quic6.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic6.get)
+        elif r.quic.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic.get)
+        else:
+          discard
 
   if addrs.len == 0:
     return err("enr: no addresses in record")
@@ -1440,7 +1478,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
 
 func toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let nodeRecord = TypedRecord.fromRecord(node.record)
-  let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
+  let peerAddr = ? nodeRecord.toPeerAddr(@[PeerAddrProto.TCP, PeerAddrProto.QUIC])
   ok(peerAddr)
 
 proc trimConnections(node: Eth2Node, count: int) =
@@ -1954,7 +1992,7 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let pa = TypedRecord.fromRecord(enr).toPeerAddr(tcpProtocol)
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr(@[PeerAddrProto.TCP, PeerAddrProto.QUIC])
       if pa.isOk():
         await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
@@ -2228,15 +2266,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, tcpProtocol, port)
-
-template quicEndPoint(address, port): auto =
-  try:
-    MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1").tryGet()
-  except LPError:
-    raiseAssert "invalid quic address"
-
 func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -2413,7 +2442,7 @@ proc createEth2Node*(
                 warn "Failed to parse direct peer address, skipping", enr=s, err = error
                 return err("Invalid direct peer")
               typedEnr = TypedRecord.fromRecord(enr)
-              peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
+              peerAddress = toPeerAddr(typedEnr, @[PeerAddrProto.TCP, PeerAddrProto.QUIC]).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).valueOr:
