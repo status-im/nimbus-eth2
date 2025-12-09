@@ -816,6 +816,7 @@ type
           name: "udp-port" .}: Port
 
         quicPortExt* {.
+          hidden
           desc: "External QUIC port"
           name: "debug-quic-port" .}: Port
 
