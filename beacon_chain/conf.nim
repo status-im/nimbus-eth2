@@ -815,6 +815,10 @@ type
           desc: "External UDP port"
           name: "udp-port" .}: Port
 
+        quicPortExt* {.
+          desc: "External QUIC port"
+          name: "debug-quic-port" .}: Port
+
         seqNumber* {.
           desc: "Record sequence number"
           defaultValue: 1,
