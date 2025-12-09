@@ -19,8 +19,8 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
     block_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, spec_cache, sync_committee_msg_pool,
-    validator_change_pool],
+    light_client_pool, payload_attestation_pool,spec_cache,
+    sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -2183,7 +2183,7 @@ proc validateExecutionPayloadBid*(
     signed_execution_payload_bid: SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
-  
+
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
@@ -2214,7 +2214,7 @@ proc validateExecutionPayloadBid*(
       if existingBid.isSome():
         return errIgnore(
           "ExecutionPayloadBid: already seen bid from this builder for this slot")
-      
+
       # [IGNORE] This bid is the highest value bid seen for the corresponding
       # slot and the given parent block hash
       let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
@@ -2225,7 +2225,7 @@ proc validateExecutionPayloadBid*(
 
       # [IGNORE] bid.value is less or equal than the builder's excess balance
       # i.e. MIN_ACTIVATION_BALANCE + bid.value <= state.balances[bid.builder_index]
-      if forkyState.data.balances.item(bid.builder_index) < 
+      if forkyState.data.balances.item(bid.builder_index) <
           MIN_ACTIVATION_BALANCE.Gwei + bid.value:
         return errIgnore(
           "ExecutionPayloadBid: insufficient builder balance")
@@ -2238,7 +2238,7 @@ proc validateExecutionPayloadBid*(
       try:
         let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
           return errIgnore("Bid: parent has no execution payload")
-        
+
         # Verify the bid references the correct execution payload
         if parentExecHash != bid.parent_block_hash:
           return dag.checkedReject(
@@ -2251,7 +2251,7 @@ proc validateExecutionPayloadBid*(
       if dag.getBlockRef(bid.parent_block_root).isNone():
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
- 
+
       # [IGNORE] bid.slot is the current slot or the next slot
       let currentSlot = wallTime.slotOrZero(dag.timeParams)
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
@@ -2276,5 +2276,93 @@ proc validateExecutionPayloadBid*(
     else:
       return dag.checkedReject(
         "ExecutionPayloadBid: only valid for Gloas fork or later")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+proc validatePayloadAttestationMessage*(
+    dag: ChainDAGRef,
+    payloadAttestationPool: ref PayloadAttestationPool,
+    batchCrypto: ref BatchCrypto,
+    payload_attestation_message: PayloadAttestationMessage,
+    wallTime: BeaconTime,
+    checkSignature: bool = true
+): Future[Result[
+     void, ValidationError]] {.async: (raises: [CancelledError]).} =
+  template data: untyped = payload_attestation_message.data
+
+  # [IGNORE] The message's slot is for the current slot (with a
+  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e `data.slot == current_slot`.
+  block:
+    let v = dag.timeParams.check_slot_exact(data.slot, wallTime)
+    if v.isErr():
+      return err(v.error())
+
+  # [IGNORE] The `payload_attestaion_message`is the first valid message
+  # received from the validator with index `paylod_attestation_message.validator_index`.
+  let entry = payloadAttestationPool[].attestations
+                .getOrDefault(data.slot)
+                .getOrDefault(data.beacon_block_root)
+
+  if ValidatorIndex(payload_attestation_message.validator_index) in
+      entry.messages:
+    return errIgnore("PayloadAttestaionMessage: duplicate message from validator")
+
+  # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
+  # gossip or non-gossip sources)
+  let blck = dag.getBlockRef(data.beacon_block_root).valueOr:
+    return errIgnore("PayloadAttestationMessage: block not found")
+
+  # [REJECT] The message's block `data.beacon_block_root` passes validation.
+  # Should have been validatied by getNBlockRef above
+
+  # [REJECT] The message's validator index is within the payload committee in
+  # `get_ptc(state, data.slot)`. The `state` is the head state corresponding to
+  # processing the block up to the current slot as determined by fork choice
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var cache: StateCache
+      let vidx = ValidatorIndex(payload_attestation_message.validator_index)
+
+      var present = false
+      for idx in get_ptc(forkyState.data, data.slot, cache):
+        if idx == vidx:
+          present = true
+          break
+
+      if not present:
+        return dag.checkedReject(
+          "PayloadAttestationMessage: validator not in ptc")
+    else:
+      return dag.checkedReject(
+        "PayloadAttestationMessage: only valid for Gloas fork")
+
+  # [REJECT] `payload_attestation_message.signature` is valid with respect
+  # to the validator's public key.
+  if checkSignature:
+    let
+      validator_index = ValidatorIndex(payload_attestation_message.validator_index)
+      senderPubKey = dag.validatorKey(validator_index).valueOr:
+        return dag.checkedReject(
+          "PayPayloadAttesatationMessage: invalid validator index")
+      fork = dag.forkAtEpoch(data.slot.epoch)
+
+    let deferredCrypto = batchCrypto.schedulePayloadAttestationCheck(
+      fork, dag.genesis_validators_root, payload_attestation_message,
+      senderPubKey, payload_attestation_message.signature)
+    if deferredCrypto.isErr():
+      return dag.checkedReject(deferredCrypto.error)
+
+    let (cryptoFut, sig) = deferredCrypto.get()
+    let x = await cryptoFut
+    case x
+    of BatchResult.Invalid:
+      return dag.checkedReject(
+        "PayloadAttestatoinMessage: invalid signature")
+    of BatchResult.Timeout:
+      return errIgnore(
+        "PayloadAttestationMessage: timeout checking signature")
+    of BatchResult.Valid:
+      discard
 
   ok()

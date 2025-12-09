@@ -856,6 +856,15 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
+## Payload attestation pool [Preset: mainnet]
+```diff
++ Can add and retrieve payload attestations [Preset: mainnet]                                OK
++ Can get payload attestations for block production [Preset: mainnet]                        OK
++ Different payload presence values [Preset: mainnet]                                        OK
++ Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
++ Multiple validators in PTC can attest [Preset: mainnet]                                    OK
++ Payload attestations get pruned [Preset: mainnet]                                          OK
+```
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK

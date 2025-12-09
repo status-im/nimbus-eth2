@@ -18,7 +18,7 @@ import
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
     blob_quarantine, blockchain_list, envelope_quarantine,
-    execution_payload_pool],
+    execution_payload_pool, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -416,6 +416,7 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
+    payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
@@ -542,7 +543,7 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, executionPayloadBidPool,
+      lightClientPool, executionPayloadBidPool, payloadAttestationPool,
       quarantine, blobQuarantine, dataColumnQuarantine, envelopeQuarantine,
       rng, getBeaconTime, taskpool)
     syncManagerFlags =
@@ -659,6 +660,8 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.executionPayloadBidPool = executionPayloadBidPool
+  node.payloadAttestationPool = payloadAttestationPool
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -2393,6 +2396,20 @@ proc installMessageValidators(node: BeaconNode) =
                   MsgSource.gossip, signedEnvelope))
           )
 
+        # payload_attestation_message
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addAsyncValidator(
+            getPayloadAttestationMessageTopic(digest), proc (
+              payloadAttestationMessage: PayloadAttestationMessage,
+              src: PeerId
+            ): Future[ValidationResult] {.
+                 async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processPayloadAttestationMessage(
+                  MsgSource.gossip, payloadAttestationMessage,
+                  checkSignature = true, checkValidator = false)))
+
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2581,11 +2598,6 @@ proc installMessageValidators(node: BeaconNode) =
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  if not node.config.inProcessValidators:
-    try:
-      node.vcProcess.close()
-    except Exception as exc:
-      warn "Couldn't close vc process", msg = exc.msg
   try:
     waitFor node.network.stop()
   except CatchableError as exc:
@@ -2865,6 +2877,7 @@ proc doRunBeaconNode(
   ignoreDeprecatedOption web3ForcePolling
   ignoreDeprecatedOption finalizedDepositTreeSnapshot
   ignoreDeprecatedOption finalizedCheckpointBlock
+  ignoreDeprecatedOption inProcessValidators
 
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
