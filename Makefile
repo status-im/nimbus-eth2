@@ -193,11 +193,13 @@ libbacktrace:
 #
 # REST tests:
 # - --base-port (REST_TEST_BASE_PORT + 0)
-# - --base-rest-port (REST_TEST_BASE_PORT + 1)
-# - --base-metrics-port (REST_TEST_BASE_PORT + 2)
+# - debug-quic-port (REST_TEST_BASE_PORT + 1)
+# - --base-rest-port (REST_TEST_BASE_PORT + 2)
+# - --base-metrics-port (REST_TEST_BASE_PORT + 3)
 #
 # Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
+# - debug-quic-port uses (--base-port + 1) + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
 # - --base-vc-keymanager-port + [0, --nodes)
@@ -218,9 +220,9 @@ MAINNET_TESTNET_BASE_PORT := 26501
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 0 )) \
-		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 1 )) \
-		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 2 )) \
+		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
+		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
+		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
 		--resttest-delay 30 \
 		--kill-old-processes
 
@@ -500,6 +502,8 @@ nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--debug-quic=true \
+	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 1 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \

@@ -145,7 +145,7 @@ fi
 
 # kill lingering processes from a previous run
 if [[ "${HAVE_LSOF}" == "1" ]]; then
-  for PORT in ${BASE_PORT} ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
+  for PORT in ${BASE_PORT} $((BASE_PORT + 2000)) ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
     for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
       echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
       if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
@@ -154,6 +154,16 @@ if [[ "${HAVE_LSOF}" == "1" ]]; then
       else
 	echo "Aborting."
 	exit 1
+      fi
+    done
+    for PID in $(lsof -n -i udp:${PORT} -t); do
+      echo -n "Found old process using UDP port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+        echo "Killing it."
+        kill -9 ${PID} || true
+      else
+        echo "Aborting."
+        exit 1
       fi
     done
   done
@@ -239,6 +249,8 @@ rm -rf "${TEST_DIR}/db" "${TEST_DIR}/validators/slashing_protection.sqlite3"
 ${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
   --udp-port=${BASE_PORT} \
+  --debug-quic=true \
+  --debug-quic-port=$((BASE_PORT + 2000)) \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --network="${TEST_DIR}" \
   --data-dir="${TEST_DIR}" \

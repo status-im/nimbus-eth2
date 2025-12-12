@@ -349,6 +349,8 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
             @[
               "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
               "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+              "--debug-quic=true",
+              "--debug-quic-port=" & $(basePort + PortKind.PeerToPeer.ord + 2000),
               "--discv5=off",
               "--network=" & dataDir,
               "--data-dir=" & nodeDataDir,

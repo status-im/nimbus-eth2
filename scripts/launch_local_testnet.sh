@@ -439,6 +439,16 @@ kill_by_port() {
         exit 1
       fi
     done
+    for PID in $(lsof -n -i udp:${PORT} -t); do
+      echo -n "Found old process using UDP port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+        echo "Killing it."
+        kill -SIGKILL "${PID}" || true
+      else
+        echo "Aborting."
+        exit 1
+      fi
+    done
   done
 }
 
@@ -515,7 +525,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   # Stop Nimbus CL nodes
   for NUM_NODE in $(seq 1 $NUM_NODES); do
-    for PORT in $(( BASE_PORT + NUM_NODE - 1 )) $(( BASE_METRICS_PORT + NUM_NODE - 1)) $(( BASE_REST_PORT + NUM_NODE - 1)); do
+    for PORT in $(( BASE_PORT + NUM_NODE - 1 )) $(( BASE_PORT + 2000 + NUM_NODE - 1 )) $(( BASE_METRICS_PORT + NUM_NODE - 1)) $(( BASE_REST_PORT + NUM_NODE - 1)); do
       PORTS_TO_KILL+=("${PORT}")
     done
   done
@@ -1136,6 +1146,8 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
     --udp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
+    --debug-quic=true \
+    --debug-quic-port=$(( BASE_PORT + 2000 + NUM_NODE - 1 )) \
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
@@ -1254,6 +1266,9 @@ if [ "$LC_NODES" -ge "1" ]; then
       WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
+    TCP_PORT=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 ))
+    QUIC_PORT=$(( TCP_PORT + 1000 ))
+
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
       --log-format="json" \
@@ -1262,6 +1277,8 @@ if [ "$LC_NODES" -ge "1" ]; then
       --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
       --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
       --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
+      --debug-quic=true \
+      --debug-quic-port=$(( BASE_PORT + 2000 + NUM_NODES + NUM_LC - 1 )) \
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \

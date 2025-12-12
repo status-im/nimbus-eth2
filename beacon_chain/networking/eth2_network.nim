@@ -1968,7 +1968,7 @@ proc startListening*(node: Eth2Node) {.async.} =
   try:
     await node.switch.start()
   except CatchableError as exc:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+    fatal "Failed to start LibP2P transport. TCP/QUIC port may be already in use",
           exc = exc.msg
     quit 1
 

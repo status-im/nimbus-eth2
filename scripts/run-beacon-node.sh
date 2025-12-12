@@ -60,12 +60,17 @@ if [[ "$WEB3_URL" != "" ]]; then
   WEB3_URL_ARG="--el=${WEB3_URL}"
 fi
 
+TCP_PORT=$(( BASE_P2P_PORT + NODE_ID ))
+QUIC_PORT=$(( TCP_PORT + 1 ))
+
 # Allow the binary to receive signals directly.
 exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR}" \
-  --tcp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
-  --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
+  --tcp-port=${TCP_PORT} \
+  --udp-port=${TCP_PORT} \
+  --debug-quic=true \
+  --debug-quic-port=${QUIC_PORT} \
   --rest \
   --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
   --metrics \
