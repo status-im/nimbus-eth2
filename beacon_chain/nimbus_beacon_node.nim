@@ -1771,6 +1771,10 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
     return
 
+  # Currently, this logic is broken
+  if true:
+    return
+
   logScope:
     slot = slot
 
