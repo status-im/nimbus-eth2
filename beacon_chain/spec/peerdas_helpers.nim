@@ -173,6 +173,22 @@ proc recover_cells_and_proofs_parallel*(
   const reconstructionTimeout = 2.seconds
 
   # ---- Spawn phase with time limit ----
+  proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
+    c_free(idxPtr)
+    c_free(cellsPtr)
+
+  proc drainPending(startIdx: int) =
+    for j in startIdx ..< spawned:
+      if pendingFuts[j].isReady():
+        discard sync pendingFuts[j]
+      # Always free the memory regardless
+      freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
+      pendingIdxPtrs[j] = nil
+      pendingCellsPtrs[j] = nil
+
+  var completed = 0
+
+  # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
     let now = Moment.now()
     if (now - startTime) > reconstructionTimeout:
