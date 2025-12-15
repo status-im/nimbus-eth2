@@ -865,7 +865,7 @@ static:
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId)
 
-func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
+func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] {.compileTime.} =
   for name, value in x.fieldPairs:
     when value is tuple|object:
       result.add getSizeofSig(value, n + 1)
@@ -884,19 +884,22 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
 template isomorphicCast*[T](x: auto): T =
   # Each of these pairs of types has ABI-compatible memory representations.
   type U = typeof(x)
+
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
-    type
-      TT = typeof default(typeof T)[]
-      UU = typeof default(typeof U)[]
-    static:
-      doAssert sizeof(TT) == sizeof(UU)
-      doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+    when defined(debug):
+      type
+        TT = typeof default(typeof T)[]
+        UU = typeof default(typeof U)[]
+      static:
+        doAssert sizeof(TT) == sizeof(UU)
+        doAssert getSizeofSig(TT()) == getSizeofSig(UU())
     cast[T](x)
   else:
-    static:
-      doAssert getSizeofSig(T()) == getSizeofSig(U())
-      doAssert sizeof(T) == sizeof(U)
+    when defined(debug): # 10s+ compile time due to `default(T)` and `replace`!
+      static:
+        doAssert getSizeofSig(T()) == getSizeofSig(U())
+        doAssert sizeof(T) == sizeof(U)
     cast[ptr T](unsafeAddr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
