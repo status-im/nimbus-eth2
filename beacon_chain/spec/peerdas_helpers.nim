@@ -213,14 +213,15 @@ proc recover_cells_and_proofs_parallel*(
   const reconstructionTimeout = 2.seconds
 
   proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
-    c_free(idxPtr)
-    c_free(cellsPtr)
+    if not idxPtr.isNil:
+      c_free(idxPtr)
+    if not cellsPtr.isNil:
+      c_free(cellsPtr)
 
-  proc drainPending(startIdx: int) =
-    for j in startIdx ..< spawned:
-      if pendingFuts[j].isReady():
-        discard sync pendingFuts[j]
-      # Always free the memory regardless
+  proc freeAllAllocated() =
+    ## Free all C memory allocated so far, without syncing futures.
+    ## Only call this on error paths where we're aborting.
+    for j in 0 ..< spawned:
       freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
       pendingIdxPtrs[j] = nil
       pendingCellsPtrs[j] = nil
@@ -233,7 +234,7 @@ proc recover_cells_and_proofs_parallel*(
     if (now - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out while preparing columns",
         spawned = spawned, total = blobCount
-      drainPending(0)
+      freeAllAllocated()
       return err("Data column reconstruction timed out")
 
     # Allocate unmanaged C buffers and copy data into them
@@ -242,12 +243,12 @@ proc recover_cells_and_proofs_parallel*(
       cellsBytes = csize_t(columnCount) * csize_t(sizeof(Cell))
       idxPtr = cast[ptr CellIndex](c_malloc(idxBytes))
     if idxPtr == nil:
-      drainPending(0)
+      freeAllAllocated()
       return err("Failed to allocate memory for cell indices during reconstruction")
     let cellsPtr = cast[ptr Cell](c_malloc(cellsBytes))
     if cellsPtr == nil:
       c_free(idxPtr)
-      drainPending(0)
+      freeAllAllocated()
       return err("Failed to allocate memory for cell data during reconstruction")
 
     # populate C buffers via UncheckedArray casts
@@ -270,7 +271,11 @@ proc recover_cells_and_proofs_parallel*(
       if (now2 - startTime) > reconstructionTimeout:
         trace "PeerDAS reconstruction timed out while awaiting tasks",
           completed = completed, totalSpawned = spawned
-        drainPending(completed)
+        # Free memory for tasks we haven't synced yet
+        for j in completed ..< spawned:
+          freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
+          pendingIdxPtrs[j] = nil
+          pendingCellsPtrs[j] = nil
         return err("Data column reconstruction timed out")
 
       let futRes = sync pendingFuts[completed]
@@ -279,7 +284,11 @@ proc recover_cells_and_proofs_parallel*(
       pendingCellsPtrs[completed] = nil
 
       if futRes.isErr:
-        drainPending(completed + 1)
+        # Free memory for remaining unsynced tasks
+        for j in completed + 1 ..< spawned:
+          freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
+          pendingIdxPtrs[j] = nil
+          pendingCellsPtrs[j] = nil
         return err("KZG cells and proofs recovery failed")
       res[completed] = futRes.get
       inc completed
@@ -290,7 +299,11 @@ proc recover_cells_and_proofs_parallel*(
     if (now - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out during final sync",
         completed = i, totalSpawned = spawned
-      drainPending(i)
+      # Free memory for tasks we haven't synced yet
+      for j in i ..< spawned:
+        freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
+        pendingIdxPtrs[j] = nil
+        pendingCellsPtrs[j] = nil
       return err("Data column reconstruction timed out")
 
     let futRes = sync pendingFuts[i]
@@ -299,14 +312,13 @@ proc recover_cells_and_proofs_parallel*(
     pendingCellsPtrs[i] = nil
 
     if futRes.isErr:
-      drainPending(i + 1)
+      # Free memory for remaining unsynced tasks
+      for j in i + 1 ..< spawned:
+        freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
+        pendingIdxPtrs[j] = nil
+        pendingCellsPtrs[j] = nil
       return err("KZG cells and proofs recovery failed")
     res[i] = futRes.get
-
-  # If we spawned fewer than blobCount, spawn-phase timed out earlier
-  if spawned < blobCount:
-    drainPending(0)
-    return err("Data column reconstruction timed out")
 
   ok(res)
 
