@@ -2849,6 +2849,17 @@ proc doRunBeaconNode(
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
+  # Ensure that non-light peerdas supernode options are forcibly disabled
+  # TODO when reconstruction works again, re-enable
+  # this is required because the fall-through is that if one of these is
+  # enabled, the (working) light supernode code won't run at all.
+  if config.debugPeerdasSuperNode or config.peerdasSuperNode:
+    # It's at least not worse than not doing this; a functioning (full)
+    # supernode reconstructs and stores a superset of these columns
+    config.lightSupernode = true
+  config.debugPeerdasSupernode = false
+  config.peerdasSupernode = false
+
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
