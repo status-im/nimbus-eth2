@@ -126,28 +126,55 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     next_epoch*: Epoch
+    next_slot*: Slot
+    payload_present*: bool
 
   ForkChoiceBackend* = object
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
+    # Additional state tracking for Gloas
+    execution_payload_states*: Table[Eth2Digest, Eth2Digest] # root -> state_root
+    ptc_vote*: Table[Eth2Digest, seq[bool]]
 
   QueuedAttestation* = object
     slot*: Slot
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     target_epoch*: Epoch
+    # Gloas - track committee index for payload preference
+    committee_index*: CommitteeIndex
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
 
+# New Fork choice types for Gloas
+# ----------------------------------------------------------------------
+
+type
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#custom-types
+  PayloadStatus* = uint8
+ 
+  ForkChoiceNode* = object
+    root*: Eth2Digest
+    payloadStatus*: PayloadStatus
+
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#constants
+  PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
+  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
+  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
+  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
+
 func shortLog*(vote: VoteTracker): auto =
   (
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
-    next_epoch: vote.next_epoch
+    next_epoch: vote.next_epoch,
+    next_slot: vote.next_slot,
+    payload_present: vote.payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

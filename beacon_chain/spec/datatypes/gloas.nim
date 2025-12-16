@@ -36,19 +36,9 @@ from ./deneb import
 
 export json_serialization, base
 
-type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
-  PayloadStatus* = uint8
-
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
-  PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
-  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
-  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
-  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
