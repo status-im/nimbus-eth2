@@ -418,7 +418,7 @@ proc initFullNode(
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
+    supernode = node.config.peerdasSupernode
     lightSupernode = node.config.lightSupernode
     localCustodyGroups =
       if supernode:
@@ -1312,7 +1312,7 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   let
     custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
+  if node.config.peerdasSupernode:
     custodyGroups
   elif node.config.lightSupernode:
     (custodyGroups div 2) + 1
@@ -2048,7 +2048,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
-     (not node.config.debugPeerdasSupernode) and
      (not node.config.lightSupernode) and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
@@ -2853,11 +2852,10 @@ proc doRunBeaconNode(
   # TODO when reconstruction works again, re-enable
   # this is required because the fall-through is that if one of these is
   # enabled, the (working) light supernode code won't run at all.
-  if config.debugPeerdasSuperNode or config.peerdasSuperNode:
+  if config.peerdasSuperNode:
     # It's at least not worse than not doing this; a functioning (full)
     # supernode reconstructs and stores a superset of these columns
     config.lightSupernode = true
-  config.debugPeerdasSupernode = false
   config.peerdasSupernode = false
 
   if config.rpcEnabled.isSome:

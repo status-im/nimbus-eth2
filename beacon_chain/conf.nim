@@ -241,11 +241,6 @@ type
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
 
-    debugPeerdasSupernode* {.
-      hidden
-      defaultValue: false,
-      name: "debug-peerdas-supernode" .}: bool
-
     peerdasSupernode* {.
       defaultValue: false,
       desc: "Subscribe to all column subnets, thereby becoming a PeerDAS supernode"
