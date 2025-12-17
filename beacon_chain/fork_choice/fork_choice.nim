@@ -499,6 +499,123 @@ func compute_deltas(
       vote.current_root = vote.next_root
   return ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
+func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
+  ## Return whether the execution payload for the beacon block with root ``root``
+  ## was voted as present by the PTC, and was locally determined to be available.
+
+  # The beacon block root must be known
+  if root notin self.ptc_vote:
+    return false
+  
+  # If the payload is not locally available, the payload
+  # is not considered available regardless of the PTC vote
+  if root notin self.execution_payload_states:
+    return false
+
+  let votes = self.ptc_vote.getOrDefault(root, @[])
+  var vote_count = 0
+  for vote in votes:
+    if vote:
+      inc vote_count
+
+  if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
+    trace "Payload crossed timeliness threshhold",
+      root = shortLog(root),
+      votes = vote_count,
+      threshhold = PAYLOAD_TIMELY_THRESHOLD
+    return true
+  false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+proc on_payload_attestation_message*(
+   self: var ForkChoice,
+   dag: ChainDAGRef,
+   validator_index: ValidatorIndex,
+   beacon_block_root: Eth2Digest,
+   slot: Slot,
+   payload_present: bool,
+   is_from_block: bool = false): FcResult[void] =
+  ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message`` directly on the wire.
+  ## 
+  ## This is called when we receive a PayloadAttestationMessage either:
+  ##  - From gossip (is_from_block = false)
+  ##  - From a block's body.payload_attestations (is_from_block = true)
+  ## 
+  ## Block at slot N -> PTC votes during slot N -> votes ncluded in slot N+1
+  
+  if not dag.isGloasEnabled(slot):
+    return ok()
+
+  # The beacon block root must be known
+  if beacon_block_root notin self.backend.proto_array.indices:
+    return ok()
+  
+  # PTC attestation must be for a known block. If block is unknown, delay consideration until the block is found
+  if beacon_block_root notin self.backend.ptc_vote:
+    self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
+
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var
+        cache: StateCache
+        ptc_index = -1
+        i = 0
+
+      for vidx in get_ptc(forkyState.data, slot, cache):
+        if vidx == validator_index:
+          ptc_index = i
+          break
+        inc i
+
+      if ptc_index >= 0:
+        var votes =
+          self.backend.ptc_vote.mgetOrPut(
+            beacon_block_root, newSeq[bool](PTC_SIZE))
+
+        votes[ptc_index] = payload_present
+
+        trace "Recorded PTC vote",
+          validator_index = validator_index,
+          beacon_block_root = shortLog(beacon_block_root),
+          slot = slot,
+          payload_present = payload_present,
+          ptc_index = ptc_index,
+          is_from_block = is_from_block
+      else:
+        debug "PTC vote from unknown validator index",
+          validator_index = validator_index,
+          slot = slot
+    else:
+      debug "Attempted to record PTC vote before GLOAS fork"
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_execution_payload
+proc on_execution_payload(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    beacon_block_root: Eth2Digest,
+    execution_payload_state_root: Eth2Digest): FcResult[void] =
+  ## Run ``on_execution_payload`` upon receiving a new execution payload.
+  
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  if not dag.isGloasEnabled(current_slot):
+    return ok()
+
+  # The corresponding beacon block root needs to be known
+  if beacon_block_root notin self.backend.proto_array.indices:
+    debug "Execution payload for unknown block",
+      beacon_block_root = shortLog(beacon_block_root)
+    return ok()
+
+  self.backend.execution_payload_states[beacon_block_root] =
+    execution_payload_state_root
+
+  debug "Recorded execution payload availability",
+    beacon_block_root = shortLog(beacon_block_root),
+    state_root = shortLog(execution_payload_state_root)
+  ok()
+
 # Sanity checks
 # ----------------------------------------------------------------------
 # Sanity checks on internal private procedures
