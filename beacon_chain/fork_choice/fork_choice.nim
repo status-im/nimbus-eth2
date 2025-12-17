@@ -43,6 +43,10 @@ func compute_deltas(
        old_balances: openArray[Gwei],
        new_balances: openArray[Gwei]
      ): FcResult[void]
+
+func isGloasEnabled(dag: ChainDAGRef, slot: Slot): bool =
+  slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -152,25 +156,44 @@ proc on_tick(
 
   ok()
 
-func process_attestation(
+func process_attestation*(
        self: var ForkChoiceBackend,
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
-       target_epoch: Epoch
+       target_epoch: Epoch,
+       attestation_slot: Slot,
+       payload_present: bool,
+       cfg: RuntimeConfig
      ) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if target_epoch > vote.next_epoch or vote.next_root.isZero:
-    vote.next_root = block_root
-    vote.next_epoch = target_epoch
+
+  if attestation_slot.epoch >= cfg.GLOAS_FORK_EPOCH:
+    # slot based tracking with payload preference
+    if attestation_slot > vote.next_slot or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.next_slot = attestation_slot
+      vote.next_epoch = target_epoch
+      vote.payload_present = payload_present
+
+      trace "Integrating Gloas vote in fork choice",
+        validator_index = validator_index,
+        slot = attestation_slot,
+        payload_present = payload_present,
+        new_vote = shortLog(vote)
+  else:
+    if target_epoch > vote.next_epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.next_epoch = target_epoch
 
     trace "Integrating vote in fork choice",
       validator_index = validator_index,
       new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+proc process_attestation_queue(
+    self: var ForkChoice, slot: Slot, dag: ChainDAGRef) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
@@ -179,7 +202,8 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot.epoch())
+          validator_index, it.block_root, it.slot.epoch(), it.slot, 
+          it.committee_index == 1, dag.cfg)
       false
     else:
       true
@@ -210,7 +234,7 @@ proc update_time*(
       ? self.on_tick(dag, time)
 
     if preSlot != postSlot:
-      self.process_attestation_queue(postSlot)
+      self.process_attestation_queue(postSlot, dag)
 
   ok()
 
@@ -221,6 +245,7 @@ proc on_attestation*(
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
        attesting_indices: openArray[ValidatorIndex],
+       attestation_committee_index: CommitteeIndex,
        wallTime: BeaconTime
      ): FcResult[void] =
   ? self.update_time(dag,
@@ -230,7 +255,8 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot.epoch)
+        validator_index, beacon_block_root, attestation_slot.epoch, attestation_slot,
+        attestation_committee_index == 1, dag.cfg)
   else:
     # Spec:
     # Attestations can only affect the fork choice of subsequent slots.
@@ -238,7 +264,8 @@ proc on_attestation*(
     self.queuedAttestations.add(QueuedAttestation(
       slot: attestation_slot,
       attesting_indices: @attesting_indices,
-      block_root: beacon_block_root))
+      block_root: beacon_block_root,
+      committee_index: attestation_committee_index))
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
@@ -295,7 +322,7 @@ proc process_block*(self: var ForkChoice,
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   if slot == blck.slot and
-      self.checkpoints.time < slot.attestation_deadline(
+      self.checkpoints.time <= slot.attestation_deadline(
         dag.timeParams, typeof(blck).kind) and
       self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
