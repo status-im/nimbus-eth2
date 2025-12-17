@@ -1324,6 +1324,18 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bo
 
   (legacy and db.v0.containsState(key))
 
+proc containsExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  if db.envelopes == nil:
+    return false
+  db.envelopes.contains(root.data).expectDb()
+
+proc containsDataColumnSidecar*(
+    db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex): bool =
+  if db.columns == nil:
+    return false
+  db.columns.contains(columnkey(root, index)).expectDb()
+
 proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
     Opt[BeaconBlockSummary] =
   var summary: BeaconBlockSummary

@@ -840,43 +840,26 @@ proc sendSyncCommitteeContributions(
 
 proc checkPayloadPresent(
     node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
-  ## Check if we received the payload envelope for
-  ## this slot and a corresponding block
-
   let blokData = node.dag.getForkedBlock(beacon_block_root).valueOr:
     return false
 
   withBlck(blokData):
     when consensusFork >= ConsensusFork.Gloas:
-      var envelope: TrustedSignedExecutionPayloadEnvelope
-      node.dag.db.getExecutionPayloadEnvelope(beacon_block_root, envelope) and
-        envelope.message.beacon_block_root == beacon_block_root
+      node.dag.db.containsExecutionPayloadEnvelope(beacon_block_root)
     else:
       true
 
 proc checkBlobDataAvailable(
     node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
-  ## Check if the blob sidecars for this slot and envelope are available
-
   let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
     return false
 
   withBlck(blckData):
     when consensusFork >= ConsensusFork.Gloas:
-      var envelope: TrustedSignedExecutionPayloadEnvelope
-      if not node.dag.db.getExecutionPayloadEnvelope(
-          beacon_block_root, envelope):
-        return false
-
-      template commitments: untyped = envelope.message.blob_kzg_commitments
-      if commitments.len == 0:
-        return true # No blobs required for this slot
-
       # check that our custody columns are available
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
-        var column: gloas.DataColumnSidecar
-        if not node.dag.db.getDataColumnSidecar(
-            beacon_block_root, columnIdx, column):
+        if not node.dag.db.containsDataColumnSidecar(
+            beacon_block_root, columnIdx):
           return false
       true
     else:
