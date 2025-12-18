@@ -865,10 +865,10 @@ static:
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId)
 
-func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] {.compileTime.} =
-  for name, value in x.fieldPairs:
+func getSizeofSig(X: type, n: int = 0): seq[(string, int, int)] {.compileTime.} =
+  for name, value in default(ptr X)[].fieldPairs:
     when value is tuple|object:
-      result.add getSizeofSig(value, n + 1)
+      result.add getSizeofSig(typeof(value), n + 1)
     # TrustedSig and ValidatorSig differ in that they have otherwise identical
     # fields where one is "blob" and the other is "data". They're structurally
     # isomorphic, regardless. Grandfather that exception in, but in general it
@@ -887,19 +887,17 @@ template isomorphicCast*[T](x: auto): T =
 
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
-    when defined(debug):
-      type
-        TT = typeof default(typeof T)[]
-        UU = typeof default(typeof U)[]
-      static:
-        doAssert sizeof(TT) == sizeof(UU)
-        doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+    type
+      TT = pointerBase(T)
+      UU = pointerBase(U)
+    static:
+      doAssert sizeof(TT) == sizeof(UU)
+      doAssert getSizeofSig(T) == getSizeofSig(U)
     cast[T](x)
   else:
-    when defined(debug): # 10s+ compile time due to `default(T)` and `replace`!
-      static:
-        doAssert getSizeofSig(T()) == getSizeofSig(U())
-        doAssert sizeof(T) == sizeof(U)
+    static:
+      doAssert getSizeofSig(T) == getSizeofSig(U)
+      doAssert sizeof(T) == sizeof(U)
     cast[ptr T](unsafeAddr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
