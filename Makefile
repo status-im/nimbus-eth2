@@ -91,6 +91,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	test \
 	clean \
 	libbacktrace \
+	boringssl-win64 \
 	book \
 	publish-book \
 	dist-amd64 \
@@ -164,7 +165,7 @@ ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS += -d:disable_libbacktrace
 endif
 
-deps: | deps-common nat-libs build/generate_makefile
+deps: | deps-common nat-libs build/generate_makefile boringssl-win64
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -177,6 +178,9 @@ update: | update-common
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+
+boringssl-win64:
+	+ "$(MAKE)" -C vendor/nim-lsquic
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
