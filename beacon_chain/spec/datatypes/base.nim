@@ -887,7 +887,7 @@ template isomorphicCast*[T](x: auto): T =
 
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
-    when defined(debug):
+    when not defined(release):
       type
         TT = pointerBase(T)
         UU = pointerBase(U)
@@ -896,7 +896,8 @@ template isomorphicCast*[T](x: auto): T =
         doAssert getSizeofSig(TT()) == getSizeofSig(UU())
     cast[T](x)
   else:
-    when defined(debug): # 10s+ compile time due to `default(T)` and `replace`!
+    # CI undefines `release` when testing the build
+    when not defined(release): # 10s+ compile time due to `default(T)` and `replace`!
       static:
         doAssert sizeof(T) == sizeof(U)
         doAssert getSizeofSig(T()) == getSizeofSig(U())
