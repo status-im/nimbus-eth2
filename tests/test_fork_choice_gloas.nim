@@ -10,8 +10,15 @@
 
 import
   unittest2,
-  ../beacon_chain/spec/datatypes/base,
-  ".."/beacon_chain/fork_choice/[fork_choice_types, fork_choice]
+  chronicles,
+  ../beacon_chain/spec/[beaconstate, helpers, state_transition],
+  ../beacon_chain/spec/datatypes/[base, phase0, gloas],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag],
+  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
+  ../beacon_chain/validators/validator_monitor,
+  ../beacon_chain/beacon_chain_db,
+  ../beacon_chain/gossip_processing/batch_validation,
+  ./testutil, ./testdbutil
 
 suite "Vote Processing - Slot Tracking":
   test "Gloas: Votes update based on slot":
@@ -160,3 +167,121 @@ suite "Vote Processing - Slot Tracking":
         "0x5555555555555555555555555555555555555555555555555555555555555555")
       check:
         backend.is_payload_timely(root3)
+
+suite "Gloas Payload Extension":
+
+  setup:
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = Epoch(0)
+    cfg.BELLATRIX_FORK_EPOCH = Epoch(0)
+    cfg.CAPELLA_FORK_EPOCH = Epoch(0)
+    cfg.DENEB_FORK_EPOCH = Epoch(0)
+    cfg.ELECTRA_FORK_EPOCH = Epoch(0)
+    cfg.FULU_FORK_EPOCH = Epoch(0)
+    cfg.GLOAS_FORK_EPOCH = Epoch(0)
+
+    var
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
+      forkChoice = newClone(ForkChoice.init(
+        dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+
+  test "should_extend_payload: True when payload is timely":
+    let block_root = Eth2Digest.fromHex(
+      "0x1111111111111111111111111111111111111111111111111111111111111111")
+
+    # Set up PTC votes
+    forkChoice[].backend.ptc_vote[block_root] = newSeq[bool](PTC_SIZE)
+    for i in 0..<300:
+      forkChoice[].backend.ptc_vote[block_root][i] = true
+
+    # Mark payload as locally available
+    forkChoice[].backend.execution_payload_states[block_root] = Eth2Digest.fromHex(
+      "0x2222222222222222222222222222222222222222222222222222222222222222")
+
+    check:
+      forkChoice[].should_extend_payload(block_root)
+
+  test "should_extend_payload: True when no proposer boost":
+    let block_root = Eth2Digest.fromHex(
+      "0x3333333333333333333333333333333333333333333333333333333333333333")
+
+    # Payload not timely
+    forkChoice[].backend.ptc_vote[block_root] = newSeq[bool](PTC_SIZE)
+    for i in 0..<100:
+      forkChoice[].backend.ptc_vote[block_root][i] = true
+
+    # No proposer boost
+    forkChoice[].checkpoints.proposer_boost_root = ZERO_HASH
+
+    check:
+      forkChoice[].should_extend_payload(block_root)
+
+  test "should_extend_payload: True when proposer boost on different chain":
+    let
+      genesis_root = dag.genesis.get().root
+      blockB_root = Eth2Digest.fromHex(
+        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+      blockC_root = Eth2Digest.fromHex(
+        "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+
+    # Add blocks to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: blockB_root, slot: Slot(1)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    discard forkChoice[].backend.process_block(
+      BlockId(root: blockC_root, slot: Slot(1)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    # Payload for B NOT timely
+    forkChoice[].backend.ptc_vote[blockB_root] = newSeq[bool](PTC_SIZE)
+    for i in 0..<100:
+      forkChoice[].backend.ptc_vote[blockB_root][i] = true
+
+    # Block C gets proposer boost (different chain)
+    forkChoice[].checkpoints.proposer_boost_root = blockC_root
+
+    check:
+      forkChoice[].should_extend_payload(blockB_root)
+
+  test "should_extend_payload: False when proposer boost on same chain":
+    let
+      genesis_root = dag.genesis.get().root
+      blockB_root = Eth2Digest.fromHex(
+        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+      blockD_root = Eth2Digest.fromHex(
+        "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+
+    # Add blocks to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: blockB_root, slot: Slot(1)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    discard forkChoice[].backend.process_block(
+      BlockId(root: blockD_root, slot: Slot(2)), # Builds on B
+      blockB_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    # Payload for B not timely
+    forkChoice[].backend.ptc_vote[blockB_root] = newSeq[bool](PTC_SIZE)
+    for i in 0..<100:
+      forkChoice[].backend.ptc_vote[blockB_root][i] = true
+
+    # Block D gets proposer boost (on same chain as B)
+    forkChoice[].checkpoints.proposer_boost_root = blockD_root
+
+    check:
+      not forkChoice[].should_extend_payload(blockB_root)

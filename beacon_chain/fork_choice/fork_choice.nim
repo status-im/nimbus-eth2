@@ -202,7 +202,7 @@ proc process_attestation_queue(
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot.epoch(), it.slot, 
+          validator_index, it.block_root, it.slot.epoch(), it.slot,
           it.committee_index == 1, dag.cfg)
       false
     else:
@@ -507,7 +507,7 @@ func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
   # The beacon block root must be known
   if root notin self.ptc_vote:
     return false
-  
+
   # If the payload is not locally available, the payload
   # is not considered available regardless of the PTC vote
   if root notin self.execution_payload_states:
@@ -536,21 +536,16 @@ proc on_payload_attestation_message*(
    slot: Slot,
    payload_present: bool,
    is_from_block: bool = false): FcResult[void] =
-  ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message`` directly on the wire.
-  ## 
-  ## This is called when we receive a PayloadAttestationMessage either:
-  ##  - From gossip (is_from_block = false)
-  ##  - From a block's body.payload_attestations (is_from_block = true)
-  ## 
-  ## Block at slot N -> PTC votes during slot N -> votes ncluded in slot N+1
-  
+  ## Run ``on_payload_attestation_message`` upon receiving
+  ## a new ``ptc_message`` directly on the wire.
+
   if not dag.isGloasEnabled(slot):
     return ok()
 
   # The beacon block root must be known
   if beacon_block_root notin self.backend.proto_array.indices:
     return ok()
-  
+
   # PTC attestation must be for a known block. If block is unknown, delay consideration until the block is found
   if beacon_block_root notin self.backend.ptc_vote:
     self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
@@ -597,7 +592,7 @@ proc on_execution_payload(
     beacon_block_root: Eth2Digest,
     execution_payload_state_root: Eth2Digest): FcResult[void] =
   ## Run ``on_execution_payload`` upon receiving a new execution payload.
-  
+
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   if not dag.isGloasEnabled(current_slot):
     return ok()
@@ -615,6 +610,95 @@ proc on_execution_payload(
     beacon_block_root = shortLog(beacon_block_root),
     state_root = shortLog(execution_payload_state_root)
   ok()
+
+func should_extend_payload*(
+    self: var Forkchoice, root: Eth2Digest): bool =
+  # Slot N:   Block B (PENDING) produced
+  #         Payload commitment in block
+  #         Builder should reveal payload
+
+  # Slot N+1: Fork choice deciding:
+  #         Should we extend EMPTY or FULL branch of Block B?
+
+  # Case 1: if payload is timely
+  if self.backend.is_payload_timely(root):
+    trace "Extending payload: timely according to PTC",
+      root = shortLog(root)
+    return true
+
+  # Case 2: No proposer boost for block
+  # Optimistic, default to full and assume payload will arrive
+  let proposer_root = self.checkpoints.proposer_boost_root
+  if proposer_root.isZero:
+    trace "Extending payload: no proposer boost",
+      root = shortLog(root)
+    return true
+
+  # Does proposer boost conflict with this block?
+  let proposer_idx = self.backend.proto_array.indices.getOrDefault(
+    proposer_root, -1)
+  if proposer_idx < 0:
+    trace "Extending payload: proposer boost block not found",
+      root = shortLog(root)
+    return true
+
+  # Use the proto_array's node accessor
+  let proposer_node = self.backend.proto_array.nodes.buf[proposer_idx]
+
+  # Check if parent exists
+  if proposer_node.parent.isNone:
+    trace "Extending payload: proposer boost at genesis",
+      root = shortLog(root)
+    return true
+
+  let
+    parent_idx = proposer_node.parent.get()
+    parent_node = self.backend.proto_array.nodes.buf[parent_idx]
+
+    parent_root = parent_node.bid.root
+
+  # Case 3: proposer boost is on a different chain than `root`
+  if parent_root != root:
+    trace "Extending payload: proposer boost on different chain",
+      root = shortLog(root),
+      proposer_boost_parent = shortLog(parent_root)
+    return true
+
+  # Case 4: Proposer boost on our chain (conservative approach)
+  trace "Not extending payload: proposer boost on our chain",
+    root = shortLog(root),
+    proposer_boost_root = shortLog(proposer_root)
+  false
+
+func get_payload_status_tiebreaker*(
+    self: var ForkChoice, node: ForkChoiceNode,
+    current_slot: Slot, dag: ChainDAGRef): uint8 =
+  if not dag.isGloasEnabled(current_slot):
+    return node.payload_status
+
+  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
+  if node_idx < 0:
+    return node.payload_status
+
+  let
+    proto_node = self.backend.proto_array.nodes.buf[node_idx]
+
+    # Are we deciding on previous slot's payload
+    is_deciding_on_previous = (proto_node.bid.slot + 1 == current_slot)
+
+  if node.payloadStatus == PAYLOAD_STATUS_PENDING or not is_deciding_on_previous:
+    return node.payload_status
+
+  # Deciding on previous slot's payload
+  if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
+    return 1'u8
+  elif node.payloadStatus == PAYLOAD_STATUS_FULL:
+    if self.should_extend_payload(node.root):
+      return 2'u8
+    else:
+      return 0'u8
+  else:
+    return 0'u8  # We shouldn't get here ideally
 
 # Sanity checks
 # ----------------------------------------------------------------------
