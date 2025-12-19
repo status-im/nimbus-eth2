@@ -656,7 +656,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
             ready.add(columnless.root)
           else:
-            debug "Requested column indices are no longer relevant",
+            debug "requested column indices are no longer relevant",
                  blk = columnless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 
