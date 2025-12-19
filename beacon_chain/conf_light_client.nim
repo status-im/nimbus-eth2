@@ -141,13 +141,13 @@ type LightClientConf* = object
     name: "jwt-secret" .}: Option[InputFile]
 
   bandwidthEstimate* {.
-    hidden
+    debug
     desc: "Bandwidth estimate for the node (bits per second)"
     name: "debug-bandwidth-estimate" .}: Option[Natural]
 
   # Testing
   stopAtEpoch* {.
-    hidden
+    debug
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64

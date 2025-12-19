@@ -242,7 +242,7 @@ type
       name: "subscribe-all-subnets" .}: bool
 
     debugPeerdasSupernode* {.
-      hidden
+      debug
       defaultValue: false,
       name: "debug-peerdas-supernode" .}: bool
 
@@ -397,7 +397,7 @@ type
         name: "verify-finalization" .}: bool
 
       stopAtEpoch* {.
-        hidden
+        debug
         desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
         name: "debug-stop-at-epoch" .}: uint64
@@ -557,7 +557,7 @@ type
         name: "light-client-data-max-periods" .}: Option[uint64]
 
       longRangeSync* {.
-        hidden
+        debug
         desc: "Enable long-range syncing (genesis sync)",
         defaultValue: LongRangeSyncMode.Lenient,
         name: "debug-long-range-sync".}: LongRangeSyncMode
@@ -601,7 +601,7 @@ type
       #     `--debug-invalidate-block-root` flag present until finality has
       #     advanced beyond the problematic chain segment
       invalidBlockRoots* {.
-        hidden
+        debug
         desc: "List of beacon block roots that, if the EL responds with SYNCING/ACCEPTED, are treated as if their execution payload was INVALID"
         name: "debug-invalidate-block-root" .}: seq[Eth2Digest]
 
@@ -685,14 +685,14 @@ type
         name: "history".}: HistoryMode
 
       trustedSetupFile* {.
-        hidden
+        debug
         desc: "Alternative EIP-4844 trusted setup file"
         defaultValue: none(string)
         defaultValueDesc: "Baked in trusted setup"
         name: "debug-trusted-setup-file" .}: Option[string]
 
       bandwidthEstimate* {.
-        hidden
+        debug
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
 

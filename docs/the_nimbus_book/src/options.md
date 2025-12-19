@@ -26,6 +26,8 @@ nimbus_beacon_node [OPTIONS]... command
 
 The following options are available:
 
+     --help                    Show this help message and exit. Available arguments: debug.
+     --version                 Show program's version and exit.
      --config-file             Loads the configuration from a TOML file.
      --log-level               Sets the log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none") [=INFO].
