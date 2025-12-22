@@ -243,3 +243,7 @@
 	url = https://github.com/status-im/nim-protobuf-serialization.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-async-channels"]
+	path = vendor/nim-async-channels
+	url = https://github.com/status-im/nim-async-channels
+	branch = master

@@ -15,7 +15,8 @@ import
   toml_serialization, toml_serialization/lexer,
   toml_serialization/std/net as confTomlNet,
   toml_serialization/std/uri as confTomlUri,
-  ../spec/engine_authentication
+  ../spec/engine_authentication,
+  json_rpc/rpcchannels
 
 from std/strutils import toLowerAscii, startsWith
 
@@ -26,11 +27,13 @@ type
   EngineApiUrl* = object
     url: string
     jwtSecret: Opt[JwtSharedKey]
+    channel*: Opt[RpcChannelPtrs]
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
     jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
     jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
+    channel* {.dontSerialize.}: Opt[RpcChannelPtrs]
 
 const
   # https://github.com/ethereum/execution-apis/pull/302
@@ -43,6 +46,10 @@ proc init*(T: type EngineApiUrl,
            url: string,
            jwtSecret = Opt.none JwtSharedKey): T =
   T(url: url, jwtSecret: jwtSecret)
+
+proc init*(T: type EngineApiUrl,
+           channel: RpcChannelPtrs): T =
+  T(channel: Opt.some channel)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
@@ -108,22 +115,22 @@ func getDefaultEngineApiUrl*(x: Option[InputFile]): EngineApiUrlConfigValue =
 
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
                  confJwtSecret: Opt[JwtSharedKey]): Result[EngineApiUrl, cstring] =
-  if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
-    return err "The options `jwtSecret` and `jwtSecretFile` should not be specified together"
-
-  let jwtSecret = if confValue.jwtSecret.isSome:
-    Opt.some(? parseJwtSharedKey(confValue.jwtSecret.get))
-  elif confValue.jwtSecretFile.isSome:
-    Opt.some(? loadJwtSecretFile(confValue.jwtSecretFile.get))
+  if confValue.channel.isSome:
+    ok EngineApiUrl.init(confValue.channel[])
   else:
-    confJwtSecret
+    if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
+      return err "The options `jwtSecret` and `jwtSecretFile` should not be specified together"
 
-  var url = confValue.url
-  fixupWeb3Urls(url)
+    let jwtSecret = if confValue.jwtSecret.isSome:
+      Opt.some(? parseJwtSharedKey(confValue.jwtSecret.get))
+    elif confValue.jwtSecretFile.isSome:
+      Opt.some(? loadJwtSecretFile(confValue.jwtSecretFile.get))
+    else:
+      confJwtSecret
 
-  ok EngineApiUrl.init(
-    url = url,
-    jwtSecret = jwtSecret)
+    ok EngineApiUrl.init(
+      url = confValue.url,
+      jwtSecret = jwtSecret)
 
 proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[JwtSharedKey] =
   if jwtSecret.isSome:
