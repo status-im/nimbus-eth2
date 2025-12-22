@@ -11,7 +11,7 @@ import
   std/[json, macros],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
-  json_rpc/[client, errors],
+  json_rpc/[client, errors, rpcchannels],
   web3, web3/[engine_api, primitives, conversions],
   eth/common/eth_types,
   results,
@@ -243,8 +243,13 @@ func getJsonRpcRequestHeaders(jwtSecret: Opt[JwtSharedKey]): auto =
     proc(): seq[(string, string)] =
       @[]
 
-proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
-  newWeb3(engineUrl.url,
+proc newWeb3(engineUrl: EngineApiUrl): Future[Web3] {.async.} =
+  if engineUrl.channel.isSome():
+    let client = newRpcChannelClient(engineUrl.channel[])
+    await client.connect()
+    newWeb3(client)
+  else:
+    await newWeb3(engineUrl.url,
           getJsonRpcRequestHeaders(engineUrl.jwtSecret), httpFlags = {})
 
 proc establishEngineApiConnection(url: EngineApiUrl):
@@ -1161,6 +1166,14 @@ func hasConnection*(m: ELManager): bool =
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
+
+func channel*(m: ELManager): RpcChannelClient =
+  ## Return the cross-thread channel used for unified binary, if one is defined
+  if m.elConnections.len > 0 and m.elConnections[0].web3.isSome and
+      m.elConnections[0].web3.get().provider of RpcChannelClient:
+    RpcChannelClient(m.elConnections[0].web3.get().provider)
+  else:
+    nil
 
 proc startCheckChainIdLoop(
     m: ELManager
