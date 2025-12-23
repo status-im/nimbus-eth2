@@ -700,6 +700,114 @@ func get_payload_status_tiebreaker*(
   else:
     return 0'u8  # We shouldn't get here ideally
 
+func is_supporting_vote(
+    self: var ForkChoice,
+    node: ForkChoiceNode,
+    vote: VoteTracker,
+    dag: ChainDAGRef): bool =
+    ## Returns whether a vote for ``message.root`` supports the chain 
+    ## containing the beacon block ``node.root`` with the
+    ## payload contents indicated by ``node.payload_status``
+    ## as head during slot ``node.slot``
+
+  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
+  if node_idx < 0:
+    return false
+
+  let proto_node = self.backend.proto_array.nodes.buf[node_idx]
+
+  # Pre gloas, conventional root matching
+  if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return node.root == vote.next_root
+
+  if node.root == vote.next_root:
+    # case 1: Vote is for this exact block
+    # then check for payload status comapatibility
+
+    # Rule 1: Pending always gets support
+    if node.payloadStatus == PAYLOAD_STATUS_PENDING:
+      trace "Vote supports pending node",
+        node = shortLog(node), vote_root = shortLog(vote.next_root)
+      return true
+
+    # Rule 2: Same-slot votes don't support empty or full
+    if vote.next_slot <= proto_node.bid.slot:
+      trace "Vote from same/earlier slot - neither support empty nor full",
+        node = shortLog(node),
+        vote_slot = vote.next_slot,
+        block_slot = proto_node.bid.slot
+      return false
+
+    # Rule 3: Next slot votes distinguish empty from full
+    if vote.payload_present:
+      let supports = (node.payload_status == PAYLOAD_STATUS_FULL)
+      trace "Vote with payload present checks full",
+        node = shortLog(node), supports = supports
+      return supports
+    else:
+      let supports = (node.payload_status == PAYLOAD_STATUS_EMPTY)
+      trace "Vote with payload present checks empty",
+        node = shortLog(node), supports = supports
+      return supports
+  else:
+    # Case 2: Vote is for a descendant block
+    trace "Vote is for descendant",
+      node = shortLog(node),
+      vote_root = shortLog(vote.next_root)
+    
+    # Rule 4: Ancestor matching with the payload status
+    var
+      current_root = vote.next_root
+      iterations = 0
+    const MAX_ITERATIONS = 1000
+
+    while iterations < MAX_ITERATIONS:
+      inc iterations
+
+      if current_root == node.root:
+        if node.payload_status == PAYLOAD_STATUS_PENDING:
+          trace "Ancestor match, Pending accepts all",
+            node = shortLog(node)
+          return true
+
+        # For empty/full, we should check if the descendant chain
+        # is building on the correct payload status.
+        # 
+        # TODO: This requires tracking parent_payload_status through
+        # the chain
+
+        # JUst accept if ancestor was found
+        trace "Ancestor match",
+          node = shortLog(node), iterations = iterations
+        return true
+
+      let current_idx = self.backend.proto_array.indices.getOrDefault(
+        current_root, -1)
+      if current_idx < 0:
+        break
+
+      let current_node = self.backend.proto_array.nodes.buf[current_idx]
+
+      # Check if we have already gone past the target slot
+      if current_node.bid.slot < proto_node.bid.slot:
+        trace "Past target slot, not an ancestor",
+          current_slot = current_node.bid.slot,
+          target_slot = proto_node.bid.slot
+        break
+
+      if current_node.parent.isNone:
+        break
+
+      let 
+        parent_idx = current_node.parent.get()
+        parent_node = self.backend.proto_array.nodes.buf[parent_idx]
+
+      current_root = parent_node.bid.root
+
+    trace "No ancestor match found",
+      node = shortLog(node), iterations = iterations
+    return false
+
 # Sanity checks
 # ----------------------------------------------------------------------
 # Sanity checks on internal private procedures
