@@ -213,9 +213,7 @@ proc recover_cells_and_proofs_parallel*(
   const reconstructionTimeout = 2.seconds
 
   proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
-    if not idxPtr.isNil:
       c_free(idxPtr)
-    if not cellsPtr.isNil:
       c_free(cellsPtr)
 
   proc freeAllAllocated() =
