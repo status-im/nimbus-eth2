@@ -1753,10 +1753,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
+        when consensusFork < ConsensusFork.Fulu: continue
         else:
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+            if node.db.delDataColumnSidecar(
+                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
 

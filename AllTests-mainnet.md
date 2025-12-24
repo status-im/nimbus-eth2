@@ -48,7 +48,6 @@ AllTests-mainnet
 + sanity check capella blocks [Preset: mainnet]                                              OK
 + sanity check capella states [Preset: mainnet]                                              OK
 + sanity check capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check data columns [Preset: mainnet]                                                OK
 + sanity check deneb and cross-fork getState rollback [Preset: mainnet]                      OK
 + sanity check deneb blocks [Preset: mainnet]                                                OK
 + sanity check deneb states [Preset: mainnet]                                                OK
@@ -57,13 +56,16 @@ AllTests-mainnet
 + sanity check electra blocks [Preset: mainnet]                                              OK
 + sanity check electra states [Preset: mainnet]                                              OK
 + sanity check electra states, reusing buffers [Preset: mainnet]                             OK
++ sanity check execution payload envelopes [Preset: mainnet]                                 OK
 + sanity check fulu and cross-fork getState rollback [Preset: mainnet]                       OK
 + sanity check fulu blocks [Preset: mainnet]                                                 OK
++ sanity check fulu data columns [Preset: mainnet]                                           OK
 + sanity check fulu states [Preset: mainnet]                                                 OK
 + sanity check fulu states, reusing buffers [Preset: mainnet]                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
   sanity check gloas and cross-fork getState rollback [Preset: mainnet]                      Skip
   sanity check gloas blocks [Preset: mainnet]                                                Skip
++ sanity check gloas data columns [Preset: mainnet]                                          OK
   sanity check gloas states [Preset: mainnet]                                                Skip
   sanity check gloas states, reusing buffers [Preset: mainnet]                               Skip
 + sanity check phase0 blocks [Preset: mainnet]                                               OK
