@@ -158,12 +158,9 @@ proc handleDataSidecarRequest*[
     if indexFilter.len > 0 and dataIndex notin indexFilter:
       continue
     var dataSidecar: DataSidecarsType.T
-    when DataSidecarsType.T is BlobSidecar:
-      if node.dag.db.getBlobSidecar(bid.root, dataIndex, dataSidecar):
-        discard data[].add dataSidecar
-    else:
-      if node.dag.db.getDataColumnSidecar(bid.root, dataIndex, dataSidecar):
-        discard data[].add dataSidecar
+    if getSidecar[DataSidecarsType](
+        node.dag.db, bid.root, dataIndex, dataSidecar):
+      discard data[].add dataSidecar
 
   let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 

@@ -1127,6 +1127,19 @@ proc getDataColumnSidecar*(
   db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
     GetResult.found
 
+proc getSidecar*[DataSidecarsType: typedesc[List]](
+    db: BeaconChainDB, root: Eth2Digest,
+    index: auto, sidecar: var auto): bool =
+  type T = DataSidecarsType.T
+  when T is BlobSidecar:
+    db.getBlobSidecar(root, index, sidecar)
+  elif T is fulu.DataColumnSidecar:
+    db.getDataColumnSidecar(root, index, sidecar)
+  elif T is gloas.DataColumnSidecar:
+    db.getDataColumnSidecar(root, index, sidecar)
+  else:
+    {.error: "Unsupported sidecar type".}
+
 proc getExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest,
     value: var TrustedSignedExecutionPayloadEnvelope): bool =
