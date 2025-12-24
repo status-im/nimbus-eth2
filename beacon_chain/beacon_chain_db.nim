@@ -1115,7 +1115,8 @@ proc getDataColumnSidecar*(
   const consensusFork = ConsensusFork.Fulu
   if db.columns[consensusFork] == nil:
     return false
-  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) == GetResult.found
+  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
+    GetResult.found
 
 proc getDataColumnSidecar*(
     db: BeaconChainDB, root: Eth2Digest,
@@ -1123,7 +1124,8 @@ proc getDataColumnSidecar*(
   const consensusFork = ConsensusFork.Gloas
   if db.columns[consensusFork] == nil:
     return false
-  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) == GetResult.found
+  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
+    GetResult.found
 
 proc getExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest,

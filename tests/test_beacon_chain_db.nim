@@ -561,67 +561,6 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check execution payload envelopes" & preset():
-    const
-      blockHeader0 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(0)))
-      blockHeader1 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(1)))
-
-    let
-      blockRoot0 = hash_tree_root(blockHeader0.message)
-      blockRoot1 = hash_tree_root(blockHeader1.message)
-
-      envelope0 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot0))
-      envelope1 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot1))
-
-      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-    
-    var retreivedEnvelope: TrustedSignedExecutionPayloadEnvelope
-
-    check:
-      not db.containsExecutionPayloadEnvelope(blockRoot0)
-      not db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
-
-    db.putExecutionPayloadEnvelope(envelope0)
-
-    check:
-      db.containsExecutionPayloadEnvelope(blockRoot0)
-      not db.containsExecutionPayloadEnvelope(blockRoot1)
-      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      retreivedEnvelope.message.beacon_block_root == blockRoot0
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
-    
-    db.putExecutionPayloadEnvelope(envelope1)
-
-    check:
-      db.containsExecutionPayloadEnvelope(blockRoot0)
-      db.containsExecutionPayloadEnvelope(blockRoot1)
-      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
-
-    check db.delExecutionPayloadEnvelope(blockRoot0)
-
-    check:
-      not db.containsExecutionPayloadEnvelope(blockRoot0)
-      db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
-
-    check db.delExecutionPayloadEnvelope(blockRoot1)
-
-    check:
-      not db.containsExecutionPayloadEnvelope(blockRoot0)
-      not db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
-    
-    db.close()
-
   test "sanity check gloas data columns" & preset():
     const
       blockHeader0 = SignedBeaconBlockHeader(
@@ -739,6 +678,67 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
       not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
 
+    db.close()
+
+  test "sanity check execution payload envelopes" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+
+      envelope0 = SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot0))
+      envelope1 = SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot1))
+
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+    
+    var retreivedEnvelope: TrustedSignedExecutionPayloadEnvelope
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    db.putExecutionPayloadEnvelope(envelope0)
+
+    check:
+      db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      retreivedEnvelope.message.beacon_block_root == blockRoot0
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+    
+    db.putExecutionPayloadEnvelope(envelope1)
+
+    check:
+      db.containsExecutionPayloadEnvelope(blockRoot0)
+      db.containsExecutionPayloadEnvelope(blockRoot1)
+      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    check db.delExecutionPayloadEnvelope(blockRoot0)
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    check db.delExecutionPayloadEnvelope(blockRoot1)
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+    
     db.close()
 
 suite "Quarantine" & preset():
