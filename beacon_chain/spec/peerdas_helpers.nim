@@ -23,7 +23,6 @@ import
 from std/algorithm import sort
 from std/sequtils import repeat, toSeq
 from stew/staticfor import staticFor
-from system/ansi_c import c_malloc, c_free
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -144,8 +143,8 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
-                                  cells: seq[Cell]): Result[CellsAndProofs, void] =
+proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
+                                  cells: openArray[Cell]): Result[CellsAndProofs, void] =
   recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
     proc (x: string) =
       discard)
@@ -155,7 +154,7 @@ proc recover_cells_and_proofs_parallel*(
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
   ## Recover blobs from data column sidecars in parallel.
-  ## - Uses unmanaged C buffers for worker inputs so no Nim GC objects
+  ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Ensures all spawned tasks are awaited (drained) on any early return.
 
@@ -172,57 +171,36 @@ proc recover_cells_and_proofs_parallel*(
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
-  # Worker that runs on a taskpool thread. It only sees raw pointers and
-  # constructs its own worker-local seqs (on the worker's heap) before calling
-  # the KZG recovery routine. Keeps GC objects thread-local.
   proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
                     columnCount: int): Result[CellsAndProofs, void] =
-    ## Worker runs on a taskpool thread. It receives raw C buffers (ptr) and
-    ## converts them into worker-local seqs before calling the KZG recovery
-    ## routine, so no Nim GC objects cross thread-local heaps.
-    var
-      localIndices = newSeq[CellIndex](columnCount)
-      localCells = newSeq[Cell](columnCount)
     let
       idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
       cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
-    for j in 0 ..< columnCount:
-      localIndices[j] = idxArr[j]
-      localCells[j] = cellsArr[j]
-    # use the task wrapper which maps string errors to void
-    recoverCellsAndKzgProofsTask(localIndices, localCells)
+    # Use toOpenArray to create views without copying
+    recoverCellsAndKzgProofsTask(
+      idxArr.toOpenArray(0, columnCount - 1),
+      cellsArr.toOpenArray(0, columnCount - 1))
 
   var
     pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]] = @[]
-    pendingIdxPtrs: seq[ptr CellIndex] = @[]
-    pendingCellsPtrs: seq[ptr Cell] = @[]
+    # Store actual data sequences instead of C pointers
+    pendingIndices: seq[seq[CellIndex]] = @[]
+    pendingCells: seq[seq[Cell]] = @[]
     res = newSeq[CellsAndProofs](blobCount)
 
   # pre-size sequences so we can index-assign without reallocs
   pendingFuts.setLen(blobCount)
-  pendingIdxPtrs.setLen(blobCount)
-  pendingCellsPtrs.setLen(blobCount)
+  pendingIndices.setLen(blobCount)
+  pendingCells.setLen(blobCount)
 
   # track how many we've actually spawned
   var spawned = 0
 
-  # Choose a sane limit for concurrent tasks to reduce peak memory/alloc pressure.
+  # Choose a sane limit for concurrent tasks to reduce peak memory pressure.
   let maxInFlight = min(blobCount, 9)
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
-
-  proc freePendingPtrPair(idxPtr: ptr CellIndex, cellsPtr: ptr Cell) =
-      c_free(idxPtr)
-      c_free(cellsPtr)
-
-  proc freeAllAllocated() =
-    ## Free all C memory allocated so far, without syncing futures.
-    ## Only call this on error paths where we're aborting.
-    for j in 0 ..< spawned:
-      freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
-      pendingIdxPtrs[j] = nil
-      pendingCellsPtrs[j] = nil
 
   var completed = 0
 
@@ -232,35 +210,24 @@ proc recover_cells_and_proofs_parallel*(
     if (now - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out while preparing columns",
         spawned = spawned, total = blobCount
-      freeAllAllocated()
       return err("Data column reconstruction timed out")
 
-    # Allocate unmanaged C buffers and copy data into them
-    let
-      idxBytes = csize_t(columnCount) * csize_t(sizeof(CellIndex))
-      cellsBytes = csize_t(columnCount) * csize_t(sizeof(Cell))
-      idxPtr = cast[ptr CellIndex](c_malloc(idxBytes))
-    if idxPtr == nil:
-      freeAllAllocated()
-      return err("Failed to allocate memory for cell indices during reconstruction")
-    let cellsPtr = cast[ptr Cell](c_malloc(cellsBytes))
-    if cellsPtr == nil:
-      c_free(idxPtr)
-      freeAllAllocated()
-      return err("Failed to allocate memory for cell data during reconstruction")
-
-    # populate C buffers via UncheckedArray casts
-    let
-      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
-      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    # Use regular Nim sequences
+    var
+      indices = newSeq[CellIndex](columnCount)
+      cells = newSeq[Cell](columnCount)
+    
     for i in 0 ..< dataColumns.len:
-      idxArr[i] = dataColumns[i][].index
-      cellsArr[i] = dataColumns[i][].column[blobIdx]
+      indices[i] = dataColumns[i][].index
+      cells[i] = dataColumns[i][].column[blobIdx]
 
-    # store into pre-sized arrays by index and spawn worker
-    pendingIdxPtrs[spawned] = idxPtr
-    pendingCellsPtrs[spawned] = cellsPtr
-    pendingFuts[spawned] = tp.spawn workerRecover(idxPtr, cellsPtr, columnCount)
+    # Store sequences and spawn worker with pointers to their data
+    pendingIndices[spawned] = indices
+    pendingCells[spawned] = cells
+    pendingFuts[spawned] = tp.spawn workerRecover(
+      addr pendingIndices[spawned][0],
+      addr pendingCells[spawned][0],
+      columnCount)
     inc spawned
 
     # If too many in-flight tasks, await the oldest one
@@ -269,24 +236,11 @@ proc recover_cells_and_proofs_parallel*(
       if (now2 - startTime) > reconstructionTimeout:
         trace "PeerDAS reconstruction timed out while awaiting tasks",
           completed = completed, totalSpawned = spawned
-        # Free memory for tasks we haven't synced yet
-        for j in completed ..< spawned:
-          freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
-          pendingIdxPtrs[j] = nil
-          pendingCellsPtrs[j] = nil
         return err("Data column reconstruction timed out")
 
       let futRes = sync pendingFuts[completed]
-      freePendingPtrPair(pendingIdxPtrs[completed], pendingCellsPtrs[completed])
-      pendingIdxPtrs[completed] = nil
-      pendingCellsPtrs[completed] = nil
 
       if futRes.isErr:
-        # Free memory for remaining unsynced tasks
-        for j in completed + 1 ..< spawned:
-          freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
-          pendingIdxPtrs[j] = nil
-          pendingCellsPtrs[j] = nil
         return err("KZG cells and proofs recovery failed")
       res[completed] = futRes.get
       inc completed
@@ -297,24 +251,11 @@ proc recover_cells_and_proofs_parallel*(
     if (now - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out during final sync",
         completed = i, totalSpawned = spawned
-      # Free memory for tasks we haven't synced yet
-      for j in i ..< spawned:
-        freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
-        pendingIdxPtrs[j] = nil
-        pendingCellsPtrs[j] = nil
       return err("Data column reconstruction timed out")
 
     let futRes = sync pendingFuts[i]
-    freePendingPtrPair(pendingIdxPtrs[i], pendingCellsPtrs[i])
-    pendingIdxPtrs[i] = nil
-    pendingCellsPtrs[i] = nil
 
     if futRes.isErr:
-      # Free memory for remaining unsynced tasks
-      for j in i + 1 ..< spawned:
-        freePendingPtrPair(pendingIdxPtrs[j], pendingCellsPtrs[j])
-        pendingIdxPtrs[j] = nil
-        pendingCellsPtrs[j] = nil
       return err("KZG cells and proofs recovery failed")
     res[i] = futRes.get
 
