@@ -884,19 +884,23 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
 template isomorphicCast*[T](x: auto): T =
   # Each of these pairs of types has ABI-compatible memory representations.
   type U = typeof(x)
+
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
-    type
-      TT = typeof default(typeof T)[]
-      UU = typeof default(typeof U)[]
-    static:
-      doAssert sizeof(TT) == sizeof(UU)
-      doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+    when not defined(release):
+      type
+        TT = pointerBase(T)
+        UU = pointerBase(U)
+      static:
+        doAssert sizeof(TT) == sizeof(UU)
+        doAssert getSizeofSig(TT()) == getSizeofSig(UU())
     cast[T](x)
   else:
-    static:
-      doAssert getSizeofSig(T()) == getSizeofSig(U())
-      doAssert sizeof(T) == sizeof(U)
+    # CI undefines `release` when testing the build
+    when not defined(release): # 10s+ compile time due to `default(T)` and `replace`!
+      static:
+        doAssert sizeof(T) == sizeof(U)
+        doAssert getSizeofSig(T()) == getSizeofSig(U())
     cast[ptr T](unsafeAddr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
