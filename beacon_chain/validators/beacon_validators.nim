@@ -859,7 +859,7 @@ proc checkBlobDataAvailable(
       # check that our custody columns are available
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
-            beacon_block_root, columnIdx):
+            consensusFork, beacon_block_root, columnIdx):
           return false
       true
     else:
