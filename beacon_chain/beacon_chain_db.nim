@@ -1129,11 +1129,14 @@ proc getDataColumnSidecar*(
 
 proc getSidecar*(
     db: BeaconChainDB, root: Eth2Digest,
-    index: auto, sidecar: var auto): bool =
-  when typeof(sidecar) is BlobSidecar:
-    db.getBlobSidecar(root, index, sidecar)
-  else:
-    db.getDataColumnSidecar(root, index, sidecar)
+    index: auto, sidecar: var BlobSidecar): bool =
+  db.getBlobSidecar(root, index, sidecar)
+
+proc getSidecar*(
+    db: BeaconChainDB, root: Eth2Digest,
+    index: auto,
+    sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
+  db.getDataColumnSidecar(root, index, sidecar)
 
 proc getExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest,
@@ -1371,7 +1374,7 @@ proc containsExecutionPayloadEnvelope*(
   db.envelopes.contains(root.data).expectDb()
 
 proc containsDataColumnSidecar*(
-    db: BeaconChainDB, consensusFork: ConsensusFork,
+    db: BeaconChainDB, consensusFork: static ConsensusFork,
     root: Eth2Digest, index: ColumnIndex): bool =
   if db.columns[consensusFork] == nil:
     return false
