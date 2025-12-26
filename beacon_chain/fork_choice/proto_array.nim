@@ -387,9 +387,10 @@ func prune*(
   trace "Pruning blocks from fork choice", checkpoints
 
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
-  for nodeIdx in 0 ..< finalPhysicalIdx:
-    self.currentEpochTips.del nodeIdx
-    self.indices.del(self.nodes.buf[nodeIdx].bid.root)
+  for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
+    let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+    self.currentEpochTips.del nodeLogicalIdx
+    self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
