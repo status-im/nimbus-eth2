@@ -839,7 +839,7 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc checkPayloadPresent(
-    node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
   let blokData = node.dag.getForkedBlock(beacon_block_root).valueOr:
     return false
 
@@ -850,7 +850,7 @@ proc checkPayloadPresent(
       true
 
 proc checkBlobDataAvailable(
-    node: BeaconNode, beacon_block_root: Eth2Digest): bool = 
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
   let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
     return false
 
@@ -894,7 +894,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
         error_msg = res.error()
       return
     res.get()
-  
+
   let message = PayloadAttestationMessage(
     validator_index: validator_index.uint64,
     data: data,
@@ -907,7 +907,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
 proc sendPayloadAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform payload attestation duties for PTC members
-  
+
   let consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
   if consensusFork < ConsensusFork.Gloas:
     return
@@ -918,11 +918,11 @@ proc sendPayloadAttestations(
     notice "Payload attestation to a state in the past",
       attestationTarget = shortLog(target),
       head = shortLog(head)
-  
+
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    
+
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var cache: StateCache
@@ -932,7 +932,7 @@ proc sendPayloadAttestations(
 
         asyncSpawn createAndSendPayloadAttestation(
           node, fork, genesis_validators_root, validator, vidx, slot,
-          target.blck.root )
+          target.blck.root)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1397,16 +1397,20 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
       res.incl(idx)
     res
 
+  let epochRef = node.dag.getEpochRef(
+    node.dag.head, epoch, false).valueOr:
+      warn "cannot construct EpochRef for PTC duties", epoch, error
+      return
+
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var cache: StateCache
-      
       for slot in epoch.slots():
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(
+            forkyState.data, epochRef.shufflingRef, slot):
           if validator_index in validatorIndices:
             node.consensusManager[].actionTracker.registerPTCDuty(
               slot, validator_index)
-            
+
             debug "PTC duty registered",
               slot = slot,
               epoch = epoch

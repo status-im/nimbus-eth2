@@ -866,6 +866,7 @@ AllTests-mainnet
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
++ get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
 ```diff
