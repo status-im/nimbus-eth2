@@ -183,16 +183,10 @@ proc recover_cells_and_proofs_parallel*(
       cellsArr.toOpenArray(0, columnCount - 1))
 
   var
-    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]] = @[]
-    # Store actual data sequences instead of C pointers
-    pendingIndices: seq[seq[CellIndex]] = @[]
-    pendingCells: seq[seq[Cell]] = @[]
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]] (blobCount)
+    pendingIndices = newSeq[seq[CellIndex]](blobCount)
+    pendingCells = newSeq[seq[Cell]](blobCount)
     res = newSeq[CellsAndProofs](blobCount)
-
-  # pre-size sequences so we can index-assign without reallocs
-  pendingFuts.setLen(blobCount)
-  pendingIndices.setLen(blobCount)
-  pendingCells.setLen(blobCount)
 
   # track how many we've actually spawned
   var spawned = 0
