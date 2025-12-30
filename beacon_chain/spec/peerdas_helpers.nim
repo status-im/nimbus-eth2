@@ -156,7 +156,8 @@ proc recover_cells_and_proofs_parallel*(
   ## Recover blobs from data column sidecars in parallel.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
-  ## - Ensures all spawned tasks are awaited (drained) on any early return.
+  ## - Checks timeout before every spawn operation.
+  ## - Ensures all spawned tasks are awaited (drained) before returning.
 
   if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
@@ -202,15 +203,18 @@ proc recover_cells_and_proofs_parallel*(
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
-  var completed = 0
+  var 
+    completed = 0
+    timedOut = false
 
   # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
-    let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      trace "PeerDAS reconstruction timed out while preparing columns",
-        spawned = spawned, total = blobCount
-      return err("Data column reconstruction timed out")
+    # Check timeout BEFORE spawning
+    if (Moment.now() - startTime) > reconstructionTimeout:
+      trace "PeerDAS reconstruction timed out before spawning task",
+        spawned = spawned, completed = completed, total = blobCount
+      timedOut = true
+      break  # Stop spawning new tasks
 
     # Use regular Nim sequences
     var
@@ -232,32 +236,35 @@ proc recover_cells_and_proofs_parallel*(
 
     # If too many in-flight tasks, await the oldest one
     while spawned - completed >= maxInFlight:
-      let now2 = Moment.now()
-      if (now2 - startTime) > reconstructionTimeout:
-        trace "PeerDAS reconstruction timed out while awaiting tasks",
+      # Check timeout BEFORE syncing
+      if (Moment.now() - startTime) > reconstructionTimeout:
+        trace "PeerDAS reconstruction timed out before syncing task",
           completed = completed, totalSpawned = spawned
-        return err("Data column reconstruction timed out")
+        timedOut = true
+        break
 
       let futRes = sync pendingFuts[completed]
 
       if futRes.isErr:
-        return err("KZG cells and proofs recovery failed")
+        timedOut = true
+        break
+      
       res[completed] = futRes.get
       inc completed
 
-  # ---- Wait for remaining spawned tasks ----
+    if timedOut:
+      break
+
+  # ---- CRITICAL: Drain all spawned tasks before returning ----
+  # This ensures no task references memory that will be destroyed
   for i in completed ..< spawned:
-    let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      trace "PeerDAS reconstruction timed out during final sync",
-        completed = i, totalSpawned = spawned
-      return err("Data column reconstruction timed out")
-
     let futRes = sync pendingFuts[i]
+    # Store results only if we haven't timed out
+    if not timedOut and futRes.isOk:
+      res[i] = futRes.get
 
-    if futRes.isErr:
-      return err("KZG cells and proofs recovery failed")
-    res[i] = futRes.get
+  if timedOut:
+    return err("Data column reconstruction timed out")
 
   ok(res)
 
