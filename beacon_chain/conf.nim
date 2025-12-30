@@ -115,6 +115,10 @@ type
     Poll = "poll"
     Event = "event"
 
+  BeaconNodeMode* {.pure.} = enum
+    BestScore = "bestscore"
+    Fallback = "fallback"
+
   Web3SignerUrl* = object
     url*: Uri
     provenBlockProperties*: seq[string] # empty if this is not a verifying Web3Signer
@@ -241,15 +245,15 @@ type
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
 
-    debugPeerdasSupernode* {.
-      hidden
-      defaultValue: false,
-      name: "debug-peerdas-supernode" .}: bool
-
     peerdasSupernode* {.
       defaultValue: false,
       desc: "Subscribe to all column subnets, thereby becoming a PeerDAS supernode"
       name: "peerdas-supernode" .}: bool
+
+    lightSupernode* {.
+      defaultValue: false,
+      desc: "Subscribe to the first half of column subnets"
+      name: "light-supernode" .}: bool
 
     slashingDbKind* {.
       hidden
@@ -558,9 +562,9 @@ type
         name: "debug-long-range-sync".}: LongRangeSyncMode
 
       inProcessValidators* {.
-        desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
-        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
-        name: "in-process-validators" .}: bool
+        hidden
+        desc: "Deprecated for removal"
+        name: "in-process-validators" .}: Option[bool]
 
       discv5Enabled* {.
         desc: "Enable Discovery v5"
@@ -1056,6 +1060,12 @@ type
       defaultValue: @[defaultBeaconNodeUri]
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
+
+    beaconNodeMode* {.
+      desc: "How validator client should operate multiple beacon nodes",
+      defaultValue: BeaconNodeMode.BestScore
+      defaultValueDesc: "Ask all beacon nodes and select the best response."
+      name: "beacon-node-mode" .}: BeaconNodeMode
 
     monitoringType* {.
       desc: "Enable block monitoring which are seen by beacon node (BETA)"

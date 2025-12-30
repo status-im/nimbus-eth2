@@ -176,6 +176,27 @@ type
     BrokenClock,        ## BN wall clock is broken or has significan offset.
     InternalError       ## BN reports internal error.
 
+  FnKind* {.pure.} = enum
+    getProposerDuties
+    getAttesterDuties
+    getSyncCommitteeDuties
+    getHeadBlockRoot
+    getValidators
+    produceAttestationData
+    submitPoolAttestations
+    getAggregatedAttestation
+    publishAggregateAndProofs
+    produceBlock
+    publishBlock
+    publishBlindedBlock
+    produceSyncCommitteeContribution
+    submitPoolSyncCommitteeSignature
+    publishContributionAndProofs
+    submitBeaconCommitteeSelections
+    submitSyncCommitteeSelections
+
+  VCBeaconNodeMode* = array[int(high(FnKind)) + 1, ApiStrategyKind]
+
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
 
@@ -311,6 +332,49 @@ const
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
+
+  BestScoreMode* = VCBeaconNodeMode([
+    ApiStrategyKind.First,     # getProposerDuties
+    ApiStrategyKind.First,     # getAttesterDuties
+    ApiStrategyKind.First,     # getSyncCommitteeDuties
+    ApiStrategyKind.Best,      # getHeadBlockRoot
+    ApiStrategyKind.First,     # getValidators
+    ApiStrategyKind.Best,      # produceAttestationData
+    ApiStrategyKind.First,     # submitPoolAttestations
+    ApiStrategyKind.Best,      # getAggregatedAttestation
+    ApiStrategyKind.First,     # publishAggregateAndProofs
+    ApiStrategyKind.Best,      # produceBlock
+    ApiStrategyKind.First,     # publishBlock
+    ApiStrategyKind.First,     # publishBlindedBlock
+    ApiStrategyKind.Best,      # produceSyncCommitteeContribution
+    ApiStrategyKind.First,     # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.First,     # publishContributionAndProofs
+    ApiStrategyKind.Best,      # submitBeaconCommitteeSelections
+    ApiStrategyKind.Best       # submitSyncCommitteeSelections
+  ])
+
+  FallbackMode* = VCBeaconNodeMode([
+    ApiStrategyKind.Priority,  # getProposerDuties
+    ApiStrategyKind.Priority,  # getAttesterDuties
+    ApiStrategyKind.Priority,  # getSyncCommitteeDuties
+    ApiStrategyKind.Priority,  # getHeadBlockRoot
+    ApiStrategyKind.Priority,  # getValidators
+    ApiStrategyKind.Priority,  # produceAttestationData
+    ApiStrategyKind.Priority,  # submitPoolAttestations
+    ApiStrategyKind.Priority,  # getAggregatedAttestation
+    ApiStrategyKind.Priority,  # publishAggregateAndProofs
+    ApiStrategyKind.Priority,  # produceBlock
+    ApiStrategyKind.Priority,  # publishBlock
+    ApiStrategyKind.Priority,  # publishBlindedBlock
+    ApiStrategyKind.Priority,  # produceSyncCommitteeContribution
+    ApiStrategyKind.Priority,  # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.Priority,  # publishContributionAndProofs
+    ApiStrategyKind.Priority,  # submitBeaconCommitteeSelections
+    ApiStrategyKind.Priority   # submitSyncCommitteeSelections
+  ])
+
+template `[]`*(vcs: VCBeaconNodeMode, index: FnKind): ApiStrategyKind =
+  vcs[int(index)]
 
 func SlotDuration*(vc: ValidatorClientRef): Duration =
   vc.timeParams.SLOT_DURATION
@@ -621,7 +685,12 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     ATTESTATION_DUE_BPS: parseBps "ATTESTATION_DUE_BPS",
     AGGREGATE_DUE_BPS: parseBps "AGGREGATE_DUE_BPS",
     SYNC_MESSAGE_DUE_BPS: parseBps "SYNC_MESSAGE_DUE_BPS",
-    CONTRIBUTION_DUE_BPS: parseBps "CONTRIBUTION_DUE_BPS")
+    CONTRIBUTION_DUE_BPS: parseBps "CONTRIBUTION_DUE_BPS",
+    ATTESTATION_DUE_BPS_GLOAS: parseBps "ATTESTATION_DUE_BPS_GLOAS",
+    AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
+    SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
+    CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
+    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
   res
@@ -874,6 +943,24 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
   else:
     Opt.none(Slot)
 
+proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return key
+  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
+
+proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
+  # If schedule is present, it MUST not be empty.
+  doAssert(len(vc.forks) > 0)
+  var res: Fork
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      res = item
+    else:
+      break
+  res
+
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
   ## Returns all `DutyAndProof` for the given `slot`.
@@ -898,7 +985,10 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
-  let currentEpoch = slot.epoch()
+  let 
+    currentEpoch = slot.epoch()
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(currentEpoch))
+
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
     for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
@@ -911,7 +1001,7 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.attestation_deadline(vc.timeParams) -
+    $(minSlot.attestation_deadline(vc.timeParams, consensusFork) -
       slot.start_beacon_time(vc.timeParams))
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
@@ -973,24 +1063,6 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             key: ValidatorPubKey, slot: Slot,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
-
-proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
-  # If schedule is present, it MUST not be empty.
-  doAssert(len(vc.forks) > 0)
-  var res: Fork
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      res = item
-    else:
-      break
-  res
-
-proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
-  doAssert(vc.forkConfig.isSome())
-  for key, value in vc.forkConfig.get().pairs():
-    if value.version == fork.current_version:
-      return key
-  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
@@ -1487,12 +1559,13 @@ proc waitForBlock*(
         shortLog(blocks[0])
       else:
         "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
 
   debug "Block proposal awaited", duration = dur,
         block_root = blockRoot
 
   try:
-    await waitAfterBlockCutoff(vc.beaconClock, slot)
+    await waitAfterBlockCutoff(vc.beaconClock, slot, consensusFork)
   except CancelledError as exc:
     let dur = Moment.now() - startTime
     debug "Waiting for block cutoff was interrupted", duration = dur
@@ -1660,6 +1733,13 @@ proc `+`*(slot: Slot, epochs: Epoch): Slot =
 func finish_slot*(epoch: Epoch): Slot =
   ## Return the last slot of ``epoch``.
   (epoch + 1).start_slot() - 1
+
+func getMode*(vc: ValidatorClientRef): VCBeaconNodeMode =
+  case vc.config.beaconNodeMode
+  of BeaconNodeMode.BestScore:
+    BestScoreMode
+  of BeaconNodeMode.Fallback:
+    FallbackMode
 
 proc getGraffitiBytes*(vc: ValidatorClientRef,
                        validator: AttachedValidator): GraffitiBytes =

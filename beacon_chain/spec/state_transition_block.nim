@@ -761,8 +761,6 @@ proc process_operations(
         # Otherwise wraps because unsigned; Python spec semantics would result in
         # negative difference, which would be impossible for len(...) to match.
         if state.eth1_deposit_index < eth1_deposit_index_limit:
-          if eth1_deposit_index_limit < state.eth1_deposit_index:
-            return err("eth1_deposit_index_limit < state.eth1_deposit_index")
           min(
             MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
         else:
@@ -1124,7 +1122,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
     signed_envelope: SignedExecutionPayloadEnvelope,
@@ -1163,6 +1161,8 @@ proc process_execution_payload*(
   if committed_bid.blob_kzg_commitments_root !=
       hash_tree_root(envelope.blob_kzg_commitments):
     return err("process_execution_payload: blob KZG commitments root mismatch")
+  if not(committed_bid.prev_randao == payload.prev_randao):
+    return err("process_execution_payload: prev_randao mismatch")
 
   # Verify the withdrawals root
   if hash_tree_root(payload.withdrawals) != state.data.latest_withdrawals_root:
@@ -1179,11 +1179,6 @@ proc process_execution_payload*(
   # Verify consistency of the parent hash with respect to the previous execution payload
   if payload.parent_hash != state.data.latest_block_hash:
     return err("process_execution_payload: parent hash mismatch")
-
-  # Verify prev_randao
-  if payload.prev_randao !=
-      get_randao_mix(state.data, get_current_epoch(state.data)):
-    return err("process_execution_payload: prev_randao mismatch")
 
   # Verify timestamp
   if payload.timestamp != cfg.timeParams

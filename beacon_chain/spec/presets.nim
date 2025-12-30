@@ -43,6 +43,11 @@ type TimeParams* = object
   AGGREGATE_DUE_BPS*: uint16
   SYNC_MESSAGE_DUE_BPS*: uint16
   CONTRIBUTION_DUE_BPS*: uint16
+  ATTESTATION_DUE_BPS_GLOAS*: uint16
+  AGGREGATE_DUE_BPS_GLOAS*: uint16
+  SYNC_MESSAGE_DUE_BPS_GLOAS*: uint16
+  CONTRIBUTION_DUE_BPS_GLOAS*: uint16
+  PAYLOAD_ATTESTATION_DUE_BPS*: uint16
 
 const
   MIN_SLOT_DURATION* = seconds(1)
@@ -62,7 +67,17 @@ func isValid*(timeParams: TimeParams): bool =
   timeParams.SYNC_MESSAGE_DUE_BPS ==
     timeParams.ATTESTATION_DUE_BPS and
   timeParams.CONTRIBUTION_DUE_BPS ==
-    timeParams.AGGREGATE_DUE_BPS
+    timeParams.AGGREGATE_DUE_BPS and
+  timeParams.ATTESTATION_DUE_BPS_GLOAS in
+    timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
+  timeParams.AGGREGATE_DUE_BPS_GLOAS in
+    timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS and
+  timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS ==
+    timeParams.ATTESTATION_DUE_BPS_GLOAS and
+  timeParams.CONTRIBUTION_DUE_BPS_GLOAS ==
+    timeParams.AGGREGATE_DUE_BPS_GLOAS and
+  timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
+    timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
 type
   Version* = distinct array[4, byte]
 
@@ -279,7 +294,19 @@ when const_preset == "mainnet":
       # 3333 basis points, ~33% of SLOT_DURATION_MS
       SYNC_MESSAGE_DUE_BPS: 3333,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      CONTRIBUTION_DUE_BPS: 6667),
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -461,7 +488,19 @@ elif const_preset == "gnosis":
       # 3333 basis points, ~33% of SLOT_DURATION_MS
       SYNC_MESSAGE_DUE_BPS: 3333,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      CONTRIBUTION_DUE_BPS: 6667),
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
@@ -642,7 +681,19 @@ elif const_preset == "minimal":
       # 3333 basis points, ~33% of SLOT_DURATION_MS
       SYNC_MESSAGE_DUE_BPS: 3333,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      CONTRIBUTION_DUE_BPS: 6667),
+      CONTRIBUTION_DUE_BPS: 6667,
+
+      # Gloas
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      ATTESTATION_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_GLOAS: 5000,
+      # 2500 basis points, ~25% of SLOT_DURATION_MS
+      SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -858,6 +909,7 @@ proc readRuntimeConfig*(
     blobScheduleEntries: seq[BlobParameters]
     inBlobSchedule = false
     currentBPO: BlobParameters
+    hasCurrentEntry = false
 
   for rawLine in splitLines(fileContent):
     inc lineNum
@@ -878,9 +930,10 @@ proc readRuntimeConfig*(
     if inBlobSchedule:
       let entry = strip(noComment, leading=true, trailing=false)
       if entry.startsWith("- EPOCH:"):
-        if currentBPO.EPOCH.uint64 != 0.uint64:
+        if hasCurrentEntry:
           blobScheduleEntries.add(currentBPO)
         currentBPO = BlobParameters()
+        hasCurrentEntry = true
         let epochStr = entry.split(":")[1].strip()
         try:
           currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
@@ -896,8 +949,9 @@ proc readRuntimeConfig*(
         continue
       # Exit section on non-indented line
       elif noComment[0] notin {' ', '\t'}:
-        if currentBPO.EPOCH.uint64 != 0.uint64:
+        if hasCurrentEntry:
           blobScheduleEntries.add(currentBPO)
+        hasCurrentEntry = false
         inBlobSchedule = false
       else:
         continue
@@ -912,7 +966,7 @@ proc readRuntimeConfig*(
         values[key] = parts[1].strip()
 
   # Final BLOB_SCHEDULE entry
-  if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
+  if inBlobSchedule and hasCurrentEntry:
     blobScheduleEntries.add(currentBPO)
 
   # BPO entries must be sorted in reverse epoch order
@@ -1117,6 +1171,22 @@ proc readRuntimeConfig*(
     checkParsedValue(
       "CONTRIBUTION_DUE_BPS", cfg.timeParams.CONTRIBUTION_DUE_BPS,
       cfg.timeParams.AGGREGATE_DUE_BPS)
+
+    checkParsedValue(
+      "ATTESTATION_DUE_BPS_GLOAS", cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS,
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATE_DUE_BPS_GLOAS", cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "SYNC_MESSAGE_DUE_BPS_GLOAS", cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "CONTRIBUTION_DUE_BPS_GLOAS", cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS,
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
   doAssert cfg.timeParams.isValid
 
   # Requires initialized `cfg`

@@ -112,24 +112,6 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      if blobsOpt.isSome:
-        let blobs = blobsOpt.get()
-        let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
-        if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(
-            kzgCommits,
-            blobs.mapIt(KzgBlob(bytes: it.blob)),
-            blobs.mapIt(it.kzg_proof))
-          if res.isErr():
-            warn "blobs failed validation",
-              blockRoot = shortLog(blck.root),
-              blobs = shortLog(blobs),
-              blck = shortLog(blck.message),
-              signature = shortLog(blck.signature),
-              msg = res.error()
-            return err(res.error())
-
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
@@ -266,7 +248,9 @@ proc routeAttestation*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = attestation.data.slot
-    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -339,7 +323,9 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay =
+     sendTime - slot.aggregate_deadline(router[].dag.timeParams, currentFork)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -374,8 +360,9 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    delay = sendTime -
-      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
+    delay = sendTime - msg.slot.sync_committee_message_deadline(
+      router[].dag.timeParams, currentFork)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -497,7 +484,9 @@ proc routeSignedContributionAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
+    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime -
+      slot.sync_contribution_deadline(router[].dag.timeParams, currentFork)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
@@ -608,5 +597,36 @@ proc routeBlsToExecutionChange*(
     notice "BLS to execution change not sent",
       bls_to_execution_change = shortLog(bls_to_execution_change),
       error = res.error()
+
+  return ok()
+
+proc routePayloadAttestationMessage*(
+    router: ref MessageRouter,
+    message: PayloadAttestationMessage,
+    checkSignature = true, checkValidator = true):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = await router.processor.processPayloadAttestationMessage(
+      MsgSource.api, message, checkSignature = checkSignature,
+      checkValidator = checkValidator)
+
+    if not res.isGoodForSending:
+      warn "Payload attestation failed validation",
+        message = shortLog(message), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = message.data.slot
+    delay = sendTime -
+      slot.payload_attestation_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastPayloadAttestationMessage(message)
+
+  if res.isOk():
+    info "Payload attestation sent",
+      message = shortLog(message), delay
+  else:
+    notice "Payload attestation not sent",
+      message = shortLog(message), error = res.error()
 
   return ok()

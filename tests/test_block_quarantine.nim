@@ -9,22 +9,22 @@
 {.used.}
 
 import
+  chronicles,
   unittest2,
   ../beacon_chain/spec/[forks, presets],
   ../beacon_chain/spec/datatypes/[phase0, deneb],
   ../beacon_chain/consensus_object_pools/block_quarantine
 
 func makeBlock(slot: Slot, parent: Eth2Digest): phase0.SignedBeaconBlock =
-  var
-    b = phase0.SignedBeaconBlock(
-      message: phase0.BeaconBlock(slot: slot, parent_root: parent))
+  var b = phase0.SignedBeaconBlock(
+    message: phase0.BeaconBlock(slot: slot, parent_root: parent)
+  )
   b.root = hash_tree_root(b.message)
   b
 
 func makeBlobbyBlock(slot: Slot, parent: Eth2Digest): deneb.SignedBeaconBlock =
-  var
-    b = deneb.SignedBeaconBlock(
-      message: deneb.BeaconBlock(slot: slot, parent_root: parent))
+  var b =
+    deneb.SignedBeaconBlock(message: deneb.BeaconBlock(slot: slot, parent_root: parent))
   b.root = hash_tree_root(b.message)
   b
 
@@ -41,8 +41,9 @@ suite "Block quarantine":
 
     var quarantine = Quarantine.init(defaultRuntimeConfig)
 
-    quarantine.addMissing(b1.root)
     check:
+      quarantine.addMissing(b1.root).isOk()
+
       FetchRecord(root: b1.root) in quarantine.checkMissing(32)
 
       quarantine.addOrphan(Slot 0, b1).isOk
@@ -60,7 +61,7 @@ suite "Block quarantine":
       b5.root in quarantine.sidecarless
       b6.root in quarantine.sidecarless
 
-    quarantine.addUnviable(b4.root)
+    discard quarantine.addUnviable(b4.root, UnviableKind.UnviableFork)
 
     check:
       (b4.root, ValidatorSig()) notin quarantine.orphans
@@ -68,7 +69,7 @@ suite "Block quarantine":
       b5.root in quarantine.sidecarless
       b6.root notin quarantine.sidecarless
 
-    quarantine.addUnviable(b1.root)
+    discard quarantine.addUnviable(b1.root, UnviableKind.UnviableFork)
 
     check:
       (b1.root, ValidatorSig()) notin quarantine.orphans
@@ -122,16 +123,16 @@ suite "Block quarantine":
   test "Keep downloading parent chain even if we hit missing limit":
     var quarantine = Quarantine.init(defaultRuntimeConfig)
     var blocks = @[makeBlock(Slot 0, ZERO_HASH)]
-    for i in 0..<MaxMissingItems:
+    for i in 0 ..< MaxMissingItems:
       blocks.add makeBlock(blocks[^1].message.slot + 1, blocks[^1].root)
 
     # Fill missing list with junk
-    for i in 0..<MaxMissingItems:
-      quarantine.addMissing(blocks[^(i + 1)].root)
+    for i in 0 ..< MaxMissingItems:
+      discard quarantine.addMissing(blocks[^(i + 1)].root)
 
     check:
       blocks[0].root notin quarantine.missing
-      quarantine.addOrphan(Slot 0, blocks[1]) == Result[void, cstring].ok()
+      quarantine.addOrphan(Slot 0, blocks[1]) == Result[void, UnviableKind].ok()
       blocks[0].root in quarantine.missing
 
   test "Don't re-download unviable blocks":
@@ -141,16 +142,46 @@ suite "Block quarantine":
       b1 = makeBlock(Slot 1, b0.root)
       b2 = makeBlock(Slot 2, b1.root)
 
-    quarantine.addMissing(b1.root)
-    quarantine.addMissing(b2.root)
-
     check:
+      quarantine.addMissing(b1.root) == Result[void, UnviableKind].ok()
+      quarantine.addMissing(b2.root) == Result[void, UnviableKind].ok()
       b2.root in quarantine.missing
 
-    quarantine.addUnviable(b1.root)
     check:
+      quarantine.addUnviable(b1.root, UnviableKind.UnviableFork) ==
+        UnviableKind.UnviableFork
       b1.root notin quarantine.missing
 
     check:
-      quarantine.addOrphan(Slot 0, b2).isErr()
+      quarantine.addOrphan(Slot 0, b2) ==
+        Result[void, UnviableKind].err(UnviableKind.UnviableFork)
       b2.root notin quarantine.missing
+
+    check:
+      quarantine.addUnviable(b1.root, UnviableKind.Invalid) == UnviableKind.Invalid
+
+    check:
+      # UnviableFork should not overwrite Invalid
+      quarantine.addUnviable(b1.root, UnviableKind.UnviableFork) == UnviableKind.Invalid
+
+  test "No new missing/orphans while processing":
+    let
+      b0 = makeBlock(Slot 0, ZERO_HASH)
+      b1 = makeBlock(Slot 1, b0.root)
+
+    var quarantine = Quarantine.init(defaultRuntimeConfig)
+
+    check:
+      quarantine.addOrphan(Slot 0, b1).isOk
+      (b1.root, ValidatorSig()) in quarantine.orphans
+
+    quarantine.startProcessing(b1)
+
+    check:
+      (b1.root, ValidatorSig()) notin quarantine.orphans
+
+      quarantine.addOrphan(Slot 0, b1).isOk
+      (b1.root, ValidatorSig()) notin quarantine.orphans
+
+      quarantine.addMissing(b1.root).isOk()
+      b1.root notin quarantine.missing

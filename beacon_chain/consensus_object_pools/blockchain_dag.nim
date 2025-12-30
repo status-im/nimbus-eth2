@@ -61,7 +61,6 @@ const
     ## to be pruned every time the prune call is made (once per slot typically)
     ## unless head is moving faster (ie during sync)
 
-
 proc putBlock*(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
@@ -444,6 +443,7 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
+type LRUCache[I: static[int], T] = block_pools_types.LRUCache[I, T]
 func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
   if cache.timestamp == uint32.high:
     for i in 0 ..< I:
@@ -2283,9 +2283,8 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    debugGloasComment " "
-    when consensusFork == ConsensusFork.Gloas:
-      Opt.some ZERO_HASH
+    when consensusFork >= ConsensusFork.Gloas:
+      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
     elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:

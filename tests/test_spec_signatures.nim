@@ -244,17 +244,17 @@ suite "Message signatures":
 
   test "payload attestation message signatures":
     let
-      msg0 = default(PayloadAttestationMessage)
-      msg1 = (var m = msg0; m.data.slot = m.data.slot + 1; m)
-      sig = get_payload_attestation_message_signature(fork0, gvr0, msg0, privkey0).toValidatorSig
+      data0 = default(PayloadAttestationData)
+      data1 = (var d = data0; d.slot = d.slot + 1; d)
+      sig = get_payload_attestation_message_signature(fork0, gvr0, data0, privkey0).toValidatorSig
 
     check:
-      verify_payload_attestation_message_signature(fork0, gvr0, msg0, pubkey0, sig)
+      verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey0, sig)
 
-      not verify_payload_attestation_message_signature(fork1, gvr0, msg0, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr1, msg0, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr0, msg1, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr0, msg0, pubkey1, sig)
+      not verify_payload_attestation_message_signature(fork1, gvr0, data0, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr1, data0, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr0, data1, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey1, sig)
 
   test "BLS to execution change signatures":
     let

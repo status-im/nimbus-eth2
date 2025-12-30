@@ -53,6 +53,7 @@ func toSingleAttestation*(
     signature: signature)
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
+                           consensusFork: ConsensusFork,
                            head: Opt[BlockRef] = Opt.none(BlockRef))
                            {.async: (raises: [CancelledError]).} =
   # The expected block arrived (or expectBlock was called again which
@@ -75,7 +76,8 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   let
     extraDelay = nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
     afterBlockCutoff = clock.fromNow(min(
-      clock.now(), slot.attestation_deadline(clock.timeParams)) + extraDelay)
+      clock.now(), 
+      slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
 
   if afterBlockCutoff.inFuture:
     if head.isSome():

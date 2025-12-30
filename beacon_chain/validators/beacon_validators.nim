@@ -43,7 +43,7 @@ import
     validator_pool,
   ]
 
-from std/sequtils import mapIt
+from std/sequtils import mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 
@@ -578,7 +578,7 @@ proc proposeBlockAux(
       when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         Opt.some(
           signedBlock.create_blob_sidecars(
-            deneb.KzgProofs(engineBlock.blobsBundle.proofs),
+            engineBlock.blobsBundle.proofs,
             engineBlock.blobsBundle.blobs))
       else:
         Opt.none(seq[BlobSidecar])
@@ -837,6 +837,102 @@ proc sendSyncCommitteeContributions(
 
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
+
+proc checkPayloadPresent(
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
+  let blokData = node.dag.getForkedBlock(beacon_block_root).valueOr:
+    return false
+
+  withBlck(blokData):
+    when consensusFork >= ConsensusFork.Gloas:
+      node.dag.db.containsExecutionPayloadEnvelope(beacon_block_root)
+    else:
+      true
+
+proc checkBlobDataAvailable(
+    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
+  let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
+    return false
+
+  withBlck(blckData):
+    when consensusFork >= ConsensusFork.Gloas:
+      # check that our custody columns are available
+      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+        if not node.dag.db.containsDataColumnSidecar(
+            consensusFork, beacon_block_root, columnIdx):
+          return false
+      true
+    else:
+      true
+
+proc createAndSendPayloadAttestation(node: BeaconNode,
+                                     fork: Fork,
+                                     genesis_validators_root: Eth2Digest,
+                                     validator: AttachedValidator,
+                                     validator_index: ValidatorIndex,
+                                     slot: Slot,
+                                     beacon_block_root: Eth2Digest)
+                                     {.async: (raises: [CancelledError]).} =
+  let
+    payload_present = node.checkPayloadPresent(beacon_block_root)
+    blob_data_available = node.checkBlobDataAvailable(beacon_block_root)
+
+  let data = PayloadAttestationData(
+    beacon_block_root: beacon_block_root,
+    slot: slot,
+    payload_present: payload_present,
+    blob_data_available: blob_data_available
+  )
+
+  let signature = block:
+    let res = await validator.getPayloadAttestationSignature(
+      fork, genesis_validators_root, data)
+    if res.isErr():
+      warn "Unble to sign payload attestation",
+        validator = shortLog(validator),
+        data = shortLog(data),
+        error_msg = res.error()
+      return
+    res.get()
+
+  let message = PayloadAttestationMessage(
+    validator_index: validator_index.uint64,
+    data: data,
+    signature: signature
+  )
+
+  discard await node.router.routePayloadAttestationMessage(
+    message, checkSignature = false, checkValidator = false)
+
+proc sendPayloadAttestations(
+    node: BeaconNode, head: BlockRef, slot: Slot) =
+  ## Perform payload attestation duties for PTC members
+
+  let consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
+  if consensusFork < ConsensusFork.Gloas:
+    return
+
+  # Get the beacon block root for the slot we are attesting to
+  let target = head.atSlot(slot)
+  if head != target.blck:
+    notice "Payload attestation to a state in the past",
+      attestationTarget = shortLog(target),
+      head = shortLog(head)
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var cache: StateCache
+      for vidx in get_ptc(forkyState.data, slot, cache):
+        let validator = node.getValidatorForDuties(vidx, slot).valueOr:
+          continue
+
+        asyncSpawn createAndSendPayloadAttestation(
+          node, fork, genesis_validators_root, validator, vidx, slot,
+          target.blck.root)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1237,8 +1333,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
-  let attestationCutoff = node.beaconClock.fromNow(
-    slot.attestation_deadline(node.dag.timeParams))
+  let
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
+    attestationCutoff = node.beaconClock.fromNow(
+      slot.attestation_deadline(node.dag.timeParams, consensusFork))
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
       head = shortLog(head),
@@ -1247,7 +1345,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      await waitAfterBlockCutoff(node.beaconClock, slot, Opt.some(head))
+      await waitAfterBlockCutoff(
+        node.beaconClock, slot, consensusFork, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -1260,6 +1359,15 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
 
+  let payloadAttestationCutOff = node.beaconClock.fromNow(
+    slot.payload_attestation_deadline(node.dag.timeParams))
+  if payloadAttestationCutOff.inFuture:
+    debug "Waiting to send payload attestations",
+      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
+    await sleepAsync(payloadAttestationCutOff.offset)
+
+  sendPayloadAttestations(node, head, slot)
+
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
@@ -1270,7 +1378,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.aggregateSlotOffset ==
     node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
   let aggregateCutoff = node.beaconClock.fromNow(
-    slot.aggregate_deadline(node.dag.timeParams))
+    slot.aggregate_deadline(node.dag.timeParams, consensusFork))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)
@@ -1278,6 +1386,34 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
+
+proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
+  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
+    return
+
+  let validatorIndices = block:
+    var res: HashSet[ValidatorIndex]
+    for idx in node.attachedValidators[].indices():
+      res.incl(idx)
+    res
+
+  let epochRef = node.dag.getEpochRef(
+    node.dag.head, epoch, false).valueOr:
+      warn "cannot construct EpochRef for PTC duties", epoch, error
+      return
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      for slot in epoch.slots():
+        for validator_index in get_ptc(
+            forkyState.data, epochRef.shufflingRef, slot):
+          if validator_index in validatorIndices:
+            node.consensusManager[].actionTracker.registerPTCDuty(
+              slot, validator_index)
+
+            debug "PTC duty registered",
+              slot = slot,
+              epoch = epoch
 
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [CancelledError]).} =
   ## Register upcoming duties of attached validators with the duty tracker
@@ -1324,3 +1460,6 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
+
+  if wallSlot == wallSlot.epoch.start_slot():
+    node.registerPTCDuties(wallSlot.epoch + 1)

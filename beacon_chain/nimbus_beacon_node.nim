@@ -17,7 +17,8 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, execution_payload_pool],
+    blob_quarantine, blockchain_list, execution_payload_pool,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -414,17 +415,28 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
+    payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
+    supernode = node.config.peerdasSupernode
+    lightSupernode = node.config.lightSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+      elif lightSupernode:
+        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
       else:
         dag.cfg.CUSTODY_REQUIREMENT
     custodyColumns =
-      dag.cfg.resolve_columns_from_custody_groups(
-        node.network.nodeId, localCustodyGroups)
+      if node.config.lightSupernode:
+        # Just the first half of custody columns
+        var res: HashSet[ColumnIndex]
+        for i in 0..<(dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+          res.incl ColumnIndex(i)
+        res
+      else:
+        dag.cfg.resolve_columns_from_custody_groups(
+          node.network.nodeId, localCustodyGroups)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
@@ -531,8 +543,9 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, executionPayloadBidPool, quarantine, blobQuarantine, dataColumnQuarantine,
-      rng, getBeaconTime, taskpool)
+      lightClientPool, executionPayloadBidPool, payloadAttestationPool,
+      quarantine, blobQuarantine, dataColumnQuarantine, rng,
+      getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -647,6 +660,8 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.executionPayloadBidPool = executionPayloadBidPool
+  node.payloadAttestationPool = payloadAttestationPool
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -932,7 +947,7 @@ proc init*(
   # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      cfg.timeParams,
+      cfg,
       config.validatorMonitorAuto,
       config.validatorMonitorTotals.get(
         not config.validatorMonitorDetails)))
@@ -1294,9 +1309,13 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
-    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+  let
+    custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+    vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
+  if node.config.peerdasSupernode:
+    custodyGroups
+  elif node.config.lightSupernode:
+    (custodyGroups div 2) + 1
   elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
     vcus_count
   else:
@@ -1304,10 +1323,19 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
 
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
   let
+    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId, targetSubnets.uint64)
+    custody =
+      if node.config.lightSupernode:
+        # Light supernode serves only half of the custody groups
+        var res = newSeqOfCap[CustodyIndex]((custody_groups div 2) + 1)
+        for i in 0..<(custody_groups div 2) + 1:
+          res.add CustodyIndex(i)
+        res
+      else:
+        node.dag.cfg.get_custody_groups(
+        node.network.nodeId, targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1725,10 +1753,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
+        when consensusFork < ConsensusFork.Fulu: continue
         else:
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+            if node.db.delDataColumnSidecar(
+                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
 
@@ -1736,8 +1765,15 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/das-core.md#reconstruction-and-cross-seeding
   # "If the node obtains 50%+ of all the columns, it SHOULD reconstruct the
   # full data matrix via the recover_matrix helper."
+  if node.config.lightSupernode:
+    return
+
   if node.dataColumnQuarantine.custodyColumns.lenu64 <
       node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2:
+    return
+
+  # Currently, this logic is broken
+  if true:
     return
 
   logScope:
@@ -2013,8 +2049,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
-     (not node.config.debugPeerdasSupernode) and
-     (slot.epoch() + 1).start_slot() - slot == 1 and
+     (not node.config.lightSupernode) and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
@@ -2026,8 +2061,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         node.validatorCustody.newer_column_set.toSeq()
       sort(custodyColumns)
       # update custody columns
-      node.dataColumnQuarantine.updateColumnQuarantine(
-        node.dag.cfg, custodyColumns)
+      node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
 
       # Update CGC and metadata with respect to the new detected validator custody
       let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
@@ -2111,9 +2145,20 @@ proc attemptGetBlobs(node: BeaconNode,
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
+            let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
+
+            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
+
             for col in recovered_columns:
-              if col.index in node.dataColumnQuarantine[].custodyColumns:
-                node.dataColumnQuarantine[].put(forkyBlck.root, newClone(col))
+              if col.index notin node.dataColumnQuarantine[].custodyColumns:
+                continue
+
+              batch.add(newClone(col))
+              if batch.len == MaxColsPerPut:
+                break
+
+            if batch.len > 0:
+              node.dataColumnQuarantine[].put(forkyBlck.root, batch)
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
@@ -2338,6 +2383,20 @@ proc installMessageValidators(node: BeaconNode) =
                 node.processor[].processExecutionPayloadBid(
                   MsgSource.gossip, signedBid)))
 
+        # payload_attestation_message
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addAsyncValidator(
+            getPayloadAttestationMessageTopic(digest), proc (
+              payloadAttestationMessage: PayloadAttestationMessage,
+              src: PeerId
+            ): Future[ValidationResult] {.
+                 async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processPayloadAttestationMessage(
+                  MsgSource.gossip, payloadAttestationMessage,
+                  checkSignature = true, checkValidator = false)))
+
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2526,11 +2585,6 @@ proc installMessageValidators(node: BeaconNode) =
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  if not node.config.inProcessValidators:
-    try:
-      node.vcProcess.close()
-    except Exception as exc:
-      warn "Couldn't close vc process", msg = exc.msg
   try:
     waitFor node.network.stop()
   except CatchableError as exc:
@@ -2795,6 +2849,16 @@ proc doRunBeaconNode(
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
+  # Ensure that non-light peerdas supernode options are forcibly disabled
+  # TODO when reconstruction works again, re-enable
+  # this is required because the fall-through is that if one of these is
+  # enabled, the (working) light supernode code won't run at all.
+  if config.peerdasSuperNode:
+    # It's at least not worse than not doing this; a functioning (full)
+    # supernode reconstructs and stores a superset of these columns
+    config.lightSupernode = true
+  config.peerdasSupernode = false
+
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
@@ -2810,6 +2874,7 @@ proc doRunBeaconNode(
   ignoreDeprecatedOption web3ForcePolling
   ignoreDeprecatedOption finalizedDepositTreeSnapshot
   ignoreDeprecatedOption finalizedCheckpointBlock
+  ignoreDeprecatedOption inProcessValidators
 
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
@@ -2817,6 +2882,10 @@ proc doRunBeaconNode(
   if config.trustedSetupFile.isSome:
     kzg.loadTrustedSetup(config.trustedSetupFile.get(), 0).isOkOr:
       fatal "Cannot load KZG trusted setup from file", msg = error
+      quit(QuitFailure)
+  else:
+    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 0).isOkOr:
+      fatal "Cannot load KZG trusted setup using default data", msg = error
       quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):

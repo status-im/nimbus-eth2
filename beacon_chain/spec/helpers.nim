@@ -400,9 +400,9 @@ func is_merge_transition_complete*(state: gloas.BeaconState): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind == ConsensusFork.Gloas:
-    debugGloasComment ""
-    false
+  when typeof(body).kind >= ConsensusFork.Gloas:
+    # Execution payload should always be enabled since Gloas.
+    true
   elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
@@ -535,19 +535,36 @@ func toExecutionBlockHeader(
     requestsHash          : requestsHash)          # EIP-7685
 
 func compute_execution_block_hash*(
-    body: ForkyBeaconBlockBody,
-    parentRoot: Eth2Digest): Eth2Digest =
-  when typeof(body).kind >= ConsensusFork.Electra:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot, Opt.some body.execution_requests.computeRequestsHash())
-      .computeRlpHash().to(Eth2Digest)
-  elif typeof(body).kind >= ConsensusFork.Deneb:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot)
-      .computeRlpHash().to(Eth2Digest)
+    consensusFork: static ConsensusFork,
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest,
+    requestsHash = Opt.none(EthHash32),
+): Eth2Digest =
+  let header =
+    when consensusFork >= ConsensusFork.Electra:
+      payload.toExecutionBlockHeader(Opt.some parentRoot, requestsHash)
+    elif consensusFork >= ConsensusFork.Deneb:
+      payload.toExecutionBlockHeader(Opt.some parentRoot)
+    else:
+      payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
+
+  header.computeRlpHash().to(Eth2Digest)
+
+func compute_execution_block_hash*(
+    body: ForkyBeaconBlockBody, parentRoot: Eth2Digest
+): Eth2Digest =
+  const consensusFork = typeof(body).kind
+  when consensusFork >= ConsensusFork.Electra:
+    compute_execution_block_hash(
+      consensusFork,
+      body.execution_payload,
+      parentRoot,
+      Opt.some body.execution_requests.computeRequestsHash(),
+    )
   else:
-    body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
-      .computeRlpHash().to(Eth2Digest)
+    compute_execution_block_hash(
+      consensusFork, body.execution_payload, parentRoot
+    )
 
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
@@ -566,3 +583,35 @@ func is_builder_payment_withdrawable*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_bid.block_hash == state.latest_block_hash
+
+func attestation_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    attestation_deadline_gloas(s, timeParams)
+  else:
+    attestation_deadline(s, timeParams)
+
+func aggregate_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    aggregate_deadline_gloas(s, timeParams)
+  else:
+    aggregate_deadline(s, timeParams)
+
+func sync_committee_message_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_committee_message_deadline_gloas(s, timeParams)
+  else:
+    sync_committee_message_deadline(s, timeParams)
+
+func sync_contribution_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_contribution_deadline_gloas(s, timeParams)
+  else:
+    sync_contribution_deadline(s, timeParams)

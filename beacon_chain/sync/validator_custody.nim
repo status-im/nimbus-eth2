@@ -18,7 +18,6 @@ import
   ../consensus_object_pools/block_dag,
   ../consensus_object_pools/blob_quarantine
 
-from std/algorithm import sort
 from std/sequtils import toSeq
 from ../beacon_clock import GetBeaconTimeFn
 
@@ -60,12 +59,13 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
         max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64,
         vcustody))
 
-  # update data column quarantine custody requirements
-  vcus.dataColumnQuarantine[].custodyColumns = newer_columns.toSeq()
-  sort(vcus.dataColumnQuarantine[].custodyColumns)
   # check which custody set is larger
   if newer_columns.len >= vcus.older_column_set.len:
     vcus.diff_set = toSeq(newer_columns.difference(vcus.older_column_set))
-  vcus.older_column_set = newer_columns
+  # else declare the difference to be 0
+  else:
+    vcus.diff_set = @[]
+
+  vcus.older_column_set = vcus.newer_column_set
   vcus.newer_column_set = newer_columns
   vcus.dag.eaSlot = max(vcus.dag.eaSlot, current_slot)

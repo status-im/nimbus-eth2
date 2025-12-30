@@ -26,8 +26,7 @@ export blockchain_dag, fork_choice
 
 const
   # TODO since deneb, this is looser (whole previous epoch)
-  ATTESTATION_LOOKBACK =
-    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+  ATTESTATION_LOOKBACK = SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
@@ -625,7 +624,7 @@ func init(
         let committee = get_beacon_committee(
             state.data, slot, committee_index, cache)
         var
-          validator_bits = typeof(result).B.init(committee.len)
+          validator_bits = ElectraCommitteeValidatorsBits.init(committee.len)
         for index_in_committee, validator_index in committee:
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.
@@ -953,19 +952,23 @@ proc getBeaconHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
-  if newHeadRoot.isErr:
-    error "Couldn't select head", err = newHeadRoot.error
-    return err()
+  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
+    error "Couldn't select head", err = error
+    return Opt.none(BeaconHead)
 
-  let headBlock = pool.dag.getBlockRef(newHeadRoot.get()).valueOr:
+  let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice
     # get out of sync, we'll need to try to download the selected head - in
     # the meantime, return nil to indicate that no new head was chosen
-    warn "Fork choice selected unknown head, trying to sync",
-      root = newHeadRoot.get()
-    pool.quarantine[].addMissing(newHeadRoot.get())
-    return err()
+
+    pool.quarantine[].addMissing(newHeadRoot).isOkOr:
+      # The newly selected head is unviable for some reason - the only way out
+      # here is that fork choice gets information about some other head
+      warn "Fork choice selected unviable head - cannot sync", newHeadRoot, err = error
+      return Opt.none(BeaconHead)
+
+    warn "Fork choice selected unknown head, trying to sync", newHeadRoot
+    return Opt.none(BeaconHead)
 
   ok pool.getBeaconHead(headBlock)
 

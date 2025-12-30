@@ -83,7 +83,7 @@ suite "Attestation pool electra processing" & preset():
     const TOTAL_COMMITTEES = 2
     var
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(
         ChainDAGRef, cfg,
         cfg.makeTestDB(
@@ -318,7 +318,7 @@ suite "Attestation pool electra processing" & preset():
       attestation1.loadSig, attestation1.startTime)
 
     pool[].addAttestation(
-      attestation2, @[bc0[1]], attestation2.aggregation_bits.len,
+      attestation2, @[bc1[1]], attestation2.aggregation_bits.len,
       attestation2.loadSig, attestation2.startTime)
 
     check cfg.process_slots(

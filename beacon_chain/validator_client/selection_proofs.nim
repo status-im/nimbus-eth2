@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -173,8 +173,8 @@ proc fillAttestationSelectionProofs*(
       let sresponse =
         try:
           # Query middleware for aggregated signatures.
-          await vc.submitBeaconCommitteeSelections(selections,
-                                                   ApiStrategyKind.Best)
+          await vc.submitBeaconCommitteeSelections(
+            selections, vc.getMode()[FnKind.submitBeaconCommitteeSelections])
         except ValidatorApiError as exc:
           warn "Unable to submit beacon committee selections",
                reason = exc.getFailureReason()
@@ -455,8 +455,8 @@ proc fillSyncCommitteeSelectionProofs*(
       let sresponse =
         try:
           # Query middleware for aggregated signatures.
-          await vc.submitSyncCommitteeSelections(selections,
-                                                 ApiStrategyKind.Best)
+          await vc.submitSyncCommitteeSelections(
+            selections, vc.getMode()[FnKind.submitSyncCommitteeSelections])
         except ValidatorApiError as exc:
           warn "Unable to submit sync committee selections",
                reason = exc.getFailureReason()

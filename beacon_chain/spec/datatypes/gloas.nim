@@ -74,17 +74,18 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#executionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
-    # Execution block header fields
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
+    prev_randao*: Eth2Digest
     fee_recipient*: ExecutionAddress
     gas_limit*: uint64
     builder_index*: uint64
     slot*: Slot
     value*: Gwei
+    execution_payment*: Gwei
     blob_kzg_commitments_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#signedexecutionpayloadbid
@@ -102,9 +103,22 @@ type
     blob_kzg_commitments*: KzgCommitments
     state_root*: Eth2Digest
 
+  TrustedExecutionPayloadEnvelope* = object
+    payload*: deneb.ExecutionPayload
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    blob_kzg_commitments*: KzgCommitments
+    state_root*: Eth2Digest
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
   SignedExecutionPayloadEnvelope* = object
     message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
+
+  TrustedSignedExecutionPayloadEnvelope* = object
+    message*: TrustedExecutionPayloadEnvelope
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationdata
@@ -616,10 +630,37 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     blob_kzg_commitments_root: shortLog(v.blob_kzg_commitments_root),
   )
 
+func shortLog*(v: ExecutionPayloadEnvelope): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    slot: v.slot,
+    builder_index: v.builder_index,
+    state_root: shortLog(v.state_root)
+  )
+
+func shortLog*(v: PayloadAttestationData): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    slot: v.slot,
+    payload_present: v.payload_present,
+    blob_data_available: v.blob_data_available
+  )
+
+func shortLog*(v: PayloadAttestationMessage): auto =
+  (
+    validator_index: v.validator_index,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
+
+template asSigned*(
+    x: TrustedSignedExecutionPayloadEnvelope): SignedExecutionPayloadEnvelope =
+  isomorphicCast[SignedExecutionPayloadEnvelope](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |
