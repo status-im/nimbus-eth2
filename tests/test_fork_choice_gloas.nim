@@ -169,7 +169,6 @@ suite "Vote Processing - Slot Tracking":
         backend.is_payload_timely(root3)
 
 suite "Gloas Payload Extension":
-
   setup:
     var cfg = defaultRuntimeConfig
     cfg.ALTAIR_FORK_EPOCH = Epoch(0)
@@ -285,3 +284,296 @@ suite "Gloas Payload Extension":
 
     check:
       not forkChoice[].should_extend_payload(blockB_root)
+
+suite "Vote Support Logic - When Votes Support Nodes":
+  setup:
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = Epoch(0)
+    cfg.BELLATRIX_FORK_EPOCH = Epoch(0)
+    cfg.CAPELLA_FORK_EPOCH = Epoch(0)
+    cfg.DENEB_FORK_EPOCH = Epoch(0)
+    cfg.ELECTRA_FORK_EPOCH = Epoch(0)
+    cfg.FULU_FORK_EPOCH = Epoch(0)
+    cfg.GLOAS_FORK_EPOCH = Epoch(0)
+
+    var
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
+      forkChoice = newClone(ForkChoice.init(
+        dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+
+  test "Pre-Gloas: Simple root matching":
+    # Before Gloas, voting is simple: vote.root == node.root
+
+    dag.cfg.GLOAS_FORK_EPOCH = Epoch(1000) # Disable Gloas
+    
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x1111111111111111111111111111111111111111111111111111111111111111")
+
+    # Add block to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: Slot(50)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let 
+      node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_PENDING)
+      vote = VoteTracker(
+        next_root: block_root,
+        next_slot: Slot(50),
+        next_epoch: Epoch(0),
+        payload_present: false)
+
+    check:
+      forkChoice[].is_supporting_vote(node, vote, dag)
+  
+  test "Rule 1: PENDING status always gets support":
+    # PENDING is the parent of EMPTY/FULL virtual nodes
+    # Any vote for the block supports PENDING
+  
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x2222222222222222222222222222222222222222222222222222222222222222")
+
+    # Add block to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: Slot(100)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let pending_node = ForkChoiceNode(
+      root: block_root,
+      payloadStatus: PAYLOAD_STATUS_PENDING)
+
+    # Vote from same slot with payload_present = false
+    let vote1 = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(100),
+      next_epoch: Epoch(0),
+      payload_present: false)
+
+    # Vote from later slot with payload_present = true
+    let vote2 = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(101),
+      next_epoch: Epoch(0),
+      payload_present: true)
+
+    # Both support PENDING
+    check:
+      forkChoice[].is_supporting_vote(pending_node, vote1, dag)
+      forkChoice[].is_supporting_vote(pending_node, vote2, dag)
+
+  test "Rule 2: Same-slot vote doesn't support EMPTY/FULL":
+    # When attesting to block at same slot, you're voting for
+    # the BLOCK (PENDING), not choosing EMPTY vs FULL
+
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x3333333333333333333333333333333333333333333333333333333333333333")
+      block_slot = Slot(100)
+
+    # Add block to proto_array at slot 100
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: block_slot),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let 
+      empty_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_EMPTY)
+      full_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_FULL)
+
+    let same_slot_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: block_slot,
+      next_epoch: Epoch(0),
+      payload_present: false)
+    
+    # Same-slot vote should NOT support EMPTY or FULL
+    check:
+      not forkChoice[].is_supporting_vote(empty_node, same_slot_vote, dag)
+      not forkChoice[].is_supporting_vote(full_node, same_slot_vote, dag)
+
+  test "Rule 3: Next-slot vote with payload_present=false supports EMPTY":
+    # At slot N+1, attesting to slot N block with index=0
+    # preferring EMPTY branch
+
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x4444444444444444444444444444444444444444444444444444444444444444")
+      block_slot = Slot(100)
+
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: block_slot),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let 
+      empty_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_EMPTY)
+      full_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_FULL)
+
+    # Vote from NEXT slot preferring EMPTY
+    let empty_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(101),
+      next_epoch: Epoch(0),
+      payload_present: false)
+
+    check:
+      forkChoice[].is_supporting_vote(empty_node, empty_vote, dag)
+      not forkChoice[].is_supporting_vote(full_node, empty_vote, dag)
+
+  test "Rule 3: Next-slot vote with payload_present=true supports FULL":
+    # At slot N+1, attesting to slot N block with index=1
+    # preferring full branch"
+
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x5555555555555555555555555555555555555555555555555555555555555555")
+      block_slot = Slot(100)
+
+    # Add block to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: block_slot),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let 
+      empty_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_EMPTY)
+      full_node = ForkChoiceNode(
+        root: block_root,
+        payloadStatus: PAYLOAD_STATUS_FULL)
+
+    # Vote from NEXT slot preferring FULL
+    let full_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(101),
+      next_epoch: Epoch(0),
+      payload_present: true)
+
+    check:
+      not forkChoice[].is_supporting_vote(empty_node, full_vote, dag)
+      forkChoice[].is_supporting_vote(full_node, full_vote, dag)
+
+  test "Vote timing is critical for EMPTY vs FULL distinction":
+    # The SAME validator voting at different times has different meaning
+
+    let 
+      genesis_root = dag.genesis.get().root
+      block_root = Eth2Digest.fromHex(
+        "0x6666666666666666666666666666666666666666666666666666666666666666")
+      block_slot = Slot(100)
+
+    # Add block to proto_array
+    discard forkChoice[].backend.process_block(
+      BlockId(root: block_root, slot: block_slot),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let empty_node = ForkChoiceNode(
+      root: block_root,
+      payloadStatus: PAYLOAD_STATUS_EMPTY)
+
+    # Vote from slot 100 (SAME as block)
+    let same_slot_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(100),  # Explicit: same as block_slot
+      next_epoch: Epoch(0),
+      payload_present: false)
+
+    # Vote from slot 101 (NEXT after block)
+    let next_slot_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(101),
+      next_epoch: Epoch(0),
+      payload_present: false)
+
+    # Same slot doesn't support EMPTY (neutral, supports PENDING only)
+    check:
+      not forkChoice[].is_supporting_vote(empty_node, same_slot_vote, dag)
+    
+    # Next slot supports EMPTY (actual preference)
+    check:
+      forkChoice[].is_supporting_vote(empty_node, next_slot_vote, dag)
+    
+    # Vote from slot 99 (BEFORE block) - shouldn't happen
+    let before_slot_vote = VoteTracker(
+      next_root: block_root,
+      next_slot: Slot(99),
+      next_epoch: Epoch(0),
+      payload_present: false)
+
+    # Before or same slot: doesn't support EMPTY
+    check:
+      not forkChoice[].is_supporting_vote(empty_node, before_slot_vote, dag)
+
+  test "Rule 4: Vote for descendant can support ancestor":
+    # If vote is for child block C that builds on parent B,
+    # the vote can support B (with matching payload status)
+
+    let 
+      genesis_root = dag.genesis.get().root
+      parent_root = Eth2Digest.fromHex(
+        "0x7777777777777777777777777777777777777777777777777777777777777777")
+      child_root = Eth2Digest.fromHex(
+        "0x8888888888888888888888888888888888888888888888888888888888888888")
+
+    # Setup proto_array: Parent (slot 100) ← Child (slot 101)
+    discard forkChoice[].backend.process_block(
+      BlockId(root: parent_root, slot: Slot(100)),
+      genesis_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    discard forkChoice[].backend.process_block(
+      BlockId(root: child_root, slot: Slot(101)),
+      parent_root,
+      FinalityCheckpoints(
+        justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
+        finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
+
+    let 
+      parent_node = ForkChoiceNode(
+        root: parent_root,
+        payloadStatus: PAYLOAD_STATUS_PENDING)
+      child_vote = VoteTracker(
+        next_root: child_root,
+        next_slot: Slot(101),
+        next_epoch: Epoch(0),
+        payload_present: false)
+
+    # Vote for child should support parent (PENDING accepts all)
+    check:
+      forkChoice[].is_supporting_vote(parent_node, child_vote, dag)

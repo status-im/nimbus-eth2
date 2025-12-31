@@ -700,15 +700,14 @@ func get_payload_status_tiebreaker*(
   else:
     return 0'u8  # We shouldn't get here ideally
 
-func is_supporting_vote(
-    self: var ForkChoice,
-    node: ForkChoiceNode,
-    vote: VoteTracker,
-    dag: ChainDAGRef): bool =
-    ## Returns whether a vote for ``message.root`` supports the chain 
-    ## containing the beacon block ``node.root`` with the
-    ## payload contents indicated by ``node.payload_status``
-    ## as head during slot ``node.slot``
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_supporting_vote
+func is_supporting_vote*(
+    self: var ForkChoice, node: ForkChoiceNode,
+    vote: VoteTracker, dag: ChainDAGRef): bool =
+  ## Returns whether a vote for ``message.root`` supports the chain 
+  ## containing the beacon block ``node.root`` with the payload
+  ## contents indicated by ``node.payload_status`` as head during
+  ## slot ``node.slot``
 
   let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
   if node_idx < 0:
