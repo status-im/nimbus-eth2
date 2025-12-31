@@ -612,7 +612,7 @@ proc on_execution_payload(
   ok()
 
 func should_extend_payload*(
-    self: var Forkchoice, root: Eth2Digest): bool =
+    self: var ForkChoice, root: Eth2Digest): bool =
   # Slot N:   Block B (PENDING) produced
   #         Payload commitment in block
   #         Builder should reveal payload
@@ -674,12 +674,11 @@ func get_payload_status_tiebreaker*(
     self: var ForkChoice, node: ForkChoiceNode,
     current_slot: Slot, dag: ChainDAGRef): uint8 =
   if not dag.isGloasEnabled(current_slot):
-    return node.payload_status
+    return node.payloadStatus
 
   let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
   if node_idx < 0:
-    return node.payload_status
-
+    return node.payloadStatus
   let
     proto_node = self.backend.proto_array.nodes.buf[node_idx]
 
@@ -687,7 +686,7 @@ func get_payload_status_tiebreaker*(
     is_deciding_on_previous = (proto_node.bid.slot + 1 == current_slot)
 
   if node.payloadStatus == PAYLOAD_STATUS_PENDING or not is_deciding_on_previous:
-    return node.payload_status
+    return node.payloadStatus
 
   # Deciding on previous slot's payload
   if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
@@ -739,12 +738,12 @@ func is_supporting_vote*(
 
     # Rule 3: Next slot votes distinguish empty from full
     if vote.payload_present:
-      let supports = (node.payload_status == PAYLOAD_STATUS_FULL)
+      let supports = (node.payloadStatus == PAYLOAD_STATUS_FULL)
       trace "Vote with payload present checks full",
         node = shortLog(node), supports = supports
       return supports
     else:
-      let supports = (node.payload_status == PAYLOAD_STATUS_EMPTY)
+      let supports = (node.payloadStatus == PAYLOAD_STATUS_EMPTY)
       trace "Vote with payload present checks empty",
         node = shortLog(node), supports = supports
       return supports
@@ -764,7 +763,7 @@ func is_supporting_vote*(
       inc iterations
 
       if current_root == node.root:
-        if node.payload_status == PAYLOAD_STATUS_PENDING:
+        if node.payloadStatus == PAYLOAD_STATUS_PENDING:
           trace "Ancestor match, Pending accepts all",
             node = shortLog(node)
           return true
@@ -807,6 +806,115 @@ func is_supporting_vote*(
       node = shortLog(node), iterations = iterations
     return false
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
+func get_weight*(
+    self: var ForkChoice, node: ForkChoiceNode,
+    current_slot: Slot, dag: ChainDAGRef): Gwei =
+  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
+  if node_idx < 0:
+    return 0.Gwei
+
+  let proto_node = self.backend.proto_array.nodes.buf[node_idx]
+
+  # Weight calculation is handled by proto_array pre-Gloas
+  if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return proto_node.weight.Gwei
+
+  let is_deciding_previous = (node.payloadStatus != PAYLOAD_STATUS_PENDING and
+                              proto_node.bid.slot + 1 == current_slot)
+  
+  if is_deciding_previous:
+    trace "Zero weight: deciding on previous slot's payload",
+      node = shortLog(node),
+      current_slot = current_slot,
+      block_slot = proto_node.bid.slot
+    return 0.Gwei
+
+  var attestation_score = 0.Gwei
+  for i in 0..<self.backend.votes.len:
+    if i >= self.checkpoints.justified.balances.len:
+      break
+
+    let vote = self.backend.votes[i]
+    if vote.next_root.isZero:
+      continue
+
+    # Check if this vote supports our node
+    if self.is_supporting_vote(node, vote, dag):
+      attestation_score += self.checkpoints.justified.balances[i]
+
+  var proposer_score = 0.Gwei
+  if not self.checkpoints.proposer_boost_root.isZero:
+    var boost_vote = VoteTracker(
+      next_root: self.checkpoints.proposer_boost_root,
+      next_slot: current_slot,
+      next_epoch: current_slot.epoch,
+      payload_present: false)
+
+    if self.is_supporting_vote(node, boost_vote, dag):
+      proposer_score =
+        calculateProposerBoost(self.checkpoints.justified.total_active_balance)
+
+      trace "Applied proposer boost",
+        node = shortLog(node), boost = proposer_score
+
+  attestation_score + proposer_score
+
+#https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
+func get_node_children*(
+    self: var ForkChoice, node: ForkChoiceNode,
+    dag: ChainDAGRef): seq[ForkChoiceNode] =
+  var children: seq[ForkChoiceNode]
+  
+  if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    for root, idx in self.backend.proto_array.indices:
+      let child = self.backend.proto_array.nodes.buf[idx]
+      if child.parent.isNone: continue
+
+      # Check if this child's parent is our node
+      let
+        parent_idx = child.parent.get()
+        parent = self.backend.proto_array.nodes.buf[parent_idx]
+
+      if parent.bid.root == node.root:
+        children.add(ForkChoiceNode(
+          root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
+      
+    return children
+
+  if node.payloadStatus == PAYLOAD_STATUS_PENDING:
+    children.add(ForkChoiceNode(
+      root: node.root, payload_status: PAYLOAD_STATUS_EMPTY))
+    
+    if node.root in self.backend.execution_payload_states:
+      children.add(ForkChoiceNode(
+        root: node.root, payload_status: PAYLOAD_STATUS_FULL))
+      
+      trace "PENDING expanded to EMPTY + FULL",
+        node = shortLog(node), has_payload = true
+    else:
+      trace "PENDING expanded to EMPTY ONLY",
+        node = shortLog(node), has_payload = false
+  else:
+    for root, idx in self.backend.proto_array.indices:
+      let child = self.backend.proto_array.nodes.buf[idx]
+      if child.parent.isNone: continue
+
+      let
+        parent_idx = child.parent.get()
+        parent = self.backend.proto_array.nodes.buf[parent_idx]
+
+      if parent.bid.root != node.root:
+        continue
+      # TODO: Verify child's parent_payload_status matches node status
+
+      children.add(ForkChoiceNode(
+        root: root, payload_status: PAYLOAD_STATUS_PENDING))
+    trace "EMPTY/FULL expanded to child blocks",
+      node = shortLog(node), children = children.len
+  
+  children
+  
 # Sanity checks
 # ----------------------------------------------------------------------
 # Sanity checks on internal private procedures

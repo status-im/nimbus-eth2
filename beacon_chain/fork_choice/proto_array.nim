@@ -121,7 +121,7 @@ iterator realizePendingCheckpoints*(
   self.currentEpochTips.clear()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
+func calculateProposerBoost*(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
