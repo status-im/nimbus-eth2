@@ -314,7 +314,28 @@ proc process_block*(self: var ForkChoice,
         self.backend.process_attestation(
           validator_index,
           attestation.data.beacon_block_root,
-          attestation.data.target.epoch)
+          attestation.data.target.epoch,
+          attestation.data.slot,
+          attestation.data.index == 1,
+          dag.cfg)
+  
+  # Process payload attestations
+  when consensusFork >= ConsensusFork.Gloas:
+    if dag.isGloasEnabled(blckRef.slot):
+      for payload_attestation in blck.body.payload_attestations:
+        withState(dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            let indexed = get_indexed_payload_attestation(
+              forkyState.data, blck.slot - 1, payload_attestation)
+          
+          for validator_idx in indexed.attesting_indices:
+            discard self.on_payload_attestation_message(
+              dag,
+              validator_idx,
+              payload_attestation.data.beacon_block_root,
+              payload_attestation.data.slot,
+              payload_attestation.data.payload_present,
+              is_from_block = true)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
@@ -326,6 +347,9 @@ proc process_block*(self: var ForkChoice,
         dag.timeParams, typeof(blck).kind) and
       self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
+  
+  debug "Applied proposer boost",
+    block_root = shortLog(blckRef)
 
   # Update checkpoints in store if necessary
   ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints)
@@ -358,7 +382,7 @@ func get_node_children*(
     dag: ChainDAGRef): seq[ForkChoiceNode] =
   var children: seq[ForkChoiceNode]
   
-  if not dag.isGloasEnabled(dag.head.slot)::
+  if not dag.isGloasEnabled(dag.head.slot):
     for root, idx in self.backend.proto_array.indices:
       let child = self.backend.proto_array.nodes.buf[idx]
       if child.parent.isNone: continue
@@ -960,7 +984,7 @@ proc on_payload_attestation_message*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_execution_payload
-proc on_execution_payload(
+proc on_execution_payload*(
     self: var ForkChoice,
     dag: ChainDAGRef,
     beacon_block_root: Eth2Digest,
