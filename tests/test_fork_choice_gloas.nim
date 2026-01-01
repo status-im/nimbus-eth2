@@ -1438,12 +1438,12 @@ suite "Block Processing":
       beacon_block_root notin forkChoice[].backend.execution_payload_states
 
     # Record payload availability
-    let result = forkChoice[].on_execution_payload(
+    letres = forkChoice[].on_execution_payload(
       dag, beacon_block_root, payload_state_root)
 
     # After: payload marked available
     check:
-      result.isOk
+     res.isOk
       beacon_block_root in forkChoice[].backend.execution_payload_states
       forkChoice[].backend.execution_payload_states[beacon_block_root] == 
         payload_state_root
@@ -1499,12 +1499,12 @@ suite "Block Processing":
       forkChoice[].checkpoints.proposer_boost_root == block_root
 
     # Advance to slot 101
-    let result = forkChoice[].update_time(
+    letres = forkChoice[].update_time(
       dag, Slot(101).start_beacon_time(dag.timeParams))
 
     # Boost reset
     check:
-      result.isOk
+     res.isOk
       forkChoice[].checkpoints.proposer_boost_root == ZERO_HASH
 
   test "update_time: Processes queued attestations on slot change":
@@ -1535,12 +1535,12 @@ suite "Block Processing":
     forkChoice[].checkpoints.time = Slot(100).start_beacon_time(dag.timeParams)
 
     # Advance to slot 101
-    let result = forkChoice[].update_time(
+    letres = forkChoice[].update_time(
       dag, Slot(101).start_beacon_time(dag.timeParams))
 
     # Queue processed and cleared
     check:
-      result.isOk
+     res.isOk
       forkChoice[].queuedAttestations.len == 0
 
   test "Payload availability changes head selection":

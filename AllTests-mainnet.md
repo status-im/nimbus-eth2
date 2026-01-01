@@ -121,6 +121,14 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
 ```
+## Block Processing
+```diff
++ Payload availability changes head selection                                                OK
++ on_execution_payload: Enables FULL branch in fork choice                                   OK
++ on_execution_payload: Marks payload as locally available                                   OK
++ update_time: Processes queued attestations on slot change                                  OK
++ update_time: Resets proposer boost at slot boundary                                        OK
+```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -685,6 +693,13 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas Payload Extension
+```diff
++ should_extend_payload: False when proposer boost on same chain                             OK
++ should_extend_payload: True when no proposer boost                                         OK
++ should_extend_payload: True when payload is timely                                         OK
++ should_extend_payload: True when proposer boost on different chain                         OK
+```
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
@@ -708,6 +723,17 @@ AllTests-mainnet
 + Obtaining the graffiti of a missing validator returns 404 [Beacon Node] [Preset: mainnet]  OK
 + Obtaining the graffiti of an unconfigured validator returns the suggested default [Beacon  OK
 + Setting the graffiti on a missing validator creates a record for it [Beacon Node] [Preset: OK
+```
+## Head Selection - LMD-GHOST with Payload Status
+```diff
++ Descends multiple levels                                                                   OK
++ Gloas: Handles virtual node expansion correctly                                            OK
++ Gloas: Lexicographic tiebreak on root when weights equal                                   OK
++ Gloas: Payload tiebreaker when same root, equal weight                                     OK
++ Gloas: Pick child with highest weight                                                      OK
++ Pre-Gloas: Use standard proto_array logic                                                  OK
++ Safety: Iteration limit prevents infinite loops                                            OK
++ Start at justified checkpoint with PENDING                                                 OK
 ```
 ## Honest validator
 ```diff
@@ -852,9 +878,25 @@ AllTests-mainnet
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
+## Node Expansion - Virtual Fork Choice Tree
+```diff
++ FULL finds actual child blocks                                                             OK
++ Gloas: EMPTY finds actual child blocks                                                     OK
++ Gloas: PENDING expands to EMPTY + FULL (have payload)                                      OK
++ Gloas: PENDING expands to EMPTY only (no payload)                                          OK
++ Pre-Gloas: Simple block children with PENDING status                                       OK
++ Virtual tree structure creates correct hierarchy                                           OK
+```
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
+```
+## PTC Voting - Payload Timeliness
+```diff
++ is_payload_timely: Both conditions must be met                                             OK
++ is_payload_timely: False when payload not locally available                                OK
++ is_payload_timely: False with exactly 256 votes (boundary)                                 OK
++ is_payload_timely: True with 257 votes (just above threshold)                              OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
@@ -1107,6 +1149,31 @@ AllTests-mainnet
 ```diff
 + incremental construction                                                                   OK
 + one-shot construction                                                                      OK
+```
+## Vote Processing - Slot Tracking
+```diff
++ Gloas: Votes update based on slot                                                          OK
++ Gloas: payload_present flag tracks EMPTY vs FULL preference                                OK
+```
+## Vote Support Logic - When Votes Support Nodes
+```diff
++ Pre-Gloas: Simple root matching                                                            OK
++ Rule 1: PENDING status always gets support                                                 OK
++ Rule 2: Same-slot vote doesn't support EMPTY/FULL                                          OK
++ Rule 3: Next-slot vote with payload_present=false supports EMPTY                           OK
++ Rule 3: Next-slot vote with payload_present=true supports FULL                             OK
++ Rule 4: Vote for descendant can support ancestor                                           OK
++ Vote timing is critical for EMPTY vs FULL distinction                                      OK
+```
+## Weight Calculation - Zero Weight for Previous Slot
+```diff
++ EMPTY/FULL from earlier slot get normal weight                                             OK
++ PENDING node gets normal weight (not zero)                                                 OK
++ Pre-Gloas: Use proto_array weight directly                                                 OK
++ Proposer boost adds to weight                                                              OK
++ Weight calculation sums validator balances correctly                                       OK
++ Zero weight when deciding on previous slot EMPTY                                           OK
++ Zero weight when deciding on previous slot FULL                                            OK
 ```
 ## Zero signature sanity checks
 ```diff

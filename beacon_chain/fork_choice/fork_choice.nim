@@ -268,6 +268,64 @@ proc on_attestation*(
       committee_index: attestation_committee_index))
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+proc on_payload_attestation_message*(
+   self: var ForkChoice,
+   dag: ChainDAGRef,
+   validator_index: ValidatorIndex,
+   beacon_block_root: Eth2Digest,
+   slot: Slot,
+   payload_present: bool,
+   is_from_block: bool = false): FcResult[void] =
+  ## Run ``on_payload_attestation_message`` upon receiving
+  ## a new ``ptc_message`` directly on the wire.
+
+  if not dag.isGloasEnabled(slot):
+    return ok()
+
+  # The beacon block root must be known
+  if beacon_block_root notin self.backend.proto_array.indices:
+    return ok()
+
+  # PTC attestation must be for a known block. If block is unknown, delay consideration until the block is found
+  if beacon_block_root notin self.backend.ptc_vote:
+    self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
+
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      var
+        cache: StateCache
+        ptc_index = -1
+        i = 0
+
+      for vidx in get_ptc(forkyState.data, slot, cache):
+        if vidx == validator_index:
+          ptc_index = i
+          break
+        inc i
+
+      if ptc_index >= 0:
+        var votes =
+          self.backend.ptc_vote.mgetOrPut(
+            beacon_block_root, newSeq[bool](PTC_SIZE))
+
+        votes[ptc_index] = payload_present
+
+        trace "Recorded PTC vote",
+          validator_index = validator_index,
+          beacon_block_root = shortLog(beacon_block_root),
+          slot = slot,
+          payload_present = payload_present,
+          ptc_index = ptc_index,
+          is_from_block = is_from_block
+      else:
+        debug "PTC vote from unknown validator index",
+          validator_index = validator_index,
+          slot = slot
+    else:
+      debug "Attempted to record PTC vote before GLOAS fork"
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
        self: var ForkChoice,
@@ -320,22 +378,23 @@ proc process_block*(self: var ForkChoice,
           dag.cfg)
   
   # Process payload attestations
-  when consensusFork >= ConsensusFork.Gloas:
+  when typeof(blck).kind >= ConsensusFork.Gloas:
     if dag.isGloasEnabled(blckRef.slot):
+      var cache: StateCache
       for payload_attestation in blck.body.payload_attestations:
         withState(dag.headState):
           when consensusFork >= ConsensusFork.Gloas:
             let indexed = get_indexed_payload_attestation(
-              forkyState.data, blck.slot - 1, payload_attestation)
-          
-          for validator_idx in indexed.attesting_indices:
-            discard self.on_payload_attestation_message(
-              dag,
-              validator_idx,
-              payload_attestation.data.beacon_block_root,
-              payload_attestation.data.slot,
-              payload_attestation.data.payload_present,
-              is_from_block = true)
+              forkyState.data, blck.slot - 1, payload_attestation, cache)
+
+            for validator_idx in indexed.attesting_indices:
+              discard self.on_payload_attestation_message(
+                dag,
+                ValidatorIndex(validator_idx),
+                payload_attestation.data.beacon_block_root,
+                payload_attestation.data.slot,
+                payload_attestation.data.payload_present,
+                is_from_block = true)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
@@ -407,10 +466,10 @@ func get_node_children*(
         root: node.root, payload_status: PAYLOAD_STATUS_FULL))
       
       trace "PENDING expanded to EMPTY + FULL",
-        node = shortLog(node), has_payload = true
+        has_payload = true
     else:
       trace "PENDING expanded to EMPTY ONLY",
-        node = shortLog(node), has_payload = false
+        has_payload = false
   else:
     for root, idx in self.backend.proto_array.indices:
       let child = self.backend.proto_array.nodes.buf[idx]
@@ -427,7 +486,7 @@ func get_node_children*(
       children.add(ForkChoiceNode(
         root: root, payload_status: PAYLOAD_STATUS_PENDING))
     trace "EMPTY/FULL expanded to child blocks",
-      node = shortLog(node), children = children.len
+      children = children.len
   
   children
 
@@ -457,13 +516,12 @@ func is_supporting_vote*(
     # Rule 1: Pending always gets support
     if node.payloadStatus == PAYLOAD_STATUS_PENDING:
       trace "Vote supports pending node",
-        node = shortLog(node), vote_root = shortLog(vote.next_root)
+        vote_root = shortLog(vote.next_root)
       return true
 
     # Rule 2: Same-slot votes don't support empty or full
     if vote.next_slot <= proto_node.bid.slot:
       trace "Vote from same/earlier slot - neither support empty nor full",
-        node = shortLog(node),
         vote_slot = vote.next_slot,
         block_slot = proto_node.bid.slot
       return false
@@ -472,17 +530,16 @@ func is_supporting_vote*(
     if vote.payload_present:
       let supports = (node.payloadStatus == PAYLOAD_STATUS_FULL)
       trace "Vote with payload present checks full",
-        node = shortLog(node), supports = supports
+        supports = supports
       return supports
     else:
       let supports = (node.payloadStatus == PAYLOAD_STATUS_EMPTY)
       trace "Vote with payload present checks empty",
-        node = shortLog(node), supports = supports
+        supports = supports
       return supports
   else:
     # Case 2: Vote is for a descendant block
     trace "Vote is for descendant",
-      node = shortLog(node),
       vote_root = shortLog(vote.next_root)
     
     # Rule 4: Ancestor matching with the payload status
@@ -496,8 +553,7 @@ func is_supporting_vote*(
 
       if current_root == node.root:
         if node.payloadStatus == PAYLOAD_STATUS_PENDING:
-          trace "Ancestor match, Pending accepts all",
-            node = shortLog(node)
+          trace "Ancestor match, Pending accepts all"
           return true
 
         # For empty/full, we should check if the descendant chain
@@ -508,7 +564,7 @@ func is_supporting_vote*(
 
         # JUst accept if ancestor was found
         trace "Ancestor match",
-          node = shortLog(node), iterations = iterations
+          iterations = iterations
         return true
 
       let current_idx = self.backend.proto_array.indices.getOrDefault(
@@ -535,7 +591,7 @@ func is_supporting_vote*(
       current_root = parent_node.bid.root
 
     trace "No ancestor match found",
-      node = shortLog(node), iterations = iterations
+      iterations = iterations
     return false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
@@ -557,7 +613,6 @@ func get_weight*(
   
   if is_deciding_previous:
     trace "Zero weight: deciding on previous slot's payload",
-      node = shortLog(node),
       current_slot = current_slot,
       block_slot = proto_node.bid.slot
     return 0.Gwei
@@ -588,7 +643,7 @@ func get_weight*(
         calculateProposerBoost(self.checkpoints.justified.total_active_balance)
 
       trace "Applied proposer boost",
-        node = shortLog(node), boost = proposer_score
+        boost = proposer_score
 
   attestation_score + proposer_score
 
@@ -620,6 +675,7 @@ func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
     return true
   false
 
+#https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoice, root: Eth2Digest): bool =
   # Slot N:   Block B (PENDING) produced
@@ -699,14 +755,14 @@ func get_payload_status_tiebreaker*(
 
   # Deciding on previous slot's payload
   if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
-    return 1'u8
+    1'u8
   elif node.payloadStatus == PAYLOAD_STATUS_FULL:
     if self.should_extend_payload(node.root):
-      return 2'u8
+      2'u8
     else:
-      return 0'u8
+      0'u8
   else:
-    return 0'u8  # We shouldn't get here ideally
+    0'u8  # We shouldn't get here ideally
 
 func find_head(
        self: var ForkChoiceBackend,
@@ -785,7 +841,7 @@ proc get_head*(self: var ForkChoice,
         best, current_slot, dag)
     
     trace "Initial candidate",
-      children = children.len, first_child = shortLog(best),
+      children = children.len,
       first_weight = best_weight, first_tiebreaker = best_tiebreaker
 
     for i in 1..<children.len:
@@ -924,64 +980,6 @@ func compute_deltas(
 
       vote.current_root = vote.next_root
   return ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_payload_attestation_message
-proc on_payload_attestation_message*(
-   self: var ForkChoice,
-   dag: ChainDAGRef,
-   validator_index: ValidatorIndex,
-   beacon_block_root: Eth2Digest,
-   slot: Slot,
-   payload_present: bool,
-   is_from_block: bool = false): FcResult[void] =
-  ## Run ``on_payload_attestation_message`` upon receiving
-  ## a new ``ptc_message`` directly on the wire.
-
-  if not dag.isGloasEnabled(slot):
-    return ok()
-
-  # The beacon block root must be known
-  if beacon_block_root notin self.backend.proto_array.indices:
-    return ok()
-
-  # PTC attestation must be for a known block. If block is unknown, delay consideration until the block is found
-  if beacon_block_root notin self.backend.ptc_vote:
-    self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
-
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      var
-        cache: StateCache
-        ptc_index = -1
-        i = 0
-
-      for vidx in get_ptc(forkyState.data, slot, cache):
-        if vidx == validator_index:
-          ptc_index = i
-          break
-        inc i
-
-      if ptc_index >= 0:
-        var votes =
-          self.backend.ptc_vote.mgetOrPut(
-            beacon_block_root, newSeq[bool](PTC_SIZE))
-
-        votes[ptc_index] = payload_present
-
-        trace "Recorded PTC vote",
-          validator_index = validator_index,
-          beacon_block_root = shortLog(beacon_block_root),
-          slot = slot,
-          payload_present = payload_present,
-          ptc_index = ptc_index,
-          is_from_block = is_from_block
-      else:
-        debug "PTC vote from unknown validator index",
-          validator_index = validator_index,
-          slot = slot
-    else:
-      debug "Attempted to record PTC vote before GLOAS fork"
-  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_execution_payload
 proc on_execution_payload*(

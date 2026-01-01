@@ -182,10 +182,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 proc addForkChoiceVotes(
     pool: var AttestationPool, slot: Slot,
     attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
-    wallTime: BeaconTime) =
+    committee_index: CommitteeIndex, wallTime: BeaconTime) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.dag, slot, block_root, attesting_indices, wallTime);
+    pool.dag, slot, block_root, attesting_indices, committee_index, wallTime);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -464,7 +464,8 @@ proc addAttestation*(
     addAttToPool(pool.electraCandidates, newAttEntry, Opt.some committee_index)
     pool.addForkChoiceVotes(
       attestation.data.slot, attesting_indices,
-      attestation.data.beacon_block_root, wallTime)
+      attestation.data.beacon_block_root,
+      attestation.data.index.CommitteeIndex, wallTime)
 
     # There does not seem to be an SSE stream event corresponding to this,
     # because both attestation and single_attestation specifically specify
@@ -486,7 +487,8 @@ proc addAttestation*(
       Opt.some attestation.committee_index.CommitteeIndex)
     pool.addForkChoiceVotes(
       attestation.data.slot, attesting_indices,
-      attestation.data.beacon_block_root, wallTime)
+      attestation.data.beacon_block_root,
+      attestation.data.index.CommitteeIndex, wallTime)
 
     # Send notification about new attestation via callback.
     if not(isNil(pool.onSingleAttestationAdded)):
