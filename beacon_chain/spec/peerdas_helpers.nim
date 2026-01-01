@@ -229,7 +229,7 @@ proc recover_cells_and_proofs_parallel*(
 
     # If too many in-flight tasks, await the oldest one
     while spawned - completed >= maxInFlight:
-      # Check timeout BEFORE syncing
+      # Check timeout before syncing
       if (Moment.now() - startTime) > reconstructionTimeout:
         trace "PeerDAS reconstruction timed out before syncing task",
           completed = completed, totalSpawned = spawned
