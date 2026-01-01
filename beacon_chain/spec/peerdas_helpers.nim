@@ -156,7 +156,6 @@ proc recover_cells_and_proofs_parallel*(
   ## Recover blobs from data column sidecars in parallel.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
-  ## - Checks timeout before every spawn operation.
   ## - Ensures all spawned tasks are awaited (drained) before returning.
 
   if dataColumns.len == 0:
@@ -197,9 +196,9 @@ proc recover_cells_and_proofs_parallel*(
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
-  var 
+  var
     completed = 0
-    timedOut = false
+    hadError = false
 
   # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
@@ -207,14 +206,14 @@ proc recover_cells_and_proofs_parallel*(
     if (Moment.now() - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out before spawning task",
         spawned = spawned, completed = completed, total = blobCount
-      timedOut = true
+      hadError = true
       break  # Stop spawning new tasks
 
     # Use regular Nim sequences
     var
       indices = newSeq[CellIndex](columnCount)
       cells = newSeq[Cell](columnCount)
-    
+
     for i in 0 ..< dataColumns.len:
       indices[i] = dataColumns[i][].index
       cells[i] = dataColumns[i][].column[blobIdx]
@@ -234,31 +233,40 @@ proc recover_cells_and_proofs_parallel*(
       if (Moment.now() - startTime) > reconstructionTimeout:
         trace "PeerDAS reconstruction timed out before syncing task",
           completed = completed, totalSpawned = spawned
-        timedOut = true
+        hadError = true
         break
 
       let futRes = sync pendingFuts[completed]
 
       if futRes.isErr:
-        timedOut = true
-        break
-      
-      res[completed] = futRes.get
+        # Mark error but continue draining - don't break here
+        hadError = true
+      else:
+        res[completed] = futRes.get
+
       inc completed
 
-    if timedOut:
+    # If we hit timeout, stop spawning but continue to drain
+    if hadError:
       break
 
   # ---- CRITICAL: Drain all spawned tasks before returning ----
   # This ensures no task references memory that will be destroyed
+  # We MUST await all spawned tasks regardless of errors
   for i in completed ..< spawned:
     let futRes = sync pendingFuts[i]
-    # Store results only if we haven't timed out
-    if not timedOut and futRes.isOk:
+    # Store results only if we haven't had an error and the result is ok
+    if not hadError and futRes.isOk:
       res[i] = futRes.get
+    elif futRes.isErr:
+      hadError = true
 
-  if timedOut:
-    return err("Data column reconstruction timed out")
+  if hadError:
+    # Check if it was a timeout or a KZG error
+    if (Moment.now() - startTime) > reconstructionTimeout:
+      return err("Data column reconstruction timed out")
+    else:
+      return err("Data column reconstruction failed")
 
   ok(res)
 
