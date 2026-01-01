@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1438,12 +1438,12 @@ suite "Block Processing":
       beacon_block_root notin forkChoice[].backend.execution_payload_states
 
     # Record payload availability
-    letres = forkChoice[].on_execution_payload(
+    let res = forkChoice[].on_execution_payload(
       dag, beacon_block_root, payload_state_root)
 
     # After: payload marked available
     check:
-     res.isOk
+      res.isOk
       beacon_block_root in forkChoice[].backend.execution_payload_states
       forkChoice[].backend.execution_payload_states[beacon_block_root] == 
         payload_state_root
@@ -1499,12 +1499,12 @@ suite "Block Processing":
       forkChoice[].checkpoints.proposer_boost_root == block_root
 
     # Advance to slot 101
-    letres = forkChoice[].update_time(
+    let res = forkChoice[].update_time(
       dag, Slot(101).start_beacon_time(dag.timeParams))
 
     # Boost reset
     check:
-     res.isOk
+      res.isOk
       forkChoice[].checkpoints.proposer_boost_root == ZERO_HASH
 
   test "update_time: Processes queued attestations on slot change":
@@ -1535,12 +1535,12 @@ suite "Block Processing":
     forkChoice[].checkpoints.time = Slot(100).start_beacon_time(dag.timeParams)
 
     # Advance to slot 101
-    letres = forkChoice[].update_time(
+    let res = forkChoice[].update_time(
       dag, Slot(101).start_beacon_time(dag.timeParams))
 
     # Queue processed and cleared
     check:
-     res.isOk
+      res.isOk
       forkChoice[].queuedAttestations.len == 0
 
   test "Payload availability changes head selection":
