@@ -133,7 +133,6 @@ proc toString*(kind: ValidatorFilterKind): string =
 proc handleDataSidecarRequest*[
     InvalidIndexValueError: static string,
     DataSidecarsType: typedesc[List];
-    getDataSidecar: static proc
 ](
     node: BeaconNode,
     mediaType: Result[MediaType, cstring],
@@ -158,9 +157,10 @@ proc handleDataSidecarRequest*[
   for dataIndex in 0'u64 ..< maxDataSidecars:
     if indexFilter.len > 0 and dataIndex notin indexFilter:
       continue
-    let dataSidecar = new DataSidecarsType.T
-    if getDataSidecar(node.dag.db, bid.root, dataIndex, dataSidecar[]):
-      discard data[].add dataSidecar[]
+    var dataSidecar: DataSidecarsType.T
+    if getSidecar(node.dag.db, bid.root, dataIndex, dataSidecar):
+      discard data[].add dataSidecar
+
   let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
   if contentType == sszMediaType:
@@ -177,14 +177,13 @@ proc handleDataSidecarRequest*[
 proc handleDataSidecarRequest*[
     InvalidIndexValueError: static string,
     DataSidecarsType: typedesc[List];
-    getDataSidecar: static proc
 ](
     node: BeaconNode,
     mediaType: Result[MediaType, cstring],
     block_id: Result[BlockIdent, cstring],
     indices: Result[seq[uint64], cstring]): RestApiResponse =
   handleDataSidecarRequest[
-    InvalidIndexValueError, DataSidecarsType, getDataSidecar
+    InvalidIndexValueError, DataSidecarsType,
   ](node, mediaType, block_id, indices, DataSidecarsType.maxLen.uint64)
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
@@ -1595,8 +1594,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
     handleDataSidecarRequest[
       InvalidBlobSidecarIndexValueError,
-      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK],
-      getBlobSidecar
+      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
     ](
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)

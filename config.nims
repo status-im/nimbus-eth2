@@ -172,6 +172,7 @@ if canEnableDebuggingSymbols:
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CaseTransition:on")
 switch("warningAsError", "CStringConv:on")
+switch("warningAsError", "ImplicitDefaultValue:on")
 switch("warningAsError", "UnusedImport:on")
 switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
 switch("hintAsError", "DuplicateModuleImport:on")

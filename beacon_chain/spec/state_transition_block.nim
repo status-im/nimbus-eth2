@@ -761,8 +761,6 @@ proc process_operations(
         # Otherwise wraps because unsigned; Python spec semantics would result in
         # negative difference, which would be impossible for len(...) to match.
         if state.eth1_deposit_index < eth1_deposit_index_limit:
-          if eth1_deposit_index_limit < state.eth1_deposit_index:
-            return err("eth1_deposit_index_limit < state.eth1_deposit_index")
           min(
             MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
         else:

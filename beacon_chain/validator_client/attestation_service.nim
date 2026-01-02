@@ -76,7 +76,8 @@ proc serveAttestation(
       attestation = shortLog(atst)
     try:
       await vc.submitPoolAttestationsV2(
-        @[atst], consensusFork, ApiStrategyKind.First)
+        @[atst], consensusFork,
+        vc.getMode()[FnKind.submitPoolAttestations])
     except ValidatorApiError as exc:
       warn "Unable to publish attestation", reason = exc.getFailureReason()
       return false
@@ -155,7 +156,8 @@ proc serveAggregateAndProofV2*(
   let res =
     try:
       await vc.publishAggregateAndProofsV2(
-        @[signedProof], consensusFork, ApiStrategyKind.First)
+        @[signedProof], consensusFork,
+        vc.getMode()[FnKind.publishAggregateAndProofs])
     except ValidatorApiError as exc:
       warn "Unable to publish aggregated attestation",
             reason = exc.getFailureReason()
@@ -181,8 +183,10 @@ proc produceAndPublishAttestationsV2*(
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
-    data = await vc.produceAttestationData(slot, CommitteeIndex(0),
-                                           ApiStrategyKind.Best)
+    data = await vc.produceAttestationData(
+      slot,
+      CommitteeIndex(0),
+      vc.getMode()[FnKind.produceAttestationData])
     registeredRes =
       vc.attachedValidators[].slashingProtection.withContext:
         var tmp: seq[RegisteredAttestation]
@@ -316,9 +320,10 @@ proc produceAndPublishAggregatesV2(
     block:
       let attestation =
         try:
-          await vc.getAggregatedAttestationV2(slot, attestationRoot,
-                                              committee_index,
-                                              ApiStrategyKind.Best)
+          await vc.getAggregatedAttestationV2(
+            slot, attestationRoot,
+            committee_index,
+            vc.getMode()[FnKind.getAggregatedAttestation])
         except ValidatorApiError as exc:
           warn "Unable to get aggregated attestation data", slot = slot,
                attestation_root = shortLog(attestationRoot),

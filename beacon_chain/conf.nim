@@ -115,6 +115,10 @@ type
     Poll = "poll"
     Event = "event"
 
+  BeaconNodeMode* {.pure.} = enum
+    BestScore = "bestscore"
+    Fallback = "fallback"
+
   Web3SignerUrl* = object
     url*: Uri
     provenBlockProperties*: seq[string] # empty if this is not a verifying Web3Signer
@@ -240,11 +244,6 @@ type
       defaultValue: false,
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
-
-    debugPeerdasSupernode* {.
-      hidden
-      defaultValue: false,
-      name: "debug-peerdas-supernode" .}: bool
 
     peerdasSupernode* {.
       defaultValue: false,
@@ -1061,6 +1060,12 @@ type
       defaultValue: @[defaultBeaconNodeUri]
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
+
+    beaconNodeMode* {.
+      desc: "How validator client should operate multiple beacon nodes",
+      defaultValue: BeaconNodeMode.BestScore
+      defaultValueDesc: "Ask all beacon nodes and select the best response."
+      name: "beacon-node-mode" .}: BeaconNodeMode
 
     monitoringType* {.
       desc: "Enable block monitoring which are seen by beacon node (BETA)"

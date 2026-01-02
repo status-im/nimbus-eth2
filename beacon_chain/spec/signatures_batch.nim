@@ -184,7 +184,7 @@ func payload_attestation_signature_set*(
     payload_attestation_message: PayloadAttestationMessage,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_payload_attestation_message_signing_root(
-    fork, genesis_validators_root, payload_attestation_message)
+    fork, genesis_validators_root, payload_attestation_message.data)
 
   SignatureSet.init(pubkey, signing_root, signature)
 

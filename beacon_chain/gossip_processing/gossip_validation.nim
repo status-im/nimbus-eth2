@@ -2310,7 +2310,7 @@ proc validatePayloadAttestationMessage*(
 
   # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
   # gossip or non-gossip sources)
-  let blck = dag.getBlockRef(data.beacon_block_root).valueOr:
+  if dag.getBlockRef(data.beacon_block_root).isErr:
     return errIgnore("PayloadAttestationMessage: block not found")
 
   # [REJECT] The message's block `data.beacon_block_root` passes validation.
@@ -2353,7 +2353,7 @@ proc validatePayloadAttestationMessage*(
     if deferredCrypto.isErr():
       return dag.checkedReject(deferredCrypto.error)
 
-    let (cryptoFut, sig) = deferredCrypto.get()
+    let (cryptoFut, _) = deferredCrypto.get()
     let x = await cryptoFut
     case x
     of BatchResult.Invalid:

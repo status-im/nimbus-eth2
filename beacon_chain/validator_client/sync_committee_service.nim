@@ -69,7 +69,8 @@ proc serveSyncCommitteeMessage*(
 
   let res =
     try:
-      await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
+      await vc.submitPoolSyncCommitteeSignature(
+        message, vc.getMode()[FnKind.submitPoolSyncCommitteeSignature])
     except ValidatorApiError as exc:
       warn "Unable to publish sync committee message",
            reason = exc.getFailureReason()
@@ -190,8 +191,8 @@ proc serveContributionAndProof*(
 
   let res =
     try:
-      await vc.publishContributionAndProofs(@[restSignedProof],
-                                            ApiStrategyKind.First)
+      await vc.publishContributionAndProofs(
+        @[restSignedProof], vc.getMode()[FnKind.publishContributionAndProofs])
     except ValidatorApiError as exc:
       warn "Unable to publish sync contribution",
            reason = exc.getFailureReason()
@@ -252,7 +253,8 @@ proc produceAndPublishContributions(
             if isNil(resMap[subCommitteeIdx]):
               let future =
                 vc.produceSyncCommitteeContribution(
-                  slot, subCommitteeIdx, beaconBlockRoot, ApiStrategyKind.Best)
+                  slot, subCommitteeIdx, beaconBlockRoot,
+                  vc.getMode()[FnKind.produceSyncCommitteeContribution])
               resMap[int(subCommitteeIdx)] = future
               resFutures.add(FutureBase(future))
       (resItems, resFutures, resMap)
@@ -373,7 +375,8 @@ proc publishSyncMessagesAndContributions(
   let beaconBlockRoot =
     block:
       try:
-        let res = await vc.getHeadBlockRoot(ApiStrategyKind.Best)
+        let res = await vc.getHeadBlockRoot(
+          vc.getMode()[FnKind.getHeadBlockRoot])
         if res.execution_optimistic.isNone():
           ## The `execution_optimistic` is missing from the response, we assume
           ## that the BN is unaware optimistic sync, so we consider the BN

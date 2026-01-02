@@ -9,6 +9,7 @@
 
 import
   std/[json, sequtils, times],
+  stew/objects,
   eth/common/eth_types_rlp,
   eth/common/keys,
   eth/p2p/discoveryv5/random2,
@@ -957,7 +958,7 @@ proc ETHLightClientHeaderCopyExecutionHash(
   root.toUnmanagedPtr()
 
 type ExecutionPayloadHeader =
-  typeof(default(lcDataFork.LightClientHeader).execution)
+  typeof(declval(lcDataFork.LightClientHeader).execution)
 
 func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
