@@ -22,6 +22,7 @@ import
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from ../beacon_chain/spec/beaconstate import get_ptc
+from std/sugar import collect
 
 proc makePayloadAttestationMessage(
     state: gloas.HashedBeaconState,
@@ -289,3 +290,28 @@ suite "Payload attestation pool" & preset():
           agg1 = pool[].getAggregatedPayloadAttestation(
             slot, beacon_block_root, cache)
         check agg1.isSome()
+
+  test "get_ptc with ShufflingRef matches StateCache version" & preset():
+    let slot = getStateField(state[], slot)
+
+    withState(state[]):
+      when consensusFork >= ConsensusFork.Gloas:
+        # Get PTC using StateCache version
+        var cache = StateCache()
+        let stateCacheResults = collect(newSeq):
+          for validator_index in get_ptc(forkyState.data, slot, cache):
+            validator_index
+
+        let epochRef = dag.getEpochRef(
+          dag.head, slot.epoch, false).expect("EpochRef should exist")
+
+        # Get PTC using ShufflingRef version
+        let shufflingRefResults = collect(newSeq):
+          for validator_index in get_ptc(
+              forkyState.data, epochRef.shufflingRef, slot):
+            validator_index
+
+        check:
+          stateCacheResults == shufflingRefResults
+          stateCacheResults.len.uint64 == PTC_SIZE
+          shufflingRefResults.len.uint64 == PTC_SIZE

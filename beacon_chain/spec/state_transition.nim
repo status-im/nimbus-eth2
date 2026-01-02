@@ -43,10 +43,12 @@
 import
   chronicles,
   results,
+  stew/objects,
   ../extras,
-  "."/[
-    beaconstate, eth2_merkleization, forks, helpers, signatures,
-    state_transition_block, state_transition_epoch, validator]
+  ./[
+    beaconstate, eth2_merkleization, forks, helpers, signatures, state_transition_block,
+    state_transition_epoch, validator,
+  ]
 
 export results, extras, state_transition_block
 
@@ -377,7 +379,7 @@ proc makeBeaconBlockWithRewards*(
   ## the block is to be created.
   type
     MaybeBlindedBeaconBlock = consensusFork.BeaconBlock(type(execution_payload))
-    MaybeBlindedBlockBody = typeof(default(MaybeBlindedBeaconBlock).body)
+    MaybeBlindedBlockBody = typeof(declval(MaybeBlindedBeaconBlock).body)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#preparing-for-a-beaconblock
   var blck = MaybeBlindedBeaconBlock(

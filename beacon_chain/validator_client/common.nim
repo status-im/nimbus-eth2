@@ -176,6 +176,27 @@ type
     BrokenClock,        ## BN wall clock is broken or has significan offset.
     InternalError       ## BN reports internal error.
 
+  FnKind* {.pure.} = enum
+    getProposerDuties
+    getAttesterDuties
+    getSyncCommitteeDuties
+    getHeadBlockRoot
+    getValidators
+    produceAttestationData
+    submitPoolAttestations
+    getAggregatedAttestation
+    publishAggregateAndProofs
+    produceBlock
+    publishBlock
+    publishBlindedBlock
+    produceSyncCommitteeContribution
+    submitPoolSyncCommitteeSignature
+    publishContributionAndProofs
+    submitBeaconCommitteeSelections
+    submitSyncCommitteeSelections
+
+  VCBeaconNodeMode* = array[int(high(FnKind)) + 1, ApiStrategyKind]
+
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
 
@@ -311,6 +332,49 @@ const
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
+
+  BestScoreMode* = VCBeaconNodeMode([
+    ApiStrategyKind.First,     # getProposerDuties
+    ApiStrategyKind.First,     # getAttesterDuties
+    ApiStrategyKind.First,     # getSyncCommitteeDuties
+    ApiStrategyKind.Best,      # getHeadBlockRoot
+    ApiStrategyKind.First,     # getValidators
+    ApiStrategyKind.Best,      # produceAttestationData
+    ApiStrategyKind.First,     # submitPoolAttestations
+    ApiStrategyKind.Best,      # getAggregatedAttestation
+    ApiStrategyKind.First,     # publishAggregateAndProofs
+    ApiStrategyKind.Best,      # produceBlock
+    ApiStrategyKind.First,     # publishBlock
+    ApiStrategyKind.First,     # publishBlindedBlock
+    ApiStrategyKind.Best,      # produceSyncCommitteeContribution
+    ApiStrategyKind.First,     # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.First,     # publishContributionAndProofs
+    ApiStrategyKind.Best,      # submitBeaconCommitteeSelections
+    ApiStrategyKind.Best       # submitSyncCommitteeSelections
+  ])
+
+  FallbackMode* = VCBeaconNodeMode([
+    ApiStrategyKind.Priority,  # getProposerDuties
+    ApiStrategyKind.Priority,  # getAttesterDuties
+    ApiStrategyKind.Priority,  # getSyncCommitteeDuties
+    ApiStrategyKind.Priority,  # getHeadBlockRoot
+    ApiStrategyKind.Priority,  # getValidators
+    ApiStrategyKind.Priority,  # produceAttestationData
+    ApiStrategyKind.Priority,  # submitPoolAttestations
+    ApiStrategyKind.Priority,  # getAggregatedAttestation
+    ApiStrategyKind.Priority,  # publishAggregateAndProofs
+    ApiStrategyKind.Priority,  # produceBlock
+    ApiStrategyKind.Priority,  # publishBlock
+    ApiStrategyKind.Priority,  # publishBlindedBlock
+    ApiStrategyKind.Priority,  # produceSyncCommitteeContribution
+    ApiStrategyKind.Priority,  # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.Priority,  # publishContributionAndProofs
+    ApiStrategyKind.Priority,  # submitBeaconCommitteeSelections
+    ApiStrategyKind.Priority   # submitSyncCommitteeSelections
+  ])
+
+template `[]`*(vcs: VCBeaconNodeMode, index: FnKind): ApiStrategyKind =
+  vcs[int(index)]
 
 func SlotDuration*(vc: ValidatorClientRef): Duration =
   vc.timeParams.SLOT_DURATION
@@ -1669,6 +1733,13 @@ proc `+`*(slot: Slot, epochs: Epoch): Slot =
 func finish_slot*(epoch: Epoch): Slot =
   ## Return the last slot of ``epoch``.
   (epoch + 1).start_slot() - 1
+
+func getMode*(vc: ValidatorClientRef): VCBeaconNodeMode =
+  case vc.config.beaconNodeMode
+  of BeaconNodeMode.BestScore:
+    BestScoreMode
+  of BeaconNodeMode.Fallback:
+    FallbackMode
 
 proc getGraffitiBytes*(vc: ValidatorClientRef,
                        validator: AttachedValidator): GraffitiBytes =

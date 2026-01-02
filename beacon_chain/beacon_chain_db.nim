@@ -117,7 +117,7 @@ type
 
     blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
 
-    columns: KvStoreRef # (BlockRoot -> DataColumnSidecar)
+    columns: array[ConsensusFork, KvStoreRef] # (BlockRoot -> DataColumnSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -602,9 +602,20 @@ proc new*(T: type BeaconChainDB,
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  var columns: KvStoreRef
-  if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    columns = kvStore db.openKvStore("fulu_columns").expectDb()
+  var columns = [
+    nil, # Phase0
+    nil, # Altair
+    nil, # Bellatrix
+    nil, # Capella
+    nil, # Deneb
+    nil, # Electra
+    if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+      kvStore db.openKvStore("fulu_columns").expectDb()
+    else: nil,
+    if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+      kvStore db.openKvStore("gloas_columns").expectDb()
+    else: nil
+  ]
 
   var envelopes: KvStoreRef
   if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -801,8 +812,9 @@ proc close*(db: BeaconChainDB) =
 
   # Close things roughly in reverse order
   db.quarantine.close()
-  if not isNil(db.columns):
-    discard db.columns.close()
+  for kv in db.columns:
+    if kv != nil:
+      discard kv.close()
   if not isNil(db.blobs):
     discard db.blobs.close()
   db.lcData.close()
@@ -860,18 +872,25 @@ proc delBlobSidecar*(
 proc putDataColumnSidecar*(
     db: BeaconChainDB,
     value: fulu.DataColumnSidecar) =
+  const consensusFork = ConsensusFork.Fulu
+  doAssert db.columns[consensusFork] != nil
   let block_root = hash_tree_root(value.signed_block_header.message)
-  db.columns.putSZSSZ(columnkey(block_root, value.index), value)
+  db.columns[consensusFork].putSZSSZ(columnkey(block_root, value.index), value)
 
 proc putDataColumnSidecar*(
     db: BeaconChainDB,
     value: gloas.DataColumnSidecar) =
-  db.columns.putSZSSZ(columnkey(value.beacon_block_root, value.index), value)
+  const consensusFork = ConsensusFork.Gloas
+  doAssert db.columns[consensusFork] != nil
+  db.columns[consensusFork].putSZSSZ(columnkey(
+    value.beacon_block_root, value.index), value)
 
 proc delDataColumnSidecar*(
-    db: BeaconChainDB,
+    db: BeaconChainDB, consensusFork: ConsensusFork,
     root: Eth2Digest, index: ColumnIndex): bool =
-  db.columns.del(columnkey(root, index)).expectDb()
+  if db.columns[consensusFork] == nil:
+    return false
+  db.columns[consensusFork].del(columnkey(root, index)).expectDb()
 
 proc putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
@@ -1080,18 +1099,44 @@ proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =
   db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
 
-proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
-                             index: ColumnIndex, data: var seq[byte]): bool =
+proc getDataColumnSidecarSZ*(db: BeaconChainDB, consensusFork: ConsensusFork,
+                             root: Eth2Digest, index: ColumnIndex,
+                             data: var seq[byte]): bool =
+  if db.columns[consensusFork] == nil:
+    return false
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.columns.get(columnkey(root, index), decode).expectDb()
+  db.columns[consensusFork].get(columnkey(root, index), decode).expectDb()
 
-proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
-                           value: var fulu.DataColumnSidecar): bool =
-  if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
+proc getDataColumnSidecar*(
+    db: BeaconChainDB, root: Eth2Digest,
+    index: ColumnIndex, value: var fulu.DataColumnSidecar): bool =
+  const consensusFork = ConsensusFork.Fulu
+  if db.columns[consensusFork] == nil:
     return false
-  db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
+  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
+    GetResult.found
+
+proc getDataColumnSidecar*(
+    db: BeaconChainDB, root: Eth2Digest,
+    index: ColumnIndex, value: var gloas.DataColumnSidecar): bool =
+  const consensusFork = ConsensusFork.Gloas
+  if db.columns[consensusFork] == nil:
+    return false
+  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
+    GetResult.found
+
+proc getSidecar*(
+    db: BeaconChainDB, root: Eth2Digest,
+    index: auto, sidecar: var BlobSidecar): bool =
+  db.getBlobSidecar(root, index, sidecar)
+
+proc getSidecar*(
+    db: BeaconChainDB, root: Eth2Digest,
+    index: auto,
+    sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
+  db.getDataColumnSidecar(root, index, sidecar)
 
 proc getExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest,
@@ -1321,6 +1366,19 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bo
         db.statesNoVal[fork].contains(key.data).expectDb(): return true
 
   (legacy and db.v0.containsState(key))
+
+proc containsExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  if db.envelopes == nil:
+    return false
+  db.envelopes.contains(root.data).expectDb()
+
+proc containsDataColumnSidecar*(
+    db: BeaconChainDB, consensusFork: static ConsensusFork,
+    root: Eth2Digest, index: ColumnIndex): bool =
+  if db.columns[consensusFork] == nil:
+    return false
+  db.columns[consensusFork].contains(columnkey(root, index)).expectDb()
 
 proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
     Opt[BeaconBlockSummary] =

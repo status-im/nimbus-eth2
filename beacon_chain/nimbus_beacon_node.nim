@@ -419,7 +419,7 @@ proc initFullNode(
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
+    supernode = node.config.peerdasSupernode
     lightSupernode = node.config.lightSupernode
     localCustodyGroups =
       if supernode:
@@ -1312,7 +1312,7 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   let
     custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
+  if node.config.peerdasSupernode:
     custodyGroups
   elif node.config.lightSupernode:
     (custodyGroups div 2) + 1
@@ -1753,10 +1753,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
+        when consensusFork < ConsensusFork.Fulu: continue
         else:
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+            if node.db.delDataColumnSidecar(
+                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
 
@@ -2048,7 +2049,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
-     (not node.config.debugPeerdasSupernode) and
      (not node.config.lightSupernode) and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
@@ -2861,6 +2861,16 @@ proc doRunBeaconNode(
   ProcessState.setupStopHandlers()
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
+
+  # Ensure that non-light peerdas supernode options are forcibly disabled
+  # TODO when reconstruction works again, re-enable
+  # this is required because the fall-through is that if one of these is
+  # enabled, the (working) light supernode code won't run at all.
+  if config.peerdasSuperNode:
+    # It's at least not worse than not doing this; a functioning (full)
+    # supernode reconstructs and stores a superset of these columns
+    config.lightSupernode = true
+  config.peerdasSupernode = false
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."

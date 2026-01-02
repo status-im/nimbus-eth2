@@ -28,7 +28,6 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     handleDataSidecarRequest[
       InvalidDataColumnSidecarIndexValueError,
       List[fulu.DataColumnSidecar, NUMBER_OF_COLUMNS],
-      getDataColumnSidecar
     ](
       node, preferredContentType(jsonMediaType, sszMediaType),
       block_id, indices)

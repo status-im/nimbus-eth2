@@ -650,14 +650,13 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           fetches.add(ident)
         else:
           if commitmentsCount == 0:
-            # this is a programming error should it occur.
+            # this is a programming error it should not occur.
             warn "missing column handler found columnless block with all data columns",
                  blk = columnless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
             ready.add(columnless.root)
           else:
-            # This should not happen either...
-            warn "quarantine missing data columns, but missing indices is empty",
+            debug "requested column indices are no longer relevant",
                  blk = columnless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 

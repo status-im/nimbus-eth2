@@ -325,3 +325,23 @@ func is_aggregator*(shufflingRef: ShufflingRef, slot: Slot,
   let
     committee_len = get_beacon_committee_len(shufflingRef, slot, index)
   return is_aggregator(committee_len, slot_signature)
+
+iterator get_ptc*(
+  state: gloas.BeaconState, shufflingRef: ShufflingRef, slot: Slot):
+    ValidatorIndex {.closure.} =
+  let epoch = slot.epoch()
+  var buffer {.noinit.}: array[40, byte]
+  buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
+  buffer[32..39] = uint_to_bytes(slot.uint64)
+  let seed = eth2digest(buffer)
+
+  var indices = newSeqOfCap[ValidatorIndex](PTC_SIZE)
+
+  let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+  for committee_index in get_committee_indices(committees_per_slot):
+    let committee = get_beacon_committee(shufflingRef, slot, committee_index)
+    indices.add(committee)
+
+  for candidate_index in compute_balance_weighted_selection(
+      state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
+    yield candidate_index
