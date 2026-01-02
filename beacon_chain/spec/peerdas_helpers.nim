@@ -156,6 +156,7 @@ proc recover_cells_and_proofs_parallel*(
   ## Recover blobs from data column sidecars in parallel.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
+  ## - Checks timeout before every spawn operation.
   ## - Ensures all spawned tasks are awaited (drained) before returning.
 
   if dataColumns.len == 0:
@@ -176,6 +177,7 @@ proc recover_cells_and_proofs_parallel*(
     let
       idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
       cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    # Use toOpenArray to create views without copying
     recoverCellsAndKzgProofsTask(
       idxArr.toOpenArray(0, columnCount - 1),
       cellsArr.toOpenArray(0, columnCount - 1))
@@ -185,43 +187,52 @@ proc recover_cells_and_proofs_parallel*(
     pendingIndices = newSeq[seq[CellIndex]](blobCount)
     pendingCells = newSeq[seq[Cell]](blobCount)
     res = newSeq[CellsAndProofs](blobCount)
-    spawned = 0
-    completed = 0
-    hadError = false
 
+  # track how many we've actually spawned
+  var spawned = 0
+
+  # Choose a sane limit for concurrent tasks to reduce peak memory pressure.
   let maxInFlight = min(blobCount, 9)
+
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
-  # Spawn + bounded-await loop
+  var
+    completed = 0
+    hadError = false
+
+  # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
+    # Check timeout BEFORE spawning
     if (Moment.now() - startTime) > reconstructionTimeout:
       trace "PeerDAS reconstruction timed out before spawning task",
         spawned = spawned, completed = completed, total = blobCount
       hadError = true
-      break
+      break  # Stop spawning new tasks
 
-    # Allocate sequences for this blob and assign directly
+    # Allocate sequences and assign directly to avoid temporary copies
     pendingIndices[spawned] = newSeq[CellIndex](columnCount)
     pendingCells[spawned] = newSeq[Cell](columnCount)
 
-    # Cache addresses to avoid repeated addr operations and bounds checks
+    # Cache addresses to avoid repeated lookups and bounds checks
     let
       indicesPtr = addr pendingIndices[spawned]
       cellsPtr = addr pendingCells[spawned]
 
-    # Assign directly into the final destination sequences
     for i in 0 ..< columnCount:
       indicesPtr[][i] = dataColumns[i][].index
       cellsPtr[][i] = dataColumns[i][].column[blobIdx]
 
+    # Store sequences and spawn worker with pointers to their data
     pendingFuts[spawned] = tp.spawn workerRecover(
       addr pendingIndices[spawned][0],
       addr pendingCells[spawned][0],
       columnCount)
     inc spawned
 
+    # If too many in-flight tasks, await the oldest one
     while spawned - completed >= maxInFlight:
+      # Check timeout BEFORE syncing
       if (Moment.now() - startTime) > reconstructionTimeout:
         trace "PeerDAS reconstruction timed out before syncing task",
           completed = completed, totalSpawned = spawned
@@ -229,18 +240,22 @@ proc recover_cells_and_proofs_parallel*(
         break
 
       let futRes = sync pendingFuts[completed]
+
       if futRes.isErr:
         hadError = true
       else:
         res[completed] = futRes.get
+
       inc completed
 
     if hadError:
       break
 
-  # CRITICAL: Drain all spawned tasks before returning
+  # ---- CRITICAL: Drain all spawned tasks before returning ----
+  # This ensures no task references memory that will be destroyed
   for i in completed ..< spawned:
     let futRes = sync pendingFuts[i]
+    # Store results only if we haven't had an error and the result is ok
     if not hadError and futRes.isOk:
       res[i] = futRes.get
     elif futRes.isErr:
@@ -249,6 +264,7 @@ proc recover_cells_and_proofs_parallel*(
   if hadError:
     if (Moment.now() - startTime) > reconstructionTimeout:
       return err("Data column reconstruction timed out")
+    # Segregate errors from timeouts
     else:
       return err("Data column reconstruction failed")
 
