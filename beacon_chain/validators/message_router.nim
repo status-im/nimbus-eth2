@@ -11,7 +11,7 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/network,
+  ../spec/[network, peerdas_helpers],
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
@@ -105,9 +105,9 @@ proc validateRouteBlock(
   # proposer ownership checks
   let vindex = ValidatorIndex(blck.message.proposer_index)
   if checkValidator and (vindex in router.processor.validatorPool[]):
-    warn "A validator client attempts to send a block from validator that is also manager by beacon node",
+    warn "A validator client attempts to send a block from validator that is also managed by beacon node",
          validator_index = vindex
-    return err("Block could not be sent from validator that is also managed by the beacon node")
+    return err("Block was not sent from validator that is also managed by the beacon node")
 
   # gossip validation
   let res = validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
@@ -147,12 +147,9 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: ForkySignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
-  if not (sidecarsOpt.isSome() and typeof(blck).kind >= ConsensusFork.Fulu):
-    return Opt.none(fulu.DataColumnSidecars)
-
   let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
@@ -183,17 +180,13 @@ proc publishSidecars(
     if dc.index in allowed:
       finalCols.add newClone(dc)
 
-  return Opt.some(finalCols)
+  Opt.some(finalCols)
 
 proc publishSidecars*(
     router: ref MessageRouter,
-    blck: ForkySignedBeaconBlock,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[BlobSidecar]]
 ): Future[Opt[BlobSidecars]] {.async: (raises: [CancelledError]).} =
-  if not (sidecarsOpt.isSome() and
-     typeof(blck).kind in ConsensusFork.Deneb..ConsensusFork.Electra):
-    return Opt.none(BlobSidecars)
-
   let blobs = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(blobs))
 
@@ -220,7 +213,7 @@ proc publishSidecars*(
   for blob in blobs:
     finalBlobs.add newClone(blob)
 
-  return Opt.some(finalBlobs)
+  Opt.some(finalBlobs)
 
 proc addRoutedBlock(
     router: ref MessageRouter,
@@ -268,9 +261,7 @@ proc routeSignedBeaconBlock*(
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
 
   # 1. Validate
-  let v = router.validateRouteBlock(blck, checkValidator)
-  if v.isErr():
-    return err(v.error)
+  ? router.validateRouteBlock(blck, checkValidator)
 
   # 2. Publish block
   await router.publishRouteBlock(blck)
