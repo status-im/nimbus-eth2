@@ -287,7 +287,8 @@ proc on_payload_attestation_message*(
   if beacon_block_root notin self.backend.proto_array.indices:
     return ok()
 
-  # PTC attestation must be for a known block. If block is unknown, delay consideration until the block is found
+  # PTC attestation must be for a known block. 
+  # If block is unknown, delay consideration until the block is found
   if beacon_block_root notin self.backend.ptc_vote:
     self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
 
@@ -323,7 +324,7 @@ proc on_payload_attestation_message*(
           validator_index = validator_index,
           slot = slot
     else:
-      debug "Attempted to record PTC vote before GLOAS fork"
+      debug "Attempted to record PTC vote before gloas fork"
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
@@ -343,6 +344,7 @@ func process_equivocation*(
       validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
+
 func process_block*(self: var ForkChoiceBackend,
                     bid: BlockId,
                     parent_root: Eth2Digest,
@@ -435,7 +437,16 @@ proc process_block*(self: var ForkChoice,
 
   ok()
 
-#https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
+template getPhysicalNode(
+    self: var ForkChoice, logicalIdx: int): ptr ProtoNode =
+  let physicalIdx = logicalIdx - self.backend.proto_array.nodes.offset
+  if physicalIdx >= 0 and
+      physicalIdx < self.backend.proto_array.nodes.buf.len:
+    addr self.backend.proto_array.nodes.buf[physicalIdx]
+  else:
+    nil
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children*(
     self: var ForkChoice, node: ForkChoiceNode,
     dag: ChainDAGRef): seq[ForkChoiceNode] =
@@ -443,13 +454,16 @@ func get_node_children*(
   
   if not dag.isGloasEnabled(dag.head.slot):
     for root, idx in self.backend.proto_array.indices:
-      let child = self.backend.proto_array.nodes.buf[idx]
-      if child.parent.isNone: continue
+      let child = self.getPhysicalNode(idx)
+      if child == nil:
+        continue
 
       # Check if this child's parent is our node
       let
         parent_idx = child.parent.get()
-        parent = self.backend.proto_array.nodes.buf[parent_idx]
+        parent = self.getPhysicalNode(parent_idx)
+      if parent == nil:
+        continue
 
       if parent.bid.root == node.root:
         children.add(ForkChoiceNode(
@@ -459,11 +473,11 @@ func get_node_children*(
 
   if node.payloadStatus == PAYLOAD_STATUS_PENDING:
     children.add(ForkChoiceNode(
-      root: node.root, payload_status: PAYLOAD_STATUS_EMPTY))
+      root: node.root, payloadStatus: PAYLOAD_STATUS_EMPTY))
     
     if node.root in self.backend.execution_payload_states:
       children.add(ForkChoiceNode(
-        root: node.root, payload_status: PAYLOAD_STATUS_FULL))
+        root: node.root, payloadStatus: PAYLOAD_STATUS_FULL))
       
       trace "PENDING expanded to EMPTY + FULL",
         has_payload = true
@@ -472,19 +486,24 @@ func get_node_children*(
         has_payload = false
   else:
     for root, idx in self.backend.proto_array.indices:
-      let child = self.backend.proto_array.nodes.buf[idx]
-      if child.parent.isNone: continue
+      let child = self.getPhysicalNode(idx)
+      if child == nil:
+        continue
+      if child.parent.isNone:
+        continue
 
       let
         parent_idx = child.parent.get()
-        parent = self.backend.proto_array.nodes.buf[parent_idx]
+        parent = self.getPhysicalNode(parent_idx)
+      if parent == nil:
+        continue
 
       if parent.bid.root != node.root:
         continue
       # TODO: Verify child's parent_payload_status matches node status
 
       children.add(ForkChoiceNode(
-        root: root, payload_status: PAYLOAD_STATUS_PENDING))
+        root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
     trace "EMPTY/FULL expanded to child blocks",
       children = children.len
   
@@ -497,13 +516,15 @@ func is_supporting_vote*(
   ## Returns whether a vote for ``message.root`` supports the chain 
   ## containing the beacon block ``node.root`` with the payload
   ## contents indicated by ``node.payload_status`` as head during
-  ## slot ``node.slot``
+  ## slot ``node.slot`
 
   let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
   if node_idx < 0:
     return false
 
-  let proto_node = self.backend.proto_array.nodes.buf[node_idx]
+  let proto_node = getPhysicalNode(self, node_idx)
+  if proto_node == nil:
+    return false
 
   # Pre gloas, conventional root matching
   if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
@@ -515,28 +536,17 @@ func is_supporting_vote*(
 
     # Rule 1: Pending always gets support
     if node.payloadStatus == PAYLOAD_STATUS_PENDING:
-      trace "Vote supports pending node",
-        vote_root = shortLog(vote.next_root)
       return true
 
     # Rule 2: Same-slot votes don't support empty or full
     if vote.next_slot <= proto_node.bid.slot:
-      trace "Vote from same/earlier slot - neither support empty nor full",
-        vote_slot = vote.next_slot,
-        block_slot = proto_node.bid.slot
       return false
 
     # Rule 3: Next slot votes distinguish empty from full
     if vote.payload_present:
-      let supports = (node.payloadStatus == PAYLOAD_STATUS_FULL)
-      trace "Vote with payload present checks full",
-        supports = supports
-      return supports
+      return node.payloadStatus == PAYLOAD_STATUS_FULL
     else:
-      let supports = (node.payloadStatus == PAYLOAD_STATUS_EMPTY)
-      trace "Vote with payload present checks empty",
-        supports = supports
-      return supports
+      return node.payloadStatus == PAYLOAD_STATUS_EMPTY
   else:
     # Case 2: Vote is for a descendant block
     trace "Vote is for descendant",
@@ -567,18 +577,16 @@ func is_supporting_vote*(
           iterations = iterations
         return true
 
-      let current_idx = self.backend.proto_array.indices.getOrDefault(
-        current_root, -1)
-      if current_idx < 0:
-        break
+      let current_idx =
+        self.backend.proto_array.indices.getOrDefault(current_root, -1)
+      if current_idx < 0: break
 
-      let current_node = self.backend.proto_array.nodes.buf[current_idx]
+      let current_node = getPhysicalNode(self, current_idx)
+      if current_node == nil:
+        break
 
       # Check if we have already gone past the target slot
       if current_node.bid.slot < proto_node.bid.slot:
-        trace "Past target slot, not an ancestor",
-          current_slot = current_node.bid.slot,
-          target_slot = proto_node.bid.slot
         break
 
       if current_node.parent.isNone:
@@ -586,12 +594,12 @@ func is_supporting_vote*(
 
       let 
         parent_idx = current_node.parent.get()
-        parent_node = self.backend.proto_array.nodes.buf[parent_idx]
+        parent_node = getPhysicalNode(self, parent_idx)
+      if parent_node == nil:
+        break
 
       current_root = parent_node.bid.root
 
-    trace "No ancestor match found",
-      iterations = iterations
     return false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
@@ -602,19 +610,21 @@ func get_weight*(
   if node_idx < 0:
     return 0.Gwei
 
-  let proto_node = self.backend.proto_array.nodes.buf[node_idx]
+  let proto_node = self.getPhysicalNode(node_idx)
+  if proto_node == nil:
+    return 0.Gwei
 
   # Weight calculation is handled by proto_array pre-Gloas
-  if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
-    return proto_node.weight.Gwei
+  if proto_node[].bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return proto_node[].weight.Gwei
 
   let is_deciding_previous = (node.payloadStatus != PAYLOAD_STATUS_PENDING and
-                              proto_node.bid.slot + 1 == current_slot)
+                              proto_node[].bid.slot + 1 == current_slot)
   
   if is_deciding_previous:
     trace "Zero weight: deciding on previous slot's payload",
       current_slot = current_slot,
-      block_slot = proto_node.bid.slot
+      block_slot = proto_node[].bid.slot
     return 0.Gwei
 
   var attestation_score = 0.Gwei
@@ -668,7 +678,7 @@ func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
       inc vote_count
 
   if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
-    trace "Payload crossed timeliness threshhold",
+    trace "Payload crossed timeliness threshold",
       root = shortLog(root),
       votes = vote_count,
       threshhold = PAYLOAD_TIMELY_THRESHOLD
@@ -745,12 +755,15 @@ func get_payload_status_tiebreaker*(
   if node_idx < 0:
     return node.payloadStatus
   let
-    proto_node = self.backend.proto_array.nodes.buf[node_idx]
+    proto_node = self.getPhysicalNode(node_idx)
+  if proto_node == nil:
+    return node.payloadStatus
 
-    # Are we deciding on previous slot's payload
-    is_deciding_on_previous = (proto_node.bid.slot + 1 == current_slot)
+  # Are we deciding on previous slot's payload
+  let is_deciding_on_previous = (proto_node.bid.slot + 1 == current_slot)
 
-  if node.payloadStatus == PAYLOAD_STATUS_PENDING or not is_deciding_on_previous:
+  if node.payloadStatus == PAYLOAD_STATUS_PENDING or
+      not is_deciding_on_previous:
     return node.payloadStatus
 
   # Deciding on previous slot's payload
@@ -801,6 +814,7 @@ func find_head(
   return ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
                wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -816,11 +830,14 @@ proc get_head*(self: var ForkChoice,
       self.checkpoints.justified.balances,
       self.checkpoints.proposer_boost_root)
   
-  # Extended LMD-GHOST with (weight, root, tiebreaker) comparison for gloas
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   var head = ForkChoiceNode(
     root: self.checkpoints.justified.checkpoint.root,
     payloadStatus: PAYLOAD_STATUS_PENDING)
+  
+  debug "get_head starting",
+    justified_root = shortLog(head.root),
+    current_slot = current_slot
   
   var iterations = 0
   const MAX_ITERATIONS = 1000
@@ -829,34 +846,53 @@ proc get_head*(self: var ForkChoice,
     inc iterations
     let children = self.get_node_children(head, dag)
 
+    debug "get_head iteration",
+      iteration = iterations,
+      current_head = shortLog(head.root),
+      current_payload_status = head.payloadStatus,
+      children_count = children.len
+
     if children.len == 0:
-      debug "Found head",
+      debug "Found head (no children)",
+        final_head = shortLog(head.root),
+        final_payload_status = head.payloadStatus,
         iterations = iterations
       return ok(head.root)
+
+    # Log all children with their weights
+    for i, child in children:
+      let
+        child_weight = self.get_weight(child, current_slot, dag)
+        child_tiebreaker = self.get_payload_status_tiebreaker(child, current_slot, dag)
+      
+      debug "Child candidate",
+        child_num = i,
+        child_root = shortLog(child.root),
+        child_payload_status = child.payloadStatus,
+        child_weight = child_weight,
+        child_tiebreaker = child_tiebreaker
 
     var
       best = children[0]
       best_weight = self.get_weight(best, current_slot, dag)
-      best_tiebreaker = self.get_payload_status_tiebreaker(
-        best, current_slot, dag)
-    
-    trace "Initial candidate",
-      children = children.len,
-      first_weight = best_weight, first_tiebreaker = best_tiebreaker
+      best_tiebreaker = self.get_payload_status_tiebreaker(best, current_slot, dag)
 
     for i in 1..<children.len:
       let
         child = children[i]
         child_weight = self.get_weight(child, current_slot, dag)
-        child_tiebreaker = self.get_payload_status_tiebreaker(
-          child, current_slot, dag)
+        child_tiebreaker = self.get_payload_status_tiebreaker(child, current_slot, dag)
 
       var should_update = false
-      # Higher weight
       if child_weight > best_weight:
         should_update = true
+        debug "Updating best (higher weight)",
+          old_best = shortLog(best.root),
+          old_weight = best_weight,
+          new_best = shortLog(child.root),
+          new_weight = child_weight
       elif child_weight == best_weight:
-        var root_cmp = 0 # Lexicographic comparison
+        var root_cmp = 0
         for j in 0..<32:
           if child.root.data[j] > best.root.data[j]:
             root_cmp = 1
@@ -867,17 +903,29 @@ proc get_head*(self: var ForkChoice,
         
         if root_cmp > 0:
           should_update = true
+          debug "Updating best (lexicographic)",
+            old_best = shortLog(best.root),
+            new_best = shortLog(child.root)
         elif root_cmp == 0:
-          # Both nodes represent the same block with different payload status
           if child_tiebreaker > best_tiebreaker:
             should_update = true
+            debug "Updating best (tiebreaker)",
+              old_best = shortLog(best.root),
+              old_tiebreaker = best_tiebreaker,
+              new_best = shortLog(child.root),
+              new_tiebreaker = child_tiebreaker
 
       if should_update:
         best = child
         best_weight = child_weight
         best_tiebreaker = child_tiebreaker
   
-    # Move to best child and continue descent
+    debug "Selected child for next iteration",
+      selected = shortLog(best.root),
+      selected_payload_status = best.payloadStatus,
+      selected_weight = best_weight,
+      selected_tiebreaker = best_tiebreaker
+
     head = best
 
   error "Fork choice iteration limit reached",
