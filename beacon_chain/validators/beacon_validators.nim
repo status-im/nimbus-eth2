@@ -580,7 +580,8 @@ proc proposeBlockAux(
         signedBlock.create_blob_sidecars(
           engineBlock.blobsBundle.proofs,
           engineBlock.blobsBundle.blobs))
-  elif consensusFork >= ConsensusFork.Fulu:
+  elif consensusFork >= ConsensusFork.Fulu and
+      consensusFork < ConsensusFork.Gloas:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),

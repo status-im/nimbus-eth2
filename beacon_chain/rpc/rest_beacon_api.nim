@@ -1053,7 +1053,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
               checkValidator = true)
-          elif consensusFork >= ConsensusFork.Fulu:
+          elif consensusFork >= ConsensusFork.Fulu and
+              consensusFork < ConsensusFork.Gloas:
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               @(kzg_proofs.mapIt(kzg.KzgProof(it))))
