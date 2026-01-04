@@ -447,10 +447,13 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7805") or path.contains("gloas"):
+      if path.contains("eip7805"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
+      when const_preset == "minimal":
+        if path.contains("gloas"):
+          continue
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:

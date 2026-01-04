@@ -5398,6 +5398,20 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
   ForkChoice - mainnet/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
+  ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 ```
 ## Sync
 ```diff
