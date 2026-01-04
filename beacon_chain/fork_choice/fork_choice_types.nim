@@ -128,6 +128,8 @@ type
     next_epoch*: Epoch
     next_slot*: Slot
     payload_present*: bool
+  
+  PtcVotes* = BitArray[int(PTC_SIZE)]
 
   ForkChoiceBackend* = object
     proto_array*: ProtoArray
@@ -135,7 +137,7 @@ type
     balances*: seq[Gwei]
     # Additional state tracking for Gloas
     execution_payload_states*: Table[Eth2Digest, Eth2Digest] # root -> state_root
-    ptc_vote*: Table[Eth2Digest, seq[bool]]
+    ptc_vote*: Table[Eth2Digest, PtcVotes]
 
   QueuedAttestation* = object
     slot*: Slot

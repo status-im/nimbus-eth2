@@ -21,8 +21,6 @@ import
   ../beacon_chain/gossip_processing/batch_validation,
   ./testutil, ./testdbutil
 
-from std/sequtils import allIt, anyIt
-
 suite "Head Selection - LMD-GHOST with Payload Status":
   setup:
     var cfg = defaultRuntimeConfig
@@ -206,10 +204,10 @@ suite "Head Selection - LMD-GHOST with Payload Status":
         justified: Checkpoint(root: genesis_root, epoch: Epoch(0)),
         finalized: Checkpoint(root: genesis_root, epoch: Epoch(0))))
 
-    # Make payload timely (>256 PTC votes + locally available)
-    forkChoice[].backend.ptc_vote[block_b] = newSeq[bool](PTC_SIZE)
+    var votes = default(PtcVotes)
     for i in 0..<300:
-      forkChoice[].backend.ptc_vote[block_b][i] = true
+      votes.setBit(i)
+    forkChoice[].backend.ptc_vote[block_b] = votes
 
     forkChoice[].backend.execution_payload_states[block_b] = Eth2Digest.fromHex(
       "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")

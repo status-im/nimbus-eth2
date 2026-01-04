@@ -10,6 +10,7 @@
 import
   # Standard library
   std/tables,
+  stew/bitseqs,
   # Status libraries
   results, chronicles,
   # Internal
@@ -289,8 +290,8 @@ proc on_payload_attestation_message*(
 
   # PTC attestation must be for a known block. 
   # If block is unknown, delay consideration until the block is found
-  if beacon_block_root notin self.backend.ptc_vote:
-    self.backend.ptc_vote[beacon_block_root] = newSeq[bool](PTC_SIZE)
+  discard self.backend.ptc_vote.mgetOrPut(
+    beacon_block_root, default(PtcVotes))
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
@@ -308,9 +309,12 @@ proc on_payload_attestation_message*(
       if ptc_index >= 0:
         var votes =
           self.backend.ptc_vote.mgetOrPut(
-            beacon_block_root, newSeq[bool](PTC_SIZE))
+            beacon_block_root, default(PtcVotes))
 
-        votes[ptc_index] = payload_present
+        if payload_present:
+          votes.setBit(ptc_index)
+        else:
+          votes.clearBit(ptc_index)
 
         trace "Recorded PTC vote",
           validator_index = validator_index,
@@ -671,11 +675,9 @@ func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
   if root notin self.execution_payload_states:
     return false
 
-  let votes = self.ptc_vote.getOrDefault(root, @[])
-  var vote_count = 0
-  for vote in votes:
-    if vote:
-      inc vote_count
+  let 
+    votes = self.ptc_vote.getOrDefault(root, default(PtcVotes))
+    vote_count = votes.countOnes()
 
   if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
     trace "Payload crossed timeliness threshold",
