@@ -607,7 +607,7 @@ func is_supporting_vote*(
     return false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
-func get_weight*(
+func get_weight(
     self: var ForkChoice, node: ForkChoiceNode,
     current_slot: Slot, dag: ChainDAGRef): Gwei =
   let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
@@ -626,9 +626,6 @@ func get_weight*(
                               proto_node[].bid.slot + 1 == current_slot)
   
   if is_deciding_previous:
-    trace "Zero weight: deciding on previous slot's payload",
-      current_slot = current_slot,
-      block_slot = proto_node[].bid.slot
     return 0.Gwei
 
   var attestation_score = 0.Gwei
@@ -662,7 +659,7 @@ func get_weight*(
   attestation_score + proposer_score
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
-func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
+func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
   ## Return whether the execution payload for the beacon block with root ``root``
   ## was voted as present by the PTC, and was locally determined to be available.
 
@@ -680,10 +677,6 @@ func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
     vote_count = votes.countOnes()
 
   if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
-    trace "Payload crossed timeliness threshold",
-      root = shortLog(root),
-      votes = vote_count,
-      threshhold = PAYLOAD_TIMELY_THRESHOLD
     return true
   false
 
@@ -837,10 +830,6 @@ proc get_head*(self: var ForkChoice,
     root: self.checkpoints.justified.checkpoint.root,
     payloadStatus: PAYLOAD_STATUS_PENDING)
   
-  debug "get_head starting",
-    justified_root = shortLog(head.root),
-    current_slot = current_slot
-  
   var iterations = 0
   const MAX_ITERATIONS = 1000
 
@@ -848,51 +837,31 @@ proc get_head*(self: var ForkChoice,
     inc iterations
     let children = self.get_node_children(head, dag)
 
-    debug "get_head iteration",
-      iteration = iterations,
-      current_head = shortLog(head.root),
-      current_payload_status = head.payloadStatus,
-      children_count = children.len
-
     if children.len == 0:
-      debug "Found head (no children)",
-        final_head = shortLog(head.root),
-        final_payload_status = head.payloadStatus,
-        iterations = iterations
       return ok(head.root)
 
     # Log all children with their weights
     for i, child in children:
       let
         child_weight = self.get_weight(child, current_slot, dag)
-        child_tiebreaker = self.get_payload_status_tiebreaker(child, current_slot, dag)
-      
-      debug "Child candidate",
-        child_num = i,
-        child_root = shortLog(child.root),
-        child_payload_status = child.payloadStatus,
-        child_weight = child_weight,
-        child_tiebreaker = child_tiebreaker
-
+        child_tiebreaker =
+          self.get_payload_status_tiebreaker(child, current_slot, dag)
     var
       best = children[0]
       best_weight = self.get_weight(best, current_slot, dag)
-      best_tiebreaker = self.get_payload_status_tiebreaker(best, current_slot, dag)
+      best_tiebreaker =
+        self.get_payload_status_tiebreaker(best, current_slot, dag)
 
     for i in 1..<children.len:
       let
         child = children[i]
         child_weight = self.get_weight(child, current_slot, dag)
-        child_tiebreaker = self.get_payload_status_tiebreaker(child, current_slot, dag)
+        child_tiebreaker =
+          self.get_payload_status_tiebreaker(child, current_slot, dag)
 
       var should_update = false
       if child_weight > best_weight:
         should_update = true
-        debug "Updating best (higher weight)",
-          old_best = shortLog(best.root),
-          old_weight = best_weight,
-          new_best = shortLog(child.root),
-          new_weight = child_weight
       elif child_weight == best_weight:
         var root_cmp = 0
         for j in 0..<32:
@@ -905,33 +874,16 @@ proc get_head*(self: var ForkChoice,
         
         if root_cmp > 0:
           should_update = true
-          debug "Updating best (lexicographic)",
-            old_best = shortLog(best.root),
-            new_best = shortLog(child.root)
         elif root_cmp == 0:
           if child_tiebreaker > best_tiebreaker:
             should_update = true
-            debug "Updating best (tiebreaker)",
-              old_best = shortLog(best.root),
-              old_tiebreaker = best_tiebreaker,
-              new_best = shortLog(child.root),
-              new_tiebreaker = child_tiebreaker
 
       if should_update:
         best = child
         best_weight = child_weight
         best_tiebreaker = child_tiebreaker
-  
-    debug "Selected child for next iteration",
-      selected = shortLog(best.root),
-      selected_payload_status = best.payloadStatus,
-      selected_weight = best_weight,
-      selected_tiebreaker = best_tiebreaker
 
     head = best
-
-  error "Fork choice iteration limit reached",
-    iterations = iterations
   
   ok(head.root)
 
@@ -1045,16 +997,10 @@ proc on_execution_payload*(
 
   # The corresponding beacon block root needs to be known
   if beacon_block_root notin self.backend.proto_array.indices:
-    debug "Execution payload for unknown block",
-      beacon_block_root = shortLog(beacon_block_root)
     return ok()
 
   self.backend.execution_payload_states[beacon_block_root] =
     execution_payload_state_root
-
-  debug "Recorded execution payload availability",
-    beacon_block_root = shortLog(beacon_block_root),
-    state_root = shortLog(execution_payload_state_root)
   ok()
   
 # Sanity checks
