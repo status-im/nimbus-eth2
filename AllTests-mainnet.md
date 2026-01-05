@@ -687,6 +687,37 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
+```diff
++ Empty in-memory scenario test [node]                                                       OK
++ Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
++ GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
++ GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
++ GloasColumnQuarantine: update(empty:shrink) [supernode->node] test                         OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->node] test                          OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->supernode] test                     OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [node->node] test                        OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [supernode->node] test                   OK
++ GloasColumnQuarantine: update(memory:grow) [node->node] test                               OK
++ GloasColumnQuarantine: update(memory:grow) [node->supernode] test                          OK
++ GloasColumnQuarantine: update(memory:shrink) [node->node] test                             OK
++ GloasColumnQuarantine: update(memory:shrink) [supernode->node] test                        OK
++ Mixed entries scenario test [node]                                                         OK
++ Mixed entries scenario test [supernode]                                                    OK
++ database and memory overfill protection and pruning test [node]                            OK
++ database unload/load test [node]                                                           OK
++ overfill protection test [node]                                                            OK
++ overfill test [node]                                                                       OK
++ overfill test [supernode]                                                                  OK
++ pruneAfterFinalization() test [node]                                                       OK
++ put() duplicate items should not affect counters [node]                                    OK
++ put()/fetchMissingSidecars/remove test [node]                                              OK
++ put()/fetchMissingSidecars/remove test [supernode]                                         OK
++ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
+```
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
