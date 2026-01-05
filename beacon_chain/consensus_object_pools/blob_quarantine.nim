@@ -171,36 +171,30 @@ func getIndex[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 ): int =
   quarantine.indexMap[int(index)]
 
-template slot*(
-    b: BlobSidecar | fulu.DataColumnSidecar | gloas.DataColumnSidecar): Slot =
-  # For some reasons, the function only works when it is public though it is
-  # only used internally.
-  when b is gloas.DataColumnSidecar:
-    b.slot
-  else:
-    b.signed_block_header.message.slot
+template slot*(b: BlobSidecar | fulu.DataColumnSidecar): Slot =
+  b.signed_block_header.message.slot
 
-template proposer_index(
-    b: BlobSidecar | fulu.DataColumnSidecar | gloas.DataColumnSidecar): uint64 =
-  when b is gloas.DataColumnSidecar:
-    # Gloas's sidecar doesn't have this information
-    0'u64
-  else:
-    b.signed_block_header.message.proposer_index
+template slot*(b: gloas.DataColumnSidecar): Slot =
+  b.slot
 
-template blob_kzg_commitments(x: SomeSignedBlockOrEnvelope): KzgCommitments =
-  when x is gloas.SignedExecutionPayloadEnvelope:
-    x.message.blob_kzg_commitments
-  else:
-    x.message.body.blob_kzg_commitments
+template proposer_index(b: BlobSidecar | fulu.DataColumnSidecar): uint64 =
+  b.signed_block_header.message.proposer_index
 
-template root*(x: SomeSignedBlockOrEnvelope): Eth2Digest =
-  # For some reasons, the function only works when it is public though it is
-  # only used internally.
-  when x is gloas.SignedExecutionPayloadEnvelope:
-    x.message.beacon_block_root
-  else:
-    x.root
+template proposer_index(b: gloas.DataColumnSidecar): uint64 =
+  # Gloas's sidecar doesn't have this information
+  0'u64
+
+template blob_kzg_commitments(x: fulu.SignedBeaconBlock): KzgCommitments =
+  x.message.body.blob_kzg_commitments
+
+template blob_kzg_commitments(x: gloas.SignedExecutionPayloadEnvelope): KzgCommitments =
+  x.message.blob_kzg_commitments
+
+template root*(x: fulu.SignedBeaconBlock): Eth2Digest =
+  x.root
+
+template root*(x: gloas.SignedExecutionPayloadEnvelope): Eth2Digest =
+  x.message.beacon_block_root
 
 proc removeNode[A, B](
     quarantine: var SidecarQuarantine[A, B],
