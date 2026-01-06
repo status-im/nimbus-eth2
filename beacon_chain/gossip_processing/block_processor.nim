@@ -30,7 +30,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, popOrphan, addOrphan
+  EnvelopeQuarantine, addMissing, addOrphan, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -353,7 +353,9 @@ proc newExecutionPayload*(
 
 proc getExecutionValidity(
     elManager: ELManager,
-    blck: ForkySignedBeaconBlock,
+    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+          deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
@@ -436,7 +438,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
 
     withBlck(quarantined):
       when consensusFork >= ConsensusFork.Gloas:
-        let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+        const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -989,8 +991,8 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   self.enqueuePayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
-  ## Enqueue payload processing by block root. If the block is not valid, it
-  ## will be discarded.
+  ## Enqueue payload processing by block root. If it is not a valid block, the
+  ## enqueue request will be discarded silently.
 
   let
     blockRef = self.consensusManager.dag.getBlockRef(blockRoot).valueOr:

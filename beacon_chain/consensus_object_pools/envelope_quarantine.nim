@@ -44,7 +44,7 @@ func popOrphan*(
   if blck.root notin self.orphans:
     return Opt.none(SignedExecutionPayloadEnvelope)
 
-  template builderIdx: untyped =
+  template builderIdx(): auto =
     blck.message.body.signed_execution_payload_bid.message.builder_index
   try:
     var envelope: SignedExecutionPayloadEnvelope

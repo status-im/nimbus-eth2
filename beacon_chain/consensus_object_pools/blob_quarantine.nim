@@ -193,9 +193,6 @@ template blob_kzg_commitments(x: gloas.SignedExecutionPayloadEnvelope): KzgCommi
 template root*(x: fulu.SignedBeaconBlock): Eth2Digest =
   x.root
 
-template root*(x: gloas.SignedExecutionPayloadEnvelope): Eth2Digest =
-  x.message.beacon_block_root
-
 proc removeNode[A, B](
     quarantine: var SidecarQuarantine[A, B],
     node: DoublyLinkedNode[RootTableRecord[A]],

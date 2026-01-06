@@ -552,7 +552,7 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let 
+  let
     consensusFork =
       self.dag.cfg.consensusForkAtEpoch(attestation.data.slot.epoch)
     delay = wallTime - attestation.data.slot.attestation_deadline(
