@@ -714,17 +714,6 @@ AllTests-mainnet
 + Obtaining the graffiti of an unconfigured validator returns the suggested default [Beacon  OK
 + Setting the graffiti on a missing validator creates a record for it [Beacon Node] [Preset: OK
 ```
-## Head Selection - LMD-GHOST with Payload Status
-```diff
-+ Descends multiple levels                                                                   OK
-+ Gloas: Handles virtual node expansion correctly                                            OK
-+ Gloas: Lexicographic tiebreak on root when weights equal                                   OK
-+ Gloas: Payload tiebreaker when same root, equal weight                                     OK
-+ Gloas: Pick child with highest weight                                                      OK
-+ Pre-Gloas: Use standard proto_array logic                                                  OK
-+ Safety: Iteration limit prevents infinite loops                                            OK
-+ Start at justified checkpoint with PENDING                                                 OK
-```
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK

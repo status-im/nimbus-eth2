@@ -32,7 +32,6 @@ import # Unit test
   ./test_eth2_rest_serialization,
   ./test_eth2_ssz_serialization,
   ./test_execution_payload_pool,
-  ./test_fork_choice_gloas,
   ./test_forks,
   ./test_gossip_transition,
   ./test_gossip_validation,

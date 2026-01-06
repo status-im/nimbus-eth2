@@ -451,7 +451,7 @@ template getPhysicalNode(
     nil
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
-func get_node_children*(
+func get_node_children(
     self: var ForkChoice, node: ForkChoiceNode,
     dag: ChainDAGRef): seq[ForkChoiceNode] =
   var children: seq[ForkChoiceNode]
@@ -740,7 +740,8 @@ func should_extend_payload*(
     proposer_boost_root = shortLog(proposer_root)
   false
 
-func get_payload_status_tiebreaker*(
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
+func get_payload_status_tiebreaker(
     self: var ForkChoice, node: ForkChoiceNode,
     current_slot: Slot, dag: ChainDAGRef): uint8 =
   if not dag.isGloasEnabled(current_slot):
