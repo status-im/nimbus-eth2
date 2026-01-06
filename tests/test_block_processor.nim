@@ -53,6 +53,7 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
+      gloasColumnQuarantine = newClone(GloasColumnQuarantine())
       envelopeQuarantine = newClone(EnvelopeQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
@@ -84,7 +85,8 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
-        blobQuarantine, dataColumnQuarantine, envelopeQuarantine, getTimeFn,
+        blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+        envelopeQuarantine, getTimeFn,
       )
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
@@ -146,7 +148,8 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        envelopeQuarantine, getTimeFn, invalidBlockRoots = @[b2.root])
+        gloasColumnQuarantine, envelopeQuarantine, getTimeFn,
+        invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -177,7 +180,8 @@ suite "Block processor" & preset():
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, envelopeQuarantine, getTimeFn,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn,
     )
 
     debugGloasComment "TODO testing"
