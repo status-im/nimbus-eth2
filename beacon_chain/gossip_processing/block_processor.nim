@@ -28,7 +28,7 @@ from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
   remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, ColumnQuarantine, popSidecars, put
+  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, popOrphan, addOrphan
 from ../validators/validator_monitor import
@@ -99,6 +99,7 @@ type
 
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
     verifier: BatchVerifier
 
@@ -127,6 +128,7 @@ proc new*(T: type BlockProcessor,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
           invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
@@ -144,6 +146,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: batchVerifier[]
@@ -975,8 +978,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           if envelope.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))
           else:
-            debugGloasComment("pop from ColumnQuarantine")
-            Opt.none(gloas.DataColumnSidecars)
+            self.gloasColumnQuarantine[].popSidecars(blck.root)
         if sidecarsOpt.isNone():
           # As sidecars are missing, put envelope back to quarantine.
           self.consensusManager.quarantine[].addSidecarless(blck)

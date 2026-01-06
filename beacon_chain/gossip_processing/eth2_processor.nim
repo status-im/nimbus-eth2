@@ -169,11 +169,9 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-
     blobQuarantine*: ref BlobQuarantine
-
     dataColumnQuarantine*: ref ColumnQuarantine
-
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
@@ -202,6 +200,7 @@ proc new*(T: type Eth2Processor,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
@@ -224,6 +223,7 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
@@ -482,7 +482,9 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debugGloasComment("put into ColumnQuarantine")
+  debug "Data column validated"
+  self.gloasColumnQuarantine[].put(
+    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
   self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
