@@ -584,7 +584,7 @@ proc new*(T: type BeaconChainDB,
         else:
           "",
       electraHeaders:
-        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
           "lc_electra_headers"
         else:
           "",
