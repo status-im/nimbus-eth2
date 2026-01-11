@@ -200,7 +200,10 @@ proc obsoleteCmdOpt*(ConfType: type object, opt, msg: string) =
 
 template loggerSetup(ConfType: type): untyped =
   proc (config: ConfType) {.raises: [], gcsafe.} =
-    setupLogging(config.logLevel, config.logStdout, config.logFile)
+    when compiles(config.logFile):
+      setupLogging(config.logLevel, config.logFormat, config.logFile)
+    else:
+      setupLogging(config.logLevel, config.logFormat)
 
 proc loadWithBanners*(
     ConfType: type,

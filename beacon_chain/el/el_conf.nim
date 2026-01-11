@@ -32,7 +32,7 @@ type
 
   EngineApiUrl* = object
     url: string
-    jwtSecret: Opt[seq[byte]]
+    jwtSecret: Opt[JwtSharedKey]
     roles: EngineApiRoles
 
   EngineApiUrlConfigValue* = object
@@ -52,14 +52,14 @@ chronicles.formatIt EngineApiUrl:
 
 proc init*(T: type EngineApiUrl,
            url: string,
-           jwtSecret = Opt.none seq[byte],
+           jwtSecret = Opt.none JwtSharedKey,
            roles = defaultEngineApiRoles): T =
   T(url: url, jwtSecret: jwtSecret, roles: roles)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
 
-func jwtSecret*(engineUrl: EngineApiUrl): Opt[seq[byte]] =
+func jwtSecret*(engineUrl: EngineApiUrl): Opt[JwtSharedKey] =
   engineUrl.jwtSecret
 
 func roles*(engineUrl: EngineApiUrl): EngineApiRoles =
@@ -170,12 +170,12 @@ func getDefaultEngineApiUrl*(x: Option[InputFile]): EngineApiUrlConfigValue =
         some defaultJwtSecret)
 
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
-                 confJwtSecret: Opt[seq[byte]]): Result[EngineApiUrl, cstring] =
+                 confJwtSecret: Opt[JwtSharedKey]): Result[EngineApiUrl, cstring] =
   if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
     return err "The options `jwtSecret` and `jwtSecretFile` should not be specified together"
 
   let jwtSecret = if confValue.jwtSecret.isSome:
-    Opt.some(? parseJwtTokenValue(confValue.jwtSecret.get))
+    Opt.some(? parseJwtSharedKey(confValue.jwtSecret.get))
   elif confValue.jwtSecretFile.isSome:
     Opt.some(? loadJwtSecretFile(confValue.jwtSecretFile.get))
   else:
@@ -189,7 +189,7 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
     jwtSecret = jwtSecret,
     roles = confValue.roles.get(defaultEngineApiRoles))
 
-proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[seq[byte]] =
+proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[JwtSharedKey] =
   if jwtSecret.isSome:
     let res = loadJwtSecretFile(jwtSecret.get)
     if res.isOk:
@@ -198,7 +198,7 @@ proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[seq[byte]] =
       fatal "Failed to load JWT secret file", err = res.error
       quit 1
   else:
-    Opt.none seq[byte]
+    Opt.none JwtSharedKey
 
 proc toFinalEngineApiUrls*(elUrls: seq[EngineApiUrlConfigValue],
                            confJwtSecret: Opt[InputFile]): seq[EngineApiUrl] =

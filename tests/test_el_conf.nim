@@ -31,7 +31,7 @@ proc loadExampleConfig(
       sources.addConfigFileContent(Toml, content))
 
 const
-  validJwtToken = parseJwtTokenValue(
+  validJwtToken = parseJwtSharedKey(
     "aa95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098cc").get
 
 suite "EL Configuration":
