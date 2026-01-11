@@ -25,7 +25,6 @@ import
 from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, toUnix
 from std/typetraits import distinctBase
-from ../spec/engine_authentication import getSignedIatToken
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
