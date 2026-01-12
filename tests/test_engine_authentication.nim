@@ -9,7 +9,6 @@
 {.used.}
 
 import
-  std/sequtils,
   unittest2,
   ../beacon_chain/spec/engine_authentication
 
