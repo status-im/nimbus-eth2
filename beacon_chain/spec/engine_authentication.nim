@@ -23,7 +23,7 @@ export rand, results
 
 const jwtSecretFile* = "jwt.hex"
 
-# https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
+# https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/authentication.md#key-distribution
 # 256-bit shared key
 type
   JwtSharedKey* = array[32, byte]
@@ -35,7 +35,7 @@ func base64urlEncode(x: string): string =
   Base64Url.encode(x.toOpenArrayByte(0, x.high()))
 
 func getIatToken*(time: int64): string =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#jwt-claims
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/authentication.md#jwt-claims
   # "Required: `iat` (issued-at) claim. The execution layer client **SHOULD**
   # only accept `iat` timestamps which are within +-60 seconds from the current
   # time."
@@ -48,7 +48,7 @@ func getIatToken*(time: int64): string =
   &"""{{"iat":{time}}}"""
 
 func getSignedToken*(key: JwtSharedKey, payload: string): string =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#jwt-specifications
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/authentication.md#jwt-specifications
   # "The execution layer client **MUST** support at least the following `alg`
   # `HMAC + SHA256` (`HS256`)"
 
@@ -100,7 +100,7 @@ proc checkJwtSecret*(
     # token, valid for the duration of the execution, and store the
     # hex-encoded secret as a jwt.hex file on the filesystem.
     #
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/authentication.md#key-distribution
     let jwtSecretPath = dataDir / jwtSecretFile
 
     if fileExists(jwtSecretPath):

@@ -1496,7 +1496,7 @@ proc loadJwtSecret(
   else:
     Opt.none JwtSharedKey
 
-func jwtSecretOpt*(config: BeaconNodeConf): Opt[InputFile] =
+func jwtSecretOpt*(config: auto): Opt[InputFile] =
   if config.jwtSecret.isSome:
     Opt.some config.jwtSecret.get
   else:
