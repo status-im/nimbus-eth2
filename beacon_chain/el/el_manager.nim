@@ -856,14 +856,14 @@ proc sendGetBlobsV3*(
         try:
           await allFutures(requests).wait(deadline)
           false
-          except AsyncTimeoutError:
-            true
-          except CancelledError as exc:
-            # cancel anything still running, then re-raise
-            await noCancel allFutures(
-              requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
-            )
-            raise exc
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          # cancel anything still running, then re-raise
+          await noCancel allFutures(
+            requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+          )
+          raise exc
 
       for idx, req in requests:
         if req.finished():
