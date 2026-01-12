@@ -45,7 +45,7 @@ suite "EL Configuration":
 
     let
       url1Final1 = url1.toFinalUrl(Opt.some validJwtToken)
-      url1Final2 = url1.toFinalUrl(Opt.none seq[byte])
+      url1Final2 = url1.toFinalUrl(Opt.none JwtSharedKey)
 
     check:
       url1Final1.isOk
