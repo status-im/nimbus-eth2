@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/[json, sequtils],
+  std/sequtils,
   unittest2,
   ../beacon_chain/spec/engine_authentication
 
