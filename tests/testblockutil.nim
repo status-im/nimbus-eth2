@@ -175,7 +175,7 @@ func makeExecutionPayloadForSigning*(
 
   eps.executionPayload = payload
 
-  when consensusFork == ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
     eps.blobsBundle = fulu.BlobsBundle()
   elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
     eps.blobsBundle = deneb.BlobsBundle()
@@ -223,10 +223,7 @@ proc addTestEngineBlock*(
       )
 
     eps =
-      when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(gloas.ExecutionPayloadForSigning)
-      elif consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
             cfg, consensusFork, state.data, BlobsBundle())

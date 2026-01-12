@@ -45,6 +45,7 @@ suite "Block processor" & preset():
         res.DENEB_FORK_EPOCH = Epoch(2)
         res.ELECTRA_FORK_EPOCH = Epoch(3)
         res.FULU_FORK_EPOCH = Epoch(4)
+        res.GLOAS_FORK_EPOCH = Epoch(5)
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
@@ -184,8 +185,7 @@ suite "Block processor" & preset():
       envelopeQuarantine, getTimeFn,
     )
 
-    debugGloasComment "TODO testing"
-    for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+    for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Gloas:
       process_slots(
         cfg,
         state[],
