@@ -164,9 +164,23 @@ jobs:
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
           echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
+      - name: Get latest nimbus-build-system commit hash
+        id: versions
+        shell: bash
+        run: |
+          nbsHash=$(git rev-parse HEAD:vendor/nimbus-build-system)
+          echo "nimbus_build_system=$nbsHash" >> $GITHUB_OUTPUT
+
+      - name: Restore prebuilt Nim from cache
+        id: nim-cache
+        uses: actions/cache@v4
+        with:
+          path: NimBinCache
+          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
+
       - name: Build Nim and Nimbus dependencies
         run: |
-          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 CI_CACHE=NimBinCache update
           ./env.sh nim --version
 
       - name: Build binaries (with trace logging enabled)
