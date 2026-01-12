@@ -1329,8 +1329,7 @@ proc process_execution_payload_bid*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
-    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState | gloas.BeaconState),
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState | fulu.BeaconState),
     payload: ForkyExecutionPayloadOrHeader):
     Result[void, cstring] =
   const consensusFork = typeof(state).kind
@@ -1393,7 +1392,7 @@ func process_withdrawals*(state: var gloas.BeaconState):
     return ok()
 
   let (expected_withdrawals, processed_builder_withdrawals_count, processed_partial_withdrawals_count) =
-    get_expected_withdrawals(state)
+    get_expected_withdrawals_with_builder_count(state)
 
   let withdrawals_list =
     List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(expected_withdrawals)

@@ -1895,12 +1895,16 @@ template get_expected_withdrawals_with_builder_count_aux(
    processed_builder_withdrawals_count,
    processed_partial_withdrawals_count)
 
-template get_expected_withdrawals*(
+template get_expected_withdrawals_with_builder_count*(
     state: gloas.BeaconState):
     (seq[Withdrawal], uint64, uint64) =
   get_expected_withdrawals_with_builder_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
+
+func get_expected_withdrawals*(
+    state: gloas.BeaconState): seq[Withdrawal] =
+  get_expected_withdrawals_with_builder_count(state)[0]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
