@@ -53,15 +53,12 @@ func getSignedToken*(key: JwtSharedKey, payload: string): string =
   # `HMAC + SHA256` (`HS256`)"
 
   # https://datatracker.ietf.org/doc/html/rfc7515#appendix-A.1.1
-  const jwsProtectedHeader = base64urlEncode("""{"typ":"JWT","alg":"HS256"}""") & "."
+  # base64urlEncode("""{"typ":"JWT","alg":"HS256"}""") & "."
+  const jwsProtectedHeader = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
   # Sanity check
-  static:
-    doAssert jwsProtectedHeader == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
   let signingInput = jwsProtectedHeader & base64urlEncode(payload)
 
-  signingInput & "." & Base64Url.encode(
-    sha256.hmac(distinctBase key, signingInput).data
-  )
+  signingInput & "." & Base64Url.encode(sha256.hmac(key, signingInput).data)
 
 func getSignedIatToken*(key: JwtSharedKey, time: int64): string =
   getSignedToken(key, getIatToken(time))
