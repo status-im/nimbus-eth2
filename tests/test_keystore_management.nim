@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/[os, options, json, typetraits, uri, algorithm],
+  std/[os, json, typetraits, uri, algorithm],
   unittest2, chronos, chronicles, stint, json_serialization,
   blscurve,
   libp2p/crypto/crypto as lcrypto,
