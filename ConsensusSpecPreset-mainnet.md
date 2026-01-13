@@ -3784,12 +3784,24 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
@@ -3854,10 +3866,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -4073,6 +4081,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    BeaconState                                                                   OK
 +   Testing    BlobIdentifier                                                                OK
 +   Testing    BlobSidecar                                                                   OK
++   Testing    Builder                                                                       OK
 +   Testing    BuilderPendingPayment                                                         OK
 +   Testing    BuilderPendingWithdrawal                                                      OK
 +   Testing    Checkpoint                                                                    OK
@@ -4112,6 +4121,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
 +   Testing    PowBlock                                                                      OK
++   Testing    ProposerPreferences                                                           OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBLSToExecutionChange                                                    OK
@@ -4120,6 +4130,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedExecutionPayloadBid                                                     OK
 +   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedProposerPreferences                                                     OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
 +   Testing    SingleAttestation                                                             OK

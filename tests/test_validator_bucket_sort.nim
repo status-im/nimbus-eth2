@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import std/typetraits
@@ -243,14 +243,14 @@ suite "ValidatorPubKey bucket sort":
 
   test "one-shot construction":
     let bsv = sortValidatorBuckets(
-      validators.toOpenArray(0, 7*validators.len div 8))
+      validators[0 .. 7*validators.len div 8])
     for vidx in 0 ..< validators.len:
       check findValidatorIndex(validators, bsv[], validators[vidx].pubkey) ==
         findValidatorIndexBruteforce(validators, bsv[], validators[vidx].pubkey)
 
   test "incremental construction":
-    let bsv = sortValidatorBuckets([])
-    template rv: untyped = validators.toOpenArray(0, 7*validators.len div 8)
+    let bsv = sortValidatorBuckets(newSeq[Validator](0))
+    template rv: untyped = validators[0 .. 7*validators.len div 8]
     for vidx in 0 ..< len(rv):
       bsv[].add vidx.ValidatorIndex
     for vidx, validator in validators:

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -128,6 +128,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
+          of "Builder": checkSSZ(Builder, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
           of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
@@ -187,6 +188,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "PendingPartialWithdrawal":
             checkSSZ(PendingPartialWithdrawal, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
+          of "ProposerPreferences": checkSSZ(ProposerPreferences, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(electra.SignedAggregateAndProof, path, hash)
@@ -202,6 +204,8 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
             checkSSZ(SignedExecutionPayloadBid, path, hash)
+          of "SignedProposerPreferences":
+            checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
           of "SingleAttestation": checkSSZ(SingleAttestation, path, hash)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -454,6 +454,12 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
+          # proposer boost mechanics to depend on the canonical chain
+          if  path.contains("voting_source_beyond_two_epoch") or
+              path.contains("justified_update_not_realized_finality") or
+              path.contains("justified_update_always_if_better"):
+            continue
           runTest(suiteName, basePath/path, fork)
 
 fcSuite("ForkChoice", "fork_choice")

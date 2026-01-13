@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   ./spec/datatypes/[base, altair, bellatrix],
@@ -18,7 +18,7 @@ from ./spec/datatypes/electra import
   PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
 from ./spec/datatypes/gloas import
-  BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
   BUILDER_PENDING_WITHDRAWALS_LIMIT
 
 type
@@ -597,14 +597,19 @@ type
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
+    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
+    # [New in Gloas:EIP7732]
+    next_withdrawal_builder_index*: uint64
+    # [New in Gloas:EIP7732]
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
-    builder_pending_payments*: 
+    builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*: 
+    builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
     # [New in Gloas:EIP7732]
     latest_block_hash*: Eth2Digest
     # [New in Gloas:EIP7732]
-    latest_withdrawals_root*: Eth2Digest
+    payload_expected_withdrawals*:
+      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]

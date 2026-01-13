@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -190,7 +190,9 @@ suite baseDescription & "Deposit Request " & preset():
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     process_deposit_request(
-      defaultRuntimeConfig, preState, depositRequest, {})
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      sortValidatorBuckets(preState.builders.asSeq)[], depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](

@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.6.1"
+const SPEC_VERSION* = "1.7.0-alpha.1"
 ## Spec version we're aiming to be compatible with, right now
 
 const

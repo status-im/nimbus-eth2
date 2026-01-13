@@ -4038,12 +4038,24 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
@@ -4108,10 +4120,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -4332,6 +4340,7 @@ ConsensusSpecPreset-minimal
 +   Testing    BeaconState                                                                   OK
 +   Testing    BlobIdentifier                                                                OK
 +   Testing    BlobSidecar                                                                   OK
++   Testing    Builder                                                                       OK
 +   Testing    BuilderPendingPayment                                                         OK
 +   Testing    BuilderPendingWithdrawal                                                      OK
 +   Testing    Checkpoint                                                                    OK
@@ -4371,6 +4380,7 @@ ConsensusSpecPreset-minimal
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
 +   Testing    PowBlock                                                                      OK
++   Testing    ProposerPreferences                                                           OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBLSToExecutionChange                                                    OK
@@ -4379,6 +4389,7 @@ ConsensusSpecPreset-minimal
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedExecutionPayloadBid                                                     OK
 +   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedProposerPreferences                                                     OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
 +   Testing    SingleAttestation                                                             OK
@@ -5652,7 +5663,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epo OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_within_two_epo OK
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  Skip
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo Skip
@@ -5663,9 +5673,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_update_end_of_ OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding    OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding_re OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_always_if_b OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_monotonic   OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_not_realize OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bl OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
@@ -5700,7 +5708,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
-+ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_within_two_ OK
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro Skip
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ Skip
@@ -5711,9 +5718,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_update_end_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_always_i OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_monotoni OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_not_real OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_jus OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
@@ -5754,7 +5759,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
@@ -5765,9 +5769,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding   OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
@@ -5804,7 +5806,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
-+ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoc OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   Skip
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root Skip
@@ -5819,9 +5820,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding_rev OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_always_if_be OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_monotonic    OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_not_realized OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_blo OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
@@ -5860,7 +5859,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
@@ -5875,9 +5873,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_withholding   OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
-+ ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
-+ ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
@@ -5916,7 +5912,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
-+ ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoch OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoch OK
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
@@ -5927,9 +5922,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_update_end_of_ep OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_withholding      OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_withholding_reve OK
-+ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_always_if_bet OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_monotonic     OK
-+ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_not_realized_ OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifie OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bloc OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
