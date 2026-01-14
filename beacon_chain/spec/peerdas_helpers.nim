@@ -276,7 +276,7 @@ proc assemble_partial_data_column_sidecars*(
     debugGloasComment "kzg_commitments removed from beaconblock in gloas"
     return sidecars
   else:
-    if blobs.len == 0 or blobs.len > MAX_BLOB_COMMITMENTS_PER_BLOCK:
+    if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
       return sidecars
     if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
       return sidecars
@@ -287,7 +287,7 @@ proc assemble_partial_data_column_sidecars*(
 
     for columnIndex in 0..<CELLS_PER_EXT_BLOB:
       var
-        bitmap: BitArray[MAX_BLOB_COMMITMENTS_PER_BLOCK]
+        bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
         partialColumn = newSeqOfCap[KzgCell](blobs.len)
         partialProofs = newSeqOfCap[KzgProof](blobs.len)
 

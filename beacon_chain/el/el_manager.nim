@@ -880,7 +880,7 @@ proc sendGetBlobsV3*(
               reason = errmsg
 
       await noCancel allFutures(
-        requests.filter(not it.finished()).mapIt(it.cancelAndWait())
+        requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
       )
 
       if bestIdx.isSome():
