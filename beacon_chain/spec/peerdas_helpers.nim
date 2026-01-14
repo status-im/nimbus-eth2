@@ -267,7 +267,7 @@ proc assemble_data_column_sidecars*(
     sidecars
 
 proc assemble_partial_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    signed_beacon_block: fulu.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[Opt[KzgProof]]): seq[fulu.PartialDataColumnSidecar] =
   ## Returns a seq where element i corresponds to column index i.
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)

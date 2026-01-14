@@ -831,7 +831,7 @@ proc sendGetBlobsV2*(
 
 proc sendGetBlobsV3*(
     m: ElManager,
-    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    blck: fulu.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
