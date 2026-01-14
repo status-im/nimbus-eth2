@@ -1529,12 +1529,12 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for i in 0 ..< len(sidecars1) + 1:
       let
-        missing1 = bq.fetchMissingSidecars(broot1, fuluBlock1)
-        missing2 = bq.fetchMissingSidecars(broot2, fuluBlock2)
+        missing1 = bq.fetchMissingSidecars(broot1)
+        missing2 = bq.fetchMissingSidecars(broot2)
         missing3 =
-          bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
+          bq.fetchMissingSidecars(broot1, peerCustodyColumns1)
         missing4 =
-          bq.fetchMissingSidecars(broot2, fuluBlock2, peerCustodyColumns2)
+          bq.fetchMissingSidecars(broot2, peerCustodyColumns2)
 
       check:
         compareSidecars(
@@ -1623,10 +1623,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for i in 0 ..< len(sidecars1) + 1:
       let
-        missing1 = bq.fetchMissingSidecars(broot1, fuluBlock1)
-        missing2 = bq.fetchMissingSidecars(broot2, fuluBlock2)
+        missing1 = bq.fetchMissingSidecars(broot1)
+        missing2 = bq.fetchMissingSidecars(broot2)
         missing3 =
-          bq.fetchMissingSidecars(broot1, fuluBlock1, peerCustodyColumns1)
+          bq.fetchMissingSidecars(broot1, peerCustodyColumns1)
       check:
         compareSidecars(
           broot1,
@@ -1800,22 +1800,22 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == 0
       len(bq.fetchMissingSidecars(
-        broot1, fuluBlock1, custodyColumns).indices) == len(custodyColumns)
+        broot1, custodyColumns).indices) == len(custodyColumns)
       len(bq.fetchMissingSidecars(
-        broot2, fuluBlock2, custodyColumns).indices) == len(custodyColumns)
+        broot2, custodyColumns).indices) == len(custodyColumns)
 
     for index in 0 ..< len(custodyColumns):
       bq.put(broot1, sidecars1[index])
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
-          broot1, fuluBlock1, custodyColumns).indices) ==
+          broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
       bq.put(broot1, sidecars1d[index])
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
-          broot1, fuluBlock1, custodyColumns).indices) ==
+          broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
 
     for index in 0 ..< len(custodyColumns):
@@ -1823,13 +1823,13 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
-          broot2, fuluBlock2, custodyColumns).indices) ==
+          broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
       bq.put(broot2, sidecars2d[index])
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
-          broot2, fuluBlock2, custodyColumns).indices) ==
+          broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
 
     bq.remove(broot2)
@@ -3245,12 +3245,12 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     for i in 0 ..< len(sidecars1) + 1:
       let
-        missing1 = bq.fetchMissingSidecars(broot1, envl1)
-        missing2 = bq.fetchMissingSidecars(broot2, envl2)
+        missing1 = bq.fetchMissingSidecars(broot1)
+        missing2 = bq.fetchMissingSidecars(broot2)
         missing3 =
-          bq.fetchMissingSidecars(broot1, envl1, peerCustodyColumns1)
+          bq.fetchMissingSidecars(broot1, peerCustodyColumns1)
         missing4 =
-          bq.fetchMissingSidecars(broot2, envl2, peerCustodyColumns2)
+          bq.fetchMissingSidecars(broot2, peerCustodyColumns2)
 
       check:
         compareSidecars(
@@ -3339,10 +3339,10 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     for i in 0 ..< len(sidecars1) + 1:
       let
-        missing1 = bq.fetchMissingSidecars(broot1, envl1)
-        missing2 = bq.fetchMissingSidecars(broot2, envl2)
+        missing1 = bq.fetchMissingSidecars(broot1)
+        missing2 = bq.fetchMissingSidecars(broot2)
         missing3 =
-          bq.fetchMissingSidecars(broot1, envl1, peerCustodyColumns1)
+          bq.fetchMissingSidecars(broot1, peerCustodyColumns1)
       check:
         compareSidecars(
           broot1,
@@ -3512,22 +3512,22 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     check:
       len(bq) == 0
       len(bq.fetchMissingSidecars(
-        broot1, envl1, custodyColumns).indices) == len(custodyColumns)
+        broot1, custodyColumns).indices) == len(custodyColumns)
       len(bq.fetchMissingSidecars(
-        broot2, envl2, custodyColumns).indices) == len(custodyColumns)
+        broot2, custodyColumns).indices) == len(custodyColumns)
 
     for index in 0 ..< len(custodyColumns):
       bq.put(broot1, sidecars1[index])
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
-          broot1, envl1, custodyColumns).indices) ==
+          broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
       bq.put(broot1, sidecars1d[index])
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
-          broot1, envl1, custodyColumns).indices) ==
+          broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
 
     for index in 0 ..< len(custodyColumns):
@@ -3535,13 +3535,13 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
-          broot2, envl2, custodyColumns).indices) ==
+          broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
       bq.put(broot2, sidecars2d[index])
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
-          broot2, envl2, custodyColumns).indices) ==
+          broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
 
     bq.remove(broot2)
