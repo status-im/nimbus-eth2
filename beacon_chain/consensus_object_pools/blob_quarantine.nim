@@ -516,6 +516,14 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root)
 
+func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: SidecarQuarantine[A, B],
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+): bool =
+  ## Function returns ``true`` if quarantine has all the columns for block
+  ## ``envelope`` with block root ``blockRoot``.
+  hasSidecars(quarantine, envelope.message.beacon_block_root)
+
 proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
