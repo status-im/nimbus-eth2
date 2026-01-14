@@ -18,14 +18,13 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/objects,
   # Local modules:
-  ../spec/forks,
+  ../spec/[engine_authentication, forks],
   ../networking/network_metadata,
   "."/[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
-from std/times import getTime, inSeconds, initTime, `-`
+from std/times import getTime, toUnix
 from std/typetraits import distinctBase
-from ../spec/engine_authentication import getSignedIatToken
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -278,16 +277,15 @@ func hasJwtSecret(m: ELManager): bool =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
-    auto =
+func getJsonRpcRequestHeaders(jwtSecret: Opt[JwtSharedKey]): auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
-    (proc(): seq[(string, string)] =
+    proc(): seq[(string, string)] =
       # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
-      @[("Authorization", "Bearer " & getSignedIatToken(
-        secret, (getTime() - initTime(0, 0)).inSeconds))])
+      @[("Authorization", "Bearer " & getSignedIatToken(secret, getTime().toUnix()))]
   else:
-    (proc(): seq[(string, string)] = @[])
+    proc(): seq[(string, string)] =
+      @[]
 
 proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
   newWeb3(engineUrl.url,
@@ -1239,7 +1237,7 @@ func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
 proc testWeb3Provider*(
-    web3Url: Uri, jwtSecret: Opt[seq[byte]]
+    web3Url: Uri, jwtSecret: Opt[JwtSharedKey]
 ) {.async: (raises: [CatchableError]).} =
 
   stdout.write "Establishing web3 connection..."

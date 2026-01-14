@@ -234,7 +234,7 @@ proc loadChainDag(
       else: nil
   dag = ChainDAGRef.init(
     cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
-    vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
+    vanityLogs = getVanityLogs(detectTTY(config.logFormat)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
       importMode: config.lightClientDataImportMode,

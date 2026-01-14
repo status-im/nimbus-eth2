@@ -67,5 +67,5 @@ ExecStart=/usr/bin/nimbus_beacon_node \
   --udp-port=${UDP_PORT} \
   --rest=${REST_ENABLED} --rest-port=${REST_PORT} \
   --metrics=${METRICS_ENABLED} --metrics-port=${METRICS_PORT} \
-  --web3-url=${WEB3_URL} \
+  --el=${WEB3_URL} \
   --jwt-secret=${JWT_SECRET}

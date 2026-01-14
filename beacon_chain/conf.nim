@@ -134,99 +134,75 @@ type
       name: "config-file" .}: Option[InputFile]
 
     logLevel* {.
-      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
+      desc: "Log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       defaultValue: "INFO"
       name: "log-level" .}: string
 
-    logStdout* {.
-      hidden
-      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+    logFormat* {.
+      desc: "Choice of log format (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
       name: "log-format" .}: StdoutLogKind
 
-    logFile* {.
-      desc: "Specifies a path for the written JSON log file (deprecated)"
-      name: "log-file" .}: Option[OutFile]
-
     eth2Network* {.
-      desc: "The Eth2 network to join"
+      desc: "Consensus network to join (mainnet, hoodi, sepolia, custom/path)"
       defaultValueDesc: "mainnet"
       name: "network" .}: Option[string]
 
     dataDirFlag* {.
-      desc: "The directory where nimbus will store all blockchain data"
+      desc: "Directory for blockchain data including history, state and keys"
       abbr: "d"
       name: "data-dir" .}: Option[OutDir]
 
+    eraDirFlag* {.
+      desc: "Directory for era archive"
+      defaultValueDesc: "<data-dir>/era"
+      name: "era-dir" .}: Option[OutDir]
+
     validatorsDirFlag* {.
-      desc: "A directory containing validator keystores"
+      desc: "Directory for validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    verifyingWeb3Signers* {.
+    secretsDirFlag* {.
+      desc: "Directory for validator keystore passwords"
+      name: "secrets-dir" .}: Option[InputDir]
+
+    web3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "web3-signer-url" .}: seq[Uri]
+
+    verifyingWeb3Signers* {.
+      desc: "Verifying Web3Signer URL that will be used as a source of validators"
       name: "verifying-web3-signer-url" .}: seq[Uri]
 
     provenBlockProperties* {.
       desc: "The field path of a block property that will be sent for verification to the verifying Web3Signer (for example \".execution_payload.fee_recipient\")"
       name: "proven-block-property" .}: seq[string]
 
-    web3Signers* {.
-      desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "web3-signer-url" .}: seq[Uri]
-
     web3signerUpdateInterval* {.
       desc: "Number of seconds between validator list updates"
       name: "web3-signer-update-interval"
       defaultValue: 3600 .}: Natural
 
-    secretsDirFlag* {.
-      desc: "A directory containing validator keystore passwords"
-      name: "secrets-dir" .}: Option[InputDir]
-
     walletsDirFlag* {.
       desc: "A directory containing wallet files"
       name: "wallets-dir" .}: Option[InputDir]
 
-    eraDirFlag* {.
-      hidden
-      desc: "A directory containing era files"
-      name: "era-dir" .}: Option[InputDir]
-
-    web3ForcePolling* {.
-      obsolete
-      name: "web3-force-polling" .}: Option[bool]
-
-    web3Urls* {.
-      desc: "One or more execution layer Engine API URLs"
-      name: "web3-url" .}: seq[EngineApiUrlConfigValue]
-
     elUrls* {.
-      desc: "One or more execution layer Engine API URLs"
+      desc: "Execution layer engine API URL"
+      longDesc: "Repeat --el=<url> to add multiple ELs, see https://nimbus.guide/eth1.html"
       name: "el" .}: seq[EngineApiUrlConfigValue]
 
     noEl* {.
-      defaultValue: false
-      desc: "Don't use an EL. The node will remain optimistically synced and won't be able to perform validator duties"
+      desc: "Run the consensus client without default and configured execution clients (validators will not work)"
       name: "no-el" .}: bool
-
-    optimistic* {.
-      obsolete # deprecated > 22.12
-      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client (flag deprecated, always on)"
-      name: "optimistic".}: Option[bool]
-
-    requireEngineAPI* {.
-      obsolete  # Deprecated > 22.9
-      desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
-      name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
       desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     netKeyFile* {.
-      desc: "Source of network (secp256k1) private key file " &
-            "(random|<path>)"
+      desc: "Source of network (secp256k1) private key file (random|<path>)"
       defaultValue: "random",
       name: "netkey-file" .}: string
 
@@ -270,6 +246,29 @@ type
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
       name: "jwt-secret" .}: Option[InputFile]
+
+    logFile* {.
+      obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
+      name: "log-file" .}: Option[OutFile]
+
+    optimistic* {.
+      obsolete: "Optimistic mode automatically enabled since v22.12"
+      name: "optimistic".}: Option[bool]
+
+    # Hidden as of 26.1.0 to simplify the CLI help - while web3-url isn't going
+    # anywhere, it's easier to have just one value across all docs & help
+    web3Urls* {.
+      hidden
+      desc: "Superceded by --el as of v23.3.0"
+      name: "web3-url" .}: seq[EngineApiUrlConfigValue]
+
+    web3ForcePolling* {.
+      obsolete: "Not needed as of v23.3.1"
+      name: "web3-force-polling" .}: Option[bool]
+
+    requireEngineAPI* {.
+      obsolete: "Deprecated in v22.9"
+      name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     case cmd* {.
       command
@@ -369,15 +368,6 @@ type
         desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
         name: "genesis-state-url" .}: Option[Uri]
 
-      finalizedDepositTreeSnapshot* {.
-        obsolete
-        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
-
-      finalizedCheckpointBlock* {.
-        obsolete
-        desc: "SSZ file specifying a recent finalized block"
-        name: "finalized-checkpoint-block" .}: Option[InputFile]
-
       nodeName* {.
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
@@ -441,37 +431,19 @@ type
         defaultValueDesc: ""
         name: "status-bar-contents" .}: string
 
-      rpcEnabled* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc" .}: Option[bool]
-
-      rpcPort* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-port" .}: Option[Port]
-
-      rpcAddress* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-address" .}: Option[IpAddress]
-
       restEnabled* {.
-        desc: "Enable the REST server"
+        desc: "Enable the REST Beacon API server"
         defaultValue: false
         name: "rest" .}: bool
 
       restPort* {.
-        desc: "Port for the REST server"
+        desc: "Port for the REST Beacon API"
         defaultValue: defaultEth2RestPort
         defaultValueDesc: $defaultEth2RestPortDesc
         name: "rest-port" .}: Port
 
       restAddress* {.
-        desc: "Listening address of the REST server"
+        desc: "Listening address of the REST Beacon API"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rest-address" .}: IpAddress
@@ -561,11 +533,6 @@ type
         defaultValue: LongRangeSyncMode.Lenient,
         name: "debug-long-range-sync".}: LongRangeSyncMode
 
-      inProcessValidators* {.
-        obsolete
-        desc: "Deprecated for removal"
-        name: "in-process-validators" .}: Option[bool]
-
       discv5Enabled* {.
         desc: "Enable Discovery v5"
         defaultValue: true
@@ -618,11 +585,6 @@ type
         desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
         name: "sync-horizon" .}: Option[uint64]
 
-      terminalTotalDifficultyOverride* {.
-        obsolete
-        desc: "Deprecated for removal"
-        name: "terminal-total-difficulty-override" .}: Option[string]
-
       validatorMonitorAuto* {.
         desc: "Monitor validator activity automatically for validators active on this beacon node"
         defaultValue: true
@@ -639,14 +601,7 @@ type
 
       validatorMonitorTotals* {.
         obsolete: "Use --validator-monitor-details instead"
-        desc: "Deprecated in favour of --validator-monitor-details"
         name: "validator-monitor-totals" .}: Option[bool]
-
-      safeSlotsToImportOptimistically* {.
-        # Never unhidden or documented, and deprecated > 22.9.1
-        obsolete
-        desc: "Deprecated for removal"
-        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
 
       # Same option as appears in Lighthouse and Prysm
       # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
@@ -694,6 +649,38 @@ type
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
+
+      rpcEnabled* {.
+        obsolete: "Superceded by REST API as of v1.7.0"
+        name: "rpc" .}: Option[bool]
+
+      rpcPort* {.
+        obsolete: "Superceded by REST API as of v1.7.0"
+        name: "rpc-port" .}: Option[Port]
+
+      rpcAddress* {.
+        obsolete: "Superceded by REST API as of v1.7.0"
+        name: "rpc-address" .}: Option[IpAddress]
+
+      finalizedDepositTreeSnapshot* {.
+        obsolete: "Deposit tree no longer used as of EIP-6110 / Electra / v25.6.0"
+        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
+
+      finalizedCheckpointBlock* {.
+        obsolete: "Finalized checkpoint block no longer needed for checkpoint sync as of v24.1.0"
+        name: "finalized-checkpoint-block" .}: Option[InputFile]
+
+      inProcessValidators* {.
+        obsolete: "Superceded by web3signer as of v1.5.5"
+        name: "in-process-validators" .}: Option[bool]
+
+      terminalTotalDifficultyOverride* {.
+        obsolete: "TTD override obsoleted by successful merge"
+        name: "terminal-total-difficulty-override" .}: Option[string]
+
+      safeSlotsToImportOptimistically* {.
+        obsolete: "Removed in v22.9.1" # Never unhidden or documented
+        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
@@ -867,11 +854,6 @@ type
         name: "state-id"
       .}: Option[string]
 
-      blockId* {.
-        hidden
-        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
-      .}: Option[string]
-
       lcTrustedBlockRoot* {.
         desc: "Recent trusted finalized block root to initialize light client from"
         name: "trusted-block-root" .}: Option[Eth2Digest]
@@ -882,13 +864,18 @@ type
         name: "backfill" .}: bool
 
       reindex* {.
-        desc: "Recreate historical state index at end of backfill, allowing full history access (requires full backfill)"
+        desc: "Recreate historical state index at end of backfill, allowing full history access starting from the given state id"
         defaultValue: false .}: bool
 
       downloadDepositSnapshot* {.
         desc: "Also try to download a snapshot of the deposit contract state"
         defaultValue: false
         name: "with-deposit-snapshot" .}: bool
+
+      blockId* {.
+        obsolete: "Block id not needed for checkpoint sync as of v24.1.0"
+        name: "block-id"
+      .}: Option[string]
 
   ValidatorClientConf* = object
     configFile* {.
@@ -900,16 +887,11 @@ type
       defaultValue: "INFO"
       name: "log-level" .}: string
 
-    logStdout* {.
-      hidden
-      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+    logFormat* {.
+      desc: "Choice of log format (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
       name: "log-format" .}: StdoutLogKind
-
-    logFile* {.
-      desc: "Specifies a path for the written JSON log file (deprecated)"
-      name: "log-file" .}: Option[OutFile]
 
     dataDirFlag* {.
       desc: "The directory where nimbus will store all blockchain data"
@@ -1012,18 +994,18 @@ type
       name: "keymanager-token-file" .}: Option[InputFile]
 
     metricsEnabled* {.
-      desc: "Enable the metrics server (BETA)"
+      desc: "Enable the metrics server"
       defaultValue: false
       name: "metrics" .}: bool
 
     metricsAddress* {.
-      desc: "Listening address of the metrics server (BETA)"
+      desc: "Listening address of the metrics server"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "metrics-address" .}: IpAddress
 
     metricsPort* {.
-      desc: "Listening HTTP port of the metrics server (BETA)"
+      desc: "Listening HTTP port of the metrics server"
       defaultValue: 8108
       name: "metrics-port" .}: Port
 
@@ -1072,6 +1054,10 @@ type
       defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
 
+    logFile* {.
+      obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
+      name: "log-file" .}: Option[OutFile]
+
   SigningNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -1082,18 +1068,19 @@ type
       defaultValue: "INFO"
       name: "log-level" .}: string
 
-    logStdout* {.
-      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+    logFormat* {.
+      desc: "Choice of log format (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
       name: "log-stdout" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written JSON log file"
+      hidden
+      desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
     eth2Network* {.
-      desc: "The Eth2 network to join"
+      desc: "Consensus network to join (mainnet, hoodi, sepolia, custom/path)"
       defaultValueDesc: "mainnet"
       name: "network" .}: Option[string]
 
@@ -1348,7 +1335,7 @@ proc walletsDir*(config: BeaconNodeConf): string =
 
 proc eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
-  string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
+  string config.eraDirFlag.get(OutDir(config.dataDir / "era"))
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
@@ -1495,7 +1482,7 @@ proc loadJwtSecret(
     rng: var HmacDrbgContext,
     dataDir: string,
     jwtSecret: Opt[InputFile],
-    allowCreate: bool): Opt[seq[byte]] =
+    allowCreate: bool): Opt[JwtSharedKey] =
   # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
   # use it regardless.
   if jwtSecret.isSome or allowCreate:
@@ -1507,20 +1494,19 @@ proc loadJwtSecret(
 
     Opt.some secret.get
   else:
-    Opt.none seq[byte]
+    Opt.none JwtSharedKey
 
-func configJwtSecretOpt*(jwtSecret: Option[InputFile]): Opt[InputFile] =
-  if jwtSecret.isSome:
-    Opt.some jwtSecret.get
+func jwtSecretOpt*(config: auto): Opt[InputFile] =
+  if config.jwtSecret.isSome:
+    Opt.some config.jwtSecret.get
   else:
     Opt.none InputFile
 
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
-    config: auto,
-    allowCreate: bool): Opt[seq[byte]] =
-  rng.loadJwtSecret(
-    string(config.dataDir), config.jwtSecret.configJwtSecretOpt, allowCreate)
+    config: BeaconNodeConf,
+    allowCreate: bool): Opt[JwtSharedKey] =
+  rng.loadJwtSecret(string(config.dataDir), config.jwtSecretOpt, allowCreate)
 
 proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
@@ -1530,8 +1516,7 @@ proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
   else:
     config.elUrls
 
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    config.jwtSecret.configJwtSecretOpt)
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecretOpt)
 
 proc formatIt*(v: Option[IpAddress]): string =
   if v.isSome():

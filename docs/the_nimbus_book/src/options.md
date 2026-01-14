@@ -29,23 +29,24 @@ The following options are available:
      --help                    Show this help message and exit.
      --version                 Show program's version and exit.
      --config-file             Loads the configuration from a TOML file.
-     --log-level               Sets the log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
+     --log-level               Log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none") [=INFO].
-     --log-file                Specifies a path for the written JSON log file (deprecated).
-     --network                 The Eth2 network to join [=mainnet].
- -d, --data-dir                The directory where nimbus will store all blockchain data.
-     --validators-dir          A directory containing validator keystores.
-     --verifying-web3-signer-url  Remote Web3Signer URL that will be used as a source of validators.
+     --log-format              Choice of log format (auto, colors, nocolors, json) [=auto].
+     --network                 Consensus network to join (mainnet, hoodi, sepolia, custom/path) [=mainnet].
+ -d, --data-dir                Directory for blockchain data including history, state and keys.
+     --era-dir                 Directory for era archive [=<data-dir>/era].
+     --validators-dir          Directory for validator keystores.
+     --secrets-dir             Directory for validator keystore passwords.
+     --web3-signer-url         Remote Web3Signer URL that will be used as a source of validators.
+     --verifying-web3-signer-url  Verifying Web3Signer URL that will be used as a source of validators.
      --proven-block-property   The field path of a block property that will be sent for verification to the
                                verifying Web3Signer (for example ".execution_payload.fee_recipient").
-     --web3-signer-url         Remote Web3Signer URL that will be used as a source of validators.
      --web3-signer-update-interval  Number of seconds between validator list updates [=3600].
-     --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
-     --web3-url                One or more execution layer Engine API URLs.
-     --el                      One or more execution layer Engine API URLs.
-     --no-el                   Don't use an EL. The node will remain optimistically synced and won't be able to
-                               perform validator duties [=false].
+     --el                      Execution layer engine API URL.
+                               Repeat --el=<url> to add multiple ELs, see https://nimbus.guide/eth1.html.
+     --no-el                   Run the consensus client without default and configured execution clients
+                               (validators will not work).
      --non-interactive         Do not display interactive prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
@@ -92,9 +93,9 @@ The following options are available:
      --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen [=true].
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rest                    Enable the REST server [=false].
-     --rest-port               Port for the REST server [=5052].
-     --rest-address            Listening address of the REST server [=127.0.0.1].
+     --rest                    Enable the REST Beacon API server [=false].
+     --rest-port               Port for the REST Beacon API [=5052].
+     --rest-address            Listening address of the REST Beacon API [=127.0.0.1].
      --rest-allow-origin       Limit the access to the REST API to a particular hostname (for CORS-enabled
                                clients such as browsers).
      --rest-statecache-size    The maximum number of recently accessed states that are kept in memory. Speeds
@@ -151,7 +152,7 @@ All command line options can also be provided in a [TOML](https://toml.io/en/)
 config file specified through the `--config-file` flag.
 Within the config file, you need to use the long names of all options.
 Please note that certain options
-such as `web3-url`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
+such as `el`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
 can be supplied more than once on the command line: in the TOML file, you need
 to supply them as arrays.
 
@@ -169,7 +170,7 @@ Here is an example config file illustrating all of the above:
     ```toml
     # Comments look like this
     doppelganger-detection = true
-    web3-url = ["http://127.0.0.1:8551"]
+    el = ["http://127.0.0.1:8551"]
     num-threads = 0
 
     [trustedNodeSync]

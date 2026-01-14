@@ -7,7 +7,13 @@
 
     If you're looking for information about setting up an execution client for validator duties or any other production usage, see the [execution clients guide](./eth1.md).
 
-The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol. Paired with a [beacon node](./quick-start.md) or [consensus light client](./consensus-light-client.md), it provides access to Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/).
+The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol.
+
+It provides access to the Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/).
+
+This document describes how to pair the execution client with an external beacon node.
+
+The execution client can also run as part of the [unified node](https://github.com/status-im/nimbus-eth1/pull/3646), without a separate beacon node process.
 
 ## Building from source
 
@@ -25,18 +31,20 @@ cd nimbus-eth1
 To build the Nimbus execution client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
-make -j4 nimbus_execution_client
+make -j4 nimbus
 ```
 
 This may take a few minutes.
 
-When the process finishes, the `nimbus_execution_client` executables can be found in the `build` subdirectory.
+When the process finishes, the `nimbus` executable can be found in the `build` subdirectory.
 
 ## Syncing using era files
 
 Syncing Nimbus requires a set of `era1` and `era` files. These can be generated from a `geth` and `nimbus` consensus client respectively or downloaded from a third-party repository.
 
 In addition to the era files themselves, you will need at least 200GB of free space on a fast SSD in your data directory, as set by the `--data-dir` command line option.
+
+When using Nimbus for both execution client and beacon node, the nodes can share the same data directory.
 
 !!! info "`era` file downloading"
     `era` and `era1` files for testing purposes could at the time of writing be found here - these sources may or may not be available:
@@ -49,11 +57,6 @@ In addition to the era files themselves, you will need at least 200GB of free sp
         * https://hoodi.era.nimbus.team/
 
         The Hoodi network does not have `era1` files since it never operated as a proof-of-work chain
-
-    === "Holesky"
-        * https://holesky.era.nimbus.team/
-
-        The Holesky network does not have `era1` files since it never operated as a proof-of-work chain
 
     === "Sepolia"
         * https://sepolia.era.nimbus.team/
@@ -111,23 +114,17 @@ See the [era file guide](./era-store.md) for more information.
         Performing a full sync of mainnet from era files takes several days - its speed varies greatly depending on hardware. Use one of the testnets to get started more quickly!
 
     ```sh
-    build/nimbus_execution_client --data-dir=build/mainnet import
+    build/nimbus executionClient --data-dir=build/mainnet import
     ```
-
 
 === "Hoodi"
     ```sh
-    build/nimbus_execution_client --network=hoodi --data-dir=build/hoodi import
-    ```
-
-=== "Holesky"
-    ```sh
-    build/nimbus_execution_client --network=holesky --data-dir=build/holesky import
+    build/nimbus executionClient --network=hoodi --data-dir=build/hoodi import
     ```
 
 === "Sepolia"
     ```sh
-    build/nimbus_execution_client --network=sepolia --data-dir=build/sepolia import
+    build/nimbus executionClient --network=sepolia --data-dir=build/sepolia import
     ```
 
 ## Launch the client
@@ -140,23 +137,21 @@ During startup, a `jwt.hex` file will be placed in the data directory containing
 
 === "Mainnet"
     ```sh
-    build/nimbus_execution_client --data-dir=build/mainnet --engine-api
+    build/nimbus executionClient --data-dir=build/mainnet --engine-api
     ```
 
 === "Hoodi"
     ```sh
-    build/nimbus_execution_client --network=hoodi --data-dir=build/hoodi --engine-api
-    ```
-
-=== "Holesky"
-    ```sh
-    build/nimbus_execution_client --network=holesky --data-dir=build/holesky --engine-api
+    build/nimbus executionClient --network=hoodi --data-dir=build/hoodi --engine-api
     ```
 
 === "Sepolia"
     ```sh
-    build/nimbus_execution_client --network=sepolia --data-dir=build/sepolia --engine-api
+    build/nimbus executionClient --network=sepolia --data-dir=build/sepolia --engine-api
     ```
+
+!!! tip "Unified node"
+    Nimbus also supports running Ethereum as a single process, in the [unified node](https://github.com/status-im/nimbus-eth1/pull/3646)
 
 ## Optionally quickstart with a pre-synced database
 
@@ -168,10 +163,10 @@ If you want to skip the era file import and start with a pre-synced database, yo
 
 ```sh
 # Download the pre-synced database
-wget https://eth1-db.nimbus.team/mainnet-static-vid-keyed.tar.gz
+wget https://eth1-db.nimbus.team/mainnet-latest.tar.gz
 
 # Extract the database into the data directory
-tar -xzf mainnet-static-vid-keyed.tar.gz
+tar -xzf mainnet-latest.tar.gz
 ```
 
 This will extract the pre-synced database into the current directory, which you can then use as your data directory.
@@ -191,11 +186,6 @@ This method of syncing loads blocks from the consensus node and passes them to t
 === "Hoodi"
     ```sh
     ./build/nrpc sync --network=hoodi --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/hoodi/jwt.hex
-    ```
-
-=== "Holesky"
-    ```sh
-    ./build/nrpc sync --network=holesky --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/holesky/jwt.hex
     ```
 
 === "Sepolia"

@@ -20,10 +20,9 @@ Our companion project [fluffy](https://github.com/status-im/nimbus-eth1/tree/mas
 * [External block builder](./external-block-builder.md) (PBS / mev-boost) support with execution client fallback
 * [Consensus light client](./consensus-light-client.md) for running an execution client without a full beacon node
 
-
 ## Design goals
 
-One of our most important design goals is an application architecture that makes it **simple to embed Nimbus into other software.**
+One of our most important design goals is an application architecture that makes it **simple to run and simple to embed into other software.**
 
 Another goal is to **minimize reliance on third-party software.**
 
@@ -31,11 +30,9 @@ A third one is for the application binary to be as **lightweight as possible in 
 
 ### Integration with Status
 
-<blockquote class="twitter-tweet"><p lang="en" dir="ltr">I can&#39;t wait to run Nimbus straight from Status Desktop <a href="https://twitter.com/hashtag/hyped?src=hash&amp;ref_src=twsrc%5Etfw">#hyped</a></p>&mdash; JARRAÐ HOPΞ (@jarradhope) <a href="https://twitter.com/jarradhope/status/1293473249347555334?ref_src=twsrc%5Etfw">August 12, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">I can&#39;t wait to run Nimbus straight from Status Desktop <a href="https://twitter.com/hashtag/hyped?src=hash&amp;ref_src=twsrc%5Etfw">#hyped</a></p>&mdash; JARRAÐ HOPΞ (@jarradhope)</a></blockquote>
 
-As part of our first design goal, our primary objective here is for Nimbus to be tightly integrated into the [Status messaging app](https://status.im/).
-
-Our dream is for you to be able to run and monitor your validator straight from Status desktop.
+As part of our design goals, a primary objective is for Nimbus to be tightly integrated into the [Status messaging app](https://status.im/), driving forward the light client requirements to make that possible.
 
 ## Book contents
 
@@ -54,10 +51,7 @@ Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https:/
 
 ## Donate
 
-If you'd like to contribute to Nimbus development:
-
-* Our donation address is [`0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557`](https://etherscan.io/address/0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557)
-* We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
+We welcome contribution to [`0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557`](https://etherscan.io/address/0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557) - the funds there help sustain and support for the long term.
 
 ## Stay updated
 
