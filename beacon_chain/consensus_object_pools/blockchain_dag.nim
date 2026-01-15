@@ -2586,6 +2586,29 @@ proc updateHead*(
         dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch)
       dag.onFinHappened(dag, data)
 
+proc updateHeadExecutionPayload*(
+    dag: ChainDAGRef, blck: BlockRef,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope) =
+  ## Update the execution payload of the head block since Gloas.
+
+  template envelopeSlot(): auto = signedEnvelope.message.slot
+
+  logScope:
+    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
+    builderIdx = signedEnvelope.message.builder_index
+    slot = envelopeSlot()
+    head = shortLog(dag.head)
+
+  let consensusFork = dag.cfg.consensusForkAtEpoch(envelopeSlot().epoch)
+
+  # These checks should be less likely to happen.
+  if blck != dag.head:
+    trace "Head block incorrect when updating execution payload"
+    return
+  if consensusFork < ConsensusFork.Gloas:
+    trace "Updating execution payload in incorrect fork"
+    return
+
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been
   ## initialized

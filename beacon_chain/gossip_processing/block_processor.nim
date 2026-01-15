@@ -30,12 +30,12 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, popOrphan
+  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar
+  getDataColumnSidecar, putDataColumnSidecar, putExecutionPayloadEnvelope
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -185,7 +185,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addHeadBlockWithParent, addHeadExecutionPayload,
+  checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
@@ -951,8 +952,19 @@ proc storePayload(
 
   ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
 
-  debugGloasComment("process and store")
-  debugGloasComment("update optimistic status")
+  # Try adding the envelope to clearance state.
+  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # The execution payload has added to the clearance state successfully, so try
+  # adding to the current state.
+  debugGloasComment("should be decided by Fork Choice")
+  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+
+  # Store sidecars into db.
+  # dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  self[].storeSidecars(sidecarsOpt)
+  self.envelopeQuarantine[].delOrphan(signedBlock)
+
   ok()
 
 proc enqueuePayload*(

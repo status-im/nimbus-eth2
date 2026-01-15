@@ -467,6 +467,86 @@ proc addBackfillBlock*(
 
   ok()
 
+proc addHeadExecutionPayload*(
+    dag: ChainDAGRef,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[BlockRef, VerifierError] =
+  ## Try adding the execution payload envelope to the head block.
+  ##
+  ## First check that the block and envelope are matched with the DAG block.
+  ## Then verify that it passes the state transition function and contains valid
+  ## signature.
+
+  template envelopeBlockRoot(): auto =
+    signedEnvelope.message.beacon_block_root
+
+  logScope:
+    blockRoot = shortLog(envelopeBlockRoot())
+    builderIdx = signedEnvelope.message.builder_index
+    slot = signedEnvelope.message.slot
+    signature = shortLog(signedEnvelope.signature)
+
+  # Quick check between the received block and envelope.
+  template bid(): auto =
+    signedBlock.message.body.signed_execution_payload_bid.message
+  if not (
+    signedBlock.message.slot == signedEnvelope.message.slot and
+    signedBlock.root == envelopeBlockRoot() and
+    bid.builder_index == signedEnvelope.message.builder_index and
+    bid.block_hash == signedEnvelope.message.payload.block_hash
+  ):
+    info "Envelope mismatches with this block"
+    return err(VerifierError.Invalid)
+
+  # Check with the DAG head.
+  let blck = dag.head
+  if blck.root() != envelopeBlockRoot():
+    debug "Envelope is not for the current head"
+    return err(VerifierError.Invalid)
+  if blck.slot() != signedEnvelope.message.slot:
+    # TODO: check if there is any envelopes from other slots being processed.
+    debug "Envelope is in different slot"
+    return err(VerifierError.Invalid)
+
+  var cache: StateCache
+  const consensusFork = typeof(signedBlock).kind
+
+  # Verify signature
+  if skipBlsValidation notin dag.updateFlags:
+    if not verify_execution_payload_envelope_signature(
+      dag.forkAtEpoch(signedEnvelope.message.slot.epoch),
+      dag.clearanceState.forky(consensusFork).data.genesis_validators_root,
+      signedEnvelope.message.slot.epoch,
+      signedEnvelope.message,
+      dag.validatorKey(signedEnvelope.message.builder_index).get(),
+      signedEnvelope.signature
+    ):
+      info "Envelope signature verification failed"
+      return err(VerifierError.Invalid)
+
+  # Verify with state transition function.
+  template notifyPayload(): auto =
+    proc(_: deneb.ExecutionPayload): bool = true
+  process_execution_payload(
+    dag.cfg,
+    dag.clearanceState.forky(consensusFork),
+    signedEnvelope,
+    notifyPayload(),
+    cache,
+  ).isOkOr:
+    assign(dag.clearanceState, dag.headState)
+    info "Envelope transition failed"
+    return err(VerifierError.Invalid)
+
+  # Put the envelope into db and update optimistic status for the block.
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  blck.markExecutionValid(true)
+
+  debugGloasComment("add onEnvelopeAdded ?")
+
+  ok(blck)
+
 proc verifyBlockSignatures*(
     verifier: var BatchVerifier,
     fork: Fork,
