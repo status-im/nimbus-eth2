@@ -77,8 +77,6 @@ type
                     ref gloas.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex | BlobIndex
   SomeDataColumnSidecar = fulu.DataColumnSidecar | gloas.DataColumnSidecar
-  SomeSignedBlockOrEnvelope = fulu.SignedBeaconBlock |
-                              gloas.SignedExecutionPayloadEnvelope
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
