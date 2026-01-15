@@ -54,10 +54,9 @@ func popOrphan*(
       Opt.none(SignedExecutionPayloadEnvelope)
   except KeyError:
     Opt.none(SignedExecutionPayloadEnvelope)
-  finally:
-    # After popping an envelope by block, the rest will no longer be valid due to
-    # the mismatch builder index.
-    self.orphans.del(blck.root)
+
+func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
+  self.orphans.del(blck.root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]

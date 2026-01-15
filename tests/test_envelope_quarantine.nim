@@ -36,6 +36,8 @@ suite "Envelope Quarantine":
         builder_index: 1'u64)))
     check root1 in quarantine.orphans
     check 1'u64 in quarantine.orphans[root1]
+    quarantine.delOrphan(signedBlck.root)
+    check root1 notin quarantine.orphans
 
   test "Pop orphan":
     let
