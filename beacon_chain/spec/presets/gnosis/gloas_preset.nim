@@ -5,19 +5,29 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Mainnet preset - Gloas (Gnosis version not available yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/presets/mainnet/gloas.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/presets/mainnet/gloas.yaml
 const
-  # Networking
-  # ---------------------------------------------------------------
-  # floorlog2(get_generalized_index(BeaconBlockBody, "signed_execution_payload_header", "message", "blob_kzg_commitments_root")) (= 9)
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GLOAS*: uint64 = 9
-
-  # Execution
+  # Misc
   # ---------------------------------------------------------------
   # 2**9 (= 512) validators
-  PTC_SIZE*: uint64 = 512
+  PTC_SIZE* = 512
+
+  # Max operations per block
+  # ---------------------------------------------------------------
   # 2**2 (= 4) attestations
-  MAX_PAYLOAD_ATTESTATIONS*: uint64 = 4
+  MAX_PAYLOAD_ATTESTATIONS* = 4
+
+  # State list lengths
+  # ---------------------------------------------------------------
+  # 2**40 (= 1,099,511,627,776) builder spots
+  BUILDER_REGISTRY_LIMIT* = 1099511627776
+  # 2**20 (= 1,048,576) builder pending withdrawals
+  BUILDER_PENDING_WITHDRAWALS_LIMIT* = 1048576
+
+  # Withdrawals processing
+  # ---------------------------------------------------------------
+  # 2**14 (= 16,384) builders
+  MAX_BUILDERS_PER_WITHDRAWALS_SWEEP* = 16384
