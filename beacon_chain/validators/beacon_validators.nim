@@ -574,18 +574,21 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    let sidecarsOpt =
-      Opt.some(
-        signedBlock.create_blob_sidecars(
-          engineBlock.blobsBundle.proofs,
-          engineBlock.blobsBundle.blobs))
+  when consensusFork == ConsensusFork.Gloas:
+    # using noSidecars for Phase0 -> Capella blocks for now
+    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
   elif consensusFork >= ConsensusFork.Fulu and
       consensusFork < ConsensusFork.Gloas:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
         @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+  elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+    let sidecarsOpt =
+      Opt.some(
+        signedBlock.create_blob_sidecars(
+          engineBlock.blobsBundle.proofs,
+          engineBlock.blobsBundle.blobs))
   else:
     const sidecarsOpt = noSidecarsAtFork
 

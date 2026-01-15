@@ -183,7 +183,9 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork == ConsensusFork.Gloas:
+  when sidecarsOpt is NoSidecars:
+    static: doAssert consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella
+  elif consensusFork == ConsensusFork.Gloas:
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
     debugGloasComment "potentially validate against payload envelope"
@@ -219,8 +221,6 @@ proc verifySidecars(
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err(VerifierError.Invalid)
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -394,7 +394,8 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     withBlck(quarantined):
       when consensusFork == ConsensusFork.Gloas:
         debugGloasComment ""
-        const sidecarsOpt = noSidecars
+        # Representing only Phase0 -> Capella sidecars as `noSidecars` for now
+        let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:

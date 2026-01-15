@@ -147,6 +147,43 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
+    blck: gloas.SignedBeaconBlock,
+    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
+): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+  let cols = sidecarsOpt.get()
+  var workers = newSeq[Future[SendResult]](len(cols))
+
+  for i, dc in cols:
+    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
+
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Data column not sent",
+        data_column = shortLog(cols[i]), error = r.error[]
+    else:
+      notice "Data column sent",
+        data_column = shortLog(cols[i])
+
+  # Custody filtering
+  let metadata = router[].network.metadata.custody_group_count
+  let allowed =
+    router[].network.cfg.resolve_columns_from_custody_groups(
+      router[].network.nodeId, metadata)
+
+  var finalCols: gloas.DataColumnSidecars
+  for dc in cols:
+    if dc.index in allowed:
+      finalCols.add newClone(dc)
+
+  Opt.some(finalCols)
+
+proc publishSidecars(
+    router: ref MessageRouter,
     blck: fulu.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
@@ -267,15 +304,8 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  when someSidecarsOpt is NoSidecarsAtFork and
-       typeof(blck).kind in ConsensusFork.Phase0..ConsensusFork.Capella:
+  when someSidecarsOpt is NoSidecarsAtFork:
     const finalSidecars = noSidecars
-  elif someSidecarsOpt is NoSidecarsAtFork and
-       typeof(blck).kind in ConsensusFork.Deneb..ConsensusFork.Electra:
-    let finalSidecars = Opt.none(BlobSidecars)
-  elif someSidecarsOpt is NoSidecarsAtFork and
-       typeof(blck).kind in ConsensusFork.Fulu..ConsensusFork.Gloas:
-    let finalSidecars = Opt.none(fulu.DataColumnSidecars)
   else:
     let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 

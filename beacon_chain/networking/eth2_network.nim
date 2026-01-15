@@ -2840,10 +2840,20 @@ proc broadcastBlobSidecar*(
 
 proc broadcastDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,
-    data_column: fulu.DataColumnSidecar | gloas.DataColumnSidecar):
+    data_column: fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = data_column.signed_block_header.message.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, data_column)
+
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64,
+    data_column: gloas.DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = data_column.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column)

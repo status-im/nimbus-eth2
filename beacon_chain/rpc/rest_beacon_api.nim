@@ -1048,10 +1048,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+          when consensusFork == ConsensusFork.Gloas:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
               checkValidator = true)
           elif consensusFork >= ConsensusFork.Fulu and
               consensusFork < ConsensusFork.Gloas:
@@ -1061,6 +1060,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck,
               Opt.some(data_columns),
+              checkValidator = true)
+          elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.some(
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
@@ -1198,8 +1202,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
-          await node.router.routeSignedBeaconBlock(
-            forkyBlck, noSidecarsAtFork, checkValidator = true)
+          when consensusFork >= ConsensusFork.Bellatrix:
+            return RestApiResponse.jsonError(
+              Http400, $consensusFork & " builder API unsupported")
+          else:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, noSidecarsAtFork, checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(
