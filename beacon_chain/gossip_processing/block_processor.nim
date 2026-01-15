@@ -97,10 +97,13 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    # Quarantines
+    # ----------------------------------------------------------------
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
+
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -111,9 +114,6 @@ type
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
-
-  SomeOptEnvelope =
-    NoEnvelope | Opt[gloas.SignedExecutionPayloadEnvelope]
 
 const noSidecars* = default(NoSidecars)
 
@@ -364,14 +364,14 @@ proc getExecutionValidity(
     return Opt.some(OptimisticStatus.valid) # vacuously
 
   const consensusFork = typeof(blck).kind
-  template forkyEnvelope(): auto =
+  template someEnvelope(): auto =
     when consensusFork >= ConsensusFork.Gloas:
       envelope.message
     else:
       envelope
 
   let status = (await elManager.newExecutionPayload(
-      blck.message, forkyEnvelope, deadline, retry)).valueOr:
+      blck.message, someEnvelope, deadline, retry)).valueOr:
     return Opt.none(OptimisticStatus)
 
   let optimisticStatus = status.to(OptimisticStatus)
@@ -995,12 +995,12 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## enqueue request will be discarded silently.
 
   let
-    blockRef = self.consensusManager.dag.getBlockRef(blockRoot).valueOr:
+    dag = self.consensusManager.dag
+    blockRef = dag.getBlockRef(blockRoot).valueOr:
       return
     blck =
       block:
-        let forkedBlock = self.consensusManager.dag.getForkedBlock(
-            blockRef.bid).valueOr:
+        let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
           # We have checked that the block exists in the chain. There might be
           # issues in reading the database or data in the memory is broken.
           # Since no result is returned, we log for investigation.
