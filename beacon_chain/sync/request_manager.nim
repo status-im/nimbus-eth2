@@ -644,7 +644,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
         let
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
-            columnless.root, forkyBlck)
+            columnless.root)
 
         if len(ident.indices) > 0 and ident notin fetches:
           fetches.add(ident)

@@ -2369,9 +2369,18 @@ proc createEth2Node*(
       else:
         getAutoAddress(Port(0)).toIpAddress()
 
-    (extIp, extTcpPort, extUdpPort) =
-      setupAddress(config.nat, listenAddress, config.tcpPort,
-                   config.udpPort, clientId)
+    (extIp, extPorts) = setupAddress(
+      config.nat,
+      listenAddress,
+      @[
+        (port: config.udpPort, protocol: PortProtocol.UDP),
+        (port: config.tcpPort, protocol: PortProtocol.TCP),
+      ],
+      clientId,
+    )
+
+    extUdpPort = extPorts[0].toPort()
+    extTcpPort = extPorts[1].toPort()
 
     directPeers = block:
       var res: DirectPeers

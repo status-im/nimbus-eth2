@@ -77,8 +77,6 @@ type
                     ref gloas.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex | BlobIndex
   SomeDataColumnSidecar = fulu.DataColumnSidecar | gloas.DataColumnSidecar
-  SomeSignedBlockOrEnvelope = fulu.SignedBeaconBlock |
-                              gloas.SignedExecutionPayloadEnvelope
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
@@ -183,18 +181,6 @@ template proposer_index(b: BlobSidecar | fulu.DataColumnSidecar): uint64 =
 template proposer_index(b: gloas.DataColumnSidecar): uint64 =
   # Gloas's sidecar doesn't have this information
   0'u64
-
-template blob_kzg_commitments(x: fulu.SignedBeaconBlock): KzgCommitments =
-  x.message.body.blob_kzg_commitments
-
-template blob_kzg_commitments(x: gloas.SignedExecutionPayloadEnvelope): KzgCommitments =
-  x.message.blob_kzg_commitments
-
-template root*(x: fulu.SignedBeaconBlock): Eth2Digest =
-  x.root
-
-template root*(x: gloas.SignedExecutionPayloadEnvelope): Eth2Digest =
-  x.message.beacon_block_root
 
 proc removeNode[A, B](
     quarantine: var SidecarQuarantine[A, B],
@@ -491,13 +477,9 @@ func hasSidecars*(
 func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: SomeSignedBlockOrEnvelope
 ): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
-  if len(blockOrEnvelope.blob_kzg_commitments()) == 0:
-    return true
-
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return false
@@ -526,11 +508,19 @@ func hasSidecars*(
 
 func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
-    blockOrEnvelope: SomeSignedBlockOrEnvelope,
+    blck: fulu.SignedBeaconBlock,
 ): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
-  ## ``blockOrEnvelope`` with block root ``blockRoot``.
-  hasSidecars(quarantine, blockOrEnvelope.root(), blockOrEnvelope)
+  ## ``blck`` with block root ``blockRoot``.
+  hasSidecars(quarantine, blck.root)
+
+func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: SidecarQuarantine[A, B],
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+): bool =
+  ## Function returns ``true`` if quarantine has all the columns for block
+  ## ``envelope`` with block root ``blockRoot``.
+  hasSidecars(quarantine, envelope.message.beacon_block_root)
 
 proc popSidecars*(
     quarantine: var BlobQuarantine,
@@ -692,7 +682,6 @@ func getMissingSidecarIndices*(
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: SomeSignedBlockOrEnvelope,
     peerMap: ColumnMap
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns
@@ -704,12 +693,6 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
   var res: ColumnMap
 
   let node = quarantine.roots.getOrDefault(blockRoot)
-
-  if len(blockOrEnvelope.blob_kzg_commitments()) == 0:
-    # Fast-path if block does not have any columns
-    return DataColumnsByRootIdentifier(
-      block_root: blockRoot,
-      indices: DataColumnIndices(default(seq[ColumnIndex])))
 
   if peerMap.empty():
     # Fast-path if peer's columns map is empty, we can't figure which columns
@@ -766,27 +749,22 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: SomeSignedBlockOrEnvelope,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): DataColumnsByRootIdentifier =
   if len(peerCustodyColumns) == 0:
     quarantine.fetchMissingSidecars(
-      blockRoot, blockOrEnvelope, quarantine.custodyMap)
+      blockRoot, quarantine.custodyMap)
   else:
     quarantine.fetchMissingSidecars(
-      blockRoot, blockOrEnvelope, ColumnMap.init(peerCustodyColumns))
+      blockRoot, ColumnMap.init(peerCustodyColumns))
 
 func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: SomeSignedBlockOrEnvelope,
 ): ColumnMap =
   var res: ColumnMap
   let node = quarantine.roots.getOrDefault(blockRoot)
 
-  if len(blockOrEnvelope.blob_kzg_commitments()) == 0:
-    # Fast-path if block does not have any columns
-    return res
   if (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS):
     if isNil(node):
       for index in 0 ..< NUMBER_OF_COLUMNS:
@@ -807,11 +785,9 @@ func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 func getMissingSidecarIndices*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blockOrEnvelope: SomeSignedBlockOrEnvelope,
 ): seq[ColumnIndex] =
   var res: seq[ColumnIndex]
-  let map = quarantine.getMissingColumnsMap(blockRoot, blockOrEnvelope)
-  for item in map:
+  for item in quarantine.getMissingColumnsMap(blockRoot):
     res.add(item)
   res
 
