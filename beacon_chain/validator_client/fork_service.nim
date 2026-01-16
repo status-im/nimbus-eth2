@@ -49,21 +49,23 @@ proc pollForFork(vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
     try:
       await vc.getForkSchedule()
     except ValidatorApiError as exc:
-      warn "Unable to retrieve fork schedule",
+      warn "Unable to retrieve fork schedule via /eth/v1/config/fork_schedule",
            reason = exc.getFailureReason(), err_msg = exc.msg
       return
     except CancelledError as exc:
-      debug "Fork retrieval process was interrupted"
+      debug "Fork schedule retrieval process was interrupted"
       raise exc
 
   if len(forks) == 0:
+    if len(vc.forks) == 0:
+      warn "Beacon nodes did not provide a fork schedule"
     return
 
   let sortedForks =
     block:
       let res = sortForks(forks)
       if res.isErr():
-        warn "Invalid fork schedule received", reason = res.error()
+        warn "Invalid fork schedule received", reason = res.error
         return
       res.get()
 
