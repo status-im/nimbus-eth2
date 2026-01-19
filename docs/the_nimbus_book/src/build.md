@@ -1,6 +1,6 @@
 # Build from source
 
-Building Nimbus from source ensures that all hardware-specific optimizations are turned on.
+Building Nimbus from source creates a binary specifically optimized for the hardware that you're running on.
 The build process itself is simple and fully automated, but may take a few minutes.
 
 !!! note "Nim"
@@ -28,9 +28,6 @@ To build the Nimbus beacon node and its dependencies, run:
 make -j4 nimbus_beacon_node
 ```
 
-!!! tip
-    Omit `-j4` on systems with 4GB of memory or less.
-
 This step can take several minutes.
 After it has finished, you can check if the installation was successful by running:
 
@@ -41,7 +38,11 @@ build/nimbus_beacon_node --help
 If you see the command-line options, your installation was successful!
 Otherwise, don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad).
 
+!!! tip "Low memory systems"
+    Omit `-j4` on systems with 12GB of memory or less.
 
+!!! tip "Portable builds"
+    To make the build portable, such that in can run on other hardware than the build machine, run `make -j4 NIMFLAGS=-d:disableMarchNative nimbus_beacon_node` instead
 
 ## Keeping Nimbus updated
 

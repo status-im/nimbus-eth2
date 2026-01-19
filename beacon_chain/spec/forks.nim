@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -378,6 +378,7 @@ type
     deneb:     ForkDigest
     electra:   ForkDigest
     fuluInt:   ForkDigest
+    gloasInt:  ForkDigest
     bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
 template kind*(
@@ -1155,9 +1156,9 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-  # Past Fulu, this reverse lookup doesn't work anyway in a good way, needs to
-  # be refactored
-  if   forkDigest == forkDigests.fuluInt:
+  if   forkDigest == forkDigests.gloasInt:
+    ok ConsensusFork.Gloas
+  elif forkDigest == forkDigests.fuluInt:
     ok ConsensusFork.Fulu
   elif forkDigest == forkDigests.electra:
     ok ConsensusFork.Electra
@@ -1182,7 +1183,7 @@ func atConsensusFork*(
   debugGloasComment "atConsensusFork is deprecated anyway, should be gone before we need it for gloas, otherwise look at again"
   case consensusFork
   of ConsensusFork.Gloas:
-    forkDigests.fuluInt
+    forkDigests.gloasInt
   of ConsensusFork.Fulu:
     forkDigests.fuluInt
   of ConsensusFork.Electra:
@@ -1805,6 +1806,9 @@ func init*(T: type ForkDigests,
     fuluInt:
       compute_fork_digest_fulu(
         cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH),
+    gloasInt:
+      compute_fork_digest_fulu(
+        cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH),
     bpos: mapIt(
       cfg.BLOB_SCHEDULE,
       (

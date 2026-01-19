@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,8 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, execution_payload_pool],
+    blob_quarantine, blockchain_list, execution_payload_pool,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -233,7 +234,7 @@ proc loadChainDag(
       else: nil
   dag = ChainDAGRef.init(
     cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
-    vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
+    vanityLogs = getVanityLogs(detectTTY(config.logFormat)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
       importMode: config.lightClientDataImportMode,
@@ -414,9 +415,10 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
+    payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode or node.config.debugPeerdasSupernode
+    supernode = node.config.peerdasSupernode
     lightSupernode = node.config.lightSupernode
     localCustodyGroups =
       if supernode:
@@ -541,8 +543,9 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, executionPayloadBidPool, quarantine, blobQuarantine, dataColumnQuarantine,
-      rng, getBeaconTime, taskpool)
+      lightClientPool, executionPayloadBidPool, payloadAttestationPool,
+      quarantine, blobQuarantine, dataColumnQuarantine, rng,
+      getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -657,6 +660,8 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.executionPayloadBidPool = executionPayloadBidPool
+  node.payloadAttestationPool = payloadAttestationPool
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -1307,7 +1312,7 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   let
     custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode or node.config.debugPeerdasSupernode:
+  if node.config.peerdasSupernode:
     custodyGroups
   elif node.config.lightSupernode:
     (custodyGroups div 2) + 1
@@ -1748,10 +1753,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
+        when consensusFork < ConsensusFork.Fulu: continue
         else:
           for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+            if node.db.delDataColumnSidecar(
+                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
 
@@ -2043,7 +2049,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.updateSyncCommitteeTopics(slot + 1)
 
   if (not node.config.peerdasSupernode) and
-     (not node.config.debugPeerdasSupernode) and
      (not node.config.lightSupernode) and
      node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
@@ -2378,6 +2383,20 @@ proc installMessageValidators(node: BeaconNode) =
                 node.processor[].processExecutionPayloadBid(
                   MsgSource.gossip, signedBid)))
 
+        # payload_attestation_message
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addAsyncValidator(
+            getPayloadAttestationMessageTopic(digest), proc (
+              payloadAttestationMessage: PayloadAttestationMessage,
+              src: PeerId
+            ): Future[ValidationResult] {.
+                 async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processPayloadAttestationMessage(
+                  MsgSource.gossip, payloadAttestationMessage,
+                  checkSignature = true, checkValidator = false)))
+
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2566,11 +2585,6 @@ proc installMessageValidators(node: BeaconNode) =
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
-  if not node.config.inProcessValidators:
-    try:
-      node.vcProcess.close()
-    except Exception as exc:
-      warn "Couldn't close vc process", msg = exc.msg
   try:
     waitFor node.network.stop()
   except CatchableError as exc:
@@ -2835,21 +2849,18 @@ proc doRunBeaconNode(
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
+  # Ensure that non-light peerdas supernode options are forcibly disabled
+  # TODO when reconstruction works again, re-enable
+  # this is required because the fall-through is that if one of these is
+  # enabled, the (working) light supernode code won't run at all.
+  if config.peerdasSuperNode:
+    # It's at least not worse than not doing this; a functioning (full)
+    # supernode reconstructs and stores a superset of these columns
+    config.lightSupernode = true
+  config.peerdasSupernode = false
+
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
-
-  template ignoreDeprecatedOption(option: untyped): untyped =
-    if config.option.isSome:
-      warn "Ignoring deprecated configuration option", option = config.option.get
-
-  ignoreDeprecatedOption requireEngineAPI
-  ignoreDeprecatedOption safeSlotsToImportOptimistically
-  ignoreDeprecatedOption terminalTotalDifficultyOverride
-  ignoreDeprecatedOption optimistic
-  ignoreDeprecatedOption validatorMonitorTotals
-  ignoreDeprecatedOption web3ForcePolling
-  ignoreDeprecatedOption finalizedDepositTreeSnapshot
-  ignoreDeprecatedOption finalizedCheckpointBlock
 
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
@@ -2910,6 +2921,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       Opt.some(config.ipExt),
       Opt.some(config.tcpPortExt),
       Opt.some(config.udpPortExt),
+      Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()
@@ -3015,11 +3027,12 @@ proc main*() {.noinline, raises: [CatchableError].} =
   const copyright =
     "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
-  var config = BeaconNodeConf.loadWithBanners(clientId, copyright, [specBanner]).valueOr:
+  var config = BeaconNodeConf.loadWithBanners(
+    clientId, copyright, [specBanner], setupLogger = true
+  ).valueOr:
     writePanicLine error # Logging not yet set up
     quit QuitFailure
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
 
   if not (checkAndCreateDataDir(string(config.dataDir))):

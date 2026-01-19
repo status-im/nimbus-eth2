@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -900,6 +900,7 @@ proc readRuntimeConfig*(
     blobScheduleEntries: seq[BlobParameters]
     inBlobSchedule = false
     currentBPO: BlobParameters
+    hasCurrentEntry = false
 
   for rawLine in splitLines(fileContent):
     inc lineNum
@@ -920,9 +921,10 @@ proc readRuntimeConfig*(
     if inBlobSchedule:
       let entry = strip(noComment, leading=true, trailing=false)
       if entry.startsWith("- EPOCH:"):
-        if currentBPO.EPOCH.uint64 != 0.uint64:
+        if hasCurrentEntry:
           blobScheduleEntries.add(currentBPO)
         currentBPO = BlobParameters()
+        hasCurrentEntry = true
         let epochStr = entry.split(":")[1].strip()
         try:
           currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
@@ -938,8 +940,9 @@ proc readRuntimeConfig*(
         continue
       # Exit section on non-indented line
       elif noComment[0] notin {' ', '\t'}:
-        if currentBPO.EPOCH.uint64 != 0.uint64:
+        if hasCurrentEntry:
           blobScheduleEntries.add(currentBPO)
+        hasCurrentEntry = false
         inBlobSchedule = false
       else:
         continue
@@ -954,7 +957,7 @@ proc readRuntimeConfig*(
         values[key] = parts[1].strip()
 
   # Final BLOB_SCHEDULE entry
-  if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
+  if inBlobSchedule and hasCurrentEntry:
     blobScheduleEntries.add(currentBPO)
 
   # BPO entries must be sorted in reverse epoch order

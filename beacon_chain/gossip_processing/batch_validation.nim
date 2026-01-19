@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -576,5 +576,30 @@ proc scheduleBlsToExecutionChangeCheck*(
         genesis_fork_version, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         pubkey, sig)
+
+  ok((fut, sig))
+
+proc schedulePayloadAttestationCheck*(
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      genesis_validators_root: Eth2Digest,
+      msg: PayloadAttestationMessage,
+      pubkey: CookedPubKey,
+      signature: ValidatorSig
+    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of a payload attestation
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred payload attestation check otherwise.
+  ##
+  let
+    sig = signature.load().valueOr:
+      return err("payload attestation: cannot load signature")
+    fut = batchCrypto.verifySoon("batch_validation.schedulePayloadAttestationCheck"):
+      payload_attestation_signature_set(
+        fork, genesis_validators_root, msg, pubkey, sig)
 
   ok((fut, sig))

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -803,14 +803,14 @@ proc getBuilderSignature*(v: AttachedValidator, genesis_fork_version: Version,
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/validator.md#constructing-payload_attestations
 proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
-                              message: PayloadAttestationMessage,
+                              data: PayloadAttestationData,
                              ): Future[SignatureResult]
                              {.async: (raises: [CancelledError]).} =
   case v.kind
   of ValidatorKind.Local:
     SignatureResult.ok(
       get_payload_attestation_message_signature(
-        fork, genesis_validators_root, message,
+        fork, genesis_validators_root, data,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     return SignatureResult.err("Remote signer lacks payload attestation support")

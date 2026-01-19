@@ -1,4 +1,4 @@
-# Validating
+# Validator
 
 Once your beacon node is [running](./quick-start.md), the next step is to set up a validator.
 
@@ -7,7 +7,7 @@ This is a simple, safe and efficient way to get started.
 
 !!! tip "Separate validator client"
 
-    While not needed, advanced users may want to use a [separate validator client](./validator-client.md) instead.
+    Running a [separate validator client](./validator-client.md) allows advanced setups such as connecting to multiple beacon nodes or running on separate machines.
 
 
 
@@ -179,12 +179,12 @@ You can set up a separate address or reuse the address from which you funded you
 
 ### 2. (Re)start the node
 
-Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--web3-url`:
+Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--el`:
 
 === "Mainnet"
     ```sh
     ./run-mainnet-beacon-node.sh \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --suggested-fee-recipient=0x...
     ```
 
@@ -193,7 +193,7 @@ Press `Ctrl-c` to stop the beacon node if it's running, then use the same comman
     build/nimbus_beacon_node \
         --network=hoodi \
         --data-dir=build/data/shared_hoodi_0 \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --suggested-fee-recipient=0x...
     ```
 

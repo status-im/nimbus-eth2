@@ -1006,7 +1006,7 @@ CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node
 #./build/ncli_testnet sendDeposits \
 #  --deposits-file="$DEPOSITS_FILE" \
 #  --min-delay=$MIN_DEPOSIT_SENDING_DELAY --max-delay=$MAX_DEPOSIT_SENDING_DELAY \
-#  --web3-url="$MAIN_WEB3_URL" \
+#  --el="$MAIN_WEB3_URL" \
 #  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS > "$DATA_DIR/log_deposit_maker.txt" 2>&1 &
 
 for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
@@ -1114,11 +1114,11 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
 
   WEB3_ARG=()
   if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODE - 1 ))]}")
+    WEB3_ARG+=("--el=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODE - 1 ))]}")
   fi
 
   if [ "${RUN_GETH}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$((NUM_NODE - 1))]}")
+    WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$((NUM_NODE - 1))]}")
   fi
 
   if [ ${#WEB3_ARG[@]} -eq 0 ]; then # check if the array is empty
@@ -1247,11 +1247,11 @@ if [ "$LC_NODES" -ge "1" ]; then
 
     WEB3_ARG=()
     if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
+      WEB3_ARG+=("--el=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
     if [ "${RUN_GETH}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
+      WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
     ./build/nimbus_light_client \

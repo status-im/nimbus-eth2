@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,8 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    attestation_pool, execution_payload_pool, payload_attestation_pool,
+    sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
@@ -87,6 +88,8 @@ type
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
+    executionPayloadBidPool*: ref ExecutionPayloadBidPool
+    payloadAttestationPool*: ref PayloadAttestationPool
     elManager*: ELManager
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
@@ -94,7 +97,6 @@ type
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
-    vcProcess*: Process
     requestManager*: RequestManager
     validatorCustody*: ValidatorCustodyRef
     syncManager*: SyncManager[Peer, PeerId]

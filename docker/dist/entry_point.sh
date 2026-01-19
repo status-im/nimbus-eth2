@@ -111,6 +111,15 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   ${CC} --version
   echo
 
+  # Patch hashtree to not use -fno-integrated-as for macOS arm64
+  # osxcross doesn't have an arm64 GNU assembler, so we must use clang's integrated assembler
+  # See: https://developer.apple.com/forums/thread/717267
+  HASHTREE_ABI="vendor/nim-ssz-serialization/vendor/hashtree/hashtree_abi.nim"
+  if [[ -f "${HASHTREE_ABI}" ]]; then
+    echo "Patching ${HASHTREE_ABI} to use integrated assembler for macOS arm64..."
+    sed -i 's/defined(linux) or defined(macosx)/defined(linux)/g' "${HASHTREE_ABI}"
+  fi
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -673,13 +673,13 @@ func get_flag_index_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
-    info: altair.EpochInfo | bellatrix.BeaconState,
+    info: altair.EpochInfo,
     flag_index: TimelyFlag): uint64 =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_active_increments*(
-    info: altair.EpochInfo | bellatrix.BeaconState): uint64 =
+    info: altair.EpochInfo): uint64 =
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
@@ -1371,7 +1371,7 @@ func get_builder_payment_quorum_threshold(state: gloas.BeaconState, cache: var S
     get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
   uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
 func process_builder_pending_payments*(
     cfg: RuntimeConfig, state: var gloas.BeaconState, cache: var StateCache):
     Result[void, cstring] =
@@ -1381,11 +1381,7 @@ func process_builder_pending_payments*(
   for index in 0 ..< min(
       state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
     var payment = state.builder_pending_payments.mitem(index)
-    if payment.weight.distinctBase > quorum:
-      let exit_queue_epoch = compute_exit_epoch_and_update_churn(
-        cfg, state, payment.withdrawal.amount, cache)
-      payment.withdrawal.withdrawable_epoch =
-        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    if payment.weight.distinctBase >= quorum:
       if not state.builder_pending_withdrawals.add(payment.withdrawal):
         return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
 

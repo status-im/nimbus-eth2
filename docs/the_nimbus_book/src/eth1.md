@@ -73,15 +73,17 @@ The `--el` option informs the beacon node how to connect to the execution client
 
 !!! info
     By default, the execution client accepts connections on the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`.
+
     When the `--el` option is not explicitly specified, Nimbus will assume that the execution client is running on the same machine with such default settings.
 
 Once started, the execution client will create a file containing a JWT secret token.
 The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations.
-You will need to pass the path to the token file to Nimbus together with the web3 URL.
+You will need to pass the path to the token file to Nimbus together with the execution layer URL.
 
 === "Mainnet"
     ```sh
     ./run-mainnet-beacon-node.sh \
+        --data-dir=build/data/mainnet \
         --el=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```
@@ -90,7 +92,7 @@ You will need to pass the path to the token file to Nimbus together with the web
     ```sh
     build/nimbus_beacon_node \
         --network=hoodi \
-        --data-dir=build/data/shared_hoodi_0 \
+        --data-dir=build/data/hoodi \
         --el=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```
@@ -127,9 +129,6 @@ You will need to pass the path to the token file to Nimbus together with the web
 
     Follow [Besu upgrade instructions](https://besu.hyperledger.org/public-networks/how-to/upgrade-node).
 
-
-
-
 ## Advanced setups
 
 ### Running multiple execution clients
@@ -144,22 +143,25 @@ To enable this mode, just specify multiple URLs through the `--el` option when s
     --jwt-secret=/tmp/jwtsecret
 ```
 
+If the servers have different JWT secrets, they can be specified on the command line:
+
+```sh
+./run-mainnet-beacon-node.sh \
+    --el=http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwt.hex
+    --el=ws://other:8551#jwt-secret=d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3
+```
+
 !!! tip
-    You can use a different secret for each connection by specifying `jwt-secret` or `jwt-secret-file` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwt-secret=0x12345...` or `http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret`).
-    If you use a [TOML config file](./options.md#configuration-files), you can also use the following, more natural, syntax:
+    If you use a [TOML config file](./options.md#configuration-files), you can also use the following syntax:
 
     ```toml
-    data-dir = "my-data-dir"
-    rest = true
-    ...
-
     [[el]]
     url = "http://127.0.0.1:8551"
-    jwt-secret-file="/path/to/jwt/file"
+    jwt-secret-file="/tmp/jwt.hex"
 
     [[el]]
     url = "http://192.168.1.2:8551"
-    jwt-secret = ""
+    jwt-secret = "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
     ```
 
 As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.

@@ -43,6 +43,7 @@ plugins:
   - redirects:
       redirect_maps:
         'el-light-client.md': 'consensus-light-client.md'
+  - search
 
 markdown_extensions:
   - admonition

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -597,5 +597,36 @@ proc routeBlsToExecutionChange*(
     notice "BLS to execution change not sent",
       bls_to_execution_change = shortLog(bls_to_execution_change),
       error = res.error()
+
+  return ok()
+
+proc routePayloadAttestationMessage*(
+    router: ref MessageRouter,
+    message: PayloadAttestationMessage,
+    checkSignature = true, checkValidator = true):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = await router.processor.processPayloadAttestationMessage(
+      MsgSource.api, message, checkSignature = checkSignature,
+      checkValidator = checkValidator)
+
+    if not res.isGoodForSending:
+      warn "Payload attestation failed validation",
+        message = shortLog(message), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = message.data.slot
+    delay = sendTime -
+      slot.payload_attestation_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastPayloadAttestationMessage(message)
+
+  if res.isOk():
+    info "Payload attestation sent",
+      message = shortLog(message), delay
+  else:
+    notice "Payload attestation not sent",
+      message = shortLog(message), error = res.error()
 
   return ok()

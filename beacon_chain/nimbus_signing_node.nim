@@ -1,5 +1,5 @@
 # nimbus_signing_node
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -500,11 +500,11 @@ proc main() {.noinline, raises: [CatchableError].} =
     copyright =
       "Copyright (c) 2021-" & compileYear & " Status Research & Development GmbH"
 
-  let config = SigningNodeConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+  let config = SigningNodeConf.loadWithBanners(
+    banner, copyright, [specBanner], setupLogger = true
+  ).valueOr:
     writePanicLine error # Logging not yet set up
     quit QuitFailure
-
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   waitFor runSigningNode(config)
 
