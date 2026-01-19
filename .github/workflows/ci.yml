@@ -173,6 +173,7 @@ jobs:
           echo "nimbus_build_system=$nbsHash" >> $GITHUB_OUTPUT
 
       - name: Restore prebuilt Nim from cache
+        if: matrix.branch == null
         id: nim-cache
         uses: actions/cache@v4
         with:
