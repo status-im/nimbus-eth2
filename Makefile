@@ -458,7 +458,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 $(filter-out $(TOOLS_CORE_CUSTOMCOMPILE),$(TOOLS)): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
+		MAKE="$(MAKE)" V=1 $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Windows GitHub Actions CI runners, as of this writing, have around 8GB of RAM
