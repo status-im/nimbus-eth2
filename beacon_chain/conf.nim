@@ -36,7 +36,7 @@ from consensus_object_pools/block_pools_types_light_client
 
 export
   uri, nat, enr,
-  defaultEth2TcpPort, enabledLogLevel,
+  defaultEth2TcpPort, defaultEth2QuicPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
@@ -301,6 +301,19 @@ type
         defaultValue: defaultEth2TcpPort
         defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
+
+      quicEnabled* {.
+        hidden
+        desc: "Enable QUIC transport"
+        defaultValue: true # TODO: set to false by default
+        name: "debug-quic" .}: bool
+
+      quicPort* {.
+        hidden
+        desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
+        defaultValue: defaultEth2QuicPort
+        defaultValueDesc: $defaultEth2QuicPortDesc
+        name: "debug-quic-port" .}: Port   
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -801,6 +814,11 @@ type
         udpPortExt* {.
           desc: "External UDP port"
           name: "udp-port" .}: Port
+
+        quicPortExt* {.
+          hidden
+          desc: "External QUIC port"
+          name: "debug-quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"

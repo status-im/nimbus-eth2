@@ -107,6 +107,13 @@ jobs:
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
+      - name: Install nasm (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nasm --no-progress -y
+          "C:\Program Files\NASM" | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Derive environment variables
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then

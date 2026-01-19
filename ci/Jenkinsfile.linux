@@ -133,7 +133,7 @@ pipeline {
           steps { 
             timeout(26) {
               script {
-                sh 'make local-testnet-minimal'
+                sh 'make local-testnet-minimal V=1'
               }
             } 
           }

@@ -2921,7 +2921,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       Opt.some(config.ipExt),
       Opt.some(config.tcpPortExt),
       Opt.some(config.udpPortExt),
-      Opt.none(Port),
+      if config.quicEnabled: Opt.some(config.quicPortExt) else: Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()

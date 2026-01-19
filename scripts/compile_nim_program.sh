@@ -45,7 +45,7 @@ fi
 # version. The specific instance here is `-d:FIELD_ELEMENTS_PER_BLOB`
 # that is used in the nim-kzg library and its dependency.
 # TODO find a way not to have to -f here.
-"$NIMC" c -f --compileOnly -o:build/${BINARY} "$@" -d:nimCachePathOverride=nimcache/release/${BINARY} "${SOURCE}"
+"$NIMC" c -f --threads:on  --compileOnly -o:build/${BINARY} "$@" -d:nimCachePathOverride=nimcache/release/${BINARY} "${SOURCE}"
 build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimcache/release/${BINARY}/${BINARY}.makefile"
 # Don't swallow stderr, in case it's important.
 [[ "$V" == "0" ]] && exec >/dev/null

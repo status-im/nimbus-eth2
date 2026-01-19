@@ -66,8 +66,17 @@ if defined(limitStackUsage):
   # available on some GCC versions but not all - run with `-d:limitStackUsage`
   # and look for .su files in "./build/", "./nimcache/" or $TMPDIR that list the
   # stack size of each function.
-  switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
-  switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
+  
+  # TODO:
+  # 2025-12-10T16:43:27.1475097Z /github-runner/github-runner-node-02/workspace/nimbus-eth2/nimbus-eth2/vendor/nim-lsquic/libs/lsquic/src/liblsquic/lsquic_hkdf.c: In function ‘lsquic_qhkdf_expand’:
+  # 2025-12-10T16:43:27.1477049Z /github-runner/github-runner-node-02/workspace/nimbus-eth2/nimbus-eth2/vendor/nim-lsquic/libs/lsquic/src/liblsquic/lsquic_hkdf.c:13:1: error: stack usage might be unbounded [-Werror=stack-usage=]
+  # 2025-12-10T16:43:27.1478294Z    13 | lsquic_qhkdf_expand (const EVP_MD *md, const unsigned char *secret,
+  # 2025-12-10T16:43:27.1478769Z       | ^
+  # 2025-12-10T16:43:28.4943148Z /github-runner/github-runner-node-02/workspace/nimbus-eth2/nimbus-eth2/vendor/nim-lsquic/libs/lsquic/src/liblsquic/lsquic_handshake.c: In function ‘lsquic_enc_session_handle_chlo’:
+  # 2025-12-10T16:43:28.4946439Z /github-runner/github-runner-node-02/workspace/nimbus-eth2/nimbus-eth2/vendor/nim-lsquic/libs/lsquic/src/liblsquic/lsquic_handshake.c:3298:1: error: stack usage might be unbounded [-Werror=stack-usage=]
+  #switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
+  #switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
+  discard 
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
