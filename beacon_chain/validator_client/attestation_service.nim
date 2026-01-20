@@ -104,6 +104,68 @@ proc serveAttestation(
 
   res
 
+proc serveAttestations(
+    service: AttestationServiceRef,
+    slot: Slot,
+    fork: Fork,
+    registered: seq[RegisteredAttestation]
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  doAssert(len(registered) > 0)
+  var
+  let
+    vc = service.client
+    consensusFork = vc.getConsensusFork(fork)
+
+  let signed =
+    block:
+      var res: seq[SingleAttestation]
+      let pending = registered.mapIt(
+        validator.getAttestationSignature(
+          fork, vc.beaconGenesis.genesis_validators_root, it.data))
+    try:
+      await allFutures(pending)
+
+      for index, future in pending.pairs():
+        # We just created this future in previous step, and we are not supposed
+        # to cancel it, so after allFutures - all futures should be completed.
+        let sres = future.value
+        if sres.isErr():
+          warn "Unable to sign attestation",
+            reason = sres.error(),
+            validator = registered[index].validator,
+            attestation = shortLog(registered[index])
+        else:
+          res.add(registered[index].toSingleAttestation(sres.get()))
+
+      res
+    except CancelledError as exc:
+      debug "Attestation signature process was interrupted"
+      await cancelAndWait(pending)
+      raise exc
+
+  logScope:
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams, consensusFork))
+
+  debug "Sending attestations", count = len(signed)
+
+  signed.applyIt(
+    it.validator.doppelgangerActivity(slot.epoch)
+
+  logScope:
+    fork = consensusFork
+
+  try:
+    await vc.submitPoolAttestationsV2(
+      @[signed], consensusFork,
+        vc.getMode()[FnKind.submitPoolAttestations])
+    except ValidatorApiError as exc:
+      warn "Unable to publish attestations",
+        reason = exc.getFailureReason()
+      return false
+    except CancelledError as exc:
+      debug "Attestation publishing process was interrupted"
+      raise exc
+
 proc serveAggregateAndProofV2*(
     service: AttestationServiceRef,
     proof: ForkyAggregateAndProof,
