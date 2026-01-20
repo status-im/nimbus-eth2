@@ -283,6 +283,8 @@ proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   is_within_weak_subjectivity_period(dag.cfg, slot,
                                      dag.headState, checkpoint)
 
+proc attemptGetBlobs(node: BeaconNode, root: Eth2Digest) {.async.}
+
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -324,6 +326,11 @@ proc initFullNode(
   proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
     node.eventBus.blockGossipQueue.emit(
       EventBeaconBlockGossipObject.init(data))
+
+    withBlck(data):
+      when consensusFork == ConsensusFork.Fulu:
+        asyncSpawn node.attemptGetBlobs(forkyBlck.root)
+
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -2113,15 +2120,10 @@ when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
 
 proc attemptGetBlobs(node: BeaconNode,
-                     lastSlot: Slot) {.async.} =
-  let
-    block_id = node.quarantine[].last_block_slot.valueOr:
-      return
-  if block_id.slot != lastSlot + 1:
-    return
+                     root: Eth2Digest) {.async.} =
   let
     elManager = node.blockProcessor[].consensusManager.elManager
-  if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
+  if (let o = node.quarantine[].getColumnless(root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu and
@@ -2211,8 +2213,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
-
-  await node.attemptGetBlobs(lastSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
