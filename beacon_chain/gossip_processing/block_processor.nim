@@ -183,8 +183,8 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when sidecarsOpt is NoSidecars:
-    static: doAssert consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella
+  when consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    static: doAssert sidecarsOpt is NoSidecars
   elif consensusFork == ConsensusFork.Gloas:
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
