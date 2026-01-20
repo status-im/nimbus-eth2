@@ -6,6 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/strutils
+from std/os import quoteShell, splitFile, `/`
+from std/md5 import getMD5
+from std/sequtils import filterIt
 
 --noNimblePath
 
@@ -76,9 +79,6 @@ if defined(windows):
   switch("passL", "-Wl,--stack,8388608")
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
-  if defined(i386):
-    # set the IMAGE_FILE_LARGE_ADDRESS_AWARE flag so we can use PAE, if enabled, and access more than 2 GiB of RAM
-    switch("passL", "-Wl,--large-address-aware")
 
   # The dynamic Chronicles output currently prevents us from using colors on Windows
   # because these require direct manipulations of the stdout File object.
@@ -87,6 +87,30 @@ if defined(windows):
   # Avoid some rare stack corruption while using exceptions with a SEH-enabled
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
+
+# QUIC
+block:
+  let basepath = currentDir / "vendor" / "nim-lsquic"
+  for suffix in ["lsquic" / "lsquic_ffi.nim", "prelude.nim"]:
+    let
+      path = basepath / suffix
+      anglebracket_include = path.readFile().replace(
+        "-DXXH_HEADER_NAME=\\\\\\\"lsquic_xxhash.h\\\\\\\"",
+        "-DXXH_HEADER_NAME='<lsquic_xxhash.h>'")
+    if getMD5(anglebracket_include) in [
+        "1858609812d851888987ac6c31858d13", "c7f3ca87a36fe45efa6f0a544abde4e8",
+        # On Windows runners; probably line endings
+        "d57acbf46e010707864a5e75887d1d01", "5e1562ddbee31f225865870baadb7606"]:
+      writeFile(path, anglebracket_include)
+
+    if defined(windows):
+      let asmFiles = readFile(
+        basepath / "scripts" / "boringssl_win_nasm.list").splitLines().filterIt(
+          it.len > 0)
+      # https://github.com/vacp2p/nim-lsquic/blob/main/lsquic.nimble
+      for asmPath in asmFiles:
+        exec "nasm -f win64 " & quoteShell(basepath / asmPath) & " -o " &
+          quoteShell(basepath / "libs" / (asmPath.splitFile.name & ".o"))
 
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
@@ -224,3 +248,13 @@ put("sysrng.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
+
+# ############################################################
+#
+#                QUIC does variable stack allocations
+#
+# ############################################################
+
+put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
