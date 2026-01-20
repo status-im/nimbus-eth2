@@ -646,7 +646,9 @@ proc main() {.noinline, raises: [CatchableError].} =
       "Copyright (c) 2020-" & compileYear & " Status Research & Development GmbH"
 
   let
-    config = ValidatorClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    config = ValidatorClientConf.loadWithBanners(
+      banner, copyright, [specBanner], setupLogger = true
+    ).valueOr:
       writePanicLine error # Logging not yet set up
       quit QuitFailure
 
@@ -654,7 +656,6 @@ proc main() {.noinline, raises: [CatchableError].} =
     # and avoid using system resources (such as urandom) after that
     rng = HmacDrbgContext.new()
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
 
   waitFor runValidatorClient(config, rng)

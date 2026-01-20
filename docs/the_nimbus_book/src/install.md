@@ -1,15 +1,17 @@
 # Prepare your machine
 
-The Nimbus beacon node runs on Linux, macOS, Windows, and Android.
+Nimbus runs on Linux, macOS, Windows, and Android.
+
+You can install Nimbus either using precompiled binaries or build from source.
 
 ## System requirements
 
-Check that your machine matches the [minimal system requirements](./hardware.md).
+Check that your machine matches the [minimal system requirements](./hardware.md). The operating system must be a version supported by its vendor.
 
 ## Build prerequisites
 
 !!! tip
-    If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
+    If you are planning to use the precompiled binaries, you can skip straight to the [time section](#time)!
 
 When building from source, you will need additional build dependencies to be installed:
 

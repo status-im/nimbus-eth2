@@ -18,7 +18,7 @@ import
   stew/assign2,
   ./crypto,
   ./[helpers, digest],
-  ./datatypes/fulu
+  ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
 from std/sequtils import toSeq
@@ -265,6 +265,74 @@ proc assemble_data_column_sidecars*(
       sidecars.add(sidecar)
 
     sidecars
+
+proc assemble_partial_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock,
+    blobs: seq[KzgBlob], cell_proofs: seq[Opt[KzgProof]]): seq[fulu.PartialDataColumnSidecar] =
+  ## Returns a seq where element i corresponds to column index i.
+  var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
+
+  when signed_beacon_block is gloas.SignedBeaconBlock:
+    debugGloasComment "kzg_commitments removed from beaconblock in gloas"
+    return sidecars
+  else:
+    if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+      return sidecars
+    if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+      return sidecars
+
+    var cells = newSeq[CellBytes](blobs.len)
+    for i in 0 ..< blobs.len:
+      cells[i] = computeCells(blobs[i]).get
+
+    for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+      var
+        bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+        partialColumn = newSeqOfCap[KzgCell](blobs.len)
+        partialProofs = newSeqOfCap[KzgProof](blobs.len)
+
+      for rowIndex in 0..<blobs.len:
+        let proofOpt = cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]
+        if proofOpt.isSome:
+          bitmap[Natural(rowIndex)] = true
+          partialColumn.add(cells[rowIndex][columnIndex])
+          partialProofs.add(proofOpt.get)
+
+      sidecars.add fulu.PartialDataColumnSidecar(
+        cells_present_bitmap: bitmap,
+        partial_columns: DataColumn.init(partialColumn),
+        kzg_proofs: deneb.KzgProofs.init(partialProofs))
+
+    sidecars
+
+proc verify_partial_data_column_sidecar_kzg_proofs*(
+    sidecar: fulu.PartialDataColumnSidecar,
+    all_commitments: deneb.KzgCommitments): Result[void, cstring] =
+  ## Verify if the KZG proofs are correct.
+  var
+    cellIndices = newSeqOfCap[CellIndex](sidecar.partial_columns.len)
+    commitments = newSeqOfCap[KzgCommitment](sidecar.partial_columns.len)
+
+  let maxI = min(all_commitments.len, int(MAX_BLOB_COMMITMENTS_PER_BLOCK))
+  for i in 0 ..< maxI:
+    let idx = Natural(i)
+    if sidecar.cells_present_bitmap[idx]:
+      cellIndices.add(CellIndex(i))
+      commitments.add(all_commitments[i])
+
+  if commitments.len != sidecar.partial_columns.len or
+      commitments.len != sidecar.kzg_proofs.len:
+    return err("PartialDataColumnSidecar: length mismatch")
+
+  let res = verifyCellKzgProofBatch(
+      commitments, cellIndices, sidecar.partial_columns.asSeq,
+      sidecar.kzg_proofs.asSeq).valueOr:
+    return err("PartialDataColumnSidecar: validation error")
+
+  if not res:
+    return err("PartialDataColumnSidecar: validation failed")
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/fulu/p2p-interface.md#verify_data_column_sidecar
 func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar):

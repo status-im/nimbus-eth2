@@ -82,7 +82,7 @@ fi
 
 # Use sed to replace the el_image value in the file
 cat kurtosis-network-params.yml | envsubst > assertoor.yaml
-sed -i "s/cl_image: .*/cl_image: $new_cl_image/" assertoor.yaml
+sed -i'' -e "s/cl_image: .*/cl_image: $new_cl_image/" assertoor.yaml
 
 sudo kurtosis run \
   --enclave nimbus-localtestnet \

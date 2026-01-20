@@ -58,9 +58,10 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#domain-types
+  DOMAIN_BEACON_BUILDER* = DomainType([byte 0x0b, 0x00, 0x00, 0x00])
   DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
-  DOMAIN_BEACON_BUILDER* = DomainType([byte 0x1b, 0x00, 0x00, 0x00])
+  DOMAIN_PROPOSER_PREFERENCES* = DomainType([byte 0x0d, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
@@ -93,6 +94,10 @@ const
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#misc
+  BUILDER_INDEX_SELF_BUILD* = high(uint64)
   BUILDER_PAYMENT_THRESHOLD_NUMERATOR* = 6'u64
   BUILDER_PAYMENT_THRESHOLD_DENOMINATOR* = 10'u64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#index-flags
+  BUILDER_INDEX_FLAG* = 1'u64 shl 40

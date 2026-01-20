@@ -310,8 +310,7 @@ proc getExecutionPayload*(
     withdrawals = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Capella:
         when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "Extracting just the withdrawals from tuple"
-          get_expected_withdrawals(forkyState.data)[0]
+          get_expected_withdrawals(forkyState.data).withdrawals
         else:
           get_expected_withdrawals(forkyState.data)
       else:
@@ -577,7 +576,7 @@ proc collectBids*(
 
   Bids[consensusFork](engineBid: enginePayload, builderBid: builderBid)
 
-proc useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
+func useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
   bids.builderBid.isSome() and (
     bids.engineBid.isNone() or
     builderBetterBid(

@@ -234,7 +234,7 @@ proc loadChainDag(
       else: nil
   dag = ChainDAGRef.init(
     cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
-    vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
+    vanityLogs = getVanityLogs(detectTTY(config.logFormat)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
       importMode: config.lightClientDataImportMode,
@@ -2880,20 +2880,6 @@ proc doRunBeaconNode(
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
-  template ignoreDeprecatedOption(option: untyped): untyped =
-    if config.option.isSome:
-      warn "Ignoring deprecated configuration option", option = config.option.get
-
-  ignoreDeprecatedOption requireEngineAPI
-  ignoreDeprecatedOption safeSlotsToImportOptimistically
-  ignoreDeprecatedOption terminalTotalDifficultyOverride
-  ignoreDeprecatedOption optimistic
-  ignoreDeprecatedOption validatorMonitorTotals
-  ignoreDeprecatedOption web3ForcePolling
-  ignoreDeprecatedOption finalizedDepositTreeSnapshot
-  ignoreDeprecatedOption finalizedCheckpointBlock
-  ignoreDeprecatedOption inProcessValidators
-
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
@@ -2953,6 +2939,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       Opt.some(config.ipExt),
       Opt.some(config.tcpPortExt),
       Opt.some(config.udpPortExt),
+      Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()
@@ -3058,11 +3045,12 @@ proc main*() {.noinline, raises: [CatchableError].} =
   const copyright =
     "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
-  var config = BeaconNodeConf.loadWithBanners(clientId, copyright, [specBanner]).valueOr:
+  var config = BeaconNodeConf.loadWithBanners(
+    clientId, copyright, [specBanner], setupLogger = true
+  ).valueOr:
     writePanicLine error # Logging not yet set up
     quit QuitFailure
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
 
   if not (checkAndCreateDataDir(string(config.dataDir))):

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -387,9 +387,10 @@ func prune*(
   trace "Pruning blocks from fork choice", checkpoints
 
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
-  for nodeIdx in 0 ..< finalPhysicalIdx:
-    self.currentEpochTips.del nodeIdx
-    self.indices.del(self.nodes.buf[nodeIdx].bid.root)
+  for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
+    let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+    self.currentEpochTips.del nodeLogicalIdx
+    self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.

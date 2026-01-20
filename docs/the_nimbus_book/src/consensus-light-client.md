@@ -93,7 +93,7 @@ To start the consensus light client, run the following commands (inserting your 
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
+        --el=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
@@ -102,7 +102,7 @@ To start the consensus light client, run the following commands (inserting your 
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client --network=hoodi \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
+        --el=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
@@ -144,8 +144,7 @@ INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   opt
 
 !!! note
     The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
-    As this is a new protocol, not all implementations are supporting it yet.
-    Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
+    Since not all consensus clients serve the light client data, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 
 === "Geth"
 

@@ -192,12 +192,26 @@ proc setupTaskpool*(numThreads: int): Taskpool =
 
   taskpool
 
+proc obsoleteCmdOpt*(ConfType: type object, opt, msg: string) =
+  if msg.len == 0:
+    warn "Ignoring deprecated configuration option", opt
+  else:
+    warn "Ignoring deprecated configuration option", opt, msg
+
+template loggerSetup(ConfType: type): untyped =
+  proc (config: ConfType) {.raises: [], gcsafe.} =
+    when compiles(config.logFile):
+      setupLogging(config.logLevel, config.logFormat, config.logFile)
+    else:
+      setupLogging(config.logLevel, config.logFormat)
+
 proc loadWithBanners*(
     ConfType: type,
     helpBanner, copyright: string,
     versions: openArray[string],
     ignoreUnknown = false,
     environment: openArray[string] = [],
+    setupLogger = false
 ): Result[ConfType, string] =
   let
     version =
@@ -227,6 +241,7 @@ proc loadWithBanners*(
           if config.configFile.isSome:
             sources.addConfigFile(Toml, config.configFile.get)
         ,
+        loggerSetup = if setupLogger: loggerSetup(ConfType) else: nil
       )
     except CatchableError as exc:
       # Logging not configured yet!

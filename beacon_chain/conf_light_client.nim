@@ -25,26 +25,20 @@ type LightClientConf* = object
     defaultValue: "INFO"
     name: "log-level" .}: string
 
-  logStdout* {.
-    hidden
-    desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+  logFormat* {.
+    desc: "Choice of log format (auto, colors, nocolors, json)"
     defaultValueDesc: "auto"
     defaultValue: StdoutLogKind.Auto
     name: "log-format" .}: StdoutLogKind
 
-  logFile* {.
-    desc: "Specifies a path for the written Json log file (deprecated)"
-    name: "log-file" .}: Option[OutFile]
-
   # Storage
   dataDirFlag* {.
-    desc: "The directory where nimbus will store all blockchain data"
+    desc: "Directory where nimbus will store all blockchain data"
     abbr: "d"
     name: "data-dir" .}: Option[OutDir]
 
-  # Network
   eth2Network* {.
-    desc: "The Eth2 network to join"
+    desc: "Consensus network to join (mainnet, hoodi, sepolia, custom/path)"
     defaultValueDesc: "mainnet"
     name: "network" .}: Option[string]
 
@@ -119,20 +113,15 @@ type LightClientConf* = object
 
   syncLightClientFinality* {.
     desc: "Whether the light client should including finality information when syncing execution layers"
-    defaultValue: false
     name: "sync-light-client-finality" .}: bool
 
   # Execution layer
-  web3Urls* {.
-    desc: "One or more execution layer Engine API URLs"
-    name: "web3-url" .}: seq[EngineApiUrlConfigValue]
-
   elUrls* {.
-    desc: "One or more execution layer Engine API URLs"
+    desc: "Execution client engine API URL"
+    longDesc: "Repeat --el: to add multiple clients, see https://nimbus.guide/eth1.html"
     name: "el" .}: seq[EngineApiUrlConfigValue]
 
   noEl* {.
-    defaultValue: false
     desc: "Don't use an EL. The node will remain optimistically synced and won't be able to perform validator duties"
     name: "no-el" .}: bool
 
@@ -151,6 +140,17 @@ type LightClientConf* = object
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64
+
+  logFile* {.
+    obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
+    name: "log-file" .}: Option[OutFile]
+
+  # Hidden as of 26.1.0 to simplify the CLI help - new setups should use --el
+  # which is equivalent and present as of 23.3.0
+  web3Urls* {.
+    hidden
+    desc: "Superceded by --el"
+    name: "web3-url" .}: seq[EngineApiUrlConfigValue]
 
 proc defaultDataDir*(config: LightClientConf): string =
   defaultDataDir("", config.eth2Network.shortNetworkName())

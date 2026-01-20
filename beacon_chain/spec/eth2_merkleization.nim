@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Import this module to get access to `hash_tree_root` for spec types
 
@@ -22,6 +22,7 @@ from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/deneb import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/electra import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/fulu import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/gloas import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -31,14 +32,14 @@ func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
        deneb.HashedBeaconState | electra.HashedBeaconState |
-       fulu.HashedBeaconState) {.
+       fulu.HashedBeaconState | gloas.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
        bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
        deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-       fulu.SignedBeaconBlock) {.
+       fulu.SignedBeaconBlock | gloas.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func hash*(v: ref HashedValidatorPubKeyItem): Hash =

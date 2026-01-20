@@ -32,11 +32,11 @@ proc main() {.noinline, raises: [CatchableError].} =
     copyright =
       "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
 
-  var config = LightClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+  var config = LightClientConf.loadWithBanners(
+    banner, copyright, [specBanner], setupLogger = true
+  ).valueOr:
     writePanicLine error # Logging not yet set up
     quit QuitFailure
-
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   notice "Launching light client",
     version = fullVersionStr, cmdParams = commandLineParams(), config

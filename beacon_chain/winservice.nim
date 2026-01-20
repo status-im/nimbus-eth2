@@ -148,12 +148,12 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
         quit QuitFailure
 
-      var config = loadWithBanners(argConfigType, argHelpBanner, argCopyright,
-                                   argVersions, false, environment).valueOr:
+      var config = loadWithBanners(
+        argConfigType, argHelpBanner, argCopyright,
+        argVersions, false, environment, setupLogger = true
+      ).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
-
-      setupLogging(config.logLevel, config.logStdout, config.logFile)
 
       try:
         argEntryPoint(config)

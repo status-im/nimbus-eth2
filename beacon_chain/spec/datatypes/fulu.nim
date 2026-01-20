@@ -20,7 +20,7 @@ import
   "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
-  ssz_serialization/[merkleization, proofs],
+  ssz_serialization/[merkleization, proofs, bitseqs],
   ssz_serialization/types as sszTypes,
   ../digest,
   kzg4844/[kzg, kzg_abi]
@@ -109,6 +109,12 @@ type
   DataColumnsByRootIdentifier* = object
     block_root*: Eth2Digest
     indices*: DataColumnIndices
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/c02a3a764d9b9cfe74f701493e08aa8291f40dfe/specs/fulu/p2p-interface.md#partial-columns
+  PartialDataColumnSidecar* = object
+    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_proofs*: deneb.KzgProofs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
