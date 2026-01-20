@@ -1138,12 +1138,13 @@ proc getSidecar*(
     sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
   db.getDataColumnSidecar(root, index, sidecar)
 
-proc getExecutionPayloadEnvelope*(
-    db: BeaconChainDB, root: Eth2Digest,
-    value: var TrustedSignedExecutionPayloadEnvelope): bool =
+proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[TrustedSignedExecutionPayloadEnvelope] =
   if db.envelopes == nil:
-    return false
-  db.envelopes.getSZSSZ(root.data, value) == GetResult.found
+    return Opt.none(TrustedSignedExecutionPayloadEnvelope)
+  result.ok(TrustedSignedExecutionPayloadEnvelope())
+  if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
+    result.err()
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
