@@ -236,10 +236,7 @@ proc addTestEngineBlock*(
         default(bellatrix.ExecutionPayloadForSigning)
 
     attestations =
-      when consensusFork >= ConsensusFork.Electra:
-        electraAttestations
-      else: attestations
-
+      when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
     message = makeBeaconBlock(
         cfg,
         consensusFork,

@@ -343,58 +343,41 @@ cli do(
       )
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
-    when consensusFork >= ConsensusFork.Gloas:
-      let
-        builder_index = BUILDER_INDEX_SELF_BUILD
-        bid =
-          ExecutionPayloadBid(
-            parent_block_hash: state.data.latest_block_hash,
-            parent_block_root: hash_tree_root(state.data.latest_block_header),
-            block_hash: default(Eth2Digest),
-            prev_randao:
-              get_randao_mix(state.data, get_current_epoch(state.data)),
-            fee_recipient: default(ExecutionAddress),
-            gas_limit: 30000000'u64,
-            builder_index: builder_index,
-            slot: slot,
-            value: 0.Gwei,
-            execution_payment: 0.Gwei,
-            blob_kzg_commitments_root: default(Eth2Digest))
+    let
+      epb =
+        when consensusFork >= ConsensusFork.Gloas:
+          let
+            bid =
+              ExecutionPayloadBid(
+                parent_block_hash: state.data.latest_block_hash,
+                parent_block_root: hash_tree_root(state.data.latest_block_header),
+                block_hash: default(Eth2Digest),
+                prev_randao:
+                  get_randao_mix(state.data, get_current_epoch(state.data)),
+                fee_recipient: default(ExecutionAddress),
+                gas_limit: 30000000'u64,
+                builder_index: BUILDER_INDEX_SELF_BUILD,
+                slot: slot,
+                value: 0.Gwei,
+                execution_payment: 0.Gwei,
+                blob_kzg_commitments_root: default(Eth2Digest))
+          SignedExecutionPayloadBid(
+            message: bid, signature: ValidatorSig.infinity())
+        else:
+          default(SignedExecutionPayloadBid)
 
-        epb = SignedExecutionPayloadBid(
-          message: bid, signature: ValidatorSig.infinity())
-
-        payload_attestations =
+      payload_attestations =
+        when consensusFork >= ConsensusFork.Gloas:
           if slot > GENESIS_SLOT:
             let pa = aggregatePayloadAttestations()
             if pa.data.slot != GENESIS_SLOT:
               @[pa]
             else: newSeq[PayloadAttestation]()
           else: newSeq[PayloadAttestation]()
+        else:
+          newSeq[PayloadAttestation]()
 
-        message = makeBeaconBlock(
-            cfg,
-            consensusFork,
-            state,
-            cache,
-            proposerIdx,
-            randao_reveal.toValidatorSig(),
-            default(Eth1Data),
-            default(GraffitiBytes),
-            attPool.getAttestationsForBlock(state, cache),
-            default(seq[Deposit]),
-            default(BeaconBlockValidatorChanges),
-            sync_aggregate,
-            default(deneb.ExecutionPayload),
-            {},
-            default(KzgCommitments),
-            default(ExecutionRequests),
-            epb,
-            payload_attestations
-          )
-          .expect("block")
-    else:
-      let message = makeBeaconBlock(
+      message = makeBeaconBlock(
         cfg,
         consensusFork,
         state,
@@ -409,8 +392,10 @@ cli do(
         sync_aggregate,
         default(consensusFork.ExecutionPayloadForSigning),
         {},
-      )
-      .expect("block")
+        default(ExecutionRequests),
+        epb,
+        payload_attestations
+      ).expect("block")
 
     var newBlock = consensusFork.SignedBeaconBlock(message: message)
     let blockRoot = withTimerRet(timers[tHashBlock]):
