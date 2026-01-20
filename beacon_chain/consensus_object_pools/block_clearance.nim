@@ -526,17 +526,15 @@ proc addHeadExecutionPayload*(
       return err(VerifierError.Invalid)
 
   # Verify with state transition function.
-  template notifyPayload(): auto =
-    proc(_: deneb.ExecutionPayload): bool = true
   process_execution_payload(
     dag.cfg,
     dag.clearanceState.forky(consensusFork),
     signedEnvelope,
-    notifyPayload(),
+    func(_: deneb.ExecutionPayload): bool = true,
     cache,
   ).isOkOr:
     assign(dag.clearanceState, dag.headState)
-    info "Envelope transition failed"
+    info "Envelope transition failed", msg = error
     return err(VerifierError.Invalid)
 
   # Put the envelope into db and update optimistic status for the block.
