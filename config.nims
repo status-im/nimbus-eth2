@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -102,16 +102,13 @@ if defined(disableMarchNative):
     else:
       switch("passC", "-mssse3")
       switch("passL", "-mssse3")
-elif defined(macosx) and defined(arm64):
-  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
-  switch("passC", "-mcpu=apple-m1")
-  switch("passL", "-mcpu=apple-m1")
 elif defined(riscv64):
   # riscv64 needs specification of ISA with extensions. 'gc' is widely supported
   # and seems to be the minimum extensions needed to build.
   switch("passC", "-march=rv64gc")
   switch("passL", "-march=rv64gc")
-else:
+elif not(defined(macosx) and defined(arm64)):
+  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-march=native")
   switch("passL", "-march=native")
   if defined(i386) or defined(amd64):
