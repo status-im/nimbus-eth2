@@ -36,7 +36,7 @@ suite "Envelope Quarantine":
         builder_index: 1'u64)))
     check root1 in quarantine.orphans
     check 1'u64 in quarantine.orphans[root1]
-    quarantine.delOrphan(signedBlck.root)
+    quarantine.delOrphan(gloas.SignedBeaconBlock(root: root1))
     check root1 notin quarantine.orphans
 
   test "Pop orphan":
@@ -55,12 +55,12 @@ suite "Envelope Quarantine":
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(signedBlck) == Opt.some(envelope)
-    check root1 notin quarantine.orphans
+    check root1 in quarantine.orphans
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(gloas.SignedBeaconBlock(root: root1)) ==
       Opt.none(SignedExecutionPayloadEnvelope)
-    check root1 notin quarantine.orphans
+    check root1 in quarantine.orphans
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(gloas.SignedBeaconBlock(message: blck)) ==
