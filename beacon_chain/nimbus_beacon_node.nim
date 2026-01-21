@@ -328,6 +328,7 @@ proc initFullNode(
       EventBeaconBlockGossipObject.init(data))
 
     withBlck(data):
+      debugGloasComment ""
       when consensusFork == ConsensusFork.Fulu:
         asyncSpawn node.attemptGetBlobs(forkyBlck.root)
 
