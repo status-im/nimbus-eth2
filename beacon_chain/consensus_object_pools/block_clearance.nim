@@ -472,7 +472,8 @@ proc addHeadExecutionPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
 ): Result[BlockRef, VerifierError] =
-  ## Try adding the execution payload envelope to the head block.
+  ## Try adding the execution payload envelope to the head block, which should
+  ## usually be invoked after the call of addHeadBlockWithParent()
   ##
   ## First check that the block and envelope are matched with the DAG block.
   ## Then verify that it passes the state transition function and contains valid
