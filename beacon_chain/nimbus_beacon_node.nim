@@ -284,6 +284,8 @@ proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   is_within_weak_subjectivity_period(dag.cfg, slot,
                                      dag.headState, checkpoint)
 
+proc attemptGetBlobs(node: BeaconNode, root: Eth2Digest) {.async.}
+
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
