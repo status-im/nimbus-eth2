@@ -476,8 +476,7 @@ proc addHeadExecutionPayload*(
   ## usually be invoked after the call of addHeadBlockWithParent()
   ##
   ## First check that the block and envelope are matched with the DAG block.
-  ## Then verify that it passes the state transition function and contains valid
-  ## signature.
+  ## Then verify that it passes the state transition function.
 
   template envelopeBlockRoot(): auto =
     signedEnvelope.message.beacon_block_root
@@ -512,19 +511,6 @@ proc addHeadExecutionPayload*(
 
   var cache: StateCache
   const consensusFork = typeof(signedBlock).kind
-
-  # Verify signature
-  if skipBlsValidation notin dag.updateFlags:
-    if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(signedEnvelope.message.slot.epoch),
-      dag.clearanceState.forky(consensusFork).data.genesis_validators_root,
-      signedEnvelope.message.slot.epoch,
-      signedEnvelope.message,
-      dag.validatorKey(signedEnvelope.message.builder_index).get(),
-      signedEnvelope.signature
-    ):
-      info "Envelope signature verification failed"
-      return err(VerifierError.Invalid)
 
   # Verify with state transition function.
   process_execution_payload(
