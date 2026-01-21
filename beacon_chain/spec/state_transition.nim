@@ -367,9 +367,8 @@ proc makeBeaconBlockWithRewards*(
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
-    signed_execution_payload_bid:
-      SignedExecutionPayloadBid = default(SignedExecutionPayloadBid),
-    payload_attestations: seq[PayloadAttestation] = @[]
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -461,9 +460,8 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
-    signed_execution_payload_bid:
-      SignedExecutionPayloadBid = default(SignedExecutionPayloadBid),
-    payload_attestations: seq[PayloadAttestation] = @[]
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
@@ -490,9 +488,8 @@ proc makeBeaconBlock*(
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
     execution_requests: ExecutionRequests = default(ExecutionRequests),
-    signed_execution_payload_bid:
-      SignedExecutionPayloadBid = default(SignedExecutionPayloadBid),
-    payload_attestations: seq[PayloadAttestation] = @[]
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
