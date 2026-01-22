@@ -264,7 +264,7 @@ proc produceAndPublishAttestationsV2*(
           else:
             inc(errored)
         (succeed, errored, failed)
-    
+
     consensusFork = vc.getConsensusFork(fork)
     delay = vc.getDelay(slot.attestation_deadline(
       vc.timeParams, consensusFork))
@@ -388,7 +388,7 @@ proc produceAndPublishAggregatesV2(
   debug "Aggregated attestation statistics", total = len(aggregates),
         succeed = statistics[0], failed_to_deliver = statistics[1],
         not_accepted = statistics[2], delay = delay, slot = slot,
-        committee_index = committeeIndex
+        committee_index = committee_index
 
 proc publishAttestationsAndAggregatesV2(
     service: AttestationServiceRef,
