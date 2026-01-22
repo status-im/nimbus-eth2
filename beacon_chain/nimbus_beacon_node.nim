@@ -284,8 +284,6 @@ proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   is_within_weak_subjectivity_period(dag.cfg, slot,
                                      dag.headState, checkpoint)
 
-proc attemptGetBlobs(node: BeaconNode, root: Eth2Digest) {.async.}
-
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -327,7 +325,10 @@ proc initFullNode(
   proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
     node.eventBus.blockGossipQueue.emit(
       EventBeaconBlockGossipObject.init(data))
+<<<<<<< HEAD
 
+=======
+>>>>>>> c02c78a6e (Revert "tie `getBlobs` calling with block gossip callback (#7866)" (#7871))
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -2173,6 +2174,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
+
+  await node.attemptGetBlobs(lastSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
