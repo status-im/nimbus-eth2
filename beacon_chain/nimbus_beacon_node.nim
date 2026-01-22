@@ -2853,7 +2853,7 @@ proc doRunBeaconNode(
   # TODO when reconstruction works again, re-enable
   # this is required because the fall-through is that if one of these is
   # enabled, the (working) light supernode code won't run at all.
-  if config.peerdasSuperNode:
+  if config.peerdasSupernode:
     # It's at least not worse than not doing this; a functioning (full)
     # supernode reconstructs and stores a superset of these columns
     config.lightSupernode = true
