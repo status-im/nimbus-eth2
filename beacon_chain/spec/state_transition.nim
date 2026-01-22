@@ -367,6 +367,8 @@ proc makeBeaconBlockWithRewards*(
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -426,6 +428,13 @@ proc makeBeaconBlockWithRewards*(
     debugGloasComment "handle correctly for gloas"
     blck.body.execution_requests = execution_requests
 
+  when consensusFork >= ConsensusFork.Gloas:
+    blck.body.signed_execution_payload_bid =
+      signed_execution_payload_bid
+    blck.body.payload_attestations =
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
+        payload_attestations)
+
   let rewards =
     ?process_block(cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
@@ -451,12 +460,15 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
       cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
       graffiti, attestations, deposits, validator_changes, sync_aggregate,
-      execution_payload, verificationFlags, kzg_commitments, execution_requests,
+      execution_payload, verificationFlags, kzg_commitments,
+      execution_requests, signed_execution_payload_bid, payload_attestations
     )
   ).blck
 
@@ -476,9 +488,12 @@ proc makeBeaconBlock*(
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
     execution_requests: ExecutionRequests = default(ExecutionRequests),
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
     graffiti, attestations, deposits, validator_changes, sync_aggregate,
-    eps.executionPayload, verificationFlags, eps.kzg_commitments, execution_requests,
+    eps.executionPayload, verificationFlags, eps.kzg_commitments,
+    execution_requests, signed_execution_payload_bid, payload_attestations
   )

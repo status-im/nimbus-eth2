@@ -33,7 +33,8 @@
 import
   chronicles,
   results,
-  ../consensus_object_pools/[attestation_pool, consensus_manager],
+  ../consensus_object_pools/[attestation_pool, consensus_manager,
+    payload_attestation_pool],
   ../spec/[forks, state_transition],
   ../spec/mev/rest_mev_calls,
   ../beacon_node
@@ -237,6 +238,16 @@ proc makeEngineBlock*(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
+  
+  debugGloasComment "make signed bid from engine payload"
+  let
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, cache
+        )
+      else: newSeq[PayloadAttestation]()
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -255,6 +266,8 @@ proc makeEngineBlock*(
       verificationFlags = {},
       eps.kzg_commitments,
       execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -462,6 +475,16 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
+  debugGloasComment "make signed bid from engine payload"
+  let
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, cache
+        )
+      else: newSeq[PayloadAttestation]()
+
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -479,6 +502,8 @@ proc makeBuilderBlock*(
       verificationFlags = {},
       builderBid.blob_kzg_commitments,
       builderBid.execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
