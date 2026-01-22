@@ -9,6 +9,7 @@
 
 import
   chronicles, chronos, metrics,
+  kzg4844/kzg,
   ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
@@ -182,7 +183,9 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork == ConsensusFork.Gloas:
+  when consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    static: doAssert sidecarsOpt is NoSidecars
+  elif consensusFork == ConsensusFork.Gloas:
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
     debugGloasComment "potentially validate against payload envelope"
@@ -207,7 +210,7 @@ proc verifySidecars(
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
         let r = validate_blobs(
-          kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
+          kzgCommits, blobs.mapIt(kzg.KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
         )
         if r.isErr():
           debug "blob validation failed",
@@ -218,8 +221,6 @@ proc verifySidecars(
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err(VerifierError.Invalid)
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -393,7 +394,8 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     withBlck(quarantined):
       when consensusFork == ConsensusFork.Gloas:
         debugGloasComment ""
-        const sidecarsOpt = noSidecars
+        # Representing only Phase0 -> Capella sidecars as `noSidecars` for now
+        let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
