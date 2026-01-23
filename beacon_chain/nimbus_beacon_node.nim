@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, envelope_quarantine,
+    blob_quarantine, blockchain_list,
     execution_payload_pool, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
@@ -555,7 +555,6 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init(dag.cfg))
-    envelopeQuarantine = newClone(EnvelopeQuarantine.init())
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, getBeaconTime(),
       onPhase0AttestationReceived, onSingleAttestationReceived))
@@ -611,7 +610,7 @@ proc initFullNode(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
+      getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -702,7 +701,7 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
       quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, rng, getBeaconTime, taskpool)
+      rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -2366,33 +2365,6 @@ proc installMessageValidators(node: BeaconNode) =
                 node.processor[].processExecutionPayloadBid(
                   MsgSource.gossip, signedBid)))
 
-        # execution_payload
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha-1/specs/gloas/p2p-interface.md#execution_payload
-        when consensusFork >= ConsensusFork.Gloas:
-          node.network.addValidator(
-            getExecutionPayloadTopic(digest), proc (
-              signedEnvelope: SignedExecutionPayloadEnvelope,
-              src: PeerId,
-            ): ValidationResult =
-              toValidationResult(
-                node.processor[].processExecutionPayloadEnvelope(
-                  MsgSource.gossip, signedEnvelope))
-          )
-
-        # payload_attestation_message
-        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
-        when consensusFork >= ConsensusFork.Gloas:
-          node.network.addAsyncValidator(
-            getPayloadAttestationMessageTopic(digest), proc (
-              payloadAttestationMessage: PayloadAttestationMessage,
-              src: PeerId
-            ): Future[ValidationResult] {.
-                 async: (raises: [CancelledError]).} =
-              return toValidationResult(
-                await node.processor.processPayloadAttestationMessage(
-                  MsgSource.gossip, payloadAttestationMessage,
-                  checkSignature = true, checkValidator = false)))
-
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2533,19 +2505,7 @@ proc installMessageValidators(node: BeaconNode) =
         # data_column_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
-        when consensusFork >= ConsensusFork.Gloas:
-          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            closureScope:
-              let subnet_id = it
-              node.network.addValidator(
-                getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: gloas.DataColumnSidecar,
-                  src: PeerId
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processDataColumnSidecar(
-                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
-        elif consensusFork == ConsensusFork.Fulu:
+        when consensusFork == ConsensusFork.Fulu:
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it

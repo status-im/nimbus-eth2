@@ -278,7 +278,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -334,7 +334,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -362,24 +362,6 @@ type
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
-
-    # [New in Gloas:EIP7732]
-    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
-    # [New in Gloas:EIP7732]
-    next_withdrawal_builder_index*: uint64
-    # [New in Gloas:EIP7732]
-    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
-    # [New in Gloas:EIP7732]
-    builder_pending_payments*:
-      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
-    # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*:
-      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    # [New in Gloas:EIP7732]
-    latest_block_hash*: Eth2Digest
-    # [New in Gloas:EIP7732]
-    payload_expected_withdrawals*:
-      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -471,13 +453,10 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-
-    # [New in Gloas:EIP7732]
-    signed_execution_payload_bid*: SignedExecutionPayloadBid
-    # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests  # [New in Electra]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -514,13 +493,10 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-
-    # [New in Gloas:EIP7732]
-    signed_execution_payload_bid*: SignedExecutionPayloadBid
-    # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests  # [New in Electra]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -545,13 +521,10 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
+    execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-
-    # [New in Gloas:EIP7732]
-    signed_execution_payload_bid*: SignedExecutionPayloadBid
-    # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests  # [New in Electra]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object

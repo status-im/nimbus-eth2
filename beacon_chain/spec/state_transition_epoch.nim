@@ -29,7 +29,6 @@ import
 
 from std/math import sum, `^`
 from stew/bitops2 import setBit
-from stew/staticfor import staticFor
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
 
@@ -1371,28 +1370,6 @@ func get_builder_payment_quorum_threshold(state: gloas.BeaconState, cache: var S
     get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
   uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
-func process_builder_pending_payments*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState, cache: var StateCache):
-    Result[void, cstring] =
-  ## Processes the builder pending payments from the previous epoch.
-  let quorum = get_builder_payment_quorum_threshold(state, cache)
-
-  for index in 0 ..< min(
-      state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
-    var payment = state.builder_pending_payments.mitem(index)
-    if payment.weight.distinctBase >= quorum:
-      if not state.builder_pending_withdrawals.add(payment.withdrawal):
-        return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
-
-  staticFor i, 0 ..< SLOTS_PER_EPOCH.int:
-    assign(
-      state.builder_pending_payments.mitem(i),
-      state.builder_pending_payments.item(i + SLOTS_PER_EPOCH))
-    state.builder_pending_payments.mitem(i + SLOTS_PER_EPOCH).reset()
-
-  ok()
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1597,7 +1574,6 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1623,15 +1599,14 @@ proc process_epoch*(
   ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
-  ? process_pending_deposits(cfg, state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
-  ? process_pending_consolidations(cfg, state)
-  process_effective_balance_updates(state)
+  ? process_pending_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  ? process_pending_consolidations(cfg, state)   # [New in Electra:EIP7251]
+  process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
-  ? process_historical_summaries_update(state)
+  ? process_historical_summaries_update(state)  # [Modified in Capella]
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
-  ? process_proposer_lookahead(state, cache)
+  ? process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
 
   ok()

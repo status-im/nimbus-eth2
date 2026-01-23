@@ -17,7 +17,7 @@ import
   ../spec/[helpers, forks],
   ../consensus_object_pools/[
     attestation_pool, blob_quarantine, block_clearance, block_quarantine,
-    blockchain_dag, envelope_quarantine, execution_payload_pool,
+    blockchain_dag, execution_payload_pool,
     payload_attestation_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
@@ -171,8 +171,6 @@ type
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
-    gloasColumnQuarantine*: ref GloasColumnQuarantine
-    envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -201,7 +199,6 @@ proc new*(T: type Eth2Processor,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
-          envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -223,8 +220,6 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
-    gloasColumnQuarantine: gloasColumnQuarantine,
-    envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng, dag.cfg.timeParams,
@@ -316,38 +311,6 @@ proc processSignedBeaconBlock*(
   # Validator monitor registration for blocks is done by the processor
   beacon_blocks_received.inc()
   beacon_block_delay.observe(delay.toFloatSeconds())
-
-  ok()
-
-proc processExecutionPayloadEnvelope*(
-    self: var Eth2Processor, src: MsgSource,
-    signedEnvelope: SignedExecutionPayloadEnvelope): ValidationRes =
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    envelope = shortLog(signedEnvelope.message)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Execution payload envelope before genesis"
-    return errIgnore("Execution payload envelope before genesis")
-
-  let delay = wallTime -
-    signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
-
-  self.dag.validateExecutionPayload(
-      self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
-    execution_payload_envelopes_dropped.inc(1, [$error[0]])
-    return err(error)
-
-  self.envelopeQuarantine[].addOrphan(signedEnvelope)
-  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
-
-  execution_payload_envelopes_received.inc()
-  execution_payload_envelope_delay.observe(delay.toFloatSeconds())
 
   ok()
 
@@ -453,41 +416,6 @@ proc processDataColumnSidecar*(
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())
 
-  v
-
-proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: gloas.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    dcs = shortLog(dataColumnSidecar)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Data column before genesis"
-    return errIgnore("Data column before genesis")
-
-  debug "Data column received (Gloas - quarantine not implemented)"
-
-  let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
-    dataColumnSidecar, wallTime, subnet_id)
-
-  if v.isErr():
-    debug "Dropping data column", error = v.error()
-    data_column_sidecars_dropped.inc(1, [$v.error[0]])
-    return v
-
-  debug "Data column validated"
-  self.gloasColumnQuarantine[].put(
-    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
-  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
-
-  data_column_sidecars_received.inc()
   v
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =

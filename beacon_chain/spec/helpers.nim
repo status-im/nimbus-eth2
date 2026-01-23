@@ -386,17 +386,10 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState): bool =
+           electra.BeaconState | fulu.BeaconState | gloas.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-is_merge_transition_complete
-func is_merge_transition_complete*(state: gloas.BeaconState): bool =
-  var bid = default(gloas.ExecutionPayloadBid)
-  const kzgs = default(KzgCommitments)
-  bid.blob_kzg_commitments_root = kzgs.hash_tree_root()
-  state.latest_execution_payload_bid != bid
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
@@ -415,7 +408,7 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState,
+           electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody): bool =
   when body is SomeForkyBlindedBeaconBlockBody:
     const defaultExecutionPayload = default(typeof(body.execution_payload_header))
@@ -431,7 +424,7 @@ func is_merge_transition_block(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState,
+           electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
@@ -590,10 +583,6 @@ func is_builder_payment_withdrawable*(
     current_epoch = state.slot.epoch
 
   builder.withdrawable_epoch >= current_epoch or not builder.slashed
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
-func is_parent_block_full*(state: gloas.BeaconState): bool =
-  state.latest_execution_payload_bid.block_hash == state.latest_block_hash
 
 func attestation_deadline*(
     s: Slot, timeParams: TimeParams,

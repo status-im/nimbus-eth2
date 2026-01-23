@@ -107,12 +107,3 @@ suite "EF - Fulu - Sanity - Slots " & preset():
       sanitySlotsDir, relative = true, checkDir = true):
     runTest(
       fulu.BeaconState, sanitySlotsDir, "Fulu", suiteName, path)
-
-from ../../beacon_chain/spec/datatypes/gloas import BeaconState
-
-suite "EF - Gloas - Sanity - Slots " & preset():
-  const sanitySlotsDir = sanitySlotsDir("gloas")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
-    runTest(
-      gloas.BeaconState, sanitySlotsDir, "Gloas", suiteName, path)

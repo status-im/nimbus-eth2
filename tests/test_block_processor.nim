@@ -21,7 +21,7 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, envelope_quarantine,
+    block_clearance, consensus_manager,
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
@@ -78,7 +78,6 @@ suite "Block processor" & preset():
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
-      envelopeQuarantine = newClone(EnvelopeQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -110,7 +109,7 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
         blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-        envelopeQuarantine, getTimeFn,
+        getTimeFn,
       )
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
@@ -172,7 +171,7 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        gloasColumnQuarantine, envelopeQuarantine, getTimeFn,
+        gloasColumnQuarantine, getTimeFn,
         invalidBlockRoots = @[b2.root])
 
     block:
@@ -205,7 +204,7 @@ suite "Block processor" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
       blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn,
+      getTimeFn,
     )
 
     debugGloasComment "TODO testing"

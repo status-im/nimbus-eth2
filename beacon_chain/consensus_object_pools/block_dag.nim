@@ -83,23 +83,10 @@ func init*(
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
-          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
+          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock |
+          gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some blck.body.execution_payload.block_hash, optimisticStatus, blck.slot
-  )
-
-func init*(
-    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
-    blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(
-    root,
-    Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
-    if optimisticStatus == OptimisticStatus.valid or
-        blck.body.signed_execution_payload_bid.message.block_hash.isZero:
-      OptimisticStatus.valid
-    else:
-      optimisticStatus,
-    blck.slot,
   )
 
 func parent*(bs: BlockSlot): BlockSlot =

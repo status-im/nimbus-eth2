@@ -179,19 +179,3 @@ suite "EF - Fulu - Transition " & preset():
       electra.BeaconState, fulu.BeaconState, electra.SignedBeaconBlock,
       fulu.SignedBeaconBlock, cfg, "EF - Fulu - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
-
-from ../../beacon_chain/spec/datatypes/gloas import
-  BeaconState, SignedBeaconBlock
-
-suite "EF - Gloas - Transition " & preset():
-  const TransitionDir =
-    SszTestsDir/const_preset/"gloas"/"transition"/"core"/"pyspec_tests"
-
-  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    let transitionInfo = getTransitionInfo(TransitionDir / path)
-    var cfg = defaultRuntimeConfig
-    cfg.GLOAS_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
-    runTest(
-      fulu.BeaconState, gloas.BeaconState, fulu.SignedBeaconBlock,
-      gloas.SignedBeaconBlock, cfg, "EF - Gloas - Transition",
-      TransitionDir, suiteName, path, transitionInfo.fork_block)

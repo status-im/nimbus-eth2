@@ -30,8 +30,6 @@ from ../consensus_object_pools/block_quarantine import
   remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
-from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -103,7 +101,6 @@ type
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
-    envelopeQuarantine*: ref EnvelopeQuarantine
 
     verifier: BatchVerifier
 
@@ -130,7 +127,6 @@ proc new*(T: type BlockProcessor,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
-          envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
           invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
   if invalidBlockRoots.len > 0:
@@ -148,7 +144,6 @@ proc new*(T: type BlockProcessor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
-    envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: batchVerifier[]
   )
@@ -899,69 +894,5 @@ proc storePayload(
   debugGloasComment("head state")
 
   self[].storeSidecars(sidecarsOpt)
-  self.envelopeQuarantine[].delOrphan(signedBlock)
 
   ok()
-
-proc enqueuePayload*(
-    self: ref BlockProcessor,
-    blck: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-) =
-  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    debugGloasComment("backfilling")
-
-  discard self.storePayload(blck, envelope, sidecarsOpt)
-
-proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
-  ## Enqueue payload processing by block that is a valid block.
-
-  let
-    envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
-      # We have not received the envelope yet so mark it as missing.
-      self.envelopeQuarantine[].addMissing(blck.root)
-      return
-    sidecarsOpt =
-      block:
-        let sidecarsOpt =
-          if envelope.message.blob_kzg_commitments.len() == 0:
-            Opt.some(default(gloas.DataColumnSidecars))
-          else:
-            self.gloasColumnQuarantine[].popSidecars(blck.root)
-        if sidecarsOpt.isNone():
-          # As sidecars are missing, put envelope back to quarantine.
-          self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(envelope)
-          return
-        sidecarsOpt
-
-  self.enqueuePayload(blck, envelope, sidecarsOpt)
-
-proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
-  ## Enqueue payload processing by block root. If it is not a valid block, the
-  ## enqueue request will be discarded silently.
-
-  let
-    dag = self.consensusManager.dag
-    blockRef = dag.getBlockRef(blockRoot).valueOr:
-      return
-    blck =
-      block:
-        let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
-          # We have checked that the block exists in the chain. There might be
-          # issues in reading the database or data in the memory is broken.
-          # Since no result is returned, we log for investigation.
-          debug "Enqueue payload from envelope. Block is missing in DB",
-            bid = shortLog(blockRef.bid)
-          return
-        withBlck(forkedBlock):
-          when consensusFork >= ConsensusFork.Gloas:
-            forkyBlck.asSigned()
-          else:
-            # Incorrect fork which shouldn't be happening.
-            debug "Enqueue payload from envelope. Block is in incorrect fork",
-              bid = shortLog(blockRef.bid)
-            return
-
-  self.enqueuePayload(blck)

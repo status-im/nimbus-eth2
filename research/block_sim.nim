@@ -344,27 +344,7 @@ cli do(
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
     let
-      epb =
-        when consensusFork >= ConsensusFork.Gloas:
-          let
-            bid =
-              ExecutionPayloadBid(
-                parent_block_hash: state.data.latest_block_hash,
-                parent_block_root: hash_tree_root(state.data.latest_block_header),
-                block_hash: default(Eth2Digest),
-                prev_randao:
-                  get_randao_mix(state.data, get_current_epoch(state.data)),
-                fee_recipient: default(ExecutionAddress),
-                gas_limit: 30000000'u64,
-                builder_index: BUILDER_INDEX_SELF_BUILD,
-                slot: slot,
-                value: 0.Gwei,
-                execution_payment: 0.Gwei,
-                blob_kzg_commitments_root: default(Eth2Digest))
-          SignedExecutionPayloadBid(
-            message: bid, signature: ValidatorSig.infinity())
-        else:
-          default(SignedExecutionPayloadBid)
+      epb = default(SignedExecutionPayloadBid)
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:

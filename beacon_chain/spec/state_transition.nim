@@ -105,7 +105,8 @@ func noRollback*() =
 func process_slot*(
     state: var (phase0.BeaconState | altair.BeaconState |
                 bellatrix.BeaconState | capella.BeaconState |
-                deneb.BeaconState | electra.BeaconState | fulu.BeaconState),
+                deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
+                gloas.BeaconState),
     pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
@@ -122,31 +123,6 @@ func process_slot*(
   # Cache block root
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.latest_block_header)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
-func process_slot*(
-    state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
-  # `process_slot` is the first stage of per-slot processing - it is run for
-  # every slot, including epoch slots - it does not however update the slot
-  # number! `pre_state_root` refers to the state root of the incoming
-  # state before any slot processing has been done.
-
-  # Cache state root
-  state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] = pre_state_root
-
-  # Cache latest block header state root
-  if state.latest_block_header.state_root == ZERO_HASH:
-    state.latest_block_header.state_root = pre_state_root
-
-  # Cache block root
-  state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    hash_tree_root(state.latest_block_header)
-
-  # [New in Gloas:EIP7732]
-  # Unset the next payload availability
-  clearBit(
-    state.execution_payload_availability,
-    (state.slot + 1) mod SLOTS_PER_HISTORICAL_ROOT)
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   cache.total_active_balance.del epoch
@@ -424,13 +400,6 @@ proc makeBeaconBlockWithRewards*(
   when consensusFork >= ConsensusFork.Electra and
       consensusFork < ConsensusFork.Gloas:
     blck.body.execution_requests = execution_requests
-
-  when consensusFork >= ConsensusFork.Gloas:
-    blck.body.signed_execution_payload_bid =
-      signed_execution_payload_bid
-    blck.body.payload_attestations =
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
-        payload_attestations)
 
   let rewards =
     ?process_block(cfg, state.data, blck.asSigVerified(), verificationFlags, cache)

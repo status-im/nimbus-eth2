@@ -618,13 +618,6 @@ AllTests-mainnet
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
-## Envelope Quarantine
-```diff
-+ Add missing                                                                                OK
-+ Add orphan                                                                                 OK
-+ Clean up orphans                                                                           OK
-+ Pop orphan                                                                                 OK
-```
 ## Eth1 monitor
 ```diff
 + Rewrite URLs                                                                               OK
@@ -894,16 +887,6 @@ AllTests-mainnet
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
-```
-## Payload attestation pool [Preset: mainnet]
-```diff
-+ Can add and retrieve payload attestations [Preset: mainnet]                                OK
-+ Can get payload attestations for block production [Preset: mainnet]                        OK
-+ Different payload presence values [Preset: mainnet]                                        OK
-+ Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
-+ Multiple validators in PTC can attest [Preset: mainnet]                                    OK
-+ Payload attestations get pruned [Preset: mainnet]                                          OK
-+ get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
 ```diff

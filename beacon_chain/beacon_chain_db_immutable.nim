@@ -559,15 +559,14 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: InactivityScores
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
-      ## [Modified in Gloas:EIP7732]
+    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -591,25 +590,8 @@ type
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+      ## [New in Electra:EIP7251]
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
-
-    # [New in Gloas:EIP7732]
-    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
-    # [New in Gloas:EIP7732]
-    next_withdrawal_builder_index*: uint64
-    # [New in Gloas:EIP7732]
-    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
-    # [New in Gloas:EIP7732]
-    builder_pending_payments*:
-      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
-    # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*:
-      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    # [New in Gloas:EIP7732]
-    latest_block_hash*: Eth2Digest
-    # [New in Gloas:EIP7732]
-    payload_expected_withdrawals*:
-      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]

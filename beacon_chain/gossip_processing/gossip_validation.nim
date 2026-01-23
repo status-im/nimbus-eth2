@@ -18,7 +18,7 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
-    block_quarantine, envelope_quarantine, execution_payload_pool,
+    block_quarantine, execution_payload_pool,
     light_client_pool, payload_attestation_pool,spec_cache,
     sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
@@ -434,40 +434,6 @@ template validateBeaconBlockGloas(
       deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
       fulu.SignedBeaconBlock): untyped =
   discard
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
-template validateBeaconBlockGloas(
-    dag: ChainDAGRef,
-    signed_beacon_block: gloas.SignedBeaconBlock): untyped =
-  template blck: untyped = signed_beacon_block.message
-  template bid: untyped = blck.body.signed_execution_payload_bid.message
-
-  # If execution_payload verification of block's execution payload parent by an
-  # execution node is complete:
-  #
-  # - [REJECT] The block's execution payload parent (defined by
-  #   bid.parent_block_hash) passes all validation.
-  let
-    parentRef = dag.getBlockRef(bid.parent_block_root)
-    parentBlock =
-      if parentRef.isSome():
-        dag.getForkedBlock(parentRef.get().bid)
-      else:
-        Opt.none(ForkedTrustedSignedBeaconBlock)
-  if parentBlock.isSome():
-    withBlck(parentBlock.get()):
-      if forkyBlck.message.is_execution_block:
-        let parentHash = dag.loadExecutionBlockHash(parentRef.get()).valueOr:
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
-        if not (bid.parent_block_hash == parentHash):
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
-
-  # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
-  # block's parent (defined by `block.parent_root`).
-  if not (bid.parent_block_root == blck.parent_root):
-    return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
@@ -978,8 +944,6 @@ proc validateBeaconBlock*(
 
   dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
-  dag.validateBeaconBlockGloas(signed_beacon_block)
-
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
     return dag.checkedReject(
@@ -1021,92 +985,6 @@ proc validateBeaconBlock*(
     if error.invalid:
       discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
-
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#execution_payload
-proc validateExecutionPayload*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
-    Result[void, ValidationError] =
-  template envelope: untyped = signed_execution_payload_envelope.message
-
-  # [IGNORE] The envelope's block root envelope.block_root has been seen (via
-  # gossip or non-gossip sources) (a client MAY queue payload for processing
-  # once the block is retrieved).
-  let blockSeen =
-    block:
-      var seen =
-        envelope.beacon_block_root in quarantine.unviable or
-        envelope.beacon_block_root in quarantine.missing or
-        dag.getBlockRef(envelope.beacon_block_root).isSome()
-      if not seen:
-        for k, _ in quarantine.orphans:
-          if k[0] == envelope.beacon_block_root:
-            seen = true
-            break
-      seen
-  if not blockSeen:
-    discard quarantine[].addMissing(envelope.beacon_block_root)
-    envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
-    return errIgnore("ExecutionPayload: block not found")
-
-  # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
-  # for this block root from this builder.
-  #
-  # Validation of an envelope requires a valid block. There is a check to ensure
-  # that the builder index are the same from the envelope and the bid from the
-  # block. Meaning that checking builder index here would not be helpful due to
-  # the check later.
-  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
-    return errIgnore("ExecutionPayload: already seen")
-
-  # [IGNORE] The envelope is from a slot greater than or equal to the latest
-  # finalized slot -- i.e. validate that `envelope.slot >=
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)`
-  if not (envelope.slot >= dag.finalizedHead.slot):
-    return errIgnore("ExecutionPayload: slot already finalized")
-
-  # [REJECT] block passes validation.
-  let blck =
-    block:
-      let forkedBlock = dag.getForkedBlock(BlockId(
-          root: envelope.beacon_block_root, slot: envelope.slot)).valueOr:
-        return dag.checkedReject("ExecutionPayload: invalid block")
-      withBlck(forkedBlock):
-        when consensusFork >= ConsensusFork.Gloas:
-          forkyBlck.asSigned().message
-        else:
-          return dag.checkedReject("ExecutionPayload: invalid fork")
-
-  # [REJECT] block.slot equals envelope.slot.
-  if not (blck.slot == envelope.slot):
-    return dag.checkedReject("ExecutionPayload: slot mismatch")
-
-  template bid: untyped = blck.body.signed_execution_payload_bid.message
-
-  # [REJECT] envelope.builder_index == bid.builder_index
-  if not (envelope.builder_index == bid.builder_index):
-    return dag.checkedReject("ExecutionPayload: builder index mismatch")
-
-  # [REJECT] payload.block_hash == bid.block_hash
-  if not (envelope.payload.block_hash == bid.block_hash):
-    return dag.checkedReject("ExecutionPayload: block hash mismatch")
-
-  # [REJECT] signed_execution_payload_envelope.signature is valid with respect
-  # to the builder's public key.
-  if dag.headState.kind >= ConsensusFork.Gloas:
-    if not verify_execution_payload_envelope_signature(
-        dag.forkAtEpoch(envelope.slot.epoch),
-        dag.genesis_validators_root,
-        envelope.slot.epoch,
-        signed_execution_payload_envelope.message,
-        dag.validatorKey(envelope.builder_index).get(),
-        signed_execution_payload_envelope.signature):
-      return dag.checkedReject("ExecutionPayload: invalid builder signature")
-  else:
-    return dag.checkedReject("ExecutionPayload: invalid fork")
 
   ok()
 

@@ -280,15 +280,10 @@ proc makeEngineBlock*(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
-    signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
-        makeSignedExecutionPayloadBid(
-          eps.executionPayload,
-          eps.kzg_commitments,
-          state.latest_block_root,
-          slot
-        )
-      else: default(SignedExecutionPayloadBid)
+
+  debugGloasComment "make signed bid from engine payload"
+  let
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(
@@ -354,11 +349,8 @@ proc getExecutionPayload*(
     )
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Bellatrix and
-          consensusFork < ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
-      elif consensusFork >= ConsensusFork.Gloas:
-        forkyState.data.latest_execution_payload_bid.block_hash
       else:
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash
@@ -369,10 +361,7 @@ proc getExecutionPayload*(
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Capella:
-        when consensusFork >= ConsensusFork.Gloas:
-          get_expected_withdrawals(forkyState.data).withdrawals
-        else:
-          get_expected_withdrawals(forkyState.data)
+        get_expected_withdrawals(forkyState.data)
       else:
         @[]
 
