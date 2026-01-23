@@ -518,7 +518,7 @@ proc verifyPayload(
   when consensusFork >= ConsensusFork.Bellatrix:
     # Since Gloas, is_execution_block should always be true.
     if signedBlock.message.is_execution_block:
-      template paylaod(): auto =
+      template payload(): auto =
         when consensusFork >= ConsensusFork.Gloas:
           signedEnvelope.message.payload
         else:
@@ -526,12 +526,12 @@ proc verifyPayload(
 
       template returnWithError(msg: string, extraMsg = ""): untyped =
         if extraMsg != "":
-          debug msg, reason = extraMsg, executionPayload = shortLog(paylaod)
+          debug msg, reason = extraMsg, executionPayload = shortLog(payload)
         else:
-          debug msg, executionPayload = shortLog(paylaod)
+          debug msg, executionPayload = shortLog(payload)
         return err(VerifierError.Invalid)
 
-      if paylaod.transactions.anyIt(it.len == 0):
+      if payload.transactions.anyIt(it.len == 0):
         returnWithError "Execution block contains zero length transactions"
 
       let computedBlockHash =
@@ -539,7 +539,7 @@ proc verifyPayload(
           signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
         else:
           signedBlock.message.compute_execution_block_hash()
-      if paylaod.block_hash != computedBlockHash:
+      if payload.block_hash != computedBlockHash:
         returnWithError "Execution block hash validation failed"
 
       # [New in Deneb:EIP4844]
