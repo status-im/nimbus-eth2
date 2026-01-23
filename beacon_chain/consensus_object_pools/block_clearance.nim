@@ -501,12 +501,11 @@ proc addHeadExecutionPayload*(
 
   # Check with the DAG head.
   let blck = dag.head
-  if blck.root() != envelopeBlockRoot():
+  if not (
+    blck.root() == envelopeBlockRoot() and
+    blck.slot() == signedEnvelope.message.slot
+  ):
     debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
-  if blck.slot() != signedEnvelope.message.slot:
-    # TODO: check if there is any envelopes from other slots being processed.
-    debug "Envelope is in different slot"
     return err(VerifierError.Invalid)
 
   var cache: StateCache
@@ -527,8 +526,6 @@ proc addHeadExecutionPayload*(
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
   blck.markExecutionValid(true)
-
-  debugGloasComment("add onEnvelopeAdded ?")
 
   ok(blck)
 
