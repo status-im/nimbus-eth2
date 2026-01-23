@@ -608,6 +608,7 @@ AllTests-mainnet
 ```
 ## Engine API conversions
 ```diff
++ ExecutionPayloadV4 to deneb.ExecutionPayload conversion                                    OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
