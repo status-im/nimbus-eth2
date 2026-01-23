@@ -2305,7 +2305,7 @@ proc ETHReceiptsCreateFromJson(
     # Check fork consistency
     static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
-    static: doAssert totalSerializedFields(LogObject) == 9,
+    static: doAssert totalSerializedFields(LogObject) == 10,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
