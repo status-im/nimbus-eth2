@@ -33,7 +33,7 @@ func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
     address: w.address,
     amount: Gwei w.amount)
 
-func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
+func asEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
