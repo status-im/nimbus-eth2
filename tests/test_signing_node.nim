@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,6 @@ const
     "0xa73469094bf134f32a4e91fce07101290c85ffb259f277c97308310ffd0ef1aa3bd90eea1a8217d060b727b7a0154c34"
   GenesisValidatorsRoot = Eth2Digest.fromHex(
     "043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")
-  GenesisForkVersion = Version(hexToByteArray[4]("00001020"))
   SomeOtherRoot = Eth2Digest.fromHex(
     "ccccccaaaaaaffffffeeeeee50d23797757d430911a9320530ad8a0eabc43efb")
   SigningFork = Fork(

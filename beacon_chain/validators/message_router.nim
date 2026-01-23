@@ -11,14 +11,12 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/network,
+  ../spec/[network, peerdas_helpers],
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
-from  ../spec/state_transition_block import validate_blobs
-
 export eth2_processor, eth2_network
 
 logScope:
@@ -63,6 +61,19 @@ type
     # TODO this belongs somewhere else, ie sync committee pool
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
+  NoSidecarsAtFork* = typeof(())
+  SomeSidecarsToRoute* =
+    NoSidecarsAtFork |
+    Opt[seq[BlobSidecar]] |
+    Opt[seq[fulu.DataColumnSidecar]] |
+    Opt[seq[gloas.DataColumnSidecar]]
+
+  SomeOptSidecars =
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
+    Opt[gloas.DataColumnSidecars]
+
+const noSidecarsAtFork* = default(NoSidecarsAtFork)
+
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
   # been received via gossip (because they might have been sent to multiple
@@ -82,146 +93,224 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
 type RouteBlockResult = Result[Opt[BlockRef], string]
-proc routeSignedBeaconBlock*(
-    router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], dataColumnsOpt: Opt[seq[fulu.DataColumnSidecar]],
-    checkValidator: bool): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
-  ## Validate and broadcast beacon block, then add it to the block database
-  ## Returns the new Head when block is added successfully to dag, none when
-  ## block passes validation but is not added, and error otherwise
+
+proc validateRouteBlock(
+    router: ref MessageRouter,
+    blck: ForkySignedBeaconBlock,
+    checkValidator: bool
+): Result[void,string] =
+
   let wallTime = router[].getCurrentBeaconTime()
 
-  block:
-    let vindex = ValidatorIndex(blck.message.proposer_index)
-    if checkValidator and (vindex in router.processor.validatorPool[]):
-      warn "A validator client attempts to send a block from " &
-           "validator that is also manager by beacon node",
-           validator_index = vindex
-      return err("Block could not be sent from validator that is also " &
-                 "managed by the beacon node")
+  # proposer ownership checks
+  let vindex = ValidatorIndex(blck.message.proposer_index)
+  if checkValidator and (vindex in router.processor.validatorPool[]):
+    warn "A validator client attempts to send a block from validator that is also managed by beacon node",
+         validator_index = vindex
+    return err("Block was not sent from validator that is also managed by the beacon node")
 
-  # Start with a quick gossip validation check such that broadcasting the
-  # block doesn't get the node into trouble
-  block:
-    let res = validateBeaconBlock(
-      router[].dag, router[].quarantine, blck, wallTime, {})
+  # gossip validation
+  let res = validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
+  if not res.isGoodForSending():
+    warn "Block failed validation",
+      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+      signature = shortLog(blck.signature), error = res.error()
+    return err($(res.error()[1]))
 
-    if not res.isGoodForSending():
-      warn "Block failed validation",
-        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature), error = res.error()
-      return err($(res.error()[1]))
+  ok()
 
+proc publishRouteBlock(
+    router: ref MessageRouter,
+    blck: ForkySignedBeaconBlock
+): Future[void] {.async: (raises: [CancelledError]).} =
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline(router[].dag.timeParams)
-    # The block (and blobs, if present) passed basic gossip validation
-    # - we can "safely" broadcast it now. In fact, per the spec, we
-    # should broadcast it even if it later fails to apply to our
-    # state.
+    res = await router[].network.broadcastBeaconBlock(blck)
 
-  let res = await router[].network.broadcastBeaconBlock(blck)
-
-  if res.isOk():
-    beacon_blocks_sent.inc()
-    beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
-
-    notice "Block sent",
-      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature), delay
-  else: # "no broadcast" is not a fatal error
+  if res.isErr():
     notice "Block not sent",
-      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature), error = res.error()
+      blockRoot = shortLog(blck.root),
+      blck = shortLog(blck.message),
+      signature = shortLog(blck.signature),
+      error = res.error()
+    return
 
-  when typeof(blck).kind >= ConsensusFork.Fulu:
-    var sidecarOpt = Opt.none(fulu.DataColumnSidecars)
-    let dataColumns = dataColumnsOpt.get()
-    if dataColumnsOpt.isSome():
-      var das_workers =
-        newSeq[Future[SendResult]](len(dataColumns))
-      for i in 0..<dataColumns.lenu64:
-        let subnet_id =
-          compute_subnet_for_data_column_sidecar(dataColumns[i].index)
+  beacon_blocks_sent.inc()
+  beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
 
-        das_workers[i] =
-          router[].network.broadcastDataColumnSidecar(subnet_id,
-                                                      dataColumns[i])
-      let allres = await allFinished(das_workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Data column not sent",
-            data_column = shortLog(dataColumns[i]), error = res.error[]
-        else:
-          notice "Data column sent",
-            data_column = shortLog(dataColumns[i])
-      # Push only those columns to processor for which we custody
-      let
-        metadata = router[].network.metadata.custody_group_count
-        custody_columns =
-          router[].network.cfg.resolve_columns_from_custody_groups(
-            router[].network.nodeId, metadata)
+  notice "Block sent",
+    blockRoot = shortLog(blck.root),
+    blck = shortLog(blck.message),
+    signature = shortLog(blck.signature),
+    delay
 
-      var final_columns: seq[ref fulu.DataColumnSidecar]
-      for dc in dataColumns:
-        if dc.index in custody_columns:
-          final_columns.add newClone(dc)
-      sidecarOpt = Opt.some(final_columns)
-  elif typeof(blck).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-    var sidecarOpt = Opt.none(BlobSidecars)
-    if blobsOpt.isSome():
-      let blobs = blobsOpt.get()
-      var workers = newSeq[Future[SendResult]](blobs.len)
-      for i in 0..<blobs.lenu64:
-        let subnet_id = router[].processor[]
-          .dag.cfg.compute_subnet_for_blob_sidecar(
-            blobs[i].signed_block_header.message.slot, i)
-        workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
-      let allres = await allFinished(workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Blob not sent",
-            blob = shortLog(blobs[i]), error = res.error[]
-        else:
-          notice "Blob sent", blob = shortLog(blobs[i])
-      sidecarOpt = Opt.some(blobs.mapIt(newClone(it)))
+proc publishSidecars(
+    router: ref MessageRouter,
+    blck: gloas.SignedBeaconBlock,
+    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
+): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+  let cols = sidecarsOpt.get()
+  var workers = newSeq[Future[SendResult]](len(cols))
 
-  else:
-    const sidecarOpt = noSidecars
+  for i, dc in cols:
+    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
-  let added = await router[].blockProcessor.addBlock(
-    MsgSource.api, blck, sidecarOpt)
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Data column not sent",
+        data_column = shortLog(cols[i]), error = r.error[]
+    else:
+      notice "Data column sent",
+        data_column = shortLog(cols[i])
+
+  # Custody filtering
+  let metadata = router[].network.metadata.custody_group_count
+  let allowed =
+    router[].network.cfg.resolve_columns_from_custody_groups(
+      router[].network.nodeId, metadata)
+
+  var finalCols: gloas.DataColumnSidecars
+  for dc in cols:
+    if dc.index in allowed:
+      finalCols.add newClone(dc)
+
+  Opt.some(finalCols)
+
+proc publishSidecars(
+    router: ref MessageRouter,
+    blck: fulu.SignedBeaconBlock,
+    sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
+): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+  let cols = sidecarsOpt.get()
+  var workers = newSeq[Future[SendResult]](len(cols))
+
+  for i, dc in cols:
+    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
+
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Data column not sent",
+        data_column = shortLog(cols[i]), error = r.error[]
+    else:
+      notice "Data column sent",
+        data_column = shortLog(cols[i])
+
+  # Custody filtering
+  let metadata = router[].network.metadata.custody_group_count
+  let allowed =
+    router[].network.cfg.resolve_columns_from_custody_groups(
+      router[].network.nodeId, metadata)
+
+  var finalCols: fulu.DataColumnSidecars
+  for dc in cols:
+    if dc.index in allowed:
+      finalCols.add newClone(dc)
+
+  Opt.some(finalCols)
+
+proc publishSidecars*(
+    router: ref MessageRouter,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    sidecarsOpt: Opt[seq[BlobSidecar]]
+): Future[Opt[BlobSidecars]] {.async: (raises: [CancelledError]).} =
+  let blobs = sidecarsOpt.get()
+  var workers = newSeq[Future[SendResult]](len(blobs))
+
+  for i, blob in blobs:
+    let subnet =
+      router[].processor[].dag.cfg.compute_subnet_for_blob_sidecar(
+        blck.message.slot, i.BlobIndex)
+    workers[i] = router[].network.broadcastBlobSidecar(subnet, blob)
+
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Blob not sent",
+        blob = shortLog(blobs[i]), error = r.error[]
+    else:
+      notice "Blob sent",
+        blob = shortLog(blobs[i])
+
+  # Convert to seq[ref BlobSidecar]
+  var finalBlobs: BlobSidecars
+  for blob in blobs:
+    finalBlobs.add newClone(blob)
+
+  Opt.some(finalBlobs)
+
+proc addRoutedBlock(
+    router: ref MessageRouter,
+    blck: ForkySignedBeaconBlock,
+    sidecarsOpt: SomeOptSidecars
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
+  let added =
+    await router[].blockProcessor.addBlock(
+      MsgSource.api, blck, sidecarsOpt)
+
   if added.isErr():
-    return if added.error() != VerifierError.Duplicate:
-      warn "Unable to add routed block to block pool",
-        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature), err = added.error()
-      ok(Opt.none(BlockRef))
-    else:
+    return
       # If it's duplicate, there's an existing BlockRef to return. The block
       # shouldn't be finalized already because that requires a couple epochs
       # before occurring, so only check non-finalized resolved blockrefs.
-      let blockRef = router[].dag.getBlockRef(blck.root)
-      if blockRef.isErr:
-        warn "Unable to add routed duplicate block to block pool",
+      if added.error() != VerifierError.Duplicate:
+        warn "Unable to add routed block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature), err = added.error()
-      ok(blockRef)
-
+        ok(Opt.none(BlockRef))
+      else:
+        let blockRef = router[].dag.getBlockRef(blck.root)
+        if blockRef.isErr:
+          warn "Unable to add routed duplicate block to block pool",
+            blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+            signature = shortLog(blck.signature), err = added.error()
+        ok(blockRef)
 
   let blockRef = router[].dag.getBlockRef(blck.root)
   if blockRef.isErr:
     warn "Block finalised while waiting for block processor",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature)
+
   ok(blockRef)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
+    blck: ForkySignedBeaconBlock,
+    someSidecarsOpt: SomeSidecarsToRoute,
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Publish sidecars
+  when someSidecarsOpt is NoSidecarsAtFork:
+    const finalSidecars = noSidecars
+  else:
+    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+
+  # 4. Add block to DAG
+  return await router.addRoutedBlock(blck, finalSidecars)
 
 proc routeAttestation*(
     router: ref MessageRouter,
@@ -248,9 +337,7 @@ proc routeAttestation*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = attestation.data.slot
-    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
-    delay = sendTime - slot.attestation_deadline(
-      router[].dag.timeParams, currentFork)
+    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -323,9 +410,7 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
-    delay =
-     sendTime - slot.aggregate_deadline(router[].dag.timeParams, currentFork)
+    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -360,9 +445,8 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
-    currentFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
-    delay = sendTime - msg.slot.sync_committee_message_deadline(
-      router[].dag.timeParams, currentFork)
+    delay = sendTime -
+      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -484,9 +568,7 @@ proc routeSignedContributionAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    currentFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
-    delay = sendTime -
-      slot.sync_contribution_deadline(router[].dag.timeParams, currentFork)
+    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():

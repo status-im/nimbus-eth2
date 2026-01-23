@@ -55,6 +55,7 @@ packaging==24.1
     # via
     #   build
     #   mkdocs
+    #   wheel
 paginate==0.5.7
     # via mkdocs-material
 pathspec==0.12.1
@@ -92,7 +93,7 @@ urllib3==2.6.3
     # via requests
 watchdog==5.0.3
     # via mkdocs
-wheel==0.44.0
+wheel==0.46.2
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:
