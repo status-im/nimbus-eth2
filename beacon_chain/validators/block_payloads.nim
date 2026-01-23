@@ -174,7 +174,8 @@ func decodePayloadRequests(
   ok default(ExecutionRequests)
 
 func decodePayloadRequests(
-    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning
+    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
+         gloas.ExecutionPayloadForSigning
 ): Result[ExecutionRequests, string] =
   try:
     var
