@@ -1055,7 +1055,7 @@ type
       name: "block-monitor-type".}: BlockMonitoringType
 
     batchAttestations* {.
-      desc: "Wait until every attestation signed and send all of them in one call (BETA)"
+      desc: "Wait until every attestation is signed and send all of them in one call (DVT, BETA)"
       defaultValue: false
       name: "batch-attestations".}: bool
 
