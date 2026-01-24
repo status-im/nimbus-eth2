@@ -1,0 +1,111 @@
+# beacon_chain
+# Copyright (c) 2025-2026 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
+import
+  # Standard library
+  std/sequtils,
+
+  # Status libraries
+  chronicles,
+  chronos,
+  kzg4844/kzg,
+  ssz_serialization/[proofs, types],
+
+  # Internals
+  ../consensus_object_pools/[blob_quarantine, block_pools_types, block_quarantine],
+  ../spec/[forks, helpers, peerdas_helpers],
+  ../spec/datatypes/fulu,
+  ./el_manager
+
+type
+  GetBlobsService* = object
+    blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
+    dag*: ChainDAGRef
+    elManager*: ELManager
+    blockQuarantine*: ref Quarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
+
+  GetBlobsServiceRef* = ref GetBlobsService
+
+proc new*(
+    t: typedesc[GetBlobsServiceRef],
+    dag: ChainDAGRef,
+    blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
+    elM: ELManager,
+    blockQuarantine: ref Quarantine,
+    dataColumnQuarantine: ref ColumnQuarantine
+): GetBlobsServiceRef =
+  GetBlobsServiceRef(
+    blockGossipBus: blockGossipBus,
+    dag: dag,
+    elManager: elM,
+    blockQuarantine: blockQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine)
+
+proc attemptGetBlobs*(
+    self: GetBlobsServiceRef,
+    root: Eth2Digest) {.async: (raises: [CancelledError]).}=
+
+  if (let o = self.blockQuarantine[].getColumnless(root); o.isSome):
+    let columnlessBlock = o.get()
+    withBlck(columnlessBlock):
+      debugGloasComment ""
+      when consensusFork == ConsensusFork.Fulu:
+        let blobsFromElOpt =
+          await self.elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+          # check lengths of blobs with kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            var flat_proof: seq[kzg.KzgProof]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add kzg.KzgProof(bytes: proof.data)
+            let recovered_columns = assemble_data_column_sidecars(
+              forkyBlck,
+              blobsEL.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+              flat_proof)
+            # Send notification to event stream
+            # and add these columns to column quarantine
+            let MaxColsPerPut = (self.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
+            var batch =
+              newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
+
+            for col in recovered_columns:
+              if col.index notin self.dataColumnQuarantine[].custodyColumns:
+                continue
+              batch.add newClone(col)
+              if batch.len == MaxColsPerPut:
+                break
+
+            if batch.len > 0:
+              debug "Added data columns from EL blobpool to quarantine",
+                root = forkyBlck.root
+              self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+
+proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
+  let ticket = self.blockGossipBus.register()
+  debug "Engine GetBlobs service started"
+  try:
+    while true:
+      let events = await self.blockGossipBus.waitEvents(ticket)
+      for event in events:
+        withBlck(event.blck):
+          debugGloasComment ""
+          when consensusFork == ConsensusFork.Fulu:
+            await self.attemptGetBlobs(forkyBlck.root)
+          else:
+            discard
+  except AsyncEventQueueFullError:
+    raiseAssert "Unlimited AsyncEventQueue should not raise exception"
+  except CancelledError:
+    discard
+  debug "Engine GetBlobs service stopped"

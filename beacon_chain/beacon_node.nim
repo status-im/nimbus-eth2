@@ -20,6 +20,7 @@ import
   "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
+  ./el/el_getBlobs_service,
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
@@ -49,6 +50,7 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
+    blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
@@ -84,6 +86,7 @@ type
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool

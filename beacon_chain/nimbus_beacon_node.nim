@@ -22,6 +22,7 @@ import
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
+  ./el/el_getBlobs_service,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
@@ -283,8 +284,6 @@ proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   is_within_weak_subjectivity_period(dag.cfg, slot,
                                      dag.headState, checkpoint)
 
-proc attemptGetBlobs(node: BeaconNode, root: Eth2Digest) {.async.}
-
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -326,10 +325,6 @@ proc initFullNode(
   proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
     node.eventBus.blockGossipQueue.emit(
       EventBeaconBlockGossipObject.init(data))
-
-    withBlck(data):
-      when consensusFork == ConsensusFork.Fulu:
-        asyncSpawn node.attemptGetBlobs(forkyBlck.root)
 
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
@@ -688,6 +683,11 @@ proc initFullNode(
                                           node.batchVerifier,
                                           syncManager, backfiller,
                                           untrustedManager)
+  node.getBlobsService = GetBlobsServiceRef.new(node.dag,
+                                                node.eventBus.blockGossipPeerQueue,
+                                                node.elManager,
+                                                node.quarantine,
+                                                node.dataColumnQuarantine)
   node.router = router
 
   await node.addValidators()
@@ -805,6 +805,7 @@ proc init*(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+      blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
       phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
@@ -2119,49 +2120,6 @@ proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
 
-proc attemptGetBlobs(node: BeaconNode,
-                     root: Eth2Digest) {.async.} =
-  let
-    elManager = node.blockProcessor[].consensusManager.elManager
-  if (let o = node.quarantine[].getColumnless(root); o.isSome):
-    let columnless = o.unsafeGet()
-    withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and
-           consensusFork < ConsensusFork.Gloas:
-        let blobsFromElOpt =
-          await elManager.sendGetBlobsV2(forkyBlck)
-        if blobsFromElOpt.isSome():
-          let blobsEl = blobsFromElOpt.get()
-          # check lengths of array[BlobAndProofV2] with blobs
-          # kzg commitments of the signed block
-          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            # we have received all columns from the EL
-            # hence we can safely remove the columnless block from quarantine
-            var flat_proof: seq[kzg.KzgProof]
-            for item in blobsEl:
-              for proof in item.proofs:
-                flat_proof.add(kzg.KzgProof(bytes: proof.data))
-            let recovered_columns = assemble_data_column_sidecars(
-              forkyBlck,
-              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-              flat_proof)
-            # Send notification to event stream
-            # and add these columns to column quarantine
-            let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
-
-            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
-
-            for col in recovered_columns:
-              if col.index notin node.dataColumnQuarantine[].custodyColumns:
-                continue
-
-              batch.add(newClone(col))
-              if batch.len == MaxColsPerPut:
-                break
-
-            if batch.len > 0:
-              node.dataColumnQuarantine[].put(forkyBlck.root, batch)
-
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -2367,9 +2325,15 @@ proc installMessageValidators(node: BeaconNode) =
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
-              toValidationResult(
-                node.processor[].processSignedBeaconBlock(
-                  MsgSource.gossip, signedBlock)))
+              let res =
+                toValidationResult(
+                  node.processor[].processSignedBeaconBlock(
+                    MsgSource.gossip, signedBlock))
+              if res == ValidationResult.Accept:
+                node.eventBus.blockGossipPeerQueue.emit(
+                  EventBeaconBlockGossipPeerObject.init(signedBlock, src))
+              res
+        )
 
         # execution_payload_bid
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
@@ -2662,6 +2626,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   node.syncOverseer.start()
+  asyncSpawn node.getBlobsService.run()
 
   waitFor node.updateGossipStatus(wallSlot)
 
