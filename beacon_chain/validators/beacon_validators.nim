@@ -407,8 +407,10 @@ proc proposeBlockAux(
 
     engineBid =
       when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment "when need to getExecutionPayload/getPayload"
-        default(Opt[EngineBid[gloas.ExecutionPayloadForSigning]])
+        # Fetch only engine payload for now
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey
+        )
       elif consensusFork >= ConsensusFork.Electra:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
@@ -574,11 +576,16 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork == ConsensusFork.Gloas:
-    # using noSidecars for Phase0 -> Capella blocks for now
-    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
-  elif consensusFork >= ConsensusFork.Fulu and
-      consensusFork < ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Gloas:
+    let sidecarsOpt =
+      if engineBid[].eps.blobsBundle.commitments.len > 0:
+        Opt.some(signedBlock.assemble_data_column_sidecars(
+          engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          engineBid[].eps.blobsBundle.commitments,
+          @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+        ))
+      else: Opt.none(seq[gloas.DataColumnSidecar])
+  elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -590,6 +597,7 @@ proc proposeBlockAux(
           engineBlock.blobsBundle.proofs,
           engineBlock.blobsBundle.blobs))
   else:
+    # using noSidecars for Phase0 -> Capella blocks for now
     const sidecarsOpt = noSidecarsAtFork
 
   let
@@ -613,6 +621,9 @@ proc proposeBlockAux(
     validator = shortLog(validator)
 
   beacon_blocks_proposed.inc()
+
+  debugGloasComment ""
+  # TODO: broadcast signed envelope
 
   newBlockRef.get()
 
