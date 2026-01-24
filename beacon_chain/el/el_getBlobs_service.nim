@@ -18,7 +18,8 @@ import
   ssz_serialization/[proofs, types],
 
   # Internals
-  ../consensus_object_pools/[blob_quarantine, block_pools_types, block_quarantine],
+  ../consensus_object_pools/[blob_quarantine,
+     block_pools_types, block_quarantine],
   ../spec/[forks, helpers, peerdas_helpers],
   ../spec/datatypes/fulu,
   ./el_manager
