@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,7 +18,7 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager,
+    block_clearance, consensus_manager, envelope_quarantine,
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
@@ -53,6 +53,8 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
+      gloasColumnQuarantine = newClone(GloasColumnQuarantine())
+      envelopeQuarantine = newClone(EnvelopeQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -83,7 +85,8 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
-        blobQuarantine, dataColumnQuarantine, getTimeFn,
+        blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+        envelopeQuarantine, getTimeFn,
       )
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
@@ -145,7 +148,8 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        getTimeFn, invalidBlockRoots = @[b2.root])
+        gloasColumnQuarantine, envelopeQuarantine, getTimeFn,
+        invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -175,8 +179,9 @@ suite "Block processor" & preset():
 
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor, blobQuarantine,
-      dataColumnQuarantine, getTimeFn,
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn,
     )
 
     debugGloasComment "TODO testing"
