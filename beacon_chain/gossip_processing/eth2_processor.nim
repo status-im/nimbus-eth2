@@ -169,11 +169,9 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-
     blobQuarantine*: ref BlobQuarantine
-
     dataColumnQuarantine*: ref ColumnQuarantine
-
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
@@ -202,6 +200,8 @@ proc new*(T: type Eth2Processor,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
+          envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -223,6 +223,8 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
+    envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng, dag.cfg.timeParams,
@@ -472,7 +474,7 @@ proc processDataColumnSidecar*(
   debug "Data column received (Gloas - quarantine not implemented)"
 
   let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.dataColumnQuarantine, self.executionPayloadBidPool,
+    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
@@ -550,7 +552,7 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let 
+  let
     consensusFork =
       self.dag.cfg.consensusForkAtEpoch(attestation.data.slot.epoch)
     delay = wallTime - attestation.data.slot.attestation_deadline(

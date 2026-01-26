@@ -17,8 +17,8 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, execution_payload_pool,
-    payload_attestation_pool],
+    blob_quarantine, blockchain_list, envelope_quarantine,
+    execution_payload_pool, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -403,6 +403,7 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init(dag.cfg))
+    envelopeQuarantine = newClone(EnvelopeQuarantine.init())
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
       onSingleAttestationReceived))
@@ -445,6 +446,9 @@ proc initFullNode(
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
+      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -454,8 +458,8 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getBeaconTime,
-      config.invalidBlockRoots)
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -544,8 +548,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, blobQuarantine, dataColumnQuarantine, rng,
-      getBeaconTime, taskpool)
+      quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}

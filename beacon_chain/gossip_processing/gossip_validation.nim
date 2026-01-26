@@ -785,7 +785,7 @@ proc validateDataColumnSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
@@ -805,7 +805,7 @@ proc validateDataColumnSidecar*(
   # [IGNORE] Modified from Fulu: The sidecar is the first sidecar for the tuple
   # (sidecar.beacon_block_root, sidecar.index) with valid kzg proof.
   let block_root = data_column_sidecar.beacon_block_root
-  if dataColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
+  if gloasColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
   debugGloasComment ""
@@ -837,7 +837,7 @@ proc validateDataColumnSidecar*(
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
+    gloasColumnQuarantine[].onDataColumnSidecarCallback()
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
