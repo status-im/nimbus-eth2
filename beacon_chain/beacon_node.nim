@@ -21,7 +21,7 @@ import
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
-  ./el/el_getBlobs_service,
+  ./el/el_getblobs_service,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,

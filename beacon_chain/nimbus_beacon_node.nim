@@ -22,7 +22,7 @@ import
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
-  ./el/el_getBlobs_service,
+  ./el/el_getblobs_service,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
@@ -808,6 +808,7 @@ proc init*(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+      blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
       phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
