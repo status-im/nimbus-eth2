@@ -578,13 +578,11 @@ proc proposeBlockAux(
 
   when consensusFork >= ConsensusFork.Gloas:
     let sidecarsOpt =
-      if engineBid[].eps.blobsBundle.commitments.len > 0:
-        Opt.some(signedBlock.assemble_data_column_sidecars(
-          engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-          engineBid[].eps.blobsBundle.commitments,
-          @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
-        ))
-      else: Opt.none(seq[gloas.DataColumnSidecar])
+      Opt.some(signedBlock.assemble_data_column_sidecars(
+        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+        engineBid[].eps.blobsBundle.commitments,
+        @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      ))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(

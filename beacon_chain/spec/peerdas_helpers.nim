@@ -273,13 +273,9 @@ proc assemble_data_column_sidecars*(
     return sidecars
 
   if blobs.len != kzg_commitments.len:
-    warn "Blob count mismatch with commitments",
-      blobs = blobs.len, commitments = kzg_commitments.len
     return sidecars
 
   if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    warn "Cell proofs count mismatch",
-      expected = blobs.len * CELLS_PER_EXT_BLOB, actual = cell_proofs.len
     return sidecars
 
   var
