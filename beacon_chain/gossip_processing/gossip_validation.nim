@@ -1073,8 +1073,8 @@ proc validateExecutionPayload*(
   # [REJECT] block passes validation.
   let blck =
     block:
-      let forkedBlock = dag.getForkedBlock(
-          signed_execution_payload_envelope.toBlockId()).valueOr:
+      let forkedBlock = dag.getForkedBlock(BlockId(
+          root: envelope.beacon_block_root, slot: envelope.slot)).valueOr:
         return dag.checkedReject("ExecutionPayload: invalid block")
       withBlck(forkedBlock):
         when consensusFork >= ConsensusFork.Gloas:

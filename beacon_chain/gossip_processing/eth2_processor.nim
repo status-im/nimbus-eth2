@@ -344,7 +344,7 @@ proc processExecutionPayloadEnvelope*(
     return err(error)
 
   self.envelopeQuarantine[].addOrphan(signedEnvelope)
-  self.blockProcessor.enqueuePayload(signedEnvelope.root)
+  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())

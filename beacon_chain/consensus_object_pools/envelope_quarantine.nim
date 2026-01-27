@@ -25,6 +25,9 @@ type
 func init*(T: typedesc[EnvelopeQuarantine]): T =
   T()
 
+template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
+  v.message.beacon_block_root
+
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
