@@ -90,6 +90,11 @@ if defined(windows):
 
 # QUIC
 block:
+  if defined(windows):
+    # ls-quic requires windows specific pthread otherwise the compiler will complain
+    # about missing pthread functions
+    switch("passL", "-lwinpthread")
+
   let basepath = currentDir / "vendor" / "nim-lsquic"
   for suffix in ["lsquic" / "lsquic_ffi.nim", "prelude.nim"]:
     let
