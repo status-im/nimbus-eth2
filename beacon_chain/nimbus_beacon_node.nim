@@ -2387,6 +2387,19 @@ proc installMessageValidators(node: BeaconNode) =
                 node.processor[].processExecutionPayloadBid(
                   MsgSource.gossip, signedBid)))
 
+        # execution_payload
+        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#execution_payload
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addValidator(
+            getExecutionPayloadTopic(digest), proc (
+              signedEnvelope: SignedExecutionPayloadEnvelope,
+              src: PeerId,
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processExecutionPayloadEnvelope(
+                  MsgSource.gossip, signedEnvelope))
+          )
+
         # payload_attestation_message
         # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
         when consensusFork >= ConsensusFork.Gloas:

@@ -1026,7 +1026,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1061,9 +1061,7 @@ proc validateExecutionPayload*(
   # that the builder index are the same from the envelope and the bid from the
   # block. Meaning that checking builder index here would not be helpful due to
   # the check later.
-  var validEnvelope: TrustedSignedExecutionPayloadEnvelope
-  if dag.db.getExecutionPayloadEnvelope(
-      envelope.beacon_block_root, validEnvelope):
+  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
     return errIgnore("ExecutionPayload: already seen")
 
   # [IGNORE] The envelope is from a slot greater than or equal to the latest

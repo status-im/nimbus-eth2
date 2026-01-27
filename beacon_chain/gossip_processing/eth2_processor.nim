@@ -344,7 +344,8 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
-  debugGloasComment("process execution payload")
+  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
@@ -482,10 +483,10 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debugGloasComment ""
-  # TODO: Implement quarantine logic for Gloas
-  # For now, just validate and drop
-  debug "Data column validated (not stored - quarantine TODO)"
+  debug "Data column validated"
+  self.gloasColumnQuarantine[].put(
+    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
+  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
   v
