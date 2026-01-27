@@ -66,6 +66,10 @@ jobs:
     runs-on: ${{ matrix.builder }}
 
     steps:
+      - name: Check what variables are defined in clang
+        run: |
+          echo | clang -dM -E -x c - 
+
       - name: Fix nim cache conflicts
         run: |
           echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
