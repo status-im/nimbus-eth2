@@ -286,7 +286,6 @@ proc updateValidator*(pool: var ValidatorPool,
   ## Update activation information for a validator
   if validator.index != Opt.some data.index:
     pool.setValidatorIndex(validator, data.index)
-    validator.index = Opt.some data.index
     validator.validator = Opt.some data.validator
 
   if validator.activationEpoch != data.validator.activation_epoch:

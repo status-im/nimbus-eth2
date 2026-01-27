@@ -174,7 +174,8 @@ func decodePayloadRequests(
   ok default(ExecutionRequests)
 
 func decodePayloadRequests(
-    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning
+    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
+         gloas.ExecutionPayloadForSigning
 ): Result[ExecutionRequests, string] =
   try:
     var
@@ -219,6 +220,30 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+func makeSignedExecutionPayloadBid*(
+    executionPayload: deneb.ExecutionPayload,
+    blob_kzg_commitments: KzgCommitments,
+    parentBlockRoot: Eth2Digest,
+    slot: Slot,
+): SignedExecutionPayloadBid =
+  let bid = ExecutionPayloadBid(
+    parent_block_hash: executionPayload.parent_hash,
+    parent_block_root: parentBlockRoot,
+    block_hash: executionPayload.block_hash,
+    prev_randao: executionPayload.prev_randao,
+    fee_recipient: executionPayload.fee_recipient,
+    gas_limit: executionPayload.gas_limit,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    slot: slot,
+    value: 0.Gwei,
+    execution_payment: 0.Gwei,
+    blob_kzg_commitments_root: hash_tree_root(blob_kzg_commitments),
+  )
+  SignedExecutionPayloadBid(
+    message: bid,
+    signature: ValidatorSig.infinity()
+  )
+
 proc makeEngineBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -238,10 +263,15 @@ proc makeEngineBlock*(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
-  
-  debugGloasComment "make signed bid from engine payload"
-  let
-    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        makeSignedExecutionPayloadBid(
+          eps.executionPayload,
+          eps.kzg_commitments,
+          state.latest_block_root,
+          slot
+        )
+      else: default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(

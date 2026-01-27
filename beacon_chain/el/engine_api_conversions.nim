@@ -9,7 +9,7 @@
 
 import
   kzg4844/[kzg_abi, kzg],
-  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
+  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu, gloas],
   ../spec/[eth2_ssz_serialization, state_transition_block],
   web3/[engine_api, engine_api_types]
 
@@ -33,7 +33,7 @@ func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
     address: w.address,
     amount: Gwei w.amount)
 
-func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
+func asEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
@@ -101,7 +101,8 @@ func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
     blockValue: payloadWithValue.blockValue)
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
     deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -170,6 +171,26 @@ func asConsensusType*(
 func asConsensusType*(
     payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
+    executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: fulu.BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.data))),
+      proofs: fulu.KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.data))),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.data))),
+    executionRequests: payload.executionRequests)
+
+func asConsensusType*(
+    payload: GetPayloadV6Response): gloas.ExecutionPayloadForSigning =
+  gloas.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
     # TODO

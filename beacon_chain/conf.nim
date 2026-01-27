@@ -1054,6 +1054,11 @@ type
       defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
 
+    batchAttestations* {.
+      desc: "Wait until every attestation is signed and send all of them in one call (DVT, BETA)"
+      defaultValue: false
+      name: "batch-attestations".}: bool
+
     logFile* {.
       obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
       name: "log-file" .}: Option[OutFile]

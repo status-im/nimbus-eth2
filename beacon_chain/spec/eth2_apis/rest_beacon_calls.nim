@@ -417,6 +417,18 @@ proc submitPoolAttestationsV2*[T: ForkyAttestation](
   client.submitPoolAttestationsV2Plain(
     body, extraHeaders = @[("eth-consensus-version", fork.toString())])
 
+proc submitPoolAttestations2Ssz*[T: ForkyAttestation](
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[T]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolAttestationsV2Plain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", fork.toString())])
+
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",
      meth: MethodGet.}

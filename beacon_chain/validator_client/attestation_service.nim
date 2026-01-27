@@ -104,6 +104,75 @@ proc serveAttestation(
 
   res
 
+proc serveAttestations(
+    service: AttestationServiceRef,
+    slot: Slot,
+    fork: Fork,
+    registered: seq[RegisteredAttestation]
+): Future[tuple[total, succeed, failed: int]] {.
+  async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    consensusFork = vc.getConsensusFork(fork)
+
+  let signed =
+    block:
+      var res: seq[electra.SingleAttestation]
+      let pending =
+        registered.mapIt(
+          getAttestationSignature(
+            it.validator, fork, vc.beaconGenesis.genesis_validators_root,
+            it.data))
+      try:
+        await allFutures(pending)
+
+        for index, future in pending.pairs():
+          # We just created this future in previous step, and we are not
+          # going to cancel it, so after allFutures() - all futures MUST be
+          # finished.
+          let sres = future.value
+          if sres.isErr():
+            warn "Unable to sign attestation",
+              reason = sres.error(),
+              validator = shortLog(registered[index].validator),
+              attestation = shortLog(registered[index].data)
+          else:
+            res.add(registered[index].toSingleAttestation(sres.get()))
+
+        res
+      except CancelledError as exc:
+        debug "Attestation signature process was interrupted"
+        await cancelAndWait(pending)
+        raise exc
+
+  logScope:
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams, consensusFork))
+
+  debug "Sending attestations", count = len(signed)
+
+  for it in registered:
+    doppelgangerActivity(it.validator, slot.epoch)
+
+  logScope:
+    fork = consensusFork
+
+  let res =
+    try:
+      await vc.submitPoolAttestations2Ssz(
+        signed, consensusFork, vc.getMode()[FnKind.submitPoolAttestations])
+    except ValidatorApiError as exc:
+      warn "Unable to publish attestations",
+        reason = exc.getFailureReason()
+      return (len(registered), 0, len(registered))
+    except CancelledError as exc:
+      debug "Attestation publishing process was interrupted"
+      raise exc
+
+  if res:
+    (len(registered), len(signed), len(registered) - len(signed))
+  else:
+    (len(registered), 0, len(registered))
+
 proc serveAggregateAndProofV2*(
     service: AttestationServiceRef,
     proof: ForkyAggregateAndProof,
@@ -242,37 +311,41 @@ proc produceAndPublishAttestationsV2*(
          reason = registeredRes.error()
     return
 
+  let statistics =
+    if vc.config.batchAttestations:
+      await service.serveAttestations(slot, fork, registeredRes[])
+    else:
+      let
+        pending = registeredRes[].mapIt(service.serveAttestation(it))
+        statistics =
+          block:
+            var succeed, failed, total = 0
+            try:
+              await allFutures(pending)
+            except CancelledError as exc:
+              await cancelAndWait(pending)
+              raise exc
+
+            for future in pending:
+              if future.completed():
+                if future.value:
+                  inc(succeed)
+                else:
+                  inc(failed)
+              else:
+                inc(failed)
+              inc(total)
+            (total, succeed, failed)
+      statistics
+
   let
-    pendingAttestations = registeredRes[].mapIt(service.serveAttestation(it))
-    statistics =
-      block:
-        var errored, succeed, failed = 0
-        try:
-          await allFutures(pendingAttestations)
-        except CancelledError as exc:
-          let pending = pendingAttestations
-            .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-          await noCancel allFutures(pending)
-          raise exc
-
-        for future in pendingAttestations:
-          if future.completed():
-            if future.value:
-              inc(succeed)
-            else:
-              inc(failed)
-          else:
-            inc(errored)
-        (succeed, errored, failed)
-
     consensusFork = vc.getConsensusFork(fork)
     delay = vc.getDelay(slot.attestation_deadline(
       vc.timeParams, consensusFork))
 
-  debug "Attestation statistics", total = len(pendingAttestations),
-        succeed = statistics[0], failed_to_deliver = statistics[1],
-        not_accepted = statistics[2], delay = delay, slot = slot,
-        duties_count = len(duties)
+  debug "Attestation statistics", total = statistics[0],
+    succeed = statistics[1], failed = statistics[2],
+    delay = delay, slot = slot, duties_count = len(duties)
   data
 
 proc produceAndPublishAggregatesV2(
