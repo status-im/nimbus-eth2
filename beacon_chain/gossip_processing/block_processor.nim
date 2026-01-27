@@ -190,20 +190,22 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
+    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
-  elif consensusFork == ConsensusFork.Gloas:
-    # For Gloas, we still need to store the columns if they're provided
-    # but skip validation since we don't have kzg_commitments in the block
-    debugGloasComment "potentially validate against payload envelope"
-  elif consensusFork == ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      let kzgCommits =
+        block:
+          let kzgCommits =
+            when consensusFork >= ConsensusFork.Gloas:
+              envelope.message.blob_kzg_commitments
+            else:
+              signedBlock.message.body.blob_kzg_commitments
+          kzgCommits.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
@@ -232,6 +234,8 @@ proc verifySidecars(
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err(VerifierError.Invalid)
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    static: doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -262,7 +266,10 @@ proc storeBackfillBlock(
   # In case the block was added to any part of the quarantine..
   quarantine[].remove(signedBlock)
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  const consensusFork = typeof(signedBlock).kind
+
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -472,20 +479,23 @@ proc onBlockAdded*(
         )
 
 proc verifyPayload(
-    self: ref BlockProcessor, signedBlock: ForkySignedBeaconBlock
+    self: ref BlockProcessor,
+    signedBlock: ForkySignedBeaconBlock,
+    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
   # required checks on the CL instead and proceed as if the EL was syncing
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-  when consensusFork == ConsensusFork.Gloas:
-    debugGloasComment "no exection payload field for gloas"
-    ok OptimisticStatus.valid
-  elif consensusFork >= ConsensusFork.Bellatrix:
+  when consensusFork >= ConsensusFork.Bellatrix:
+    # Since Gloas, is_execution_block should always be true.
     if signedBlock.message.is_execution_block:
       template payload(): auto =
-        signedBlock.message.body.execution_payload
+        when consensusFork >= ConsensusFork.Gloas:
+          signedEnvelope.message.payload
+        else:
+          signedBlock.message.body.execution_payload
 
       template returnWithError(msg: string, extraMsg = ""): untyped =
         if extraMsg != "":
@@ -497,12 +507,21 @@ proc verifyPayload(
       if payload.transactions.anyIt(it.len == 0):
         returnWithError "Execution block contains zero length transactions"
 
-      if payload.block_hash != signedBlock.message.compute_execution_block_hash():
+      let computedBlockHash =
+        when consensusFork >= ConsensusFork.Gloas:
+          signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
+        else:
+          signedBlock.message.compute_execution_block_hash()
+      if payload.block_hash != computedBlockHash:
         returnWithError "Execution block hash validation failed"
 
       # [New in Deneb:EIP4844]
       when consensusFork >= ConsensusFork.Deneb:
-        let blobsRes = signedBlock.message.is_valid_versioned_hashes
+        let blobsRes =
+          when consensusFork >= ConsensusFork.Gloas:
+            signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
+          else:
+            signedBlock.message.is_valid_versioned_hashes()
         if blobsRes.isErr:
           returnWithError "Blob versioned hashes invalid", blobsRes.error
       else:
@@ -617,9 +636,11 @@ proc storeBlock(
         # progress in its own sync.
         Opt.none(OptimisticStatus)
       else:
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment "need getExecutionValidity on gloas blocks"
-          Opt.some OptimisticStatus.valid
+        when consensusFork >= ConsensusFork.Gloas:
+          # It is mainly for disabling the `updateExecutionHead` call. As we are
+          # not sure if there is a valid envelope (execution payload), the
+          # execution head should be updated after we get one and validate it.
+          Opt.none(OptimisticStatus)
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
@@ -628,14 +649,25 @@ proc storeBlock(
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
-  let optimisticStatus = ?(optimisticStatusRes or verifyPayload(self, signedBlock))
+  let optimisticStatus =
+    when consensusFork >= ConsensusFork.Gloas:
+      # The execution payload validity is not known yet at block time as an
+      # envelope will be processed after its valid block. So always return
+      # `notValidated` and skip verifying payload.
+      #
+      # TODO may need a new value of `OptimisticStatus` to distinguish between
+      #      not validated and pending?
+      OptimisticStatus.notValidated
+    else:
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, noEnvelope))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
   let newPayloadTick = Moment.now()
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let blck =
     ?dag.addHeadBlockWithParent(
@@ -653,7 +685,8 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  self[].storeSidecars(sidecarsOpt)
+  when consensusFork <= ConsensusFork.Fulu:
+    self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
 
