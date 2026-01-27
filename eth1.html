@@ -148,6 +148,43 @@
     
     
     
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
     
       <div class="md-header__source">
         <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
@@ -481,7 +518,7 @@
         
   
   <span class="md-ellipsis">
-    Validating
+    Validator
   </span>
   
 
@@ -2446,24 +2483,25 @@ Once both are synced, they will continue to work in tandem to validate the lates
 <p>The <code>--el</code> option informs the beacon node how to connect to the execution client — both <code>http://</code> and <code>ws://</code> URLs are supported.</p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
-<p>By default, the execution client accepts connections on the localhost interface (<code>127.0.0.1</code>), with default authenticated RPC port <code>8551</code>.
-When the <code>--el</code> option is not explicitly specified, Nimbus will assume that the execution client is running on the same machine with such default settings.</p>
+<p>By default, the execution client accepts connections on the localhost interface (<code>127.0.0.1</code>), with default authenticated RPC port <code>8551</code>.</p>
+<p>When the <code>--el</code> option is not explicitly specified, Nimbus will assume that the execution client is running on the same machine with such default settings.</p>
 </div>
 <p>Once started, the execution client will create a file containing a JWT secret token.
 The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations.
-You will need to pass the path to the token file to Nimbus together with the web3 URL.</p>
+You will need to pass the path to the token file to Nimbus together with the execution layer URL.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Hoodi</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/mainnet<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/hoodi<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
@@ -2506,21 +2544,21 @@ To enable this mode, just specify multiple URLs through the <code>--el</code> op
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span>--el<span class="o">=</span>ws://other:8551<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
+<p>If the servers have different JWT secrets, they can be specified on the command line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551/#jwt-secret-file<span class="o">=</span>/tmp/jwt.hex
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span>--el<span class="o">=</span>ws://other:8551#jwt-secret<span class="o">=</span>d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3
+</code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can use a different secret for each connection by specifying <code>jwt-secret</code> or <code>jwt-secret-file</code> as a query parameter in the anchor section of the URL (e.g. <code>http://127.0.0.1:8551/#jwt-secret=0x12345...</code> or <code>http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret</code>).
-If you use a <a href="options.html#configuration-files">TOML config file</a>, you can also use the following, more natural, syntax:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">data-dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-data-dir&quot;</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">rest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">...</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">[[el]]</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://127.0.0.1:8551&quot;</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">jwt-secret-file</span><span class="o">=</span><span class="s2">&quot;/path/to/jwt/file&quot;</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">[[el]]</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://192.168.1.2:8551&quot;</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">jwt-secret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<p>If you use a <a href="options.html#configuration-files">TOML config file</a>, you can also use the following syntax:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[[el]]</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://127.0.0.1:8551&quot;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">jwt-secret-file</span><span class="o">=</span><span class="s2">&quot;/tmp/jwt.hex&quot;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">[[el]]</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://192.168.1.2:8551&quot;</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">jwt-secret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3&quot;</span>
 </code></pre></div>
 </div>
 <p>As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.</p>
