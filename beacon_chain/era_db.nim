@@ -265,10 +265,13 @@ type EraPath* = tuple[era: Era, path: string]
 iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =
   ## Iterate over all era files available in the given directory.
   ## Entries may appear out of order and are not necessarily valid era files.
-  for f in walkFiles(eraDir / "*.era"):
-    let era = Era.fromEraFile(cfg, io2.splitPath(f).tail).valueOr:
-      continue
-    yield (era, f)
+  try:
+    for f in walkFiles(eraDir / "*.era"):
+      let era = Era.fromEraFile(cfg, io2.splitPath(f).tail).valueOr:
+        continue
+      yield (era, f)
+  except OsError: # On windows only ...
+    discard
 
 proc genesis*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
   ## Find the genesis era file (era 0) in the given directory.
