@@ -236,6 +236,14 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
 
+  if uint64(slot) < dag.frontfillBlocks.lenu64:
+    for i in 0 ..< int(slot):
+      let root = dag.frontfillBlocks[int(slot) - i]
+      if not root.isZero():
+        return Opt.some BlockSlotId.init(
+          BlockId(slot: Slot(int(slot) - i), root: root), slot
+        )
+
   # Fallback to database, this only works for backfilled blocks
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
   if slot >= finlow:
@@ -1009,8 +1017,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
            vanityLogs = default(VanityLogs),
            lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
-  cfg.checkForkConsistency()
-
   doAssert updateFlags - {strictVerification} == {},
     "Other flags not supported in ChainDAG"
 
@@ -1279,6 +1285,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     # Here, we'll build up the slot->root mapping in memory for the range of
     # blocks from genesis to backfill, if possible.
+    # Due to how era files are constructed, the block that was last applied to
+    # the era state is not part of the era file itself - in order to have a
+    # "full" block history, we must therefore backfill it from p2p, even if it's
+    # not strictly needed to validate the _next_ block that builds on this state.
+    # TODO consider setting the head to the block _before_ this last state -
+    #      this will ensure that we download the missing block as part of
+    #      regular syncing instead of waiting for backfill.
     for bid in dag.era.getBlockIds(
         historical_roots, historical_summaries, Slot(0), Eth2Digest()):
       # If backfill has not yet started, the backfill slot itself also needs
@@ -2589,14 +2602,10 @@ proc updateHead*(
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been
   ## initialized
-  let
-    tailBlockRoot = db.getTailBlock()
-  if not tailBlockRoot.isSome():
+  let tailBlockRoot = db.getTailBlock().valueOr:
     return err("Tail block root missing")
 
-  let
-    tailBlock = db.getBlockId(tailBlockRoot.get())
-  if not tailBlock.isSome():
+  if db.getBlockId(tailBlockRoot).isNone():
     return err("Tail block information missing")
 
   ok()
@@ -2752,7 +2761,7 @@ func aggregateAll*(
 func needsBackfill*(dag: ChainDAGRef): bool =
   dag.backfill.slot > dag.horizon
 
-proc rebuildIndex*(dag: ChainDAGRef) =
+proc rebuildIndex*(dag: ChainDAGRef, cancel: proc(): bool {.raises: [], gcsafe.}) =
   ## After a checkpoint sync, we lack intermediate states to replay from - this
   ## function rebuilds them so that historical replay can take place again
   ## TODO the pruning of junk states could be moved to a separate function that
@@ -2763,7 +2772,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
     roots = dag.db.loadStateRoots()
     historicalRoots = getStateField(dag.headState, historical_roots).asSeq()
     historicalSummaries = dag.headState.historical_summaries.asSeq()
-
   var
     canonical = newSeq[Eth2Digest](
       (dag.finalizedHead.slot.epoch + EPOCHS_PER_STATE_SNAPSHOT - 1) div
@@ -2775,8 +2783,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   for k, v in roots:
     if k[0] >= dag.finalizedHead.slot:
       continue # skip newer stuff
-    if k[0] < dag.backfill.slot:
-      continue # skip stuff for which we have no blocks
 
     if not isFinalizedStateSnapshot(k[0]):
       # `tail` will move at the end of the process, so we won't need any
@@ -2798,9 +2804,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
 
-  let
-    state = (ref ForkedHashedBeaconState)()
-
+  let state = (ref ForkedHashedBeaconState)()
   var
     cache: StateCache
     info: ForkedEpochInfo
@@ -2811,13 +2815,13 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   # zero root whenever a particular state is missing - this way, if there's
   # partial progress or gaps, they will be dealt with correctly
   for i, state_root in canonical.mpairs():
-    let
-      slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
+    if cancel():
+      return
 
-    if slot < dag.backfill.slot:
-      # TODO if we have era files, we could try to load blocks from them at
-      #      this point
-      # TODO if we don't do the above, we can of course compute the starting `i`
+    let slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
+
+    if slot < dag.backfill.slot and uint64(slot) > dag.frontfillBlocks.lenu64:
+      reset(tailBid) # No unbroken history!
       continue
 
     if tailBid.isNone():
@@ -2850,8 +2854,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       states += 1
       continue
 
-    let
-      startSlot = Epoch((i - 1) * EPOCHS_PER_STATE_SNAPSHOT).start_slot
+    let startSlot = Epoch((i - 1) * EPOCHS_PER_STATE_SNAPSHOT).start_slot
 
     info "Recreating state snapshot",
       slot, startStateRoot = canonical[i - 1],  startSlot

@@ -22,7 +22,10 @@ type
   DigestMismatchError* = object of CatchableError
 
 proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
-  var httpSession = HttpSessionRef.new()
+  let httpSession = HttpSessionRef.new()
+  defer:
+    await httpSession.closeWait()
+
   let response = await httpSession.fetch(url)
   if response[0] == 200:
     return response[1]
@@ -31,16 +34,23 @@ proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
       msg: "Unexpected status code " & $response[0] & " when fetching " & $url,
       status: response[0])
 
-proc fetchGenesisBytes*(
-    metadata: Eth2NetworkMetadata,
-    genesisStateUrlOverride = none(Uri)): Future[seq[byte]] {.async.} =
+proc fetchGenesisState*(
+    metadata: Eth2NetworkMetadata, genesisStateUrlOverride = none(Uri)
+): Future[ref ForkedHashedBeaconState] {.async.} =
+  ## Fetch and parse the genesis beacon state from the configured source, which
+  ## may include downloading it.
   case metadata.genesis.kind
   of NoGenesis:
-    raiseAssert "fetchGenesisBytes should be called only when metadata.hasGenesis is true"
+    raiseAssert "fetchGenesisState should be called only when metadata.hasGenesis is true"
   of BakedIn:
-    result = @(metadata.genesis.bakedBytes)
+    try:
+      newClone(
+        readSszForkedHashedBeaconState(metadata.cfg, metadata.genesis.bakedBytes)
+      )
+    except SerializationError as err:
+      raiseAssert "Invalid baked-in state: " & err.msg
   of BakedInUrl:
-    result = await downloadFile(genesisStateUrlOverride.get(parseUri metadata.genesis.url))
+    var tmp = await downloadFile(genesisStateUrlOverride.get(metadata.genesis.url))
     # Under the built-in default URL, we serve a snappy-encoded BeaconState in order
     # to reduce the size of the downloaded file with roughly 50% (this precise ratio
     # depends on the number of validator records). The user is still free to provide
@@ -49,21 +59,21 @@ proc fetchGenesisBytes*(
     # Since a SSZ-encoded BeaconState will start with a LittleEndian genesis time
     # (64 bits) while a snappy framed stream will always start with a fixed header
     # that will decoded as a timestamp with the value 5791996851603375871 (year 2153).
-    #
-    # TODO: A more complete solution will implement compression on the HTTP level,
-    #       by relying on the Content-Encoding header to determine the compression
-    #       algorithm. The detection method used here will not interfere with such
-    #       an implementation and it may remain useful when dealing with misconfigured
-    #       HTTP servers.
-    if result.isSnappyFramedStream:
-      result = decodeFramed(result)
-    let state = newClone(readSszForkedHashedBeaconState(metadata.cfg, result))
+    if tmp.isSnappyFramedStream:
+      tmp = decodeFramed(tmp)
+
+    let state = newClone(readSszForkedHashedBeaconState(metadata.cfg, tmp))
     withState(state[]):
       if forkyState.root != metadata.genesis.digest:
         raise (ref DigestMismatchError)(
-          msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
+          msg: "The downloaded genesis state cannot be verified (checksum mismatch)"
+        )
+    state
   of UserSuppliedFile:
-    result = readAllBytes(metadata.genesis.path).tryGet()
+    var tmp: seq[byte]
+    io2.readFile(metadata.genesis.path, tmp).tryGet()
+
+    newClone(readSszForkedHashedBeaconState(metadata.cfg, tmp))
 
 proc sourceDesc*(metadata: GenesisMetadata): string =
   case metadata.kind
@@ -72,13 +82,6 @@ proc sourceDesc*(metadata: GenesisMetadata): string =
   of BakedIn:
     metadata.networkName
   of BakedInUrl:
-    metadata.url
+    $metadata.url
   of UserSuppliedFile:
     metadata.path
-
-when isMainModule:
-  let hoodiMetadata = getMetadataForNetwork("hoodi")
-  io2.writeFile(
-    "hoodi-genesis.ssz",
-    waitFor hoodiMetadata.fetchGenesisBytes()
-  ).expect("success")

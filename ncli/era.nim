@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/strformat,
+  std/[strformat, strutils],
   results,
   stew/[endians2, io2],
   snappy,
@@ -57,10 +57,22 @@ func eraRoot*(
 
 func eraFileName*(
     cfg: RuntimeConfig, era: Era, eraRoot: Eth2Digest): string =
-  try:
-    &"{cfg.name()}-{era.uint64:05}-{shortLog(eraRoot)}.era"
-  except ValueError as exc:
-    raiseAssert exc.msg
+  &"{cfg.name()}-{era.uint64:05}-{shortLog(eraRoot)}.era"
+
+func fromEraFile*(
+  _: type Era, cfg:RuntimeConfig, name: string
+): Opt[Era] =
+  ## Parse an Era number from an era file name.
+  ## Era files follow the naming convention: {network}-{era:05d}-{root}.era
+  ## Returns none if the file name doesn't match the expected format.
+  let parts = name.split("-")
+  if parts.len == 3 and parts[0] == cfg.name() and name.endsWith(".era") and parts[1].len == 5:
+    try:
+      Opt.some Era(parseInt(parts[1]))
+    except ValueError:
+      Opt.none Era
+  else:
+    Opt.none Era
 
 proc toCompressedBytes(item: auto): seq[byte] =
   snappy.encodeFramed(SSZ.encode(item))

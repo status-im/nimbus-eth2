@@ -17,7 +17,7 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
+  ./[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
@@ -180,3 +180,26 @@ proc getPayloadBuilderClient*(
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
+
+func init*(T: type EventBus): T =
+  T(
+    headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+    blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+    blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
+    singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
+    exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+    blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+    propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
+    phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+    electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
+    blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+    columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
+    reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+    contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
+    finUpdateQueue: newAsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]](),
+    optUpdateQueue:
+      newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
+    optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
+  )
