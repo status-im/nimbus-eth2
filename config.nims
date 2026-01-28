@@ -88,18 +88,6 @@ if defined(windows):
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
 
-# QUIC
-block:
-  let basepath = currentDir / "vendor" / "nim-lsquic"
-  if defined(windows):
-    let asmFiles = readFile(
-      basepath / "scripts" / "boringssl_win_nasm.list").splitLines().filterIt(
-        it.len > 0)
-    # https://github.com/vacp2p/nim-lsquic/blob/main/lsquic.nimble
-    for asmPath in asmFiles:
-      exec "nasm -f win64 " & quoteShell(basepath / asmPath) & " -o " &
-        quoteShell(basepath / "libs" / (asmPath.splitFile.name & ".o"))
-
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
 # given its near-ubiquity in the x86 installed base, it renders a distribution
