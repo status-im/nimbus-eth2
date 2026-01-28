@@ -286,10 +286,9 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  when consensusFork == ConsensusFork.Gloas:
-    debugGloasComment ""
-    # gloas needs proper data column handling
-    let sidecarsOpt = Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+  when consensusFork >= ConsensusFork.Gloas:
+    # Disable processing sidecars at block time.
+    const sidecarsOpt = noSidecars
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
