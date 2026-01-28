@@ -31,7 +31,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, popOrphan
+  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -859,6 +859,28 @@ proc storePayload(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  let
+    dag = self.consensusManager.dag
+    wallTime = self.getBeaconTime()
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineTime =
+      block:
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+        if slotTime <= wallTime:
+          chronos.seconds(0)
+        else:
+          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+    deadline = sleepAsync(deadlineTime)
+
+  debugGloasComment("optimisticStatusRes")
+  debugGloasComment("verifySidecars")
+  debugGloasComment("clearance state")
+  debugGloasComment("head state")
+
+  self[].storeSidecars(sidecarsOpt)
+  self.envelopeQuarantine[].delOrphan(signedBlock)
+
   ok()
 
 proc enqueuePayload*(
