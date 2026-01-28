@@ -90,32 +90,15 @@ if defined(windows):
 
 # QUIC
 block:
-  if defined(windows):
-    # ls-quic requires windows specific pthread otherwise the compiler will complain
-    # about missing pthread functions
-    switch("passL", "-lwinpthread")
-
   let basepath = currentDir / "vendor" / "nim-lsquic"
-  for suffix in ["lsquic" / "lsquic_ffi.nim", "prelude.nim"]:
-    let
-      path = basepath / suffix
-      anglebracket_include = path.readFile().replace(
-        "-DXXH_HEADER_NAME=\\\\\\\"lsquic_xxhash.h\\\\\\\"",
-        "-DXXH_HEADER_NAME='<lsquic_xxhash.h>'")
-    if getMD5(anglebracket_include) in [
-        "1858609812d851888987ac6c31858d13", "c7f3ca87a36fe45efa6f0a544abde4e8",
-        # On Windows runners; probably line endings
-        "d57acbf46e010707864a5e75887d1d01", "5e1562ddbee31f225865870baadb7606"]:
-      writeFile(path, anglebracket_include)
-
-    if defined(windows):
-      let asmFiles = readFile(
-        basepath / "scripts" / "boringssl_win_nasm.list").splitLines().filterIt(
-          it.len > 0)
-      # https://github.com/vacp2p/nim-lsquic/blob/main/lsquic.nimble
-      for asmPath in asmFiles:
-        exec "nasm -f win64 " & quoteShell(basepath / asmPath) & " -o " &
-          quoteShell(basepath / "libs" / (asmPath.splitFile.name & ".o"))
+  if defined(windows):
+    let asmFiles = readFile(
+      basepath / "scripts" / "boringssl_win_nasm.list").splitLines().filterIt(
+        it.len > 0)
+    # https://github.com/vacp2p/nim-lsquic/blob/main/lsquic.nimble
+    for asmPath in asmFiles:
+      exec "nasm -f win64 " & quoteShell(basepath / asmPath) & " -o " &
+        quoteShell(basepath / "libs" / (asmPath.splitFile.name & ".o"))
 
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
