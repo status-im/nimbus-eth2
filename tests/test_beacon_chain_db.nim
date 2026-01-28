@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -698,46 +698,44 @@ suite "Beacon chain DB" & preset():
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
     
-    var retreivedEnvelope: TrustedSignedExecutionPayloadEnvelope
-
     check:
       not db.containsExecutionPayloadEnvelope(blockRoot0)
       not db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
+      not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
 
     db.putExecutionPayloadEnvelope(envelope0)
 
     check:
       db.containsExecutionPayloadEnvelope(blockRoot0)
       not db.containsExecutionPayloadEnvelope(blockRoot1)
-      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      retreivedEnvelope.message.beacon_block_root == blockRoot0
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot0).get()
+        .message.beacon_block_root == blockRoot0
+      not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
     
     db.putExecutionPayloadEnvelope(envelope1)
 
     check:
       db.containsExecutionPayloadEnvelope(blockRoot0)
       db.containsExecutionPayloadEnvelope(blockRoot1)
-      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot0).isSome()
+      db.getExecutionPayloadEnvelope(blockRoot1).isSome()
 
     check db.delExecutionPayloadEnvelope(blockRoot0)
 
     check:
       not db.containsExecutionPayloadEnvelope(blockRoot0)
       db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
+      db.getExecutionPayloadEnvelope(blockRoot1).isSome()
 
     check db.delExecutionPayloadEnvelope(blockRoot1)
 
     check:
       not db.containsExecutionPayloadEnvelope(blockRoot0)
       not db.containsExecutionPayloadEnvelope(blockRoot1)
-      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
-      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
+      not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
     
     db.close()
 
