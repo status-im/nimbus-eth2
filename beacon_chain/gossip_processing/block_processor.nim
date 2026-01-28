@@ -819,8 +819,8 @@ proc addBlock*(
         if sidecarsOpt.isSome:
           self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
-        # In Gloas, block is enqueued with NoSidecar so this should be
-        # non-reachable code.
+        # In Gloas, block is enqueued with NoSidecar so we need not to care
+        # about quarantine.
         discard
       elif sidecarsOpt is NoSidecars:
         discard
