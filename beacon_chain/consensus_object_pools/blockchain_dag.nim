@@ -660,7 +660,7 @@ func init*(
 
   epochRef
 
-func loadStateCache(
+func loadStateCache*(
     dag: ChainDAGRef, cache: var StateCache, bid: BlockId, epoch: Epoch) =
   # When creating a state cache, we want the current and the previous epoch
   # information to be preloaded as both of these are used in state transition
