@@ -80,7 +80,7 @@ proc runTest(
       parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
     when false:
       reportDiff(fhPreState.data, postState)
-    doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+    doAssert fhPreState[].root == postState[].hash_tree_root()
 
 from ../../beacon_chain/spec/datatypes/phase0 import
   BeaconState, SignedBeaconBlock

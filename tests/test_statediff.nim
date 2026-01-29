@@ -51,10 +51,10 @@ suite "state diff tests" & preset():
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:
-        doAssert getStateField(testStates[i][], slot) <
-          getStateField(testStates[j][], slot)
-        if  getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH !=
-            getStateField(testStates[j][], slot):
+        doAssert testStates[i][].slot <
+          testStates[j][].slot
+        if  testStates[i][].slot + SLOTS_PER_EPOCH !=
+            testStates[j][].slot:
           continue
         let
           tmpStateApplyBase = assignClone(testStates[i].capellaData.data)
@@ -65,9 +65,9 @@ suite "state diff tests" & preset():
         applyDiff(
           tmpStateApplyBase[],
           mapIt(
-            getStateField(testStates[j][], validators).asSeq[
-              getStateField(testStates[i][], validators).len ..
-              getStateField(testStates[j][], validators).len - 1],
+            testStates[j][].validators.asSeq[
+              testStates[i][].validators.len ..
+              testStates[j][].validators.len - 1],
             it.getImmutableValidatorData),
           diff)
         check hash_tree_root(testStates[j][].capellaData.data) ==

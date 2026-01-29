@@ -96,11 +96,10 @@ proc doTrustedNodeSync*(
           genesisStateRoot
         quit 1
 
-      if (genesisState != nil) and
-          (getStateRoot(tmp[]) != getStateRoot(genesisState[])):
+      if (genesisState != nil) and (tmp[].root != genesisState[].root):
         error "Unexpected genesis state in database, is this the same network?",
-          databaseRoot = getStateRoot(tmp[]),
-          genesisRoot = getStateRoot(genesisState[])
+          databaseRoot = tmp[].root,
+          genesisRoot = genesisState[].root
         quit 1
       tmp
     else:
@@ -175,13 +174,12 @@ proc doTrustedNodeSync*(
 
         doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
-          genesisTime = getStateField(genesisState[], genesis_time)
+          genesisTime = genesisState[].genesis_time
           beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
             error "Invalid genesis time in state", genesisTime
             quit 1
 
-          genesis_validators_root =
-            getStateField(genesisState[], genesis_validators_root)
+          genesis_validators_root = genesisState[].genesis_validators_root
           forkDigests = newClone ForkDigests.init(cfg, genesis_validators_root)
 
           trustedBlockRoot = syncTarget.trustedBlockRoot
@@ -334,38 +332,35 @@ proc doTrustedNodeSync*(
       quit 1
 
     if stateRoot.isSome:
-      if state[].getStateRoot() != stateRoot.get:
+      if state[].root != stateRoot.get:
         error "Checkpoint state has incorrect root!",
           expectedStateRoot = stateRoot.get,
-          actualStateRoot = state[].getStateRoot()
+          actualStateRoot = state[].root
         quit 1
       info "Checkpoint state validated against LC data",
         stateRoot = stateRoot.get
 
-    if not getStateField(state[], slot).is_epoch():
+    if not state[].slot.is_epoch():
       error "State slot must fall on an epoch boundary",
-        slot = getStateField(state[], slot),
-        offset = getStateField(state[], slot) -
-          getStateField(state[], slot).epoch.start_slot
+        slot = state[].slot,
+        offset = state[].slot - state[].slot.epoch.start_slot
       quit 1
 
     if genesisState != nil:
-      if getStateField(state[], genesis_time) !=
-          getStateField(genesisState[], genesis_time):
+      if state[].genesis_time != genesisState[].genesis_time:
         error "Checkpoint state does not match genesis",
-          timeInCheckpoint = getStateField(state[], genesis_time),
-          timeInGenesis = getStateField(genesisState[], genesis_time)
+          timeInCheckpoint = state[].genesis_time,
+          timeInGenesis = genesisState[].genesis_time
         quit 1
-      if getStateField(state[], genesis_validators_root) !=
-          getStateField(genesisState[], genesis_validators_root):
+      if state[].genesis_validators_root != genesisState[].genesis_validators_root:
         error "Checkpoint state does not match genesis",
-          rootInCheckpoint = getStateField(state[], genesis_validators_root),
-          rootInGenesis = getStateField(genesisState[], genesis_validators_root)
+          rootInCheckpoint = state[].genesis_validators_root,
+          rootInGenesis = genesisState[].genesis_validators_root
         quit 1
 
       ChainDAGRef.preInit(db, genesisState[])
 
-      if getStateField(genesisState[], slot) != getStateField(state[], slot):
+      if genesisState[].slot != state[].slot:
         ChainDAGRef.preInit(db, state[])
     else:
       ChainDAGRef.preInit(db, state[])

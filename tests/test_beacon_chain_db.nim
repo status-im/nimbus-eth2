@@ -119,7 +119,7 @@ proc getTestStates(
 
   # Ensure transitions beyond just adding validators and increasing slots
   sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
-    cmp($getStateRoot(x[]), $getStateRoot(y[]))
+    cmp($x[].root, $y[].root)
 
   testStates
 

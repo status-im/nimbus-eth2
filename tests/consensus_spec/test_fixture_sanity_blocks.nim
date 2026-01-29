@@ -65,7 +65,7 @@ proc runTest(
         SSZ, consensusFork.BeaconState))
       when false:
         reportDiff(hashedPreState.phase0Data.data, postState)
-      doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+      doAssert fhPreState[].root == postState[].hash_tree_root()
 
 template runForkBlockTests(consensusFork: static ConsensusFork) =
   const

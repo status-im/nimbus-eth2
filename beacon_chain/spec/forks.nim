@@ -1093,13 +1093,50 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   (block:
     withState(x): unsafeAddr forkyState.data.y)[]
 
-func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  withState(x): forkyState.root
+func root*(state: ForkedHashedBeaconState): lent Eth2Digest =
+  (block: withState(state): addr forkyState.root)[]
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
-  withState(x): forkyState.root = root
-{.pop.}
+func genesis_time*(state: ForkedHashedBeaconState): uint64 =
+  withState(state): forkyState.data.genesis_time
+
+func genesis_validators_root*(state: ForkedHashedBeaconState): lent Eth2Digest =
+  (block: withState(state): addr forkyState.data.genesis_validators_root)[]
+
+func slot*(state: ForkedHashedBeaconState): Slot =
+  withState(state): forkyState.data.slot
+
+func fork*(state: ForkedHashedBeaconState): Fork =
+  withState(state): forkyState.data.fork
+
+func latest_block_header*(state: ForkedHashedBeaconState): lent BeaconBlockHeader =
+  (block: withState(state): addr forkyState.data.latest_block_header)[]
+
+func state_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
+  (block: withState(state): addr forkyState.data.state_roots)[]
+
+func historical_roots*(state: ForkedHashedBeaconState): lent HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT] =
+  (block: withState(state): addr forkyState.data.historical_roots)[]
+
+func eth1_data*(state: ForkedHashedBeaconState): lent Eth1Data =
+  (block: withState(state): addr forkyState.data.eth1_data)[]
+
+func eth1_deposit_index*(state: ForkedHashedBeaconState): uint64 =
+  withState(state): forkyState.data.eth1_deposit_index
+
+func validators*(state: ForkedHashedBeaconState): lent HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] =
+  (block: withState(state): addr forkyState.data.validators)[]
+
+func balances*(state: ForkedHashedBeaconState): lent HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT] =
+  (block: withState(state): addr forkyState.data.balances)[]
+
+func previous_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.previous_justified_checkpoint)[]
+
+func current_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.current_justified_checkpoint)[]
+
+func finalized_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.finalized_checkpoint)[]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
 func get_blob_parameters*(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =

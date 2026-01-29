@@ -249,7 +249,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
           # Batch-verification more than doubles total verification speed
           sigs.add block_signature_set(
               cfg.forkAtEpoch(slot.epoch),
-              getStateField(state[], genesis_validators_root), slot,
+              state[].genesis_validators_root, slot,
               blck[].root, cooked.get(), sig.get())
 
         else: # slot == GENESIS_SLOT:
@@ -259,7 +259,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
     if sigs.len > 0 and not batchVerify(verifier, sigs):
       return err("Invalid block signature")
 
-  ok(getStateRoot(state[]))
+  ok(state[].root)
 
 proc getEraFile(
     db: EraDB, historical_roots: openArray[Eth2Digest],

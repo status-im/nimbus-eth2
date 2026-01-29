@@ -46,7 +46,7 @@ suite "Light client" & preset():
     var cache: StateCache
     const maxAttestedSlotsPerPeriod = 3 * SLOTS_PER_EPOCH
     while true:
-      var slot = getStateField(dag.headState, slot)
+      var slot = dag.headState.slot
       doAssert targetSlot >= slot
       if targetSlot == slot: break
 
@@ -142,7 +142,7 @@ suite "Light client" & preset():
       periodEpoch = headPeriod.start_epoch
       headSlot = (periodEpoch + 2).start_slot + 5
     dag.advanceToSlot(headSlot, verifier, quarantine[])
-    let currentSlot = getStateField(dag.headState, slot)
+    let currentSlot = dag.headState.slot
 
     # Initialize light client store
     var bootstrap = dag.getLightClientBootstrap(trusted_block_root)

@@ -58,10 +58,9 @@ proc fetchGenesisBytes*(
     if result.isSnappyFramedStream:
       result = decodeFramed(result)
     let state = newClone(readSszForkedHashedBeaconState(metadata.cfg, result))
-    withState(state[]):
-      if forkyState.root != metadata.genesis.digest:
-        raise (ref DigestMismatchError)(
-          msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
+    if state[].root != metadata.genesis.digest:
+      raise (ref DigestMismatchError)(
+        msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
   of UserSuppliedFile:
     result = readAllBytes(metadata.genesis.path).tryGet()
 

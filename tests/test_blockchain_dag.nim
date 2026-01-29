@@ -93,7 +93,7 @@ suite "Block pool processing" & preset():
       b2Get = dag.getForkedBlock(b2.root)
       sr = dag.findShufflingRef(b1Add[].bid, b1Add[].slot.epoch)
       er = dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch)
-      validators = getStateField(dag.headState, validators).lenu64()
+      validators = dag.headState.validators.lenu64()
 
     check:
       b2Get.isSome()
@@ -124,7 +124,7 @@ suite "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check cfg.process_slots(
-      state[], getStateField(state[], slot) + 1, cache, info, {}).isOk()
+      state[], state[].slot + 1, cache, info, {}).isOk()
 
     let
       b4 = addTestBlock(state[], cache).phase0Data
@@ -191,7 +191,7 @@ suite "Block pool processing" & preset():
       db.getStateRoot(stateCheckpoint.bid.root, stateCheckpoint.slot).isErr()
       # this is required for the test to work - it's not a "public"
       # post-condition of getEpochRef
-      getStateField(dag.epochRefState, slot) == nextEpochSlot
+      dag.epochRefState.slot == nextEpochSlot
 
     assign(state[], dag.epochRefState)
 
@@ -220,7 +220,7 @@ suite "Block pool processing" & preset():
 
     check:
       dag.head == b1Add[]
-      getStateField(dag.headState, slot) == b1Add[].slot
+      dag.headState.slot == b1Add[].slot
 
   test "updateState sanity" & preset():
     let
@@ -237,13 +237,13 @@ suite "Block pool processing" & preset():
     check:
       dag.updateState(tmpState[], bs1, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].root
-      getStateField(tmpState[], slot) == bs1.slot
+      tmpState[].slot == bs1.slot
 
     # Skip slots
     check:
       dag.updateState(tmpState[], bs1_3, false, cache, dag.updateFlags) # skip slots
       tmpState[].latest_block_root == b1Add[].root
-      getStateField(tmpState[], slot) == bs1_3.slot
+      tmpState[].slot == bs1_3.slot
 
     # Move back slots, but not blocks
     check:
@@ -251,19 +251,19 @@ suite "Block pool processing" & preset():
         tmpState[], dag.parent(bs1_3.bid).expect("block").atSlot(), false,
         cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].parent.root
-      getStateField(tmpState[], slot) == b1Add[].parent.slot
+      tmpState[].slot == b1Add[].parent.slot
 
     # Move to different block and slot
     check:
       dag.updateState(tmpState[], bs2_3, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b2Add[].root
-      getStateField(tmpState[], slot) == bs2_3.slot
+      tmpState[].slot == bs2_3.slot
 
     # Move back slot and block
     check:
       dag.updateState(tmpState[], bs1, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].root
-      getStateField(tmpState[], slot) == bs1.slot
+      tmpState[].slot == bs1.slot
 
     # Move back to genesis
     check:
@@ -271,7 +271,7 @@ suite "Block pool processing" & preset():
         tmpState[], dag.parent(bs1.bid).expect("block").atSlot(), false, cache,
         dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].parent.root
-      getStateField(tmpState[], slot) == b1Add[].parent.slot
+      tmpState[].slot == b1Add[].parent.slot
 
 suite "Block pool altair processing" & preset():
   setup:
@@ -374,7 +374,7 @@ suite "chain DAG finalization tests" & preset():
       blck = makeTestBlock(dag.headState, cache).phase0Data
       tmpState = assignClone(dag.headState)
     check cfg.process_slots(
-      tmpState[], getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH),
+      tmpState[], tmpState[].slot + (5 * SLOTS_PER_EPOCH),
       cache, info, {}).isOk()
 
     let lateBlock = addTestBlock(tmpState[], cache).phase0Data
@@ -386,7 +386,7 @@ suite "chain DAG finalization tests" & preset():
 
     # skip slots so we can test gappy getBlockIdAtSlot
     check cfg.process_slots(
-      tmpState[], getStateField(tmpState[], slot) + 2.uint64,
+      tmpState[], tmpState[].slot + 2.uint64,
       cache, info, {}).isOk()
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
@@ -398,7 +398,7 @@ suite "chain DAG finalization tests" & preset():
       blck = addTestBlock(
         tmpState[], cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
@@ -425,7 +425,7 @@ suite "chain DAG finalization tests" & preset():
       isNil dag.finalizedHead.blck.parent
 
     check:
-      dag.db.immutableValidators.len() == getStateField(dag.headState, validators).len()
+      dag.db.immutableValidators.len() == dag.headState.validators.len()
 
     block:
       var cur = dag.head.bid
@@ -520,7 +520,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == parentRoot
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      getStateRoot(dag2.headState) == getStateRoot(dag.headState)
+      dag2.headState.root == dag.headState.root
 
     # No canonical block data should be pruned by the removal of the fork
     for i in Slot(0)..dag2.head.slot:
@@ -550,7 +550,7 @@ suite "chain DAG finalization tests" & preset():
     cache = StateCache()
 
     doAssert cfg.process_slots(
-      prestate[], getStateField(prestate[], slot) + 1,
+      prestate[], prestate[].slot + 1,
       cache, info, {}).isOk()
 
     # create another block, orphaning the head
@@ -584,7 +584,7 @@ suite "chain DAG finalization tests" & preset():
     let blck = makeTestBlock(
       dag.headState, cache,
       attestations = makeFullAttestations(
-        dag.headState, dag.head.root, getStateField(dag.headState, slot),
+        dag.headState, dag.head.root, dag.headState.slot,
         cache, {})).phase0Data
 
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
@@ -603,8 +603,8 @@ suite "chain DAG finalization tests" & preset():
           dag.updateState(tmpStateData[], cur.bid.atSlot(), false, cache,
                           dag.updateFlags)
           dag.getForkedBlock(cur.bid).get().phase0Data.message.state_root ==
-            getStateRoot(tmpStateData[])
-          getStateRoot(tmpStateData[]) == hash_tree_root(
+            tmpStateData[].root
+          tmpStateData[].root == hash_tree_root(
             tmpStateData[].phase0Data.data)
         cur = cur.parent
 
@@ -618,7 +618,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      getStateRoot(dag2.headState) == getStateRoot(dag.headState)
+      dag2.headState.root == dag.headState.root
 
   test "shutdown during finalization" & preset():
     var testPassed: bool
@@ -635,7 +635,7 @@ suite "chain DAG finalization tests" & preset():
         # Check test assumption: New finalized blocks were not written yet
         let
           stateFinalizedSlot =
-            dag.headState.getStateField(finalized_checkpoint).epoch.start_slot
+            dag.headState.finalized_checkpoint.epoch.start_slot
           dbFinalizedSlot =
             dag.db.finalizedBlocks.high.expect("Valid DB")
         doAssert stateFinalizedSlot > dbFinalizedSlot, "Finalized not written"
@@ -725,7 +725,7 @@ suite "Diverging hardforks":
     check:
       process_slots(
         phase0RuntimeConfig, tmpState[],
-        getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+        tmpState[].slot + (3 * SLOTS_PER_EPOCH).uint64,
         cache, info, {}).isOk()
 
     # Because the first block is after the Altair transition, the only block in
@@ -748,7 +748,7 @@ suite "Diverging hardforks":
     check:
       process_slots(
         phase0RuntimeConfig, tmpState[],
-        getStateField(tmpState[], slot) + SLOTS_PER_EPOCH.uint64,
+        tmpState[].slot + SLOTS_PER_EPOCH.uint64,
         cache, info, {}).isOk()
 
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
@@ -760,7 +760,7 @@ suite "Diverging hardforks":
       b1Add.isOk()
       process_slots(
         phase0RuntimeConfig, tmpState[],
-        getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+        tmpState[].slot + (3 * SLOTS_PER_EPOCH).uint64,
         cache, info, {}).isOk()
 
     var
@@ -1048,7 +1048,7 @@ suite "Starting states":
       genBlock = get_initial_beacon_block(genState[])
       blocks = block:
         var blocks: seq[ForkedSignedBeaconBlock]
-        while getStateField(tailState[], slot).uint64 + 1 < SLOTS_PER_EPOCH:
+        while tailState[].slot.uint64 + 1 < SLOTS_PER_EPOCH:
           blocks.add addTestBlock(tailState[], cache)
         blocks
       tailBlock = blocks[^1]
@@ -1173,7 +1173,7 @@ suite "Latest valid hash" & preset():
   test "LVH searching":
     # Reach Bellatrix, where execution payloads exist
     check cfg.process_slots(
-      state[], getStateField(state[], slot) + (3 * SLOTS_PER_EPOCH),
+      state[], state[].slot + (3 * SLOTS_PER_EPOCH),
       cache, info, {}).isOk()
 
     var
@@ -1243,7 +1243,7 @@ suite "Pruning":
       let blck = addTestBlock(
         tmpState[], cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       blocks.add(added[])
@@ -1263,7 +1263,7 @@ suite "Pruning":
       let blck = addTestBlock(
         tmpState[], cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
@@ -1734,7 +1734,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       var info: ForkedEpochInfo
       check cfg.process_slots(
         dag.headState,
-        getStateField(dag.headState, slot) + delaySlots,
+        dag.headState.slot + delaySlots,
         cache, info, flags = {}).isOk
 
     # Add 0.75 epochs

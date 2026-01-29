@@ -169,9 +169,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
-    justified = shortLog(getStateField(
-      dag.headState, current_justified_checkpoint)),
-    finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+    justified = shortLog(dag.headState.current_justified_checkpoint),
+    finalized = shortLog(dag.headState.finalized_checkpoint)
   T(
     dag: dag,
     quarantine: quarantine,

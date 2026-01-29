@@ -183,7 +183,7 @@ proc ETHBeaconStateCopyGenesisValidatorsRoot(
   ## Returns:
   ## * Pointer to a copy of the given beacon state's genesis validators root.
   let genesisValRoot = Eth2Digest.new()
-  genesisValRoot[] = getStateField(state[], genesis_validators_root)
+  genesisValRoot[] = state[].genesis_validators_root
   genesisValRoot.toUnmanagedPtr()
 
 proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
@@ -216,8 +216,7 @@ proc ETHForkDigestsCreateFromState(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
   let forkDigests = ForkDigests.new()
-  forkDigests[] = ForkDigests.init(
-    cfg[], getStateField(state[], genesis_validators_root))
+  forkDigests[] = ForkDigests.init(cfg[], state[].genesis_validators_root)
   forkDigests.toUnmanagedPtr()
 
 proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
@@ -245,7 +244,7 @@ proc ETHBeaconClockCreateFromState(
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
   let
-    genesisTime = getStateField(state[], genesis_time)
+    genesisTime = state[].genesis_time
     beaconClock = BeaconClock.new()
   beaconClock[] = BeaconClock.init(cfg[].timeParams, genesisTime).valueOr:
     return nil

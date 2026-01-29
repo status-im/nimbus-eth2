@@ -1052,14 +1052,14 @@ proc updateValidatorMetrics*(node: BeaconNode) =
       if v.index.isNone():
         0.Gwei
       elif v.index.get().uint64 >=
-          getStateField(node.dag.headState, balances).lenu64:
+          node.dag.headState.balances.lenu64:
         debug "Cannot get validator balance, index out of bounds",
           pubkey = shortLog(v.pubkey), index = v.index.get(),
-          balances = getStateField(node.dag.headState, balances).len,
-          stateRoot = getStateRoot(node.dag.headState)
+          balances = node.dag.headState.balances.len,
+          stateRoot = node.dag.headState.root
         0.Gwei
       else:
-        getStateField(node.dag.headState, balances).item(v.index.get())
+        node.dag.headState.balances.item(v.index.get())
 
     if i < 64:
       attached_validator_balance.set(

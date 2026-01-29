@@ -112,7 +112,7 @@ cli do(
 
     dag.withUpdatedState(tmpState[], attestationHead.toBlockSlotId.expect("not nil")):
       let
-        fork = getStateField(updatedState, fork)
+        fork = updatedState.fork
         genesis_validators_root = dag.genesis_validators_root
         committees_per_slot =
           get_committee_count_per_slot(updatedState, slot.epoch, cache)
@@ -270,7 +270,7 @@ cli do(
     dag.withUpdatedState(tmpState[],
         dag.head.atSlot(slot).toBlockSlotId.expect("not nil")):
       let
-        fork = getStateField(updatedState, fork)
+        fork = updatedState.fork
         genesis_validators_root = dag.genesis_validators_root
 
       # We make the assumption that payload was present and blobs available

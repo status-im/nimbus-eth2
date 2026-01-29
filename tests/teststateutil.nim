@@ -154,14 +154,14 @@ proc getTestStates*(
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
-    if getStateField(tmpState[], slot) < slot:
+    if tmpState[].slot < slot:
       process_slots(
         cfg, tmpState[], slot, cache, info, {}).expect("no failure")
 
     if i mod 3 == 0:
       withState(tmpState[]):
         valid_deposit(forkyState)
-    doAssert getStateField(tmpState[], slot) == slot
+    doAssert tmpState[].slot == slot
 
     if tmpState[].kind == consensusFork:
       result.add assignClone(tmpState[])
@@ -169,4 +169,4 @@ proc getTestStates*(
 when isMainModule:
   # Smoke test
   let state = initGenesisState(defaultRuntimeConfig, num_validators = SLOTS_PER_EPOCH)
-  doAssert getStateField(state[], validators).lenu64 == SLOTS_PER_EPOCH
+  doAssert state[].validators.lenu64 == SLOTS_PER_EPOCH

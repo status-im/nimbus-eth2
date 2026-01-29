@@ -203,7 +203,7 @@ func noRollback*(state: var fulu.HashedBeaconState) =
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, cache: var StateCache
 ) =
-  let curFork = cfg.consensusForkAtEpoch(getStateField(state, slot).epoch)
+  let curFork = cfg.consensusForkAtEpoch(state.slot.epoch)
 
   if state.kind < curFork:
     # Typically, only one upgrade is done here but when generating a genesis
@@ -225,12 +225,12 @@ proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
     Result[void, cstring] =
-  if not (getStateField(state, slot) < slot):
-    if slotProcessed notin flags or getStateField(state, slot) != slot:
+  if not (state.slot < slot):
+    if slotProcessed notin flags or state.slot != slot:
       return err("process_slots: cannot rewind state to past slot")
 
   # Update the state so its slot matches that of the block
-  while getStateField(state, slot) < slot:
+  while state.slot < slot:
     withState(state):
       withEpochInfo(forkyState.data, info):
         ? advance_slot(

@@ -38,8 +38,8 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
 
 func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: float) =
   if attesterRatio < 0.63:
-    doAssert getStateField(state, current_justified_checkpoint).epoch == 0
-    doAssert getStateField(state, finalized_checkpoint).epoch == 0
+    doAssert state.current_justified_checkpoint.epoch == 0
+    doAssert state.finalized_checkpoint.epoch == 0
 
   # Quorum is 2/3 of validators, and at low numbers, quantization effects
   # can dominate, so allow for play above/below attesterRatio of 2/3.
@@ -48,11 +48,9 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: float) =
 
   let current_epoch = get_current_epoch(state)
   if current_epoch >= 3:
-    doAssert getStateField(
-      state, current_justified_checkpoint).epoch + 1 >= current_epoch
+    doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
   if current_epoch >= 4:
-    doAssert getStateField(
-      state, finalized_checkpoint).epoch + 2 >= current_epoch
+    doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   var cfg = defaultRuntimeConfig
@@ -162,7 +160,7 @@ proc printTimers*[Timers: enum](
 proc printTimers*[Timers: enum](
     state: ForkedHashedBeaconState, attesters: RunningStat, validate: bool,
     timers: array[Timers, RunningStat]) =
-  echo "Validators: ", getStateField(state, validators).len,
+  echo "Validators: ", state.validators.len,
     ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean
   printTimers(validate, timers)

@@ -185,10 +185,10 @@ proc doSlots(conf: NcliConf) =
     cache = StateCache()
     info = ForkedEpochInfo()
   for i in 0'u64..<conf.slot:
-    let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
+    let isEpoch = (stateY[].slot + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       process_slots(
-        cfg, stateY[], getStateField(stateY[], slot) + 1,
+        cfg, stateY[], stateY[].slot + 1,
         cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):

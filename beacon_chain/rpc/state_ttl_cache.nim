@@ -81,7 +81,7 @@ proc getClosestState*(
     if cache.entries[i] == nil:
       continue
 
-    let stateSlot = getStateField(cache.entries[i][].state[], slot)
+    let stateSlot = cache.entries[i][].state[].slot
     if stateSlot > bsi.slot:
       # We can use only states that can be advanced forward in time.
       continue

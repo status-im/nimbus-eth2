@@ -14,14 +14,14 @@ import
 
 {.used.}
 
-template checkRoot(name, root) =
+template checkRoot(name, eroot) =
   let
     metadata = getMetadataForNetwork(name)
     state = newClone(readSszForkedHashedBeaconState(
       metadata.cfg, metadata.genesis.bakedBytes))
 
   check:
-    $getStateRoot(state[]) == root
+    $state[].root == eroot
 
 suite "Network metadata":
   test "mainnet":

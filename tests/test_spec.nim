@@ -89,7 +89,7 @@ suite "Beacon state" & preset():
     check:
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
 
-    while getStateField(state[], slot).epoch < Epoch(1):
+    while state[].slot.epoch < Epoch(1):
       discard addTestBlock(state[], cache)
 
     check:
@@ -97,7 +97,7 @@ suite "Beacon state" & preset():
         state[].phase0Data.data.get_block_root_at_slot(Epoch(1).start_slot - 1)
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
 
-    while getStateField(state[], slot).epoch < Epoch(2):
+    while state[].slot.epoch < Epoch(2):
       discard addTestBlock(state[], cache)
 
     check:

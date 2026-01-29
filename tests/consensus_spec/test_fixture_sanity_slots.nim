@@ -36,10 +36,10 @@ proc runTest(
     check:
       process_slots(
         defaultRuntimeConfig,
-        fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
+        fhPreState[], fhPreState[].slot + num_slots, cache,
         info, {}).isOk()
 
-      getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+      fhPreState[].root == postState[].hash_tree_root()
 
     withState(fhPreState[]):
       when forkyState.data isnot typeof(postState[]):
