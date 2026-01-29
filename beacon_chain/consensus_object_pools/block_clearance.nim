@@ -467,6 +467,72 @@ proc addBackfillBlock*(
 
   ok()
 
+proc addHeadExecutionPayload*(
+    dag: ChainDAGRef,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[BlockRef, VerifierError] =
+  ## Try adding the execution payload envelope to the head block, which should
+  ## usually be invoked after the call of addHeadBlockWithParent()
+  ##
+  ## First check that the block and envelope are matched with the DAG block.
+  ## Then verify that it passes the state transition function.
+
+  template envelopeBlockRoot(): auto =
+    signedEnvelope.message.beacon_block_root
+
+  logScope:
+    blockRoot = shortLog(envelopeBlockRoot())
+    builderIdx = signedEnvelope.message.builder_index
+    slot = signedEnvelope.message.slot
+    signature = shortLog(signedEnvelope.signature)
+
+  # Quick check between the received block and envelope.
+  template bid(): auto =
+    signedBlock.message.body.signed_execution_payload_bid.message
+  if not (
+    signedBlock.message.slot == signedEnvelope.message.slot and
+    signedBlock.root == envelopeBlockRoot() and
+    bid.builder_index == signedEnvelope.message.builder_index and
+    bid.block_hash == signedEnvelope.message.payload.block_hash
+  ):
+    info "Envelope mismatches with this block"
+    return err(VerifierError.Invalid)
+
+  # Check with the DAG head.
+  let blck = dag.head
+  if not (
+    blck.root() == envelopeBlockRoot() and
+    blck.slot() == signedEnvelope.message.slot
+  ):
+    debug "Envelope is not for the current head"
+    return err(VerifierError.Invalid)
+
+  var cache: StateCache
+  const consensusFork = typeof(signedBlock).kind
+
+  # Load state cache for state transition function.
+  loadStateCache(dag, cache, blck.bid,
+    getStateField(dag.clearanceState, slot).epoch())
+
+  # Verify with state transition function.
+  process_execution_payload(
+    dag.cfg,
+    dag.clearanceState.forky(consensusFork),
+    signedEnvelope,
+    func(_: deneb.ExecutionPayload): bool = true,
+    cache,
+  ).isOkOr:
+    assign(dag.clearanceState, dag.headState)
+    info "Envelope transition failed", msg = error
+    return err(VerifierError.Invalid)
+
+  # Put the envelope into db and update optimistic status for the block.
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  blck.markExecutionValid(true)
+
+  ok(blck)
+
 proc verifyBlockSignatures*(
     verifier: var BatchVerifier,
     fork: Fork,

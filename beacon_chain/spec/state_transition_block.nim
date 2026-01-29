@@ -1228,7 +1228,8 @@ proc process_execution_payload*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
-    signed_envelope: SignedExecutionPayloadEnvelope,
+    signed_envelope: SignedExecutionPayloadEnvelope |
+                     TrustedSignedExecutionPayloadEnvelope,
     notify_new_payload: deneb.ExecutePayload, cache: var StateCache,
     verify: bool = true): Result[void, cstring] =
   template envelope: untyped = signed_envelope.message
