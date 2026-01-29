@@ -410,10 +410,8 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
-        # Representing only Phase0 -> Capella sidecars as `noSidecars` for now
-        let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+      when consensusFork >= ConsensusFork.Gloas:
+        const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -552,8 +550,9 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
     var sidecarsOk = true
 
     let sidecarsOpt =
-      when consensusFork >= ConsensusFork.Fulu:
-        debugGloasComment ""
+      when consensusFork >= ConsensusFork.Gloas:
+        noSidecars
+      elif consensusFork == ConsensusFork.Fulu:
         var data_column_sidecars: fulu.DataColumnSidecars
         for i in self.dataColumnQuarantine[].custodyColumns:
           let data_column = fulu.DataColumnSidecar.new()
@@ -853,8 +852,9 @@ proc addBlock*(
         if sidecarsOpt.isSome:
           self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
-        if sidecarsOpt.isSome:
-          debugGloasComment ""
+        # In Gloas, block is enqueued with NoSidecar so we need not to care
+        # about quarantine.
+        discard
       elif sidecarsOpt is NoSidecars:
         discard
       else:

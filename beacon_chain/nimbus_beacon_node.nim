@@ -467,7 +467,8 @@ proc initFullNode(
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
           when consensusFork == ConsensusFork.Gloas:
-            let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+            # Disable sidecars processing at block time.
+            const sidecarsOpt = noSidecars
           else:
             let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
@@ -489,9 +490,9 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment "no blob_kzg_commitments field for gloas"
-          let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
+        when consensusFork >= ConsensusFork.Gloas:
+          # Disable sidecars processing at block time.
+          const sidecarsOpt = noSidecars
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
