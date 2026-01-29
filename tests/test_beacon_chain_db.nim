@@ -698,11 +698,15 @@ suite "Beacon chain DB" & preset():
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
     
+    var data: seq[byte]
+
     check:
       not db.containsExecutionPayloadEnvelope(blockRoot0)
       not db.containsExecutionPayloadEnvelope(blockRoot1)
       not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
 
     db.putExecutionPayloadEnvelope(envelope0)
 
@@ -712,6 +716,8 @@ suite "Beacon chain DB" & preset():
       db.getExecutionPayloadEnvelope(blockRoot0).get()
         .message.beacon_block_root == blockRoot0
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
+      db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
     
     db.putExecutionPayloadEnvelope(envelope1)
 
@@ -720,6 +726,8 @@ suite "Beacon chain DB" & preset():
       db.containsExecutionPayloadEnvelope(blockRoot1)
       db.getExecutionPayloadEnvelope(blockRoot0).isSome()
       db.getExecutionPayloadEnvelope(blockRoot1).isSome()
+      db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
+      db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
 
     check db.delExecutionPayloadEnvelope(blockRoot0)
 
@@ -728,6 +736,8 @@ suite "Beacon chain DB" & preset():
       db.containsExecutionPayloadEnvelope(blockRoot1)
       not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
       db.getExecutionPayloadEnvelope(blockRoot1).isSome()
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
+      db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
 
     check db.delExecutionPayloadEnvelope(blockRoot1)
 
@@ -736,6 +746,8 @@ suite "Beacon chain DB" & preset():
       not db.containsExecutionPayloadEnvelope(blockRoot1)
       not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
+      not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
     
     db.close()
 
