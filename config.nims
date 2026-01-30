@@ -231,3 +231,4 @@ put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
 put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
 put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
 put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
+put("mem.always", "-fno-lto -Wno-stack-usage")
