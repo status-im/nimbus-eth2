@@ -53,5 +53,8 @@ func is_valid_versioned_hashes*(
     return err("Extra `blob_kzg_commitments` without matching blobs")
   ok()
 
-func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
+func is_valid_versioned_hashes*(
+    blck: deneb.BeaconBlock | electra.BeaconBlock | fulu.BeaconBlock |
+          gloas.BeaconBlock,
+): Result[void, string] =
   is_valid_versioned_hashes(blck, noEnvelope)
