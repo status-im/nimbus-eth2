@@ -305,15 +305,21 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 proc newExecutionPayload*(
     elManager: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  template executionPayload: untyped = blck.body.execution_payload
+  template executionPayload: untyped =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  let payloadStatus = ?await elManager.sendNewPayload(blck, deadline, retry)
+  let payloadStatus = ?await elManager.sendNewPayload(
+    blck, envelope, deadline, retry)
 
   debug "newPayload: succeeded",
     parentHash = executionPayload.parent_hash,
@@ -329,20 +335,29 @@ proc newExecutionPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.
   async: (raises: [CancelledError], raw: true).} =
   newExecutionPayload(
-    elManager, blck, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
+    elManager, blck, noEnvelope, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock,
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[OptimisticStatus]] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return Opt.some(OptimisticStatus.valid) # vacuously
 
-  let status = (await elManager.newExecutionPayload(blck.message, deadline, retry)).valueOr:
+  const consensusFork = typeof(blck).kind
+  template someEnvelope(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.message
+    else:
+      envelope
+
+  let status = (await elManager.newExecutionPayload(
+      blck.message, someEnvelope, deadline, retry)).valueOr:
     return Opt.none(OptimisticStatus)
 
   let optimisticStatus = status.to(OptimisticStatus)
@@ -352,9 +367,14 @@ proc getExecutionValidity(
     # former case, they've passed libp2p gossip validation which implies
     # correct signature for correct proposer,which makes spam expensive,
     # while for the latter, spam is limited by the request manager.
+    template executionPayload(): auto =
+      when consensusFork >= ConsensusFork.Gloas:
+        envelope.message.payload
+      else:
+        blck.message.body.execution_payload
     info "execution payload invalid from EL client newPayload",
       executionPayloadStatus = status,
-      executionPayload = shortLog(blck.message.body.execution_payload),
+      executionPayload = shortLog(executionPayload),
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
@@ -623,7 +643,7 @@ proc storeBlock(
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
           await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, deadline, shouldRetry())
+            signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 

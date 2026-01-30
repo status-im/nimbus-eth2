@@ -72,7 +72,7 @@ proc open*(_: type EraFile, name: string): Result[EraFile, string] =
   reset(f)
   ok res
 
-proc close(f: EraFile) =
+proc close*(f: EraFile) =
   if f.handle.isSome():
     discard closeFile(f.handle.get())
     reset(f.handle)
@@ -260,6 +260,38 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
       return err("Invalid block signature")
 
   ok(getStateRoot(state[]))
+
+type EraPath* = tuple[era: Era, path: string]
+iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =
+  ## Iterate over all era files available in the given directory.
+  ## Entries may appear out of order and are not necessarily valid era files.
+  try:
+    for f in walkFiles(eraDir / "*.era"):
+      let era = Era.fromEraFile(cfg, io2.splitPath(f).tail).valueOr:
+        continue
+      yield (era, f)
+  except OsError: # On windows only ...
+    discard
+
+proc genesis*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
+  ## Find the genesis era file (era 0) in the given directory.
+  for e in EraFile.eras(cfg, eraDir):
+    if e.era == 0:
+      return Opt.some(e)
+
+  Opt.none(EraPath)
+
+proc latest*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
+  ## Find the most recent era file in the given directory, if any.
+  var latest: EraPath
+
+  for e in EraFile.eras(cfg, eraDir):
+    if e.era > latest[0]:
+      latest = e
+  if latest[1].len > 0:
+    Opt.some(latest)
+  else:
+    Opt.none(EraPath)
 
 proc getEraFile(
     db: EraDB, historical_roots: openArray[Eth2Digest],
@@ -530,3 +562,6 @@ when isMainModule:
     f = EraFile.open(dbPath & "/mainnet-00001-40cf2f3c.era").expect(
       "opening works")
   doAssert f.verify(cfg).isOk()
+
+  for x in EraFile.eras(cfg, dbPath):
+    echo x

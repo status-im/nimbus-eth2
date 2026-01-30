@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/os,
+  std/[os, uri],
   stew/byteutils, stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
@@ -64,7 +64,7 @@ type
     of BakedIn:
       networkName*: string
     of BakedInUrl:
-      url*: string
+      url*: Uri
       digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
@@ -153,6 +153,8 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
+    runtimeConfig.checkForkConsistency()
+
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -160,7 +162,7 @@ proc loadEth2NetworkMetadata*(
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
+                          url: parseUri downloadGenesisFrom.get.url,
                           digest: downloadGenesisFrom.get.digest)
         elif useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
