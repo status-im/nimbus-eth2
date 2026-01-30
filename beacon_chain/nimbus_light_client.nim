@@ -60,18 +60,12 @@ proc main() {.noinline, raises: [CatchableError].} =
   template cfg(): auto = metadata.cfg
 
   let
-    genesisBytes = try: waitFor metadata.fetchGenesisBytes()
+    genesisState = try: waitFor metadata.fetchGenesisState()
                    except CatchableError as err:
                      error "Failed to obtain genesis state",
                             source = metadata.genesis.sourceDesc,
                             err = err.msg
                      quit 1
-    genesisState =
-      try:
-        newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
-      except CatchableError as err:
-        raiseAssert "Invalid baked-in state: " & err.msg
-
     genesisTime = getStateField(genesisState[], genesis_time)
     beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime

@@ -1,8 +1,8 @@
 # Sync from a trusted node
 
-When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several hours or even days**.
+When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several days**.
 
-Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead of hours or days.
+Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead.
 
 To use trusted node sync, you must have access to a node that you trust and that exposes the [Beacon API](./rest-api.md) (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
@@ -46,8 +46,8 @@ To start trusted node sync, run:
 If the command was executed successfully, following log lines will be visible:
 
 ```
-Writing checkpoint state
-Writing checkpoint block
+Database initialized from genesis
+Checkpoint written to database
 ```
 And eventually:
 ```
@@ -153,5 +153,5 @@ To recreate a historical index from before the checkpoint, it is necessary to fi
 build/nimbus_beacon_node trustedNodeSync \
   --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --reindex=true
+  --reindex
 ```

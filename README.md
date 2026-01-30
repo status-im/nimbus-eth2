@@ -15,6 +15,8 @@ Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementati
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Documentation](#documentation)
+- [Quickly test your tooling against Nimbus](#quickly-test-your-tooling-against-nimbus)
+- [Migrate from another client](#migrate-from-another-client)
 - [Related projects](#related-projects)
 - [Donations](#donations)
 - [Branch guide](#branch-guide)
@@ -43,8 +45,6 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 * http://unstable.mainnet.beacon-api.nimbus.team/
 * http://testing.hoodi.beacon-api.nimbus.team/
 * http://unstable.hoodi.beacon-api.nimbus.team/
-* http://testing.holesky.beacon-api.nimbus.team/
-* http://unstable.holesky.beacon-api.nimbus.team/
 * http://unstable.sepolia.beacon-api.nimbus.team/
 
 Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
@@ -56,14 +56,15 @@ This [guide](https://nimbus.guide/migration.html) will take you through the basi
 
 ## Related projects
 
-* [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.3.0/#stable-specifications): Consensus specification that this project implements
+* [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus execution client
+* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/master/#stable-specifications): Consensus specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
 ## Donations
 
 If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**

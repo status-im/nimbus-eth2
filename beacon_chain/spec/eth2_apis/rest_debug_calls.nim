@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
+  std/strformat,
   chronos, presto/client,
-  ".."/[helpers, forks],
-  "."/[rest_types, eth2_rest_serialization]
+  ../[helpers, forks],
+  ./[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -35,23 +36,18 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
       await client.getStateV2Plain(state_id, restAcceptType = restAccept)
     else:
       await client.getStateV2Plain(state_id)
-  return
-    case resp.status
-    of 200:
-      if resp.contentType.isNone() or
-         isWildCard(resp.contentType.get().mediaType):
-        raise newException(RestError, "Missing or incorrect Content-Type")
-      else:
-        let mediaType = resp.contentType.get().mediaType
+
+  case resp.status
+  of 200:
+    if resp.contentType.isNone():
+      raise newException(RestError, "Missing Content-Type")
+
+    let
+      mediaType = resp.contentType.get().mediaType
+      state =
         if mediaType == ApplicationJsonMediaType:
-          let state =
-            block:
-              let res = newClone(decodeBytes(GetStateV2Response, resp.data,
-                                    resp.contentType))
-              if res[].isErr():
-                raise newException(RestError, $res[].error())
-              newClone(res[].get())
-          state
+          decodeBytes(GetStateV2Response, resp.data, resp.contentType).valueOr:
+            raise newException(RestError, $error)
         elif mediaType == OctetStreamMediaType:
           try:
             newClone(readSszForkedHashedBeaconState(cfg, resp.data))
@@ -59,16 +55,30 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
             raise newException(RestError, exc.msg)
         else:
           raise newException(RestError, "Unsupported content-type")
-    of 404:
-      nil
-    of 400, 500:
-      let error = decodeBytes(RestErrorMessage, resp.data,
-                              resp.contentType).valueOr:
-        let msg = "Incorrect response error format (" & $resp.status &
-                  ") [" & $error & "]"
-        raise (ref RestResponseError)(msg: msg, status: resp.status)
-      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise (ref RestResponseError)(
-        msg: msg, status: error.code, message: error.message)
-    else:
-      raiseRestResponseError(resp)
+
+    case state_id.kind
+    of StateQueryKind.Slot:
+      if getStateField(state[], slot) != state_id.slot:
+        raise newException(RestError, "Wrong slot in received state")
+    of StateQueryKind.Root:
+      if state[].getStateRoot() != state_id.root:
+        raise newException(RestError, "Wrong root in received state")
+    of StateQueryKind.Named:
+      case state_id.value
+      of StateIdentType.Genesis:
+        if getStateField(state[], slot) != GENESIS_SLOT:
+          raise newException(RestError, "Wrong slot in received state")
+      else:
+        discard # can't trivially check these
+
+    state
+  of 404:
+    nil
+  of 400, 500:
+    let error = decodeBytes(RestErrorMessage, resp.data, resp.contentType).valueOr:
+      let msg = &"Incorrect response error format ({resp.status}) [{error}]"
+      raise (ref RestResponseError)(msg: msg, status: resp.status)
+    let msg = &"Error response ({resp.status}) [{error.message}]"
+    raise (ref RestResponseError)(msg: msg, status: error.code, message: error.message)
+  else:
+    raiseRestResponseError(resp)
