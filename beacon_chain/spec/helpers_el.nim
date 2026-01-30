@@ -20,10 +20,23 @@ func readExecutionTransaction(
     err("Invalid transaction: " & exc.msg)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
-func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
-  static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
-  template transactions: untyped = blck.body.execution_payload.transactions
-  template commitments: untyped = blck.body.blob_kzg_commitments
+func is_valid_versioned_hashes*(
+    blck: deneb.BeaconBlock | electra.BeaconBlock | fulu.BeaconBlock |
+          gloas.BeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
+): Result[void, string] =
+  const consensusFork = typeof(blck).kind
+
+  template transactions: untyped =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload.transactions
+    else:
+      blck.body.execution_payload.transactions
+  template commitments: untyped =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.blob_kzg_commitments
+    else:
+      blck.body.blob_kzg_commitments
 
   var i = 0
   for txBytes in transactions:
@@ -39,3 +52,9 @@ func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
   if i != commitments.len:
     return err("Extra `blob_kzg_commitments` without matching blobs")
   ok()
+
+func is_valid_versioned_hashes*(
+    blck: deneb.BeaconBlock | electra.BeaconBlock | fulu.BeaconBlock |
+          gloas.BeaconBlock,
+): Result[void, string] =
+  is_valid_versioned_hashes(blck, noEnvelope)
