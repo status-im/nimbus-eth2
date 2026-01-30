@@ -14,7 +14,8 @@ import
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
-          network, presets, state_transition]
+          network, presets, state_transition],
+  ./process_state
 
 from presto import RestDecodingError
 from "."/beacon_clock import
@@ -47,12 +48,230 @@ func shortLog*(v: TrustedNodeSyncTarget): auto =
 
 chronicles.formatIt(TrustedNodeSyncTarget): shortLog(it)
 
+proc fromTrustedBlockRoot*(T: type TrustedNodeSyncTarget, v: Eth2Digest): T =
+  T(kind: TrustedNodeSyncKind.TrustedBlockRoot, trustedBlockRoot: v)
+
+proc fromStateId*(T: type TrustedNodeSyncTarget, v: string): T =
+  T(kind: TrustedNodeSyncKind.StateId, stateId: v)
+
 proc createNewRestClient(url: string): Result[RestClientRef, cstring] =
   let
     flags = {RestClientFlag.CommaSeparatedArray,
              RestClientFlag.ResolveAlways}
     socketFlags = {SocketFlags.TcpNoDelay}
   RestClientRef.new(url, flags = flags, socketFlags = socketFlags)
+
+proc fetchCheckpointState(
+    cfg: RuntimeConfig,
+    client: RestClientRef,
+    syncTarget: TrustedNodeSyncTarget,
+    genesisState: ref ForkedHashedBeaconState,
+): Future[ref ForkedHashedBeaconState] {.async: (raises: [CancelledError]).} =
+  var stateRoot: Opt[Eth2Digest]
+  let stateId =
+    case syncTarget.kind
+    of TrustedNodeSyncKind.TrustedBlockRoot:
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
+      const lcDataFork = LightClientDataFork.high
+      var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
+      func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
+        if store.finalized_header.beacon.slot.is_epoch:
+          bestViableCheckpoint.ok(
+            (
+              slot: store.finalized_header.beacon.slot,
+              state_root: store.finalized_header.beacon.state_root,
+            )
+          )
+
+      doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
+      let
+        genesisTime = getStateField(genesisState[], genesis_time)
+        beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
+          error "Invalid genesis time in state", genesisTime
+          quit 1
+
+        genesis_validators_root = getStateField(genesisState[], genesis_validators_root)
+        forkDigests = newClone ForkDigests.init(cfg, genesis_validators_root)
+
+        trustedBlockRoot = syncTarget.trustedBlockRoot
+
+      notice "Downloading state verification light client data", trustedBlockRoot
+
+      var bootstrap =
+        try:
+          info "Downloading LC bootstrap", trustedBlockRoot
+          awaitWithTimeout(
+            client.getLightClientBootstrap(trustedBlockRoot, cfg, forkDigests),
+            smallRequestsTimeout,
+          ):
+            error "Attempt to download LC bootstrap timed out"
+            return nil
+        except CatchableError as exc:
+          error "Unable to download LC bootstrap", error = exc.msg
+          return nil
+      if bootstrap.kind == LightClientDataFork.None:
+        error "LC bootstrap unavailable on server"
+        return nil
+      bootstrap.migrateToDataFork(lcDataFork)
+
+      var store = initialize_light_client_store(
+        trustedBlockRoot, bootstrap.forky(lcDataFork), cfg
+      ).valueOr:
+        error "`initialize_light_client_store` failed", err = error
+        quit 1
+      store.trackBestViableCheckpoint()
+
+      while true:
+        let
+          finalized = store.finalized_header.beacon.slot.sync_committee_period
+          optimistic = store.optimistic_header.beacon.slot.sync_committee_period
+          current = beaconClock.currentSlot.sync_committee_period
+          isNextSyncCommitteeKnown = store.is_next_sync_committee_known
+          periods: Slice[SyncCommitteePeriod] =
+            if finalized == optimistic and not isNextSyncCommitteeKnown:
+              if finalized >= current:
+                finalized .. finalized
+              else:
+                finalized ..< current
+            elif finalized + 1 < current:
+              finalized + 1 ..< current
+            else:
+              break
+          startPeriod = periods.a
+          count = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
+
+        var updates =
+          try:
+            info "Downloading LC updates", startPeriod, count
+            awaitWithTimeout(
+              client.getLightClientUpdatesByRange(startPeriod, count, cfg, forkDigests),
+              smallRequestsTimeout,
+            ):
+              error "Attempt to download LC updates timed out"
+              return nil
+          except CatchableError as exc:
+            error "Unable to download LC updates", error = exc.msg
+            return nil
+        updates.checkLightClientUpdates(startPeriod, count).isOkOr:
+          error "Malformed LC updates response", error
+          quit 1
+        if updates.len == 0:
+          warn "Server does not appear to be fully synced"
+          break
+
+        for i in 0 ..< updates.len:
+          doAssert updates[i].kind > LightClientDataFork.None
+          updates[i].migrateToDataFork(lcDataFork)
+          store.process_light_client_update(
+            updates[i].forky(lcDataFork),
+            beaconClock.currentSlot,
+            cfg,
+            genesis_validators_root,
+          ).isOkOr:
+            error "`process_light_client_update` failed", error
+            quit 1
+          store.trackBestViableCheckpoint()
+
+      var finalityUpdate =
+        try:
+          info "Downloading LC finality update"
+          awaitWithTimeout(
+            client.getLightClientFinalityUpdate(cfg, forkDigests), smallRequestsTimeout
+          ):
+            error "Attempt to download LC finality update timed out"
+            return nil
+        except CatchableError as exc:
+          error "Unable to download LC finality update", err = exc.msg
+          return nil
+      if bootstrap.kind == LightClientDataFork.None:
+        error "LC finality update unavailable on server"
+        return nil
+
+      finalityUpdate.migrateToDataFork(lcDataFork)
+
+      store.process_light_client_update(
+        finalityUpdate.forky(lcDataFork),
+        beaconClock.currentSlot,
+        cfg,
+        genesis_validators_root,
+      ).isOkOr:
+        error "`process_light_client_update` failed", error
+        quit 1
+      store.trackBestViableCheckpoint()
+
+      if bestViableCheckpoint.isErr:
+        error "CP not on epoch boundary. Retry later",
+          latestCheckpointSlot = store.finalized_header.beacon.slot
+        return nil
+      if not store.finalized_header.beacon.slot.is_epoch:
+        warn "CP not on epoch boundary. Using older one",
+          latestCheckpointSlot = store.finalized_header.beacon.slot,
+          bestViableCheckpointSlot = bestViableCheckpoint.get.slot
+
+      stateRoot.ok bestViableCheckpoint.get.state_root
+      Base10.toString(distinctBase(bestViableCheckpoint.get.slot))
+    of TrustedNodeSyncKind.StateId:
+      syncTarget.stateId
+
+  logScope:
+    stateId
+
+  notice "Downloading checkpoint state"
+
+  let state =
+    try:
+      let id = block:
+        let tmp = StateIdent.decodeString(stateId).valueOr:
+          error "Cannot decode checkpoint state id, must be a slot, hash, 'finalized' or 'head'"
+          return nil
+        if tmp.kind == StateQueryKind.Slot and not tmp.slot.is_epoch():
+          notice "Rounding given slot to epoch"
+          StateIdent.init(tmp.slot.epoch().start_slot)
+        else:
+          tmp
+      awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
+        error "Attempt to download checkpoint state timed out; https://nimbus.guide/trusted-node-sync.html#sync-from-checkpoint-files provides an alternative approach"
+        return nil
+    except CatchableError as exc:
+      error "Unable to download checkpoint state", error = exc.msg
+      return nil
+
+  if state == nil:
+    error "No state found a given checkpoint"
+    return nil
+
+  if stateRoot.isSome:
+    if state[].getStateRoot() != stateRoot.get:
+      error "Checkpoint state has incorrect root!",
+        expectedStateRoot = stateRoot.get, actualStateRoot = state[].getStateRoot()
+      return nil
+
+    notice "Checkpoint state validated against light client data",
+      stateRoot = stateRoot.get
+
+  if not getStateField(state[], slot).is_epoch():
+    error "State slot must fall on an epoch boundary",
+      slot = getStateField(state[], slot),
+      offset =
+        getStateField(state[], slot) - getStateField(state[], slot).epoch.start_slot
+    return nil
+
+  state
+
+proc fetchCheckpointState*(
+  cfg: RuntimeConfig,
+  restUrl: string,
+  syncTarget: TrustedNodeSyncTarget,
+  genesisState: ref ForkedHashedBeaconState,
+): Future[ref ForkedHashedBeaconState] {.async: (raises: [CancelledError]).} =
+  var
+    client = createNewRestClient(restUrl).valueOr:
+      error "Cannot connect to server", url = restUrl, reason = error
+      quit 1
+  defer:
+    await client.closeWait()
+
+  await fetchCheckpointState(cfg, client, syncTarget, genesisState)
 
 proc doTrustedNodeSync*(
     db: BeaconChainDB,
@@ -74,8 +293,10 @@ proc doTrustedNodeSync*(
 
   var
     client = createNewRestClient(restUrl).valueOr:
-      error "Cannot connect to server", reason = error
+      error "Cannot connect to server", url = restUrl, reason = error
       quit 1
+  defer:
+    await client.closeWait()
 
   # If possible, we'll store the genesis state in the database - this is not
   # strictly necessary but renders the resulting database compatible with
@@ -160,193 +381,10 @@ proc doTrustedNodeSync*(
       Opt.none(BlockId)
 
   if head.isNone:
-    var stateRoot: Opt[Eth2Digest]
-    let stateId =
-      case syncTarget.kind
-      of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
-        const lcDataFork = LightClientDataFork.high
-        var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
-        func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
-          if store.finalized_header.beacon.slot.is_epoch:
-            bestViableCheckpoint.ok((
-              slot: store.finalized_header.beacon.slot,
-              state_root: store.finalized_header.beacon.state_root))
-
-        doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
-        let
-          genesisTime = getStateField(genesisState[], genesis_time)
-          beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
-            error "Invalid genesis time in state", genesisTime
-            quit 1
-
-          genesis_validators_root =
-            getStateField(genesisState[], genesis_validators_root)
-          forkDigests = newClone ForkDigests.init(cfg, genesis_validators_root)
-
-          trustedBlockRoot = syncTarget.trustedBlockRoot
-
-        var bootstrap =
-          try:
-            notice "Downloading LC bootstrap", trustedBlockRoot
-            awaitWithTimeout(
-              client.getLightClientBootstrap(
-                trustedBlockRoot, cfg, forkDigests),
-              smallRequestsTimeout
-            ):
-              error "Attempt to download LC bootstrap timed out"
-              quit 1
-          except CatchableError as exc:
-            error "Unable to download LC bootstrap", error = exc.msg
-            quit 1
-        if bootstrap.kind == LightClientDataFork.None:
-          error "LC bootstrap unavailable on server"
-          quit 1
-        bootstrap.migrateToDataFork(lcDataFork)
-
-        var storeRes = initialize_light_client_store(
-          trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
-        if storeRes.isErr:
-          error "`initialize_light_client_store` failed", err = storeRes.error
-          quit 1
-        template store: auto = storeRes.get
-        store.trackBestViableCheckpoint()
-
-        while true:
-          let
-            finalized =
-              store.finalized_header.beacon.slot.sync_committee_period
-            optimistic =
-              store.optimistic_header.beacon.slot.sync_committee_period
-            current =
-              beaconClock.currentSlot.sync_committee_period
-            isNextSyncCommitteeKnown =
-              store.is_next_sync_committee_known
-
-          let
-            periods: Slice[SyncCommitteePeriod] =
-              if finalized == optimistic and not isNextSyncCommitteeKnown:
-                if finalized >= current:
-                  finalized .. finalized
-                else:
-                  finalized ..< current
-              elif finalized + 1 < current:
-                finalized + 1 ..< current
-              else:
-                break
-            startPeriod = periods.a
-            count = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
-
-          var updates =
-            try:
-              notice "Downloading LC updates", startPeriod, count
-              awaitWithTimeout(
-                client.getLightClientUpdatesByRange(
-                  startPeriod, count, cfg, forkDigests),
-                smallRequestsTimeout
-              ):
-                error "Attempt to download LC updates timed out"
-                quit 1
-            except CatchableError as exc:
-              error "Unable to download LC updates", error = exc.msg
-              quit 1
-          let e = updates.checkLightClientUpdates(startPeriod, count)
-          if e.isErr:
-            error "Malformed LC updates response", resError = e.error
-            quit 1
-          if updates.len == 0:
-            warn "Server does not appear to be fully synced"
-            break
-          for i in 0 ..< updates.len:
-            doAssert updates[i].kind > LightClientDataFork.None
-            updates[i].migrateToDataFork(lcDataFork)
-            let res = process_light_client_update(
-              store, updates[i].forky(lcDataFork),
-              beaconClock.currentSlot, cfg, genesis_validators_root)
-            if not res.isOk:
-              error "`process_light_client_update` failed", resError = res.error
-              quit 1
-            store.trackBestViableCheckpoint()
-
-        var finalityUpdate =
-          try:
-            notice "Downloading LC finality update"
-            awaitWithTimeout(
-              client.getLightClientFinalityUpdate(cfg, forkDigests),
-              smallRequestsTimeout
-            ):
-              error "Attempt to download LC finality update timed out"
-              quit 1
-          except CatchableError as exc:
-            error "Unable to download LC finality update", error = exc.msg
-            quit 1
-        if bootstrap.kind == LightClientDataFork.None:
-          error "LC finality update unavailable on server"
-          quit 1
-        finalityUpdate.migrateToDataFork(lcDataFork)
-
-        let res = process_light_client_update(
-          store, finalityUpdate.forky(lcDataFork),
-          beaconClock.currentSlot, cfg, genesis_validators_root)
-        if not res.isOk:
-          error "`process_light_client_update` failed", resError = res.error
-          quit 1
-        store.trackBestViableCheckpoint()
-
-        if bestViableCheckpoint.isErr:
-          error "CP not on epoch boundary. Retry later",
-            latestCheckpointSlot = store.finalized_header.beacon.slot
-          quit 1
-        if not store.finalized_header.beacon.slot.is_epoch:
-          warn "CP not on epoch boundary. Using older one",
-            latestCheckpointSlot = store.finalized_header.beacon.slot,
-            bestViableCheckpointSlot = bestViableCheckpoint.get.slot
-
-        stateRoot.ok bestViableCheckpoint.get.state_root
-        Base10.toString(distinctBase(bestViableCheckpoint.get.slot))
-      of TrustedNodeSyncKind.StateId:
-        syncTarget.stateId
-    logScope: stateId
-
-    notice "Downloading checkpoint state"
-
-    let
-      state = try:
-        let id = block:
-          let tmp = StateIdent.decodeString(stateId).valueOr:
-            error "Cannot decode checkpoint state id, must be a slot, hash, 'finalized' or 'head'"
-            quit 1
-          if tmp.kind == StateQueryKind.Slot and not tmp.slot.is_epoch():
-            notice "Rounding given slot to epoch"
-            StateIdent.init(tmp.slot.epoch().start_slot)
-          else:
-            tmp
-        awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
-          error "Attempt to download checkpoint state timed out; https://nimbus.guide/trusted-node-sync.html#sync-from-checkpoint-files provides an alternative approach"
-          quit 1
-      except CatchableError as exc:
-        error "Unable to download checkpoint state",
-          error = exc.msg
-        quit 1
+    let state = await fetchCheckpointState(cfg, client, syncTarget, genesisState)
 
     if state == nil:
       error "No state found a given checkpoint"
-      quit 1
-
-    if stateRoot.isSome:
-      if state[].getStateRoot() != stateRoot.get:
-        error "Checkpoint state has incorrect root!",
-          expectedStateRoot = stateRoot.get,
-          actualStateRoot = state[].getStateRoot()
-        quit 1
-      info "Checkpoint state validated against LC data",
-        stateRoot = stateRoot.get
-
-    if not getStateField(state[], slot).is_epoch():
-      error "State slot must fall on an epoch boundary",
-        slot = getStateField(state[], slot),
-        offset = getStateField(state[], slot) -
-          getStateField(state[], slot).epoch.start_slot
       quit 1
 
     if genesisState != nil:
@@ -506,7 +544,10 @@ proc doTrustedNodeSync*(
     notice "Reindexing historical state lookup tables (you can interrupt this process at any time)"
 
     # Build a DAG
-    dag.rebuildIndex()
+    dag.rebuildIndex(
+      proc(): bool =
+        ProcessState.stopIt(notice("Shutting down", reason = it))
+    )
 
   notice "Done, your beacon node is ready to serve you! Don't forget to check that you're on the canonical chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.",
     checkpoint = dag.head
@@ -519,9 +560,7 @@ when isMainModule:
   let
     cfg = getRuntimeConfig(some os.paramStr(1))
     databaseDir = os.paramStr(2)
-    syncTarget = TrustedNodeSyncTarget(
-      kind: TrustedNodeSyncKind.StateId,
-      stateId: os.paramStr(5))
+    syncTarget = TrustedNodeSyncTarget.fromStateId(os.paramStr(5))
     backfill = os.paramCount() > 5 and os.paramStr(6) == "true"
     db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
   waitFor db.doTrustedNodeSync(
