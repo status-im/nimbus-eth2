@@ -958,11 +958,10 @@ proc storePayload(
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   debugGloasComment("should be decided by Fork Choice")
-  # Temporary call to updateHeadExecutionPayload() without import
+  # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
   # Store sidecars into db.
-  # dag.db.putExecutionPayloadEnvelope(signedEnvelope)
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].delOrphan(signedBlock)
 
