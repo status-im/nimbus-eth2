@@ -896,7 +896,7 @@ suite "Backfill":
 
       dag.backfill.slot == GENESIS_SLOT
 
-    dag.rebuildIndex()
+    dag.rebuildIndex(proc(): bool = false)
 
     check:
       dag.getFinalizedEpochRef() != nil

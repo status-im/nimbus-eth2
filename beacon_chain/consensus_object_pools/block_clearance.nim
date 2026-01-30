@@ -512,8 +512,7 @@ proc addHeadExecutionPayload*(
   const consensusFork = typeof(signedBlock).kind
 
   # Load state cache for state transition function.
-  loadStateCache(dag, cache, blck.bid,
-    getStateField(dag.clearanceState, slot).epoch())
+  loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
 
   # Verify with state transition function.
   process_execution_payload(
