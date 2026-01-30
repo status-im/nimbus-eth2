@@ -21,11 +21,11 @@ func readExecutionTransaction(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(
-    blck: ForkyBeaconBlock,
+    blck: deneb.BeaconBlock | electra.BeaconBlock | fulu.BeaconBlock |
+          gloas.BeaconBlock,
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
 ): Result[void, string] =
   const consensusFork = typeof(blck).kind
-  static: doAssert consensusFork >= ConsensusFork.Deneb
 
   template transactions: untyped =
     when consensusFork >= ConsensusFork.Gloas:
