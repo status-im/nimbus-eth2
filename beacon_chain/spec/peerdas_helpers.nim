@@ -267,10 +267,10 @@ proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], kzg_commitments: deneb.KzgCommitments,
     cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
-  var sidecars = newSeqOfCap[gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
   if kzg_commitments.len == 0 or blobs.len == 0:
-    return sidecars
+    return static(default(seq[gloas.DataColumnSidecar]))
+
+  var sidecars = newSeqOfCap[gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len != kzg_commitments.len:
     return sidecars
