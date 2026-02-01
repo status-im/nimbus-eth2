@@ -1195,8 +1195,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(error)
           forked = ForkedSignedBeaconBlock(restBlock)
 
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
-            getForkedBlockField(forked, slot).epoch):
+        if forked.kind != node.dag.cfg.consensusForkAtEpoch(forked.slot.epoch):
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         let res = withBlck(forked):
