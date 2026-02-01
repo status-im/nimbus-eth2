@@ -450,9 +450,7 @@ template toSidecarsOpt*(
     blobsBundle: BlobsBundle, consensusFork: static ConsensusFork
 ): untyped =
   # TODO actually construct sidecars..
-  when consensusFork >= ConsensusFork.Gloas:
-    Opt.some(default(gloas.DataColumnSidecars))
-  elif consensusFork >= ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     Opt.some(default(fulu.DataColumnSidecars))
   elif consensusFork >= ConsensusFork.Deneb:
     Opt.some(default(BlobSidecars))

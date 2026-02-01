@@ -565,8 +565,8 @@ type
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
-    # Execution
-    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
+    # [Modified in EIP7928]
+    latest_execution_payload_header*: gloas.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex

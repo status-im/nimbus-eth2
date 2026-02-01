@@ -1074,6 +1074,31 @@ proc toExecutionPayloadHeader*(
     excess_blob_gas: payload.excess_blob_gas, # [New in Deneb]
   )
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/_features/eip7928/beacon-chain.md#modified-process_execution_payload
+func toExecutionPayloadHeader*(
+    payload: gloas.ExecutionPayload
+): gloas.ExecutionPayloadHeader =
+  gloas.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used, # [New in Deneb]
+    excess_blob_gas: payload.excess_blob_gas, # [New in Deneb]
+    block_access_list_root: hash_tree_root(payload.block_access_list), # [New in EIP7928]
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095

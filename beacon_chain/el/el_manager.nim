@@ -345,21 +345,6 @@ func areSameAs(expectedParams: Opt[NextExpectedPayloadParams],
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
     expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
-proc forkchoiceUpdated(rpcClient: RpcClient,
-                       state: ForkchoiceStateV1,
-                       payloadAttributes: Opt[PayloadAttributesV1] |
-                                          Opt[PayloadAttributesV2] |
-                                          Opt[PayloadAttributesV3]):
-                       Future[ForkchoiceUpdatedResponse] =
-  when payloadAttributes is Opt[PayloadAttributesV1]:
-    rpcClient.engine_forkchoiceUpdatedV1(state, payloadAttributes)
-  elif payloadAttributes is Opt[PayloadAttributesV2]:
-    rpcClient.engine_forkchoiceUpdatedV2(state, payloadAttributes)
-  elif payloadAttributes is Opt[PayloadAttributesV3]:
-    rpcClient.engine_forkchoiceUpdatedV3(state, payloadAttributes)
-  else:
-    static: doAssert false
-
 proc getPayloadFromSingleEL(
     connection: ELConnection,
     GetPayloadResponseType: type,
@@ -473,6 +458,9 @@ template kind(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): Consensus
 
 template kind(T: type ExecutionPayloadV3): ConsensusFork =
   ConsensusFork.Deneb
+
+template kind(T: type ExecutionPayloadV4): ConsensusFork =
+  ConesnsusFork.Gloas
 
 proc getPayload*(
     m: ELManager,
@@ -629,6 +617,18 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: Hash32,
+    executionRequests: seq[seq[byte]]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_newPayloadV5(
+    payload, versioned_hashes, parent_beacon_block_root,
+    executionRequests)
+
 proc sendGetBlobsV2toSingleEl(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
@@ -775,10 +775,7 @@ proc sendGetBlobsV2*(
   if m.elConnections.len == 0:
     return err()
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
+  when true:
     let deadline = sleepAsync(GETBLOBS_TIMEOUT)
 
     var bestIdx: Opt[int]
@@ -841,10 +838,7 @@ proc sendGetBlobsV3*(
   if m.elConnections.len == 0:
     return err()
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
+  when true:
     let deadline = sleepAsync(GETBLOBS_TIMEOUT)
 
     var bestIdx: Opt[int]
@@ -903,17 +897,12 @@ proc sendGetBlobsV3*(
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
-    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blck).kind
 
-  template executionPayload(): auto =
-    when consensusFork >= ConsensusFork.Gloas:
-      envelope.payload
-    else:
-      blck.body.execution_payload
+  template executionPayload(): auto = blck.body.execution_payload
 
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
@@ -922,28 +911,20 @@ proc sendNewPayload*(
 
   let
     startTime = Moment.now()
-    payload = executionPayload.asEngineExecutionPayload()
+    payload = executionPayload.asEngineExecutionPayload(blck.slot)
 
   when consensusFork >= ConsensusFork.Deneb:
     let
       versioned_hashes =
         block:
-          let kzgCommitments =
-            when consensusFork >= ConsensusFork.Gloas:
-              envelope.blob_kzg_commitments
-            elif consensusFork >= ConsensusFork.Deneb:
-              blck.body.blob_kzg_commitments
+          let kzgCommitments = blck.body.blob_kzg_commitments
           kzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
     let execution_requests =
       block:
-        let executionRequests =
-          when consensusFork >= ConsensusFork.Gloas:
-            envelope.execution_requests
-          else:
-            blck.body.execution_requests
+        let executionRequests = blck.body.execution_requests
         executionRequests.asEngineExecutionRequests()
 
   var
@@ -1035,7 +1016,8 @@ proc forkchoiceUpdatedForSingleEL(
     state: ref ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -1057,7 +1039,8 @@ proc forkchoiceUpdated*(
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4],
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
@@ -1078,7 +1061,21 @@ proc forkchoiceUpdated*(
   if m.elConnections.len == 0:
     return (PayloadExecutionStatus.syncing, Opt.none Hash32)
 
-  when payloadAttributes is Opt[PayloadAttributesV3]:
+  when payloadAttributes is Opt[PayloadAttributesV4]:
+    # This only has to be enough for an unambiguous match. V4 adds slot, which
+    # is already disambiguated by other attributes.
+    template payloadAttributesV3(): auto =
+      if payloadAttributes.isSome:
+        PayloadAttributesV3(
+          timestamp: payloadAttributes.get.timestamp,
+          prevRandao: payloadAttributes.get.prevRandao,
+          suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
+          withdrawals: payloadAttributes.get.withdrawals,
+          parentBeaconBlockRoot: payloadAttributes.get.parentBeaconBlockRoot)
+      else:
+        # As timestamp and prevRandao are both 0, won't false-positive match
+        (static(default(PayloadAttributesV3)))
+  elif payloadAttributes is Opt[PayloadAttributesV3]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
         payloadAttributes.get
@@ -1216,7 +1213,8 @@ proc forkchoiceUpdated*(
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(

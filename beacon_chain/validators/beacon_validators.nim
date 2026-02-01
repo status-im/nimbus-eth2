@@ -576,14 +576,7 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork >= ConsensusFork.Gloas:
-    let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
-        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        engineBid[].eps.blobsBundle.commitments,
-        @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
-      ))
-  elif consensusFork == ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -619,39 +612,6 @@ proc proposeBlockAux(
     validator = shortLog(validator)
 
   beacon_blocks_proposed.inc()
-
-  when consensusFork >= ConsensusFork.Gloas:
-    let envelope = makeExecutionPayloadEnvelope(
-      eps = engineBid[].eps,
-      execution_requests = engineBid[].execution_requests,
-      beacon_block_root = blockRoot,
-      slot = slot,
-      state_root = signedBlock.message.state_root)
-
-    let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
-      node.dag.forkAtEpoch(slot.epoch),
-      node.dag.genesis_validators_root,
-      slot,
-      envelope
-    )
-
-    if signatureRes.isErr:
-      error "Failed to sign sign execution payload envelope",
-        slot, validator = shortLog(validator), err = signatureRes.error
-    else:
-      let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
-        message: envelope,
-        signature: signatureRes.get()
-      )
-
-      discard await node.router.routeExecutionPayloadEnvelope(
-        signedEnvelope, checkValidator = false)
-
-    notice "Payload Envelope proposed",
-      blockRoot = shortLog(blockRoot),
-      blck = shortLog(signedBlock.message),
-      signature = shortLog(signature),
-      validator = shortLog(validator)
 
   newBlockRef.get()
 

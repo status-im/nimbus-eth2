@@ -597,9 +597,6 @@ proc initFullNode(
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
-    gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
-      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
-      onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -609,7 +606,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      blobQuarantine, dataColumnQuarantine,
       getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
@@ -617,11 +614,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Gloas:
-            # Disable sidecars processing at block time.
-            const sidecarsOpt = noSidecars
-          else:
-            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -641,10 +634,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Gloas:
-          # Disable sidecars processing at block time.
-          const sidecarsOpt = noSidecars
-        elif consensusFork == ConsensusFork.Fulu:
+        when consensusFork >= ConsensusFork.Fulu:
           let sidecarsOpt =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               Opt.some(default(fulu.DataColumnSidecars))
@@ -700,7 +690,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine, blobQuarantine, dataColumnQuarantine,
       rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -1371,17 +1361,6 @@ proc addElectraMessageHandlers(
   node.doAddDenebMessageHandlers(
     forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
-proc addGloasMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  debugGloasComment "default gossipsub config"
-  node.network.subscribe(
-    getExecutionPayloadBidTopic(forkDigest), basicParams())
-  node.network.subscribe(
-    getExecutionPayloadTopic(forkDigest), basicParams())
-  node.network.subscribe(
-    getPayloadAttestationMessageTopic(forkDigest), basicParams())
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1424,12 +1403,6 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.unsubscribe(topic)
-
-proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeFuluMessageHandlers(forkDigest)
-  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
-  node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
-  node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1662,7 +1635,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeDenebMessageHandlers,
     removeElectraMessageHandlers,
     removeFuluMessageHandlers,
-    removeGloasMessageHandlers
+    removeFuluMessageHandlers
   ]
 
   for gossipEpoch in oldGossipEpochs:
@@ -1678,7 +1651,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addDenebMessageHandlers,
     addElectraMessageHandlers,
     addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
-    addGloasMessageHandlers
+    addCapellaMessageHandlers
   ]
 
   for gossipEpoch in newGossipEpochs:
@@ -1715,7 +1688,7 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
         debugGloasComment " "
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
@@ -2107,8 +2080,7 @@ proc attemptGetBlobs(node: BeaconNode,
   if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and
-           consensusFork < ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Fulu:
         let blobsFromElOpt =
           await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
@@ -2353,18 +2325,6 @@ proc installMessageValidators(node: BeaconNode) =
                 node.processor[].processSignedBeaconBlock(
                   MsgSource.gossip, signedBlock)))
 
-        # execution_payload_bid
-        # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
-        when consensusFork >= ConsensusFork.Gloas:
-          node.network.addValidator(
-            getExecutionPayloadBidTopic(digest), proc (
-              signedBid: SignedExecutionPayloadBid,
-              src: PeerId
-            ): ValidationResult =
-              toValidationResult(
-                node.processor[].processExecutionPayloadBid(
-                  MsgSource.gossip, signedBid)))
-
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
@@ -2505,7 +2465,7 @@ proc installMessageValidators(node: BeaconNode) =
         # data_column_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
-        when consensusFork == ConsensusFork.Fulu:
+        when consensusFork >= ConsensusFork.Fulu:
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it

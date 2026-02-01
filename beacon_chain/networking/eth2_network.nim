@@ -849,7 +849,7 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
+         T is gloas.SignedBeaconBlock or
          T is gloas.SignedExecutionPayloadEnvelope:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
@@ -2844,15 +2844,6 @@ proc broadcastDataColumnSidecar*(
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = data_column.signed_block_header.message.slot.epoch
-    topic = getDataColumnSidecarTopic(
-      node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
-
-proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let
-    contextEpoch = data_column.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column)

@@ -65,12 +65,10 @@ type
   SomeSidecarsToRoute* =
     NoSidecarsAtFork |
     Opt[seq[BlobSidecar]] |
-    Opt[seq[fulu.DataColumnSidecar]] |
-    Opt[seq[gloas.DataColumnSidecar]]
+    Opt[seq[fulu.DataColumnSidecar]]
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
-    Opt[gloas.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
 const noSidecarsAtFork* = default(NoSidecarsAtFork)
 
@@ -147,44 +145,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
-): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
-  let cols = sidecarsOpt.get()
-  var workers = newSeq[Future[SendResult]](len(cols))
-
-  for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
-    workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
-
-  let resAll = await allFinished(workers)
-
-  for i in 0..<resAll.len:
-    let r = resAll[i]
-    doAssert r.finished()
-    if r.failed():
-      notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
-    else:
-      notice "Data column sent",
-        data_column = shortLog(cols[i])
-
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
-
-proc publishSidecars(
-    router: ref MessageRouter,
-    blck: fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -710,33 +671,5 @@ proc routePayloadAttestationMessage*(
   else:
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
-
-  return ok()
-
-proc routeExecutionPayloadEnvelope*(
-    router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    checkValidator: bool
-): Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res = router[].processor[].processExecutionPayloadEnvelope(
-      MsgSource.api, signedEnvelope)
-
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message),
-        error = res.error()
-      return err(res.error()[1])
-
-  let res =
-    await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-
-  if res.isOk():
-    info "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message),
-      error = res.error()
 
   return ok()

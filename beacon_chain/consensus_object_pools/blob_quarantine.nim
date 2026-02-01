@@ -73,17 +73,14 @@ type
   OnDataColumnSidecarCallback* = proc(
     data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
-  SomeSidecarRef* = ref BlobSidecar | ref fulu.DataColumnSidecar |
-                    ref gloas.DataColumnSidecar
+  SomeSidecarRef* = ref BlobSidecar | ref fulu.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex | BlobIndex
-  SomeDataColumnSidecar = fulu.DataColumnSidecar | gloas.DataColumnSidecar
+  SomeDataColumnSidecar = fulu.DataColumnSidecar
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
     SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
-  GloasColumnQuarantine* =
-    SidecarQuarantine[gloas.DataColumnSidecar, OnDataColumnSidecarCallback]
 
   ColumnQuarantineNode*[A: SomeDataColumnSidecar] =
     DoublyLinkedNode[RootTableRecord[A]]
@@ -172,15 +169,8 @@ func getIndex[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 template slot*(b: BlobSidecar | fulu.DataColumnSidecar): Slot =
   b.signed_block_header.message.slot
 
-template slot*(b: gloas.DataColumnSidecar): Slot =
-  b.slot
-
 template proposer_index(b: BlobSidecar | fulu.DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
-
-template proposer_index(b: gloas.DataColumnSidecar): uint64 =
-  # Gloas's sidecar doesn't have this information
-  0'u64
 
 proc removeNode[A, B](
     quarantine: var SidecarQuarantine[A, B],
@@ -513,14 +503,6 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root)
-
-func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
-    quarantine: SidecarQuarantine[A, B],
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-): bool =
-  ## Function returns ``true`` if quarantine has all the columns for block
-  ## ``envelope`` with block root ``blockRoot``.
-  hasSidecars(quarantine, envelope.message.beacon_block_root)
 
 proc popSidecars*(
     quarantine: var BlobQuarantine,

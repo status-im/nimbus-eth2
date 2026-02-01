@@ -208,7 +208,7 @@ proc recover_cells_and_proofs_parallel*(
   ok(res)
 
 proc assemble_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock,
+    signed_beacon_block: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
   var sidecars = newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
@@ -258,55 +258,6 @@ proc assemble_data_column_sidecars*(
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
-
-  sidecars
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/builder.md#modified-get_data_column_sidecars
-proc assemble_data_column_sidecars*(
-    signed_beacon_block: gloas.SignedBeaconBlock,
-    blobs: seq[KzgBlob], kzg_commitments: deneb.KzgCommitments,
-    cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
-  if kzg_commitments.len == 0 or blobs.len == 0:
-    return static(default(seq[gloas.DataColumnSidecar]))
-
-  var sidecars = newSeqOfCap[gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  if blobs.len != kzg_commitments.len:
-    return sidecars
-
-  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    return sidecars
-
-  var
-    cells = newSeq[CellBytes](blobs.len)
-    proofs = newSeq[ProofBytes](blobs.len)
-
-  for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
-
-  template beacon_block_root: untyped = signed_beacon_block.root
-
-  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-    var
-      column = newSeqOfCap[KzgCell](blobs.len)
-      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
-
-    for rowIndex in 0..<blobs.len:
-      column.add(cells[rowIndex][columnIndex])
-      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
-
-    let sidecar = gloas.DataColumnSidecar(
-      index: ColumnIndex(columnIndex),
-      column: DataColumn.init(column),
-      kzg_commitments: kzg_commitments,
-      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
-      slot: signed_beacon_block.message.slot,
-      beacon_block_root: beacon_block_root
-    )
     sidecars.add(sidecar)
 
   sidecars
@@ -405,33 +356,6 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSid
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
-func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar):
-                                 Result[void, cstring] =
-  ## Verify if the data column sidecar is valid.
-
-  # The sidecar index must be within the valid range
-  if sidecar.index >= NUMBER_OF_COLUMNS:
-    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
-
-  # A sidecar for zero blobs is invalid
-  if sidecar.kzg_commitments.len == 0:
-    return err("Data column contains zero blobs")
-
-  # [Modified in Gloas:EIP7732]
-  # Check that the sidecar respects the blob limit
-  template epoch: untyped = sidecar.slot.epoch()
-  if sidecar.kzg_commitments.lenu64 >
-      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
-    return err("Data column contains too many blobs")
-
-  # The column length must be equal to the number of commitments/proofs
-  if sidecar.column.len != sidecar.kzg_commitments.len or
-      sidecar.column.len != sidecar.kzg_proofs.len:
-    return err("Data column length must be equal to the number of commitments/proofs")
-
-  ok()
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar):
                                                  Result[void, cstring] =
@@ -450,8 +374,7 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar |
-                                                     gloas.DataColumnSidecar):
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 

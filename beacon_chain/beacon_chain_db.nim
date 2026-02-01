@@ -612,14 +612,8 @@ proc new*(T: type BeaconChainDB,
     if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
       kvStore db.openKvStore("fulu_columns").expectDb()
     else: nil,
-    if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
-      kvStore db.openKvStore("gloas_columns").expectDb()
-    else: nil
+    nil
   ]
-
-  var envelopes: KvStoreRef
-  if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
 
@@ -659,7 +653,6 @@ proc new*(T: type BeaconChainDB,
     blocks: blocks,
     blobs: blobs,
     columns: columns,
-    envelopes: envelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -877,14 +870,6 @@ proc putDataColumnSidecar*(
   doAssert db.columns[consensusFork] != nil
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns[consensusFork].putSZSSZ(columnkey(block_root, value.index), value)
-
-proc putDataColumnSidecar*(
-    db: BeaconChainDB,
-    value: gloas.DataColumnSidecar) =
-  const consensusFork = ConsensusFork.Gloas
-  doAssert db.columns[consensusFork] != nil
-  db.columns[consensusFork].putSZSSZ(columnkey(
-    value.beacon_block_root, value.index), value)
 
 proc delDataColumnSidecar*(
     db: BeaconChainDB, consensusFork: ConsensusFork,
@@ -1119,15 +1104,6 @@ proc getDataColumnSidecar*(
   db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
     GetResult.found
 
-proc getDataColumnSidecar*(
-    db: BeaconChainDB, root: Eth2Digest,
-    index: ColumnIndex, value: var gloas.DataColumnSidecar): bool =
-  const consensusFork = ConsensusFork.Gloas
-  if db.columns[consensusFork] == nil:
-    return false
-  db.columns[consensusFork].getSZSSZ(columnkey(root, index), value) ==
-    GetResult.found
-
 proc getSidecar*(
     db: BeaconChainDB, root: Eth2Digest,
     index: auto, sidecar: var BlobSidecar): bool =
@@ -1136,7 +1112,7 @@ proc getSidecar*(
 proc getSidecar*(
     db: BeaconChainDB, root: Eth2Digest,
     index: auto,
-    sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
+    sidecar: var fulu.DataColumnSidecar): bool =
   db.getDataColumnSidecar(root, index, sidecar)
 
 proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):

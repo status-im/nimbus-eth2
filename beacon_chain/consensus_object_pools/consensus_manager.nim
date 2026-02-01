@@ -351,7 +351,17 @@ proc prepareNextSlot*(
       if headBlockHash.isZero:
         return
 
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Gloas:
+        # https://github.com/ethereum/execution-apis/blob/dc4dbca37ef8697d782f431af19120beaf5517f5/src/engine/amsterdam.md#engine_forkchoiceupdatedv4
+        let attributes = PayloadAttributesV4(
+          timestamp: Quantity timestamp,
+          prevRandao: Bytes32 prevRandao.to(Hash32),
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          parentBeaconBlockRoot: beaconHead.blck.bid.root.to(Hash32),
+          slotNumber: Quantity proposalSlot,
+        )
+      elif consensusFork >= ConsensusFork.Deneb:
         # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let attributes = PayloadAttributesV3(

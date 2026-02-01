@@ -17,7 +17,7 @@ import
   kzg4844/kzg_abi,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers,
-    peerdas_helpers, state_transition],
+    state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
@@ -77,7 +77,6 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init(cfg))
       blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
-      gloasColumnQuarantine = newClone(GloasColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -108,7 +107,7 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
-        blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+        blobQuarantine, dataColumnQuarantine,
         getTimeFn,
       )
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
@@ -171,7 +170,7 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        gloasColumnQuarantine, getTimeFn,
+        getTimeFn,
         invalidBlockRoots = @[b2.root])
 
     block:
@@ -203,7 +202,7 @@ suite "Block processor" & preset():
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      blobQuarantine, dataColumnQuarantine,
       getTimeFn,
     )
 
@@ -227,180 +226,6 @@ suite "Block processor" & preset():
         discard await processor.addBlock(
           MsgSource.gossip, b0.blck, b0.blobsBundle.toSidecarsOpt(consensusFork)
         )
-
-  asyncTest "Process Deneb block with blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create valid blobs and KZG data
-        let kzgBlob = createValidKzgBlob()
-        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
-          raiseAssert "Failed to create commitment"
-        let proof = kzg.computeBlobKzgProof(kzgBlob, commitment).valueOr:
-          raiseAssert "Failed to create proof"
-
-        # Build BlobsBundle using testblockutil's type
-        var blobsBundle = testblockutil.BlobsBundle(
-          commitments: @[commitment],
-          proofs: @[proof],
-          blobs: @[kzgBlob.bytes]
-        )
-
-        # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Deneb, forkyState, blobsBundle, cache = cache
-        )
-
-        # Create blob sidecars from the block
-        var blobs: deneb.Blobs
-        var kzg_proofs: deneb.KzgProofs
-        doAssert blobs.add(kzgBlob.bytes)
-        doAssert kzg_proofs.add(proof)
-
-        let blobSidecars = create_blob_sidecars(
-          engineBlock.blck, kzg_proofs, blobs
-        )
-        let bscarRef = blobSidecars.mapIt(newClone(it))
-
-        # Process the block with blob sidecars
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.some(bscarRef)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
-
-  asyncTest "Process Deneb block without blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create block without blobs (default behavior)
-        let engineBlock = addTestEngineBlock(cfg, ConsensusFork.Deneb, forkyState, cache)
-
-        # Verify block has no blob commitments
-        check:
-          engineBlock.blck.message.body.blob_kzg_commitments.len == 0
-
-        # Process should succeed (empty commitments is valid)
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.none(deneb.BlobSidecars)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
-
-  asyncTest "Process Fulu block with data column sidecars" & preset():
-    # Advance to Fulu fork
-    process_slots(
-      cfg, state[], start_slot(cfg.FULU_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Fulu:
-        # Create valid blobs and compute cells/proofs
-        let kzgBlob = createValidKzgBlob()
-        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
-          raiseAssert "Failed to create commitment"
-
-        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
-          raiseAssert "Failed to compute cells and proofs"
-
-        # Build BlobsBundle
-        var blobsBundle = testblockutil.BlobsBundle(
-          commitments: @[commitment],
-          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
-          blobs: @[kzgBlob.bytes]
-        )
-
-        # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
-        )
-
-        # Assemble data column sidecars
-        let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
-        )
-        let dsRef = dataColumnSidecars.mapIt(newClone(it))
-
-        # Process the block with data columns
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.some(dsRef)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
-
-  asyncTest "Process Fulu block without data column sidecars" & preset():
-    # Advance to Fulu fork
-    process_slots(
-      cfg, state[], start_slot(cfg.FULU_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Fulu:
-        # Create block without blobs
-        let engineBlock = addTestEngineBlock(cfg, ConsensusFork.Fulu, forkyState, cache)
-
-        # Verify block has no blob commitments
-        check:
-          engineBlock.blck.message.body.blob_kzg_commitments.len == 0
-
-        # Process should succeed (empty commitments is valid)
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.none(fulu.DataColumnSidecars)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
 
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk

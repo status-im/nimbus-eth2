@@ -1114,7 +1114,7 @@ type SomeGloasBeaconBlockBody =
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     body: SomeGloasBeaconBlockBody,
-    notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
+    notify_new_payload: gloas.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload()
 
   # Verify consistency of the parent hash with respect to the previous
@@ -1484,7 +1484,7 @@ proc process_block*(
 
     ? process_execution_payload(
         cfg, state, blck.body,
-        func(_: deneb.ExecutionPayload): bool = true)
+        func(_: gloas.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
