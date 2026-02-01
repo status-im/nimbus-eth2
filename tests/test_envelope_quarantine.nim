@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,6 +36,8 @@ suite "Envelope Quarantine":
         builder_index: 1'u64)))
     check root1 in quarantine.orphans
     check 1'u64 in quarantine.orphans[root1]
+    quarantine.delOrphan(gloas.SignedBeaconBlock(root: root1))
+    check root1 notin quarantine.orphans
 
   test "Pop orphan":
     let
@@ -53,12 +55,12 @@ suite "Envelope Quarantine":
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(signedBlck) == Opt.some(envelope)
-    check root1 notin quarantine.orphans
+    check root1 in quarantine.orphans
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(gloas.SignedBeaconBlock(root: root1)) ==
       Opt.none(SignedExecutionPayloadEnvelope)
-    check root1 notin quarantine.orphans
+    check root1 in quarantine.orphans
 
     quarantine.addOrphan(envelope)
     check quarantine.popOrphan(gloas.SignedBeaconBlock(message: blck)) ==

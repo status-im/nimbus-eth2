@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -422,7 +422,8 @@ p2pProtocol BeaconSync(version = 1,
       let indices =
         colIds[i].indices
       for id in indices:
-        if dag.db.getDataColumnSidecarSZ(requiredBid.root, id, bytes):
+        if dag.db.getDataColumnSidecarSZ(
+            ConsensusFork.Fulu, requiredBid.root, id, bytes):
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column size, database corrupt?",
               bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
@@ -486,7 +487,8 @@ p2pProtocol BeaconSync(version = 1,
     block outer:
       for i in startIndex..endIndex:
         for k in reqColumns:
-          if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
+          if dag.db.getDataColumnSidecarSZ(
+              ConsensusFork.Fulu, blockIds[i].root, ColumnIndex k, bytes):
             let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
               warn "Cannot read data column sidecar size, database corrup?",
                 bytes = bytes.len, blck = shortLog(blockIds[i])

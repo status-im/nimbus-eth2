@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -480,28 +480,28 @@ proc verify_execution_payload_envelope_signature*(
     fork, genesis_validators_root, epoch, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/validator.md#constructing-a-payload-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/validator.md#constructing-a-payload-attestation
 func compute_payload_attestation_message_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: PayloadAttestationMessage): Eth2Digest =
+    data: PayloadAttestationData): Eth2Digest =
   let
-    epoch = msg.data.slot.epoch
+    epoch = data.slot.epoch
     domain = get_domain(
       fork, DOMAIN_PTC_ATTESTER, epoch, genesis_validators_root)
-  compute_signing_root(msg, domain)
+  compute_signing_root(data, domain)
 
 func get_payload_attestation_message_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: PayloadAttestationMessage,
+    data: PayloadAttestationData,
     privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_payload_attestation_message_signing_root(
-    fork, genesis_validators_root, msg)
+    fork, genesis_validators_root, data)
   blsSign(privkey, signing_root.data)
 
 proc verify_payload_attestation_message_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: PayloadAttestationMessage,
+    data: PayloadAttestationData,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_payload_attestation_message_signing_root(
-    fork, genesis_validators_root, msg)
+    fork, genesis_validators_root, data)
   blsVerify(pubkey, signing_root.data, signature)

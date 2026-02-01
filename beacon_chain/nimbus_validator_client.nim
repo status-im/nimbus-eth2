@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -646,7 +646,9 @@ proc main() {.noinline, raises: [CatchableError].} =
       "Copyright (c) 2020-" & compileYear & " Status Research & Development GmbH"
 
   let
-    config = ValidatorClientConf.loadWithBanners(banner, copyright, [specBanner]).valueOr:
+    config = ValidatorClientConf.loadWithBanners(
+      banner, copyright, [specBanner], setupLogger = true
+    ).valueOr:
       writePanicLine error # Logging not yet set up
       quit QuitFailure
 
@@ -654,7 +656,6 @@ proc main() {.noinline, raises: [CatchableError].} =
     # and avoid using system resources (such as urandom) after that
     rng = HmacDrbgContext.new()
 
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
   setupFileLimits()
 
   waitFor runValidatorClient(config, rng)

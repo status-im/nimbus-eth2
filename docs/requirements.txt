@@ -55,6 +55,7 @@ packaging==24.1
     # via
     #   build
     #   mkdocs
+    #   wheel
 paginate==0.5.7
     # via mkdocs-material
 pathspec==0.12.1
@@ -65,7 +66,7 @@ platformdirs==4.3.6
     # via mkdocs-get-deps
 pygments==2.18.0
     # via mkdocs-material
-pymdown-extensions==10.11.2
+pymdown-extensions==10.16.1
     # via mkdocs-material
 pyproject-hooks==1.2.0
     # via
@@ -88,11 +89,11 @@ requests==2.32.4
     # via mkdocs-material
 six==1.16.0
     # via python-dateutil
-urllib3==2.6.0
+urllib3==2.6.3
     # via requests
 watchdog==5.0.3
     # via mkdocs
-wheel==0.44.0
+wheel==0.46.2
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:

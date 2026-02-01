@@ -461,7 +461,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check data columns" & preset():
+  test "sanity check fulu data columns" & preset():
     const
       blockHeader0 = SignedBeaconBlockHeader(
         message: BeaconBlockHeader(slot: Slot(0)))
@@ -488,9 +488,9 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar0)
 
@@ -499,9 +499,9 @@ suite "Beacon chain DB" & preset():
       dataColumnSidecar == dataColumnSidecar0
       not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
-      db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar1)
 
@@ -511,20 +511,20 @@ suite "Beacon chain DB" & preset():
       db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar1
       not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
-      db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
-    check db.delDataColumnSidecar(blockRoot0, 3)
+    check db.delDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 3)
 
     check:
       not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar1
       not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar2)
 
@@ -534,31 +534,211 @@ suite "Beacon chain DB" & preset():
       dataColumnSidecar == dataColumnSidecar1
       db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar2
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
-    check db.delDataColumnSidecar(blockRoot0, 2)
+    check db.delDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 2)
 
     check:
       not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar2
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
-    check db.delDataColumnSidecar(blockRoot1, 2)
+    check db.delDataColumnSidecar(ConsensusFork.Fulu, blockRoot1, 2)
 
     check:
       not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
       not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
-      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
-      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
-      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Fulu, blockRoot1, 2, buf)
 
+    db.close()
+
+  test "sanity check gloas data columns" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+    
+    let 
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+
+      dataColumnSidecar0 = gloas.DataColumnSidecar(index: 3, beacon_block_root: blockRoot0)
+      dataColumnSidecar1 = gloas.DataColumnSidecar(index: 2, beacon_block_root: blockRoot0)
+      dataColumnSidecar2 = gloas.DataColumnSidecar(index: 2, beacon_block_root: blockRoot1)
+      
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+
+    var
+      buf: seq[byte]
+      dataColumnSidecar: gloas.DataColumnSidecar
+
+    check:
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar0)
+
+    check:
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar0
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar1)
+
+    check:
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar0
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+
+    check:
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar2)
+
+    check:
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar2
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+
+    check:
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar2
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+
+    check:
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 3)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 2)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 2)
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(ConsensusFork.Gloas, blockRoot1, 2, buf)
+
+    db.close()
+
+  test "sanity check execution payload envelopes" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+
+      envelope0 = SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot0))
+      envelope1 = SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot1))
+
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+    
+    var retreivedEnvelope: TrustedSignedExecutionPayloadEnvelope
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    db.putExecutionPayloadEnvelope(envelope0)
+
+    check:
+      db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      retreivedEnvelope.message.beacon_block_root == blockRoot0
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+    
+    db.putExecutionPayloadEnvelope(envelope1)
+
+    check:
+      db.containsExecutionPayloadEnvelope(blockRoot0)
+      db.containsExecutionPayloadEnvelope(blockRoot1)
+      db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    check db.delExecutionPayloadEnvelope(blockRoot0)
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+
+    check db.delExecutionPayloadEnvelope(blockRoot1)
+
+    check:
+      not db.containsExecutionPayloadEnvelope(blockRoot0)
+      not db.containsExecutionPayloadEnvelope(blockRoot1)
+      not db.getExecutionPayloadEnvelope(blockRoot0, retreivedEnvelope)
+      not db.getExecutionPayloadEnvelope(blockRoot1, retreivedEnvelope)
+    
     db.close()
 
 suite "Quarantine" & preset():

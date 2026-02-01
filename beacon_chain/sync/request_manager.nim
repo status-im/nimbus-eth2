@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -644,20 +644,19 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
         let
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
-            columnless.root, forkyBlck)
+            columnless.root)
 
         if len(ident.indices) > 0 and ident notin fetches:
           fetches.add(ident)
         else:
           if commitmentsCount == 0:
-            # this is a programming error should it occur.
+            # this is a programming error it should not occur.
             warn "missing column handler found columnless block with all data columns",
                  blk = columnless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
             ready.add(columnless.root)
           else:
-            # This should not happen either...
-            warn "quarantine missing data columns, but missing indices is empty",
+            debug "requested column indices are no longer relevant",
                  blk = columnless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 

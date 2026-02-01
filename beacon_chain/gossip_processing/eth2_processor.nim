@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -169,11 +169,9 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-
     blobQuarantine*: ref BlobQuarantine
-
     dataColumnQuarantine*: ref ColumnQuarantine
-
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
@@ -202,6 +200,8 @@ proc new*(T: type Eth2Processor,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
+          envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -223,6 +223,8 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
+    envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng, dag.cfg.timeParams,
@@ -342,7 +344,8 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
-  debugGloasComment("process execution payload")
+  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
@@ -472,7 +475,7 @@ proc processDataColumnSidecar*(
   debug "Data column received (Gloas - quarantine not implemented)"
 
   let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.dataColumnQuarantine, self.executionPayloadBidPool,
+    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
@@ -480,10 +483,10 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debugGloasComment ""
-  # TODO: Implement quarantine logic for Gloas
-  # For now, just validate and drop
-  debug "Data column validated (not stored - quarantine TODO)"
+  debug "Data column validated"
+  self.gloasColumnQuarantine[].put(
+    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
+  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
   v
@@ -550,7 +553,7 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let 
+  let
     consensusFork =
       self.dag.cfg.consensusForkAtEpoch(attestation.data.slot.epoch)
     delay = wallTime - attestation.data.slot.attestation_deadline(

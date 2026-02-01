@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -184,7 +184,7 @@ func payload_attestation_signature_set*(
     payload_attestation_message: PayloadAttestationMessage,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_payload_attestation_message_signing_root(
-    fork, genesis_validators_root, payload_attestation_message)
+    fork, genesis_validators_root, payload_attestation_message.data)
 
   SignatureSet.init(pubkey, signing_root, signature)
 

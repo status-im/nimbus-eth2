@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,10 +43,12 @@
 import
   chronicles,
   results,
+  stew/objects,
   ../extras,
-  "."/[
-    beaconstate, eth2_merkleization, forks, helpers, signatures,
-    state_transition_block, state_transition_epoch, validator]
+  ./[
+    beaconstate, eth2_merkleization, forks, helpers, signatures, state_transition_block,
+    state_transition_epoch, validator,
+  ]
 
 export results, extras, state_transition_block
 
@@ -365,6 +367,8 @@ proc makeBeaconBlockWithRewards*(
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -377,7 +381,7 @@ proc makeBeaconBlockWithRewards*(
   ## the block is to be created.
   type
     MaybeBlindedBeaconBlock = consensusFork.BeaconBlock(type(execution_payload))
-    MaybeBlindedBlockBody = typeof(default(MaybeBlindedBeaconBlock).body)
+    MaybeBlindedBlockBody = typeof(declval(MaybeBlindedBeaconBlock).body)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#preparing-for-a-beaconblock
   var blck = MaybeBlindedBeaconBlock(
@@ -403,7 +407,6 @@ proc makeBeaconBlockWithRewards*(
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Bellatrix and
       consensusFork < ConsensusFork.Gloas:
-    debugGloasComment "handle correctly for gloas"
     when execution_payload is ForkyExecutionPayloadHeader:
       blck.body.execution_payload_header = execution_payload
     else:
@@ -416,13 +419,18 @@ proc makeBeaconBlockWithRewards*(
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb and
       consensusFork < ConsensusFork.Gloas:
-    debugGloasComment "handle correctly for gloas"
     blck.body.blob_kzg_commitments = kzg_commitments
 
   when consensusFork >= ConsensusFork.Electra and
       consensusFork < ConsensusFork.Gloas:
-    debugGloasComment "handle correctly for gloas"
     blck.body.execution_requests = execution_requests
+
+  when consensusFork >= ConsensusFork.Gloas:
+    blck.body.signed_execution_payload_bid =
+      signed_execution_payload_bid
+    blck.body.payload_attestations =
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
+        payload_attestations)
 
   let rewards =
     ?process_block(cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -449,12 +457,15 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
       cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
       graffiti, attestations, deposits, validator_changes, sync_aggregate,
-      execution_payload, verificationFlags, kzg_commitments, execution_requests,
+      execution_payload, verificationFlags, kzg_commitments,
+      execution_requests, signed_execution_payload_bid, payload_attestations
     )
   ).blck
 
@@ -474,9 +485,12 @@ proc makeBeaconBlock*(
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
     execution_requests: ExecutionRequests = default(ExecutionRequests),
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
     graffiti, attestations, deposits, validator_changes, sync_aggregate,
-    eps.executionPayload, verificationFlags, eps.kzg_commitments, execution_requests,
+    eps.executionPayload, verificationFlags, eps.kzg_commitments,
+    execution_requests, signed_execution_payload_bid, payload_attestations
   )

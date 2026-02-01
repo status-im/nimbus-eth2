@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -416,6 +416,18 @@ proc submitPoolAttestationsV2*[T: ForkyAttestation](
                     RestCommunicationError], raw: true).} =
   client.submitPoolAttestationsV2Plain(
     body, extraHeaders = @[("eth-consensus-version", fork.toString())])
+
+proc submitPoolAttestations2Ssz*[T: ForkyAttestation](
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[T]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolAttestationsV2Plain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", fork.toString())])
 
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",

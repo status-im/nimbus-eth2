@@ -36,6 +36,13 @@ from ./deneb import
 
 export json_serialization, base
 
+type
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
+  PayloadStatus* = uint8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#custom-types
+  BuilderIndex* = uint64
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
@@ -136,17 +143,37 @@ type
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingwithdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#builder
+  Builder* = object
+    pubkey*: ValidatorPubKey
+    version*: uint8
+    execution_address*: ExecutionAddress
+    balance*: Gwei
+    deposit_epoch*: Epoch
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#builderpendingwithdrawal
   BuilderPendingWithdrawal* = object
     fee_recipient*: ExecutionAddress
     amount*: Gwei
     builder_index*: uint64
-    withdrawable_epoch*: Epoch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
   BuilderPendingPayment* = object
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#new-proposerpreferences
+  ProposerPreferences* = object
+    proposal_slot*: Slot
+    validator_index*: uint64
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/p2p-interface.md#new-signedproposerpreferences
+  SignedProposerPreferences* = object
+    message*: ProposerPreferences
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -245,7 +272,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -331,6 +358,10 @@ type
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
+    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
+    # [New in Gloas:EIP7732]
+    next_withdrawal_builder_index*: uint64
+    # [New in Gloas:EIP7732]
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
     builder_pending_payments*:
@@ -341,7 +372,8 @@ type
     # [New in Gloas:EIP7732]
     latest_block_hash*: Eth2Digest
     # [New in Gloas:EIP7732]
-    latest_withdrawals_root*: Eth2Digest
+    payload_expected_withdrawals*:
+      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -564,6 +596,16 @@ type
     `block`*: gloas.BeaconBlock
     kzg_proofs*: fulu.KzgProofs
     blobs*: Blobs
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#expectedwithdrawals
+  ExpectedWithdrawals* = object
+    withdrawals*: seq[Withdrawal]
+    # [New in Gloas:EIP7732]
+    processed_builder_withdrawals_count*: uint64
+    processed_partial_withdrawals_count*: uint64
+    # [New in Gloas:EIP7732]
+    processed_builders_sweep_count*: uint64
+    processed_sweep_withdrawals_count*: uint64
 
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =

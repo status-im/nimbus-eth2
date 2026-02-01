@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -47,7 +47,7 @@ func popOrphan*(
   if blck.root notin self.orphans:
     return Opt.none(SignedExecutionPayloadEnvelope)
 
-  template builderIdx: untyped =
+  template builderIdx(): auto =
     blck.message.body.signed_execution_payload_bid.message.builder_index
   try:
     var envelope: SignedExecutionPayloadEnvelope
@@ -57,10 +57,9 @@ func popOrphan*(
       Opt.none(SignedExecutionPayloadEnvelope)
   except KeyError:
     Opt.none(SignedExecutionPayloadEnvelope)
-  finally:
-    # After popping an envelope by block, the rest will no longer be valid due to
-    # the mismatch builder index.
-    self.orphans.del(blck.root)
+
+func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
+  self.orphans.del(blck.root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]

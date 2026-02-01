@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -41,7 +41,6 @@ suite "Message signatures":
     pubkey0 = MockPubKeys[0]
     privkey0 = MockPrivKeys[0]
     pubkey1 = MockPubKeys[1]
-    privkey1 = MockPrivKeys[1]
 
   test "Slot signatures":
     let
@@ -95,7 +94,6 @@ suite "Message signatures":
     let
       version0 = fork0.current_version
       version1 = fork1.current_version
-      depositData0 = DepositData(pubkey: pubkey0)
       sig = get_deposit_signature(version0, DepositData(pubkey: pubkey0), privkey0).toValidatorSig
 
     check:
@@ -192,7 +190,6 @@ suite "Message signatures":
       msg0 = default(ExecutionPayloadBid)
       msg1 = (var v = msg0; v.slot = v.slot + 1; v)
       epoch0 = Epoch(0)
-      epoch1 = Epoch(1)
       sig = get_execution_payload_bid_signature(fork0, gvr0, epoch0, msg0, privkey0).toValidatorSig
 
     check:
@@ -244,17 +241,17 @@ suite "Message signatures":
 
   test "payload attestation message signatures":
     let
-      msg0 = default(PayloadAttestationMessage)
-      msg1 = (var m = msg0; m.data.slot = m.data.slot + 1; m)
-      sig = get_payload_attestation_message_signature(fork0, gvr0, msg0, privkey0).toValidatorSig
+      data0 = default(PayloadAttestationData)
+      data1 = (var d = data0; d.slot = d.slot + 1; d)
+      sig = get_payload_attestation_message_signature(fork0, gvr0, data0, privkey0).toValidatorSig
 
     check:
-      verify_payload_attestation_message_signature(fork0, gvr0, msg0, pubkey0, sig)
+      verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey0, sig)
 
-      not verify_payload_attestation_message_signature(fork1, gvr0, msg0, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr1, msg0, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr0, msg1, pubkey0, sig)
-      not verify_payload_attestation_message_signature(fork0, gvr0, msg0, pubkey1, sig)
+      not verify_payload_attestation_message_signature(fork1, gvr0, data0, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr1, data0, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr0, data1, pubkey0, sig)
+      not verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey1, sig)
 
   test "BLS to execution change signatures":
     let

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -785,7 +785,7 @@ proc validateDataColumnSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
@@ -805,7 +805,7 @@ proc validateDataColumnSidecar*(
   # [IGNORE] Modified from Fulu: The sidecar is the first sidecar for the tuple
   # (sidecar.beacon_block_root, sidecar.index) with valid kzg proof.
   let block_root = data_column_sidecar.beacon_block_root
-  if dataColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
+  if gloasColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
   debugGloasComment ""
@@ -837,7 +837,7 @@ proc validateDataColumnSidecar*(
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
+    gloasColumnQuarantine[].onDataColumnSidecarCallback()
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
@@ -1026,7 +1026,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1061,9 +1061,7 @@ proc validateExecutionPayload*(
   # that the builder index are the same from the envelope and the bid from the
   # block. Meaning that checking builder index here would not be helpful due to
   # the check later.
-  var validEnvelope: TrustedSignedExecutionPayloadEnvelope
-  if dag.db.getExecutionPayloadEnvelope(
-      envelope.beacon_block_root, validEnvelope):
+  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
     return errIgnore("ExecutionPayload: already seen")
 
   # [IGNORE] The envelope is from a slot greater than or equal to the latest
@@ -2310,7 +2308,7 @@ proc validatePayloadAttestationMessage*(
 
   # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
   # gossip or non-gossip sources)
-  let blck = dag.getBlockRef(data.beacon_block_root).valueOr:
+  if dag.getBlockRef(data.beacon_block_root).isErr:
     return errIgnore("PayloadAttestationMessage: block not found")
 
   # [REJECT] The message's block `data.beacon_block_root` passes validation.
@@ -2353,7 +2351,7 @@ proc validatePayloadAttestationMessage*(
     if deferredCrypto.isErr():
       return dag.checkedReject(deferredCrypto.error)
 
-    let (cryptoFut, sig) = deferredCrypto.get()
+    let (cryptoFut, _) = deferredCrypto.get()
     let x = await cryptoFut
     case x
     of BatchResult.Invalid:

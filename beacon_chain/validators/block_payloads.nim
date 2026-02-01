@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,7 +33,8 @@
 import
   chronicles,
   results,
-  ../consensus_object_pools/[attestation_pool, consensus_manager],
+  ../consensus_object_pools/[attestation_pool, consensus_manager,
+    payload_attestation_pool],
   ../spec/[forks, state_transition],
   ../spec/mev/rest_mev_calls,
   ../beacon_node
@@ -173,7 +174,8 @@ func decodePayloadRequests(
   ok default(ExecutionRequests)
 
 func decodePayloadRequests(
-    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning
+    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
+         gloas.ExecutionPayloadForSigning
 ): Result[ExecutionRequests, string] =
   try:
     var
@@ -218,6 +220,30 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+func makeSignedExecutionPayloadBid*(
+    executionPayload: deneb.ExecutionPayload,
+    blob_kzg_commitments: KzgCommitments,
+    parentBlockRoot: Eth2Digest,
+    slot: Slot,
+): SignedExecutionPayloadBid =
+  let bid = ExecutionPayloadBid(
+    parent_block_hash: executionPayload.parent_hash,
+    parent_block_root: parentBlockRoot,
+    block_hash: executionPayload.block_hash,
+    prev_randao: executionPayload.prev_randao,
+    fee_recipient: executionPayload.fee_recipient,
+    gas_limit: executionPayload.gas_limit,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    slot: slot,
+    value: 0.Gwei,
+    execution_payment: 0.Gwei,
+    blob_kzg_commitments_root: hash_tree_root(blob_kzg_commitments),
+  )
+  SignedExecutionPayloadBid(
+    message: bid,
+    signature: ValidatorSig.infinity()
+  )
+
 proc makeEngineBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -237,6 +263,21 @@ proc makeEngineBlock*(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        makeSignedExecutionPayloadBid(
+          eps.executionPayload,
+          eps.kzg_commitments,
+          state.latest_block_root,
+          slot
+        )
+      else: default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, cache
+        )
+      else: newSeq[PayloadAttestation]()
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -255,6 +296,8 @@ proc makeEngineBlock*(
       verificationFlags = {},
       eps.kzg_commitments,
       execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -310,8 +353,7 @@ proc getExecutionPayload*(
     withdrawals = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Capella:
         when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "Extracting just the withdrawals from tuple"
-          get_expected_withdrawals(forkyState.data)[0]
+          get_expected_withdrawals(forkyState.data).withdrawals
         else:
           get_expected_withdrawals(forkyState.data)
       else:
@@ -463,6 +505,16 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
+  debugGloasComment "make signed bid from engine payload"
+  let
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, cache
+        )
+      else: newSeq[PayloadAttestation]()
+
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -480,6 +532,8 @@ proc makeBuilderBlock*(
       verificationFlags = {},
       builderBid.blob_kzg_commitments,
       builderBid.execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -577,7 +631,7 @@ proc collectBids*(
 
   Bids[consensusFork](engineBid: enginePayload, builderBid: builderBid)
 
-proc useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
+func useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
   bids.builderBid.isSome() and (
     bids.engineBid.isNone() or
     builderBetterBid(

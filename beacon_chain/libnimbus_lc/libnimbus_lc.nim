@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,6 +9,7 @@
 
 import
   std/[json, sequtils, times],
+  stew/objects,
   eth/common/eth_types_rlp,
   eth/common/keys,
   eth/p2p/discoveryv5/random2,
@@ -957,7 +958,7 @@ proc ETHLightClientHeaderCopyExecutionHash(
   root.toUnmanagedPtr()
 
 type ExecutionPayloadHeader =
-  typeof(default(lcDataFork.LightClientHeader).execution)
+  typeof(declval(lcDataFork.LightClientHeader).execution)
 
 func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
@@ -2304,7 +2305,7 @@ proc ETHReceiptsCreateFromJson(
     # Check fork consistency
     static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
-    static: doAssert totalSerializedFields(LogObject) == 9,
+    static: doAssert totalSerializedFields(LogObject) == 10,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
