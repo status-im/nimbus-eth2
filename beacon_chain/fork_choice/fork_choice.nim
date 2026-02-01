@@ -353,8 +353,11 @@ func process_block*(self: var ForkChoiceBackend,
                     bid: BlockId,
                     parent_root: Eth2Digest,
                     checkpoints: FinalityCheckpoints,
-                    unrealized = none(FinalityCheckpoints)): FcResult[void] =
-  self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
+                    unrealized = none(FinalityCheckpoints),
+                    parent_payload_status = PAYLOAD_STATUS_PENDING
+                    ): FcResult[void] =
+  self.proto_array.onBlock(
+    bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,

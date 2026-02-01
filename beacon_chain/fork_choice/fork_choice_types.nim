@@ -105,6 +105,7 @@ type
     invalid*: bool
     bestChild*: Option[Index]
     bestDescendant*: Option[Index]
+    parent_payload_status*: PayloadStatus
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
