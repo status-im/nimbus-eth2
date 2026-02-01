@@ -49,7 +49,7 @@ See the [execution client guide](./eth1.md) for instructions on how to pick and 
 
 ### 4. Sync from a trusted node
 
-While this step is not mandatory, since Nimbus will automatically start syncing process on the first start, we recommend doing it as it will allow you to get started in **minutes** instead of hours or even days.
+While this step is not mandatory, it can cut down the initial sync time from days to **minutes**.
 
 Follow our [trusted node sync guide](./trusted-node-sync.md).
 
