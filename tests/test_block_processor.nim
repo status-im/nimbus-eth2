@@ -238,7 +238,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getTimeFn
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
     )
 
     withState(state[]):
@@ -293,7 +294,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getTimeFn
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
     )
 
     withState(state[]):
@@ -325,7 +327,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getTimeFn
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
     )
 
     withState(state[]):
@@ -379,7 +382,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, getTimeFn
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
     )
 
     withState(state[]):

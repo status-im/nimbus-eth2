@@ -446,6 +446,9 @@ proc addTestEngineBlockWithBlobs*(
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
+        execution_requests = default(ExecutionRequests),
+        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        payload_attestations = @[]
       )
       .expect("block")
 
