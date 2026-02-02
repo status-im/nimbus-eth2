@@ -63,11 +63,9 @@ proc fetchGenesisState*(
       tmp = decodeFramed(tmp)
 
     let state = newClone(readSszForkedHashedBeaconState(metadata.cfg, tmp))
-    withState(state[]):
-      if forkyState.root != metadata.genesis.digest:
-        raise (ref DigestMismatchError)(
-          msg: "The downloaded genesis state cannot be verified (checksum mismatch)"
-        )
+    if state[].root != metadata.genesis.digest:
+      raise (ref DigestMismatchError)(
+        msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
     state
   of UserSuppliedFile:
     var tmp: seq[byte]

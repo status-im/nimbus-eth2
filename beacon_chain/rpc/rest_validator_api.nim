@@ -694,8 +694,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
-      if uint64(request.validator_index) >=
-                  lenu64(getStateField(node.dag.headState, validators)):
+      if uint64(request.validator_index) >= node.dag.headState.validators.lenu64:
         return RestApiResponse.jsonError(Http400,
                                          InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
@@ -717,8 +716,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.committee_index)
 
       if not is_active_validator(
-          getStateField(
-            node.dag.headState, validators).item(request.validator_index),
+          node.dag.headState.validators.item(request.validator_index),
           request.slot.epoch):
         return RestApiResponse.jsonError(Http400, ValidatorNotActive)
 
@@ -727,8 +725,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.is_aggregator)
 
       let validator_pubkey =
-        getStateField(node.dag.headState, validators).item(
-          request.validator_index).pubkey
+        node.dag.headState.validators.item(request.validator_index).pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, request.validator_index)
@@ -756,8 +753,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
-          if uint64(item.validator_index) >=
-            lenu64(getStateField(node.dag.headState, validators)):
+          if uint64(item.validator_index) >= node.dag.headState.validators.lenu64:
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           res.add(item)
@@ -765,8 +761,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     for item in subscriptions:
       let validator_pubkey =
-        getStateField(node.dag.headState, validators).item(
-          item.validator_index).pubkey
+        node.dag.headState.validators.item(item.validator_index).pubkey
 
       node.consensusManager[].actionTracker.registerSyncDuty(
         validator_pubkey, item.until_epoch)

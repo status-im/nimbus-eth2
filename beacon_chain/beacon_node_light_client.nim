@@ -19,7 +19,7 @@ func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
     when lcDataFork > LightClientDataFork.None:
       shouldSyncOptimistically(
         optimisticSlot = forkyHeader.beacon.slot,
-        dagSlot = getStateField(node.dag.headState, slot),
+        dagSlot = node.dag.headState.slot,
         wallSlot = wallSlot)
     else:
       false

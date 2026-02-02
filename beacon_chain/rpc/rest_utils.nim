@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ import std/macros,
        ../validators/beacon_validators,
        ../consensus_object_pools/blockchain_dag,
        ../beacon_node,
-       "."/[rest_constants, state_ttl_cache]
+       ./[rest_constants, state_ttl_cache]
 
 export
   results, eth2_rest_serialization, blockchain_dag, rest_types,
@@ -66,17 +66,17 @@ func getBlockSlotId*(node: BeaconNode,
     ok(bsi)
 
   of StateQueryKind.Root:
-    if stateIdent.root == getStateRoot(node.dag.headState):
+    if stateIdent.root == node.dag.headState.root:
       ok(node.dag.head.bid.atSlot())
     else:
       # The `state_roots` field holds 8k historical state roots but not the
       # one of the current state - this trick allows us to lookup states without
       # keeping an on-disk index.
-      let headSlot = getStateField(node.dag.headState, slot)
+      let headSlot = node.dag.headState.slot
       for i in 0'u64..<SLOTS_PER_HISTORICAL_ROOT:
         if i >= headSlot:
           break
-        if getStateField(node.dag.headState, state_roots).item(
+        if node.dag.headState.state_roots.item(
             (headSlot - i - 1) mod SLOTS_PER_HISTORICAL_ROOT) ==
             stateIdent.root:
           return node.dag.getBlockIdAtSlot(headSlot - i - 1).orErr(
@@ -98,7 +98,7 @@ func getBlockSlotId*(node: BeaconNode,
       # Take checkpoint-synced nodes into account
       let justifiedEpoch =
         max(
-          getStateField(node.dag.headState, current_justified_checkpoint).epoch,
+          node.dag.headState.current_justified_checkpoint.epoch,
           node.dag.finalizedHead.slot.epoch)
       ok(node.dag.head.atEpochStart(justifiedEpoch).toBlockSlotId().expect("not nil"))
 
@@ -179,7 +179,7 @@ template withStateForBlockSlotId*(nodeParam: BeaconNode,
     if isState(node.dag.headState):
       template state: untyped {.inject, used.} = node.dag.headState
       template stateRoot: untyped {.inject, used.} =
-        getStateRoot(node.dag.headState)
+        node.dag.headState.root
       body
     else:
       let cachedState = if node.stateTtlCache != nil:
@@ -199,7 +199,7 @@ template withStateForBlockSlotId*(nodeParam: BeaconNode,
           node.stateTtlCache.add(stateToAdvance)
 
         template state: untyped {.inject, used.} = stateToAdvance[]
-        template stateRoot: untyped {.inject, used.} = getStateRoot(stateToAdvance[])
+        template stateRoot: untyped {.inject, used.} = stateToAdvance[].root
 
         body
 
@@ -229,7 +229,7 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     keys: openArray[ValidatorPubKey]
                    ): seq[Opt[ValidatorIndex]] =
   var indices = newSeq[Opt[ValidatorIndex]](len(keys))
-  let totalValidatorsInState = getStateField(forkedState, validators).lenu64
+  let totalValidatorsInState = forkedState.validators.lenu64
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]
@@ -242,7 +242,7 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
           res[pubkey] = inputIndex
       res
   if len(keyset) > 0:
-    for validatorIndex, validator in getStateField(forkedState, validators):
+    for validatorIndex, validator in forkedState.validators:
       keyset.withValue(validator.pubkey, listIndex):
         # Store pair (pubkey, index) into cache table.
         cacheTable[validator.pubkey] = ValidatorIndex(validatorIndex)

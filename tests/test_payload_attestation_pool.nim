@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -78,14 +78,14 @@ suite "Payload attestation pool" & preset():
       process_slots(
         dag.cfg,
         state[],
-        getStateField(state[], slot) + 1,
+        state[].slot + 1,
         cache,
         info,
         {}).isOk()
 
   test "Can add and retrieve payload attestations" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -120,7 +120,7 @@ suite "Payload attestation pool" & preset():
 
   test "Multiple validators in PTC can attest" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -152,7 +152,7 @@ suite "Payload attestation pool" & preset():
 
   test "Duplicate validator in PTC - multiple signatures" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -201,7 +201,7 @@ suite "Payload attestation pool" & preset():
 
   test "Can get payload attestations for block production" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -227,7 +227,7 @@ suite "Payload attestation pool" & preset():
 
   test "Payload attestations get pruned" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -258,7 +258,7 @@ suite "Payload attestation pool" & preset():
 
   test "Different payload presence values" & preset():
     let
-      slot = getStateField(state[], slot)
+      slot = state[].slot
       beacon_block_root =
         withState(state[]): hash_tree_root(forkyState.data.latest_block_header)
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
@@ -292,7 +292,7 @@ suite "Payload attestation pool" & preset():
         check agg1.isSome()
 
   test "get_ptc with ShufflingRef matches StateCache version" & preset():
-    let slot = getStateField(state[], slot)
+    let slot = state[].slot
 
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:

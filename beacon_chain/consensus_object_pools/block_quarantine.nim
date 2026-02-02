@@ -141,7 +141,7 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
     var found = false
     for k, blck in quarantine.orphans:
       if k[0] == r:
-        r = getForkedBlockField(blck, parent_root)
+        r = blck.parent_root
         found = true
         break
 
@@ -185,8 +185,7 @@ func removeUnviableOrphanTree(
     if root notin checked:
       checked.add(root)
     for k, v in quarantine.orphans.mpairs():
-      let blockRoot = getForkedBlockField(v, parent_root)
-      if blockRoot == root:
+      if v.parent_root == root:
         toCheck.add(k[0])
         toRemove.add(k)
       elif k[0] == root:
@@ -348,7 +347,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest): ForkedSignedBeaconB
       quarantine.orphans.del k
 
   for k, v in quarantine.orphans.mpairs():
-    if getForkedBlockField(v, parent_root) == root:
+    if v.parent_root == root:
       toRemove.add(k)
       yield v
 
