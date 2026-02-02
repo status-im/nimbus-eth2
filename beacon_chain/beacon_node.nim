@@ -189,6 +189,7 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
     phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
