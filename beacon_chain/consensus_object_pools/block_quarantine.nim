@@ -351,7 +351,7 @@ iterator popSidecarlessBlocks*(
       quarantine.sidecarless.del k
 
   for k, v in quarantine.sidecarless.mpairs():
-    if getForkedBlockField(v, parent_root) == root:
+    if v.parent_root == root:
       toRemove.add(k)
       yield v
 
