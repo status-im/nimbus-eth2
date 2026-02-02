@@ -361,7 +361,7 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
-  proc executionPayloadsEnvelopeByRange(
+  proc executionPayloadEnvelopesByRange(
       peer: Peer,
       startSlot: Slot,
       reqCount: uint64,
