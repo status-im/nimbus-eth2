@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2026 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,12 +8,13 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-import std/strutils
+import std/[strutils, sequtils]
 import unittest2
 import chronos, stew/base10, chronos/unittest2/asynctests
 import ../beacon_chain/networking/peer_scores
 import ../beacon_chain/gossip_processing/block_processor,
-       ../beacon_chain/sync/[sync_manager, sync_queue, response_utils],
+       ../beacon_chain/sync/sync_manager,
+       ../beacon_chain/sync/sync_queue,
        ../beacon_chain/spec/forks
 
 type
@@ -60,32 +61,6 @@ func createChain(slots: Slice[Slot]): seq[ref ForkedSignedBeaconBlock] =
     res.add(item)
   res
 
-func createDigest(data: int): Eth2Digest =
-  var res = Eth2Digest()
-  let tmp = uint64(data).toBytesBE()
-  copyMem(addr res.data[0], addr tmp[0], 8)
-  res
-
-func createChain(slots: openArray[Slot]): seq[ref ForkedSignedBeaconBlock] =
-  var
-    res: seq[ref ForkedSignedBeaconBlock]
-    root = 0
-
-  for slot in slots:
-    let item = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
-    item[].denebData.message.slot = slot
-    if root == 0:
-      item[].denebData.root = createDigest(1)
-      item[].denebData.message.parent_root = createDigest(0)
-      inc(root)
-    else:
-      let prev_root = root
-      inc(root)
-      item[].denebData.root = createDigest(root)
-      item[].denebData.message.parent_root = createDigest(prev_root)
-    res.add(item)
-  res
-
 proc createChain(srange: SyncRange): seq[ref ForkedSignedBeaconBlock] =
   createChain(srange.slot .. (srange.slot + srange.count - 1))
 
@@ -125,14 +100,15 @@ func createBlobs(
 
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
-      signedBlock: ref ForkedSignedBeaconBlock,
+      signedBlock: ForkedSignedBeaconBlock,
+      blobs: Opt[BlobSidecars],
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.
     async: (raises: [CancelledError], raw: true).} =
     let fut =
       Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try:
-      queue.addLastNoWait(BlockEntry(blck: signedBlock[], resfut: fut))
+      queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
     except CatchableError as exc:
       raiseAssert exc.msg
     fut
@@ -185,7 +161,7 @@ proc setupVerifier(
 
 suite "SyncManager test suite":
   for kind in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
-    asyncTest "[SyncQueue#" & $kind & "] Smoke [single peer] test":
+    asyncTest "[SyncQueue# & " & $kind & "] Smoke [single peer] test":
       # Four ranges was distributed to single peer only.
       let
         scenario = [
@@ -219,33 +195,30 @@ suite "SyncManager test suite":
         d3 = createChain(r3.data)
 
       let
-        f1 = sq.push(r1, d1)
-        f2 = sq.push(r2, d2)
-        f3 = sq.push(r3, d3)
+        f1 = sq.push(r1, d1, Opt.none(seq[BlobSidecars]))
+        f2 = sq.push(r2, d2, Opt.none(seq[BlobSidecars]))
+        f3 = sq.push(r3, d3, Opt.none(seq[BlobSidecars]))
 
       check:
         f1.finished == false
         f2.finished == false
         f3.finished == false
 
-      check:
-        (await noCancel f1).count == 32
+      await noCancel f1
 
       check:
         f1.finished == true
         f2.finished == false
         f3.finished == false
 
-      check:
-        (await noCancel f2).count == 32
+      await noCancel f2
 
       check:
         f1.finished == true
         f2.finished == true
         f3.finished == false
 
-      check:
-        (await noCancel f3).count == 32
+      await noCancel f3
 
       check:
         f1.finished == true
@@ -255,10 +228,9 @@ suite "SyncManager test suite":
       let
         r4 = sq.pop(Slot(127), peer)
         d4 = createChain(r4.data)
-        f4 = sq.push(r4, d4)
+        f4 = sq.push(r4, d4, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f4).count == 32
+      await noCancel f4
 
       check:
         f1.finished == true
@@ -268,7 +240,7 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] Smoke [3 peers] test":
+    asyncTest "[SyncQueue# & " & $kind & "] Smoke [3 peers] test":
       # Three ranges was distributed between 3 peers, every range is going to
       # be pushed by all peers.
       let
@@ -317,21 +289,19 @@ suite "SyncManager test suite":
         d33 = createChain(r33.data)
 
       let
-        f11 = sq.push(r11, d11)
-        f12 = sq.push(r12, d12)
-        f13 = sq.push(r13, d13)
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-        f22 = sq.push(r22, d22)
-        f21 = sq.push(r21, d21)
-        f23 = sq.push(r23, d23)
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-        f33 = sq.push(r33, d33)
-        f32 = sq.push(r32, d32)
-        f31 = sq.push(r31, d31)
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f11).count == 32
-
+      await noCancel f11
       check:
         f11.finished == true
         # We do not check f12 and f13 here because their state is undefined
@@ -343,9 +313,7 @@ suite "SyncManager test suite":
         f32.finished == false
         f33.finished == false
 
-      check:
-        (await noCancel f22).count == 32
-
+      await noCancel f22
       check:
         f11.finished == true
         f12.finished == true
@@ -357,9 +325,7 @@ suite "SyncManager test suite":
         f32.finished == false
         f33.finished == false
 
-      check:
-        (await noCancel f33).count == 32
-
+      await noCancel f33
       check:
         f11.finished == true
         f12.finished == true
@@ -375,8 +341,7 @@ suite "SyncManager test suite":
         r41 = sq.pop(Slot(127), peer1)
         d41 = createChain(r41.data)
 
-      check:
-        (await noCancel sq.push(r41, d41)).count == 32
+      await noCancel sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
 
       check:
         f11.finished == true
@@ -391,7 +356,7 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] Failure request push test":
+    asyncTest "[SyncQueue# & " & $kind & "] Failure request push test":
       let
         scenario =
           case kind
@@ -450,8 +415,7 @@ suite "SyncManager test suite":
           d12 = createChain(r12.data)
 
         sq.push(r11)
-        check:
-          (await noCancel sq.push(r12, d12)).count == 32
+        await noCancel sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
         sq.push(r13)
         # Next couple of calls should be detected as non relevant
         sq.push(r11)
@@ -467,8 +431,7 @@ suite "SyncManager test suite":
 
         sq.push(r11)
         sq.push(r12)
-        check:
-          (await noCancel sq.push(r13, d13)).count == 32
+        await noCancel sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
         # Next couple of calls should be detected as non relevant
         sq.push(r11)
         sq.push(r12)
@@ -476,7 +439,7 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] Invalid block [3 peers] test":
+    asyncTest "[SyncQueue# & " & $kind & "] Invalid block [3 peers] test":
       # This scenario performs test for 2 cases.
       # 1. When first error encountered it just drops the the response and
       #    increases `failuresCounter`.
@@ -545,29 +508,26 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11)
-        f12 = sq.push(r12, d12)
-        f13 = sq.push(r13, d13)
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f11).count == 32
-        f11.finished == true
+      await noCancel f11
+      check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21)
-        f22 = sq.push(r22, d22)
-        f23 = sq.push(r23, d23)
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f21).count == 0
+      await noCancel f21
       check:
         f21.finished == true
         f11.finished == true
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f22).count == -32
+      await noCancel f22
       check:
         f21.finished == true
         f22.finished == true
@@ -575,8 +535,7 @@ suite "SyncManager test suite":
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f23).count == 0
+      await noCancel f23
       check:
         f21.finished == true
         f22.finished == true
@@ -600,28 +559,25 @@ suite "SyncManager test suite":
         d43 = createChain(r43.data)
 
       let
-        f31 = sq.push(r31, d31)
-        f32 = sq.push(r32, d32)
-        f33 = sq.push(r33, d33)
-        f42 = sq.push(r42, d42)
-        f41 = sq.push(r41, d41)
-        f43 = sq.push(r43, d43)
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f31).count == 32
+      await noCancel f31
       check:
         f31.finished == true
 
-      check:
-        (await noCancel f42).count == 32
+      await noCancel f42
       check:
         f31.finished == true
         f32.finished == true
         f33.finished == true
         f42.finished == true
 
-      check:
-        (await noCancel f43).count == 0
+      await noCancel f43
       check:
         f31.finished == true
         f32.finished == true
@@ -632,7 +588,7 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] Unviable block [3 peers] test":
+    asyncTest "[SyncQueue# & " & $kind & "] Unviable block [3 peers] test":
       # This scenario performs test for 2 cases.
       # 1. When first error encountered it just drops the the response and
       #    increases `failuresCounter`.
@@ -702,29 +658,26 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11)
-        f12 = sq.push(r12, d12)
-        f13 = sq.push(r13, d13)
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f11).count == 32
+      await noCancel f11
       check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21)
-        f22 = sq.push(r22, d22)
-        f23 = sq.push(r23, d23)
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f21).count == 0
+      await noCancel f21
       check:
         f21.finished == true
         f11.finished == true
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f22).count == -32
+      await noCancel f22
       check:
         f21.finished == true
         f22.finished == true
@@ -732,8 +685,7 @@ suite "SyncManager test suite":
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f23).count == 0
+      await noCancel f23
       check:
         f21.finished == true
         f22.finished == true
@@ -759,28 +711,25 @@ suite "SyncManager test suite":
         d43 = createChain(r43.data)
 
       let
-        f31 = sq.push(r31, d31)
-        f32 = sq.push(r32, d32)
-        f33 = sq.push(r33, d33)
-        f42 = sq.push(r42, d42)
-        f41 = sq.push(r41, d41)
-        f43 = sq.push(r43, d43)
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f31).count == 32
+      await noCancel f31
       check:
         f31.finished == true
 
-      check:
-        (await noCancel f42).count == 32
+      await noCancel f42
       check:
         f31.finished == true
         f32.finished == true
         f33.finished == true
         f42.finished == true
 
-      check:
-        (await noCancel f43).count == 0
+      await noCancel f43
       check:
         f31.finished == true
         f32.finished == true
@@ -791,140 +740,7 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] finish test":
-      const
-        TestScenarios =
-          [
-            (
-              Slot(0), Slot(127),
-              (Slot(0) .. Slot(127), Opt.none(VerifierError)), 4, false, 32
-            ),
-            (
-              Slot(0), Slot(127),
-              (Slot(0) .. Slot(127), Opt.none(VerifierError)), 5, true, 32
-            ),
-            (
-              Slot(0), Slot(120),
-              (Slot(0) .. Slot(120), Opt.none(VerifierError)), 4, false, 25
-            ),
-            (
-              Slot(0), Slot(120),
-              (Slot(0) .. Slot(120), Opt.none(VerifierError)), 5, true, 25
-            ),
-            (
-              Slot(32), Slot(159),
-              (Slot(32) .. Slot(159), Opt.none(VerifierError)), 4, false, 32
-            ),
-            (
-              Slot(32), Slot(159),
-              (Slot(32) .. Slot(159), Opt.none(VerifierError)), 5, true, 32
-            ),
-            (
-              Slot(32), Slot(150),
-              (Slot(32) .. Slot(150), Opt.none(VerifierError)), 4, false, 23
-            ),
-            (
-              Slot(32), Slot(150),
-              (Slot(32) .. Slot(150), Opt.none(VerifierError)), 5, true, 23
-            ),
-            (
-              Slot(13), Slot(120),
-              (Slot(13) .. Slot(120), Opt.none(VerifierError)), 4, false, 12
-            ),
-            (
-              Slot(13), Slot(120),
-              (Slot(13) .. Slot(120), Opt.none(VerifierError)), 5, true, 12
-            ),
-            (
-              Slot(43), Slot(150),
-              (Slot(43) .. Slot(150), Opt.none(VerifierError)), 4, false, 12
-            ),
-            (
-              Slot(43), Slot(150),
-              (Slot(43) .. Slot(150), Opt.none(VerifierError)), 5, true, 12
-            )
-          ]
-
-      for scenario in TestScenarios:
-        let
-          verifier = setupVerifier(kind, [scenario[2]])
-          sq =
-            case kind
-            of SyncQueueKind.Forward:
-              SyncQueue.init(
-                SomeTPeer, kind, scenario[0], scenario[1],
-                32'u64, # 32 slots per request
-                scenario[3], # N concurrent requests
-                2, # 2 failures allowed
-                getStaticSlotCb(scenario[0]),
-                verifier.collector,
-                testforkAtEpoch)
-            of SyncQueueKind.Backward:
-              SyncQueue.init(
-                SomeTPeer, kind, scenario[1], scenario[0],
-                32'u64, # 32 slots per request
-                scenario[3], # N concurrent requests
-                2, # 2 failures allowed
-                getStaticSlotCb(scenario[1]),
-                verifier.collector,
-                testforkAtEpoch)
-
-          peer = SomeTPeer.init("1")
-          r11 = sq.pop(Slot(1000), peer)
-          r12 = sq.pop(Slot(1000), peer)
-          r13 = sq.pop(Slot(1000), peer)
-          r14 = sq.pop(Slot(1000), peer)
-          d11 = createChain(r11.data)
-          d12 = createChain(r12.data)
-          d13 = createChain(r13.data)
-          d14 = createChain(r14.data)
-
-        if not(scenario[4]):
-          let
-            f11 = await sq.push(r11, d11)
-            f12 = await sq.push(r12, d12)
-            f13 = await sq.push(r13, d13)
-            f14 = await sq.push(r14, d14)
-
-          check:
-            f11.count == 32
-            f12.count == 32
-            f13.count == 32
-            f14.count == scenario[5]
-
-          let
-            r1 = sq.pop(Slot(10000), peer)
-            r2 = sq.pop(Slot(20000), peer)
-            r3 = sq.pop(Slot(30000), peer)
-
-          check:
-            r1.isEmpty() == true
-            r2.isEmpty() == true
-            r3.isEmpty() == true
-        else:
-          let
-            f11 = await sq.push(r11, d11)
-            f12 = await sq.push(r12, d12)
-            f13 = await sq.push(r13, d13)
-
-          check:
-            f11.count == 32
-            f12.count == 32
-            f13.count == 32
-
-          check:
-            isEmpty(sq.pop(Slot(10000), peer)) == true
-            isEmpty(sq.pop(Slot(20000), peer)) == true
-            isEmpty(sq.pop(Slot(30000), peer)) == true
-
-          let
-            f14 = await sq.push(r14, d14)
-          check:
-            f14.count == scenario[5]
-
-        await noCancel wait(verifier.verifier, 2.seconds)
-
-    asyncTest "[SyncQueue#" & $kind & "] Empty responses should not " &
+    asyncTest "[SyncQueue# & " & $kind & "] Empty responses should not " &
               "advance queue until other peers will not confirm [3 peers] " &
               "test":
       var emptyResponse: seq[ref ForkedSignedBeaconBlock]
@@ -995,8 +811,7 @@ suite "SyncManager test suite":
 
       let
         r11 = sq.pop(Slot(127), peer1)
-      check:
-        (await sq.push(r11, emptyResponse)).count == 0
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == startSlot
@@ -1004,8 +819,7 @@ suite "SyncManager test suite":
 
       let
         r12 = sq.pop(Slot(127), peer2)
-      check:
-        (await sq.push(r12, emptyResponse)).count == 0
+      await sq.push(r12, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 2nd empty response
         sq.inpSlot == startSlot
@@ -1013,8 +827,7 @@ suite "SyncManager test suite":
 
       let
         r13 = sq.pop(Slot(127), peer3)
-      check:
-        (await sq.push(r13, emptyResponse)).count == 32
+      await sq.push(r13, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # After 3rd empty response we moving forward
         sq.inpSlot == middleSlot1
@@ -1022,8 +835,7 @@ suite "SyncManager test suite":
 
       let
         r21 = sq.pop(Slot(127), peer1)
-      check:
-        (await sq.push(r21, emptyResponse)).count == 0
+      await sq.push(r21, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == middleSlot1
@@ -1031,8 +843,7 @@ suite "SyncManager test suite":
 
       let
         r22 = sq.pop(Slot(127), peer2)
-      check:
-        (await sq.push(r22, emptyResponse)).count == 0
+      await sq.push(r22, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 2nd empty response
         sq.inpSlot == middleSlot1
@@ -1042,8 +853,7 @@ suite "SyncManager test suite":
         r23 = sq.pop(Slot(127), peer3)
         d23 = createChain(r23.data)
 
-      check:
-        (await sq.push(r23, d23)).count == 32
+      await sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
       check:
         # We got non-empty response so we should advance
         sq.inpSlot == middleSlot2
@@ -1051,8 +861,7 @@ suite "SyncManager test suite":
 
       let
         r31 = sq.pop(Slot(127), peer1)
-      check:
-        (await sq.push(r31, emptyResponse)).count == 0
+      await sq.push(r31, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == middleSlot2
@@ -1061,14 +870,13 @@ suite "SyncManager test suite":
       let
         r32 = sq.pop(Slot(127), peer2)
         d32 = createChain(r32.data)
-      check:
-        (await sq.push(r32, d32)).count == 32
+      await sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
       check:
         # We got non-empty response, so we should advance
         sq.inpSlot == finishSlot
         sq.outSlot == finishSlot
 
-    asyncTest "[SyncQueue#" & $kind & "] Empty responses should not " &
+    asyncTest "[SyncQueue# & " & $kind & "] Empty responses should not " &
               "be accounted [3 peers] test":
       var emptyResponse: seq[ref ForkedSignedBeaconBlock]
       let
@@ -1122,8 +930,7 @@ suite "SyncManager test suite":
       let
         r11 = sq.pop(Slot(159), peer1)
         r21 = sq.pop(Slot(159), peer2)
-      check:
-        (await sq.push(r11, emptyResponse)).count == 0
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
       let
         r12 = sq.pop(Slot(159), peer1)
         r13 = sq.pop(Slot(159), peer1)
@@ -1141,24 +948,19 @@ suite "SyncManager test suite":
         r14.data.slot == slots[3]
 
       # Scenario requires some finish steps
-      check:
-        (await sq.push(r21, createChain(r21.data))).count == 32
+      await sq.push(r21, createChain(r21.data), Opt.none(seq[BlobSidecars]))
       let r22 = sq.pop(Slot(159), peer2)
-      check:
-        (await sq.push(r22, createChain(r22.data))).count == 32
+      await sq.push(r22, createChain(r22.data), Opt.none(seq[BlobSidecars]))
       let r23 = sq.pop(Slot(159), peer2)
-      check:
-        (await sq.push(r23, createChain(r23.data))).count == 32
+      await sq.push(r23, createChain(r23.data), Opt.none(seq[BlobSidecars]))
       let r24 = sq.pop(Slot(159), peer2)
-      check:
-        (await sq.push(r24, createChain(r24.data))).count == 32
+      await sq.push(r24, createChain(r24.data), Opt.none(seq[BlobSidecars]))
       let r35 = sq.pop(Slot(159), peer3)
-      check:
-        (await sq.push(r35, createChain(r35.data))).count == 32
+      await sq.push(r35, createChain(r35.data), Opt.none(seq[BlobSidecars]))
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    asyncTest "[SyncQueue#" & $kind & "] Combination of missing parent " &
+    asyncTest "[SyncQueue# & " & $kind & "] Combination of missing parent " &
               "and good blocks [3 peers] test":
       let
         scenario =
@@ -1235,29 +1037,26 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11)
-        f12 = sq.push(r12, d12)
-        f13 = sq.push(r13, d13)
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f11).count == 32
+      await noCancel f11
       check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21)
-        f22 = sq.push(r22, d22)
-        f23 = sq.push(r23, d23)
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f21).count == 0
+      await noCancel f21
       check:
         f21.finished == true
         f11.finished == true
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f22).count == 0
+      await noCancel f22
       check:
         f21.finished == true
         f22.finished == true
@@ -1265,8 +1064,7 @@ suite "SyncManager test suite":
         f12.finished == true
         f13.finished == true
 
-      check:
-        (await noCancel f23).count == 0
+      await noCancel f23
       check:
         f21.finished == true
         f22.finished == true
@@ -1282,14 +1080,13 @@ suite "SyncManager test suite":
         d31 = createChain(r31.data)
         d32 = createChain(r32.data)
         d33 = createChain(r33.data)
-        f31 = sq.push(r31, d31)
-        f32 = sq.push(r32, d32)
-        f33 = sq.push(r33, d33)
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f31).count == 0
-        (await noCancel f32).count == 0
-        (await noCancel f33).count == 0
+      await noCancel f31
+      await noCancel f32
+      await noCancel f33
 
       let
         r41 = sq.pop(Slot(63), peer1)
@@ -1298,15 +1095,15 @@ suite "SyncManager test suite":
         d41 = createChain(r41.data)
         d42 = createChain(r42.data)
         d43 = createChain(r43.data)
-        f42 = sq.push(r32, d42)
-        f41 = sq.push(r31, d41)
-        f43 = sq.push(r33, d43)
+        f42 = sq.push(r32, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r31, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r33, d43, Opt.none(seq[BlobSidecars]))
 
       await noCancel allFutures(f42, f41, f43)
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
-    test "[SyncQueue#" & $kind & "] epochFilter() test":
+    test "[SyncQueue# & " & $kind & "] epochFilter() test":
       let
         aq = newAsyncQueue[BlockEntry]()
         scenario =
@@ -1479,14 +1276,13 @@ suite "SyncManager test suite":
       d11 = createChain(r11.data)
       d12 = createChain(r12.data)
       d13 = createChain(r13.data)
-      f11 = sq.push(r11, d11)
-      f12 = sq.push(r12, d12)
-      f13 = sq.push(r13, d13)
+      f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+      f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+      f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f11).count == 32
-      (await noCancel f12).count == 0
-      (await noCancel f13).count == 0
+    await noCancel f11
+    await noCancel f12
+    await noCancel f13
 
     for i in 0 ..< 3:
       let
@@ -1496,13 +1292,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r21 = sq.pop(Slot(159), peer1)
@@ -1511,14 +1307,13 @@ suite "SyncManager test suite":
       d21 = createChain(r21.data)
       d22 = createChain(r22.data)
       d23 = createChain(r23.data)
-      f21 = sq.push(r21, d21)
-      f22 = sq.push(r22, d22)
-      f23 = sq.push(r23, d23)
+      f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+      f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+      f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f21).count == 0
-      (await noCancel f22).count == -32
-      (await noCancel f23).count == 0
+    await noCancel f21
+    await noCancel f22
+    await noCancel f23
 
     for i in 0 ..< 1:
       let
@@ -1528,13 +1323,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r31 = sq.pop(Slot(159), peer1)
@@ -1543,14 +1338,13 @@ suite "SyncManager test suite":
       d31 = createChain(r31.data)
       d32 = createChain(r32.data)
       d33 = createChain(r33.data)
-      f31 = sq.push(r31, d31)
-      f32 = sq.push(r32, d32)
-      f33 = sq.push(r33, d33)
+      f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+      f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+      f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f31).count == 0
-      (await noCancel f32).count == -64
-      (await noCancel f33).count == 0
+    await noCancel f31
+    await noCancel f32
+    await noCancel f33
 
     for i in 0 ..< 2:
       let
@@ -1560,13 +1354,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r41 = sq.pop(Slot(159), peer1)
@@ -1575,14 +1369,13 @@ suite "SyncManager test suite":
       d41 = createChain(r41.data)
       d42 = createChain(r42.data)
       d43 = createChain(r43.data)
-      f41 = sq.push(r41, d41)
-      f42 = sq.push(r42, d42)
-      f43 = sq.push(r43, d43)
+      f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+      f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+      f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f41).count == 0
-      (await noCancel f42).count == -128
-      (await noCancel f43).count == 0
+    await noCancel f41
+    await noCancel f42
+    await noCancel f43
 
     for i in 0 ..< 5:
       let
@@ -1592,14 +1385,13 @@ suite "SyncManager test suite":
         df1 = createChain(rf1.data)
         df2 = createChain(rf2.data)
         df3 = createChain(rf3.data)
-        ff1 = sq.push(rf1, df1)
-        ff2 = sq.push(rf2, df2)
-        ff3 = sq.push(rf3, df3)
+        ff1 = sq.push(rf1, df1, Opt.none(seq[BlobSidecars]))
+        ff2 = sq.push(rf2, df2, Opt.none(seq[BlobSidecars]))
+        ff3 = sq.push(rf3, df3, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel ff1).count == 32
-        (await noCancel ff2).count == 0
-        (await noCancel ff3).count == 0
+      await noCancel ff1
+      await noCancel ff2
+      await noCancel ff3
 
     await noCancel wait(verifier.verifier, 2.seconds)
 
@@ -1647,14 +1439,13 @@ suite "SyncManager test suite":
       d11 = createChain(r11.data)
       d12 = createChain(r12.data)
       d13 = createChain(r13.data)
-      f11 = sq.push(r11, d11)
-      f12 = sq.push(r12, d12)
-      f13 = sq.push(r13, d13)
+      f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+      f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+      f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f11).count == 32
-      (await noCancel f12).count == 0
-      (await noCancel f13).count == 0
+    await noCancel f11
+    await noCancel f12
+    await noCancel f13
 
     for i in 0 ..< 3:
       let
@@ -1664,13 +1455,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r21 = sq.pop(Slot(159), peer1)
@@ -1679,14 +1470,13 @@ suite "SyncManager test suite":
       d21 = createChain(r21.data)
       d22 = createChain(r22.data)
       d23 = createChain(r23.data)
-      f21 = sq.push(r21, d21)
-      f22 = sq.push(r22, d22)
-      f23 = sq.push(r23, d23)
+      f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+      f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+      f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f21).count == 0
-      (await noCancel f22).count == -128
-      (await noCancel f23).count == 0
+    await noCancel f21
+    await noCancel f22
+    await noCancel f23
 
     for i in 0 ..< 2:
       let
@@ -1696,14 +1486,13 @@ suite "SyncManager test suite":
         d31 = createChain(r31.data)
         d32 = createChain(r32.data)
         d33 = createChain(r33.data)
-        f31 = sq.push(r31, d31)
-        f32 = sq.push(r32, d32)
-        f33 = sq.push(r33, d33)
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f31).count == 32
-        (await noCancel f32).count == 0
-        (await noCancel f33).count == 0
+      await noCancel f31
+      await noCancel f32
+      await noCancel f33
 
     for i in 0 ..< 2:
       let
@@ -1713,13 +1502,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r41 = sq.pop(Slot(159), peer1)
@@ -1728,14 +1517,13 @@ suite "SyncManager test suite":
       d41 = createChain(r41.data)
       d42 = createChain(r42.data)
       d43 = createChain(r43.data)
-      f41 = sq.push(r41, d41)
-      f42 = sq.push(r42, d42)
-      f43 = sq.push(r43, d43)
+      f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+      f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+      f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f41).count == 0
-      (await noCancel f42).count == -128
-      (await noCancel f43).count == 0
+    await noCancel f41
+    await noCancel f42
+    await noCancel f43
 
     for i in 0 ..< 3:
       let
@@ -1745,14 +1533,13 @@ suite "SyncManager test suite":
         d51 = createChain(r51.data)
         d52 = createChain(r52.data)
         d53 = createChain(r53.data)
-        f51 = sq.push(r51, d51)
-        f52 = sq.push(r52, d52)
-        f53 = sq.push(r53, d53)
+        f51 = sq.push(r51, d51, Opt.none(seq[BlobSidecars]))
+        f52 = sq.push(r52, d52, Opt.none(seq[BlobSidecars]))
+        f53 = sq.push(r53, d53, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f51).count == 32
-        (await noCancel f52).count == 0
-        (await noCancel f53).count == 0
+      await noCancel f51
+      await noCancel f52
+      await noCancel f53
 
     for i in 0 ..< 1:
       let
@@ -1762,13 +1549,13 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1)
-        fe2 = sq.push(re2, de2)
-        fe3 = sq.push(re3, de3)
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
-      discard await noCancel fe1
-      discard await noCancel fe2
-      discard await noCancel fe3
+      await noCancel fe1
+      await noCancel fe2
+      await noCancel fe3
 
     let
       r61 = sq.pop(Slot(159), peer1)
@@ -1777,14 +1564,13 @@ suite "SyncManager test suite":
       d61 = createChain(r61.data)
       d62 = createChain(r62.data)
       d63 = createChain(r63.data)
-      f61 = sq.push(r61, d61)
-      f62 = sq.push(r62, d62)
-      f63 = sq.push(r63, d63)
+      f61 = sq.push(r61, d61, Opt.none(seq[BlobSidecars]))
+      f62 = sq.push(r62, d62, Opt.none(seq[BlobSidecars]))
+      f63 = sq.push(r63, d63, Opt.none(seq[BlobSidecars]))
 
-    check:
-      (await noCancel f61).count == 0
-      (await noCancel f62).count == -128
-      (await noCancel f63).count == 0
+    await noCancel f61
+    await noCancel f62
+    await noCancel f63
 
     for i in 0 ..< 5:
       let
@@ -1794,14 +1580,13 @@ suite "SyncManager test suite":
         d71 = createChain(r71.data)
         d72 = createChain(r72.data)
         d73 = createChain(r73.data)
-        f71 = sq.push(r71, d71)
-        f72 = sq.push(r72, d72)
-        f73 = sq.push(r73, d73)
+        f71 = sq.push(r71, d71, Opt.none(seq[BlobSidecars]))
+        f72 = sq.push(r72, d72, Opt.none(seq[BlobSidecars]))
+        f73 = sq.push(r73, d73, Opt.none(seq[BlobSidecars]))
 
-      check:
-        (await noCancel f71).count == 32
-        (await noCancel f72).count == 0
-        (await noCancel f73).count == 0
+      await noCancel f71
+      await noCancel f72
+      await noCancel f73
 
     await noCancel wait(verifier.verifier, 2.seconds)
 
@@ -1908,110 +1693,130 @@ suite "SyncManager test suite":
       r1 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 1'u64))
       r2 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 2'u64))
       r3 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 3'u64))
-      r4 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 4'u64))
 
     check:
-      checkResponse(r1.data,
-        createChain([Slot(11)])).isOk() == true
-      checkResponse(r1.data,
-        createChain(@[])).isOk() == true
-      checkResponse(r1.data,
-        createChain(@[Slot(11), Slot(11)])).isOk() == false
-      checkResponse(r1.data,
-        createChain([Slot(10)])).isOk() == false
-      checkResponse(r1.data,
-        createChain([Slot(12)])).isOk() == false
+      checkResponse(r1, [Slot(11)]).isOk() == true
+      checkResponse(r1, @[]).isOk() == true
+      checkResponse(r1, @[Slot(11), Slot(11)]).isOk() == false
+      checkResponse(r1, [Slot(10)]).isOk() == false
+      checkResponse(r1, [Slot(12)]).isOk() == false
 
-      checkResponse(r2.data,
-        createChain([Slot(11)])).isOk() == true
-      checkResponse(r2.data,
-        createChain([Slot(12)])).isOk() == true
-      checkResponse(r2.data,
-        createChain(@[])).isOk() == true
-      checkResponse(r2.data,
-        createChain([Slot(11), Slot(12)])).isOk() == true
-      checkResponse(r2.data,
-        createChain([Slot(12)])).isOk() == true
-      checkResponse(r2.data,
-        createChain([Slot(11), Slot(12), Slot(13)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(10), Slot(11)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(10)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(12), Slot(11)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(12), Slot(13)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(13)])).isOk() == false
+      checkResponse(r2, [Slot(11)]).isOk() == true
+      checkResponse(r2, [Slot(12)]).isOk() == true
+      checkResponse(r2, @[]).isOk() == true
+      checkResponse(r2, [Slot(11), Slot(12)]).isOk() == true
+      checkResponse(r2, [Slot(12)]).isOk() == true
+      checkResponse(r2, [Slot(11), Slot(12), Slot(13)]).isOk() == false
+      checkResponse(r2, [Slot(10), Slot(11)]).isOk() == false
+      checkResponse(r2, [Slot(10)]).isOk() == false
+      checkResponse(r2, [Slot(12), Slot(11)]).isOk() == false
+      checkResponse(r2, [Slot(12), Slot(13)]).isOk() == false
+      checkResponse(r2, [Slot(13)]).isOk() == false
 
-      checkResponse(r2.data,
-        createChain([Slot(11), Slot(11)])).isOk() == false
-      checkResponse(r2.data,
-        createChain([Slot(12), Slot(12)])).isOk() == false
+      checkResponse(r2, [Slot(11), Slot(11)]).isOk() == false
+      checkResponse(r2, [Slot(12), Slot(12)]).isOk() == false
 
-      checkResponse(r3.data,
-        createChain(@[Slot(11)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(12)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(13)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(12)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(13)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(13)])).isOk() == true
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(13), Slot(12)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(13), Slot(11)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(13), Slot(12), Slot(11)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(13), Slot(11)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(13), Slot(12)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(11)])).isOk() == false
+      checkResponse(r3, @[Slot(11)]).isOk() == true
+      checkResponse(r3, @[Slot(12)]).isOk() == true
+      checkResponse(r3, @[Slot(13)]).isOk() == true
+      checkResponse(r3, @[Slot(11), Slot(12)]).isOk() == true
+      checkResponse(r3, @[Slot(11), Slot(13)]).isOk() == true
+      checkResponse(r3, @[Slot(12), Slot(13)]).isOk() == true
+      checkResponse(r3, @[Slot(11), Slot(13), Slot(12)]).isOk() == false
+      checkResponse(r3, @[Slot(12), Slot(13), Slot(11)]).isOk() == false
+      checkResponse(r3, @[Slot(13), Slot(12), Slot(11)]).isOk() == false
+      checkResponse(r3, @[Slot(13), Slot(11)]).isOk() == false
+      checkResponse(r3, @[Slot(13), Slot(12)]).isOk() == false
+      checkResponse(r3, @[Slot(12), Slot(11)]).isOk() == false
 
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(11), Slot(11)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(12), Slot(12)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(13), Slot(13)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(13), Slot(13)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(12), Slot(12)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(13), Slot(13), Slot(13)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(11), Slot(11)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(12), Slot(12)])).isOk() == false
-      checkResponse(r3.data,
-        createChain(@[Slot(13), Slot(13)])).isOk() == false
+      checkResponse(r3, @[Slot(11), Slot(11), Slot(11)]).isOk() == false
+      checkResponse(r3, @[Slot(11), Slot(12), Slot(12)]).isOk() == false
+      checkResponse(r3, @[Slot(11), Slot(13), Slot(13)]).isOk() == false
+      checkResponse(r3, @[Slot(12), Slot(13), Slot(13)]).isOk() == false
+      checkResponse(r3, @[Slot(12), Slot(12), Slot(12)]).isOk() == false
+      checkResponse(r3, @[Slot(13), Slot(13), Slot(13)]).isOk() == false
+      checkResponse(r3, @[Slot(11), Slot(11)]).isOk() == false
+      checkResponse(r3, @[Slot(12), Slot(12)]).isOk() == false
+      checkResponse(r3, @[Slot(13), Slot(13)]).isOk() == false
 
-    var
-      chain1 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
-      chain2 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
-      chain3 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
-      chain4 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
+  test "[SyncQueue] checkBlobsResponse() test":
+    const maxBlobsPerBlockElectra = 9
 
-    withBlck(chain2[1][]):
-      forkyBlck.message.parent_root = Eth2Digest()
-    withBlck(chain3[2][]):
-      forkyBlck.message.parent_root = Eth2Digest()
-    withBlck(chain4[3][]):
-      forkyBlck.message.parent_root = Eth2Digest()
+    proc checkBlobsResponse[T](
+        req: SyncRequest[T],
+        data: openArray[Slot]): Result[void, cstring] =
+      checkBlobsResponse(req, data, maxBlobsPerBlockElectra)
+
+    let
+      r1 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 1'u64))
+      r2 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 2'u64))
+      r3 = SyncRequest[SomeTPeer](data: SyncRange.init(Slot(11), 3'u64))
+
+      d1 = Slot(11).repeat(maxBlobsPerBlockElectra)
+      d2 = Slot(12).repeat(maxBlobsPerBlockElectra)
+      d3 = Slot(13).repeat(maxBlobsPerBlockElectra)
 
     check:
-      checkResponse(r4.data, chain1).isOk() == true
-      checkResponse(r4.data, chain2).isOk() == false
-      checkResponse(r4.data, chain3).isOk() == false
-      checkResponse(r4.data, chain4).isOk() == false
+      checkBlobsResponse(r1, [Slot(11)]).isOk() == true
+      checkBlobsResponse(r1, @[]).isOk() == true
+      checkBlobsResponse(r1, [Slot(11), Slot(11)]).isOk() == true
+      checkBlobsResponse(r1, [Slot(11), Slot(11), Slot(11)]).isOk() == true
+      checkBlobsResponse(r1, d1).isOk() == true
+      checkBlobsResponse(r1, d1 & @[Slot(11)]).isOk() == false
+      checkBlobsResponse(r1, [Slot(10)]).isOk() == false
+      checkBlobsResponse(r1, [Slot(12)]).isOk() == false
+
+      checkBlobsResponse(r2, [Slot(11)]).isOk() == true
+      checkBlobsResponse(r2, [Slot(12)]).isOk() == true
+      checkBlobsResponse(r2, @[]).isOk() == true
+      checkBlobsResponse(r2, [Slot(11), Slot(12)]).isOk() == true
+      checkBlobsResponse(r2, [Slot(11), Slot(11)]).isOk() == true
+      checkBlobsResponse(r2, [Slot(12), Slot(12)]).isOk() == true
+      checkBlobsResponse(r2, d1).isOk() == true
+      checkBlobsResponse(r2, d2).isOk() == true
+      checkBlobsResponse(r2, d1 & d2).isOk() == true
+      checkBlobsResponse(r2, [Slot(11), Slot(12), Slot(11)]).isOk() == false
+      checkBlobsResponse(r2, [Slot(12), Slot(11)]).isOk() == false
+      checkBlobsResponse(r2, d1 & @[Slot(11)]).isOk() == false
+      checkBlobsResponse(r2, d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r2, @[Slot(11)] & d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r2, d1 & d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r2, d2 & d1).isOk() == false
+
+      checkBlobsResponse(r3, [Slot(11)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(12)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(13)]).isOk() == true
+      checkBlobsResponse(r3, @[]).isOk() == true
+      checkBlobsResponse(r3, [Slot(11), Slot(12)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(11), Slot(11)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(12), Slot(12)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(11), Slot(13)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(12), Slot(13)]).isOk() == true
+      checkBlobsResponse(r3, [Slot(13), Slot(13)]).isOk() == true
+      checkBlobsResponse(r3, d1).isOk() == true
+      checkBlobsResponse(r3, d2).isOk() == true
+      checkBlobsResponse(r3, d3).isOk() == true
+      checkBlobsResponse(r3, d1 & d2).isOk() == true
+      checkBlobsResponse(r3, d1 & d3).isOk() == true
+      checkBlobsResponse(r3, d2 & d3).isOk() == true
+      checkBlobsResponse(r3, [Slot(11), Slot(12), Slot(11)]).isOk() == false
+      checkBlobsResponse(r3, [Slot(11), Slot(13), Slot(12)]).isOk() == false
+      checkBlobsResponse(r3, [Slot(12), Slot(13), Slot(11)]).isOk() == false
+      checkBlobsResponse(r3, [Slot(12), Slot(11)]).isOk() == false
+      checkBlobsResponse(r3, [Slot(13), Slot(12)]).isOk() == false
+      checkBlobsResponse(r3, [Slot(13), Slot(11)]).isOk() == false
+      checkBlobsResponse(r3, d1 & @[Slot(11)]).isOk() == false
+      checkBlobsResponse(r3, d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r3, d3 & @[Slot(13)]).isOk() == false
+      checkBlobsResponse(r3, @[Slot(11)] & d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r3, @[Slot(12)] & d3 & @[Slot(13)]).isOk() == false
+      checkBlobsResponse(r3, @[Slot(11)] & d3 & @[Slot(13)]).isOk() == false
+      checkBlobsResponse(r2, d1 & d2 & @[Slot(12)]).isOk() == false
+      checkBlobsResponse(r2, d1 & d3 & @[Slot(13)]).isOk() == false
+      checkBlobsResponse(r2, d2 & d3 & @[Slot(13)]).isOk() == false
+      checkBlobsResponse(r2, d2 & d1).isOk() == false
+      checkBlobsResponse(r2, d3 & d2).isOk() == false
+      checkBlobsResponse(r2, d3 & d1).isOk() == false
 
   test "[SyncManager] groupBlobs() test":
     var

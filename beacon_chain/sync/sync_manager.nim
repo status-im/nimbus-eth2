@@ -15,7 +15,7 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
-  "."/[sync_protocol, sync_queue, response_utils]
+  "."/[sync_protocol, sync_queue]
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
@@ -461,12 +461,12 @@ proc getSyncBlockData[A, B](
               sync_ident = man.ident,
               topics = "syncman"
 
-        # if len(blobData) > 0:
-        #   let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
-        #   checkBlobsResponse(
-        #       sr, blobSlots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
-        #     peer.updateScore(PeerScoreBadResponse)
-        #     return err("Incorrect blobs sequence received, reason: " & $error)
+        if len(blobData) > 0:
+          let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
+          checkBlobsResponse(
+              sr, blobSlots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
+            peer.updateScore(PeerScoreBadResponse)
+            return err("Incorrect blobs sequence received, reason: " & $error)
 
         let groupedBlobs = groupBlobs(blocks.asSeq(), blobData).valueOr:
           peer.updateScore(PeerScoreNoValues)

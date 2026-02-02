@@ -25,7 +25,7 @@ import
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer2, validator_custody],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
@@ -708,57 +708,56 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
-#    syncManager = newSyncManager[Peer, PeerId](
-#      node.network.peerPool,
-#      dag.cfg.DENEB_FORK_EPOCH,
-#      dag.cfg.FULU_FORK_EPOCH,
-#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-#      SyncQueueKind.Forward, getLocalHeadSlot,
-#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-#      dag.tail.slot, blockVerifier, forkAtEpoch,
-#      shutdownEvent = node.shutdownEvent,
-#      flags = syncManagerFlags)
-#    backfiller = newSyncManager[Peer, PeerId](
-#      node.network.peerPool,
-#      dag.cfg.DENEB_FORK_EPOCH,
-#      dag.cfg.FULU_FORK_EPOCH,
-#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-#      SyncQueueKind.Backward, getLocalHeadSlot,
-#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-#      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
-#      shutdownEvent = node.shutdownEvent,
-#      flags = syncManagerFlags)
-#    clistPivotSlot =
-#      if clist.tail.isSome():
-#        clist.tail.get().blck.slot()
-#      else:
-#        getLocalWallSlot()
+    syncManager = newSyncManager[Peer, PeerId](
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+      SyncQueueKind.Forward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.tail.slot, blockVerifier, forkAtEpoch,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
+    backfiller = newSyncManager[Peer, PeerId](
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+      SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
+    clistPivotSlot =
+      if clist.tail.isSome():
+        clist.tail.get().blck.slot()
+      else:
+        getLocalWallSlot()
     eaSlot = dag.head.slot
-    erSlot = dag.head.slot
-#    untrustedManager = newSyncManager[Peer, PeerId](
-#      node.network.peerPool,
-#      dag.cfg.DENEB_FORK_EPOCH,
-#      dag.cfg.FULU_FORK_EPOCH,
-#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-#      SyncQueueKind.Backward, getLocalHeadSlot,
-#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
-#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-#      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
-#      shutdownEvent = node.shutdownEvent,
-#      flags = syncManagerFlags)
+    untrustedManager = newSyncManager[Peer, PeerId](
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+      SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
-#    requestManager = RequestManager.init(
-#      node.network, supernode, custodyColumns,
-#      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-#      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-#      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+    requestManager = RequestManager.init(
+      node.network, supernode, custodyColumns,
+      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
+      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
       dataColumnQuarantine)
 
@@ -823,18 +822,22 @@ proc initFullNode(
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
+  node.requestManager = requestManager
   node.validatorCustody = validatorCustody
-  # node.requestManager = requestManager
-  # node.syncManager = syncManager
-  # node.backfiller = backfiller
-  # node.untrustedManager = untrustedManager
-  node.syncOverseer =
-    SyncOverseerRef2.new(node.network, node.consensusManager, config,
-                         getBeaconTime, node.beaconClock, blockProcessor,
-                         quarantine, blobQuarantine, dataColumnQuarantine,
-                         node.eventBus.blockGossipPeerQueue,
-                         node.eventBus.blocksQueue,
-                         node.eventBus.finalQueue)
+  node.syncManager = syncManager
+  node.backfiller = backfiller
+  node.untrustedManager = untrustedManager
+  node.syncOverseer = SyncOverseerRef.new(node.consensusManager,
+                                          node.validatorMonitor,
+                                          config,
+                                          getBeaconTime,
+                                          node.list,
+                                          node.beaconClock,
+                                          node.eventBus.optFinHeaderUpdateQueue,
+                                          node.network.peerPool,
+                                          node.batchVerifier,
+                                          syncManager, backfiller,
+                                          untrustedManager)
   node.router = router
 
   await node.addValidators()
@@ -1850,6 +1853,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.blobQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
@@ -2192,7 +2197,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-  # node.requestManager.switchToColumnLoop()
+  node.requestManager.switchToColumnLoop()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -2342,15 +2347,9 @@ proc installMessageValidators(node: BeaconNode) =
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
-              let res =
-                toValidationResult(
-                  node.processor[].processSignedBeaconBlock(
-                    MsgSource.gossip, signedBlock))
-              if res == ValidationResult.Accept:
-                node.eventBus.blockGossipPeerQueue.emit(
-                  EventBeaconBlockGossipPeerObject.init(signedBlock, src))
-              res
-        )
+              toValidationResult(
+                node.processor[].processSignedBeaconBlock(
+                  MsgSource.gossip, signedBlock)))
 
         # execution_payload_bid
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
@@ -2652,7 +2651,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
     wallSlot = wallTime.slotOrZero(node.dag.timeParams)
 
   node.startLightClient()
-  # node.requestManager.start()
+  node.requestManager.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)
