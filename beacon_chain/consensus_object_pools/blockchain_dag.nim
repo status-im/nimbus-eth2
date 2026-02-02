@@ -911,7 +911,6 @@ proc updateBeaconMetrics(
     beacon_head_execution_number.set(
       when consensusFork >= ConsensusFork.Bellatrix and
           consensusFork < ConsensusFork.Gloas:
-        debugGloasComment "handle correctly for gloas"
         forkyState.data.latest_execution_payload_header.block_number.toGaugeValue
       else:
         0'u64.toGaugeValue
@@ -1472,10 +1471,8 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    debugGloasComment ""
-    when consensusFork == ConsensusFork.Gloas:
-      return Opt.none(Eth2Digest)
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix and 
+        consensusFork < ConsensusFork.Gloas:
       if forkyBlck.message.is_execution_block:
         var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
         mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
@@ -2661,7 +2658,7 @@ proc updateHeadExecutionPayload*(
       dag, dag.headState, head.bid.atSlot(), false, cache,
       dag.updateFlags):
     # Advancing the head state should never fail, given that the tail is
-    # implicitly finalised, the head is an ancestor of the tail and we always
+    # implicitly finalised, the tail is an ancestor of the head and we always
     # store the tail state in the database, as well as every epoch slot state in
     # between
     fatal "Unable to load head state during head update, database corrupt?"

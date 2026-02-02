@@ -1375,7 +1375,6 @@ proc addElectraMessageHandlers(
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  debugGloasComment "default gossipsub config"
   node.network.subscribe(
     getExecutionPayloadBidTopic(forkDigest), basicParams())
   node.network.subscribe(
@@ -1715,8 +1714,8 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        debugGloasComment " "
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb or
+          typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
