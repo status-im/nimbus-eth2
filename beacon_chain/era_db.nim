@@ -224,14 +224,13 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
             except CatchableError as exc:
               return err("Unable to read block: " & exc.msg)
 
-        if getForkedBlockField(blck[], slot) != slot:
+        if blck[].slot != slot:
           return err("Block slot does not match era index")
-        if blck[].root !=
-            state[].get_block_root_at_slot(getForkedBlockField(blck[], slot)):
+        if blck[].root != state[].get_block_root_at_slot(blck[].slot):
           return err("Block does not match state")
         if slot > GENESIS_SLOT:
           let
-            proposer = getForkedBlockField(blck[], proposer_index)
+            proposer = blck[].proposer_index
             key = withState(state[]):
               if proposer >= forkyState.data.validators.lenu64:
                 return err("Invalid proposer in block")
@@ -249,7 +248,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
           # Batch-verification more than doubles total verification speed
           sigs.add block_signature_set(
               cfg.forkAtEpoch(slot.epoch),
-              getStateField(state[], genesis_validators_root), slot,
+              state[].genesis_validators_root, slot,
               blck[].root, cooked.get(), sig.get())
 
         else: # slot == GENESIS_SLOT:
@@ -259,7 +258,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
     if sigs.len > 0 and not batchVerify(verifier, sigs):
       return err("Invalid block signature")
 
-  ok(getStateRoot(state[]))
+  ok(state[].root)
 
 type EraPath* = tuple[era: Era, path: string]
 iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =

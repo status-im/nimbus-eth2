@@ -260,14 +260,17 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api2(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
     let
-      wallSlot = node.currentSlot
       headSlot = node.dag.head.slot
-      distance = wallSlot - headSlot
+      distance =
+        if isNil(node.syncOverseer):
+          0'u64
+        else:
+          node.syncOverseer.syncDistance()
       isSyncing =
-        if isNil(node.syncManager):
+        if isNil(node.syncOverseer):
           false
         else:
-          node.syncManager.inProgress
+          node.syncOverseer.syncInProgress()
       isOptimistic =
         if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
           Opt.some(not node.dag.head.executionValid)
@@ -290,9 +293,13 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
+    if isNil(node.syncOverseer):
+      return RestApiResponse.response(Http200)
+
     let status =
-      if node.syncManager.inProgress:
+      if node.syncOverseer.syncInProgress():
         Http206
       else:
         Http200
+
     RestApiResponse.response(status)

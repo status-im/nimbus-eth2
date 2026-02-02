@@ -25,7 +25,7 @@ import
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer2, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
@@ -169,8 +169,7 @@ proc setupDatabase(
     checkpointState =
       ?fetchCheckpointState(metadata, config.eraDir, config.finalizedCheckpointState)
     genesisState =
-      if not checkpointState.isNil and
-          getStateField(checkpointState[], slot) == GENESIS_SLOT:
+      if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
         checkpointState
       else:
         ?await fetchGenesisState(
@@ -211,7 +210,7 @@ proc setupDatabase(
       if checkpointState != nil and tmp != nil:
         # Special case: we loaded a checkpoint state (for example from era
         # files) and then the remote beacon api gave us a newer one!
-        if getStateField(tmp[], slot) > getStateField(checkpointState[], slot):
+        if tmp[].slot > checkpointState[].slot:
           checkpointState = tmp
     else:
       warn "Ignoring `--external-beacon-api-url`, neither " &
@@ -227,14 +226,14 @@ proc setupDatabase(
 
   if not genesisState.isNil and config.longRangeSync == LongRangeSyncMode.Light:
     let
-      genesisTime = getStateField(genesisState[], genesis_time)
+      genesisTime = genesisState[].genesis_time
       beaconClock = BeaconClock.init(metadata.cfg.timeParams, genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
         return Opt.none(BeaconChainDB)
       currentSlot = beaconClock.currentSlot
       checkpoint = Checkpoint(
-        epoch: epoch(getStateField(genesisState[], slot)),
-        root: getStateField(genesisState[], latest_block_header).state_root,
+        epoch: genesisState[].slot.epoch(),
+        root: genesisState[].latest_block_header.state_root,
       )
 
     if not is_within_weak_subjectivity_period(
@@ -247,11 +246,10 @@ proc setupDatabase(
         return Opt.none(BeaconChainDB)
 
   if not genesisState.isNil and not checkpointState.isNil:
-    if getStateField(genesisState[], genesis_validators_root) !=
-        getStateField(checkpointState[], genesis_validators_root):
+    if genesisState[].genesis_validators_root != checkpointState[].genesis_validators_root:
       fatal "Checkpoint state does not match genesis - check the --network parameter",
-        rootFromGenesis = getStateField(genesisState[], genesis_validators_root),
-        rootFromCheckpoint = getStateField(checkpointState[], genesis_validators_root)
+        rootFromGenesis = genesisState[].genesis_validators_root,
+        rootFromCheckpoint = checkpointState[].genesis_validators_root
       return Opt.none(BeaconChainDB)
 
   # Always store genesis state if we have it - this allows reindexing and
@@ -260,8 +258,7 @@ proc setupDatabase(
     ChainDAGRef.preInit(db, genesisState[])
 
   if not checkpointState.isNil:
-    if genesisState.isNil or
-        getStateField(checkpointState[], slot) != getStateField(genesisState[], slot):
+    if genesisState.isNil or checkpointState[].slot != genesisState[].slot:
       ChainDAGRef.preInit(db, checkpointState[])
 
   doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
@@ -399,8 +396,7 @@ proc loadChainDag(
       onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
 
   if networkGenesisValidatorsRoot.isSome:
-    let databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
+    let databaseGenesisValidatorsRoot = dag.headState.genesis_validators_root
     if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",
             networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
@@ -426,7 +422,7 @@ proc checkWeakSubjectivityCheckpoint(
   if isCheckpointStale:
     error "Weak subjectivity checkpoint is stale",
           currentSlot, checkpoint = wsCheckpoint,
-          headStateSlot = getStateField(dag.headState, slot)
+          headStateSlot = dag.headState.slot
     quit 1
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
@@ -434,8 +430,8 @@ from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   let
     checkpoint = Checkpoint(
-      epoch: epoch(getStateField(dag.headState, slot)),
-      root: getStateField(dag.headState, latest_block_header).state_root)
+      epoch: dag.headState.slot.epoch(),
+      root: dag.headState.latest_block_header.state_root)
   is_within_weak_subjectivity_period(dag.cfg, slot,
                                      dag.headState, checkpoint)
 
@@ -712,56 +708,57 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
-    syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-      SyncQueueKind.Forward, getLocalHeadSlot,
-      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.tail.slot, blockVerifier, forkAtEpoch,
-      shutdownEvent = node.shutdownEvent,
-      flags = syncManagerFlags)
-    backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-      SyncQueueKind.Backward, getLocalHeadSlot,
-      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
-      shutdownEvent = node.shutdownEvent,
-      flags = syncManagerFlags)
-    clistPivotSlot =
-      if clist.tail.isSome():
-        clist.tail.get().blck.slot()
-      else:
-        getLocalWallSlot()
+#    syncManager = newSyncManager[Peer, PeerId](
+#      node.network.peerPool,
+#      dag.cfg.DENEB_FORK_EPOCH,
+#      dag.cfg.FULU_FORK_EPOCH,
+#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+#      SyncQueueKind.Forward, getLocalHeadSlot,
+#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+#      dag.tail.slot, blockVerifier, forkAtEpoch,
+#      shutdownEvent = node.shutdownEvent,
+#      flags = syncManagerFlags)
+#    backfiller = newSyncManager[Peer, PeerId](
+#      node.network.peerPool,
+#      dag.cfg.DENEB_FORK_EPOCH,
+#      dag.cfg.FULU_FORK_EPOCH,
+#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+#      SyncQueueKind.Backward, getLocalHeadSlot,
+#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+#      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
+#      shutdownEvent = node.shutdownEvent,
+#      flags = syncManagerFlags)
+#    clistPivotSlot =
+#      if clist.tail.isSome():
+#        clist.tail.get().blck.slot()
+#      else:
+#        getLocalWallSlot()
     eaSlot = dag.head.slot
-    untrustedManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-      SyncQueueKind.Backward, getLocalHeadSlot,
-      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
-      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
-      shutdownEvent = node.shutdownEvent,
-      flags = syncManagerFlags)
+    erSlot = dag.head.slot
+#    untrustedManager = newSyncManager[Peer, PeerId](
+#      node.network.peerPool,
+#      dag.cfg.DENEB_FORK_EPOCH,
+#      dag.cfg.FULU_FORK_EPOCH,
+#      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+#      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+#      SyncQueueKind.Backward, getLocalHeadSlot,
+#      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
+#      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+#      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
+#      shutdownEvent = node.shutdownEvent,
+#      flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
-    requestManager = RequestManager.init(
-      node.network, supernode, custodyColumns,
-      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+#    requestManager = RequestManager.init(
+#      node.network, supernode, custodyColumns,
+#      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
+#      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+#      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
       dataColumnQuarantine)
 
@@ -826,22 +823,18 @@ proc initFullNode(
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
-  node.requestManager = requestManager
   node.validatorCustody = validatorCustody
-  node.syncManager = syncManager
-  node.backfiller = backfiller
-  node.untrustedManager = untrustedManager
-  node.syncOverseer = SyncOverseerRef.new(node.consensusManager,
-                                          node.validatorMonitor,
-                                          config,
-                                          getBeaconTime,
-                                          node.list,
-                                          node.beaconClock,
-                                          node.eventBus.optFinHeaderUpdateQueue,
-                                          node.network.peerPool,
-                                          node.batchVerifier,
-                                          syncManager, backfiller,
-                                          untrustedManager)
+  # node.requestManager = requestManager
+  # node.syncManager = syncManager
+  # node.backfiller = backfiller
+  # node.untrustedManager = untrustedManager
+  node.syncOverseer =
+    SyncOverseerRef2.new(node.network, node.consensusManager, config,
+                         getBeaconTime, node.beaconClock, blockProcessor,
+                         quarantine, blobQuarantine, dataColumnQuarantine,
+                         node.eventBus.blockGossipPeerQueue,
+                         node.eventBus.blocksQueue,
+                         node.eventBus.finalQueue)
   node.router = router
 
   await node.addValidators()
@@ -942,7 +935,7 @@ proc init*(
     dag = loadChainDag(
       config, metadata.cfg, db, eventBus,
       validatorMonitor, metadata.bakedGenesisValidatorsRoot())
-    genesisTime = getStateField(dag.headState, genesis_time)
+    genesisTime = dag.headState.genesis_time
     beaconClock = BeaconClock.init(metadata.cfg.timeParams, genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
       return Opt.none(BeaconNode)
@@ -1008,7 +1001,7 @@ proc init*(
       metadata.cfg,
       dag.forkDigests,
       getBeaconTime,
-      getStateField(dag.headState, genesis_validators_root),
+      dag.headState.genesis_validators_root,
     ).valueOr:
       error "Failed to initialize node", err = error
       return Opt.none(BeaconNode)
@@ -1026,8 +1019,7 @@ proc init*(
     path = config.validatorsDir()
 
   proc getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-    withState(dag.headState):
-      getValidator(forkyState().data.validators.asSeq(), pubkey)
+    getValidator(dag.headState.validators.asSeq, pubkey)
 
   func getCapellaForkVersion(): Opt[presets.Version] =
     Opt.some(metadata.cfg.CAPELLA_FORK_VERSION)
@@ -1039,13 +1031,13 @@ proc init*(
     Opt.some(dag.forkAtEpoch(epoch))
 
   proc getGenesisRoot(): Eth2Digest =
-    getStateField(dag.headState, genesis_validators_root)
+    dag.headState.genesis_validators_root
 
   let
     keystoreCache = KeystoreCacheRef.init()
     slashingProtectionDB =
       SlashingProtectionDB.init(
-          getStateField(dag.headState, genesis_validators_root),
+          dag.headState.genesis_validators_root,
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(
       slashingProtectionDB, config.doppelgangerDetection))
@@ -1149,9 +1141,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
-    validatorsCount =
-      withState(node.dag.headState):
-        forkyState.data.validators.lenu64
+    validatorsCount = node.dag.headState.validators.lenu64
 
   node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -1228,9 +1218,7 @@ proc updateBlocksGossipStatus*(
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  let validatorsCount =
-    withState(node.dag.headState):
-      forkyState.data.validators.lenu64
+  let validatorsCount = node.dag.headState.validators.lenu64
   node.network.subscribe(
     getAttesterSlashingsTopic(forkDigest),
     getAttesterSlashingTopicParams(node.dag.timeParams))
@@ -1343,9 +1331,7 @@ proc addAltairMessageHandlers(
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
   let
     syncnets = node.getSyncCommitteeSubnets(slot.epoch)
-    validatorsCount =
-      withState(node.dag.headState):
-        forkyState.data.validators.lenu64
+    validatorsCount = node.dag.headState.validators.lenu64
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if syncnets[subcommitteeIdx]:
@@ -1474,9 +1460,7 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       syncnets - node.network.metadata.syncnets
     oldSyncnets =
       node.network.metadata.syncnets - syncnets
-    validatorsCount =
-      withState(node.dag.headState):
-        forkyState.data.validators.lenu64
+    validatorsCount = node.dag.headState.validators.lenu64
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     doAssert not (newSyncnets[subcommitteeIdx] and
@@ -1866,8 +1850,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
-    node.processor.blobQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
@@ -2179,8 +2161,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
       sync = node.syncStatus(wallSlot)
       peers = len(node.network.peerPool)
       head = shortLog(node.dag.head)
-      finalized = shortLog(getStateField(
-        node.dag.headState, finalized_checkpoint))
+      finalized = shortLog(node.dag.headState.finalized_checkpoint)
       delay = shortLog(delay)
     let nextConsensusForkDescription = node.formatNextConsensusFork()
     if nextConsensusForkDescription.isNone:
@@ -2211,7 +2192,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-  node.requestManager.switchToColumnLoop()
+  # node.requestManager.switchToColumnLoop()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -2361,9 +2342,15 @@ proc installMessageValidators(node: BeaconNode) =
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
-              toValidationResult(
-                node.processor[].processSignedBeaconBlock(
-                  MsgSource.gossip, signedBlock)))
+              let res =
+                toValidationResult(
+                  node.processor[].processSignedBeaconBlock(
+                    MsgSource.gossip, signedBlock))
+              if res == ValidationResult.Accept:
+                node.eventBus.blockGossipPeerQueue.emit(
+                  EventBeaconBlockGossipPeerObject.init(signedBlock, src))
+              res
+        )
 
         # execution_payload_bid
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
@@ -2633,10 +2620,8 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
       node.beaconClock.now() -
       finalizedHead.slot.start_beacon_time(node.dag.timeParams),
     head = shortLog(head),
-    justified = shortLog(getStateField(
-      node.dag.headState, current_justified_checkpoint)),
-    finalized = shortLog(getStateField(
-      node.dag.headState, finalized_checkpoint)),
+    justified = shortLog(node.dag.headState.current_justified_checkpoint),
+    finalized = shortLog(node.dag.headState.finalized_checkpoint),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SPEC_VERSION,
@@ -2667,7 +2652,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
     wallSlot = wallTime.slotOrZero(node.dag.timeParams)
 
   node.startLightClient()
-  node.requestManager.start()
+  # node.requestManager.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)
@@ -2729,8 +2714,7 @@ when not defined(windows):
 
     proc dataResolver(expr: string): string {.raises: [].} =
       template justified: untyped = node.dag.head.atEpochStart(
-        getStateField(
-          node.dag.headState, current_justified_checkpoint).epoch)
+        node.dag.headState.current_justified_checkpoint.epoch)
       # TODO:
       # We should introduce a general API for resolving dot expressions
       # such as `db.latest_block.slot` or `metrics.connected_peers`.

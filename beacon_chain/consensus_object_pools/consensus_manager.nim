@@ -154,7 +154,7 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 
   shouldSyncOptimistically(
     optimisticSlot = self.optimisticHead.bid.slot,
-    dagSlot = getStateField(self.dag.headState, slot),
+    dagSlot = self.dag.headState.slot,
     wallSlot = wallSlot)
 
 func optimisticHead*(self: ConsensusManager): BlockId =
