@@ -199,14 +199,13 @@ proc verifySidecars(
   when consensusFork >= ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
-      let kzgCommits =
-        block:
-          let kzgCommits =
-            when consensusFork >= ConsensusFork.Gloas:
-              envelope.message.blob_kzg_commitments
-            else:
-              signedBlock.message.body.blob_kzg_commitments
-          kzgCommits.asSeq
+      template kzgCommits(): auto =
+        let kzgCommits =
+          when consensusFork >= ConsensusFork.Gloas:
+            envelope.message.blob_kzg_commitments
+          else:
+            signedBlock.message.body.blob_kzg_commitments
+        kzgCommits.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
@@ -533,7 +532,7 @@ proc verifyPayload(
       if payload.transactions.anyIt(it.len == 0):
         returnWithError "Execution block contains zero length transactions"
 
-      let computedBlockHash =
+      template computedBlockHash(): auto =
         when consensusFork >= ConsensusFork.Gloas:
           signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
         else:
