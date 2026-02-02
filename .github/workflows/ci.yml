@@ -78,6 +78,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Compile and run test.c with clang 1
+        run: |
+          clang test.c -o test
+          ./test
+
       - name: Restore llvm-mingw (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
@@ -163,6 +168,11 @@ jobs:
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
           echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
+
+      - name: Compile and run test.c with clang 2
+        run: |
+          clang test.c -o test2
+          ./test2
 
       - name: Build Nim and Nimbus dependencies
         run: |
