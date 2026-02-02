@@ -55,7 +55,7 @@ const
   MAX_BPS* = 10_000'u16
 
   # Assumed maximum percentage of Byzantine validators among the validator set
-  CONFIRMATION_BYZANTINE_THRESHOLD_RANGE* = 0'u64 .. 100'u64
+  CONFIRMATION_BYZANTINE_THRESHOLD_RANGE* = 0'u64 .. 25'u64
 
 func isValid*(timeParams: TimeParams): bool =
   # /!\ Keep in sync with `readRuntimeConfig`
