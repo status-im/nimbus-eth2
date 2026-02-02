@@ -212,7 +212,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
       else:
         EIP1559_INITIAL_BASE_FEE
 
-  var eps = default(consensusFork.ExecutionPayloadForSigning)
+  var eps: consensusFork.ExecutionPayloadForSigning
   var payload = typeof(eps.executionPayload)(
     parent_hash: latest.block_hash,
     fee_recipient: default(Eth1Address),
@@ -278,24 +278,14 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
 
   eps.executionPayload = payload
 
-  when consensusFork == ConsensusFork.Fulu:
-    var fuluBundle: fulu.BlobsBundle
-    for commitment in blobsBundle.commitments:
-      doAssert fuluBundle.commitments.add(commitment)
-    for proof in blobsBundle.proofs:
-      doAssert fuluBundle.proofs.add(proof)
-    for blob in blobsBundle.blobs:
-      doAssert fuluBundle.blobs.add(blob)
-    eps.blobsBundle = fuluBundle
-  elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
-    var denebBundle: deneb.BlobsBundle
-    for commitment in blobsBundle.commitments:
-      doAssert denebBundle.commitments.add(commitment)
-    for proof in blobsBundle.proofs:
-      doAssert denebBundle.proofs.add(proof)
-    for blob in blobsBundle.blobs:
-      doAssert denebBundle.blobs.add(blob)
-    eps.blobsBundle = denebBundle
+  when consensusFork >= ConsensusFork.Deneb:
+    eps.blobsBundle.commitments =
+      typeof(eps.blobsBundle.commitments).init(blobsBundle.commitments)
+    eps.blobsBundle.proofs =
+      typeof(eps.blobsBundle.proofs).init(blobsBundle.proofs)
+    eps.blobsBundle.blobs =
+      typeof(eps.blobsBundle.blobs).init(blobsBundle.blobs)
+
   eps
 
 func lastPremergeSlotInTestCfg*(cfg: RuntimeConfig): Slot =
