@@ -837,7 +837,7 @@ proc sendGetBlobsV2*(
     err()
 
 proc sendGetBlobsV3*(
-    m: ElManager,
+    m: ELManager,
     blck: fulu.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
@@ -905,27 +905,48 @@ proc sendGetBlobsV3*(
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(blck).kind
+
+  template executionPayload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
+
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(blck.body.execution_payload)
+      executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
-
-  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
-    payload = blck.body.execution_payload.asEngineExecutionPayload
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
-      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      versioned_hashes =
+        block:
+          let kzgCommitments =
+            when consensusFork >= ConsensusFork.Gloas:
+              envelope.blob_kzg_commitments
+            elif consensusFork >= ConsensusFork.Deneb:
+              blck.body.blob_kzg_commitments
+          kzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
-    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+    let execution_requests =
+      block:
+        let executionRequests =
+          when consensusFork >= ConsensusFork.Gloas:
+            envelope.execution_requests
+          else:
+            blck.body.execution_requests
+        executionRequests.asEngineExecutionRequests()
 
   var
     responseProcessor = ELConsensusViolationDetector.init()

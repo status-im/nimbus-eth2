@@ -638,6 +638,10 @@ type
         defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
+      reindexBN* {.
+        desc: "Reindex historical states for archive access"
+        name: "reindex".}: bool
+
       trustedSetupFile* {.
         hidden
         desc: "Alternative EIP-4844 trusted setup file"

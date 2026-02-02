@@ -1,3 +1,18 @@
+2025-01-29 v26.1.0
+===================
+
+The Nimbus consensus client `v26.1.0` is a `low-urgency` release with improved validator client stability.
+
+### Improvements
+
+- Support alternate fallback mode for multiple beacon nodes in the validator client:
+  https://github.com/status-im/nimbus-eth2/pull/7747
+
+### Fixes
+
+- Fix a validator client crash with offline or unavailable beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/7862
+
 2025-12-18 v25.12.0
 ===================
 

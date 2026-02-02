@@ -680,10 +680,11 @@ proc new*(T: type BeaconChainDB,
       SqStoreRef.init("", "test", readOnly = readOnly, inMemory = true).expect(
         "working database (out of memory?)")
     else:
-      if (let res = secureCreatePath(dir); res.isErr):
-        fatal "Failed to create create database directory",
-          path = dir, err = ioErrorMsg(res.error)
-        quit 1
+      if not readOnly:
+        secureCreatePath(dir).isOkOr:
+          fatal "Failed to create create database directory",
+            path = dir, err = ioErrorMsg(error)
+          quit 1
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
@@ -1138,12 +1139,13 @@ proc getSidecar*(
     sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
   db.getDataColumnSidecar(root, index, sidecar)
 
-proc getExecutionPayloadEnvelope*(
-    db: BeaconChainDB, root: Eth2Digest,
-    value: var TrustedSignedExecutionPayloadEnvelope): bool =
+proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[TrustedSignedExecutionPayloadEnvelope] =
   if db.envelopes == nil:
-    return false
-  db.envelopes.getSZSSZ(root.data, value) == GetResult.found
+    return Opt.none(TrustedSignedExecutionPayloadEnvelope)
+  result.ok(TrustedSignedExecutionPayloadEnvelope())
+  if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
+    result.err()
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,

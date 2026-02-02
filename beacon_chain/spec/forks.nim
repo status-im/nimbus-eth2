@@ -359,6 +359,11 @@ type
     ForkySigVerifiedSignedBeaconBlock |
     ForkyTrustedSignedBeaconBlock
 
+  SomeForkedSignedBeaconBlock* =
+    ForkedSignedBeaconBlock |
+    ForkedTrustedSignedBeaconBlock |
+    ForkedSignedBlindedBeaconBlock
+
   EpochInfoFork* {.pure.} = enum
     Phase0
     Altair
@@ -380,6 +385,10 @@ type
     fuluInt:   ForkDigest
     gloasInt:  ForkDigest
     bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
+
+  NoEnvelope* = typeof(())
+
+const noEnvelope* = default(NoEnvelope)
 
 template kind*(
     x: typedesc[
@@ -1084,22 +1093,50 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     template forkySrc: untyped = src.forky(consensusFork)
     assign(forkyTgt, forkySrc)
 
-template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
-  # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
-  # ```
-  #   for index, validator in getStateField(stateData.data, validators):
-  # ```
-  # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
-  (block:
-    withState(x): unsafeAddr forkyState.data.y)[]
+func root*(state: ForkedHashedBeaconState): lent Eth2Digest =
+  (block: withState(state): addr forkyState.root)[]
 
-func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  withState(x): forkyState.root
+func genesis_time*(state: ForkedHashedBeaconState): uint64 =
+  withState(state): forkyState.data.genesis_time
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
-  withState(x): forkyState.root = root
-{.pop.}
+func genesis_validators_root*(state: ForkedHashedBeaconState): lent Eth2Digest =
+  (block: withState(state): addr forkyState.data.genesis_validators_root)[]
+
+func slot*(state: ForkedHashedBeaconState): Slot =
+  withState(state): forkyState.data.slot
+
+func fork*(state: ForkedHashedBeaconState): Fork =
+  withState(state): forkyState.data.fork
+
+func latest_block_header*(state: ForkedHashedBeaconState): lent BeaconBlockHeader =
+  (block: withState(state): addr forkyState.data.latest_block_header)[]
+
+func state_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
+  (block: withState(state): addr forkyState.data.state_roots)[]
+
+func historical_roots*(state: ForkedHashedBeaconState): lent HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT] =
+  (block: withState(state): addr forkyState.data.historical_roots)[]
+
+func eth1_data*(state: ForkedHashedBeaconState): lent Eth1Data =
+  (block: withState(state): addr forkyState.data.eth1_data)[]
+
+func eth1_deposit_index*(state: ForkedHashedBeaconState): uint64 =
+  withState(state): forkyState.data.eth1_deposit_index
+
+func validators*(state: ForkedHashedBeaconState): lent HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] =
+  (block: withState(state): addr forkyState.data.validators)[]
+
+func balances*(state: ForkedHashedBeaconState): lent HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT] =
+  (block: withState(state): addr forkyState.data.balances)[]
+
+func previous_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.previous_justified_checkpoint)[]
+
+func current_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.current_justified_checkpoint)[]
+
+func finalized_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
+  (block: withState(state): addr forkyState.data.finalized_checkpoint)[]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
 func get_blob_parameters*(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
@@ -1275,9 +1312,6 @@ template withBlck*(
     template forkyBlck: untyped {.inject, used.} = x.gloasData
     body
 
-func proposer_index*(x: ForkedBeaconBlock): uint64 =
-  withBlck(x): forkyBlck.proposer_index
-
 func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
   withBlck(x): hash_tree_root(forkyBlck)
 
@@ -1286,41 +1320,31 @@ func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest =
 
 func hash_tree_root*(_: Opt[auto]) {.error.}
 
-template getForkedBlockField*(
-    x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock,
-    y: untyped): untyped =
-  # unsafeAddr avoids a copy of the field in some cases
-  (case x.kind
-  of ConsensusFork.Phase0:    unsafeAddr x.phase0Data.message.y
-  of ConsensusFork.Altair:    unsafeAddr x.altairData.message.y
-  of ConsensusFork.Bellatrix: unsafeAddr x.bellatrixData.message.y
-  of ConsensusFork.Capella:   unsafeAddr x.capellaData.message.y
-  of ConsensusFork.Deneb:     unsafeAddr x.denebData.message.y
-  of ConsensusFork.Electra:   unsafeAddr x.electraData.message.y
-  of ConsensusFork.Fulu:      unsafeAddr x.fuluData.message.y
-  of ConsensusFork.Gloas:     unsafeAddr x.gloasData.message.y)[]
-
-template signature*(x: ForkedSignedBeaconBlock |
-                       ForkedSignedBlindedBeaconBlock): ValidatorSig =
+func signature*(x: ForkedSignedBeaconBlock | ForkedSignedBlindedBeaconBlock): ValidatorSig =
   withBlck(x): forkyBlck.signature
 
-template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
+func signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
   withBlck(x): forkyBlck.signature
 
-template root*(x: ForkedSignedBeaconBlock |
-                  ForkedTrustedSignedBeaconBlock): Eth2Digest =
-  withBlck(x): forkyBlck.root
+func root*(x: SomeForkedSignedBeaconBlock): lent Eth2Digest =
+  (block: withBlck(x): addr forkyBlck.root)[]
 
-template slot*(x: ForkedSignedBeaconBlock |
-                  ForkedTrustedSignedBeaconBlock): Slot =
+func slot*(x: SomeForkedSignedBeaconBlock): Slot =
   withBlck(x): forkyBlck.message.slot
 
-template shortLog*(x: ForkedBeaconBlock): auto =
+func proposer_index*(x: SomeForkedSignedBeaconBlock): uint64 =
+  withBlck(x): forkyBlck.message.proposer_index
+
+func parent_root*(x: SomeForkedSignedBeaconBlock): lent Eth2Digest =
+  (block: withBlck(x): addr forkyBlck.message.parent_root)[]
+
+func state_root*(x: SomeForkedSignedBeaconBlock): lent Eth2Digest =
+  (block: withBlck(x): addr forkyBlck.message.state_root)[]
+
+func shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)
 
-template shortLog*(x: ForkedSignedBeaconBlock |
-                      ForkedTrustedSignedBeaconBlock |
-                      ForkedSignedBlindedBeaconBlock): auto =
+func shortLog*(x: SomeForkedSignedBeaconBlock): auto =
   withBlck(x): shortLog(forkyBlck)
 
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
