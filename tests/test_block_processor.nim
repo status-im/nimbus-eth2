@@ -41,7 +41,7 @@ block:
       "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
 
 # Helper to create valid KZG blobs
-proc createValidKzgBlob(): kzg.KzgBlob =
+func createValidKzgBlob(): kzg.KzgBlob =
   # Create a blob with valid field elements
   # Each field element must be < BLS modulus (top byte must be <= 114)
   const MAX_TOP_BYTE = 114
@@ -51,7 +51,7 @@ proc createValidKzgBlob(): kzg.KzgBlob =
       blob[i] = MAX_TOP_BYTE  # Safe value
     else:
       blob[i] = byte(i mod 256)
-  result = kzg.KzgBlob(bytes: blob)
+  kzg.KzgBlob(bytes: blob)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -354,11 +354,8 @@ suite "Block processor" & preset():
         )
 
         # Assemble data column sidecars
-        var blobs: seq[kzg.KzgBlob]
-        blobs.add(kzgBlob)
-
         let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, blobs, @(cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)))
+          engineBlock.blck, @[kzgBlob], @(cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)))
         )
         let dsRef = dataColumnSidecars.mapIt(newClone(it))
 

@@ -10,6 +10,7 @@
 import
   chronicles,
   ssz_serialization,
+  std/sequtils,
   stew/endians2,
   eth/rlp,
   eth/common/[headers_rlp, eth_types],
@@ -229,9 +230,9 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
   # Add EIP-4844 transactions with versioned hashes for blob commitments
   when consensusFork >= ConsensusFork.Deneb:
     if blobsBundle.commitments.len > 0:
-      var versionedHashes: seq[eth_types.Hash32]
-      for commitment in blobsBundle.commitments:
-        versionedHashes.add(kzg_commitment_to_versioned_hash(commitment))
+      # Create versioned hashes from commitments
+      let versionedHashes = blobsBundle.commitments.mapIt(
+        kzg_commitment_to_versioned_hash(it))
 
       # Create a simple EIP-4844 transaction
       let tx = eth_types.Transaction(
@@ -247,11 +248,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
       )
 
       # Encode and add to payload
-      let encodedTx = rlp.encode(tx)
-      var txList: bellatrix.Transaction
-      for b in encodedTx:
-        doAssert txList.add(b)
-      doAssert payload.transactions.add(txList)
+      doAssert payload.transactions.add(bellatrix.Transaction.init(rlp.encode(tx)))
       # Update gas used (simple estimate: 21000 per transaction)
       payload.gas_used = 21000
   else:
