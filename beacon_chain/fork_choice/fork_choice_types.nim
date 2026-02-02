@@ -98,13 +98,13 @@ type
 
   ProtoNode* = object
     bid*: BlockId
-    parent*: Option[Index]
+    parent*: Opt[Index]
     checkpoints*: FinalityCheckpoints
     sharedFinalizedEpoch*: Epoch
     weight*: int64
     invalid*: bool
-    bestChild*: Option[Index]
-    bestDescendant*: Option[Index]
+    bestChild*: Opt[Index]
+    bestDescendant*: Opt[Index]
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint

@@ -56,14 +56,14 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
-func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
+func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
   ## Retrieve a ProtoNode at "Index"
   if idx < nodes.offset:
-    return none(ProtoNode)
+    return Opt.none(ProtoNode)
   let i = idx - nodes.offset
   if i >= nodes.buf.len:
-    return none(ProtoNode)
-  some(nodes.buf[i])
+    return Opt.none(ProtoNode)
+  Opt.some(nodes.buf[i])
 
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
@@ -92,12 +92,8 @@ func init*(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
       root: checkpoints.finalized.root),
-    parent: none(int),
-    checkpoints: checkpoints,
-    weight: 0,
-    invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int))
+    parent: Opt.none(int),
+    checkpoints: checkpoints)
 
   T(checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
@@ -267,14 +263,14 @@ func onBlock*(self: var ProtoArray,
               bid: BlockId,
               parent: Eth2Digest,
               checkpoints: FinalityCheckpoints,
-              unrealized = none(FinalityCheckpoints)): FcResult[void] =
+              unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
   ## - either from Genesis
   ## - or from a finalized state loaded from database
 
-  # Note: if parent is an "Option" type, we can run out of stack space.
+  # Note: if parent is an "Opt" type, we can run out of stack space.
 
   # If the block is already known, ignore it
   if bid.root in self.indices:
@@ -293,12 +289,8 @@ func onBlock*(self: var ProtoArray,
 
   let node = ProtoNode(
     bid: bid,
-    parent: some(parentIdx),
-    checkpoints: checkpoints,
-    weight: 0,
-    invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int))
+    parent: Opt.some(parentIdx),
+    checkpoints: checkpoints)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
@@ -436,12 +428,12 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
     ? self.nodeLeadsToViableHead(child.get(), childIdx)
 
   let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
-    changeToNone = (none(Index), none(Index))
+    changeToNone = (Opt.none(Index), Opt.none(Index))
     changeToChild = (
-        some(childIdx),
+        Opt.some(childIdx),
         # Nim `options` module doesn't implement option `or`
         if child.get().bestDescendant.isSome(): child.get().bestDescendant
-        else: some(childIdx)
+        else: Opt.some(childIdx)
       )
     noChange = (parent.get().bestChild, parent.get().bestDescendant)
 
@@ -551,7 +543,7 @@ func nodeIsViableForHead(
       let
         finalizedEpoch = self.checkpoints.finalized.epoch
         finalizedSlot = finalizedEpoch.start_slot
-      var ancestor = some node
+      var ancestor = Opt.some node
       while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
           ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
         if ancestor.unsafeGet.parent.isSome:
@@ -605,13 +597,13 @@ type ProtoArrayItem* = object
   bid*: BlockId
   parent*: Eth2Digest
   checkpoints*: FinalityCheckpoints
-  unrealized*: Option[FinalityCheckpoints]
+  unrealized*: Opt[FinalityCheckpoints]
   weight*: int64
   invalid*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
 
-func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
+func root(self: ProtoNodes, logicalIdx: Opt[Index]): Eth2Digest =
   if logicalIdx.isNone:
     return ZERO_HASH
   let node = self[logicalIdx.unsafeGet]
@@ -629,9 +621,9 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
       else:
-        none(FinalityCheckpoints)
+        Opt.none(FinalityCheckpoints)
 
     yield ProtoArrayItem(
       bid: node.bid,
