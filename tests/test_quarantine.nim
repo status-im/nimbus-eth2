@@ -8,7 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import std/sequtils, stew/endians2,
+import stew/endians2, std/sequtils,
        kzg4844/kzg,
        unittest2,
        ./testutil,

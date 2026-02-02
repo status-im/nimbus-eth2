@@ -29,7 +29,7 @@ import
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
-  ./sync/[sync_overseer2, sync_manager, request_manager, sync_types, validator_custody],
+  ./sync/[sync_manager, request_manager, sync_types, validator_custody],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -42,14 +42,13 @@ export
   eth2_network, el_manager, request_manager, sync_manager,
   eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
-  consensus_manager, dynamic_fee_recipients, sync_types, sync_overseer2
+  consensus_manager, dynamic_fee_recipients, sync_types
 
 type
   EventBus* = object
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
-    blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
@@ -103,7 +102,7 @@ type
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     untrustedManager*: SyncManager[Peer, PeerId]
-    syncOverseer*: SyncOverseerRef2
+    syncOverseer*: SyncOverseerRef
     processor*: ref Eth2Processor
     batchVerifier*: ref BatchVerifier
     blockProcessor*: ref BlockProcessor
@@ -187,7 +186,6 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
-    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
     phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),

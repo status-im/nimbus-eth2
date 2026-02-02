@@ -11,15 +11,13 @@ import results, chronos,
        ".."/spec/[forks_light_client, signatures_batch],
        ".."/consensus_object_pools/[block_pools_types, blockchain_dag,
                                     attestation_pool, blockchain_list,
-                                    blob_quarantine, block_quarantine,
                                     consensus_manager],
-       ".."/gossip_processing/block_processor,
        ".."/validators/validator_monitor,
        ".."/[beacon_clock, conf],
        ".."/networking/eth2_network,
-       "."/[sync_manager, sync_dag, block_buffer]
+       "."/sync_manager
 
-export results, chronos, block_pools_types, conf, sync_dag
+export results, chronos, block_pools_types, conf
 
 type
   BlockDataChunk* = ref object
@@ -54,48 +52,7 @@ type
     untrustedInProgress*: bool
     syncKind*: SyncKind
 
-  ColumnsPeerState* = object
-    usefulCount*: int
-    uselessCount*: int
-    distribution*: Table[ColumnIndex, int]
-
-  SyncOverseer2* = object
-    network*: Eth2Node
-    consensusManager*: ref ConsensusManager
-    config*: BeaconNodeConf
-    getBeaconTimeFn*: GetBeaconTimeFn
-    beaconClock*: BeaconClock
-    loopFuture*: Future[void].Raising([])
-    pool*: PeerPool[Peer, PeerId]
-    blockProcessor*: ref BlockProcessor
-    fblockBuffer*: BlocksRangeBuffer
-    bblockBuffer*: BlocksRangeBuffer
-    rblockBuffer*: BlocksRootBuffer
-    blockQuarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
-    columnQuarantine*: ref ColumnQuarantine
-    blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
-    blockFinalizationBus*: AsyncEventQueue[FinalizationInfoObject]
-    missingRoots*: HashSet[Eth2Digest]
-    avgSpeedCounter*: int
-    avgSpeed*: float
-    blocksChunkSize*: int
-    sidecarsChunkSize*: int
-    fqueue*: SyncQueue[Peer]
-    fsqueue*: SyncQueue[Peer]
-    bqueue*: SyncQueue[Peer]
-    bsqueue*: SyncQueue[Peer]
-    localPeerId*: PeerId
-    lastSeenCheckpoint*: Opt[Checkpoint]
-    lastSeenHead*: Opt[BlockId]
-    statusMessages*: array[2, string]
-    sdag*: SyncDag[Peer, PeerId]
-    columnsState*: ColumnsPeerState
-
   SyncOverseerRef* = ref SyncOverseer
-
-  SyncOverseerRef2* = ref SyncOverseer2
 
 proc new*(
     t: typedesc[SyncOverseerRef],
@@ -107,7 +64,7 @@ proc new*(
     clock: BeaconClock,
     eq: AsyncEventQueue[ForkedLightClientHeader],
     pool: PeerPool[Peer, PeerId],
-    blockVerifier: BlockVerifier,
+    batchVerifier: ref BatchVerifier,
     forwardSync: SyncManager[Peer, PeerId],
     backwardSync: SyncManager[Peer, PeerId],
     untrustedSync: SyncManager[Peer, PeerId]
@@ -121,7 +78,7 @@ proc new*(
     beaconClock: clock,
     eventQueue: eq,
     pool: pool,
-    blockVerifier: BlockVerifier,
+    batchVerifier: batchVerifier,
     forwardSync: forwardSync,
     backwardSync: backwardSync,
     untrustedSync: untrustedSync,
@@ -133,40 +90,3 @@ proc syncInProgress*(overseer: SyncOverseerRef): bool =
   overseer.backwardSync.inProgress or
   overseer.untrustedSync.inProgress or
   overseer.untrustedInProgress
-
-proc new*(
-    t: typedesc[SyncOverseerRef2],
-    net: Eth2Node,
-    cm: ref ConsensusManager,
-    configuration: BeaconNodeConf,
-    bt: GetBeaconTimeFn,
-    clock: BeaconClock,
-    blockProcessor: ref BlockProcessor,
-    blockQuarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine,
-    columnQuarantine: ref ColumnQuarantine,
-    gossipQueue: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
-    blocksQueue: AsyncEventQueue[EventBeaconBlockObject],
-    finalizationQueue: AsyncEventQueue[FinalizationInfoObject],
-    blocksChunkSize = int(SLOTS_PER_EPOCH),
-    sidecarsChunkSize = int(SLOTS_PER_EPOCH)
-): SyncOverseerRef2 =
-  SyncOverseerRef2(
-    network: net,
-    consensusManager: cm,
-    config: configuration,
-    getBeaconTimeFn: bt,
-    beaconClock: clock,
-    pool: net.peerPool,
-    blockProcessor: blockProcessor,
-    blobQuarantine: blobQuarantine,
-    columnQuarantine: columnQuarantine,
-    blockQuarantine: blockQuarantine,
-    blockGossipBus: gossipQueue,
-    blocksQueueBus: blocksQueue,
-    blockFinalizationBus: finalizationQueue,
-    blocksChunkSize: blocksChunkSize,
-    sidecarsChunkSize: sidecarsChunkSize,
-    localPeerId: net.peerId(),
-    sdag: SyncDag.init(Peer, PeerId),
-  )

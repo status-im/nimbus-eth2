@@ -503,7 +503,7 @@ proc doTrustedNodeSync*(
               error "Got invalid block from trusted node - is it on the right network?",
                 blck = shortLog(forkyBlck), err = res.error()
               quit 1
-            of VerifierError.Duplicate, VerifierError.MissingSidecars:
+            of VerifierError.Duplicate:
               discard
 
     # Download blocks backwards from the backfill slot, ie the first slot for
