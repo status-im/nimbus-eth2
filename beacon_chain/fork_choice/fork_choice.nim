@@ -36,13 +36,13 @@ export proto_array.len
 type Index = fork_choice_types.Index
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void]
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[Gwei],
+    new_balances: openArray[Gwei]): FcResult[void]
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -162,13 +162,14 @@ func process_attestation(
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if target_epoch > vote.next_epoch or vote.next_root.isZero:
-    vote.next_root = block_root
-    vote.next_epoch = target_epoch
+  if vote.next_epoch != FAR_FUTURE_EPOCH:
+    if target_epoch > vote.next_epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.next_epoch = target_epoch
 
-    trace "Integrating vote in fork choice",
-      validator_index = validator_index,
-      new_vote = shortLog(vote)
+      trace "Integrating vote in fork choice",
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
 
 proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
   # Spec:
@@ -327,7 +328,7 @@ proc process_block*(self: var ForkChoice,
 
 func find_head(
        self: var ForkChoiceBackend,
-       current_epoch: Epoch,
+       current_slot: Slot,
        checkpoints: FinalityCheckpoints,
        justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
@@ -347,7 +348,7 @@ func find_head(
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, current_epoch, checkpoints,
+    deltas, current_slot, checkpoints,
     justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
@@ -368,7 +369,7 @@ proc get_head*(self: var ForkChoice,
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
-    self.checkpoints.time.slotOrZero(dag.timeParams).epoch,
+    self.checkpoints.time.slotOrZero(dag.timeParams),
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
@@ -406,13 +407,12 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
     discard
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void] =
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[Gwei],
+    new_balances: openArray[Gwei]): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
