@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -229,11 +229,7 @@
 	url = https://github.com/eth-clients/hoodi
 	ignore = untracked
 	branch = main
-[submodule "vendor/nim-ngtcp2"]
-	path = vendor/nim-ngtcp2
-	url = https://github.com/vacp2p/nim-ngtcp2
-	branch = main
-[submodule "vendor/nim-quic"]
-	path = vendor/nim-quic
-	url = https://github.com/vacp2p/nim-quic
+[submodule "vendor/nim-lsquic"]
+	path = vendor/nim-lsquic
+	url = https://github.com/vacp2p/nim-lsquic
 	branch = main
