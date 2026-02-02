@@ -19,7 +19,7 @@ func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
     when lcDataFork > LightClientDataFork.None:
       shouldSyncOptimistically(
         optimisticSlot = forkyHeader.beacon.slot,
-        dagSlot = getStateField(node.dag.headState, slot),
+        dagSlot = node.dag.headState.slot,
         wallSlot = wallSlot)
     else:
       false
@@ -54,7 +54,7 @@ proc initLightClient*(
     optimisticProcessor = initOptimisticProcessor(
       cfg.timeParams, getBeaconTime, optimisticHandler)
 
-    shouldInhibitSync = func(): bool =
+    shouldInhibitSync = proc(): bool =
       if isNil(node.syncOverseer):
         false
       else:

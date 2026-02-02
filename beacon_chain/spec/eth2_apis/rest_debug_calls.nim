@@ -58,15 +58,15 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
 
     case state_id.kind
     of StateQueryKind.Slot:
-      if getStateField(state[], slot) != state_id.slot:
+      if state[].slot != state_id.slot:
         raise newException(RestError, "Wrong slot in received state")
     of StateQueryKind.Root:
-      if state[].getStateRoot() != state_id.root:
+      if state[].root != state_id.root:
         raise newException(RestError, "Wrong root in received state")
     of StateQueryKind.Named:
       case state_id.value
       of StateIdentType.Genesis:
-        if getStateField(state[], slot) != GENESIS_SLOT:
+        if state[].slot != GENESIS_SLOT:
           raise newException(RestError, "Wrong slot in received state")
       else:
         discard # can't trivially check these

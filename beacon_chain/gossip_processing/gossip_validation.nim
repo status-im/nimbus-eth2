@@ -600,7 +600,7 @@ proc validateBlobSidecar*(
   # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
   let
-    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    finalized_checkpoint = dag.headState.finalized_checkpoint
     ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
@@ -729,7 +729,7 @@ proc validateDataColumnSidecar*(
   # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
   let
-    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    finalized_checkpoint = dag.headState.finalized_checkpoint
     ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
@@ -912,10 +912,8 @@ proc validateBeaconBlock*(
       slotBlock.get().bid.slot == signed_beacon_block.message.slot:
     let curBlock = dag.getForkedBlock(slotBlock.get().bid)
     if curBlock.isOk():
-      let data = curBlock.get()
-      if getForkedBlockField(data, proposer_index) ==
-            signed_beacon_block.message.proposer_index and
-          data.signature.toRaw() != signed_beacon_block.signature.toRaw():
+      if curBlock[].proposer_index == signed_beacon_block.message.proposer_index and
+          curBlock[].signature.toRaw() != signed_beacon_block.signature.toRaw():
         return errIgnore("BeaconBlock: already proposed in the same slot")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
@@ -992,7 +990,7 @@ proc validateBeaconBlock*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    finalized_checkpoint = dag.headState.finalized_checkpoint
     ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
@@ -1829,10 +1827,10 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      getStateField(pool.dag.headState, validators).lenu64:
+      pool.dag.headState.validators.lenu64:
     return errIgnore("VoluntaryExit: validator index too high")
 
-  # Given that getStateField(pool.dag.headState, validators) is a seq,
+  # Given that pool.dag.headState.validators is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if pool.isSeen(signed_voluntary_exit):
@@ -2264,7 +2262,7 @@ proc validateExecutionPayloadBid*(
 
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
-          getStateField(dag.headState, genesis_validators_root),
+          dag.headState.genesis_validators_root,
           bid.slot.epoch,
           bid,
           builderPubkey,

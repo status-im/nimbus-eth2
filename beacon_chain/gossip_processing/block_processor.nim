@@ -300,6 +300,8 @@ proc storeBackfillBlock(
       res
     of VerifierError.Duplicate:
       res
+    of VerifierError.MissingSidecars:
+      res
   else:
     when consensusFork >= ConsensusFork.Gloas:
       # Columns are in quarantine as they didn't pop from `rmanBlockVerifier`,
@@ -916,6 +918,8 @@ proc addBlock*(
       # )
       err(res.error())
     of VerifierError.Duplicate:
+      err(res.error())
+    of VerifierError.MissingSidecars:
       err(res.error())
 
 proc storePayload(

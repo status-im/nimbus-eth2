@@ -66,14 +66,13 @@ proc main() {.noinline, raises: [CatchableError].} =
                             source = metadata.genesis.sourceDesc,
                             err = err.msg
                      quit 1
-    genesisTime = getStateField(genesisState[], genesis_time)
+    genesisTime = genesisState[].genesis_time
     beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state", genesisTime
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
-    genesis_validators_root =
-      getStateField(genesisState[], genesis_validators_root)
+    genesis_validators_root = genesisState[].genesis_validators_root
     forkDigests = newClone ForkDigests.init(cfg, genesis_validators_root)
 
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root

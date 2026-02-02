@@ -106,7 +106,7 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
+  dag.updateValidatorKeys(state.validators.asSeq())
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -374,7 +374,7 @@ proc addBackfillBlock*(
 
         if not verify_block_signature(
             dag.forkAtEpoch(blck.slot.epoch),
-            getStateField(dag.headState, genesis_validators_root),
+            dag.headState.genesis_validators_root,
             blck.slot,
             signedBlock.root,
             proposerKey,
@@ -512,8 +512,7 @@ proc addHeadExecutionPayload*(
   const consensusFork = typeof(signedBlock).kind
 
   # Load state cache for state transition function.
-  loadStateCache(dag, cache, blck.bid,
-    getStateField(dag.clearanceState, slot).epoch())
+  loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
 
   # Verify with state transition function.
   process_execution_payload(

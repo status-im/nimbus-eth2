@@ -218,6 +218,10 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
               # Ignoring because these errors could occur due to the
               # concurrent/parallel requests we made.
               discard
+            of VerifierError.MissingSidecars:
+              # We downloading only blocks, so its possible to get this error,
+              # because sidecars will be downloaded later.
+              discard
             of VerifierError.UnviableFork:
               # If they're working a different fork, we'll want to descore them
               # but also process the other blocks (in case we can register the

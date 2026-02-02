@@ -157,9 +157,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState, finalized_checkpoint)
-      justified =
-        getStateField(node.dag.headState, current_justified_checkpoint)
+      finalized = node.dag.headState.finalized_checkpoint
+      justified = node.dag.headState.current_justified_checkpoint
     RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
