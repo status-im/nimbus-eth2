@@ -13,7 +13,6 @@ on:
       - stable
       - testing
       - unstable
-      - cache-nim-2
   pull_request:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
     branches-ignore:
