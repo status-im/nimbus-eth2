@@ -831,7 +831,7 @@ func finalizedDistance*(
 ): Opt[uint64] =
   let
     dag = overseer.consensusManager.dag
-    checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    checkpoint = dag.headState.finalized_checkpoint
 
   if overseer.lastSeenCheckpoint.isNone():
     return Opt.none(uint64)
@@ -884,7 +884,7 @@ proc finalizedDistance*(
 ): uint64 =
   let
     dag = overseer.consensusManager.dag
-    checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    checkpoint = dag.headState.finalized_checkpoint
     peerCheckpoint = peer.getFinalizedCheckpoint()
 
   if peerCheckpoint.epoch > checkpoint.epoch:
@@ -2229,7 +2229,7 @@ proc startPeer(
         if not(overseer.pool.checkPeerScore(peer)):
           return
 
-      let checkpoint = getStateField(dag.headState, finalized_checkpoint)
+      let checkpoint = dag.headState.finalized_checkpoint
 
       if overseer.finalizedDistance().get() > 1'u64:
         # TODO (cheatfate): we should check for WSP.
@@ -2469,8 +2469,7 @@ proc timeMonitoringLoop(
       debug "Overseer debug statistics",
         wall_slot = overseer.beaconClock.currentSlot(),
         head = shortLog(dag.head),
-        finalized = shortLog(
-          getStateField(dag.headState, finalized_checkpoint)),
+        finalized = shortLog(dag.headState.finalized_checkpoint),
         last_seen_head = overseer.getLastSeenHeadLog(),
         last_seen_finalized = overseer.getLastSeenFinalizedHeadLog(),
         finalized_distance = finalizedDistance,
@@ -2642,7 +2641,7 @@ proc finalMonitoringLoop(
       let
         events = await overseer.blockFinalizationBus.waitEvents(eventKey, 1)
         event = events[0]
-        checkpoint = getStateField(dag.headState, finalized_checkpoint)
+        checkpoint = dag.headState.finalized_checkpoint
 
       doAssert(dag.finalizedHead.slot > GENESIS_SLOT)
       let
@@ -2740,7 +2739,7 @@ proc lateBlockMonitoringLoop*(
                 overseer.updatePeer(
                   overseer.localPeerId, peerMustPresent = false,
                   blockId.slot, blockId.root,
-                  getForkedBlockField(blck, parent_root),
+                  blck.parent_root,
                   sidecarsMissed = true)
             else:
               debug "Late orphan block processor response", reason = "ok",
@@ -2778,13 +2777,13 @@ proc lateBlockMonitoringLoop*(
                 overseer.updatePeer(
                   overseer.localPeerId, peerMustPresent = false,
                   blockId.slot, blockId.root,
-                  getForkedBlockField(blck, parent_root),
+                  blck.parent_root,
                   sidecarsMissed = true)
             else:
               debug "Late sidecarless block processor response", reason = "ok",
                 block_root = shortLog(blck.root)
-              # If block was added succesfully block penvelopeQuarantinerocessor will continue
-              # process of adding blocks from quarantine.
+              # If block was added succesfully block penvelopeQuarantinerocessor
+              # will continue process of adding blocks from quarantine.
               break checkSidecarlessLoop
 
       await sleepAsync(5.seconds)
@@ -2802,8 +2801,7 @@ proc mainLoop*(
   logScope:
     wall_slot = overseer.beaconClock.currentSlot()
     head_slot = dag.head.slot
-    finalized_checkpoint =
-      shortLog(getStateField(dag.headState, finalized_checkpoint))
+    finalized_checkpoint = shortLog(dag.headState.finalized_checkpoint)
     horizon = dag.horizon()
     fulu_fork_epoch = dag.cfg.FULU_FORK_EPOCH
     backfill_slot = dag.backfill.slot
