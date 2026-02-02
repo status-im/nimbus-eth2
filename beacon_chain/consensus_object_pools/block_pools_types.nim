@@ -11,7 +11,8 @@ import
   # Standard library
   std/[tables, hashes],
   # Status libraries
-  chronicles, libp2p/peerid, results,
+  chronicles,
+  results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
@@ -44,9 +45,6 @@ type
 
     Duplicate
       ## We've seen this value already, can't add again
-
-    MissingSidecars
-      ## We do not have sidecars at the moment
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
@@ -338,30 +336,6 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
-  EventBeaconBlockGossipPeerObject* = object
-    blck*: ForkedSignedBeaconBlock
-    src*: PeerId
-
-template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Gloas:
-    typedesc[OnGloasBlockAdded]
-  elif kind == ConsensusFork.Fulu:
-    typedesc[OnFuluBlockAdded]
-  elif kind == ConsensusFork.Electra:
-    typedesc[OnElectraBlockAdded]
-  elif kind == ConsensusFork.Deneb:
-    typedesc[OnDenebBlockAdded]
-  elif kind == ConsensusFork.Capella:
-    typedesc[OnCapellaBlockAdded]
-  elif kind == ConsensusFork.Bellatrix:
-    typedesc[OnBellatrixBlockAdded]
-  elif kind == ConsensusFork.Altair:
-    typedesc[OnAltairBlockAdded]
-  elif kind == ConsensusFork.Phase0:
-    typedesc[OnPhase0BlockAdded]
-  else:
-    static: raiseAssert "Unreachable"
-
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 
@@ -496,13 +470,3 @@ func init*(t: typedesc[EventBeaconBlockGossipObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root
     )
-
-func init*(
-    t: typedesc[EventBeaconBlockGossipPeerObject],
-    v: ForkySignedBeaconBlock,
-    s: PeerId
-): EventBeaconBlockGossipPeerObject =
-  EventBeaconBlockGossipPeerObject(
-    blck: ForkedSignedBeaconBlock.init(v),
-    src: s
-  )

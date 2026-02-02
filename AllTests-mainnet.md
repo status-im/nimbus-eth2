@@ -164,20 +164,6 @@ AllTests-mainnet
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
-## BlocksRangeBuffer test suite
-```diff
-+ Add and query blocks test [backward]                                                       OK
-+ Add and query blocks test [forward]                                                        OK
-+ Block insertion test [backward]                                                            OK
-+ Block insertion test [forward]                                                             OK
-+ Buffer advance test [backward]                                                             OK
-+ Buffer advance test [forward]                                                              OK
-+ Buffer invalidate test [backward]                                                          OK
-+ Buffer invalidate test [forward]                                                           OK
-+ Range peek real test cases [forward]                                                       OK
-+ Range peek test [backward]                                                                 OK
-+ Range peek test [forward]                                                                  OK
-```
 ## ColumnMap test suite
 ```diff
 + and() operation test                                                                       OK
@@ -1087,30 +1073,29 @@ AllTests-mainnet
 ## SyncManager test suite
 ```diff
 + [SyncManager] groupBlobs() test                                                            OK
-+ [SyncQueue#Backward] Combination of missing parent and good blocks [3 peers] test          OK
-+ [SyncQueue#Backward] Empty responses should not advance queue until other peers will not c OK
-+ [SyncQueue#Backward] Empty responses should not be accounted [3 peers] test                OK
-+ [SyncQueue#Backward] Failure request push test                                             OK
-+ [SyncQueue#Backward] Invalid block [3 peers] test                                          OK
++ [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
++ [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
++ [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
++ [SyncQueue# & Backward] Failure request push test                                          OK
++ [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
++ [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
++ [SyncQueue# & Backward] Smoke [single peer] test                                           OK
++ [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
++ [SyncQueue# & Backward] epochFilter() test                                                 OK
++ [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
++ [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
++ [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
++ [SyncQueue# & Forward] Failure request push test                                           OK
++ [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
++ [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
++ [SyncQueue# & Forward] Smoke [single peer] test                                            OK
++ [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
++ [SyncQueue# & Forward] epochFilter() test                                                  OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
-+ [SyncQueue#Backward] Smoke [3 peers] test                                                  OK
-+ [SyncQueue#Backward] Smoke [single peer] test                                              OK
-+ [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
-+ [SyncQueue#Backward] epochFilter() test                                                    OK
-+ [SyncQueue#Backward] finish test                                                           OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
-+ [SyncQueue#Forward] Combination of missing parent and good blocks [3 peers] test           OK
-+ [SyncQueue#Forward] Empty responses should not advance queue until other peers will not co OK
-+ [SyncQueue#Forward] Empty responses should not be accounted [3 peers] test                 OK
-+ [SyncQueue#Forward] Failure request push test                                              OK
-+ [SyncQueue#Forward] Invalid block [3 peers] test                                           OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
-+ [SyncQueue#Forward] Smoke [3 peers] test                                                   OK
-+ [SyncQueue#Forward] Smoke [single peer] test                                               OK
-+ [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
-+ [SyncQueue#Forward] epochFilter() test                                                     OK
-+ [SyncQueue#Forward] finish test                                                            OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
++ [SyncQueue] checkBlobsResponse() test                                                      OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```

@@ -54,7 +54,7 @@ proc initLightClient*(
     optimisticProcessor = initOptimisticProcessor(
       cfg.timeParams, getBeaconTime, optimisticHandler)
 
-    shouldInhibitSync = proc(): bool =
+    shouldInhibitSync = func(): bool =
       if isNil(node.syncOverseer):
         false
       else:
