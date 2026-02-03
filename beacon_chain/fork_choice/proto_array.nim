@@ -407,9 +407,8 @@ func prune*(
 
   ok()
 
-func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
-                                       parentIdx: Index,
-                                       childIdx: Index): FcResult[void] =
+func maybeUpdateBestChildAndDescendant(
+    self: var ProtoArray, parentIdx: Index, childIdx: Index): FcResult[void] =
   ## Observe the parent at `parentIdx` with respect to the child at `childIdx` and
   ## potentially modify the `parent.bestChild` and `parent.bestDescendant` values
   ##
@@ -422,83 +421,80 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
 
-  let child = self.nodes[childIdx]
-  if child.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidNodeIndex,
-      index: childIdx)
+  let
+    child = self.nodes[childIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidNodeIndex,
+        index: childIdx)
+    parent = self.nodes[parentIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidNodeIndex,
+        index: parentIdx)
+    childLeadsToViableHead =
+      ? self.nodeLeadsToViableHead(child, childIdx)
 
-  let parent = self.nodes[parentIdx]
-  if parent.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidNodeIndex,
-      index: parentIdx)
-
-  let childLeadsToViableHead =
-    ? self.nodeLeadsToViableHead(child.get(), childIdx)
-
-  let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
+    # Aliases to the 3 possible (bestChild, bestDescendant) tuples
     changeToNone = (Opt.none(Index), Opt.none(Index))
     changeToChild = (
         Opt.some(childIdx),
         # Nim `options` module doesn't implement option `or`
-        if child.get().bestDescendant.isSome(): child.get().bestDescendant
+        if child.bestDescendant.isSome(): child.bestDescendant
         else: Opt.some(childIdx)
       )
-    noChange = (parent.get().bestChild, parent.get().bestDescendant)
+    noChange = (parent.bestChild, parent.bestDescendant)
 
-  # TODO: state-machine? The control-flow is messy
-  let (newBestChild, newBestDescendant) = block:
-    if parent.get().bestChild.isSome:
-      let bestChildIdx = parent.get().bestChild.unsafeGet()
-      if bestChildIdx == childIdx and not childLeadsToViableHead:
-        # The child is already the best-child of the parent
-        # but it's not viable to be the head block => remove it
-        changeToNone
-      elif bestChildIdx == childIdx:
-        # If the child is the best-child already, set it again to ensure
-        # that the best-descendant of the parent is up-to-date.
-        changeToChild
-      else:
-        let bestChild = self.nodes[bestChildIdx]
-        if bestChild.isNone():
-          return err ForkChoiceError(
-            kind: fcInvalidBestDescendant,
-            index: bestChildIdx)
-
-        let bestChildLeadsToViableHead =
-          ? self.nodeLeadsToViableHead(bestChild.get(), bestChildIdx)
-
-        if childLeadsToViableHead and not bestChildLeadsToViableHead:
-          # The child leads to a viable head, but the current best-child doesn't
+    # TODO: state-machine? The control-flow is messy
+    (newBestChild, newBestDescendant) = block:
+      if parent.bestChild.isSome:
+        let bestChildIdx = parent.bestChild.unsafeGet()
+        if bestChildIdx == childIdx and not childLeadsToViableHead:
+          # The child is already the best-child of the parent
+          # but it's not viable to be the head block => remove it
+          changeToNone
+        elif bestChildIdx == childIdx:
+          # If the child is the best-child already, set it again to ensure
+          # that the best-descendant of the parent is up-to-date.
           changeToChild
-        elif not childLeadsToViableHead and bestChildLeadsToViableHead:
-          # The best child leads to a viable head, but the child doesn't
-          noChange
-        elif child.get().weight == bestChild.get().weight:
-          # Tie-breaker of equal weights by root
-          if child.get().bid.root.tiebreak(bestChild.get().bid.root):
+        else:
+          let
+            bestChild = self.nodes[bestChildIdx].valueOr:
+              return err ForkChoiceError(
+                kind: fcInvalidBestDescendant,
+                index: bestChildIdx)
+            bestChildLeadsToViableHead =
+              ? self.nodeLeadsToViableHead(bestChild, bestChildIdx)
+          if childLeadsToViableHead and not bestChildLeadsToViableHead:
+            # The child leads to a viable head, but the current best-child doesn't
             changeToChild
-          else:
+          elif not childLeadsToViableHead and bestChildLeadsToViableHead:
+            # The best child leads to a viable head, but the child doesn't
             noChange
-        else: # Choose winner by weight
-          let cw = child.get().weight
-          let bw = bestChild.get().weight
-          if cw >= bw:
-            changeToChild
-          else:
-            noChange
-    else:
-      if childLeadsToViableHead:
-        # There is no current best-child and the child is viable
-        changeToChild
+          elif child.weight == bestChild.weight:
+            # Tie-breaker of equal weights by root
+            if child.bid.root.tiebreak(bestChild.bid.root):
+              changeToChild
+            else:
+              noChange
+          else: # Choose winner by weight
+            let
+              cw = child.weight
+              bw = bestChild.weight
+            if cw >= bw:
+              changeToChild
+            else:
+              noChange
       else:
-        # There is no current best-child but the child is not viable
-        noChange
+        if childLeadsToViableHead:
+          # There is no current best-child and the child is viable
+          changeToChild
+        else:
+          # There is no current best-child but the child is not viable
+          noChange
 
-  self.nodes.buf[parentIdx - self.nodes.offset].bestChild = newBestChild
-  self.nodes.buf[parentIdx - self.nodes.offset].bestDescendant = newBestDescendant
-
+  self.nodes.buf[parentIdx - self.nodes.offset]
+    .bestChild = newBestChild
+  self.nodes.buf[parentIdx - self.nodes.offset]
+    .bestDescendant = newBestDescendant
   ok()
 
 func nodeLeadsToViableHead(
@@ -507,13 +503,13 @@ func nodeLeadsToViableHead(
   ## for blockchain head
   let bestDescendantIsViableForHead = block:
     if node.bestDescendant.isSome():
-      let bestDescendantIdx = node.bestDescendant.unsafeGet()
-      let bestDescendant = self.nodes[bestDescendantIdx]
-      if bestDescendant.isNone:
-        return err ForkChoiceError(
-          kind: fcInvalidBestDescendant,
-          index: bestDescendantIdx)
-      self.nodeIsViableForHead(bestDescendant.get(), bestDescendantIdx)
+      let
+        bestDescendantIdx = node.bestDescendant.unsafeGet()
+        bestDescendant = self.nodes[bestDescendantIdx].valueOr:
+          return err ForkChoiceError(
+            kind: fcInvalidBestDescendant,
+            index: bestDescendantIdx)
+      self.nodeIsViableForHead(bestDescendant, bestDescendantIdx)
     else:
       false
 
