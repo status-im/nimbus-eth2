@@ -342,6 +342,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
+
+          CONFIRMATION_BYZANTINE_THRESHOLD:
+            Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH

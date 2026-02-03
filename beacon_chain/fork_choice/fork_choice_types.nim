@@ -88,7 +88,7 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    currentEpoch*: Epoch
+    currentSlot*: Slot
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]

@@ -123,7 +123,7 @@ func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
-                        currentEpoch: Epoch,
+                        currentSlot: Slot,
                         checkpoints: FinalityCheckpoints,
                         justifiedTotalActiveBalance: Gwei,
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
@@ -148,7 +148,7 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.currentEpoch = currentEpoch
+  self.currentSlot = currentSlot
 
   doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
   doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
@@ -527,45 +527,44 @@ func nodeIsViableForHead(
     # The voting source should be either at the same height as the store's
     # justified checkpoint or not more than two epochs ago
     correctJustified =
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+      node.checkpoints.justified.epoch + 2 >= self.currentSlot.epoch
 
-  return
-    if not correctJustified:
-      false
-    elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
-      true
-    elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
-      # Already checked to share history with `self.checkpoints.finalized`.
-      # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
-      true
-    else:
-      # Check that this node is not going to be pruned
-      let
-        finalizedEpoch = self.checkpoints.finalized.epoch
-        finalizedSlot = finalizedEpoch.start_slot
-      var ancestor = Opt.some node
-      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
-          ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
-        if ancestor.unsafeGet.parent.isSome:
-          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-        else:
-          ancestor.reset()
-      if ancestor.isNone:
-        false
-      elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
-          ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
-        false
+  if not correctJustified:
+    false
+  elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+    true
+  elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
+    # Already checked to share history with `self.checkpoints.finalized`.
+    # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
+    true
+  else:
+    # Check that this node is not going to be pruned
+    let
+      finalizedEpoch = self.checkpoints.finalized.epoch
+      finalizedSlot = finalizedEpoch.start_slot
+    var ancestor = Opt.some node
+    while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
+        ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
+      if ancestor.unsafeGet.parent.isSome:
+        ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
       else:
-        # An ancestor was already checked to share canonical history,
-        # or we reached the `finalizedSlot` and the root matches expectations
-        let ancestorSlot = ancestor.unsafeGet.bid.slot
-        var idx = nodeIdx
-        template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
-        while mutableNode.bid.slot > ancestorSlot:
-          mutableNode.sharedFinalizedEpoch = finalizedEpoch
-          idx = mutableNode.parent.unsafeGet
+        ancestor.reset()
+    if ancestor.isNone:
+      false
+    elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
+        ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
+      false
+    else:
+      # An ancestor was already checked to share canonical history,
+      # or we reached the `finalizedSlot` and the root matches expectations
+      let ancestorSlot = ancestor.unsafeGet.bid.slot
+      var idx = nodeIdx
+      template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
+      while mutableNode.bid.slot > ancestorSlot:
         mutableNode.sharedFinalizedEpoch = finalizedEpoch
-        true
+        idx = mutableNode.parent.unsafeGet
+      mutableNode.sharedFinalizedEpoch = finalizedEpoch
+      true
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =
