@@ -2898,33 +2898,33 @@ func get_indexed_payload_attestation*(
     signature: payload_attestation.signature
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
     state: gloas.BeaconState,
-    indexed_payload_attestation: IndexedPayloadAttestation): bool =
-  ## Check if ``indexed_payload_attestation`` is not empty, has sorted
+    attestation: IndexedPayloadAttestation): bool =
+  ## Check if ``attestation`` is not empty, has sorted
   ## and unique indices and has a valid aggregate signature.
 
   # Verify indices are non-empty and sorted
-  if indexed_payload_attestation.attesting_indices.len == 0:
+  if attestation.attesting_indices.len == 0:
     return false
 
-  if not toSeq(indexed_payload_attestation.attesting_indices).isSorted:
+  if not toSeq(attestation.attesting_indices).isSorted:
     return false
 
   # Verify aggregate signature
   let
     pubkeys = mapIt(
-      indexed_payload_attestation.attesting_indices,
+      attestation.attesting_indices,
       state.validators[it].pubkey)
     domain = get_domain(
       state.fork, DOMAIN_PTC_ATTESTER,
-      GENESIS_EPOCH, state.genesis_validators_root)
+      slot.epoch, state.genesis_validators_root)
     signing_root = compute_signing_root(
-      indexed_payload_attestation.data, domain)
+      attestation.data, domain)
 
   blsFastAggregateVerify(
-    pubkeys, signing_root.data, indexed_payload_attestation.signature)
+    pubkeys, signing_root.data, attestation.signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_active_builder
 func is_active_builder*(
