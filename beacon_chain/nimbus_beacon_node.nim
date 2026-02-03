@@ -2043,6 +2043,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       sort(custodyColumns)
       # update custody columns
       node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
+      # update custody columns into request manager
+      node.request_manager.custody_columns_set =
+        node.validatorCustody.newer_column_set
 
       # Update CGC and metadata with respect to the new detected validator custody
       let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
