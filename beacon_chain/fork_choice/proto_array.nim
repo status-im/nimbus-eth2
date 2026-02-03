@@ -327,30 +327,28 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
 
-  let justifiedNode = self.nodes[justifiedIdx]
-  if justifiedNode.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidJustifiedIndex,
-      index: justifiedIdx)
-
-  let bestDescendantIdx = justifiedNode.get().bestDescendant.get(justifiedIdx)
-  let bestNode = self.nodes[bestDescendantIdx]
-  if bestNode.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidBestDescendant,
-      index: bestDescendantIdx)
+  let
+    justifiedNode = self.nodes[justifiedIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidJustifiedIndex,
+        index: justifiedIdx)
+    bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
+    bestNode = self.nodes[bestDescendantIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidBestDescendant,
+        index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
-  if not self.nodeIsViableForHead(bestNode.get(), bestDescendantIdx):
+  if not self.nodeIsViableForHead(bestNode, bestDescendantIdx):
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       startRoot: justifiedRoot,
       fkChoiceCheckpoints: self.checkpoints,
-      headRoot: justifiedNode.get().bid.root,
-      headCheckpoints: justifiedNode.get().checkpoints)
+      headRoot: justifiedNode.bid.root,
+      headCheckpoints: justifiedNode.checkpoints)
 
-  head = bestNode.get().bid.root
-  self.update_latest_confirmed(bestNode.get())
+  head = bestNode.bid.root
+  self.update_latest_confirmed(bestNode)
   ok()
 
 func prune*(
