@@ -99,7 +99,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
   "Time it took to create list of attestations for block"
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: ref Quarantine,
+           quarantine: ref Quarantine, wallTime = default(BeaconTime),
            onPhase0Attestation: OnPhase0AttestationCallback = nil,
            onSingleAttestation: OnSingleAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
@@ -108,7 +108,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck)
+    finalizedEpochRef, dag.finalizedHead.blck, wallTime)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -932,12 +932,10 @@ proc getBeaconHead*(
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionBlockHash =
       if safeBlock.isErr:
-        # Safe block is currently the justified block determined by fork choice.
-        # If finality already advanced beyond the current justified checkpoint,
-        # e.g., because we have selected a head that did not yet realize the cp,
-        # the justified block may end up not having a `BlockRef` anymore.
-        # Because we know that a different fork already finalized a later point,
-        # let's just report the finalized execution payload hash instead.
+        # If finality already advanced beyond the current safe block,
+        # the safe block may end up not having a `BlockRef` anymore.
+        # Because a different fork already finalized a later point,
+        # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)

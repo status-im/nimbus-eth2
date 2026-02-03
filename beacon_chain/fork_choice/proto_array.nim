@@ -71,6 +71,13 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+func update_latest_confirmed(self: var ProtoArray, headNode: ProtoNode) =
+  # Use most recent justified block as a stopgap
+  self.confirmedRoot = self.checkpoints.justified.root
+
+func get_latest_confirmed*(self: ProtoArray): Eth2Digest =
+  self.confirmedRoot
+
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -99,7 +106,9 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(checkpoints: checkpoints,
+  T(currentSlot: node.bid.slot,
+    confirmedRoot: checkpoints.finalized.root,
+    checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
@@ -311,15 +320,13 @@ func onBlock*(self: var ProtoArray,
 
   ok()
 
-func findHead*(self: var ProtoArray,
-               head: var Eth2Digest,
-               justifiedRoot: Eth2Digest): FcResult[void] =
+func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ️ Warning
   ## The result may not be accurate if `onBlock` is not followed by
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
-
+  template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
   var justifiedIdx: Index
   self.indices.withValue(justifiedRoot, value) do:
     justifiedIdx = value[]
@@ -351,6 +358,7 @@ func findHead*(self: var ProtoArray,
       headCheckpoints: justifiedNode.get().checkpoints)
 
   head = bestNode.get().bid.root
+  self.update_latest_confirmed(bestNode.get())
   ok()
 
 func prune*(

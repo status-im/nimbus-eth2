@@ -53,7 +53,8 @@ func init*(
   T(proto_array: ProtoArray.init(checkpoints))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    wallTime: BeaconTime): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -67,6 +68,7 @@ proc init*(
         justified: checkpoint,
         finalized: checkpoint)),
     checkpoints: Checkpoints(
+      time: wallTime,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
         total_active_balance: epochRef.total_active_balance,
@@ -266,14 +268,15 @@ func process_block*(self: var ForkChoiceBackend,
                     unrealized = none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-proc process_block*(self: var ForkChoice,
-                    dag: ChainDAGRef,
-                    epochRef: EpochRef,
-                    blckRef: BlockRef,
-                    unrealized: FinalityCheckpoints,
-                    blck: ForkyTrustedBeaconBlock,
-                    wallTime: BeaconTime): FcResult[void] =
-  ? update_time(self, dag,
+proc process_block*(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    epochRef: EpochRef,
+    blckRef: BlockRef,
+    unrealized: FinalityCheckpoints,
+    blck: ForkyTrustedBeaconBlock,
+    wallTime: BeaconTime): FcResult[void] =
+  ? self.update_time(dag,
     max(wallTime, blckRef.slot.start_beacon_time(dag.timeParams)))
 
   for attester_slashing in blck.body.attester_slashings:
@@ -355,7 +358,7 @@ func find_head(
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head, checkpoints.justified.root)
+  ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
     checkpoints, fork_choice_head = shortLog(new_head)
@@ -379,8 +382,7 @@ proc get_head*(self: var ForkChoice,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  # Use most recent justified block as a stopgap
-  self.checkpoints.justified.checkpoint.root
+  self.backend.proto_array.get_latest_confirmed()
 
 func prune*(
        self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints

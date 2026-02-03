@@ -89,6 +89,7 @@ type
 
   ProtoArray* = object
     currentSlot*: Slot
+    confirmedRoot*: Eth2Digest
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
