@@ -74,11 +74,13 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 func update_latest_confirmed(
     self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
   # Use most recent justified block as a stopgap
-  self.confirmedRoot = self.checkpoints.justified.root
+  self.confirmed = BlockId(
+    slot: self.checkpoints.justified.epoch.start_slot,
+    root: self.checkpoints.justified.root)
   ok()
 
 func get_latest_confirmed*(self: ProtoArray): Eth2Digest =
-  self.confirmedRoot
+  self.confirmed.root
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -105,7 +107,7 @@ func init*(
     checkpoints: checkpoints)
 
   T(currentSlot: node.bid.slot,
-    confirmedRoot: checkpoints.finalized.root,
+    confirmed: node.bid,
     checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
