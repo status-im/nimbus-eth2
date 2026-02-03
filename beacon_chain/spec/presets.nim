@@ -54,6 +54,9 @@ const
   MAX_SLOT_DURATION* = seconds(Duration.high.seconds)
   MAX_BPS* = 10_000'u16
 
+  # Assumed maximum percentage of Byzantine validators among the validator set
+  CONFIRMATION_BYZANTINE_THRESHOLD_RANGE* = 0'u64 .. 25'u64
+
 func isValid*(timeParams: TimeParams): bool =
   # /!\ Keep in sync with `readRuntimeConfig`
   timeParams.SLOT_DURATION in
@@ -185,6 +188,9 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
     BLOB_SCHEDULE*: seq[BlobParameters]
+
+    # Fast Confirmation Rule
+    CONFIRMATION_BYZANTINE_THRESHOLD*: uint64
 
   PresetFile* = object
     values*: Table[string, string]
@@ -401,6 +407,9 @@ when const_preset == "mainnet":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Fast Confirmation Rule
+    CONFIRMATION_BYZANTINE_THRESHOLD: 25,
   )
 
 elif const_preset == "gnosis":
@@ -595,7 +604,10 @@ elif const_preset == "gnosis":
     CUSTODY_REQUIREMENT: 4,
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Fast Confirmation Rule
+    CONFIRMATION_BYZANTINE_THRESHOLD: 25,
   )
 
 elif const_preset == "minimal":
@@ -789,6 +801,9 @@ elif const_preset == "minimal":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Fast Confirmation Rule
+    CONFIRMATION_BYZANTINE_THRESHOLD: 25,
   )
 
 else:
@@ -1191,6 +1206,11 @@ proc readRuntimeConfig*(
                      "MAX_BLOBS_PER_BLOCK_ELECTRA", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
                      "MAX_REQUEST_BLOB_SIDECARS_ELECTRA"
+
+  # Guardrails
+  checkParsedValue(
+    "CONFIRMATION_BYZANTINE_THRESHOLD", cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
+    CONFIRMATION_BYZANTINE_THRESHOLD_RANGE, `in`)
 
   var unknowns: seq[string]
   for name in values.keys:

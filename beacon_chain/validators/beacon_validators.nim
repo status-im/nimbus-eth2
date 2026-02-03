@@ -620,8 +620,38 @@ proc proposeBlockAux(
 
   beacon_blocks_proposed.inc()
 
-  debugGloasComment ""
-  # TODO: broadcast signed envelope
+  when consensusFork >= ConsensusFork.Gloas:
+    let envelope = makeExecutionPayloadEnvelope(
+      eps = engineBid[].eps,
+      execution_requests = engineBid[].execution_requests,
+      beacon_block_root = blockRoot,
+      slot = slot,
+      state_root = signedBlock.message.state_root)
+
+    let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
+      node.dag.forkAtEpoch(slot.epoch),
+      node.dag.genesis_validators_root,
+      slot,
+      envelope
+    )
+
+    if signatureRes.isErr:
+      error "Failed to sign sign execution payload envelope",
+        slot, validator = shortLog(validator), err = signatureRes.error
+    else:
+      let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
+        message: envelope,
+        signature: signatureRes.get()
+      )
+
+      discard await node.router.routeExecutionPayloadEnvelope(
+        signedEnvelope, checkValidator = false)
+
+    notice "Payload Envelope proposed",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(signedBlock.message),
+      signature = shortLog(signature),
+      validator = shortLog(validator)
 
   newBlockRef.get()
 

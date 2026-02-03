@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,14 +56,14 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
-func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
+func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
   ## Retrieve a ProtoNode at "Index"
   if idx < nodes.offset:
-    return none(ProtoNode)
+    return Opt.none(ProtoNode)
   let i = idx - nodes.offset
   if i >= nodes.buf.len:
-    return none(ProtoNode)
-  some(nodes.buf[i])
+    return Opt.none(ProtoNode)
+  Opt.some(nodes.buf[i])
 
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
@@ -92,12 +92,8 @@ func init*(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
       root: checkpoints.finalized.root),
-    parent: none(int),
-    checkpoints: checkpoints,
-    weight: 0,
-    invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int))
+    parent: Opt.none(int),
+    checkpoints: checkpoints)
 
   T(checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
@@ -127,7 +123,7 @@ func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
-                        currentEpoch: Epoch,
+                        currentSlot: Slot,
                         checkpoints: FinalityCheckpoints,
                         justifiedTotalActiveBalance: Gwei,
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
@@ -152,7 +148,7 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.currentEpoch = currentEpoch
+  self.currentSlot = currentSlot
 
   doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
   doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
@@ -267,14 +263,14 @@ func onBlock*(self: var ProtoArray,
               bid: BlockId,
               parent: Eth2Digest,
               checkpoints: FinalityCheckpoints,
-              unrealized = none(FinalityCheckpoints)): FcResult[void] =
+              unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
   ## - either from Genesis
   ## - or from a finalized state loaded from database
 
-  # Note: if parent is an "Option" type, we can run out of stack space.
+  # Note: if parent is an "Opt" type, we can run out of stack space.
 
   # If the block is already known, ignore it
   if bid.root in self.indices:
@@ -293,12 +289,8 @@ func onBlock*(self: var ProtoArray,
 
   let node = ProtoNode(
     bid: bid,
-    parent: some(parentIdx),
-    checkpoints: checkpoints,
-    weight: 0,
-    invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int))
+    parent: Opt.some(parentIdx),
+    checkpoints: checkpoints)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
@@ -436,12 +428,12 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
     ? self.nodeLeadsToViableHead(child.get(), childIdx)
 
   let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
-    changeToNone = (none(Index), none(Index))
+    changeToNone = (Opt.none(Index), Opt.none(Index))
     changeToChild = (
-        some(childIdx),
+        Opt.some(childIdx),
         # Nim `options` module doesn't implement option `or`
         if child.get().bestDescendant.isSome(): child.get().bestDescendant
-        else: some(childIdx)
+        else: Opt.some(childIdx)
       )
     noChange = (parent.get().bestChild, parent.get().bestDescendant)
 
@@ -535,45 +527,44 @@ func nodeIsViableForHead(
     # The voting source should be either at the same height as the store's
     # justified checkpoint or not more than two epochs ago
     correctJustified =
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+      node.checkpoints.justified.epoch + 2 >= self.currentSlot.epoch
 
-  return
-    if not correctJustified:
-      false
-    elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
-      true
-    elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
-      # Already checked to share history with `self.checkpoints.finalized`.
-      # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
-      true
-    else:
-      # Check that this node is not going to be pruned
-      let
-        finalizedEpoch = self.checkpoints.finalized.epoch
-        finalizedSlot = finalizedEpoch.start_slot
-      var ancestor = some node
-      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
-          ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
-        if ancestor.unsafeGet.parent.isSome:
-          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-        else:
-          ancestor.reset()
-      if ancestor.isNone:
-        false
-      elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
-          ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
-        false
+  if not correctJustified:
+    false
+  elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+    true
+  elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
+    # Already checked to share history with `self.checkpoints.finalized`.
+    # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
+    true
+  else:
+    # Check that this node is not going to be pruned
+    let
+      finalizedEpoch = self.checkpoints.finalized.epoch
+      finalizedSlot = finalizedEpoch.start_slot
+    var ancestor = Opt.some node
+    while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
+        ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
+      if ancestor.unsafeGet.parent.isSome:
+        ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
       else:
-        # An ancestor was already checked to share canonical history,
-        # or we reached the `finalizedSlot` and the root matches expectations
-        let ancestorSlot = ancestor.unsafeGet.bid.slot
-        var idx = nodeIdx
-        template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
-        while mutableNode.bid.slot > ancestorSlot:
-          mutableNode.sharedFinalizedEpoch = finalizedEpoch
-          idx = mutableNode.parent.unsafeGet
+        ancestor.reset()
+    if ancestor.isNone:
+      false
+    elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
+        ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
+      false
+    else:
+      # An ancestor was already checked to share canonical history,
+      # or we reached the `finalizedSlot` and the root matches expectations
+      let ancestorSlot = ancestor.unsafeGet.bid.slot
+      var idx = nodeIdx
+      template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
+      while mutableNode.bid.slot > ancestorSlot:
         mutableNode.sharedFinalizedEpoch = finalizedEpoch
-        true
+        idx = mutableNode.parent.unsafeGet
+      mutableNode.sharedFinalizedEpoch = finalizedEpoch
+      true
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =
@@ -605,13 +596,13 @@ type ProtoArrayItem* = object
   bid*: BlockId
   parent*: Eth2Digest
   checkpoints*: FinalityCheckpoints
-  unrealized*: Option[FinalityCheckpoints]
+  unrealized*: Opt[FinalityCheckpoints]
   weight*: int64
   invalid*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
 
-func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
+func root(self: ProtoNodes, logicalIdx: Opt[Index]): Eth2Digest =
   if logicalIdx.isNone:
     return ZERO_HASH
   let node = self[logicalIdx.unsafeGet]
@@ -629,9 +620,9 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
       else:
-        none(FinalityCheckpoints)
+        Opt.none(FinalityCheckpoints)
 
     yield ProtoArrayItem(
       bid: node.bid,
