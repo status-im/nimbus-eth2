@@ -261,11 +261,12 @@ func process_equivocation*(
       validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
-func process_block*(self: var ForkChoiceBackend,
-                    bid: BlockId,
-                    parent_root: Eth2Digest,
-                    checkpoints: FinalityCheckpoints,
-                    unrealized = none(FinalityCheckpoints)): FcResult[void] =
+func process_block*(
+    self: var ForkChoiceBackend,
+    bid: BlockId,
+    parent_root: Eth2Digest,
+    checkpoints: FinalityCheckpoints,
+    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
 proc process_block*(
@@ -322,7 +323,7 @@ proc process_block*(
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, Opt.some unrealized)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
