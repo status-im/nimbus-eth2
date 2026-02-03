@@ -367,9 +367,9 @@ func find_head(
   return ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-proc get_head*(self: var ForkChoice,
-               dag: ChainDAGRef,
-               wallTime: BeaconTime): FcResult[Eth2Digest] =
+proc get_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
@@ -385,9 +385,9 @@ proc get_head*(self: var ForkChoice,
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   self.backend.proto_array.get_latest_confirmed()
 
-func prune*(
-       self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints
-     ): FcResult[void] =
+func prune(
+    self: var ForkChoiceBackend,
+    checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   self.proto_array.prune(checkpoints)
 

@@ -71,9 +71,11 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
-func update_latest_confirmed(self: var ProtoArray, headNode: ProtoNode) =
+func update_latest_confirmed(
+    self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
   # Use most recent justified block as a stopgap
   self.confirmedRoot = self.checkpoints.justified.root
+  ok()
 
 func get_latest_confirmed*(self: ProtoArray): Eth2Digest =
   self.confirmedRoot
@@ -130,12 +132,13 @@ func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
-func applyScoreChanges*(self: var ProtoArray,
-                        deltas: var openArray[Delta],
-                        currentSlot: Slot,
-                        checkpoints: FinalityCheckpoints,
-                        justifiedTotalActiveBalance: Gwei,
-                        proposerBoostRoot: Eth2Digest): FcResult[void] =
+func applyScoreChanges*(
+    self: var ProtoArray,
+    deltas: var openArray[Delta],
+    currentSlot: Slot,
+    checkpoints: FinalityCheckpoints,
+    justifiedTotalActiveBalance: Gwei,
+    proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   #
@@ -268,11 +271,12 @@ func applyScoreChanges*(self: var ProtoArray,
 
   ok()
 
-func onBlock*(self: var ProtoArray,
-              bid: BlockId,
-              parent: Eth2Digest,
-              checkpoints: FinalityCheckpoints,
-              unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
+func onBlock*(
+    self: var ProtoArray,
+    bid: BlockId,
+    parent: Eth2Digest,
+    checkpoints: FinalityCheckpoints,
+    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -286,7 +290,7 @@ func onBlock*(self: var ProtoArray,
     return ok()
 
   var parentIdx: Index
-  self.indices.withValue(parent, index) do:
+  self.indices.withValue(parent, index):
     parentIdx = index[]
   do:
     return err ForkChoiceError(
@@ -320,7 +324,7 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
   template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
   var justifiedIdx: Index
-  self.indices.withValue(justifiedRoot, value) do:
+  self.indices.withValue(justifiedRoot, value):
     justifiedIdx = value[]
   do:
     return err ForkChoiceError(
@@ -348,7 +352,7 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       headCheckpoints: justifiedNode.checkpoints)
 
   head = bestNode.bid.root
-  self.update_latest_confirmed(bestNode)
+  ? self.update_latest_confirmed(bestNode)
   ok()
 
 func prune*(
@@ -366,8 +370,8 @@ func prune*(
   ## - Internal error due to invalid indices in `self`
 
   var finalizedIdx: int
-  self.indices.withValue(checkpoints.finalized.root, value) do:
-    finalizedIdx = value[]
+  self.indices.withValue(checkpoints.finalized.root, index):
+    finalizedIdx = index[]
   do:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
