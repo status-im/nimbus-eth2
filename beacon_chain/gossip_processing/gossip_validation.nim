@@ -803,15 +803,14 @@ proc validateDataColumnSidecar*(
         bsi = dag.getBlockIdAtSlot(data_column_sidecar.slot).valueOr:
           debugGloasComment("deferred validation")
           return errIgnore("DataColumnSidecar: block not yet seen")
-        forked = dag.getForkedBlock(bsi.bid).valueOr:
+        forkedBlock = dag.getForkedBlock(bsi.bid).valueOr:
           info "block is missing, database corrupt?",
             root = shortLog(blockRoot)
           return errIgnore("DataColumnSidecar: block not yet seen")
-      withBlck(forked):
+      withBlck(forkedBlock):
         when consensusFork >= ConsensusFork.Gloas:
           forkyBlck
         else:
-          # this shouldn't be happening
           return errIgnore("DataColumnSidecar: block in incorrect fork")
 
   # [REJECT] The sidecar's `slot` matches the slot of the block with root
@@ -821,8 +820,7 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar is valid as verified by
   # `verify_data_column_sidecar(sidecar, bid.blob_kzg_commitments)`.
-  template bid(): auto =
-    blck.message.body.signed_execution_payload_bid.message
+  template bid(): auto = blck.message.body.signed_execution_payload_bid.message
   block:
     let v = verify_data_column_sidecar(
       dag.cfg, data_column_sidecar, bid.blob_kzg_commitments)
