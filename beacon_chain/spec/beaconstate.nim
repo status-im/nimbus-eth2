@@ -2224,7 +2224,7 @@ func onboard_builders_from_pending_deposits*(
   ## Applies any pending deposit for builders, effectively
   ## onboarding builders at the fork.
 
-  var validator_pubkeys = initHashSet[ValidatorPubKey]()
+  var validator_pubkeys: HashSet[ValidatorPubKey]
   for validator in state.validators:
     validator_pubkeys.incl(validator.pubkey)
 
@@ -2242,18 +2242,15 @@ func onboard_builders_from_pending_deposits*(
     # previous iteration or it is a builder deposit, try to apply the
     # deposit to the new/existing builder. Note that the function
     # apply_deposit_for_builder can mutate the state and may add a builder
-    # to the registry. For this reason, the list of builder pubkeys must
-    # be recomputed each iteration.
-    var builder_pubkeys = initHashSet[ValidatorPubKey]()
-    for builder in state.builders:
-      builder_pubkeys.incl(builder.pubkey)
-
+    # to the registry.
     let
-      is_existing_builder = deposit.pubkey in builder_pubkeys
+      is_existing_builder = findValidatorIndex(
+        state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
+      is_validator = deposit.pubkey in validator_pubkeys
       has_builder_credentials = 
         is_builder_withdrawal_credential(deposit.withdrawal_credentials)
 
-    if is_existing_builder or has_builder_credentials:
+    if is_existing_builder or (has_builder_credentials and not is_validator):
       apply_deposit_for_builder(
         cfg, state, bucket_sorted_builders[],
         deposit.pubkey,
