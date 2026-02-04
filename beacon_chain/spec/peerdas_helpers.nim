@@ -405,8 +405,9 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSid
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
-func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar):
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
+func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar,
+                                 kzg_commitments: KzgCommitments):
                                  Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
@@ -414,20 +415,15 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSi
   if sidecar.index >= NUMBER_OF_COLUMNS:
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
+  # [Modified in Gloas:EIP7732]
   # A sidecar for zero blobs is invalid
-  if sidecar.kzg_commitments.len == 0:
+  if sidecar.column.len() == 0:
     return err("Data column contains zero blobs")
 
   # [Modified in Gloas:EIP7732]
-  # Check that the sidecar respects the blob limit
-  template epoch: untyped = sidecar.slot.epoch()
-  if sidecar.kzg_commitments.lenu64 >
-      cfg.get_blob_parameters(epoch).MAX_BLOBS_PER_BLOCK:
-    return err("Data column contains too many blobs")
-
   # The column length must be equal to the number of commitments/proofs
-  if sidecar.column.len != sidecar.kzg_commitments.len or
-      sidecar.column.len != sidecar.kzg_proofs.len:
+  if sidecar.column.len() != kzg_commitments.len() or
+      sidecar.column.len() != sidecar.kzg_proofs.len():
     return err("Data column length must be equal to the number of commitments/proofs")
 
   ok()
@@ -450,8 +446,7 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar |
-                                                     gloas.DataColumnSidecar):
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 
@@ -462,6 +457,31 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar |
 
   let res = verifyCellKzgProofBatch(
       sidecar.kzg_commitments.asSeq, cellIndices, sidecar.column.asSeq,
+      sidecar.kzg_proofs.asSeq).valueOr:
+    return err("DataColumnSidecar: validation error")
+
+  if not res:
+    return err("DataColumnSidecar: validation failed")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: gloas.DataColumnSidecar,
+                                            kzg_commitments: KzgCommitments):
+                                            Result[void, cstring] =
+  ## Verify if the KZG proofs are correct.
+
+  # The column index also represents the cell index
+  var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
+  for _ in 0..<sidecar.column.len:
+    cellIndices.add(CellIndex(sidecar.index))
+
+  # Batch verify that the cells match the corresponding commitments and proofs
+  let res = verifyCellKzgProofBatch(
+      # [Modified in Gloas:EIP7732]
+      kzg_commitments.asSeq,
+      cellIndices,
+      sidecar.column.asSeq,
       sidecar.kzg_proofs.asSeq).valueOr:
     return err("DataColumnSidecar: validation error")
 
