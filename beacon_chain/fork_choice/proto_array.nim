@@ -129,6 +129,26 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
+func advance_checkpoints(
+    self: var ProtoArray, checkpoints: FinalityCheckpoints) =
+  doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
+  doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
+    checkpoints.finalized.root == self.checkpoints.finalized.root or
+    self.checkpoints.finalized.epoch == GENESIS_EPOCH
+  self.checkpoints = checkpoints
+
+func on_slot_start_after_past_attestations_applied*(
+    self: var ProtoArray,
+    currentSlot: Slot, checkpoints: FinalityCheckpoints): FcResult[void] =
+  ## Implementations MUST call `update_fast_confirmation_variables` at the start
+  ## of a slot after attestations from past slots have been applied. Otherwise,
+  ## the synchrony assumption that the algorithm relies upon may not hold.
+  doAssert currentSlot >= self.currentSlot
+  self.advance_checkpoints(checkpoints)
+
+  self.currentSlot = currentSlot
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
 func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
@@ -137,7 +157,6 @@ func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
 func applyScoreChanges*(
     self: var ProtoArray,
     deltas: var openArray[Delta],
-    currentSlot: Slot,
     checkpoints: FinalityCheckpoints,
     justifiedTotalActiveBalance: Gwei,
     proposerBoostRoot: Eth2Digest): FcResult[void] =
@@ -162,13 +181,7 @@ func applyScoreChanges*(
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.currentSlot = currentSlot
-
-  doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
-  doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
-    checkpoints.finalized.root == self.checkpoints.finalized.root or
-    self.checkpoints.finalized.epoch == GENESIS_EPOCH
-  self.checkpoints = checkpoints
+  self.advance_checkpoints(checkpoints)
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
