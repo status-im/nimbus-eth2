@@ -371,10 +371,11 @@ proc get_head*(
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
 
+  let checkpoints = FinalityCheckpoints(
+    justified: self.checkpoints.justified.checkpoint,
+    finalized: self.checkpoints.finalized)
   result = self.backend.find_head(
-    FinalityCheckpoints(
-      justified: self.checkpoints.justified.checkpoint,
-      finalized: self.checkpoints.finalized),
+    checkpoints,
     self.checkpoints.justified.total_active_balance,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
