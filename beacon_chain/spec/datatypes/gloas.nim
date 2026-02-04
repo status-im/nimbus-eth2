@@ -77,7 +77,7 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#executionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
@@ -89,21 +89,20 @@ type
     slot*: Slot
     value*: Gwei
     execution_payment*: Gwei
-    blob_kzg_commitments_root*: Eth2Digest
+    blob_kzg_commitments*: KzgCommitments
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#signedexecutionpayloadbid
   SignedExecutionPayloadBid* = object
     message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#executionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadenvelope
   ExecutionPayloadEnvelope* = object
     payload*: deneb.ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     slot*: Slot
-    blob_kzg_commitments*: KzgCommitments
     state_root*: Eth2Digest
 
   TrustedExecutionPayloadEnvelope* = object
@@ -112,7 +111,6 @@ type
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     slot*: Slot
-    blob_kzg_commitments*: KzgCommitments
     state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
@@ -646,7 +644,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     parent_hash: "",
     fee_recipient: "",
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: 0,
+    blob_kzg_commitments_len: v.body.signed_execution_payload_bid.message.blob_kzg_commitments.len(),
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -665,7 +663,6 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     builder_index: v.builder_index,
     slot: v.slot,
     value: v.value,
-    blob_kzg_commitments_root: shortLog(v.blob_kzg_commitments_root),
   )
 
 func shortLog*(v: ExecutionPayloadEnvelope): auto =
