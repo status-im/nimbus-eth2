@@ -57,6 +57,7 @@ jobs:
           - target:
               os: windows
             builder: windows-2022
+            shell: msys2 {0}
 
     defaults:
       run:
