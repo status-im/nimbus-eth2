@@ -391,13 +391,6 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-is_merge_transition_complete
-func is_merge_transition_complete*(state: gloas.BeaconState): bool =
-  var bid = default(gloas.ExecutionPayloadBid)
-  const kzgs = default(KzgCommitments)
-  bid.blob_kzg_commitments_root = kzgs.hash_tree_root()
-  state.latest_execution_payload_bid != bid
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Gloas:

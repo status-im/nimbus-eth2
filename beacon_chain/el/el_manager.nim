@@ -930,7 +930,8 @@ proc sendNewPayload*(
         block:
           let kzgCommitments =
             when consensusFork >= ConsensusFork.Gloas:
-              envelope.blob_kzg_commitments
+              template bid(): auto = blck.body.signed_execution_payload_bid
+              bid.message.blob_kzg_commitments
             elif consensusFork >= ConsensusFork.Deneb:
               blck.body.blob_kzg_commitments
           kzgCommitments.asEngineVersionedHashes()

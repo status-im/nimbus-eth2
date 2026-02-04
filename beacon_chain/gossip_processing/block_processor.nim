@@ -917,6 +917,8 @@ proc enqueuePayload*(
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
 
+  template bid(): auto = blck.message.body.signed_execution_payload_bid
+
   let
     envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
       # We have not received the envelope yet so mark it as missing.
@@ -925,7 +927,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
     sidecarsOpt =
       block:
         let sidecarsOpt =
-          if envelope.message.blob_kzg_commitments.len() == 0:
+          if bid.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))
           else:
             self.gloasColumnQuarantine[].popSidecars(blck.root)

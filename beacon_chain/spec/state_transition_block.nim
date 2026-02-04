@@ -1225,7 +1225,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
     signed_envelope: SignedExecutionPayloadEnvelope |
@@ -1237,7 +1237,7 @@ proc process_execution_payload*(
 
   # Verify signature
   if verify:
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
     let
       builder_index = envelope.builder_index
       pubkey =
@@ -1268,9 +1268,6 @@ proc process_execution_payload*(
   template committed_bid: untyped = state.data.latest_execution_payload_bid
   if envelope.builder_index != committed_bid.builder_index:
     return err("process_execution_payload: builder index mismatch")
-  if committed_bid.blob_kzg_commitments_root !=
-      hash_tree_root(envelope.blob_kzg_commitments):
-    return err("process_execution_payload: blob KZG commitments root mismatch")
   if not(committed_bid.prev_randao == payload.prev_randao):
     return err("process_execution_payload: prev_randao mismatch")
 
@@ -1295,11 +1292,6 @@ proc process_execution_payload*(
   if payload.timestamp != cfg.timeParams
       .compute_timestamp_at_slot(state.data, state.data.slot):
     return err("process_execution_payload: timestamp mismatch")
-
-  # Verify commitments are under limit
-  let blob_params = cfg.get_blob_parameters(get_current_epoch(state.data))
-  if lenu64(envelope.blob_kzg_commitments) > blob_params.MAX_BLOBS_PER_BLOCK:
-    return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
@@ -1355,7 +1347,7 @@ proc process_execution_payload*(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     blck: SomeGloasBeaconBlock): Result[void, cstring] =
@@ -1384,6 +1376,11 @@ proc process_execution_payload_bid*(
         state.fork, state.genesis_validators_root, epoch, signed_bid.message,
         state.builders.item(builder_index).pubkey, signed_bid.signature):
       return err("payload_bid: invalid bid signature")
+
+  # Verify commitments are under limit
+  let blob_params = cfg.get_blob_parameters(epoch)
+  if not (lenu64(bid.blob_kzg_commitments) <= blob_params.MAX_BLOBS_PER_BLOCK):
+    return err("payload_bid: too many KZG commitments")
 
   # Verify that the bid is for the current slot
   if bid.slot != blck.slot:
