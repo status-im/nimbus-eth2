@@ -1768,13 +1768,14 @@ func convert_builder_index_to_validator_index(builder_index: BuilderIndex):
     uint64 =
   builder_index or BUILDER_INDEX_FLAG
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_builder_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_withdrawals
 func get_builder_withdrawals(
     state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
     prior_withdrawals: seq[Withdrawal]):
     (seq[Withdrawal], WithdrawalIndex, uint64) =
   const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
 
+  # Safe: prior_withdrawals is always empty when called from get_expected_withdrawals
   doAssert len(prior_withdrawals) <= withdrawals_limit
 
   var withdrawal_index = withdrawal_index
@@ -1823,7 +1824,7 @@ func is_eligible_for_partial_withdrawals(
   validator.exit_epoch == FAR_FUTURE_EPOCH and
     has_sufficient_effective_balance and has_excess_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/electra/beacon-chain.md#new-get_pending_partial_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/electra/beacon-chain.md#new-get_pending_partial_withdrawals
 func get_pending_partial_withdrawals(
     state: gloas.BeaconState,
     withdrawal_index: WithdrawalIndex, prior_withdrawals: seq[Withdrawal]):
@@ -1869,7 +1870,7 @@ func get_pending_partial_withdrawals(
 
   (withdrawals, withdrawal_index, processed_count)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_builders_sweep_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builders_sweep_withdrawals
 func get_builders_sweep_withdrawals(
     state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
     prior_withdrawals: seq[Withdrawal]):
@@ -1910,7 +1911,7 @@ func get_builders_sweep_withdrawals(
 
   (withdrawals, withdrawal_index, processed_count)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/electra/beacon-chain.md#modified-get_validators_sweep_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/electra/beacon-chain.md#modified-get_validators_sweep_withdrawals
 func get_validators_sweep_withdrawals(
     state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
     prior_withdrawals: seq[Withdrawal]):
@@ -1919,8 +1920,10 @@ func get_validators_sweep_withdrawals(
     epoch = get_current_epoch(state)
     validators_limit = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
   const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD
-
-  doAssert len(prior_withdrawals) <= withdrawals_limit
+  
+  # Safe: prior_withdrawals length is bounded by the preceding get_builder_withdrawals
+  # and get_partial_withdrawals calls in get_expected_withdrawals
+  doAssert len(prior_withdrawals) < withdrawals_limit
 
   var
     processed_count: uint64
@@ -2789,8 +2792,9 @@ func upgrade_to_next*(
     for i in 0 ..< res.len:
       setBit(res, i)
     res
-
-  var post = gloas.BeaconState(
+  
+  template post: untyped = result
+  post = gloas.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2864,7 +2868,8 @@ func upgrade_to_next*(
     latest_block_hash: pre.latest_execution_payload_header.block_hash
   )
   onboard_builders_from_pending_deposits(cfg, post)
-  post
+
+  # result = post
 
 func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =
