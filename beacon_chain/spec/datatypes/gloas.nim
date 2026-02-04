@@ -54,11 +54,12 @@ const
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex
     column*: DataColumn
-    kzg_commitments*: KzgCommitments
+    # [Modified in Gloas:EIP7732]
+    # Removed `kzg_commitments`
     kzg_proofs*: deneb.KzgProofs
     # [Modified in Gloas:EIP7732]
     # Removed `signed_block_header`
@@ -618,7 +619,6 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,
-    kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     slot: v.slot,
     beacon_block_root: shortLog(v.beacon_block_root),

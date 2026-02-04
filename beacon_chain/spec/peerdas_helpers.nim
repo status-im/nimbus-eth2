@@ -262,11 +262,13 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/builder.md#modified-get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
-    blobs: seq[KzgBlob], kzg_commitments: deneb.KzgCommitments,
-    cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
+  template kzg_commitments(): auto =
+    signed_beacon_block.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+
   if kzg_commitments.len == 0 or blobs.len == 0:
     return static(default(seq[gloas.DataColumnSidecar]))
 
@@ -302,7 +304,6 @@ proc assemble_data_column_sidecars*(
     let sidecar = gloas.DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
-      kzg_commitments: kzg_commitments,
       kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
       slot: signed_beacon_block.message.slot,
       beacon_block_root: beacon_block_root

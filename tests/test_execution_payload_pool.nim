@@ -33,7 +33,7 @@ func makeBid(
       fee_recipient: default(ExecutionAddress),
       gas_limit: 30000000,
       value: value,
-      blob_kzg_commitments_root: Eth2Digest()),
+      blob_kzg_commitments: default(KzgCommitments)),
     signature: default(ValidatorSig))
 
 suite "Execution Payload Bid Pool":

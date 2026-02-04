@@ -854,7 +854,7 @@ proc validateDataColumnSidecar*(
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,
       index: data_column_sidecar.index,
-      kzg_commitments: data_column_sidecar.kzg_commitments)
+      kzg_commitments: bid.blob_kzg_commitments)
 
   ok()
 
