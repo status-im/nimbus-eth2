@@ -808,15 +808,11 @@ proc validateDataColumnSidecar*(
   if gloasColumnQuarantine[].hasSidecar(block_root, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
-  debugGloasComment ""
   # [IGNORE] The sidecar's beacon_block_root has been seen via a valid signed
   # execution payload header (builder's bid).
   if not executionPayloadBidPool[].hasBidForBlockRoot(block_root):
     return errIgnore("DataColumnSidecar: bid not seen for this block root")
-  #
-  # _[REJECT]_ The sidecars's `slot` matches the slot of the block with root
-  # `beacon_block_root`.
-  #
+
   # [REJECT] The hash of the sidecar's kzg_commitments matches the
   # blob_kzg_commitments_root in the corresponding builder's bid for
   # sidecar.beacon_block_root.
@@ -825,9 +821,22 @@ proc validateDataColumnSidecar*(
     return errIgnore("DataColumnSidecar: bid missing")
 
   template bid: untyped = signedBid.message
-  if hash_tree_root(data_column_sidecar.kzg_commitments) !=
-      bid.blob_kzg_commitments_root:
-    return dag.checkedReject("DataColumnSidecar: kzgCommitments root mismatch")
+
+  # [REJECT] The sidecar's slot matches the slot of the block with root
+  # beacon_block_root.
+  if data_column_sidecar.slot != bid.slot:
+    return dag.checkedReject("DataColumnSidecar: slot mismatch with bid")
+
+  # [REJECT] The hash of the sidecar's kzg_commitments matches the
+  # blob_kzg_commitments_root in the corresponding builder's bid for
+  # sidecar.beacon_block_root.
+  template expected_commitments_root: untyped =
+    hash_tree_root(bid.blob_kzg_commitments)
+  template actual_commitments_root: untyped =
+    hash_tree_root(data_column_sidecar.kzg_commitments)
+
+  if actual_commitments_root != expected_commitments_root:
+    return dag.checkedReject("DataColumnSidecar: kzg_commitments root mismatch")
 
   # [REJECT] The sidecar's column data is valid
   block:
