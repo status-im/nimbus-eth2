@@ -71,6 +71,15 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/phase0/fork-choice.md#compute_proposer_score
+func compute_proposer_score(justifiedTotalActiveBalance: Gwei): Gwei =
+  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
+  (committee_weight * PROPOSER_SCORE_BOOST) div 100
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/phase0/fork-choice.md#get_proposer_score
+func get_proposer_score(self: ProtoArray): Gwei =
+  compute_proposer_score(self.justifiedTotalActiveBalance)
+
 func update_latest_confirmed(
     self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
   # Use most recent justified block as a stopgap
@@ -144,15 +153,10 @@ func on_slot_start_after_past_attestations_applied*(
   ## of a slot after attestations from past slots have been applied. Otherwise,
   ## the synchrony assumption that the algorithm relies upon may not hold.
   doAssert currentSlot >= self.currentSlot
+  self.currentSlot = currentSlot
   self.advance_checkpoints(checkpoints)
 
-  self.currentSlot = currentSlot
   ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
-  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
-  (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(
     self: var ProtoArray,
@@ -182,6 +186,7 @@ func applyScoreChanges*(
       indicesLen: self.indices.len)
 
   self.advance_checkpoints(checkpoints)
+  self.justifiedTotalActiveBalance = justifiedTotalActiveBalance
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
@@ -214,7 +219,7 @@ func applyScoreChanges*(
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
+      proposerBoostScore = self.get_proposer_score()
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(
@@ -313,12 +318,12 @@ func onBlock*(
       childRoot: bid.root,
       parentRoot: parent)
 
-  let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
-
-  let node = ProtoNode(
-    bid: bid,
-    parent: Opt.some(parentIdx),
-    checkpoints: checkpoints)
+  let
+    nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
+    node = ProtoNode(
+      bid: bid,
+      parent: Opt.some(parentIdx),
+      checkpoints: checkpoints)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
@@ -339,8 +344,8 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
   template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
   var justifiedIdx: Index
-  self.indices.withValue(justifiedRoot, value):
-    justifiedIdx = value[]
+  self.indices.withValue(justifiedRoot, index):
+    justifiedIdx = index[]
   do:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,

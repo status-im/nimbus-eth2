@@ -91,6 +91,7 @@ type
     currentSlot*: Slot
     confirmed*: BlockId
     checkpoints*: FinalityCheckpoints
+    justifiedTotalActiveBalance*: Gwei
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
     currentEpochTips*: Table[Index, FinalityCheckpoints]
