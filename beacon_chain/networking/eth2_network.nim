@@ -2898,3 +2898,12 @@ proc broadcastPayloadAttestationMessage*(
     topic = getPayloadAttestationMessageTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadEnvelope*(
+    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = envelope.message.slot.epoch
+    topic = getExecutionPayloadTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, envelope)

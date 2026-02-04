@@ -76,9 +76,6 @@ if defined(windows):
   switch("passL", "-Wl,--stack,8388608")
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
-  if defined(i386):
-    # set the IMAGE_FILE_LARGE_ADDRESS_AWARE flag so we can use PAE, if enabled, and access more than 2 GiB of RAM
-    switch("passL", "-Wl,--large-address-aware")
 
   # The dynamic Chronicles output currently prevents us from using colors on Windows
   # because these require direct manipulations of the stdout File object.
@@ -224,3 +221,13 @@ put("sysrng.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
+
+# ############################################################
+#
+#                QUIC does variable stack allocations
+#
+# ############################################################
+
+put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
