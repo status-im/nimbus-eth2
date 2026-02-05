@@ -162,6 +162,7 @@ func applyScoreChanges*(
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
+  doAssert currentSlot >= self.currentSlot
   self.currentSlot = currentSlot
 
   doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
