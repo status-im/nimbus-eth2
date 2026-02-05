@@ -34,6 +34,7 @@ type
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
     fcInvalidNodeIndex
+    fcInvalidConfirmedIndex
     fcInvalidJustifiedIndex
     fcInvalidBestDescendant
     fcInvalidParentDelta
@@ -59,6 +60,7 @@ type
     of fcInconsistentTick, fcInvalidEpochRef:
       discard
     of fcInvalidNodeIndex,
+       fcInvalidConfirmedIndex,
        fcInvalidJustifiedIndex,
        fcInvalidBestDescendant,
        fcInvalidParentDelta,

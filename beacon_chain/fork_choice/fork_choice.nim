@@ -188,6 +188,37 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
   let endTick = Moment.now()
   debug "Processed attestation queue", processDur = endTick - startTick
 
+func apply_score_changes(
+    self: var ForkChoiceBackend,
+    checkpoints: FinalityCheckpoints,
+    justified_total_active_balance: Gwei,
+    justified_state_balances: seq[Gwei],
+    proposer_boost_root: Eth2Digest): FcResult[void] =
+  # Compute deltas with previous call
+  #   we might want to reuse the `deltas` buffer across calls
+  var deltas = newSeq[Delta](self.proto_array.indices.len)
+  ? deltas.compute_deltas(
+    indices = self.proto_array.indices,
+    indices_offset = self.proto_array.nodes.offset,
+    votes = self.votes,
+    old_balances = self.balances,
+    new_balances = justified_state_balances)
+
+  # Apply score changes
+  ? self.proto_array.applyScoreChanges(
+    deltas, checkpoints, justified_total_active_balance, proposer_boost_root)
+
+  self.balances = justified_state_balances
+
+func apply_score_changes(self: var ForkChoice): FcResult[void] =
+  self.backend.apply_score_changes(
+    FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized),
+    self.checkpoints.justified.total_active_balance,
+    self.checkpoints.justified.balances,
+    self.checkpoints.proposer_boost_root)
+
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
   ## and `false` otherwise.
@@ -214,6 +245,7 @@ proc update_time*(
     if preSlot != postSlot:
       self.process_attestation_queue(postSlot)
 
+      ? self.apply_score_changes()
       ? self.backend.proto_array.on_slot_start_after_past_attestations_applied(
         currentSlot = postSlot,
         FinalityCheckpoints(
@@ -335,53 +367,22 @@ proc process_block*(
 
   ok()
 
-func find_head(
-    self: var ForkChoiceBackend,
-    checkpoints: FinalityCheckpoints,
-    justified_total_active_balance: Gwei,
-    justified_state_balances: seq[Gwei],
-    proposer_boost_root: Eth2Digest): FcResult[Eth2Digest] =
-  ## Returns the new blockchain head
-
-  # Compute deltas with previous call
-  #   we might want to reuse the `deltas` buffer across calls
-  var deltas = newSeq[Delta](self.proto_array.indices.len)
-  ? deltas.compute_deltas(
-    indices = self.proto_array.indices,
-    indices_offset = self.proto_array.nodes.offset,
-    votes = self.votes,
-    old_balances = self.balances,
-    new_balances = justified_state_balances)
-
-  # Apply score changes
-  ? self.proto_array.applyScoreChanges(
-    deltas, checkpoints, justified_total_active_balance, proposer_boost_root)
-
-  self.balances = justified_state_balances
-
-  # Find the best block
-  var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head)
-
-  return ok(new_head)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
+  ? self.apply_score_changes()
 
-  let checkpoints = FinalityCheckpoints(
-    justified: self.checkpoints.justified.checkpoint,
-    finalized: self.checkpoints.finalized)
-  result = self.backend.find_head(
-    checkpoints,
-    self.checkpoints.justified.total_active_balance,
-    self.checkpoints.justified.balances,
-    self.checkpoints.proposer_boost_root)
-  if result.isOk:
-    trace "Fork choice requested",
-      checkpoints, fork_choice_head = shortLog(result.unsafeGet)
+  # Find the best block
+  var new_head {.noinit.}: Eth2Digest
+  ? self.backend.proto_array.findHead(new_head)
+  trace "Fork choice requested",
+    checkpoints = FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized),
+    fork_choice_head = shortLog(new_head)
+  ok new_head
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
@@ -464,7 +465,7 @@ func compute_deltas(
           # Note that delta can be negative
           # TODO: is int64 big enough?
 
-      if vote.next_epoch != FAR_FUTURE_EPOCH or not vote.next_root.isZero:
+      if vote.next_epoch != FAR_FUTURE_EPOCH and not vote.next_root.isZero:
         if vote.next_root in indices:
           let index = indices.unsafeGet(vote.next_root) - indices_offset
           if index >= deltas.len:

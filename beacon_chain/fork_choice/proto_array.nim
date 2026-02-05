@@ -71,6 +71,26 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+func is_ancestor(
+    self: ProtoArray, node: ProtoNode,
+    ancestor_root: Eth2Digest, minSlot: Slot, slot: var Slot): FcResult[bool] =
+  ## Return ``ok(true)`` if ``ancestor_root`` is an ancestor of ``node``.
+  if node.bid.root == ancestor_root:
+    slot = node.bid.slot
+    return ok true
+
+  var node = node
+  while node.parent.isSome and node.bid.slot >= minSlot:
+    let parentIdx = node.parent.unsafeGet
+    node = self.nodes[parentIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidNodeIndex,
+        index: parentIdx)
+    if node.bid.root == ancestor_root:
+      slot = node.bid.slot
+      return ok true
+  ok false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/phase0/fork-choice.md#compute_proposer_score
 func compute_proposer_score(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
@@ -79,6 +99,155 @@ func compute_proposer_score(justifiedTotalActiveBalance: Gwei): Gwei =
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/phase0/fork-choice.md#get_proposer_score
 func get_proposer_score(self: ProtoArray): Gwei =
   compute_proposer_score(self.justifiedTotalActiveBalance)
+
+# LMD-GHOST helpers
+# ----------------------------------------------------------------------
+
+func get_block_support_between_slots(
+    self: ProtoArray, node: ProtoNode, slots: Slice[Slot]): Gwei =
+  ## Return support of the block within ``slots``.
+
+
+func is_full_validator_set_covered(slots: Slice[Slot]): bool =
+  ## Return ``true`` if the range within ``slots`` includes an entire epoch.
+  let
+    start_full_epoch = (slots.a + (SLOTS_PER_EPOCH - 1)).epoch
+    end_full_epoch = (slots.b + 1).epoch
+  start_full_epoch < end_full_epoch
+
+func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
+  ## Return adjusted ``estimate`` of the weight of a committee for a sequence
+  ## of slots not covering a full epoch.
+  # Per mille value to add to the estimation of the committee weight across a
+  # range of slots not covering a full epoch in order to ensure the safety of
+  # the confirmation rule with high probability.
+  # See https://gist.github.com/saltiniroberto/9ee53d29c33878d79417abb2b4468c20
+  # for an explanation about the value chosen.
+  const COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR = 5'u64
+  estimate div 1000 * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
+
+func estimate_committee_weight_between_slots(
+    self: ProtoArray, slots: Slice[Slot]): Gwei =
+  ## Return estimate of the total weight of committees within ``slots``.
+  let
+    total_active_balance = self.justifiedTotalActiveBalance
+    committee_weight = total_active_balance div SLOTS_PER_EPOCH
+  if slots.a > slots.b:
+    # Sanity check
+    0.Gwei
+  elif is_full_validator_set_covered(slots):
+    # If an entire epoch is covered by the range,
+    # return the total active balance
+    total_active_balance
+  elif slots.a.epoch == slots.b.epoch:
+    committee_weight * slots.len.uint64
+  else:
+    let
+      # First, calculate the number of committees in the end epoch
+      num_slots_in_end_epoch = slots.b.since_epoch_start + 1
+      # Next, calculate the number of slots remaining in the end epoch
+      remaining_slots_in_end_epoch = SLOTS_PER_EPOCH - num_slots_in_end_epoch
+      # Then, calculate the number of slots in the start epoch
+      num_slots_in_start_epoch = SLOTS_PER_EPOCH - slots.a.since_epoch_start
+
+      end_epoch_weight_estimate = committee_weight * num_slots_in_end_epoch
+      start_epoch_weight_estimate =
+        (committee_weight div SLOTS_PER_EPOCH) *
+        num_slots_in_start_epoch * remaining_slots_in_end_epoch
+
+    # A range that spans an epoch boundary, but does not span any full epoch
+    # needs pro-rata calculation
+    adjust_committee_weight_estimate_to_ensure_safety(
+      start_epoch_weight_estimate + end_epoch_weight_estimate)
+
+func compute_empty_slot_support_discount(
+    self: ProtoArray, node, parent: ProtoNode): Gwei =
+  ## Return weight that can be discounted during the safety threshold
+  ## computation if there are empty slots preceding the block.
+  if parent.bid.slot + 1 == node.bid.slot:
+    # No empty slot.
+    0.Gwei
+  else:
+    let
+      # Discount votes supporting the parent block if they are from the
+      # committees of empty slots.
+      parent_support_in_empty_slots = self.get_block_support_between_slots(
+        parent, parent.bid.slot + 1 ..< node.bid.slot)
+
+
+
+func get_support_discount(self: ProtoArray, node, parent: ProtoNode): Gwei =
+  ## Return weight that can be discounted during the safety threshold
+  ## computation for the block.
+  # Empty slot support discount
+  self.compute_empty_slot_support_discount(node, parent)
+
+func is_one_confirmed(self: ProtoArray, node, parent: ProtoNode): bool =
+  ## Return ``true`` if and only if the block is LMD-GHOST safe.
+  let
+    support = node.weight
+    proposer_score = self.get_proposer_score()
+    maximum_support = self.estimate_committee_weight_between_slots(
+      parent.bid.slot + 1 ..< self.currentSlot)
+    support_discount = self.get_support_discount(node, parent)
+
+func is_confirmed_chain_safe(self: ProtoArray): FcResult[bool] =
+  ## Return ``ok(true)`` if and only if all blocks of the confirmed chain
+  ## starting from self.checkpoints.justified are LMD-GHOST safe.
+  var confirmedIdx {.noinit.}: Index
+  self.indices.withValue(self.confirmed.root, index):
+    confirmedIdx = index
+  do:
+    # Confirmed block was pruned / finality advanced beyond it
+    return ok false
+
+  var
+    node = self.nodes[confirmedIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidConfirmedIndex,
+        index: confirmedIdx)
+    checkpointSlot {.noinit.}: Slot
+
+  # Check if the confirmed_root is descendant of self.checkpoints.justified.
+  template justified: untyped = self.checkpoints.justified
+  if not ? self.is_ancestor(
+      node, justified.root, justified.epoch.start_slot, checkpointSlot):
+    return ok false
+
+  let
+    currentEpoch = self.currentSlot.epoch
+    prevEpochJustified = (self.checkpoints.justified.epoch + 1 >= currentEpoch)
+  if prevEpochJustified:
+    # Exclude the justified checkpoint block if it is from the previous epoch
+    # as then this block will always be canonical in this case.
+    inc checkpointSlot
+  else:
+    # Limit reconfirmation to the checkpoint block
+    # as if it's successful, reconfirmation of the ancestors is implied.
+    checkpointSlot = (max(currentEpoch, 1.Epoch) - 1).start_slot
+
+  # Run is_one_confirmed for each block in the confirmed chain with the
+  # previous epoch balance source.
+  while node.bid.slot >= checkpointSlot:
+    let
+      parentIdx = node.parent.valueOr:
+        return ok false
+      parent = self.nodes[parentIdx].valueOr:
+        return err ForkChoiceError(
+          kind: fcInvalidNodeIndex,
+          index: parentIdx)
+    if not self.is_one_confirmed(node, parent):
+      return ok false
+    node = parent
+  ok true
+
+# Fast Confirmation Rule
+# ----------------------------------------------------------------------
+
+func revert_confirmed_to_finalized(self: var ProtoArray) =
+  self.confirmed = BlockId(
+    slot: self.checkpoints.finalized.epoch.start_slot,
+    root: self.checkpoints.finalized.root)
 
 func update_latest_confirmed(
     self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
@@ -152,10 +321,21 @@ func on_slot_start_after_past_attestations_applied*(
   ## Implementations MUST call `update_fast_confirmation_variables` at the start
   ## of a slot after attestations from past slots have been applied. Otherwise,
   ## the synchrony assumption that the algorithm relies upon may not hold.
+  let previousSlot = self.currentSlot
   doAssert currentSlot >= self.currentSlot
   self.currentSlot = currentSlot
   self.advance_checkpoints(checkpoints)
 
+  # Revert to finalized block if either of the following is true:
+  # 1) the latest confirmed block's epoch is older than the previous epoch,
+  # 2) [...],
+  # 3) the confirmed chain starting from the current epoch observed justified
+  #    checkpoint cannot be re-confirmed at the start of the current epoch.
+  if self.confirmed.slot.epoch + 1 < currentSlot.epoch:
+    self.revert_confirmed_to_finalized()
+  elif currentSlot.epoch > previousSlot.epoch and
+      not ? self.is_confirmed_chain_safe:
+    self.revert_confirmed_to_finalized()
   ok()
 
 func applyScoreChanges*(
