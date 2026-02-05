@@ -101,6 +101,9 @@ func genGloasSignedExecutionPayloadEnvelope(
     blockRoot: Eth2Digest,
     _: openArray[KzgCommitment]
 ): gloas.SignedExecutionPayloadEnvelope =
+  # GloasColumnQuarantine shouldn't care about kzg commitments so functions and
+  # tests should be refactored.
+  debugGloasComment("remove kzg commitments")
   gloas.SignedExecutionPayloadEnvelope(
     message: gloas.ExecutionPayloadEnvelope(
       beacon_block_root: blockRoot))

@@ -253,7 +253,7 @@ func makeSignedExecutionPayloadBid(
     slot: slot,
     value: 0.Gwei,
     execution_payment: 0.Gwei,
-    blob_kzg_commitments: blob_kzg_commitments
+    blob_kzg_commitments: blob_kzg_commitments,
   )
   SignedExecutionPayloadBid(
     message: bid,

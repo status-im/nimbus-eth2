@@ -116,7 +116,6 @@ type
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
-    best_justified*: Checkpoint
     proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types

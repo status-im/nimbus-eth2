@@ -1172,7 +1172,7 @@ proc process_execution_payload*(
 
   # Verify signature
   if verify:
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
     let
       builder_index = envelope.builder_index
       pubkey =
