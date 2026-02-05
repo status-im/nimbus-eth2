@@ -99,12 +99,11 @@ func genFuluSignedBeaconBlock(
 
 func genGloasSignedExecutionPayloadEnvelope(
     blockRoot: Eth2Digest,
-    commitments: openArray[KzgCommitment]
+    _: openArray[KzgCommitment]
 ): gloas.SignedExecutionPayloadEnvelope =
   var res = @commitments
   gloas.SignedExecutionPayloadEnvelope(
     message: gloas.ExecutionPayloadEnvelope(
-      blob_kzg_commitments: KzgCommitments(res),
       beacon_block_root: blockRoot))
 
 func compareSidecars(
