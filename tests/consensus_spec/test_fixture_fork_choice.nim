@@ -311,17 +311,9 @@ proc stepChecks(
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "justified_checkpoint_root": # undocumented check
-      let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
-      doAssert checkpointRoot == Eth2Digest.fromHex(val.getStr())
     elif check == "finalized_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.finalized.root
       let checkpointEpoch = fkChoice.checkpoints.finalized.epoch
-      doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
-      doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "best_justified_checkpoint":
-      let checkpointRoot = fkChoice.checkpoints.best_justified.root
-      let checkpointEpoch = fkChoice.checkpoints.best_justified.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "proposer_boost_root":

@@ -73,8 +73,7 @@ proc init*(
         checkpoint: checkpoint,
         total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
-      finalized: checkpoint,
-      best_justified: checkpoint))
+      finalized: checkpoint))
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
