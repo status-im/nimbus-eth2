@@ -260,7 +260,7 @@ suite "Block processor" & preset():
 
         # Create block with blobs
         let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Deneb, forkyState, cache, blobsBundle
+          cfg, ConsensusFork.Deneb, forkyState, blobsBundle, cache = cache
         )
 
         # Create blob sidecars from the block
@@ -350,12 +350,12 @@ suite "Block processor" & preset():
 
         # Create block with blobs
         let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, cache, blobsBundle
+          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
         )
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], @(cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)))
+          engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
         )
         let dsRef = dataColumnSidecars.mapIt(newClone(it))
 

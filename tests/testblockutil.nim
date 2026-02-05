@@ -371,7 +371,6 @@ proc addTestEngineBlockWithBlobs*(
     cfg: RuntimeConfig,
     consensusFork: static ConsensusFork,
     state: var ForkyHashedBeaconState,
-    cache: var StateCache,
     blobsBundle: testblockutil.BlobsBundle,
     eth1_data: Eth1Data = Eth1Data(),
     attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
@@ -380,6 +379,7 @@ proc addTestEngineBlockWithBlobs*(
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
+    cache: var StateCache,
 ): EngineBlock[consensusFork.SignedBeaconBlock] =
   # Create and add a block to state with blobs - state will advance by one slot!
   let
