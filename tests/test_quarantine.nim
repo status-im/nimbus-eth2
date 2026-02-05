@@ -101,7 +101,6 @@ func genGloasSignedExecutionPayloadEnvelope(
     blockRoot: Eth2Digest,
     _: openArray[KzgCommitment]
 ): gloas.SignedExecutionPayloadEnvelope =
-  var res = @commitments
   gloas.SignedExecutionPayloadEnvelope(
     message: gloas.ExecutionPayloadEnvelope(
       beacon_block_root: blockRoot))

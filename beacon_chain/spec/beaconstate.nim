@@ -2162,10 +2162,11 @@ func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
       return BuilderIndex(index)
   BuilderIndex(len(state.builders))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_builder_from_deposit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_from_deposit
 func get_builder_from_deposit(
     state: gloas.BeaconState, pubkey: ValidatorPubKey,
-    withdrawal_credentials: Eth2Digest, amount: Gwei): Builder =
+    withdrawal_credentials: Eth2Digest,
+    amount: Gwei, slot: Slot): Builder =
   var execution_address {.noinit.}: ExecutionAddress
   distinctBase(execution_address)[0 .. 19] =
     withdrawal_credentials.data.toOpenArray(12, 31)
@@ -2174,19 +2175,20 @@ func get_builder_from_deposit(
     version: uint8(withdrawal_credentials.data[0]),
     execution_address: execution_address,
     balance: amount,
-    deposit_epoch: get_current_epoch(state),
+    deposit_epoch: slot.epoch,
     withdrawable_epoch: FAR_FUTURE_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-add_builder_to_registry
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-add_builder_to_registry
 func add_builder_to_registry(
     state: var gloas.BeaconState,
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey,
-    withdrawal_credentials: Eth2Digest, amount: Gwei) =
+    withdrawal_credentials: Eth2Digest, amount: Gwei, slot: Slot) =
   let
     index = get_index_for_new_builder(state)
     builder =
-      get_builder_from_deposit(state, pubkey, withdrawal_credentials, amount)
+      get_builder_from_deposit(
+        state, pubkey, withdrawal_credentials, amount, slot)
   if state.builders.lenu64 == index:
     # TODO handle this potential failure (?) differently
     discard state.builders.add builder
@@ -2195,14 +2197,14 @@ func add_builder_to_registry(
   else:
     state.builders.mitem(index) = builder
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-apply_deposit_for_builder
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-apply_deposit_for_builder
 func apply_deposit_for_builder*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey, withdrawal_credentials: Eth2Digest,
-    amount: Gwei, signature: ValidatorSig) =
+    amount: Gwei, signature: ValidatorSig, slot: Slot) =
   let opt_validator_index =
-      findValidatorIndex(state.builders.asSeq, bucket_sorted_builders, pubkey)
+    findValidatorIndex(state.builders.asSeq, bucket_sorted_builders, pubkey)
   if opt_validator_index.isErr():
     # Verify the deposit signature (proof of possession) which is not checked by
     # the deposit contract
@@ -2211,7 +2213,8 @@ func apply_deposit_for_builder*(
           pubkey: pubkey, withdrawal_credentials: withdrawal_credentials,
           amount: amount, signature: signature)):
       add_builder_to_registry(
-        state, bucket_sorted_builders, pubkey, withdrawal_credentials, amount)
+        state, bucket_sorted_builders, pubkey,
+        withdrawal_credentials, amount, slot)
 
   else:
     # Increase balance by deposit amount
@@ -2224,19 +2227,23 @@ func onboard_builders_from_pending_deposits*(
   ## Applies any pending deposit for builders, effectively
   ## onboarding builders at the fork.
 
-  var validator_pubkeys: HashSet[ValidatorPubKey]
-  for validator in state.validators:
-    validator_pubkeys.incl(validator.pubkey)
-
   var
+    bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
     pending_deposits: seq[PendingDeposit]
 
   for deposit in state.pending_deposits:
     # Deposits for existing validators stay in pending queue
-    if deposit.pubkey in validator_pubkeys:
+    let is_existing_validator = findValidatorIndex(
+      state.validators.asSeq, bucket_sorted_validators[], deposit.pubkey).isSome
+
+    if is_existing_validator:
       pending_deposits.add(deposit)
       continue
+
+    # Check if this pubkey will become a validator
+    let is_pending_validator =
+      pending_deposits.anyIt(it.pubkey == deposit.pubkey)
 
     # If the pubkey is associated with a builder that was created in a
     # previous iteration or it is a builder deposit, try to apply the
@@ -2246,17 +2253,18 @@ func onboard_builders_from_pending_deposits*(
     let
       is_existing_builder = findValidatorIndex(
         state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
-      is_validator = deposit.pubkey in validator_pubkeys
       has_builder_credentials = 
         is_builder_withdrawal_credential(deposit.withdrawal_credentials)
 
-    if is_existing_builder or (has_builder_credentials and not is_validator):
+    if is_existing_builder or (
+        has_builder_credentials and not is_pending_validator):
       apply_deposit_for_builder(
         cfg, state, bucket_sorted_builders[],
         deposit.pubkey,
         deposit.withdrawal_credentials,
         deposit.amount,
-        deposit.signature)
+        deposit.signature,
+        deposit.slot)
       continue
 
     # If there is a pending deposit for a new validator that has a valid
@@ -2271,7 +2279,6 @@ func onboard_builders_from_pending_deposits*(
           withdrawal_credentials: deposit.withdrawal_credentials,
           amount: deposit.amount,
           signature: deposit.signature)):
-      validator_pubkeys.incl(deposit.pubkey)
       pending_deposits.add(deposit)
 
   state.pending_deposits =

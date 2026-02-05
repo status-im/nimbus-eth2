@@ -409,7 +409,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_validators: BucketSortedValidators,
@@ -433,7 +433,7 @@ func process_deposit_request*(
     apply_deposit_for_builder(
       cfg, state, bucket_sorted_builders, deposit_request.pubkey,
       deposit_request.withdrawal_credentials, deposit_request.amount,
-      deposit_request.signature)
+      deposit_request.signature, state.slot)
     return ok()
 
   # Add validator deposits to the queue
