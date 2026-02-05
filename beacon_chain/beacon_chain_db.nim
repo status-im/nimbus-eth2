@@ -1147,6 +1147,15 @@ proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
   if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
     result.err()
 
+proc getExecutionPayloadEnvelopeSZ*(db: BeaconChainDB, root: Eth2Digest,
+                                    data: var seq[byte]): bool =
+  if db.envelopes == nil:
+    return false
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.envelopes.get(root.data, decode).expectDb()
+
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     data: var seq[byte], T: typedesc[X]): bool =

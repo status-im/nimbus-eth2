@@ -138,6 +138,10 @@ AllTests-mainnet
 ## Block processor [Preset: mainnet]
 ```diff
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
++ Process Deneb block without blob sidecars [Preset: mainnet]                                OK
++ Process Fulu block with data column sidecars [Preset: mainnet]                             OK
++ Process Fulu block without data column sidecars [Preset: mainnet]                          OK
 + Process a block from each fork (without blobs) [Preset: mainnet]                           OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```

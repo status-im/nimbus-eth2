@@ -557,8 +557,8 @@ proc initFullNode(
       Quarantine.init(dag.cfg))
     envelopeQuarantine = newClone(EnvelopeQuarantine.init())
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, onPhase0AttestationReceived,
-      onSingleAttestationReceived))
+      dag, quarantine, getBeaconTime(),
+      onPhase0AttestationReceived, onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -2043,6 +2043,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       sort(custodyColumns)
       # update custody columns
       node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
+      # update custody columns into request manager
+      node.request_manager.custody_columns_set =
+        node.validatorCustody.newer_column_set
 
       # Update CGC and metadata with respect to the new detected validator custody
       let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
