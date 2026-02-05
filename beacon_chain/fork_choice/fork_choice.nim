@@ -651,14 +651,14 @@ when isMainModule:
     votes.add VoteTracker(
       current_root: fakeHash(1),
       next_root: default(Eth2Digest),
-      slot: Epoch(0))
+      slot: Slot(0))
 
     # One validator moves their vote from the block to
     # something outside of the tree
     votes.add VoteTracker(
       current_root: fakeHash(1),
       next_root: fakeHash(1337),
-      slot: Epoch(0))
+      slot: Slot(0))
 
     let err = deltas.compute_deltas(
       indices, indices_offset = 0, votes, old_balances, new_balances)
