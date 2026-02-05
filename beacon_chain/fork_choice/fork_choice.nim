@@ -36,13 +36,13 @@ export proto_array.len
 type Index = fork_choice_types.Index
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void]
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[Gwei],
+    new_balances: openArray[Gwei]): FcResult[void]
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -53,7 +53,8 @@ func init*(
   T(proto_array: ProtoArray.init(checkpoints))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    wallTime: BeaconTime): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -67,6 +68,7 @@ proc init*(
         justified: checkpoint,
         finalized: checkpoint)),
     checkpoints: Checkpoints(
+      time: wallTime,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
         total_active_balance: epochRef.total_active_balance,
@@ -162,13 +164,14 @@ func process_attestation(
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if target_epoch > vote.next_epoch or vote.next_root.isZero:
-    vote.next_root = block_root
-    vote.next_epoch = target_epoch
+  if vote.next_epoch != FAR_FUTURE_EPOCH:
+    if target_epoch > vote.next_epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.next_epoch = target_epoch
 
-    trace "Integrating vote in fork choice",
-      validator_index = validator_index,
-      new_vote = shortLog(vote)
+      trace "Integrating vote in fork choice",
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
 
 proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
   # Spec:
@@ -258,21 +261,23 @@ func process_equivocation*(
       validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
-func process_block*(self: var ForkChoiceBackend,
-                    bid: BlockId,
-                    parent_root: Eth2Digest,
-                    checkpoints: FinalityCheckpoints,
-                    unrealized = none(FinalityCheckpoints)): FcResult[void] =
+func process_block*(
+    self: var ForkChoiceBackend,
+    bid: BlockId,
+    parent_root: Eth2Digest,
+    checkpoints: FinalityCheckpoints,
+    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-proc process_block*(self: var ForkChoice,
-                    dag: ChainDAGRef,
-                    epochRef: EpochRef,
-                    blckRef: BlockRef,
-                    unrealized: FinalityCheckpoints,
-                    blck: ForkyTrustedBeaconBlock,
-                    wallTime: BeaconTime): FcResult[void] =
-  ? update_time(self, dag,
+proc process_block*(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    epochRef: EpochRef,
+    blckRef: BlockRef,
+    unrealized: FinalityCheckpoints,
+    blck: ForkyTrustedBeaconBlock,
+    wallTime: BeaconTime): FcResult[void] =
+  ? self.update_time(dag,
     max(wallTime, blckRef.slot.start_beacon_time(dag.timeParams)))
 
   for attester_slashing in blck.body.attester_slashings:
@@ -318,7 +323,7 @@ proc process_block*(self: var ForkChoice,
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, Opt.some unrealized)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
@@ -327,7 +332,7 @@ proc process_block*(self: var ForkChoice,
 
 func find_head(
        self: var ForkChoiceBackend,
-       current_epoch: Epoch,
+       current_slot: Slot,
        checkpoints: FinalityCheckpoints,
        justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
@@ -347,14 +352,14 @@ func find_head(
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, current_epoch, checkpoints,
+    deltas, current_slot, checkpoints,
     justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head, checkpoints.justified.root)
+  ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
     checkpoints, fork_choice_head = shortLog(new_head)
@@ -362,13 +367,13 @@ func find_head(
   return ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-proc get_head*(self: var ForkChoice,
-               dag: ChainDAGRef,
-               wallTime: BeaconTime): FcResult[Eth2Digest] =
+proc get_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
-    self.checkpoints.time.slotOrZero(dag.timeParams).epoch,
+    self.checkpoints.time.slotOrZero(dag.timeParams),
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
@@ -378,12 +383,11 @@ proc get_head*(self: var ForkChoice,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  # Use most recent justified block as a stopgap
-  self.checkpoints.justified.checkpoint.root
+  self.backend.proto_array.get_latest_confirmed()
 
-func prune*(
-       self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints
-     ): FcResult[void] =
+func prune(
+    self: var ForkChoiceBackend,
+    checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   self.proto_array.prune(checkpoints)
 
@@ -406,13 +410,12 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
     discard
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void] =
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[Gwei],
+    new_balances: openArray[Gwei]): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes

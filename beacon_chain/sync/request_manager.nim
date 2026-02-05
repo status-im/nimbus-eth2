@@ -76,7 +76,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
-    custody_columns_set: HashSet[ColumnIndex]
+    custody_columns_set*: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine

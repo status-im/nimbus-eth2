@@ -407,8 +407,10 @@ proc proposeBlockAux(
 
     engineBid =
       when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment "when need to getExecutionPayload/getPayload"
-        default(Opt[EngineBid[gloas.ExecutionPayloadForSigning]])
+        # Fetch only engine payload for now
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey
+        )
       elif consensusFork >= ConsensusFork.Electra:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
@@ -574,11 +576,14 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork == ConsensusFork.Gloas:
-    # using noSidecars for Phase0 -> Capella blocks for now
-    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
-  elif consensusFork >= ConsensusFork.Fulu and
-      consensusFork < ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Gloas:
+    let sidecarsOpt =
+      Opt.some(signedBlock.assemble_data_column_sidecars(
+        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+        engineBid[].eps.blobsBundle.commitments,
+        @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      ))
+  elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -590,6 +595,7 @@ proc proposeBlockAux(
           engineBlock.blobsBundle.proofs,
           engineBlock.blobsBundle.blobs))
   else:
+    # using noSidecars for Phase0 -> Capella blocks for now
     const sidecarsOpt = noSidecarsAtFork
 
   let
@@ -613,6 +619,39 @@ proc proposeBlockAux(
     validator = shortLog(validator)
 
   beacon_blocks_proposed.inc()
+
+  when consensusFork >= ConsensusFork.Gloas:
+    let envelope = makeExecutionPayloadEnvelope(
+      eps = engineBid[].eps,
+      execution_requests = engineBid[].execution_requests,
+      beacon_block_root = blockRoot,
+      slot = slot,
+      state_root = signedBlock.message.state_root)
+
+    let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
+      node.dag.forkAtEpoch(slot.epoch),
+      node.dag.genesis_validators_root,
+      slot,
+      envelope
+    )
+
+    if signatureRes.isErr:
+      error "Failed to sign sign execution payload envelope",
+        slot, validator = shortLog(validator), err = signatureRes.error
+    else:
+      let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
+        message: envelope,
+        signature: signatureRes.get()
+      )
+
+      discard await node.router.routeExecutionPayloadEnvelope(
+        signedEnvelope, checkValidator = false)
+
+    notice "Payload Envelope proposed",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(signedBlock.message),
+      signature = shortLog(signature),
+      validator = shortLog(validator)
 
   newBlockRef.get()
 
@@ -1052,14 +1091,14 @@ proc updateValidatorMetrics*(node: BeaconNode) =
       if v.index.isNone():
         0.Gwei
       elif v.index.get().uint64 >=
-          getStateField(node.dag.headState, balances).lenu64:
+          node.dag.headState.balances.lenu64:
         debug "Cannot get validator balance, index out of bounds",
           pubkey = shortLog(v.pubkey), index = v.index.get(),
-          balances = getStateField(node.dag.headState, balances).len,
-          stateRoot = getStateRoot(node.dag.headState)
+          balances = node.dag.headState.balances.len,
+          stateRoot = node.dag.headState.root
         0.Gwei
       else:
-        getStateField(node.dag.headState, balances).item(v.index.get())
+        node.dag.headState.balances.item(v.index.get())
 
     if i < 64:
       attached_validator_balance.set(

@@ -293,7 +293,7 @@ proc addTestBlock*(
   if nextSlot:
     var info = ForkedEpochInfo()
     process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
+      cfg, state, state.slot + 1, cache, info, flags).expect(
         "can advance 1")
 
   withState(state):
@@ -405,8 +405,8 @@ func makeAttestation(
     ValidatorSig()
   else:
     makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
+      state.fork,
+      state.genesis_validators_root,
       data, committee, aggregation_bits)
 
   phase0.Attestation(
@@ -418,7 +418,7 @@ func makeAttestation(
 func find_beacon_committee(
     state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
-  let epoch = epoch(getStateField(state, slot))
+  let epoch = epoch(state.slot)
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
       state, epoch, cache) * SLOTS_PER_EPOCH:
     let
@@ -459,8 +459,8 @@ func makeFullAttestations*(
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
+        state.fork,
+        state.genesis_validators_root, data, committee,
         attestation.aggregation_bits)
 
     result.add attestation
@@ -483,8 +483,8 @@ func makeElectraAttestation(
     ValidatorSig()
   else:
     makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
+      state.fork,
+      state.genesis_validators_root,
       data, committee, aggregation_bits)
 
   var committee_bits: AttestationCommitteeBits
@@ -531,8 +531,8 @@ func makeFullElectraAttestations*(
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
+        state.fork,
+        state.genesis_validators_root, data, committee,
         attestation.aggregation_bits)
 
     result.add attestation
@@ -555,11 +555,11 @@ proc makeSyncAggregate(
         else:
           return SyncAggregate.init()
     fork =
-      getStateField(state, fork)
+      state.fork
     genesis_validators_root =
-      getStateField(state, genesis_validators_root)
+      state.genesis_validators_root
     slot =
-      getStateField(state, slot)
+      state.slot
     latest_block_id =
       withState(state): forkyState.latest_block_id
     rng = HmacDrbgContext.new()
@@ -594,7 +594,7 @@ proc makeSyncAggregate(
         validatorIdx =
           block:
             var res = 0
-            for i, validator in getStateField(state, validators):
+            for i, validator in state.validators:
               if validator.pubkey == validatorKey:
                 res = i
                 break
@@ -673,17 +673,17 @@ iterator makeTestBlocks*(
       attestations =
         if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, state[].slot, cache)
         else:
           @[]
       electraAttestations =
         if attested and state.kind >= ConsensusFork.Electra:
           makeFullElectraAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, state[].slot, cache)
         else:
           @[]
-      stateEth1 = getStateField(state[], eth1_data)
-      stateDepositIndex = getStateField(state[], eth1_deposit_index)
+      stateEth1 = state[].eth1_data
+      stateDepositIndex = state[].eth1_deposit_index
       deposits =
         if stateDepositIndex < stateEth1.deposit_count:
           let

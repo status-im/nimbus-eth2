@@ -71,7 +71,7 @@ suite "Block processor" & preset():
       )
       state = newClone(dag.headState)
       getTimeFn = proc(): BeaconTime =
-        getStateField(state[], slot).start_beacon_time(cfg.timeParams)
+        state[].slot.start_beacon_time(cfg.timeParams)
       batchVerifier = BatchVerifier.new(rng, taskpool)
     var
       cache: StateCache
@@ -135,7 +135,7 @@ suite "Block processor" & preset():
     check:
       # ensure we loaded the correct head state
       dag2.head.root == b2.root
-      getStateRoot(dag2.headState) == b2.message.state_root
+      dag2.headState.root == b2.message.state_root
       dag2.getBlockRef(b1.root).isSome()
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
@@ -190,7 +190,7 @@ suite "Block processor" & preset():
         cfg,
         state[],
         max(
-          getStateField(state[], slot) + 1,
+          state[].slot + 1,
           cfg.consensusForkEpoch(consensusFork).start_slot,
         ),
         cache,

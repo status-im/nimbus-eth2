@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -107,6 +107,13 @@ jobs:
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
+      - name: Install nasm (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nasm --no-progress -y
+          "C:\Program Files\NASM" | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Derive environment variables
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
@@ -157,9 +164,24 @@ jobs:
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
           echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
+      - name: Get latest nimbus-build-system commit hash
+        id: versions
+        shell: bash
+        run: |
+          nbsHash=$(git rev-parse HEAD:vendor/nimbus-build-system)
+          echo "nimbus_build_system=$nbsHash" >> $GITHUB_OUTPUT
+
+      - name: Restore prebuilt Nim from cache
+        if: matrix.branch == null
+        id: nim-cache
+        uses: actions/cache@v4
+        with:
+          path: NimBinCache
+          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
+
       - name: Build Nim and Nimbus dependencies
         run: |
-          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 CI_CACHE=NimBinCache update
           ./env.sh nim --version
 
       - name: Build binaries (with trace logging enabled)
