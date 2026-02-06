@@ -2231,19 +2231,16 @@ func onboard_builders_from_pending_deposits*(
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
     pending_deposits: seq[PendingDeposit]
+    pending_validator_pubkeys: HashSet[ValidatorPubKey]
 
   for deposit in state.pending_deposits:
     # Deposits for existing validators stay in pending queue
     let is_existing_validator = findValidatorIndex(
       state.validators.asSeq, bucket_sorted_validators[], deposit.pubkey).isSome
 
-    if is_existing_validator:
+    if is_existing_validator or deposit.pubkey in pending_validator_pubkeys:
       pending_deposits.add(deposit)
       continue
-
-    # Check if this pubkey will become a validator
-    let is_pending_validator =
-      pending_deposits.anyIt(it.pubkey == deposit.pubkey)
 
     # If the pubkey is associated with a builder that was created in a
     # previous iteration or it is a builder deposit, try to apply the
@@ -2256,8 +2253,7 @@ func onboard_builders_from_pending_deposits*(
       has_builder_credentials = 
         is_builder_withdrawal_credential(deposit.withdrawal_credentials)
 
-    if is_existing_builder or (
-        has_builder_credentials and not is_pending_validator):
+    if is_existing_builder or has_builder_credentials:
       apply_deposit_for_builder(
         cfg, state, bucket_sorted_builders[],
         deposit.pubkey,
@@ -2279,6 +2275,7 @@ func onboard_builders_from_pending_deposits*(
           withdrawal_credentials: deposit.withdrawal_credentials,
           amount: deposit.amount,
           signature: deposit.signature)):
+      pending_validator_pubkeys.incl(deposit.pubkey)
       pending_deposits.add(deposit)
 
   state.pending_deposits =

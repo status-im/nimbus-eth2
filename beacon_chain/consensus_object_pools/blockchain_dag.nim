@@ -149,9 +149,7 @@ func validatorKey*(
 template is_merge_transition_complete*(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
-    when consensusFork >= ConsensusFork.Gloas:
-      true
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       is_merge_transition_complete(forkyState.data)
     else:
       false
