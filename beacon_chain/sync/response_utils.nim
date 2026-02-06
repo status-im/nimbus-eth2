@@ -84,7 +84,7 @@ func groupSidecars*(
       block_root = hash_tree_root(sidecar[].signed_block_header.message)
       block_slot = sidecar[].signed_block_header.message.slot
 
-    if block_slot < slot or block_slot > srange.last_slot():
+    if (block_slot < slot) or (block_slot > srange.last_slot()):
       return err("Invalid data column sidecar slot")
     if sidecar[].index notin map:
       return err("Invalid data column index")
@@ -93,7 +93,7 @@ func groupSidecars*(
     if len(grouped) != 0:
       if grouped[^1].block_root == block_root:
         if uint64(grouped[^1].sidecar[].index) >= uint64(sidecar[].index):
-          return err("Invalid order of data column sidecars")
+          return err("Invalid order or duplicate data column sidecars found")
 
     # TODO (cheatfate): Batch verification could improve performance here.
     ? verify_data_column_sidecar_inclusion_proof(sidecar[])
@@ -209,13 +209,13 @@ func validateBlocks*(
         let columnsCount = len(forkyBlck.message.body.blob_kzg_commitments)
         if columnsCount == 0:
           continue
-        if (sindex >= len(sidecars)) or (sindex + mapCount > len(sidecars)):
-          return err("Not enough data column sidecars")
         for index in 0 ..< mapCount:
-          let record = sidecars[sindex + index]
+          let record = sidecars[sindex]
           if record.block_root != forkyBlck.root:
-            return err("Some data column sidecars missing for block")
-        sindex += mapCount
+            break
+          inc(sindex)
+        if sindex == 0:
+          return err("First block in range missing data column sidecars")
       else:
         return err("Found block with incorrect fork")
 
