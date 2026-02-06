@@ -17,6 +17,8 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
+export results, base
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -128,6 +130,7 @@ type
     slot*: Slot
 
   ForkChoiceBackend* = object
+    confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]

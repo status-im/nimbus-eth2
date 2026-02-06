@@ -104,8 +104,8 @@ proc initialLoad(
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(), dag.finalizedHead.blck,
-      wallTime = default(BeaconTime)))
+      cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
+      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
 

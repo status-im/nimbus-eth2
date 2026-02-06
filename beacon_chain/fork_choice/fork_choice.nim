@@ -16,8 +16,8 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ./fork_choice_types, ./proto_array,
-  ../consensus_object_pools/[spec_cache, blockchain_dag]
+  ../consensus_object_pools/[spec_cache, blockchain_dag],
+  "."/[fork_choice_types, proto_array]
 
 from std/sequtils import keepItIf
 export results, fork_choice_types
@@ -48,32 +48,37 @@ func compute_deltas(
 
 logScope: topics = "fork_choice"
 
+template to_balance_checkpoint(
+    epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
+  BalanceCheckpoint(
+    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
+    balances: epochRef.effective_balances)
+
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
+    finalized: BalanceCheckpoint, currentSlot: Slot): T =
+  T(confirmation_byzantine_threshold: confirmation_byzantine_threshold,
+    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
-    wallTime: BeaconTime): T =
+    T: type ForkChoice, confirmation_byzantine_threshold: uint64,
+    epochRef: EpochRef, blck: BlockRef, currentSlot = GENESIS_SLOT,
+    wallTime = default(BeaconTime)): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
   debug "Initializing fork choice",
     epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let checkpoint = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+  let finalized = to_balance_checkpoint(epochRef, blck)
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      FinalityCheckpoints(
-        justified: checkpoint,
-        finalized: checkpoint)),
+      confirmation_byzantine_threshold, finalized, currentSlot),
     checkpoints: Checkpoints(
       time: wallTime,
-      justified: BalanceCheckpoint(
-        checkpoint: checkpoint,
-        total_active_balance: epochRef.total_active_balance,
-        balances: epochRef.effective_balances),
-      finalized: checkpoint))
+      justified: finalized,
+      finalized: finalized.checkpoint))
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -83,41 +88,38 @@ func extend[T](s: var seq[T], minLen: int) =
     s.setLen(minLen)
 
 proc update_justified(
-    self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
-  let
-    epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
-      # Shouldn't happen for justified data unless out of sync with ChainDAG
-      warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, error
-      return
-    justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+    self: var Checkpoints, dag: ChainDAGRef,
+    epoch: Epoch, blck: BlockRef, current_slot: Slot) =
+  let epochRef = dag.getEpochRef(blck, epoch, preFinalized = false).valueOr:
+    # Shouldn't happen for justified data unless out of sync with ChainDAG
+    warn "Skipping justified checkpoint update, no EpochRef - report bug",
+      blck, epoch, error
+    return
 
   trace "Updating justified",
-    store = self.justified.checkpoint, state = justified
-  self.justified = BalanceCheckpoint(
-    checkpoint: justified,
-    total_active_balance: epochRef.total_active_balance,
-    balances: epochRef.effective_balances)
+    store = self.justified.checkpoint,
+    state = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+  self.justified = to_balance_checkpoint(epochRef, blck)
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
-    justified: Checkpoint): FcResult[void] =
+    justified: Checkpoint, current_slot: Slot): FcResult[void] =
   let blck = dag.getBlockRef(justified.root).valueOr:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
 
-  self.update_justified(dag, blck, justified.epoch)
+  self.update_justified(dag, justified.epoch, blck, current_slot)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
-    checkpoints: FinalityCheckpoints): FcResult[void] =
+    checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
   ## Update checkpoints in store if necessary
   # Update justified checkpoint
   if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
-    ? self.update_justified(dag, checkpoints.justified)
+    ? self.update_justified(dag, checkpoints.justified, current_slot)
 
   # Update finalized checkpoint
   if checkpoints.finalized.epoch > self.finalized.epoch:
@@ -142,15 +144,14 @@ proc on_tick(
     current_slot = time.slotOrZero(dag.timeParams)
     previous_slot = previous_time.slotOrZero(dag.timeParams)
 
-  # If this is a new slot, reset store.proposer_boost_root
   if current_slot > previous_slot:
+    # Reset store.proposer_boost_root
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
-  # If a new epoch, pull-up justification and finalization from previous epoch
-  if current_slot > previous_slot and current_slot.is_epoch:
-    for realized in self.backend.proto_array.realizePendingCheckpoints():
-      ? self.checkpoints.update_checkpoints(dag, realized)
-
+    if current_slot.is_epoch:
+      # Pull-up unrealized justified / finalized checkpoints from previous epoch
+      for realized in self.backend.proto_array.realizePendingCheckpoints():
+        ? self.checkpoints.update_checkpoints(dag, realized, current_slot)
   ok()
 
 func process_attestation(
@@ -298,7 +299,7 @@ proc process_block*(
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary
-  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints)
+  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints, slot)
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
@@ -309,7 +310,7 @@ proc process_block*(
     if epochRef.epoch < slot.epoch:
       trace "Pulling up chain tip",
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
-      ? update_checkpoints(self.checkpoints, dag, unrealized)
+      ? update_checkpoints(self.checkpoints, dag, unrealized, slot)
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized)
     else:
@@ -325,52 +326,43 @@ proc process_block*(
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
-    checkpoints: FinalityCheckpoints,
-    justified_total_active_balance: Gwei,
-    justified_state_balances: seq[Gwei],
-    proposer_boost_root: Eth2Digest): FcResult[Eth2Digest] =
+    checkpoints: Checkpoints): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
-  # Compute deltas with previous call
-  #   we might want to reuse the `deltas` buffer across calls
+  # Apply score changes
   var deltas = newSeq[Delta](self.proto_array.indices.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
-    new_balances = justified_state_balances)
-
-  # Apply score changes
+    new_balances = checkpoints.justified.balances)
   ? self.proto_array.applyScoreChanges(
-    deltas, current_slot, checkpoints,
-    justified_total_active_balance, proposer_boost_root)
-
-  self.balances = justified_state_balances
+    deltas, current_slot,
+    FinalityCheckpoints(
+      justified: checkpoints.justified.checkpoint,
+      finalized: checkpoints.finalized),
+    checkpoints.justified.total_active_balance,
+    checkpoints.proposer_boost_root)
+  self.balances = checkpoints.justified.balances
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
   ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
-    checkpoints, fork_choice_head = shortLog(new_head)
-
-  return ok(new_head)
+    current_slot, checkpoints,
+    fork_choice_head = shortLog(new_head)
+  ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-
   self.backend.find_head(
     self.checkpoints.time.slotOrZero(dag.timeParams),
-    FinalityCheckpoints(
-      justified: self.checkpoints.justified.checkpoint,
-      finalized: self.checkpoints.finalized),
-    self.checkpoints.justified.total_active_balance,
-    self.checkpoints.justified.balances,
-    self.checkpoints.proposer_boost_root)
+    self.checkpoints)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
@@ -426,8 +418,11 @@ func compute_deltas(
 
     # If the validator was not included in `old_balances` (i.e. did not exist)
     # its balance is zero
-    let old_balance = if val_index < old_balances.len: old_balances[val_index]
-                      else: 0.Gwei
+    let old_balance =
+      if val_index < old_balances.len:
+        old_balances[val_index]
+      else:
+        0.Gwei
 
     # If the validator is not known in the `new_balances` then use balance of zero
     #
@@ -436,8 +431,11 @@ func compute_deltas(
     # because that fork may have on-boarded less validators than the previous fork.
     #
     # Note that attesters are not different as they are activated only under finality
-    let new_balance = if val_index < new_balances.len: new_balances[val_index]
-                      else: 0.Gwei
+    let new_balance =
+      if val_index < new_balances.len:
+        new_balances[val_index]
+      else:
+        0.Gwei
 
     if vote.current_root != vote.next_root or old_balance != new_balance:
       # Ignore the current or next vote if it is not known in `indices`.

@@ -45,7 +45,7 @@ func tiebreak(a, b: Eth2Digest): bool =
     elif a.data[i] > b.data[i]:
       return true
     # else we have equality so far
-  return true
+  true
 
 template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   ## Get a value from a Nim Table, turning KeyError into
@@ -97,18 +97,19 @@ func nodeLeadsToViableHead(
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
   let node = ProtoNode(
     bid: BlockId(
-      slot: checkpoints.finalized.epoch.start_slot,
-      root: checkpoints.finalized.root),
+      slot: finalized.epoch.start_slot,
+      root: finalized.root),
     parent: Opt.none(int),
-    checkpoints: checkpoints)
+    checkpoints: FinalityCheckpoints(
+      justified: finalized,
+      finalized: finalized))
 
-  T(currentSlot: node.bid.slot,
+  T(currentSlot: currentSlot,
     confirmed: node.bid,
-    checkpoints: checkpoints,
+    checkpoints: node.checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
