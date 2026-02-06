@@ -2753,6 +2753,7 @@ proc lateBlockMonitoringLoop*(
       if not(blockFound):
         debug "No ancestor orphan blocks found for current dag.head",
           blocks_count = blocksCount
+        await sleepAsync(5.seconds)
         continue
 
       block checkSidecarlessLoop:
@@ -2797,6 +2798,7 @@ proc lateBlockMonitoringLoop*(
       if not(blockFound):
         debug "No ancestor sidecarless blocks found for current dag.head",
           blocks_count = blocksCount
+        await sleepAsync(5.seconds)
         continue
 
       await sleepAsync(5.seconds)
