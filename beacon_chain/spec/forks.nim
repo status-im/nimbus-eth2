@@ -19,6 +19,7 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
+from std/algorithm import sort
 from std/sequtils import mapIt
 from stew/staticfor import staticFor
 
@@ -383,7 +384,6 @@ type
     deneb:     ForkDigest
     electra:   ForkDigest
     fuluInt:   ForkDigest
-    gloasInt:  ForkDigest
     bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
   NoEnvelope* = typeof(())
@@ -1192,10 +1192,8 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 
 func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-  if   forkDigest == forkDigests.gloasInt:
-    ok ConsensusFork.Gloas
-  elif forkDigest == forkDigests.fuluInt:
+  # For Gloas and later forks, put all information in bpos
+  if   forkDigest == forkDigests.fuluInt:
     ok ConsensusFork.Fulu
   elif forkDigest == forkDigests.electra:
     ok ConsensusFork.Electra
@@ -1210,17 +1208,14 @@ func consensusForkForDigest*(
   elif forkDigest == forkDigests.phase0:
     ok ConsensusFork.Phase0
   else:
-    for (epoch, consensusFork, bpoForkDigest) in forkDigests.bpos:
+    for (_, consensusFork, bpoForkDigest) in forkDigests.bpos:
       if forkDigest == bpoForkDigest:
         return ok consensusFork
     err()
 
 func atConsensusFork*(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
-  debugGloasComment "atConsensusFork is deprecated anyway, should be gone before we need it for gloas, otherwise look at again"
   case consensusFork
-  of ConsensusFork.Gloas:
-    forkDigests.gloasInt
   of ConsensusFork.Fulu:
     forkDigests.fuluInt
   of ConsensusFork.Electra:
@@ -1235,6 +1230,15 @@ func atConsensusFork*(
     forkDigests.altair
   of ConsensusFork.Phase0:
     forkDigests.phase0
+  else:
+    # Gloas and later live in the bpos list, so scan in reverse order, to find
+    # the chronologically earliest fork or bpo corresponding to Gloas or later
+    for i in countdown(forkDigests.bpos.len - 1, 0):
+      let (_, bpoConsensusFork, bpoForkDigest) = forkDigests.bpos[i]
+      if consensusFork == bpoConsensusFork:
+        return bpoForkDigest
+
+    raiseAssert "post-Fulu forks should always be part of BPO list"
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
@@ -1251,7 +1255,10 @@ template atEpoch*(
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
 iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
-  yield forkDigests.atConsensusFork(consensusFork)
+  # In Gloas and newer, all forkdigests live in bpos; don't refer to legacy
+  # fields at all.
+  if consensusFork < ConsensusFork.Gloas:
+    yield forkDigests.atConsensusFork(consensusFork)
 
   if consensusFork >= ConsensusFork.Fulu:
     for (_, bpoConsensusFork, forkDigest) in forkDigests.bpos:
@@ -1830,15 +1837,19 @@ func init*(T: type ForkDigests,
     fuluInt:
       compute_fork_digest_fulu(
         cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH),
-    gloasInt:
-      compute_fork_digest_fulu(
-        cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH),
-    bpos: mapIt(
-      cfg.BLOB_SCHEDULE,
-      (
-        it.EPOCH,
-        consensusForkAtEpoch(cfg, it.EPOCH),
-        compute_fork_digest_fulu(cfg, genesis_validators_root, it.EPOCH)))
+    bpos:
+      block:
+        var bpos =
+          @[(cfg.GLOAS_FORK_EPOCH, ConsensusFork.Gloas, compute_fork_digest_fulu(
+            cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH))] &
+          mapIt(cfg.BLOB_SCHEDULE, (
+            it.EPOCH,
+            consensusForkAtEpoch(cfg, it.EPOCH),
+            compute_fork_digest_fulu(cfg, genesis_validators_root, it.EPOCH)))
+
+        # BPOs need to be reverse-epoch sorted
+        bpos.sort(cmp = proc(x, y: auto): int = system.cmp(y[0], x[0]))
+        bpos
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

@@ -238,12 +238,13 @@ AllTests-mainnet
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
-## EF - Fulu - BPO forkdigests
+## EF - BPO forkdigests
 ```diff
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
 + Fusaka devnet-2                                                                            OK
++ Glamsterdam bal-devnet-2                                                                   OK
 ```
 ## EF - KZG
 ```diff
