@@ -209,7 +209,7 @@ func validateBlocks*(
         let columnsCount = len(forkyBlck.message.body.blob_kzg_commitments)
         if columnsCount == 0:
           continue
-        for index in 0 ..< mapCount:
+        while sindex < len(sidecars):
           let record = sidecars[sindex]
           if record.block_root != forkyBlck.root:
             break
