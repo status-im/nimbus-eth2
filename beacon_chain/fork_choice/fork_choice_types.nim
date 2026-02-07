@@ -17,6 +17,8 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
+from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+
 export results, base
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
@@ -109,10 +111,13 @@ type
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
 
+  ValidatorInfo* = object
+    balances*: seq[ForkChoiceBalance]
+
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    balances*: seq[Gwei]
+    validators*: ValidatorInfo
 
   Checkpoints* = object
     time*: BeaconTime
@@ -133,7 +138,7 @@ type
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
-    balances*: seq[Gwei]
+    balances*: seq[ForkChoiceBalance]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

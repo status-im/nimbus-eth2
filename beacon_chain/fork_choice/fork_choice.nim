@@ -40,8 +40,8 @@ func compute_deltas(
     indices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
-    old_balances: openArray[Gwei],
-    new_balances: openArray[Gwei]): FcResult[void]
+    old_balances: openArray[ForkChoiceBalance],
+    new_balances: openArray[ForkChoiceBalance]): FcResult[void]
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -53,7 +53,7 @@ template to_balance_checkpoint(
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
     total_active_balance: epochRef.total_active_balance,
-    balances: epochRef.effective_balances)
+    validators: ValidatorInfo(balances: epochRef.fork_choice_balances))
 
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
@@ -336,7 +336,7 @@ func find_head(
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
-    new_balances = checkpoints.justified.balances)
+    new_balances = checkpoints.justified.validators.balances)
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
     FinalityCheckpoints(
@@ -344,7 +344,7 @@ func find_head(
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
     checkpoints.proposer_boost_root)
-  self.balances = checkpoints.justified.balances
+  self.balances = checkpoints.justified.validators.balances
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
@@ -397,8 +397,8 @@ func compute_deltas(
     indices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
-    old_balances: openArray[Gwei],
-    new_balances: openArray[Gwei]): FcResult[void] =
+    old_balances: openArray[ForkChoiceBalance],
+    new_balances: openArray[ForkChoiceBalance]): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
@@ -420,7 +420,7 @@ func compute_deltas(
     # its balance is zero
     let old_balance =
       if val_index < old_balances.len:
-        old_balances[val_index]
+        old_balances[val_index].unslashed_balance
       else:
         0.Gwei
 
@@ -433,7 +433,7 @@ func compute_deltas(
     # Note that attesters are not different as they are activated only under finality
     let new_balance =
       if val_index < new_balances.len:
-        new_balances[val_index]
+        new_balances[val_index].unslashed_balance
       else:
         0.Gwei
 
@@ -488,14 +488,14 @@ when isMainModule:
 
       indices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
-      old_balances: seq[Gwei]
-      new_balances: seq[Gwei]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add default(VoteTracker)
-      old_balances.add 0.Gwei
-      new_balances.add 0.Gwei
+      old_balances.add 0.ForkChoiceBalance
+      new_balances.add 0.ForkChoiceBalance
 
     let err = deltas.compute_deltas(
       indices, indices_offset = 0, votes, old_balances, new_balances)
@@ -512,15 +512,15 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test all same votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
-      old_balances: seq[Gwei]
-      new_balances: seq[Gwei]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -552,15 +552,15 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test all different votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
-      old_balances: seq[Gwei]
-      new_balances: seq[Gwei]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -587,7 +587,7 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test moving votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
       TotalDeltas = Delta(Balance * validator_count)
     var
@@ -595,8 +595,8 @@ when isMainModule:
 
       indices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
-      old_balances: seq[Gwei]
-      new_balances: seq[Gwei]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -629,7 +629,7 @@ when isMainModule:
   proc tMove_out_of_tree() =
     echo "    fork_choice compute_deltas - test votes for unknown subtree"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
     var
       indices: Table[Eth2Digest, Index]
@@ -673,7 +673,7 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test changing balances"
 
     const
-      OldBalance = Gwei(42)
+      OldBalance = ForkChoiceBalance(42)
       NewBalance = OldBalance * 2
       validator_count = 16
       TotalOldDeltas = Delta(OldBalance * validator_count)
@@ -683,8 +683,8 @@ when isMainModule:
 
       indices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
-      old_balances: seq[Gwei]
-      new_balances: seq[Gwei]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -719,7 +719,7 @@ when isMainModule:
   proc tValidator_appears() =
     echo "    fork_choice compute_deltas - test validator appears"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
     var
       indices: Table[Eth2Digest, Index]
@@ -759,7 +759,7 @@ when isMainModule:
   proc tValidator_disappears() =
     echo "    fork_choice compute_deltas - test validator disappears"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
     var
       indices: Table[Eth2Digest, Index]
