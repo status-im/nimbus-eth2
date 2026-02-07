@@ -351,7 +351,9 @@ func find_head(
   ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
-    current_slot, checkpoints,
+    current_slot, checkpoints = FinalityCheckpoints(
+      justified: checkpoints.justified.checkpoint,
+      finalized: checkpoints.finalized),
     fork_choice_head = shortLog(new_head)
   ok(new_head)
 
