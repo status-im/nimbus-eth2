@@ -540,7 +540,7 @@ when isMainModule:
 
     for i, delta in deltas:
       if i == 0:
-        doAssert delta == Delta(Balance * validator_count),
+        doAssert delta == Delta(Balance.unslashed_balance * validator_count),
           "The 0th root should have a delta"
       else:
         doAssert delta == 0,
@@ -579,7 +579,8 @@ when isMainModule:
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas:
-      doAssert delta == Delta(Balance), "Each root should have a delta"
+      doAssert delta == Delta(Balance.unslashed_balance),
+        "Each root should have a delta"
 
     for vote in votes:
       doAssert vote.current_root == vote.next_root,
@@ -591,7 +592,7 @@ when isMainModule:
     const
       Balance = ForkChoiceBalance(42)
       validator_count = 16
-      TotalDeltas = Delta(Balance * validator_count)
+      TotalDeltas = Delta(Balance.unslashed_balance * validator_count)
     var
       deltas = newSeqUninit[Delta](validator_count)
 
@@ -664,7 +665,7 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance)*2,
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance) * 2,
       "The 0th block should have lost both balances."
 
     for vote in votes:
@@ -676,10 +677,10 @@ when isMainModule:
 
     const
       OldBalance = ForkChoiceBalance(42)
-      NewBalance = OldBalance * 2
+      NewBalance = ForkChoiceBalance(OldBalance.unslashed_balance * 2)
       validator_count = 16
-      TotalOldDeltas = Delta(OldBalance * validator_count)
-      TotalNewDeltas = Delta(NewBalance * validator_count)
+      TotalOldDeltas = Delta(OldBalance.unslashed_balance * validator_count)
+      TotalNewDeltas = Delta(NewBalance.unslashed_balance * validator_count)
     var
       deltas = newSeqUninit[Delta](validator_count)
 
@@ -749,9 +750,9 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance),
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance),
       "Block 1 should have lost only 1 balance"
-    doAssert deltas[1] == Delta(Balance)*2,
+    doAssert deltas[1] == Delta(Balance.unslashed_balance) * 2,
       "Block 2 should have gained 2 balances"
 
     for vote in votes:
@@ -789,9 +790,9 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance)*2,
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance) * 2,
       "Block 1 should have lost 2 balances"
-    doAssert deltas[1] == Delta(Balance),
+    doAssert deltas[1] == Delta(Balance.unslashed_balance),
       "Block 2 should have gained 1 balance"
 
     for vote in votes:
