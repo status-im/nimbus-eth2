@@ -44,7 +44,7 @@ To update to the latest version, either download the binary or compile the beaco
     git pull && make update
 
     # Build the newly downloaded version
-    make -j4 nimbus_beacon_node
+    make -j8 nimbus_beacon_node
     ```
 
     !!! tip
@@ -88,7 +88,7 @@ Nimbus can safely be downgraded to any version targeting the current hard fork o
     git checkout v22.9.1 && make update
 
     # Run the build command as usual
-    make -j4 nimbus_beacon_node
+    make -j8 nimbus_beacon_node
     ```
 
     When later you want to go back to the stable release:
@@ -98,7 +98,7 @@ Nimbus can safely be downgraded to any version targeting the current hard fork o
     git checkout stable && make update
 
     # Run the build command as usual
-    make -j4 nimbus_beacon_node
+    make -j8 nimbus_beacon_node
     ```
 
 Now, restart your node.
