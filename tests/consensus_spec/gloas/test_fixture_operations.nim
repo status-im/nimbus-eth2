@@ -315,6 +315,12 @@ suite baseDescription & "Voluntary Exit " & preset():
 
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):
+    # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494
+    if path in ["invalid_validator_index_pending_partial", 
+                "invalid_builder_index_sweep", 
+                "invalid_validator_index_sweep",
+                "invalid_builder_index_pending"]:
+      continue
     let prefix =
       if fileExists(OpWithdrawalsDir / "pyspec_tests" / path / "post.ssz_snappy"):
         "[Valid]   "

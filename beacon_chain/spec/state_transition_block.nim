@@ -1420,11 +1420,10 @@ func apply_withdrawals(
   for withdrawal in withdrawals:
     # [Modified in Gloas:EIP7732]
     if is_builder_index(withdrawal.validator_index):
-      let builder_index =
-        convert_validator_index_to_builder_index(withdrawal.validator_index)
-      if builder_index >= state.builders.lenu64:
-        return err("apply_withdrawals: invalid builder index")
-      let builder_balance = addr state.builders.mitem(builder_index).balance
+      let
+        builder_index =
+          convert_validator_index_to_builder_index(withdrawal.validator_index)
+        builder_balance = addr state.builders.mitem(builder_index).balance
       builder_balance[] =
         builder_balance[] - min(withdrawal.amount, builder_balance[])
     else:
@@ -1497,18 +1496,6 @@ func process_withdrawals*(state: var gloas.BeaconState):
   # return early if the parent block was empty
   if not is_parent_block_full(state):
     return ok()
-  
-  # Validate withdrawal indices to handle invalid test cases gracefully.
-  if state.next_withdrawal_builder_index >= state.builders.lenu64 and 
-      state.builders.lenu64 > 0:
-    return err("process_withdrawals: invalid builder index")
-
-  if state.next_withdrawal_validator_index >= state.validators.lenu64:
-    return err("process_withdrawals: invalid validator index")
-
-  for withdrawal in state.pending_partial_withdrawals:
-    if withdrawal.validator_index >= state.validators.lenu64:
-      return err("process_withdrawals: invalid validator index in pending partial")
 
   let expected = get_expected_withdrawals(state)
 
