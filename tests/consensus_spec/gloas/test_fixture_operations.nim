@@ -314,11 +314,6 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  proc applyWithdrawals(
-      preState: var gloas.BeaconState, _: gloas.BeaconState):
-      Result[void, cstring] =
-    process_withdrawals(preState)
-
   for path in walkTests(OpWithdrawalsDir):
     let prefix =
       if fileExists(OpWithdrawalsDir / "pyspec_tests" / path / "post.ssz_snappy"):
@@ -327,20 +322,17 @@ suite baseDescription & "Withdrawals " & preset():
         "[Invalid] "
     
     test prefix & baseDescription & "Withdrawals - " & path:
-      let testDir = OpWithdrawalsDir / "pyspec_tests" / path
-      let preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
-      
-      var done: Result[void, cstring]
-      try:
-        done = applyWithdrawals(preState[], preState[])
-      except Defect:
-        done = Result[void, cstring].err("Index out of bounds")
+      let
+        testDir = OpWithdrawalsDir / "pyspec_tests" / path
+        preState = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
+        done = process_withdrawals(preState[])
 
       if fileExists(testDir/"post.ssz_snappy"):
-        let postState = newClone(parseTest(
-          testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
-        let pass = preState[].hash_tree_root() == postState[].hash_tree_root()
+        let 
+          postState = newClone(parseTest(
+            testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+          pass = preState[].hash_tree_root() == postState[].hash_tree_root()
         if not pass:
           reportDiff(preState, postState)
         check:

@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import toSeq
+from std/sequtils import toSeq, repeat
 from stew/staticfor import staticFor
 
 type
@@ -473,9 +473,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: gloas.DataColumnSidecar,
   ## Verify if the KZG proofs are correct.
 
   # The column index also represents the cell index
-  var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
-  for _ in 0..<sidecar.column.len:
-    cellIndices.add(CellIndex(sidecar.index))
+  let cellIndices = repeat(CellIndex(sidecar.index), sidecar.column.len)
 
   # Batch verify that the cells match the corresponding commitments and proofs
   let res = verifyCellKzgProofBatch(
