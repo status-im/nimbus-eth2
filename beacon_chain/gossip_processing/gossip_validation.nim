@@ -815,7 +815,8 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's `slot` matches the slot of the block with root
   # `beacon_block_root`.
-  if not (blck.message.slot == data_column_sidecar.slot):
+  if not (blck.message.slot == data_column_sidecar.slot and
+      blck.root == data_column_sidecar.beacon_block_root):
     return dag.checkedReject("DataColumnSidecar: slot mismatched")
 
   # [REJECT] The sidecar is valid as verified by
