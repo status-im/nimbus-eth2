@@ -4106,10 +4106,6 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Withdrawals  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Withdrawals - invalid_builder_index_pending            OK
-+ [Invalid] EF - Gloas - Operations - Withdrawals - invalid_builder_index_sweep              OK
-+ [Invalid] EF - Gloas - Operations - Withdrawals - invalid_validator_index_pending_partial  OK
-+ [Invalid] EF - Gloas - Operations - Withdrawals - invalid_validator_index_sweep            OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - all_builder_withdrawals_zero_balance     OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_max_minus_one_plus_one_regular   OK
