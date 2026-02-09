@@ -17,6 +17,10 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
+from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+
+export results, base
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -107,16 +111,18 @@ type
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
 
+  ValidatorInfo* = object
+    balances*: seq[ForkChoiceBalance]
+
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    balances*: seq[Gwei]
+    validators*: ValidatorInfo
 
   Checkpoints* = object
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
-    best_justified*: Checkpoint
     proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types
@@ -126,18 +132,18 @@ type
   VoteTracker* = object
     current_root*: Eth2Digest
     next_root*: Eth2Digest
-    next_epoch*: Epoch
+    slot*: Slot
 
   ForkChoiceBackend* = object
+    confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
-    balances*: seq[Gwei]
+    balances*: seq[ForkChoiceBalance]
 
   QueuedAttestation* = object
-    slot*: Slot
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
-    target_epoch*: Epoch
+    slot*: Slot
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -146,9 +152,9 @@ type
 
 func shortLog*(vote: VoteTracker): auto =
   (
+    slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
-    next_epoch: vote.next_epoch
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

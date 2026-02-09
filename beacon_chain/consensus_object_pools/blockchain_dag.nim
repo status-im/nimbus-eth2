@@ -9,7 +9,7 @@
 
 import
   std/[algorithm, sequtils, tables, sets],
-  stew/[arrayops, assign2, byteutils],
+  stew/[arrayops, assign2, bitops2, byteutils],
   chronos, metrics, results, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
@@ -81,13 +81,37 @@ template withUpdatedState*(
     var cache {.inject.} = StateCache()
     if updateState(dag, stateParam, bsi, false, cache, dag.updateFlags):
       template bid(): BlockId {.inject, used.} = bsi.bid
-      template updatedState(): ForkedHashedBeaconState {.inject, used.} = stateParam
+      template updatedState(): ForkedHashedBeaconState {.inject, used.} =
+        stateParam
       okBody
     else:
       failureBody
 
-func get_effective_balances(
-    validators: openArray[Validator], epoch: Epoch): seq[Gwei] =
+template toSszType*(v: ForkChoiceBalance): auto = uint64(v)
+
+const
+  NumInfoBits = 1
+  ForkChoiceInfoOffset* = bitsof(distinctBase(Gwei)) - NumInfoBits
+  ForkChoiceInfoMask = ((1 shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
+  EffectiveBalanceMask = not ForkChoiceInfoMask
+  SlashedBit = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
+static: doAssert(
+  max(MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA) < SlashedBit)
+
+template slashed*(balance: ForkChoiceBalance): bool =
+  (distinctBase(balance) and SlashedBit) == SlashedBit
+
+template effective_balance*(balance: ForkChoiceBalance): Gwei =
+  (distinctBase(balance) and EffectiveBalanceMask).Gwei
+
+template unslashed_balance*(balance: ForkChoiceBalance): Gwei =
+  if balance.slashed:
+    0.Gwei
+  else:
+    balance.effective_balance
+
+func get_fork_choice_balances*(
+    validators: openArray[Validator], epoch: Epoch): seq[ForkChoiceBalance] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(validators.len) # zero-init
 
@@ -95,7 +119,11 @@ func get_effective_balances(
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
     if validator[].is_active_validator(epoch) and not validator[].slashed:
-      result[i] = validator[].effective_balance
+      result[i] = ForkChoiceBalance(
+        if validator[].slashed:
+          distinctBase(validator[].effective_balance) or SlashedBit
+        else:
+          distinctBase(validator[].effective_balance))
 
 proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   # Update validator key cache - must be called every time a valid block is
@@ -154,10 +182,11 @@ template is_merge_transition_complete*(
     else:
       false
 
-func effective_balances*(epochRef: EpochRef): seq[Gwei] =
+func fork_choice_balances*(epochRef: EpochRef): seq[ForkChoiceBalance] =
   try:
-    SSZ.decode(snappy.decode(epochRef.effective_balances_bytes, uint32.high),
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]).toSeq()
+    SSZ.decode(
+      snappy.decode(epochRef.fork_choice_balances_bytes, uint32.high),
+      seq[ForkChoiceBalance])
   except CatchableError as exc:
     raiseAssert exc.msg
 
@@ -632,7 +661,7 @@ func init*(
       eth1_data: state.eth1_data,
       eth1_deposit_index: state.eth1_deposit_index,
 
-      checkpoints:FinalityCheckpoints(
+      checkpoints: FinalityCheckpoints(
         justified: state.current_justified_checkpoint,
         finalized: state.finalized_checkpoint),
 
@@ -658,10 +687,8 @@ func init*(
     except CatchableError as err:
       raiseAssert err.msg
 
-  epochRef.effective_balances_bytes =
-    snappyEncode(SSZ.encode(
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(state.validators.asSeq, epoch))))
+  epochRef.fork_choice_balances_bytes = snappyEncode(
+    SSZ.encode(get_fork_choice_balances(state.validators.asSeq, epoch)))
 
   epochRef
 

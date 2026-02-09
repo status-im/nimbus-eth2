@@ -25,7 +25,7 @@ cd nimbus-eth2
 To build the Nimbus beacon node and its dependencies, run:
 
 ```sh
-make -j4 nimbus_beacon_node
+make -j8 nimbus_beacon_node
 ```
 
 This step can take several minutes.
@@ -42,7 +42,7 @@ Otherwise, don't hesitate to reach out to us in the `#helpdesk` channel of [our 
     Omit `-j4` on systems with 12GB of memory or less.
 
 !!! tip "Portable builds"
-    To make the build portable, such that in can run on other hardware than the build machine, run `make -j4 NIMFLAGS=-d:disableMarchNative nimbus_beacon_node` instead
+    To make the build portable, such that in can run on other hardware than the build machine, run `make -j8 NIMFLAGS=-d:disableMarchNative nimbus_beacon_node` instead
 
 ## Keeping Nimbus updated
 
