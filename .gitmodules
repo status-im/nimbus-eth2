@@ -92,9 +92,9 @@
 	branch = master
 [submodule "vendor/nim-stint"]
 	path = vendor/nim-stint
-	url = https://github.com/moigagoo/nim-stint.git
+	url = https://github.com/status-im/nim-stint.git
 	ignore = untracked
-	branch = feature/intops
+	branch = master
 [submodule "vendor/nim-metrics"]
 	path = vendor/nim-metrics
 	url = https://github.com/status-im/nim-metrics.git
