@@ -104,8 +104,8 @@ You will need to pass the path to the token file to Nimbus together with the exe
     In the `nimbus-eth1` directory, run the following commands:
     ```
     git pull
-    make -j4 update
-    make -j4 nimbus
+    make -j8 update
+    make -j8 nimbus
     ```
 
 

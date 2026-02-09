@@ -430,7 +430,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MIN_ACTIVATION_BALANCE:
             Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
           MAX_EFFECTIVE_BALANCE_ELECTRA:
-            Base10.toString(uint64(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+            Base10.toString(MAX_EFFECTIVE_BALANCE_ELECTRA),
           MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA:
             Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA),
           WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA:

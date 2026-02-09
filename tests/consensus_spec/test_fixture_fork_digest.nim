@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,7 @@ func getGvr(filling: uint8): Eth2Digest =
     res.data[i] = filling
   res
 
-suite "EF - Fulu - BPO forkdigests":
+suite "EF - BPO forkdigests":
   test "Different lengths and blob limits":
     cfg.cfd(100, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
     cfg.cfd(101, getGvr(0), [6'u8, 0, 0, 0], [0xdf'u8, 0x67, 0x55, 0x7b])
@@ -85,3 +85,25 @@ suite "EF - Fulu - BPO forkdigests":
       256,
       Eth2Digest.fromHex("0xd9d36cce7e1e5b021676d15cbc674ec2e02183a98373ca191a3cbcefca479f9b"),
       [0x70'u8, 0x93, 0x75, 0x44], [0x36'u8, 0x9f, 0x89, 0xf7])
+
+  test "Glamsterdam bal-devnet-2":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_VERSION = Version([0x70'u8, 0, 0, 0x38])
+    cfg.GLOAS_FORK_EPOCH = 1.Epoch
+    cfg.GLOAS_FORK_VERSION = Version([0x80'u8, 0, 0, 0x38])
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+
+    let forkDigests = ForkDigests.init(
+      cfg, Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f"))
+    check:
+      forkDigests.atEpoch(0.Epoch, cfg) ==
+        ForkDigest([0xc3'u8, 0x2b, 0x09, 0xc1])
+      forkDigests.atEpoch(1.Epoch, cfg) ==
+        ForkDigest([0xf2'u8, 0xb5, 0x14, 0xbc])
