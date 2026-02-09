@@ -88,6 +88,10 @@ type
       ## This block is currently being processed and should therefore not be
       ## added to the quarantine
 
+    latest_sidecar_signature*: ValidatorSig
+      ## This caches the last successfully passed sidecar signature, so
+      ## as to just check for equality if too many sidecars arrive over gossip
+
     cfg*: RuntimeConfig
 
 func init*(T: type Quarantine, cfg: RuntimeConfig): T =

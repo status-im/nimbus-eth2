@@ -734,10 +734,14 @@ proc validateDataColumnSidecar*(
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
     data_column_sidecar.signed_block_header.signature,
+    quarantine.latest_sidecar_signature
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  quarantine.latest_sidecar_signature =
+    data_column_sidecar.signed_block_header.signature
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`

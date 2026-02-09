@@ -34,7 +34,7 @@ proc verifyBlockProposer*(
     slot: Slot,
     proposer_index: uint64,
     blockRoot: Eth2Digest,
-    signature: ValidatorSig,
+    signature: ValidatorSig
 ): Result[void, tuple[msg: cstring, invalid: bool]] =
   ## Verify block proposer and signature, making sure to check that the proposer
   ## was indeed elected for the given slot and that the signature checks out.
@@ -50,6 +50,44 @@ proc verifyBlockProposer*(
   # be invalid -> convert the former to the latter
   if uint64(proposer) != proposer_index:
     return err(("verifyBlockProposer: unexpected proposer", true))
+
+  let
+    proposerKey = dag.validatorKey(proposer).expect("valid after getProposer")
+    fork = dag.forkAtEpoch(slot.epoch)
+  if not verify_block_signature(
+    fork, dag.genesis_validators_root, slot, blockRoot, proposerKey, signature
+  ):
+    return err(("verifyBlockProposer: invalid signature", false))
+
+  ok()
+
+proc verifyBlockProposer*(
+    dag: ChainDAGRef,
+    parent: BlockRef,
+    slot: Slot,
+    proposer_index: uint64,
+    blockRoot: Eth2Digest,
+    signature: ValidatorSig,
+    latestValidSig: ValidatorSig
+): Result[void, tuple[msg: cstring, invalid: bool]] =
+  ## Verify block proposer and signature, making sure to check that the proposer
+  ## was indeed elected for the given slot and that the signature checks out.
+  ##
+  ## Because the signature only covers the block body (via its root), it's
+  ## possible that the block itself is valid while the signature is not: in
+  ## this case false is returned for "invalid".
+  let proposer = dag.getProposer(parent, slot).valueOr:
+    warn "cannot compute proposer for block", parent, slot, proposer_index, blockRoot
+    return err(("verifyBlockProposer: cannot compute proposer", false)) # internal issue
+
+  # `getProposer` returns a trusted proposer index, while `proposer_index` may
+  # be invalid -> convert the former to the latter
+  if uint64(proposer) != proposer_index:
+    return err(("verifyBlockProposer: unexpected proposer", true))
+
+  # If signature matches the latest valid signature, skip verification
+  if signature == latestValidSig:
+    return ok()
 
   let
     proposerKey = dag.validatorKey(proposer).expect("valid after getProposer")
