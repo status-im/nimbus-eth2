@@ -105,20 +105,17 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
-  let
-    currentSlot = wallTime.slotOrZero(dag.timeParams)
-    finalizedEpochRef = dag.getFinalizedEpochRef()
+  let finalizedEpochRef = dag.getFinalizedEpochRef()
+
   var forkChoice = ForkChoice.init(
-    dag.cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
-    finalizedEpochRef, dag.finalizedHead.blck, currentSlot, wallTime)
+    finalizedEpochRef, dag.finalizedHead.blck, wallTime)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
   doAssert dag.heads.len == 1, "Init only supports a single history"
 
-  var
-    blocks: seq[BlockRef]
-    cur = dag.head
+  var blocks: seq[BlockRef]
+  var cur = dag.head
 
   # When the chain is finalizing, the votes between the head block and the
   # finalized checkpoint should be enough for a stable fork choice - when the
