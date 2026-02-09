@@ -457,7 +457,7 @@ func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-func computeRequestsHash(
+func computeRequestsHash*(
     requests: electra.ExecutionRequests): EthHash32 =
 
   template individualHash(requestType, requestList): Digest =
