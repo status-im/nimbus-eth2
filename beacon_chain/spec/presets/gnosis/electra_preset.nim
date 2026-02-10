@@ -15,7 +15,7 @@ const
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
   MIN_ACTIVATION_BALANCE* = 32000000000
   # 2**11 * 10**9 (= 2,048,000,000,000) Gwei
-  MAX_EFFECTIVE_BALANCE_ELECTRA* = 2048000000000
+  MAX_EFFECTIVE_BALANCE_ELECTRA*: uint64 = 2048000000000'u64
 
   # State list lengths
   # ---------------------------------------------------------------

@@ -360,7 +360,7 @@ cli do(
                 slot: slot,
                 value: 0.Gwei,
                 execution_payment: 0.Gwei,
-                blob_kzg_commitments_root: default(Eth2Digest))
+                blob_kzg_commitments: default(KzgCommitments))
           SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:

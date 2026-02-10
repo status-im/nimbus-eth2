@@ -233,7 +233,6 @@ func makeExecutionPayloadEnvelope*(
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
     slot: slot,
-    blob_kzg_commitments: eps.blobsBundle.commitments,
     state_root: state_root
   )
 
@@ -254,7 +253,7 @@ func makeSignedExecutionPayloadBid(
     slot: slot,
     value: 0.Gwei,
     execution_payment: 0.Gwei,
-    blob_kzg_commitments_root: hash_tree_root(blob_kzg_commitments),
+    blob_kzg_commitments: blob_kzg_commitments,
   )
   SignedExecutionPayloadBid(
     message: bid,

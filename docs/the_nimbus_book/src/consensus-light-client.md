@@ -43,7 +43,7 @@ cd nimbus-eth2
 To build the Nimbus consensus light client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
-make -j4 nimbus_light_client
+make -j8 nimbus_light_client
 ```
 
 !!! tip
