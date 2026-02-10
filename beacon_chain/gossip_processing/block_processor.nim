@@ -196,16 +196,29 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork >= ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Gloas:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
+      template bid(): auto =
+        signedBlock.message.body.signed_execution_payload_bid
       template kzgCommits(): auto =
-        let kzgCommits =
-          when consensusFork >= ConsensusFork.Gloas:
-            envelope.message.blob_kzg_commitments
-          else:
-            signedBlock.message.body.blob_kzg_commitments
-        kzgCommits.asSeq
+        bid.message.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0 ..< columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(
+            columns[i][], bid.message.blob_kzg_commitments)
+          if r.isErr():
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+            return err(VerifierError.Invalid)
+  elif consensusFork >= ConsensusFork.Fulu:
+    if sidecarsOpt.isSome:
+      let columns = sidecarsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0 ..< columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
