@@ -731,8 +731,8 @@ proc initFullNode(
               return ok()
             sidecarsOpt
       await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
-    rmanEnvelopeLoader = proc(
-        blockRoot: Eth2Digest): Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
+    rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
+        Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
       dag.db.getExecutionPayloadEnvelope(blockRoot)
     rmanBlobLoader = proc(
         blobId: BlobIdentifier): Opt[ref BlobSidecar] =
