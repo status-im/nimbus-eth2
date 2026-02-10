@@ -903,6 +903,14 @@ proc storePayload(
 
   ok()
 
+proc addPayload*(
+    self: ref BlockProcessor,
+    blck: gloas.SignedBeaconBlock,
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  await self.storePayload(blck, envelope, sidecarsOpt)
+
 proc enqueuePayload*(
     self: ref BlockProcessor,
     blck: gloas.SignedBeaconBlock,
@@ -912,7 +920,7 @@ proc enqueuePayload*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     debugGloasComment("backfilling")
 
-  discard self.storePayload(blck, envelope, sidecarsOpt)
+  discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
