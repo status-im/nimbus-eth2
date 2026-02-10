@@ -154,6 +154,22 @@ func checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
+func checkResponse(
+    roots: openArray[Eth2Digest],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope],
+): bool =
+  ## Ensure there is the requested envelope as per each root.
+  var checks = @roots
+  if len(envelopes) > len(roots):
+    return false
+  for envelope in envelopes:
+    let res = checks.find(envelope[].message.beacon_block_root)
+    if res == -1:
+      return false
+    else:
+      checks.del(res)
+  true
+
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
@@ -276,6 +292,68 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
   finally:
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
+
+proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
+    {.async: (raises: [CancelledError]).} =
+  var peer: Peer
+
+  try:
+    peer = await self.network.peerPool.acquire()
+    debug "Requesting envelopes by root",
+      peer = peer, envelopes = shortLog(roots),
+      peer_score = peer.getScore()
+
+    let envelopes = await executionPayloadEnvelopesByRoot(
+      peer, BlockRootsList roots)
+
+    if envelopes.isOk:
+      var uenvelopes = envelopes.get().asSeq()
+      if checkResponse(roots, uenvelopes):
+        var gotGoodEnvelope = false
+
+        for envelope in uenvelopes:
+          self.envelopeQuarantine[].addOrphan(envelope[])
+          let res = await self.envelopeVerifier(envelope[])
+
+          # Envelope is marked as missing when we got a valid block. As in
+          # Gloas, both valid block and envelope are required in order to
+          # proceed to the next slot. So in theory we should only be able to
+          # notice at most one missing envelope per slot.
+          #
+          # If we manage to find mutliple missing envelopes over slots, the
+          # response, which should contains 2 or more envelopes, may cause
+          # verifier error as the order matters.
+          #
+          # TODO improve/investigate way of figuring out missing envelope
+          #      efficiently (across different slots).
+          #
+          # TODO verify multiple envelopes in the chain's order.
+          debugGloasComment("as comment above")
+          if res.isErr():
+            debug "Received invalid envelope",
+              peer = peer, envelopes = shortLog(roots)
+            debugGloasComment("update score when processing in order")
+            return
+          else:
+            gotGoodEnvelope = true
+
+        if gotGoodEnvelope:
+          debug "Request manager got good envelope",
+            peer = peer, envelopes = shortLog(roots), uenvelopes = len(uenvelopes)
+          peer.updateScore(PeerScoreGoodValues)
+
+      else:
+        debug "Mismatching response to envelopes by root",
+          peer = peer, envelopes = shortLog(roots), uenvelopes = len(uenvelopes)
+        peer.updateScore(PeerScoreBadResponse)
+    else:
+      debug "Envelopes by root request failed",
+        peer = peer, envelopes = shortLog(roots), err = envelopes.error()
+      peer.updateScore(PeerScoreNoValues)
+
+  finally:
+    if not(isNil(peer)):
+      self.network.peerPool.release(peer)
 
 func cmpSidecarIndexes(x, y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
