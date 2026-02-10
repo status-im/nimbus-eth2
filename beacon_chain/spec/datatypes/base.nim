@@ -75,8 +75,8 @@ from eth/common/eth_types_json_serialization import readValue, writeValue
 from std/algorithm import isSorted
 
 export
-  tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
-  digest, presets, eth, eth_types_json_serialization.readValue,
+  tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto, digest,
+  presets, eth, eth_types_json_serialization.readValue,
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
@@ -88,8 +88,7 @@ const
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
 
-  SLOTS_PER_ETH1_VOTING_PERIOD* =
-    EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
+  SLOTS_PER_ETH1_VOTING_PERIOD* = EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
@@ -156,8 +155,8 @@ template ethAmountUnit*(typ: type) {.dirty.} =
     writer.writeValue(distinctBase(value))
 
   proc readValue*(
-      reader: var JsonReader,
-      value: var typ) {.raises: [IOError, SerializationError].} =
+      reader: var JsonReader, value: var typ
+  ) {.raises: [IOError, SerializationError].} =
     reader.readValue(distinctBase(value))
 
 ethAmountUnit Gwei
@@ -276,17 +275,16 @@ type
     amount*: Gwei
     # Cannot use TrustedSig here as invalid signatures are possible and determine
     # if the deposit should be added or not during processing
-    signature*: ValidatorSig
-      ## Signing over DepositMessage
+    signature*: ValidatorSig ## Signing over DepositMessage
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
-    epoch*: Epoch
-      ## Earliest epoch when voluntary exit can be processed
+    epoch*: Epoch ## Earliest epoch when voluntary exit can be processed
     validator_index*: uint64 # `ValidatorIndex` after validation
 
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
-  SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
+  SomeSignedBeaconBlockHeader* =
+    SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
 
   # Legacy database type, see BeaconChainDB
@@ -313,25 +311,22 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#validator
   Validator* = object
-    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
+    pubkeyData* {.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals and transfers
 
-    effective_balance*: Gwei
-      ## Balance at stake
+    effective_balance*: Gwei ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch
-      ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch
-      ## When validator can withdraw funds
+    withdrawable_epoch*: Epoch ## When validator can withdraw funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
@@ -344,16 +339,15 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
-    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
 
-    epoch*: Epoch
-      ## Epoch of latest fork
+    epoch*: Epoch ## Epoch of latest fork
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
@@ -411,52 +405,43 @@ type
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
-
     pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
     withdrawal_credentials* {.dontSerialize.}: Eth2Digest
       ## Commitment to pubkey for withdrawals
 
-    effective_balance*: Gwei
-      ## Balance at stake
+    effective_balance*: Gwei ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch
-      ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch
-      ## When validator can withdraw funds
+    withdrawable_epoch*: Epoch ## When validator can withdraw funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#validator
   ValidatorStatusCapella* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
-
     pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
-    withdrawal_credentials*: Eth2Digest
-      ## Commitment to pubkey for withdrawals
+    withdrawal_credentials*: Eth2Digest ## Commitment to pubkey for withdrawals
 
-    effective_balance*: Gwei
-      ## Balance at stake
+    effective_balance*: Gwei ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch
-      ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch
-      ## When validator can withdraw funds
+    withdrawable_epoch*: Epoch ## When validator can withdraw funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
@@ -478,7 +463,8 @@ type
     delay*: uint64
       ## The distance between the attestation slot and the slot that attestation
       ## was included in block.
-    proposer_index*: uint64 # `ValidatorIndex` after validation
+    proposer_index*: uint64
+      # `ValidatorIndex` after validation
       ## The index of the proposer at the slot where the attestation was included
 
   RewardFlags* {.pure.} = enum
@@ -537,19 +523,21 @@ func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
     # Safety net - have to use a constant because the general hash_tree_root
     # function is not yet declared at this point
     const zeroPubkeyHash = Eth2Digest.fromHex(
-      "fa324a462bcb0f10c24c9e17c326a4e0ebad204feced523eccaf346c686f06ee")
+      "fa324a462bcb0f10c24c9e17c326a4e0ebad204feced523eccaf346c686f06ee"
+    )
     zeroPubkeyHash
   else:
     v.value[].root
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
-  let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
+  let cookedKey = validator.pubkey.loadValid() # `Validator` has valid key
   ImmutableValidatorData2(
-    pubkey: cookedKey,
-    withdrawal_credentials: validator.withdrawal_credentials)
+    pubkey: cookedKey, withdrawal_credentials: validator.withdrawal_credentials
+  )
 
 template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
-  static: doAssert limit <= distinctBase(T).high()
+  static:
+    doAssert limit <= distinctBase(T).high()
   # Many `uint64` values in the spec have a more limited range of valid values
   func init*(t: type T, value: uint64): Result[T, cstring] =
     if value < limit:
@@ -558,38 +546,54 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
       err(Result[T, cstring], name(T) & " out of range")
 
   iterator items*(t: type T): T =
-    for i in 0'u64..<limit:
+    for i in 0'u64 ..< limit:
       yield T(i)
 
   proc writeValue*(writer: var JsonWriter, value: T) {.raises: [IOError].} =
     writeValue(writer, distinctBase value)
 
-  proc readValue*(reader: var JsonReader, value: var T)
-                {.raises: [IOError, SerializationError].} =
+  proc readValue*(
+      reader: var JsonReader, value: var T
+  ) {.raises: [IOError, SerializationError].} =
     let v = T.init(reader.readValue(uint64))
     if v.isSome():
       value = v.get()
     else:
       raiseUnexpectedValue(reader, $v.error())
 
-  template `==`*(x, y: T): bool = distinctBase(x) == distinctBase(y)
-  template `==`*(x: T, y: uint64): bool = distinctBase(x) == y
-  template `==`*(x: uint64, y: T): bool = x == distinctBase(y)
+  template `==`*(x, y: T): bool =
+    distinctBase(x) == distinctBase(y)
 
-  template `<`*(x, y: T): bool = distinctBase(x) < distinctBase(y)
-  template `<`*(x: T, y: uint64): bool = distinctBase(x) < y
-  template `<`*(x: uint64, y: T): bool = x < distinctBase(y)
+  template `==`*(x: T, y: uint64): bool =
+    distinctBase(x) == y
+
+  template `==`*(x: uint64, y: T): bool =
+    x == distinctBase(y)
+
+  template `<`*(x, y: T): bool =
+    distinctBase(x) < distinctBase(y)
+
+  template `<`*(x: T, y: uint64): bool =
+    distinctBase(x) < y
+
+  template `<`*(x: uint64, y: T): bool =
+    x < distinctBase(y)
 
   template hash*(x: T): Hash =
     hash distinctBase(x)
 
-  template `$`*(x: T): string = $ distinctBase(x)
+  template `$`*(x: T): string =
+    $distinctBase(x)
 
-  template asInt*(x: T): int = int(distinctBase(x))
-  template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
+  template asInt*(x: T): int =
+    int(distinctBase(x))
 
-  func toSszType*(x: T): uint64 {.error:
-    "Limited types should not be used with SSZ (ABI differences)".}
+  template asUInt64*(x: T): uint64 =
+    uint64(distinctBase(x))
+
+  func toSszType*(
+    x: T
+  ): uint64 {.error: "Limited types should not be used with SSZ (ABI differences)".}
 
 template makeLimitedU8*(T: untyped, limit: uint8) =
   makeLimitedUInt(T, limit)
@@ -604,40 +608,40 @@ makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
 makeLimitedU64(BlobId, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)
 
-const
-  validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)
-    ## Because we limit ourselves to what is practically possible to index in a
-    ## seq, we will discard some otherwise "potentially valid" validator indices
-    ## here - this is a tradeoff made for code simplicity.
-    ##
-    ## In general, `ValidatorIndex` is assumed to be convertible to/from an
-    ## `int`. This should be valid for a long time, because
-    ## https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
-    ## notes that "The maximum supported validator count is 2**22 (=4,194,304),
-    ## or ~134 million ETH staking. Assuming 32 slots per epoch and 64
-    ## committees per slot, this gets us to a max 2048 validators in a
-    ## committee."
-    ## That's only active validators, so in principle, it can grow larger, but
-    ## it should be orders of magnitude more validators than expected in the
-    ## next couple of years, than int32 indexing supports.
-static: doAssert high(int) >= high(int32)
+const validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)
+  ## Because we limit ourselves to what is practically possible to index in a
+  ## seq, we will discard some otherwise "potentially valid" validator indices
+  ## here - this is a tradeoff made for code simplicity.
+  ##
+  ## In general, `ValidatorIndex` is assumed to be convertible to/from an
+  ## `int`. This should be valid for a long time, because
+  ## https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
+  ## notes that "The maximum supported validator count is 2**22 (=4,194,304),
+  ## or ~134 million ETH staking. Assuming 32 slots per epoch and 64
+  ## committees per slot, this gets us to a max 2048 validators in a
+  ## committee."
+  ## That's only active validators, so in principle, it can grow larger, but
+  ## it should be orders of magnitude more validators than expected in the
+  ## next couple of years, than int32 indexing supports.
+static:
+  doAssert high(int) >= high(int32)
 
 makeLimitedU64(ValidatorIndex, validatorIndexLimit)
 
-func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
+func init*(
+    T: type CommitteeIndex, index, committees_per_slot: uint64
+): Result[CommitteeIndex, cstring] =
   if index < min(committees_per_slot, MAX_COMMITTEES_PER_SLOT):
     ok(CommitteeIndex(index))
   else:
     err("Committee index out of range for epoch")
 
-template writeValue*(
-    writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
+template writeValue*(writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
   writeValue(writer, to0xHex(distinctBase(value)))
 
 proc readValue*(
-    reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
-               {.raises: [IOError, SerializationError].} =
+    reader: var JsonReader, value: var (Version | ForkDigest | DomainType)
+) {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     hexToByteArray(hex, distinctBase(value))
@@ -648,8 +652,9 @@ func `$`*(x: JustificationBits): string =
   # TODO, works around https://github.com/nim-lang/Nim/issues/22191
   "0x" & toHex(uint64(uint8(x)))
 
-proc readValue*(reader: var JsonReader, value: var JustificationBits)
-    {.raises: [IOError, SerializationError].} =
+proc readValue*(
+    reader: var JsonReader, value: var JustificationBits
+) {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     value = JustificationBits(hexToByteArray(hex, 1)[0])
@@ -657,7 +662,8 @@ proc readValue*(reader: var JsonReader, value: var JustificationBits)
     raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
 
 proc writeValue*(
-    writer: var JsonWriter, value: JustificationBits) {.raises: [IOError].} =
+    writer: var JsonWriter, value: JustificationBits
+) {.raises: [IOError].} =
   writer.writeValue $value
 
 # `ValidatorIndex` seq handling.
@@ -668,24 +674,26 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 iterator vindices*(
-    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  static: doAssert distinctBase(ValidatorIndex) is uint32
-  for i in 0..<a.len.uint32:
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+): ValidatorIndex =
+  static:
+    doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0 ..< a.len.uint32:
     yield i.ValidatorIndex
 
-iterator vindices*(
-    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  static: doAssert distinctBase(ValidatorIndex) is uint32
-  for i in 0..<a.len.uint32:
+iterator vindices*(a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  static:
+    doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0 ..< a.len.uint32:
     yield i.ValidatorIndex
 
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
-  T(pubkey: d.pubkey,
-    withdrawal_credentials: d.withdrawal_credentials,
-    amount: d.amount)
+  T(
+    pubkey: d.pubkey, withdrawal_credentials: d.withdrawal_credentials, amount: d.amount
+  )
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
@@ -726,9 +734,12 @@ func `==`*(a, b: ForkDigest | Version | DomainType): bool =
   array[4, byte](a) == array[4, byte](b)
 func `<`*(a, b: ForkDigest | Version): bool =
   uint32.fromBytesBE(array[4, byte](a)) < uint32.fromBytesBE(array[4, byte](b))
-func len*(v: ForkDigest | Version | DomainType): int = sizeof(v)
-func low*(v: ForkDigest | Version): int = 0
-func high*(v: ForkDigest | Version): int = len(v) - 1
+func len*(v: ForkDigest | Version | DomainType): int =
+  sizeof(v)
+func low*(v: ForkDigest | Version): int =
+  0
+func high*(v: ForkDigest | Version): int =
+  len(v) - 1
 func `[]`*(v: ForkDigest | Version | DomainType, idx: int): byte =
   array[4, byte](v)[idx]
 
@@ -740,21 +751,18 @@ func shortLog*(v: BeaconBlockHeader): auto =
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
-    state_root: shortLog(v.state_root)
+    state_root: shortLog(v.state_root),
   )
 
 func shortLog*(v: SomeSignedBeaconBlockHeader): auto =
-  (
-    message: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (message: shortLog(v.message), signature: shortLog(v.signature))
 
 func shortLog*(v: DepositData): auto =
   (
     pubkey: shortLog(v.pubkey),
     withdrawal_credentials: shortLog(v.withdrawal_credentials),
     amount: v.amount,
-    signature: shortLog(v.signature)
+    signature: shortLog(v.signature),
   )
 
 func shortLog*(v: Checkpoint): auto =
@@ -775,82 +783,80 @@ func shortLog*(v: PendingAttestation): auto =
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),
     inclusion_delay: v.inclusion_delay,
-    proposer_index: v.proposer_index
+    proposer_index: v.proposer_index,
   )
 
 func shortLog*(v: SomeProposerSlashing): auto =
   (
     signed_header_1: shortLog(v.signed_header_1),
-    signed_header_2: shortLog(v.signed_header_2)
+    signed_header_2: shortLog(v.signed_header_2),
   )
 
 func shortLog*(v: VoluntaryExit): auto =
-  (
-    epoch: shortLog(v.epoch),
-    validator_index: v.validator_index
-  )
+  (epoch: shortLog(v.epoch), validator_index: v.validator_index)
 
 func shortLog*(v: SomeSignedVoluntaryExit): auto =
-  (
-    message: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (message: shortLog(v.message), signature: shortLog(v.signature))
 
-chronicles.formatIt AttestationData: it.shortLog
-chronicles.formatIt Checkpoint: it.shortLog
+chronicles.formatIt AttestationData:
+  it.shortLog
+chronicles.formatIt Checkpoint:
+  it.shortLog
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
-  PrintableAsciiChars = {' '..'~'}
+  PrintableAsciiChars = {' ' .. '~'}
 
 func toPrettyString*(bytes: openArray[byte]): string =
-  result = strip(string.fromBytes(bytes),
-                 leading = false,
-                 chars = Whitespace + {'\0'})
+  result = strip(string.fromBytes(bytes), leading = false, chars = Whitespace + {'\0'})
 
   # TODO: Perhaps handle UTF-8 at some point
   if not allCharsInSet(result, PrintableAsciiChars):
     result = "0x" & toHex(bytes)
 
-func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
+func `$`*(value: GraffitiBytes): string =
+  toPrettyString(distinctBase value)
 
-func init*(T: type GraffitiBytes, input: string): GraffitiBytes
-          {.raises: [ValueError].} =
+func init*(
+    T: type GraffitiBytes, input: string
+): GraffitiBytes {.raises: [ValueError].} =
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if input.len > sizeof(GraffitiBytes) * 2 + 2:
       raise newException(ValueError, "The graffiti bytes should be less than 32")
     elif input.len mod 2 != 0:
-      raise newException(ValueError, "The graffiti hex string should have an even length")
+      raise
+        newException(ValueError, "The graffiti hex string should have an even length")
 
     hexToByteArray(input, distinctBase(result))
   else:
     if input.len > MAX_GRAFFITI_SIZE:
-      raise newException(ValueError, "The graffiti value should be 32 characters or less")
+      raise
+        newException(ValueError, "The graffiti value should be 32 characters or less")
     distinctBase(result)[0 ..< input.len] = toBytes(input)
 
 func defaultGraffitiBytes*(): GraffitiBytes =
-  const graffitiBytes =
-    toBytes("Nimbus/" & fullVersionStr)
-  static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
+  const graffitiBytes = toBytes("Nimbus/" & fullVersionStr)
+  static:
+    doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
-proc writeValue*(
-    w: var JsonWriter, value: GraffitiBytes) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter, value: GraffitiBytes) {.raises: [IOError].} =
   w.writeValue $value
 
 template `==`*(lhs, rhs: GraffitiBytes): bool =
   distinctBase(lhs) == distinctBase(rhs)
 
-proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError].} =
+proc readValue*(
+    r: var JsonReader, T: type GraffitiBytes
+): T {.raises: [IOError, SerializationError].} =
   try:
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
 
 func load*(
-    validators: openArray[ImmutableValidatorData2],
-    index: ValidatorIndex | uint64): Opt[CookedPubKey] =
+    validators: openArray[ImmutableValidatorData2], index: ValidatorIndex | uint64
+): Opt[CookedPubKey] =
   if validators.lenu64() <= index.uint64:
     Opt.none(CookedPubKey)
   else:
@@ -867,7 +873,7 @@ static:
 
 func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
   for name, value in x.fieldPairs:
-    when value is tuple|object:
+    when value is tuple | object:
       result.add getSizeofSig(value, n + 1)
     # TrustedSig and ValidatorSig differ in that they have otherwise identical
     # fields where one is "blob" and the other is "data". They're structurally
@@ -885,12 +891,14 @@ template isomorphicCast*[T](x: auto): T =
   # Each of these pairs of types has ABI-compatible memory representations.
   type U = typeof(x)
 
-  static: doAssert (T is ref) == (U is ref)
+  static:
+    doAssert (T is ref) == (U is ref)
   when T is ref:
     when not defined(release):
       type
         TT = pointerBase(T)
         UU = pointerBase(U)
+
       static:
         doAssert sizeof(TT) == sizeof(UU)
         doAssert getSizeofSig(TT()) == getSizeofSig(UU())
@@ -906,10 +914,10 @@ template isomorphicCast*[T](x: auto): T =
 func prune*(cache: var StateCache, epoch: Epoch) =
   # Prune all cache information that is no longer relevant in order to process
   # the given epoch
-  if epoch < 2: return
+  if epoch < 2:
+    return
 
-  let
-    pruneEpoch = epoch - 2
+  let pruneEpoch = epoch - 2
 
   var drops: seq[Slot]
   block:
@@ -951,24 +959,23 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
-  let forkVersions =
-    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
-     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION]
+  let forkVersions = [
+    cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION, cfg.BELLATRIX_FORK_VERSION,
+    cfg.CAPELLA_FORK_VERSION, cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
+    cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION,
+  ]
 
   for i in 0 ..< forkVersions.len:
-    for j in i+1 ..< forkVersions.len:
+    for j in i + 1 ..< forkVersions.len:
       doAssert distinctBase(forkVersions[i]) != distinctBase(forkVersions[j])
 
-  template assertForkEpochOrder(
-      firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
+  template assertForkEpochOrder(firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
     doAssert distinctBase(firstForkEpoch) <= distinctBase(secondForkEpoch)
 
     # https://github.com/ethereum/consensus-specs/issues/2902 multiple
     # fork transitions per epoch don't work in a well-defined way.
     doAssert distinctBase(firstForkEpoch) < distinctBase(secondForkEpoch) or
-             firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+      firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
 
   assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
   assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
@@ -985,5 +992,8 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
-template debugFuluComment*(s: string) = discard
-template debugGloasComment*(s: string) = discard
+template debugFuluComment*(s: string) =
+  discard
+
+template debugGloasComment*(s: string) =
+  discard

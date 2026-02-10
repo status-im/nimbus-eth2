@@ -20,16 +20,15 @@ export hashes, sets, tables, altair
 logScope:
   topics = "syncpool"
 
-const
-  syncCommitteeMsgsRetentionSlots = 3
-    ## How many slots to retain sync committee
-    ## messsages before discarding them.
+const syncCommitteeMsgsRetentionSlots = 3
+  ## How many slots to retain sync committee
+  ## messsages before discarding them.
 
 type
   SyncCommitteeMsgKey = object
-    originator: uint64  # ValidatorIndex to avoid invalid values
+    originator: uint64 # ValidatorIndex to avoid invalid values
     slot: Slot
-    subcommitteeIdx: uint64  # SyncSubcommitteeIndex to avoid invalid values
+    subcommitteeIdx: uint64 # SyncSubcommitteeIndex to avoid invalid values
 
   TrustedSyncCommitteeMsg* = object
     subcommitteeIdx*: SyncSubcommitteeIndex
@@ -42,8 +41,7 @@ type
     signature*: CookedSig
 
   BestSyncSubcommitteeContributions* = object
-    subnets*: array[SYNC_COMMITTEE_SUBNET_COUNT,
-                    BestSyncSubcommitteeContribution]
+    subnets*: array[SYNC_COMMITTEE_SUBNET_COUNT, BestSyncSubcommitteeContribution]
 
   OnSyncContributionCallback* =
     proc(data: SignedContributionAndProof) {.gcsafe, raises: [].}
@@ -54,9 +52,9 @@ type
   # Note that the sync committee is determined by `message.slot + 1`, the fork
   # is determined by `message.slot`, and both can be different from `bid.slot`.
   SyncMsgTarget = object
-    bid: BlockId  # Based on message `beacon_block_root`
-    period: SyncCommitteePeriod  # Based on message `slot + 1`
-    fork: ConsensusFork  # Based on message `slot`
+    bid: BlockId # Based on message `beacon_block_root`
+    period: SyncCommitteePeriod # Based on message `slot + 1`
+    fork: ConsensusFork # Based on message `slot`
 
   SyncCommitteeMsgPool* = object
     seenSyncMsgByAuthor*: Table[SyncCommitteeMsgKey, Eth2Digest]
@@ -71,12 +69,12 @@ type
 func hash*(x: SyncCommitteeMsgKey): Hash =
   hashAllFields(x)
 
-func toSyncMsgTarget(
-    cfg: RuntimeConfig, bid: BlockId, slot: Slot): SyncMsgTarget =
+func toSyncMsgTarget(cfg: RuntimeConfig, bid: BlockId, slot: Slot): SyncMsgTarget =
   SyncMsgTarget(
     bid: bid,
     period: (slot + 1).sync_committee_period,
-    fork: cfg.consensusForkAtEpoch(slot.epoch))
+    fork: cfg.consensusForkAtEpoch(slot.epoch),
+  )
 
 func hash(x: SyncMsgTarget): Hash =
   hashAllFields(x)
@@ -89,11 +87,12 @@ func `<`(x, y: SyncMsgTarget): bool =
   else:
     x.fork < y.fork
 
-func init*(T: type SyncCommitteeMsgPool,
-           rng: ref HmacDrbgContext,
-           cfg: RuntimeConfig,
-           onSyncContribution: OnSyncContributionCallback = nil
-          ): SyncCommitteeMsgPool =
+func init*(
+    T: type SyncCommitteeMsgPool,
+    rng: ref HmacDrbgContext,
+    cfg: RuntimeConfig,
+    onSyncContribution: OnSyncContributionCallback = nil,
+): SyncCommitteeMsgPool =
   T(rng: rng, cfg: cfg, onContributionReceived: onSyncContribution)
 
 func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot, force = false) =
@@ -125,11 +124,13 @@ func isSeen*(
     pool: SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    headBid: BlockId): bool =
+    headBid: BlockId,
+): bool =
   let seenKey = SyncCommitteeMsgKey(
-    originator: msg.validator_index,  # Might be unvalidated at this point
+    originator: msg.validator_index, # Might be unvalidated at this point
     slot: msg.slot,
-    subcommitteeIdx: subcommitteeIdx.uint64)
+    subcommitteeIdx: subcommitteeIdx.uint64,
+  )
   return
     if seenKey notin pool.seenSyncMsgByAuthor:
       false
@@ -145,11 +146,11 @@ proc addSyncCommitteeMessage*(
     validatorIndex: uint64,
     signature: CookedSig,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    positionsInCommittee: seq[uint64]) =
+    positionsInCommittee: seq[uint64],
+) =
   let seenKey = SyncCommitteeMsgKey(
-    originator: validatorIndex,
-    slot: slot,
-    subcommitteeIdx: subcommitteeIdx.uint64)
+    originator: validatorIndex, slot: slot, subcommitteeIdx: subcommitteeIdx.uint64
+  )
   pool.seenSyncMsgByAuthor[seenKey] = bid.root
 
   func registerVotes(votes: var seq[TrustedSyncCommitteeMsg]) =
@@ -162,16 +163,19 @@ proc addSyncCommitteeMessage*(
         votes.add TrustedSyncCommitteeMsg(
           subcommitteeIdx: subcommitteeIdx,
           positionInCommittee: position,
-          signature: signature)
+          signature: signature,
+        )
   let target = pool.cfg.toSyncMsgTarget(bid, slot)
   pool.syncMessages.mgetOrPut(target, @[]).registerVotes()
 
   debug "Sync committee message resolved",
     slot = slot, blockRoot = shortLog(target.bid.root), validatorIndex
 
-func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
-                         subcommitteeIdx: SyncSubcommitteeIndex,
-                         contribution: var SyncCommitteeContribution): bool =
+func computeAggregateSig(
+    votes: seq[TrustedSyncCommitteeMsg],
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    contribution: var SyncCommitteeContribution,
+): bool =
   var
     aggregateSig {.noinit.}: AggregateSignature
     initialized = false
@@ -202,16 +206,15 @@ func produceContribution*(
     slot: Slot,
     headBid: BlockId,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    outContribution: var SyncCommitteeContribution): bool =
+    outContribution: var SyncCommitteeContribution,
+): bool =
   let target = pool.cfg.toSyncMsgTarget(headBid, slot)
   if target in pool.syncMessages:
     outContribution.slot = slot
     outContribution.beacon_block_root = headBid.root
     outContribution.subcommittee_index = subcommitteeIdx.asUInt64
     try:
-      computeAggregateSig(pool.syncMessages[target],
-                          subcommitteeIdx,
-                          outContribution)
+      computeAggregateSig(pool.syncMessages[target], subcommitteeIdx, outContribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
   else:
@@ -219,38 +222,41 @@ func produceContribution*(
 
 func addContribution(
     contributions: var BestSyncSubcommitteeContributions,
-    contribution: SyncCommitteeContribution) =
+    contribution: SyncCommitteeContribution,
+) =
   let
     currentBestTotalParticipants =
       contributions.subnets[contribution.subcommittee_index].totalParticipants
     newBestTotalParticipants = countOnes(contribution.aggregation_bits)
 
   if newBestTotalParticipants > currentBestTotalParticipants:
-    contributions.subnets[contribution.subcommittee_index] =
-      BestSyncSubcommitteeContribution(
-        totalParticipants: newBestTotalParticipants,
-        participationBits: contribution.aggregation_bits,
-        signature: contribution.signature.load.get)
+    contributions.subnets[contribution.subcommittee_index] = BestSyncSubcommitteeContribution(
+      totalParticipants: newBestTotalParticipants,
+      participationBits: contribution.aggregation_bits,
+      signature: contribution.signature.load.get,
+    )
 
-func isSeen*(
-    pool: SyncCommitteeMsgPool,
-    msg: ContributionAndProof): bool =
+func isSeen*(pool: SyncCommitteeMsgPool, msg: ContributionAndProof): bool =
   let seenKey = SyncCommitteeMsgKey(
     originator: msg.aggregator_index,
     slot: msg.contribution.slot,
-    subcommitteeIdx: msg.contribution.subcommittee_index)
+    subcommitteeIdx: msg.contribution.subcommittee_index,
+  )
   seenKey in pool.seenContributionByAuthor
 
 func covers(
     contributions: BestSyncSubcommitteeContributions,
-    contribution: SyncCommitteeContribution): bool =
+    contribution: SyncCommitteeContribution,
+): bool =
   contribution.aggregation_bits.isSubsetOf(
-    contributions.subnets[contribution.subcommittee_index].participationBits)
+    contributions.subnets[contribution.subcommittee_index].participationBits
+  )
 
 func covers*(
     pool: var SyncCommitteeMsgPool,
     contribution: SyncCommitteeContribution,
-    bid: BlockId): bool =
+    bid: BlockId,
+): bool =
   ## Return true iff the given contribution brings no new information compared
   ## to the contributions already seen in the pool, ie if the contriubution is a
   ## subset of the best contribution so far
@@ -260,15 +266,18 @@ func covers*(
 
   return false
 
-proc addContribution(pool: var SyncCommitteeMsgPool,
-                     aggregator_index: uint64,
-                     contribution: SyncCommitteeContribution,
-                     bid: BlockId,
-                     signature: CookedSig) =
+proc addContribution(
+    pool: var SyncCommitteeMsgPool,
+    aggregator_index: uint64,
+    contribution: SyncCommitteeContribution,
+    bid: BlockId,
+    signature: CookedSig,
+) =
   let seenKey = SyncCommitteeMsgKey(
     originator: aggregator_index,
     slot: contribution.slot,
-    subcommitteeIdx: contribution.subcommittee_index)
+    subcommitteeIdx: contribution.subcommittee_index,
+  )
   pool.seenContributionByAuthor.incl seenKey
 
   let target = pool.cfg.toSyncMsgTarget(bid, contribution.slot)
@@ -279,20 +288,22 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
     contributions.addContribution(contribution)
     pool.bestContributions[target] = contributions
 
-proc addContribution*(pool: var SyncCommitteeMsgPool,
-                      scproof: SignedContributionAndProof,
-                      bid: BlockId,
-                      signature: CookedSig) =
+proc addContribution*(
+    pool: var SyncCommitteeMsgPool,
+    scproof: SignedContributionAndProof,
+    bid: BlockId,
+    signature: CookedSig,
+) =
   pool.addContribution(
-    scproof.message.aggregator_index,
-    scproof.message.contribution,
-    bid, signature)
+    scproof.message.aggregator_index, scproof.message.contribution, bid, signature
+  )
 
-  if not(isNil(pool.onContributionReceived)):
+  if not (isNil(pool.onContributionReceived)):
     pool.onContributionReceived(scproof)
 
 proc produceSyncAggregateAux(
-    contributions: BestSyncSubcommitteeContributions): SyncAggregate =
+    contributions: BestSyncSubcommitteeContributions
+): SyncAggregate =
   var
     aggregateSig {.noinit.}: AggregateSignature
     initialized = false
@@ -319,15 +330,13 @@ proc produceSyncAggregateAux(
     aggregate.sync_committee_signature = ValidatorSig.infinity
 
   let duration = Moment.now - startTime
-  debug "SyncAggregate produced", duration,
-         bits = aggregate.sync_committee_bits
+  debug "SyncAggregate produced", duration, bits = aggregate.sync_committee_bits
 
   aggregate
 
 proc produceSyncAggregate*(
-    pool: var SyncCommitteeMsgPool,
-    bid: BlockId,
-    signatureSlot: Slot): SyncAggregate =
+    pool: var SyncCommitteeMsgPool, bid: BlockId, signatureSlot: Slot
+): SyncAggregate =
   # Sync committee signs previous slot, relative to when new block is produced
   let
     slot = max(signatureSlot, 1.Slot) - 1
@@ -362,8 +371,7 @@ proc produceSyncAggregate*(
   else:
     SyncAggregate.init()
 
-proc isEpochLeadTime*(
-    pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
+proc isEpochLeadTime*(pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability
   # This ensures a uniform distribution without requiring additional state:
   # (1/4)                         = 1/4, 4 slots out

@@ -24,14 +24,17 @@ proc processLinkCmd(cmd, linkerArgs: string): string {.raises: [IOError].} =
 
   if cmd.len > 0 and cmd[0] == '"':
     inc i
-    while i < cmd.len and cmd[i] != '"': inc i
+    while i < cmd.len and cmd[i] != '"':
+      inc i
     last = i
     inc i
   else:
-    while i < cmd.len and cmd[i] != ' ': inc i
+    while i < cmd.len and cmd[i] != ' ':
+      inc i
     last = i
 
-  while i < cmd.len and cmd[i] == ' ': inc i
+  while i < cmd.len and cmd[i] == ' ':
+    inc i
 
   let args = cmd.substr(i)
   writeFile(linkerArgs, args.replace('\\', '/'))
@@ -94,9 +97,10 @@ proc main() =
           echo "Could not find the object file in this command: ", cmd
           quit(QuitFailure)
         try:
-          makefile.writeLine("$#: $#" % [
-            objectPath.replace('\\', '/'),
-            compile[0].getStr().replace('\\', '/')])
+          makefile.writeLine(
+            "$#: $#" %
+              [objectPath.replace('\\', '/'), compile[0].getStr().replace('\\', '/')]
+          )
           makefile.writeLine("\t+ $#\n" % cmd)
         except ValueError:
           # https://github.com/nim-lang/Nim/pull/23356
@@ -122,8 +126,10 @@ proc main() =
     makefile.writeLine("build: $(OBJECTS)")
     let linkerArgs = makefilePath & ".linkerArgs"
     try:
-      makefile.writeLine("\t+ $#" % processLinkCmd(
-        data["linkcmd"].getStr().replace('\\', '/'), linkerArgs))
+      makefile.writeLine(
+        "\t+ $#" %
+          processLinkCmd(data["linkcmd"].getStr().replace('\\', '/'), linkerArgs)
+      )
     except IOError as exc:
       echo "Failed to write file: ", linkerArgs, " - [IOError]: ", exc.msg
       quit(QuitFailure)

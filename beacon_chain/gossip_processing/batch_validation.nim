@@ -12,7 +12,9 @@ import
   stew/ptrops,
   metrics,
   # Status
-  chronicles, chronos, chronos/threadsync,
+  chronicles,
+  chronos,
+  chronos/threadsync,
   ../spec/signatures_batch,
   ../consensus_object_pools/[blockchain_dag, spec_cache]
 
@@ -21,14 +23,12 @@ export signatures_batch, blockchain_dag
 logScope:
   topics = "batch_validation"
 
-declareCounter batch_verification_batches,
-  "Total number of batches processed"
+declareCounter batch_verification_batches, "Total number of batches processed"
 declareCounter batch_verification_signatures,
   "Total number of verified signatures before aggregation"
 declareCounter batch_verification_aggregates,
   "Total number of verified signatures after aggregation"
-declareCounter batch_verification_batches_skipped,
-  "Total number of batches skipped"
+declareCounter batch_verification_batches_skipped, "Total number of batches skipped"
 
 # Batched gossip validation
 # ----------------------------------------------------------------
@@ -76,8 +76,7 @@ const
     ## `--subscribe-all-subnets` turned on - typical nodes will see smaller
     ## batches.
 
-  InflightVerifications = 2
-    ## Maximum number of concurrent in-flight verifications
+  InflightVerifications = 2 ## Maximum number of concurrent in-flight verifications
 
 type
   BatchResult* {.pure.} = enum
@@ -144,24 +143,31 @@ type
     signal: ThreadSignalPtr
 
 proc new*(
-    T: type BatchCrypto, rng: ref HmacDrbgContext, timeParams: TimeParams,
-    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
-    Result[ref BatchCrypto, string] =
+    T: type BatchCrypto,
+    rng: ref HmacDrbgContext,
+    timeParams: TimeParams,
+    eager: Eager,
+    genesis_validators_root: Eth2Digest,
+    taskpool: Taskpool,
+): Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
-    taskpool: taskpool, rng: rng, timeParams: timeParams,
+    taskpool: taskpool,
+    rng: rng,
+    timeParams: timeParams,
     eager: eager,
     genesis_validators_root: genesis_validators_root,
-    pruneTime: Moment.now())
+    pruneTime: Moment.now(),
+  )
 
-  for i in 0..<res.verifiers.len:
+  for i in 0 ..< res.verifiers.len:
     res.verifiers[i] = VerifierItem(
       verifier: BatchVerifier.new(rng, taskpool),
       signal: block:
         let sig = ThreadSignalPtr.new()
         sig.valueOr:
-          for j in 0..<i:
+          for j in 0 ..< i:
             discard res.verifiers[j].signal.close()
-          return err(sig.error())
+          return err(sig.error()),
     )
 
   ok res
@@ -191,8 +197,7 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
     # Batched verification failed meaning that some of the signature checks
     # failed, but we don't know which ones - check each signature separately
     # instead
-    debug "batch crypto - failure, falling back",
-      items = batch.items.len()
+    debug "batch crypto - failure, falling back", items = batch.items.len()
 
     for item in batch.items.mitems():
       item.complete(blsVerify item.sigset)
@@ -214,8 +219,8 @@ proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
   let
     tp = task[].taskpool
     ok = tp.spawn batchVerify(
-      tp, task[].cache, task[].setsPtr, task[].numSets,
-      addr task[].secureRandomBytes)
+      tp, task[].cache, task[].setsPtr, task[].numSets, addr task[].secureRandomBytes
+    )
 
   task[].ok.store(sync ok)
 
@@ -228,25 +233,22 @@ proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
   # Possibly related to: https://github.com/nim-lang/Nim/issues/22305
   tp.spawn batchVerifyTask(task)
 
-func combine(
-    multiSet: MultiSignatureSet,
-    verifier: ref BatchVerifier): SignatureSet =
+func combine(multiSet: MultiSignatureSet, verifier: ref BatchVerifier): SignatureSet =
   var secureRandomBytes: array[32, byte]
   verifier[].rng[].generate(secureRandomBytes)
   multiSet.combine(secureRandomBytes)
 
 func combineAll(
-    multiSets: Table[array[32, byte], MultiSignatureSet],
-    verifier: ref BatchVerifier): seq[SignatureSet] =
+    multiSets: Table[array[32, byte], MultiSignatureSet], verifier: ref BatchVerifier
+): seq[SignatureSet] =
   var sigsets = newSeqOfCap[SignatureSet](multiSets.len)
   for multiSet in multiSets.values():
     sigsets.add multiSet.combine(verifier)
   sigsets
 
 proc batchVerifyAsync(
-    verifier: ref BatchVerifier,
-    signal: ThreadSignalPtr,
-    batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
+    verifier: ref BatchVerifier, signal: ThreadSignalPtr, batch: ref Batch
+): Future[bool] {.async: (raises: [CancelledError]).} =
   let sigsets = batch[].multiSets.combineAll(verifier)
   var task = BatchTask(
     setsPtr: makeUncheckedArray(baseAddr sigsets),
@@ -275,7 +277,8 @@ proc processBatch(
     batchCrypto: ref BatchCrypto,
     batch: ref Batch,
     verifier: ref BatchVerifier,
-    signal: ThreadSignalPtr) {.async: (raises: [CancelledError]).} =
+    signal: ThreadSignalPtr,
+) {.async: (raises: [CancelledError]).} =
   let numSets = batch[].multiSets.len
 
   if numSets == 0:
@@ -322,11 +325,11 @@ proc processBatch(
       batchVerifySerial(
         verifier[].sigVerifCache,
         batch.multiSets.combineAll(verifier),
-        secureRandomBytes)
+        secureRandomBytes,
+      )
 
   trace "batch crypto - finished",
-    numSets, items = batch[].items.len(), ok,
-    batchDur = Moment.now() - startTick
+    numSets, items = batch[].items.len(), ok, batchDur = Moment.now() - startTick
 
   batchCrypto[].complete(batch[], ok)
 
@@ -337,9 +340,7 @@ proc processLoop(batchCrypto: ref BatchCrypto) {.async: (raises: [CancelledError
   while batchCrypto[].batches.len() > 0:
     # When eager processing is enabled, we can start processing the next batch
     # as soon as it's full - otherwise, wait for more signatures to accumulate
-    if not batchCrypto[].batches.peekFirst()[].full() or
-        not batchCrypto[].eager():
-
+    if not batchCrypto[].batches.peekFirst()[].full() or not batchCrypto[].eager():
       await sleepAsync(BatchAttAccumTime)
 
       # We still haven't filled even half the batch - wait a bit more (and give
@@ -360,11 +361,11 @@ proc processLoop(batchCrypto: ref BatchCrypto) {.async: (raises: [CancelledError
     batchCrypto[].verifiers[verifier].inflight = batchCrypto.processBatch(
       batchCrypto[].batches.popFirst(),
       batchCrypto[].verifiers[verifier].verifier,
-      batchCrypto[].verifiers[verifier].signal)
+      batchCrypto[].verifiers[verifier].signal,
+    )
 
 proc getBatch(batchCrypto: var BatchCrypto): ref Batch =
-  if batchCrypto.batches.len() == 0 or
-      batchCrypto.batches.peekLast[].full():
+  if batchCrypto.batches.len() == 0 or batchCrypto.batches.peekLast[].full():
     let batch = (ref Batch)(created: Moment.now())
     batchCrypto.batches.addLast(batch)
     batch
@@ -376,8 +377,8 @@ proc scheduleProcessor(batchCrypto: ref BatchCrypto) =
     batchCrypto.processor = batchCrypto.processLoop()
 
 proc verifySoon(
-    batchCrypto: ref BatchCrypto, name: static string,
-    sigset: SignatureSet): Future[BatchResult]{.async: (raises: [CancelledError], raw: true).} =
+    batchCrypto: ref BatchCrypto, name: static string, sigset: SignatureSet
+): Future[BatchResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     batch = batchCrypto[].getBatch()
     fut = newFuture[BatchResult](name)
@@ -397,10 +398,12 @@ proc verifySoon(
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      attestationData: AttestationData, pubkey: CookedPubKey,
-      signature: ValidatorSig
-     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    attestationData: AttestationData,
+    pubkey: CookedPubKey,
+    signature: ValidatorSig,
+): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -415,19 +418,22 @@ proc scheduleAttestationCheck*(
       return err("attestation: cannot load signature")
     fut = batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
       attestation_signature_set(
-        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
-        sig)
+        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey, sig
+      )
 
   ok((fut, sig))
 
 proc scheduleAggregateChecks*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof:
-        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
-     ): Result[tuple[
-        aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
-        sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    signedAggregateAndProof:
+      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    dag: ChainDAGRef,
+    attesting_indices: openArray[ValidatorIndex],
+): Result[
+    tuple[aggregatorFut, slotFut, aggregateFut: FutureBatchResult, sig: CookedSig],
+    cstring,
+] =
   ## Schedule crypto verification of an aggregate
   ##
   ## This involves 3 checks:
@@ -442,43 +448,51 @@ proc scheduleAggregateChecks*(
   ## This returns None if the signatures could not be loaded.
   ## and 3 futures with the deferred aggregate checks otherwise.
 
-  template aggregate_and_proof: untyped = signedAggregateAndProof.message
-  template aggregate: untyped = aggregate_and_proof.aggregate
+  template aggregate_and_proof(): untyped =
+    signedAggregateAndProof.message
+
+  template aggregate(): untyped =
+    aggregate_and_proof.aggregate
 
   # Do the eager steps first to avoid polluting batches with needlessly
   let
-    aggregatorKey =
-      dag.validatorKey(aggregate_and_proof.aggregator_index).valueOr:
-        return err("SignedAggregateAndProof: invalid aggregator index")
+    aggregatorKey = dag.validatorKey(aggregate_and_proof.aggregator_index).valueOr:
+      return err("SignedAggregateAndProof: invalid aggregator index")
     aggregatorSig = signedAggregateAndProof.signature.load().valueOr:
       return err("aggregateAndProof: invalid proof signature")
     slotSig = aggregate_and_proof.selection_proof.load().valueOr:
       return err("aggregateAndProof: invalid selection signature")
-    aggregateKey = ? aggregateAll(dag, attesting_indices)
+    aggregateKey = ?aggregateAll(dag, attesting_indices)
     aggregateSig = aggregate.signature.load().valueOr:
       return err("aggregateAndProof: invalid aggregate signature")
 
   let
     aggregatorFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregator"):
       aggregate_and_proof_signature_set(
-        fork, batchCrypto[].genesis_validators_root, aggregate_and_proof,
-        aggregatorKey, aggregatorSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate_and_proof, aggregatorKey,
+        aggregatorSig,
+      )
     slotFut = batchCrypto.verifySoon("scheduleAggregateChecks.selection_proof"):
       slot_signature_set(
-        fork, batchCrypto[].genesis_validators_root, aggregate.data.slot,
-        aggregatorKey, slotSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data.slot, aggregatorKey,
+        slotSig,
+      )
     aggregateFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregate"):
       attestation_signature_set(
-        fork, batchCrypto[].genesis_validators_root, aggregate.data,
-        aggregateKey, aggregateSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data, aggregateKey,
+        aggregateSig,
+      )
 
   ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
 
 proc scheduleSyncCommitteeMessageCheck*(
-      batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,
-      beacon_block_root: Eth2Digest, pubkey: CookedPubKey,
-      signature: ValidatorSig
-     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+    pubkey: CookedPubKey,
+    signature: ValidatorSig,
+): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -493,17 +507,22 @@ proc scheduleSyncCommitteeMessageCheck*(
       return err("SyncCommitteMessage: cannot load signature")
     fut = batchCrypto.verifySoon("scheduleSyncCommitteeMessageCheck"):
       sync_committee_message_signature_set(
-        fork, batchCrypto[].genesis_validators_root, slot, beacon_block_root,
-        pubkey, sig)
+        fork, batchCrypto[].genesis_validators_root, slot, beacon_block_root, pubkey,
+        sig,
+      )
 
   ok((fut, sig))
 
 proc scheduleContributionChecks*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, signedContributionAndProof: SignedContributionAndProof,
-      subcommitteeIdx: SyncSubcommitteeIndex, dag: ChainDAGRef): Result[tuple[
-       aggregatorFut, proofFut, contributionFut: FutureBatchResult,
-       sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    signedContributionAndProof: SignedContributionAndProof,
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    dag: ChainDAGRef,
+): Result[
+    tuple[aggregatorFut, proofFut, contributionFut: FutureBatchResult, sig: CookedSig],
+    cstring,
+] =
   ## Schedule crypto verification of all signatures in a
   ## SignedContributionAndProof message
   ##
@@ -514,14 +533,16 @@ proc scheduleContributionChecks*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred check otherwise.
   ##
-  template contribution_and_proof: untyped = signedContributionAndProof.message
-  template contribution: untyped = contribution_and_proof.contribution
+  template contribution_and_proof(): untyped =
+    signedContributionAndProof.message
+
+  template contribution(): untyped =
+    contribution_and_proof.contribution
 
   # Do the eager steps first to avoid polluting batches with needlessly
   let
-    aggregatorKey =
-      dag.validatorKey(contribution_and_proof.aggregator_index).valueOr:
-        return err("SignedAggregateAndProof: invalid contributor index")
+    aggregatorKey = dag.validatorKey(contribution_and_proof.aggregator_index).valueOr:
+      return err("SignedAggregateAndProof: invalid contributor index")
     aggregatorSig = signedContributionAndProof.signature.load().valueOr:
       return err("SignedContributionAndProof: invalid proof signature")
     proofSig = contribution_and_proof.selection_proof.load().valueOr:
@@ -529,30 +550,41 @@ proc scheduleContributionChecks*(
     contributionSig = contribution.signature.load().valueOr:
       return err("SignedContributionAndProof: invalid contribution signature")
 
-    contributionKey = ? aggregateAll(
-      dag, dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),
-      contribution.aggregation_bits)
+    contributionKey = ?aggregateAll(
+      dag,
+      dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),
+      contribution.aggregation_bits,
+    )
   let
-    aggregatorFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.aggregator"):
+    aggregatorFut = batchCrypto.verifySoon(
+      "scheduleContributionAndProofChecks.aggregator"
+    ):
       contribution_and_proof_signature_set(
         fork, batchCrypto[].genesis_validators_root, contribution_and_proof,
-        aggregatorKey, aggregatorSig)
-    proofFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.selection_proof"):
+        aggregatorKey, aggregatorSig,
+      )
+    proofFut = batchCrypto.verifySoon(
+      "scheduleContributionAndProofChecks.selection_proof"
+    ):
       sync_committee_selection_proof_set(
-        fork, batchCrypto[].genesis_validators_root, contribution.slot,
-        subcommitteeIdx, aggregatorKey, proofSig)
-    contributionFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
+        fork, batchCrypto[].genesis_validators_root, contribution.slot, subcommitteeIdx,
+        aggregatorKey, proofSig,
+      )
+    contributionFut = batchCrypto.verifySoon(
+      "scheduleContributionAndProofChecks.contribution"
+    ):
       sync_committee_message_signature_set(
         fork, batchCrypto[].genesis_validators_root, contribution.slot,
-        contribution.beacon_block_root, contributionKey, contributionSig)
+        contribution.beacon_block_root, contributionKey, contributionSig,
+      )
 
   ok((aggregatorFut, proofFut, contributionFut, contributionSig))
 
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
     genesis_fork_version: Version,
-    signedBLSToExecutionChange: SignedBLSToExecutionChange):
-    Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    signedBLSToExecutionChange: SignedBLSToExecutionChange,
+): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
   ##
@@ -566,26 +598,29 @@ proc scheduleBlsToExecutionChangeCheck*(
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
-    pubkey =
-      signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
-        return err("scheduleBlsToExecutionChangeCheck: cannot load BLS to execution change pubkey")
+    pubkey = signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
+      return err(
+        "scheduleBlsToExecutionChangeCheck: cannot load BLS to execution change pubkey"
+      )
     sig = signedBLSToExecutionChange.signature.load().valueOr:
-      return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
+      return
+        err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
         genesis_fork_version, batchCrypto[].genesis_validators_root,
-        signedBLSToExecutionChange.message,
-        pubkey, sig)
+        signedBLSToExecutionChange.message, pubkey, sig,
+      )
 
   ok((fut, sig))
 
 proc schedulePayloadAttestationCheck*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      genesis_validators_root: Eth2Digest,
-      msg: PayloadAttestationMessage,
-      pubkey: CookedPubKey,
-      signature: ValidatorSig
-    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    msg: PayloadAttestationMessage,
+    pubkey: CookedPubKey,
+    signature: ValidatorSig,
+): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of a payload attestation
   ##
   ## The buffer is processed:
@@ -599,7 +634,6 @@ proc schedulePayloadAttestationCheck*(
     sig = signature.load().valueOr:
       return err("payload attestation: cannot load signature")
     fut = batchCrypto.verifySoon("batch_validation.schedulePayloadAttestationCheck"):
-      payload_attestation_signature_set(
-        fork, genesis_validators_root, msg, pubkey, sig)
+      payload_attestation_signature_set(fork, genesis_validators_root, msg, pubkey, sig)
 
   ok((fut, sig))

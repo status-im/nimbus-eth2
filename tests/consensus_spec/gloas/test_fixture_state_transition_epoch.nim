@@ -16,7 +16,8 @@ import
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops,
+  ../fixtures_utils,
+  ../os_ops,
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
@@ -25,56 +26,65 @@ from std/strutils import rsplit
 from ../../../beacon_chain/spec/datatypes/gloas import BeaconState
 
 const
-  RootDir = SszTestsDir/const_preset/"gloas"/"epoch_processing"
+  RootDir = SszTestsDir / const_preset / "gloas" / "epoch_processing"
 
-  JustificationFinalizationDir = RootDir/"justification_and_finalization"
-  InactivityDir =                RootDir/"inactivity_updates"
-  RegistryUpdatesDir =           RootDir/"registry_updates"
-  SlashingsDir =                 RootDir/"slashings"
-  Eth1DataResetDir =             RootDir/"eth1_data_reset"
-  EffectiveBalanceUpdatesDir =   RootDir/"effective_balance_updates"
-  SlashingsResetDir =            RootDir/"slashings_reset"
-  RandaoMixesResetDir =          RootDir/"randao_mixes_reset"
-  ParticipationFlagDir =         RootDir/"participation_flag_updates"
-  SyncCommitteeDir =             RootDir/"sync_committee_updates"
-  RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
-  HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
-  PendingConsolidationsDir =     RootDir/"pending_consolidations"
-  PendingDepositsDir =           RootDir/"pending_deposits"
-  ProposerLookaheadDir =         RootDir/"proposer_lookahead"
-  BuilderPendingPaymentsDir =    RootDir/"builder_pending_payments"
+  JustificationFinalizationDir = RootDir / "justification_and_finalization"
+  InactivityDir = RootDir / "inactivity_updates"
+  RegistryUpdatesDir = RootDir / "registry_updates"
+  SlashingsDir = RootDir / "slashings"
+  Eth1DataResetDir = RootDir / "eth1_data_reset"
+  EffectiveBalanceUpdatesDir = RootDir / "effective_balance_updates"
+  SlashingsResetDir = RootDir / "slashings_reset"
+  RandaoMixesResetDir = RootDir / "randao_mixes_reset"
+  ParticipationFlagDir = RootDir / "participation_flag_updates"
+  SyncCommitteeDir = RootDir / "sync_committee_updates"
+  RewardsAndPenaltiesDir = RootDir / "rewards_and_penalties"
+  HistoricalSummariesUpdateDir = RootDir / "historical_summaries_update"
+  PendingConsolidationsDir = RootDir / "pending_consolidations"
+  PendingDepositsDir = RootDir / "pending_deposits"
+  ProposerLookaheadDir = RootDir / "proposer_lookahead"
+  BuilderPendingPaymentsDir = RootDir / "builder_pending_payments"
 
-doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
-    toHashSet([SyncCommitteeDir])) ==
-  toHashSet([
-    JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir,
-    SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
-    SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
-    RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
-    PendingDepositsDir, PendingConsolidationsDir, ProposerLookaheadDir,
-    BuilderPendingPaymentsDir])
+doAssert (
+  toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
+  toHashSet([SyncCommitteeDir])
+) ==
+  toHashSet(
+    [
+      JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir, SlashingsDir,
+      Eth1DataResetDir, EffectiveBalanceUpdatesDir, SlashingsResetDir,
+      RandaoMixesResetDir, ParticipationFlagDir, RewardsAndPenaltiesDir,
+      HistoricalSummariesUpdateDir, PendingDepositsDir, PendingConsolidationsDir,
+      ProposerLookaheadDir, BuilderPendingPaymentsDir,
+    ]
+  )
 
-template runSuite(
-    suiteDir, testName: string, transitionProc: untyped): untyped =
+template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped =
   suite "EF - Gloas - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(
-        suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true):
+      suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true
+    ):
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         type T = gloas.BeaconState
-        let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        let preState {.inject.} =
+          newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
-        template state: untyped {.inject, used.} = preState[]
-        template cfg: untyped {.inject, used.} = defaultRuntimeConfig
+        template state(): untyped {.inject, used.} =
+          preState[]
+
+        template cfg(): untyped {.inject, used.} =
+          defaultRuntimeConfig
 
         if transitionProc.isOk:
-          let postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
-          check: hash_tree_root(preState[]) == hash_tree_root(postState[])
+          let postState = newClone(parseTest(testDir / "post.ssz_snappy", SSZ, T))
+          check:
+            hash_tree_root(preState[]) == hash_tree_root(postState[])
           reportDiff(preState, postState)
         else:
-          check: not fileExists(testDir/"post.ssz_snappy")
+          check:
+            not fileExists(testDir / "post.ssz_snappy")
 
 # Justification & Finalization
 # ---------------------------------------------------------------

@@ -7,15 +7,12 @@
 
 {.push raises: [].}
 
-import
-  chronicles,
-  snappy,
-  spec/datatypes/constants,
-  spec/eth2_ssz_serialization
+import chronicles, snappy, spec/datatypes/constants, spec/eth2_ssz_serialization
 
 # No `uint64` support in Sqlite
 template isSupportedBySQLite*(slot: Slot): bool =
   slot <= int64.high.Slot
+
 template isSupportedBySQLite*(period: SyncCommitteePeriod): bool =
   period <= int64.high.SyncCommitteePeriod
 
@@ -24,8 +21,7 @@ template disposeSafe*(s: untyped): untyped =
     s.dispose()
     s = typeof(s)(nil)
 
-proc decodeSZSSZ*[T](
-    data: openArray[byte], output: var T, updateRoot = false): bool =
+proc decodeSZSSZ*[T](data: openArray[byte], output: var T, updateRoot = false): bool =
   try:
     let decompressed = decodeFramed(data, checkIntegrity = false)
     readSszBytes(decompressed, output, updateRoot)

@@ -19,43 +19,58 @@ export chronos, results, block_dag, beacon_clock
 ## The validator_duties module contains logic and utilities related to performing
 ## validator duties that are shared between beacon node and validator client.
 
-type
-  RegisteredAttestation* = object
-    # A registered attestation is one that has been successfully registered in
-    # the slashing protection database and is therefore ready to be signed and
-    # sent
-    validator*: AttachedValidator
-    validator_index*: ValidatorIndex
-    committee_index*: CommitteeIndex
-    index_in_committee*: uint64
-    committee_len*: int
-    data*: AttestationData
+type RegisteredAttestation* = object
+  # A registered attestation is one that has been successfully registered in
+  # the slashing protection database and is therefore ready to be signed and
+  # sent
+  validator*: AttachedValidator
+  validator_index*: ValidatorIndex
+  committee_index*: CommitteeIndex
+  index_in_committee*: uint64
+  committee_len*: int
+  data*: AttestationData
 
 func toAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig):
-    phase0.Attestation =
-  phase0.Attestation.init(
-    [registered.index_in_committee], registered.committee_len,
-    registered.data, signature).expect("valid data")
+    registered: RegisteredAttestation, signature: ValidatorSig
+): phase0.Attestation =
+  phase0.Attestation
+    .init(
+      [registered.index_in_committee],
+      registered.committee_len,
+      registered.data,
+      signature,
+    )
+    .expect("valid data")
 
 func toElectraAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig):
-    electra.Attestation =
-  electra.Attestation.init(
-    registered.committee_index, [registered.index_in_committee],
-    registered.committee_len, registered.data, signature).expect("valid data")
+    registered: RegisteredAttestation, signature: ValidatorSig
+): electra.Attestation =
+  electra.Attestation
+    .init(
+      registered.committee_index,
+      [registered.index_in_committee],
+      registered.committee_len,
+      registered.data,
+      signature,
+    )
+    .expect("valid data")
 
 func toSingleAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig): SingleAttestation =
+    registered: RegisteredAttestation, signature: ValidatorSig
+): SingleAttestation =
   SingleAttestation(
     committee_index: registered.committee_index.distinctBase,
-    attester_index: registered.validator_index.uint64, data: registered.data,
-    signature: signature)
+    attester_index: registered.validator_index.uint64,
+    data: registered.data,
+    signature: signature,
+  )
 
-proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
-                           consensusFork: ConsensusFork,
-                           head: Opt[BlockRef] = Opt.none(BlockRef))
-                           {.async: (raises: [CancelledError]).} =
+proc waitAfterBlockCutoff*(
+    clock: BeaconClock,
+    slot: Slot,
+    consensusFork: ConsensusFork,
+    head: Opt[BlockRef] = Opt.none(BlockRef),
+) {.async: (raises: [CancelledError]).} =
   # The expected block arrived (or expectBlock was called again which
   # shouldn't happen as this is the only place we use it) - in our async
   # loop however, we might have been doing other processing that caused delays
@@ -75,17 +90,19 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   # Take into consideration chains with a different slot time
   let
     extraDelay = nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
-    afterBlockCutoff = clock.fromNow(min(
-      clock.now(), 
-      slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
+    afterBlockCutoff = clock.fromNow(
+      min(clock.now(), slot.attestation_deadline(clock.timeParams, consensusFork)) +
+        extraDelay
+    )
 
   if afterBlockCutoff.inFuture:
     if head.isSome():
       debug "Got block, waiting to send attestations",
-            head = shortLog(head.get()), slot = slot,
-            afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+        head = shortLog(head.get()),
+        slot = slot,
+        afterBlockCutoff = shortLog(afterBlockCutoff.offset)
     else:
       debug "Got block, waiting to send attestations",
-            slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+        slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
 
     await sleepAsync(afterBlockCutoff.offset)

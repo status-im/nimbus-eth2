@@ -11,26 +11,29 @@
 import
   # Beacon chain internals
   ../beacon_chain/spec/forks,
-  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev,
-    fulu_mev],
+  ../beacon_chain/spec/mev/
+    [bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev],
   # Test utilities
   unittest2
 
 template do_check() =
   check:
-    hash_tree_root(b.message) == hash_tree_root(
-      b.toSignedBlindedBeaconBlock.message)
+    hash_tree_root(b.message) == hash_tree_root(b.toSignedBlindedBeaconBlock.message)
     b.signature == b.toSignedBlindedBeaconBlock.signature
 
 const nondefaultEth1Data = Eth1Data(
   deposit_root: Eth2Digest.fromHex(
-    "0x55aaf2ee893f67db190d617070bd10d1583b00194fbcfda03d89baa24626f5bb"),
+    "0x55aaf2ee893f67db190d617070bd10d1583b00194fbcfda03d89baa24626f5bb"
+  ),
   deposit_count: 1,
   block_hash: Eth2Digest.fromHex(
-    "0xe617d58db390a10741ab7d3de0ba9460b5df5e0772e9721fe33c0422a63b2677"))
+    "0xe617d58db390a10741ab7d3de0ba9460b5df5e0772e9721fe33c0422a63b2677"
+  ),
+)
 
 let nondefaultValidatorSig = ValidatorSig.fromHex(
-    "0xac08ca70066c6ea0525aa54dd867f82b86945818cb9305aae30f3bee13275dcf13d6d0680a47e889482ff2bb9a9f3cdb0588746f9e30c04645eda6d01bbd0ce6326ceb695294cb338ebace5b130c5b8f2e4f8efa63d63d5bb255c21a39da9c12")[]
+  "0xac08ca70066c6ea0525aa54dd867f82b86945818cb9305aae30f3bee13275dcf13d6d0680a47e889482ff2bb9a9f3cdb0588746f9e30c04645eda6d01bbd0ce6326ceb695294cb338ebace5b130c5b8f2e4f8efa63d63d5bb255c21a39da9c12"
+)[]
 
 template bellatrix_steps() =
   b.message.slot = 1.Slot
@@ -38,10 +41,12 @@ template bellatrix_steps() =
   b.message.proposer_index = 1
   do_check
   b.message.state_root = Eth2Digest.fromHex(
-    "0xb277ed302ade6685d0f0765fd0659c4b448656ab697409f2935cd9ab7189e48e")
+    "0xb277ed302ade6685d0f0765fd0659c4b448656ab697409f2935cd9ab7189e48e"
+  )
   do_check
   b.message.parent_root = Eth2Digest.fromHex(
-    "0x2f6eaa73ec39aeb864884a2371f3e4a8abc29d277074459e46c987418f5df430")
+    "0x2f6eaa73ec39aeb864884a2371f3e4a8abc29d277074459e46c987418f5df430"
+  )
   do_check
   b.message.body.randao_reveal = nondefaultValidatorSig
   do_check
@@ -49,43 +54,50 @@ template bellatrix_steps() =
   do_check
   distinctBase(b.message.body.graffiti)[0] = 1
   do_check
-  check: b.message.body.proposer_slashings.add(default(ProposerSlashing))
+  check:
+    b.message.body.proposer_slashings.add(default(ProposerSlashing))
   do_check
   check:
-    b.message.body.attester_slashings.setLen(
-      b.message.body.attester_slashings.len + 1)
+    b.message.body.attester_slashings.setLen(b.message.body.attester_slashings.len + 1)
   do_check
   check:
     when typeof(b).kind >= ConsensusFork.Electra:
-      b.message.body.attestations.add(electra.Attestation(
-        aggregation_bits: ElectraCommitteeValidatorsBits.init(1)))
+      b.message.body.attestations.add(
+        electra.Attestation(aggregation_bits: ElectraCommitteeValidatorsBits.init(1))
+      )
     else:
-      b.message.body.attestations.add(phase0.Attestation(
-        aggregation_bits: CommitteeValidatorsBits.init(1)))
+      b.message.body.attestations.add(
+        phase0.Attestation(aggregation_bits: CommitteeValidatorsBits.init(1))
+      )
   do_check
-  check: b.message.body.deposits.add(default(Deposit))
+  check:
+    b.message.body.deposits.add(default(Deposit))
   do_check
-  check: b.message.body.voluntary_exits.add(default(SignedVoluntaryExit))
+  check:
+    b.message.body.voluntary_exits.add(default(SignedVoluntaryExit))
   do_check
-  b.message.body.sync_aggregate.sync_committee_signature =
-    nondefaultValidatorSig
+  b.message.body.sync_aggregate.sync_committee_signature = nondefaultValidatorSig
   do_check
   b.message.body.execution_payload.parent_hash = Eth2Digest.fromHex(
-    "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8c624eeca85d")
+    "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8c624eeca85d"
+  )
   do_check
   b.message.body.execution_payload.fee_recipient =
     ExecutionAddress.fromHex("0x1234567812345678123456781234567812345678")
   do_check
   b.message.body.execution_payload.state_root = Eth2Digest.fromHex(
-    "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff")
+    "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff"
+  )
   do_check
   b.message.body.execution_payload.receipts_root = Eth2Digest.fromHex(
-    "0x0e66a5007cf7bb16f4398adbbd01b34067a80faaef41a0a6be324c5fdb93a6df")
+    "0x0e66a5007cf7bb16f4398adbbd01b34067a80faaef41a0a6be324c5fdb93a6df"
+  )
   do_check
   b.message.body.execution_payload.logs_bloom.data[0] = 2
   do_check
   b.message.body.execution_payload.prev_randao = Eth2Digest.fromHex(
-    "0x8aa830156370e6a5ec7679d7e5ee712dd87f24fef76a1954a03c1df8c68bc0fd")
+    "0x8aa830156370e6a5ec7679d7e5ee712dd87f24fef76a1954a03c1df8c68bc0fd"
+  )
   do_check
   b.message.body.execution_payload.block_number = 3
   do_check
@@ -95,22 +107,25 @@ template bellatrix_steps() =
   do_check
   b.message.body.execution_payload.timestamp = 6
   do_check
-  check: b.message.body.execution_payload.extra_data.add 0'u8
+  check:
+    b.message.body.execution_payload.extra_data.add 0'u8
   do_check
   b.message.body.execution_payload.base_fee_per_gas = 7.u256
   do_check
   b.message.body.execution_payload.block_hash = Eth2Digest.fromHex(
-    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
+    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1"
+  )
   do_check
-  check: b.message.body.execution_payload.transactions.add default(Transaction)
+  check:
+    b.message.body.execution_payload.transactions.add default(Transaction)
   do_check
 
 template capella_steps() =
-  check: b.message.body.bls_to_execution_changes.add(
-    default(SignedBLSToExecutionChange))
+  check:
+    b.message.body.bls_to_execution_changes.add(default(SignedBLSToExecutionChange))
   do_check
-  check: b.message.body.execution_payload.withdrawals.add(default(
-    Withdrawal))
+  check:
+    b.message.body.execution_payload.withdrawals.add(default(Withdrawal))
   do_check
 
 template deneb_steps() =
@@ -118,35 +133,37 @@ template deneb_steps() =
   do_check
   b.message.body.execution_payload.excess_blob_gas = 9
   do_check
-  check: b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
+  check:
+    b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
   do_check
 
 template electra_steps() =
-  check: b.message.body.execution_requests.deposits.add(
-    default(DepositRequest))
+  check:
+    b.message.body.execution_requests.deposits.add(default(DepositRequest))
   do_check
-  check: b.message.body.execution_requests.withdrawals.add(
-    default(WithdrawalRequest))
+  check:
+    b.message.body.execution_requests.withdrawals.add(default(WithdrawalRequest))
   do_check
-  check: b.message.body.execution_requests.consolidations.add(
-    default(ConsolidationRequest))
+  check:
+    b.message.body.execution_requests.consolidations.add(default(ConsolidationRequest))
   do_check
 
 template fulu_steps() =
-  check: b.message.body.execution_requests.deposits.add(
-    default(DepositRequest))
+  check:
+    b.message.body.execution_requests.deposits.add(default(DepositRequest))
   do_check
-  check: b.message.body.execution_requests.withdrawals.add(
-    default(WithdrawalRequest))
+  check:
+    b.message.body.execution_requests.withdrawals.add(default(WithdrawalRequest))
   do_check
-  check: b.message.body.execution_requests.consolidations.add(
-    default(ConsolidationRequest))
+  check:
+    b.message.body.execution_requests.consolidations.add(default(ConsolidationRequest))
   do_check
 
 suite "Blinded block conversions":
   withAll(ConsensusFork):
     debugGloasComment "needs toSignedBlindedBeaconBlock"
-    when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Bellatrix and
+        consensusFork != ConsensusFork.Gloas:
       test $consensusFork & " toSignedBlindedBeaconBlock":
         var b = default(consensusFork.SignedBeaconBlock)
         do_check
@@ -160,4 +177,5 @@ suite "Blinded block conversions":
         when consensusFork >= ConsensusFork.Fulu:
           fulu_steps
         debugGloasComment ""
-        static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+        static:
+          doAssert high(ConsensusFork) == ConsensusFork.Gloas

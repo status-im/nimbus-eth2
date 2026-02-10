@@ -17,191 +17,222 @@ import
   ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops,
+  ../fixtures_utils,
+  ../os_ops,
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
-  get_base_reward_per_increment, get_state_exit_queue_info,
-  get_total_active_balance, latest_block_root, process_attestation
+  get_base_reward_per_increment, get_state_exit_queue_info, get_total_active_balance,
+  latest_block_root, process_attestation
 
 const
-  OpDir                 = SszTestsDir/const_preset/"bellatrix"/"operations"
-  OpAttestationsDir     = OpDir/"attestation"
-  OpAttSlashingDir      = OpDir/"attester_slashing"
-  OpBlockHeaderDir      = OpDir/"block_header"
-  OpDepositsDir         = OpDir/"deposit"
-  OpExecutionPayloadDir = OpDir/"execution_payload"
-  OpProposerSlashingDir = OpDir/"proposer_slashing"
-  OpSyncAggregateDir    = OpDir/"sync_aggregate"
-  OpVoluntaryExitDir    = OpDir/"voluntary_exit"
+  OpDir = SszTestsDir / const_preset / "bellatrix" / "operations"
+  OpAttestationsDir = OpDir / "attestation"
+  OpAttSlashingDir = OpDir / "attester_slashing"
+  OpBlockHeaderDir = OpDir / "block_header"
+  OpDepositsDir = OpDir / "deposit"
+  OpExecutionPayloadDir = OpDir / "execution_payload"
+  OpProposerSlashingDir = OpDir / "proposer_slashing"
+  OpSyncAggregateDir = OpDir / "sync_aggregate"
+  OpVoluntaryExitDir = OpDir / "voluntary_exit"
 
   baseDescription = "EF - Bellatrix - Operations - "
 
 doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
-  toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-             OpDepositsDir, OpExecutionPayloadDir, OpProposerSlashingDir,
-             OpSyncAggregateDir, OpVoluntaryExitDir])
+  toHashSet(
+    [
+      OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir, OpDepositsDir,
+      OpExecutionPayloadDir, OpProposerSlashingDir, OpSyncAggregateDir,
+      OpVoluntaryExitDir,
+    ]
+  )
 
 proc runTest[T, U](
-    testSuiteDir, suiteName, opName, applyFile: string,
-    applyProc: U, identifier: string) =
+    testSuiteDir, suiteName, opName, applyFile: string, applyProc: U, identifier: string
+) =
   let testDir = testSuiteDir / "pyspec_tests" / identifier
 
   let prefix =
-    if fileExists(testDir/"post.ssz_snappy"):
-      "[Valid]   "
-    else:
-      "[Invalid] "
+    if fileExists(testDir / "post.ssz_snappy"): "[Valid]   " else: "[Invalid] "
 
   test prefix & baseDescription & opName & " - " & identifier:
-    let preState = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
-    let done = applyProc(
-      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+    let preState =
+      newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, bellatrix.BeaconState))
+    let done =
+      applyProc(preState[], parseTest(testDir / (applyFile & ".ssz_snappy"), SSZ, T))
 
-    if fileExists(testDir/"post.ssz_snappy"):
+    if fileExists(testDir / "post.ssz_snappy"):
       let postState =
-        newClone(parseTest(
-          testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
+        newClone(parseTest(testDir / "post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
       check:
         done.isOk()
         preState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(preState, postState)
     else:
-      check: done.isErr() # No post state = processing should fail
+      check:
+        done.isErr() # No post state = processing should fail
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var bellatrix.BeaconState, attestation: phase0.Attestation):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, attestation: phase0.Attestation
+  ): Result[void, cstring] =
     var cache: StateCache
     let
       total_active_balance = get_total_active_balance(preState, cache)
-      base_reward_per_increment =
-        get_base_reward_per_increment(total_active_balance)
+      base_reward_per_increment = get_base_reward_per_increment(total_active_balance)
 
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
-    discard ? process_attestation(
-      preState, attestation, {}, base_reward_per_increment, cache)
+    discard
+      ?process_attestation(preState, attestation, {}, base_reward_per_increment, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[phase0.Attestation, typeof applyAttestation](
-      OpAttestationsDir, suiteName, "Attestation", "attestation",
-      applyAttestation, path)
+      OpAttestationsDir, suiteName, "Attestation", "attestation", applyAttestation, path
+    )
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var bellatrix.BeaconState,
-      attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
+      preState: var bellatrix.BeaconState, attesterSlashing: phase0.AttesterSlashing
+  ): Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
-      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
+    doAssert (
+      ?process_attester_slashing(
+        defaultRuntimeConfig,
+        preState,
+        attesterSlashing,
+        {strictVerification},
+        get_state_exit_queue_info(preState),
+        cache,
+      )
+    )[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[phase0.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
-      applyAttesterSlashing, path)
+      applyAttesterSlashing, path,
+    )
 
 suite baseDescription & "Block Header " & preset():
   proc applyBlockHeader(
-      preState: var bellatrix.BeaconState, blck: bellatrix.BeaconBlock):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, blck: bellatrix.BeaconBlock
+  ): Result[void, cstring] =
     if blck.is_execution_block:
-      check blck.body.execution_payload.block_hash ==
-        blck.compute_execution_block_hash()
+      check blck.body.execution_payload.block_hash == blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
     runTest[bellatrix.BeaconBlock, typeof applyBlockHeader](
-      OpBlockHeaderDir, suiteName, "Block Header", "block",
-      applyBlockHeader, path)
+      OpBlockHeaderDir, suiteName, "Block Header", "block", applyBlockHeader, path
+    )
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ".."/".."/".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
-      preState: var bellatrix.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, deposit: Deposit
+  ): Result[void, cstring] =
     process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
+      defaultRuntimeConfig,
+      preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      deposit,
+      {},
+    )
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
+      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path
+    )
 
 suite baseDescription & "Execution Payload " & preset():
   proc makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
-        preState: var bellatrix.BeaconState, body: bellatrix.BeaconBlockBody):
-        Result[void, cstring] =
-      let payloadValid = os_ops.readFile(
-          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-        ).contains("execution_valid: true")
+        preState: var bellatrix.BeaconState, body: bellatrix.BeaconBlockBody
+    ): Result[void, cstring] =
+      let payloadValid = os_ops
+        .readFile(OpExecutionPayloadDir / "pyspec_tests" / path / "execution.yaml")
+        .contains("execution_valid: true")
       if payloadValid and body.is_execution_block and
           not body.execution_payload.transactions.anyIt(it.len == 0):
         let expectedOk = (path != "incorrect_block_hash")
-        check expectedOk == (body.execution_payload.block_hash ==
+        check expectedOk == (
+          body.execution_payload.block_hash ==
           body.compute_execution_block_hash(
-            preState.latest_block_root(
-              assignClone(preState)[].hash_tree_root())))
-      func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
+            preState.latest_block_root(assignClone(preState)[].hash_tree_root())
+          )
+        )
+      func executePayload(_: bellatrix.ExecutionPayload): bool =
+        payloadValid
       process_execution_payload(
-        defaultRuntimeConfig, preState, body.execution_payload, executePayload)
+        defaultRuntimeConfig, preState, body.execution_payload, executePayload
+      )
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[bellatrix.BeaconBlockBody, typeof applyExecutionPayload](
       OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
-      applyExecutionPayload, path)
+      applyExecutionPayload, path,
+    )
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var bellatrix.BeaconState, proposerSlashing: ProposerSlashing):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, proposerSlashing: ProposerSlashing
+  ): Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {},
-      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
+    doAssert (
+      ?process_proposer_slashing(
+        defaultRuntimeConfig,
+        preState,
+        proposerSlashing,
+        {},
+        get_state_exit_queue_info(preState),
+        cache,
+      )
+    )[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
       OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
-      applyProposerSlashing, path)
+      applyProposerSlashing, path,
+    )
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var bellatrix.BeaconState, syncAggregate: SyncAggregate):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, syncAggregate: SyncAggregate
+  ): Result[void, cstring] =
     var cache: StateCache
-    discard ? process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)
+    discard ?process_sync_aggregate(
+      preState, syncAggregate, get_total_active_balance(preState, cache), {}, cache
+    )
     ok()
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
       OpSyncAggregateDir, suiteName, "Sync Aggregate", "sync_aggregate",
-      applySyncAggregate, path)
+      applySyncAggregate, path,
+    )
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var bellatrix.BeaconState, voluntaryExit: SignedVoluntaryExit):
-      Result[void, cstring] =
+      preState: var bellatrix.BeaconState, voluntaryExit: SignedVoluntaryExit
+  ): Result[void, cstring] =
     var cache: StateCache
     if process_voluntary_exit(
-        defaultRuntimeConfig, preState, voluntaryExit, {},
-        get_state_exit_queue_info(preState), cache).isOk:
+      defaultRuntimeConfig,
+      preState,
+      voluntaryExit,
+      {},
+      get_state_exit_queue_info(preState),
+      cache,
+    ).isOk:
       ok()
     else:
       err("")
@@ -209,4 +240,5 @@ suite baseDescription & "Voluntary Exit " & preset():
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
-      applyVoluntaryExit, path)
+      applyVoluntaryExit, path,
+    )

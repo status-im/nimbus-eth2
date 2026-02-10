@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import
-  presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+import presto/client, "."/[rest_types, eth2_rest_serialization]
 
-proc subscribeEventStream*(topics: set[EventTopic]): RestHttpResponseRef {.
-     rest, endpoint: "/eth/v1/events", accept: "text/event-stream",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Events/eventstream
+proc subscribeEventStream*(
+  topics: set[EventTopic]
+): RestHttpResponseRef {.
+  rest, endpoint: "/eth/v1/events", accept: "text/event-stream", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Events/eventstream

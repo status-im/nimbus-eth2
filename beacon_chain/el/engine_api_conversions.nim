@@ -15,12 +15,11 @@ import
 
 from std/sequtils import mapIt
 
-type
-  BellatrixExecutionPayloadWithValue* = object
-    executionPayload*: ExecutionPayloadV1
-    blockValue*: UInt256
+type BellatrixExecutionPayloadWithValue* = object
+  executionPayload*: ExecutionPayloadV1
+  blockValue*: UInt256
 
-func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
+func asEth2Digest*(x: Hash32 | Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
 template asBlockHash*(x: Eth2Digest): Hash32 =
@@ -31,17 +30,20 @@ func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
     index: w.index.uint64,
     validator_index: w.validatorIndex.uint64,
     address: w.address,
-    amount: Gwei w.amount)
+    amount: Gwei w.amount,
+  )
 
 func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
     address: w.address,
-    amount: Quantity(w.amount))
+    amount: Quantity(w.amount),
+  )
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
-    bellatrix.ExecutionPayload =
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV1
+): bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
@@ -56,23 +58,32 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)
+    ),
+  )
 
-func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
-    bellatrix.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payloadWithValue: BellatrixExecutionPayloadWithValue
+): bellatrix.ExecutionPayloadForSigning =
   bellatrix.ExecutionPayloadForSigning(
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
+    blockValue: payloadWithValue.blockValue,
+  )
 
-template maybeDeref*[T](o: Opt[T]): T = o.get
-template maybeDeref*[V](v: V): V = v
+template maybeDeref*[T](o: Opt[T]): T =
+  o.get
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
-    capella.ExecutionPayload =
+template maybeDeref*[V](v: V): V =
+  v
+
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV1OrV2 | ExecutionPayloadV2
+): capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
@@ -87,22 +98,27 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)
+    ),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
+      mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)
+    ),
+  )
 
-func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
-    capella.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payloadWithValue: engine_api.GetPayloadV2Response
+): capella.ExecutionPayloadForSigning =
   capella.ExecutionPayloadForSigning(
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
+    blockValue: payloadWithValue.blockValue,
+  )
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
-    deneb.ExecutionPayload =
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3): deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
@@ -117,18 +133,23 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)
+    ),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)
+    ),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+  )
 
-func asConsensusType*(payload: engine_api.GetPayloadV3Response):
-    deneb.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: engine_api.GetPayloadV3Response
+): deneb.ExecutionPayloadForSigning =
   deneb.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
@@ -138,17 +159,18 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.data))),
+        payload.blobsBundle.commitments.mapIt(kzg_abi.KzgCommitment(bytes: it.data))
+      ),
       proofs: deneb.KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.data))),
-      blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))))
+        payload.blobsBundle.proofs.mapIt(kzg_abi.KzgProof(bytes: it.data))
+      ),
+      blobs: Blobs.init(payload.blobsBundle.blobs.mapIt(it.data)),
+    ),
+  )
 
 func asConsensusType*(
-    payload: engine_api.GetPayloadV4Response):
-    electra.ExecutionPayloadForSigning =
+    payload: engine_api.GetPayloadV4Response
+): electra.ExecutionPayloadForSigning =
   electra.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType(),
     blockValue: payload.blockValue,
@@ -158,17 +180,17 @@ func asConsensusType*(
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.data))),
+        payload.blobsBundle.commitments.mapIt(kzg_abi.KzgCommitment(bytes: it.data))
+      ),
       proofs: deneb.KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.data))),
-      blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))),
-    executionRequests: payload.executionRequests)
+        payload.blobsBundle.proofs.mapIt(kzg_abi.KzgProof(bytes: it.data))
+      ),
+      blobs: Blobs.init(payload.blobsBundle.blobs.mapIt(it.data)),
+    ),
+    executionRequests: payload.executionRequests,
+  )
 
-func asConsensusType*(
-    payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
+func asConsensusType*(payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
@@ -178,17 +200,19 @@ func asConsensusType*(
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: fulu.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.data))),
+        payload.blobsBundle.commitments.mapIt(kzg_abi.KzgCommitment(bytes: it.data))
+      ),
       proofs: fulu.KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.data))),
-      blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))),
-    executionRequests: payload.executionRequests)
+        payload.blobsBundle.proofs.mapIt(kzg_abi.KzgProof(bytes: it.data))
+      ),
+      blobs: Blobs.init(payload.blobsBundle.blobs.mapIt(it.data)),
+    ),
+    executionRequests: payload.executionRequests,
+  )
 
-func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
-    ExecutionPayloadV1 =
+func asEngineExecutionPayload*(
+    executionPayload: bellatrix.ExecutionPayload
+): ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -197,36 +221,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
-    blockNumber: Quantity(executionPayload.block_number),
-    gasLimit: Quantity(executionPayload.gas_limit),
-    gasUsed: Quantity(executionPayload.gas_used),
-    timestamp: Quantity(executionPayload.timestamp),
-    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
-    baseFeePerGas: executionPayload.base_fee_per_gas,
-    blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
-
-template toEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
-  WithdrawalV1(
-    index: Quantity(w.index),
-    validatorIndex: Quantity(w.validator_index),
-    address: w.address,
-    amount: Quantity(w.amount))
-
-func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
-    ExecutionPayloadV2 =
-  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
-    TypedTransaction(tt.distinctBase)
-  engine_api.ExecutionPayloadV2(
-    parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: executionPayload.fee_recipient,
-    stateRoot: executionPayload.state_root.asBlockHash,
-    receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
     prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
@@ -236,10 +231,43 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
-    withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
+  )
 
-func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
-    ExecutionPayloadV3 =
+template toEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
+  WithdrawalV1(
+    index: Quantity(w.index),
+    validatorIndex: Quantity(w.validator_index),
+    address: w.address,
+    amount: Quantity(w.amount),
+  )
+
+func asEngineExecutionPayload*(
+    executionPayload: capella.ExecutionPayload
+): ExecutionPayloadV2 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV2(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: executionPayload.fee_recipient,
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal),
+  )
+
+func asEngineExecutionPayload*(
+    executionPayload: deneb.ExecutionPayload
+): ExecutionPayloadV3 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -248,8 +276,7 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
     prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
@@ -261,7 +288,8 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+  )
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments

@@ -57,26 +57,28 @@ logScope:
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
-    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
-    Result[void, cstring] =
-  let
-    proposer_index = signed_block.message.proposer_index
+    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock
+): Result[void, cstring] =
+  let proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
-   return err("block: invalid proposer index")
+    return err("block: invalid proposer index")
 
   if not verify_block_signature(
-      state.fork, state.genesis_validators_root, signed_block.message.slot,
-      signed_block.root, state.validators[proposer_index].pubkey,
-      signed_block.signature):
+    state.fork,
+    state.genesis_validators_root,
+    signed_block.message.slot,
+    signed_block.root,
+    state.validators[proposer_index].pubkey,
+    signed_block.signature,
+  ):
     return err("block: signature verification failed")
 
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
-    state: ForkyBeaconState,
-    blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
-    Result[void, cstring] =
+    state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock
+): Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -85,8 +87,8 @@ func verifyStateRoot(
     ok()
 
 func verifyStateRoot(
-    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock):
-    Result[void, cstring] =
+    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock
+): Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
   ok()
 
@@ -103,10 +105,13 @@ func noRollback*() =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
-    state: var (phase0.BeaconState | altair.BeaconState |
-                bellatrix.BeaconState | capella.BeaconState |
-                deneb.BeaconState | electra.BeaconState | fulu.BeaconState),
-    pre_state_root: Eth2Digest) =
+    state:
+      var (
+        phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
+        capella.BeaconState | deneb.BeaconState | electra.BeaconState | fulu.BeaconState
+      ),
+    pre_state_root: Eth2Digest,
+) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -124,8 +129,7 @@ func process_slot*(
     hash_tree_root(state.latest_block_header)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
-func process_slot*(
-    state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
+func process_slot*(state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -145,8 +149,8 @@ func process_slot*(
   # [New in Gloas:EIP7732]
   # Unset the next payload availability
   clearBit(
-    state.execution_payload_availability,
-    (state.slot + 1) mod SLOTS_PER_HISTORICAL_ROOT)
+    state.execution_payload_availability, (state.slot + 1) mod SLOTS_PER_HISTORICAL_ROOT
+  )
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   cache.total_active_balance.del epoch
@@ -158,9 +162,12 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
-    state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo):
-    Result[void, cstring] =
+    state: var ForkyBeaconState,
+    previous_slot_state_root: Eth2Digest,
+    flags: UpdateFlags,
+    cache: var StateCache,
+    info: var ForkyEpochInfo,
+): Result[void, cstring] =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
@@ -172,7 +179,7 @@ proc advance_slot(
   let is_epoch_transition = (state.slot + 1).is_epoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    ? process_epoch(cfg, state, flags, cache, info)
+    ?process_epoch(cfg, state, flags, cache, info)
     clear_epoch_from_cache(cache, (state.slot + 1).epoch)
 
   state.slot += 1
@@ -222,9 +229,13 @@ func maybeUpgradeState*(
       forkyState.root = hash_tree_root(forkyState.data)
 
 proc process_slots*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
-    Result[void, cstring] =
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    slot: Slot,
+    cache: var StateCache,
+    info: var ForkedEpochInfo,
+    flags: UpdateFlags,
+): Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       return err("process_slots: cannot rewind state to past slot")
@@ -233,11 +244,9 @@ proc process_slots*(
   while getStateField(state, slot) < slot:
     withState(state):
       withEpochInfo(forkyState.data, info):
-        ? advance_slot(
-          cfg, forkyState.data, forkyState.root, flags, cache, info)
+        ?advance_slot(cfg, forkyState.data, forkyState.root, flags, cache, info)
 
-      if skipLastStateRootCalculation notin flags or
-          forkyState.data.slot < slot:
+      if skipLastStateRootCalculation notin flags or forkyState.data.slot < slot:
         # Don't update state root for the slot of the block if going to process
         # block after
         forkyState.root = hash_tree_root(forkyState.data)
@@ -250,23 +259,23 @@ proc state_transition_block_aux(
     cfg: RuntimeConfig,
     state: var ForkyHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock | ForkySignedBlindedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): Result[BlockRewards, cstring] =
+    cache: var StateCache,
+    flags: UpdateFlags,
+): Result[BlockRewards, cstring] =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
   if skipBlsValidation notin flags:
-    ? verify_block_signature(state.data, signedBlock)
+    ?verify_block_signature(state.data, signedBlock)
 
   trace "state_transition: processing block, signature passed",
-    signature = shortLog(signedBlock.signature),
-    blockRoot = shortLog(signedBlock.root)
+    signature = shortLog(signedBlock.signature), blockRoot = shortLog(signedBlock.root)
 
-  let blockRewards =
-    ? process_block(cfg, state.data, signedBlock.message, flags, cache)
+  let blockRewards = ?process_block(cfg, state.data, signedBlock.message, flags, cache)
 
   if skipStateRootValidation notin flags:
-    ? verifyStateRoot(state.data, signedBlock.message)
+    ?verifyStateRoot(state.data, signedBlock.message)
 
   # only blocks currently being produced have an empty state root - we use a
   # separate function for those
@@ -283,8 +292,10 @@ proc state_transition_block*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock | ForkySignedBlindedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[BlockRewards, cstring] =
+    cache: var StateCache,
+    flags: UpdateFlags,
+    rollback: RollbackForkedHashedProc,
+): Result[BlockRewards, cstring] =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -307,8 +318,11 @@ proc state_transition*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock | ForkySignedBlindedBeaconBlock,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[BlockRewards, cstring] =
+    cache: var StateCache,
+    info: var ForkedEpochInfo,
+    flags: UpdateFlags,
+    rollback: RollbackForkedHashedProc,
+): Result[BlockRewards, cstring] =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -324,9 +338,14 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  ? process_slots(
-      cfg, state, signedBlock.message.slot, cache, info,
-      flags + {skipLastStateRootCalculation})
+  ?process_slots(
+    cfg,
+    state,
+    signedBlock.message.slot,
+    cache,
+    info,
+    flags + {skipLastStateRootCalculation},
+  )
 
   state_transition_block(cfg, state, signedBlock, cache, flags, rollback)
 
@@ -403,8 +422,7 @@ proc makeBeaconBlockWithRewards*(
     blck.body.sync_aggregate = sync_aggregate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/validator.md#block-proposal
-  when consensusFork >= ConsensusFork.Bellatrix and
-      consensusFork < ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
     debugGloasComment "handle correctly for gloas"
     when execution_payload is ForkyExecutionPayloadHeader:
       blck.body.execution_payload_header = execution_payload
@@ -416,13 +434,11 @@ proc makeBeaconBlockWithRewards*(
     blck.body.bls_to_execution_changes = validator_changes.bls_to_execution_changes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
-  when consensusFork >= ConsensusFork.Deneb and
-      consensusFork < ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Deneb and consensusFork < ConsensusFork.Gloas:
     debugGloasComment "handle correctly for gloas"
     blck.body.blob_kzg_commitments = kzg_commitments
 
-  when consensusFork >= ConsensusFork.Electra and
-      consensusFork < ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Electra and consensusFork < ConsensusFork.Gloas:
     debugGloasComment "handle correctly for gloas"
     blck.body.execution_requests = execution_requests
 

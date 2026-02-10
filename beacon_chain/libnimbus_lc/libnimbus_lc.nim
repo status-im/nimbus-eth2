@@ -61,7 +61,8 @@ proc ETHRandomNumberDestroy(rng: ptr HmacDrbgContext) {.exported.} =
   rng.destroy()
 
 proc ETHConsensusConfigCreateFromYaml(
-    configFileContent: cstring): ptr RuntimeConfig {.exported.} =
+    configFileContent: cstring
+): ptr RuntimeConfig {.exported.} =
   ## Creates a new Ethereum Consensus Layer network configuration
   ## based on the given `config.yaml` file content from an
   ## Ethereum network definition.
@@ -97,7 +98,8 @@ proc ETHConsensusConfigDestroy(cfg: ptr RuntimeConfig) {.exported.} =
   cfg.destroy()
 
 func ETHConsensusConfigGetConsensusVersionAtEpoch(
-    cfg: ptr RuntimeConfig, epoch: cint): cstring {.exported.} =
+    cfg: ptr RuntimeConfig, epoch: cint
+): cstring {.exported.} =
   ## Returns the expected `Eth-Consensus-Version` for a given `epoch`.
   ##
   ## * The returned `Eth-Consensus-Version` is statically allocated.
@@ -120,7 +122,8 @@ proc ETHBeaconStateCreateFromSsz(
     cfg: ptr RuntimeConfig,
     consensusVersion: cstring,
     sszBytes: ptr UncheckedArray[byte],
-    numSszBytes: cint): ptr ForkedHashedBeaconState {.exported.} =
+    numSszBytes: cint,
+): ptr ForkedHashedBeaconState {.exported.} =
   ## Creates a new beacon state based on its SSZ encoded representation.
   ##
   ## * The beacon state must be destroyed with `ETHBeaconStateDestroy`
@@ -153,7 +156,8 @@ proc ETHBeaconStateCreateFromSsz(
     state = ForkedHashedBeaconState.new()
   try:
     state[] = consensusFork.readSszForkedHashedBeaconState(
-      sszBytes.toOpenArray(0, numSszBytes - 1))
+      sszBytes.toOpenArray(0, numSszBytes - 1)
+    )
   except SszError:
     return nil
   withState(state[]):
@@ -171,7 +175,8 @@ proc ETHBeaconStateDestroy(state: ptr ForkedHashedBeaconState) {.exported.} =
   state.destroy()
 
 proc ETHBeaconStateCopyGenesisValidatorsRoot(
-    state: ptr ForkedHashedBeaconState): ptr Eth2Digest {.exported.} =
+    state: ptr ForkedHashedBeaconState
+): ptr Eth2Digest {.exported.} =
   ## Copies the `genesis_validators_root` field from a beacon state.
   ##
   ## * The genesis validators root must be destroyed with `ETHRootDestroy`
@@ -199,8 +204,8 @@ proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
   root.destroy()
 
 proc ETHForkDigestsCreateFromState(
-    cfg: ptr RuntimeConfig,
-    state: ptr ForkedHashedBeaconState): ptr ForkDigests {.exported.} =
+    cfg: ptr RuntimeConfig, state: ptr ForkedHashedBeaconState
+): ptr ForkDigests {.exported.} =
   ## Creates a fork digests cache for a given beacon state.
   ##
   ## * The fork digests cache must be destroyed with `ETHForkDigestsDestroy`
@@ -216,8 +221,8 @@ proc ETHForkDigestsCreateFromState(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
   let forkDigests = ForkDigests.new()
-  forkDigests[] = ForkDigests.init(
-    cfg[], getStateField(state[], genesis_validators_root))
+  forkDigests[] =
+    ForkDigests.init(cfg[], getStateField(state[], genesis_validators_root))
   forkDigests.toUnmanagedPtr()
 
 proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
@@ -230,8 +235,8 @@ proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
   forkDigests.destroy()
 
 proc ETHBeaconClockCreateFromState(
-    cfg: ptr RuntimeConfig,
-    state: ptr ForkedHashedBeaconState): ptr BeaconClock {.exported.} =
+    cfg: ptr RuntimeConfig, state: ptr ForkedHashedBeaconState
+): ptr BeaconClock {.exported.} =
   ## Creates a beacon clock for a given beacon state's `genesis_time` field.
   ##
   ## * The beacon clock must be destroyed with `ETHBeaconClockDestroy`
@@ -282,7 +287,7 @@ proc ETHLightClientStoreCreateFromBootstrap(
     mediaType: cstring,
     consensusVersion: cstring,
     bootstrapBytes: ptr UncheckedArray[byte],
-    numBootstrapBytes: cint
+    numBootstrapBytes: cint,
 ): ptr lcDataFork.LightClientStore {.exported.} =
   ## Creates a light client store from light client bootstrap data.
   ## The light client store is the primary object for syncing with
@@ -340,7 +345,10 @@ proc ETHLightClientStoreCreateFromBootstrap(
     try:
       ForkedLightClientBootstrap.decodeHttpLightClientObject(
         bootstrapBytes.toOpenArray(0, numBootstrapBytes - 1),
-        mediaType, consensusFork, cfg[])
+        mediaType,
+        consensusFork,
+        cfg[],
+      )
     except RestError:
       return nil
   doAssert bootstrap.kind > LightClientDataFork.None
@@ -348,12 +356,12 @@ proc ETHLightClientStoreCreateFromBootstrap(
 
   let store = lcDataFork.LightClientStore.new()
   store[] = initialize_light_client_store(
-      trustedBlockRoot[], bootstrap.forky(lcDataFork), cfg[]).valueOr:
+    trustedBlockRoot[], bootstrap.forky(lcDataFork), cfg[]
+  ).valueOr:
     return nil
   store.toUnmanagedPtr()
 
-proc ETHLightClientStoreDestroy(
-    store: ptr lcDataFork.LightClientStore) {.exported.} =
+proc ETHLightClientStoreDestroy(store: ptr lcDataFork.LightClientStore) {.exported.} =
   ## Destroys a light client store.
   ##
   ## * The light client store must no longer be used after destruction.
@@ -364,22 +372,22 @@ proc ETHLightClientStoreDestroy(
 
 let
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/updates`.
-  kETHLcSyncKind_UpdatesByRange {.exportedConst.} =
-    LcSyncKind.UpdatesByRange.cint
+  kETHLcSyncKind_UpdatesByRange {.exportedConst.} = LcSyncKind.UpdatesByRange.cint
 
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/finality_update`.
-  kETHLcSyncKind_FinalityUpdate {.exportedConst.} =
-    LcSyncKind.FinalityUpdate.cint
+  kETHLcSyncKind_FinalityUpdate {.exportedConst.} = LcSyncKind.FinalityUpdate.cint
 
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/optimistic_update`.
-  kETHLcSyncKind_OptimisticUpdate {.exportedConst.} =
-    LcSyncKind.OptimisticUpdate.cint
+  kETHLcSyncKind_OptimisticUpdate {.exportedConst.} = LcSyncKind.OptimisticUpdate.cint
 
 proc ETHLightClientStoreGetNextSyncTask(
     store: ptr lcDataFork.LightClientStore,
     beaconClock: ptr BeaconClock,
-    startPeriod #[out]#: ptr cint,
-    count #[out]#: ptr cint): cint {.exported.} =
+    startPeriod #[out]#
+    : ptr cint,
+    count #[out]#
+    : ptr cint,
+): cint {.exported.} =
   ## Obtains the next task for keeping a light client store in sync
   ## with the Ethereum network.
   ##
@@ -432,7 +440,8 @@ proc ETHLightClientStoreGetNextSyncTask(
     current = beaconClock[].currentSlot.sync_committee_period,
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
-    isNextSyncCommitteeKnown = store[].is_next_sync_committee_known)
+    isNextSyncCommitteeKnown = store[].is_next_sync_committee_known,
+  )
   case syncTask.kind
   of LcSyncKind.UpdatesByRange:
     startPeriod[] = syncTask.startPeriod.cint
@@ -449,7 +458,8 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
     store: ptr lcDataFork.LightClientStore,
     rng: ptr HmacDrbgContext,
     beaconClock: ptr BeaconClock,
-    latestProcessResult: cint): cint {.exported.} =
+    latestProcessResult: cint,
+): cint {.exported.} =
   ## Indicates the delay until a new light client sync task becomes available.
   ## Once the delay is reached, call `ETHLightClientStoreGetNextSyncTask`
   ## to obtain the next sync task.
@@ -467,13 +477,15 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## Returns:
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
-  asRef(rng).nextLcSyncTaskDelay(
-    beaconClock[].timeParams,
-    wallTime = beaconClock[].now(),
-    finalized = store[].finalized_header.beacon.slot.sync_committee_period,
-    optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
-    isNextSyncCommitteeKnown = store[].is_next_sync_committee_known,
-    didLatestSyncTaskProgress = (latestProcessResult == 0)).milliseconds.cint
+  asRef(rng)
+    .nextLcSyncTaskDelay(
+      beaconClock[].timeParams,
+      wallTime = beaconClock[].now(),
+      finalized = store[].finalized_header.beacon.slot.sync_committee_period,
+      optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
+      isNextSyncCommitteeKnown = store[].is_next_sync_committee_known,
+      didLatestSyncTaskProgress = (latestProcessResult == 0),
+    ).milliseconds.cint
 
 proc ETHLightClientStoreProcessUpdatesByRange(
     store: ptr lcDataFork.LightClientStore,
@@ -485,7 +497,8 @@ proc ETHLightClientStoreProcessUpdatesByRange(
     count: cint,
     mediaType: cstring,
     updatesBytes: ptr UncheckedArray[byte],
-    numUpdatesBytes: cint): cint {.exported.} =
+    numUpdatesBytes: cint,
+): cint {.exported.} =
   ## Processes light client update data.
   ##
   ## * This processes the response data for a sync task of kind
@@ -521,11 +534,13 @@ proc ETHLightClientStoreProcessUpdatesByRange(
     try:
       seq[ForkedLightClientUpdate].decodeHttpLightClientObjects(
         updatesBytes.toOpenArray(0, numUpdatesBytes - 1),
-        mediaType, cfg[], asRef(forkDigests))
+        mediaType,
+        cfg[],
+        asRef(forkDigests),
+      )
     except RestError:
       return 1
-  let e = updates.checkLightClientUpdates(
-    startPeriod.SyncCommitteePeriod, count.uint64)
+  let e = updates.checkLightClientUpdates(startPeriod.SyncCommitteePeriod, count.uint64)
   if e.isErr:
     return 1
   var didProgress = false
@@ -533,8 +548,8 @@ proc ETHLightClientStoreProcessUpdatesByRange(
     doAssert updates[i].kind > LightClientDataFork.None
     updates[i].migrateToDataFork(lcDataFork)
     let res = process_light_client_update(
-      store[], updates[i].forky(lcDataFork),
-      currentSlot, cfg[], genesisValRoot[])
+      store[], updates[i].forky(lcDataFork), currentSlot, cfg[], genesisValRoot[]
+    )
     if res.isOk:
       didProgress = true
     else:
@@ -558,9 +573,11 @@ proc ETHLightClientStoreProcessFinalityUpdate(
     genesisValRoot: ptr Eth2Digest,
     beaconClock: ptr BeaconClock,
     mediaType: cstring,
-    consensusVersion #[optional]#: cstring,
+    consensusVersion #[optional]#
+    : cstring,
     finUpdateBytes: ptr UncheckedArray[byte],
-    numFinUpdateBytes: cint): cint {.exported.} =
+    numFinUpdateBytes: cint,
+): cint {.exported.} =
   ## Processes light client finality update data.
   ##
   ## * This processes the response data for a sync task of kind
@@ -606,34 +623,34 @@ proc ETHLightClientStoreProcessFinalityUpdate(
           return 1
         ForkedLightClientFinalityUpdate.decodeJsonLightClientObject(
           finUpdateBytes.toOpenArray(0, numFinUpdateBytes - 1),
-          Opt.none(ConsensusFork), cfg[])
+          Opt.none(ConsensusFork),
+          cfg[],
+        )
       else:
-        let consensusFork = ConsensusFork.decodeString(
-            $consensusVersion).valueOr:
+        let consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
           return 1
         ForkedLightClientFinalityUpdate.decodeHttpLightClientObject(
           finUpdateBytes.toOpenArray(0, numFinUpdateBytes - 1),
-          mediaType, consensusFork, cfg[])
+          mediaType,
+          consensusFork,
+          cfg[],
+        )
     except RestError:
       return 1
   doAssert finalityUpdate.kind > LightClientDataFork.None
   finalityUpdate.migrateToDataFork(lcDataFork)
   let res = process_light_client_update(
-    store[], finalityUpdate.forky(lcDataFork),
-    currentSlot, cfg[], genesisValRoot[])
+    store[], finalityUpdate.forky(lcDataFork), currentSlot, cfg[], genesisValRoot[]
+  )
   return
     if res.isOk:
       0
     else:
       case res.error
-      of LightClientVerifierError.MissingParent:
-        2
-      of LightClientVerifierError.Duplicate:
-        2
-      of LightClientVerifierError.UnviableFork:
-        2
-      of LightClientVerifierError.Invalid:
-        1
+      of LightClientVerifierError.MissingParent: 2
+      of LightClientVerifierError.Duplicate: 2
+      of LightClientVerifierError.UnviableFork: 2
+      of LightClientVerifierError.Invalid: 1
 
 proc ETHLightClientStoreProcessOptimisticUpdate(
     store: ptr lcDataFork.LightClientStore,
@@ -642,9 +659,11 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
     genesisValRoot: ptr Eth2Digest,
     beaconClock: ptr BeaconClock,
     mediaType: cstring,
-    consensusVersion #[optional]#: cstring,
+    consensusVersion #[optional]#
+    : cstring,
     optUpdateBytes: ptr UncheckedArray[byte],
-    numOptUpdateBytes: cint): cint {.exported.} =
+    numOptUpdateBytes: cint,
+): cint {.exported.} =
   ## Processes light client optimistic update data.
   ##
   ## * This processes the response data for a sync task of kind
@@ -690,34 +709,34 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
           return 1
         ForkedLightClientOptimisticUpdate.decodeJsonLightClientObject(
           optUpdateBytes.toOpenArray(0, numOptUpdateBytes - 1),
-          Opt.none(ConsensusFork), cfg[])
+          Opt.none(ConsensusFork),
+          cfg[],
+        )
       else:
-        let consensusFork = ConsensusFork.decodeString(
-            $consensusVersion).valueOr:
+        let consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
           return 1
         ForkedLightClientOptimisticUpdate.decodeHttpLightClientObject(
           optUpdateBytes.toOpenArray(0, numOptUpdateBytes - 1),
-          mediaType, consensusFork, cfg[])
+          mediaType,
+          consensusFork,
+          cfg[],
+        )
     except RestError:
       return 1
   doAssert optimisticUpdate.kind > LightClientDataFork.None
   optimisticUpdate.migrateToDataFork(lcDataFork)
   let res = process_light_client_update(
-    store[], optimisticUpdate.forky(lcDataFork),
-    currentSlot, cfg[], genesisValRoot[])
+    store[], optimisticUpdate.forky(lcDataFork), currentSlot, cfg[], genesisValRoot[]
+  )
   return
     if res.isOk:
       0
     else:
       case res.error
-      of LightClientVerifierError.MissingParent:
-        2
-      of LightClientVerifierError.Duplicate:
-        2
-      of LightClientVerifierError.UnviableFork:
-        2
-      of LightClientVerifierError.Invalid:
-        1
+      of LightClientVerifierError.MissingParent: 2
+      of LightClientVerifierError.Duplicate: 2
+      of LightClientVerifierError.UnviableFork: 2
+      of LightClientVerifierError.Invalid: 1
 
 func ETHLightClientStoreGetFinalizedHeader(
     store: ptr lcDataFork.LightClientStore
@@ -739,7 +758,8 @@ func ETHLightClientStoreGetFinalizedHeader(
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
-    store: ptr lcDataFork.LightClientStore): bool {.exported.} =
+    store: ptr lcDataFork.LightClientStore
+): bool {.exported.} =
   ## Indicates whether or not the next sync committee is currently known.
   ##
   ## * The light client sync process ensures that the next sync committee
@@ -778,7 +798,8 @@ func ETHLightClientStoreGetOptimisticHeader(
   addr store[].optimistic_header
 
 func ETHLightClientStoreGetSafetyThreshold(
-    store: ptr lcDataFork.LightClientStore): cint {.exported.} =
+    store: ptr lcDataFork.LightClientStore
+): cint {.exported.} =
   ## Calculates the safety threshold for a given light client store.
   ##
   ## * Light client data can only update the optimistic header if it is signed
@@ -816,7 +837,8 @@ proc ETHLightClientHeaderCreateCopy(
   copy.toUnmanagedPtr()
 
 proc ETHLightClientHeaderDestroy(
-    header: ptr lcDataFork.LightClientHeader) {.exported.} =
+    header: ptr lcDataFork.LightClientHeader
+) {.exported.} =
   ## Destroys a light client header.
   ##
   ## * The light client header must no longer be used after destruction.
@@ -826,8 +848,8 @@ proc ETHLightClientHeaderDestroy(
   header.destroy()
 
 proc ETHLightClientHeaderCopyBeaconRoot(
-    header: ptr lcDataFork.LightClientHeader,
-    cfg: ptr RuntimeConfig): ptr Eth2Digest {.exported.} =
+    header: ptr lcDataFork.LightClientHeader, cfg: ptr RuntimeConfig
+): ptr Eth2Digest {.exported.} =
   ## Computes the beacon block Merkle root for a given light client header.
   ##
   ## * The Merkle root must be destroyed with `ETHRootDestroy`
@@ -842,7 +864,7 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#hash_tree_root
-  discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
+  discard cfg # Future-proof against new fields, see `get_lc_execution_root`.
   let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()
   root.toUnmanagedPtr()
@@ -866,8 +888,7 @@ func ETHLightClientHeaderGetBeacon(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
-func ETHBeaconBlockHeaderGetSlot(
-    beacon: ptr BeaconBlockHeader): cint {.exported.} =
+func ETHBeaconBlockHeaderGetSlot(beacon: ptr BeaconBlockHeader): cint {.exported.} =
   ## Obtains the slot number of a given beacon block header.
   ##
   ## Parameters:
@@ -878,7 +899,8 @@ func ETHBeaconBlockHeaderGetSlot(
   beacon[].slot.cint
 
 func ETHBeaconBlockHeaderGetProposerIndex(
-    beacon: ptr BeaconBlockHeader): cint {.exported.} =
+    beacon: ptr BeaconBlockHeader
+): cint {.exported.} =
   ## Obtains the proposer validator registry index
   ## of a given beacon block header.
   ##
@@ -890,7 +912,8 @@ func ETHBeaconBlockHeaderGetProposerIndex(
   beacon[].proposer_index.cint
 
 func ETHBeaconBlockHeaderGetParentRoot(
-    beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
+    beacon: ptr BeaconBlockHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the parent beacon block Merkle root of a given beacon block header.
   ##
   ## * The returned value is allocated in the given beacon block header.
@@ -905,7 +928,8 @@ func ETHBeaconBlockHeaderGetParentRoot(
   addr beacon[].parent_root
 
 func ETHBeaconBlockHeaderGetStateRoot(
-    beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
+    beacon: ptr BeaconBlockHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the beacon state Merkle root of a given beacon block header.
   ##
   ## * The returned value is allocated in the given beacon block header.
@@ -920,7 +944,8 @@ func ETHBeaconBlockHeaderGetStateRoot(
   addr beacon[].state_root
 
 func ETHBeaconBlockHeaderGetBodyRoot(
-    beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
+    beacon: ptr BeaconBlockHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the beacon block body Merkle root of a given beacon block header.
   ##
   ## * The returned value is allocated in the given beacon block header.
@@ -935,8 +960,7 @@ func ETHBeaconBlockHeaderGetBodyRoot(
   addr beacon[].body_root
 
 proc ETHLightClientHeaderCopyExecutionHash(
-    header: ptr lcDataFork.LightClientHeader,
-    cfg: ptr RuntimeConfig
+    header: ptr lcDataFork.LightClientHeader, cfg: ptr RuntimeConfig
 ): ptr Eth2Digest {.exported.} =
   ## Computes the execution block hash for a given light client header.
   ##
@@ -952,13 +976,12 @@ proc ETHLightClientHeaderCopyExecutionHash(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
-  discard cfg  # Future-proof against SSZ execution block header, EIP-6404ff.
+  discard cfg # Future-proof against SSZ execution block header, EIP-6404ff.
   let root = Eth2Digest.new()
   root[] = header[].execution.block_hash
   root.toUnmanagedPtr()
 
-type ExecutionPayloadHeader =
-  typeof(declval(lcDataFork.LightClientHeader).execution)
+type ExecutionPayloadHeader = typeof(declval(lcDataFork.LightClientHeader).execution)
 
 func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
@@ -980,7 +1003,8 @@ func ETHLightClientHeaderGetExecution(
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the parent execution block hash of a given
   ## execution payload header.
   ##
@@ -996,7 +1020,8 @@ func ETHExecutionPayloadHeaderGetParentHash(
   addr execution[].parent_hash
 
 func ETHExecutionPayloadHeaderGetFeeRecipient(
-    execution: ptr ExecutionPayloadHeader): ptr ExecutionAddress {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr ExecutionAddress {.exported.} =
   ## Obtains the fee recipient address of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1011,7 +1036,8 @@ func ETHExecutionPayloadHeaderGetFeeRecipient(
   addr execution[].fee_recipient
 
 func ETHExecutionPayloadHeaderGetStateRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the state MPT root of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1026,7 +1052,8 @@ func ETHExecutionPayloadHeaderGetStateRoot(
   addr execution[].state_root
 
 func ETHExecutionPayloadHeaderGetReceiptsRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the receipts MPT root of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1041,7 +1068,8 @@ func ETHExecutionPayloadHeaderGetReceiptsRoot(
   addr execution[].receipts_root
 
 func ETHExecutionPayloadHeaderGetLogsBloom(
-    execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr BloomLogs {.exported.} =
   ## Obtains the logs Bloom of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1056,7 +1084,8 @@ func ETHExecutionPayloadHeaderGetLogsBloom(
   addr execution[].logs_bloom
 
 func ETHExecutionPayloadHeaderGetPrevRandao(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.exported.} =
   ## Obtains the previous randao mix of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1071,7 +1100,8 @@ func ETHExecutionPayloadHeaderGetPrevRandao(
   addr execution[].prev_randao
 
 func ETHExecutionPayloadHeaderGetBlockNumber(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the execution block number of a given execution payload header.
   ##
   ## Parameters:
@@ -1082,7 +1112,8 @@ func ETHExecutionPayloadHeaderGetBlockNumber(
   execution[].block_number.cint
 
 func ETHExecutionPayloadHeaderGetGasLimit(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the gas limit of a given execution payload header.
   ##
   ## Parameters:
@@ -1093,7 +1124,8 @@ func ETHExecutionPayloadHeaderGetGasLimit(
   execution[].gas_limit.cint
 
 func ETHExecutionPayloadHeaderGetGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the gas used of a given execution payload header.
   ##
   ## Parameters:
@@ -1104,7 +1136,8 @@ func ETHExecutionPayloadHeaderGetGasUsed(
   execution[].gas_used.cint
 
 func ETHExecutionPayloadHeaderGetTimestamp(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the timestamp of a given execution payload header.
   ##
   ## Parameters:
@@ -1116,7 +1149,9 @@ func ETHExecutionPayloadHeaderGetTimestamp(
 
 func ETHExecutionPayloadHeaderGetExtraDataBytes(
     execution: ptr ExecutionPayloadHeader,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the extra data buffer of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1137,7 +1172,8 @@ func ETHExecutionPayloadHeaderGetExtraDataBytes(
   cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
 
 func ETHExecutionPayloadHeaderGetBaseFeePerGas(
-    execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr UInt256 {.exported.} =
   ## Obtains the base fee per gas of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1152,7 +1188,8 @@ func ETHExecutionPayloadHeaderGetBaseFeePerGas(
   addr execution[].base_fee_per_gas
 
 func ETHExecutionPayloadHeaderGetBlobGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the blob gas used of a given execution payload header.
   ##
   ## Parameters:
@@ -1163,7 +1200,8 @@ func ETHExecutionPayloadHeaderGetBlobGasUsed(
   execution[].blob_gas_used.cint
 
 func ETHExecutionPayloadHeaderGetExcessBlobGas(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.exported.} =
   ## Obtains the excess blob gas of a given execution payload header.
   ##
   ## Parameters:
@@ -1187,13 +1225,12 @@ type
     withdrawals: seq[ETHWithdrawal]
     requestsHash: Eth2Digest
 
-template append*(
-    w: var RlpWriter, v: ETHWithdrawal) =
+template append*(w: var RlpWriter, v: ETHWithdrawal) =
   w.appendRawBytes(v.bytes)
 
 proc ETHExecutionBlockHeaderCreateFromJson(
-    executionHash: ptr Eth2Digest,
-    blockHeaderJson: cstring): ptr ETHExecutionBlockHeader {.exported.} =
+    executionHash: ptr Eth2Digest, blockHeaderJson: cstring
+): ptr ETHExecutionBlockHeader {.exported.} =
   ## Verifies that a JSON execution block header is valid and that it matches
   ## the given `executionHash`.
   ##
@@ -1215,13 +1252,14 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
-  let data = try:
-    # a direct parameter like JrpcConv.decode($blockHeaderJson, BlockObject)
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $blockHeaderJson
-    JrpcConv.decode(jsonBytes, BlockObject)
-  except SerializationError:
-    return nil
+  let data =
+    try:
+      # a direct parameter like JrpcConv.decode($blockHeaderJson, BlockObject)
+      # will cause premature garbage collector kick in.
+      let jsonBytes = $blockHeaderJson
+      JrpcConv.decode(jsonBytes, BlockObject)
+    except SerializationError:
+      return nil
   if data == nil:
     return nil
 
@@ -1230,16 +1268,16 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 27,
-    "Only update this number once code is adjusted to check new fields!"
+  static:
+    doAssert totalSerializedFields(BlockObject) == 27,
+      "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
-      data.withdrawals.isSome or data.withdrawalsRoot.isSome or
-      data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+    data.withdrawals.isSome or data.withdrawalsRoot.isSome or data.blobGasUsed.isSome or
+    data.excessBlobGas.isSome or data.requestsHash.isSome
+  ):
     return nil
-  if data.withdrawalsRoot.isNone and (
-      data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+  if data.withdrawalsRoot.isNone and
+      (data.blobGasUsed.isSome or data.excessBlobGas.isSome or data.requestsHash.isSome):
     return nil
   if data.blobGasUsed.isNone and data.requestsHash.isSome:
     return nil
@@ -1249,7 +1287,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Construct block header
-  static:  # `GasInt` is signed. We only use it for hashing.
+  static: # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(uint64) == sizeof(data.gasLimit)
     doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
@@ -1295,35 +1333,37 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.requestsHash.isSome:
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
-        Opt.none(Hash32))
+        Opt.none(Hash32),
+  )
   if blockHeader.computeRlpHash().asEth2Digest() != executionHash[]:
     return nil
 
   # Construct withdrawals
   var wds: seq[ETHWithdrawal]
   if data.withdrawals.isSome:
-    doAssert data.withdrawalsRoot.isSome  # Checked above
+    doAssert data.withdrawalsRoot.isSome # Checked above
 
     wds = newSeqOfCap[ETHWithdrawal](data.withdrawals.get.len)
     for wd in data.withdrawals.get:
       # Check fork consistency
-      static: doAssert totalSerializedFields(eth_types.EthWithdrawal) == 4,
-        "Only update this number once code is adjusted to check new fields!"
+      static:
+        doAssert totalSerializedFields(eth_types.EthWithdrawal) == 4,
+          "Only update this number once code is adjusted to check new fields!"
 
       # Construct withdrawal
-      let
-        rlpBytes =
-          try:
-            rlp.encode(wd)
-          except RlpError:
-            raiseAssert "Unreachable"
+      let rlpBytes =
+        try:
+          rlp.encode(wd)
+        except RlpError:
+          raiseAssert "Unreachable"
 
       wds.add ETHWithdrawal(
         index: wd.index,
         validatorIndex: wd.validatorIndex,
         address: wd.address,
         amount: wd.amount,
-        bytes: rlpBytes)
+        bytes: rlpBytes,
+      )
 
     let tr = orderedTrieRoot(wds)
     if tr != data.withdrawalsRoot.get:
@@ -1334,11 +1374,13 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     transactionsRoot: blockHeader.txRoot.asEth2Digest(),
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32).asEth2Digest(),
     withdrawals: wds,
-    requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest())
+    requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest(),
+  )
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
-    executionBlockHeader: ptr ETHExecutionBlockHeader) {.exported.} =
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+) {.exported.} =
   ## Destroys an execution block header.
   ##
   ## * The execution block header must no longer be used after destruction.
@@ -1413,7 +1455,7 @@ func ETHExecutionBlockHeaderGetRequestsHash(
 
 type
   DestinationType {.pure.} = enum
-    Regular,
+    Regular
     Create
 
   ETHAccessTuple = object
@@ -1451,8 +1493,8 @@ template append*(w: var RlpWriter, v: ETHTransaction) =
   w.appendRawBytes(distinctBase v.bytes)
 
 proc ETHTransactionsCreateFromJson(
-    transactionsRoot: ptr Eth2Digest,
-    transactionsJson: cstring): ptr seq[ETHTransaction] {.exported.} =
+    transactionsRoot: ptr Eth2Digest, transactionsJson: cstring
+): ptr seq[ETHTransaction] {.exported.} =
   ## Verifies that JSON transactions data is valid and that it matches
   ## the given `transactionsRoot`.
   ##
@@ -1474,13 +1516,14 @@ proc ETHTransactionsCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
-  var datas = try:
-    # a direct parameter like JrpcConv.decode($transactionsJson, seq[TransactionObject])
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $transactionsJson
-    JrpcConv.decode(jsonBytes, seq[TransactionObject])
-  except SerializationError:
-    return nil
+  var datas =
+    try:
+      # a direct parameter like JrpcConv.decode($transactionsJson, seq[TransactionObject])
+      # will cause premature garbage collector kick in.
+      let jsonBytes = $transactionsJson
+      JrpcConv.decode(jsonBytes, seq[TransactionObject])
+    except SerializationError:
+      return nil
 
   var txs = newSeqOfCap[ETHTransaction](datas.len)
   for i, data in datas:
@@ -1491,15 +1534,15 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 23,
-      "Only update this number once code is adjusted to check new fields!"
+    static:
+      doAssert totalSerializedFields(TransactionObject) == 23,
+        "Only update this number once code is adjusted to check new fields!"
     let txType =
-      case data.`type`.get(0.Quantity):
+      case data.`type`.get(0.Quantity)
       of 0.Quantity:
-        if data.yParity.isSome or data.accessList.isSome or
-            data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
-            data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
-            data.authorizationList.isSome:
+        if data.yParity.isSome or data.accessList.isSome or data.maxFeePerGas.isSome or
+            data.maxPriorityFeePerGas.isSome or data.maxFeePerBlobGas.isSome or
+            data.blobVersionedHashes.isSome or data.authorizationList.isSome:
           return nil
         TxLegacy
       of 1.Quantity:
@@ -1511,8 +1554,8 @@ proc ETHTransactionsCreateFromJson(
           return nil
         TxEip2930
       of 2.Quantity:
-        if data.chainId.isNone or data.accessList.isNone or
-            data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
+        if data.chainId.isNone or data.accessList.isNone or data.maxFeePerGas.isNone or
+            data.maxPriorityFeePerGas.isNone:
           return nil
         if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
             data.authorizationList.isSome:
@@ -1575,12 +1618,10 @@ proc ETHTransactionsCreateFromJson(
             data.accessList.get
           else:
             @[],
-        maxFeePerBlobGas:
-          data.maxFeePerBlobGas.get(0.u256),
+        maxFeePerBlobGas: data.maxFeePerBlobGas.get(0.u256),
         versionedHashes:
           if data.blobVersionedHashes.isSome:
-            data.blobVersionedHashes.get.mapIt(
-              Hash32(distinctBase(it)))
+            data.blobVersionedHashes.get.mapIt(Hash32(distinctBase(it)))
           else:
             @[],
         authorizationList:
@@ -1590,7 +1631,8 @@ proc ETHTransactionsCreateFromJson(
             @[],
         V: distinctBase(data.v),
         R: data.r,
-        S: data.s)
+        S: data.s,
+      )
       rlpBytes =
         try:
           rlp.encode(tx)
@@ -1608,8 +1650,8 @@ proc ETHTransactionsCreateFromJson(
       rawSig
 
     func recoverSignerAddress(
-        rawSig: array[65, byte],
-        hashForSigning: Hash32): SkResult[ExecutionAddress] =
+        rawSig: array[65, byte], hashForSigning: Hash32
+    ): SkResult[ExecutionAddress] =
       let
         signature = ?Signature.fromRaw(rawSig)
         pubkey = ?signature.recover(SkMessage(hashForSigning.data()))
@@ -1633,10 +1675,7 @@ proc ETHTransactionsCreateFromJson(
     # Compute to execution address
     let
       destinationType =
-        if tx.to.isSome:
-          DestinationType.Regular
-        else:
-          DestinationType.Create
+        if tx.to.isSome: DestinationType.Regular else: DestinationType.Create
       toAddress =
         case destinationType
         of DestinationType.Regular:
@@ -1646,8 +1685,7 @@ proc ETHTransactionsCreateFromJson(
           hash.to(EthAddress)
 
     # Compute authorizations
-    var authorizationList = newSeqOfCap[ETHAuthorization](
-      tx.authorizationList.len)
+    var authorizationList = newSeqOfCap[ETHAuthorization](tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
         sig = packSignature(auth.r, auth.s, auth.yParity)
@@ -1658,7 +1696,8 @@ proc ETHTransactionsCreateFromJson(
         address: auth.address,
         nonce: auth.nonce,
         authority: authority,
-        signature: @sig)
+        signature: @sig,
+      )
 
     txs.add ETHTransaction(
       hash: keccak256(rlpBytes).asEth2Digest,
@@ -1672,15 +1711,19 @@ proc ETHTransactionsCreateFromJson(
       to: toAddress,
       value: tx.value,
       input: tx.payload,
-      accessList: tx.accessList.mapIt(ETHAccessTuple(
-        address: it.address,
-        storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
+      accessList: tx.accessList.mapIt(
+        ETHAccessTuple(
+          address: it.address,
+          storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)),
+        )
+      ),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
       hasAuthorizationList: tx.txType == TxEip7702,
       authorizationList: authorizationList,
       signature: @rawSig,
-      bytes: rlpBytes.TypedTransaction)
+      bytes: rlpBytes.TypedTransaction,
+    )
 
   if orderedTrieRoot(txs).asEth2Digest() != transactionsRoot[]:
     return nil
@@ -1689,8 +1732,7 @@ proc ETHTransactionsCreateFromJson(
   transactions[] = txs
   transactions.toUnmanagedPtr()
 
-proc ETHTransactionsDestroy(
-    transactions: ptr seq[ETHTransaction]) {.exported.} =
+proc ETHTransactionsDestroy(transactions: ptr seq[ETHTransaction]) {.exported.} =
   ## Destroys a transaction sequence.
   ##
   ## * The transaction sequence must no longer be used after destruction.
@@ -1699,8 +1741,7 @@ proc ETHTransactionsDestroy(
   ## * `transactions` - Transaction sequence.
   transactions.destroy()
 
-func ETHTransactionsGetCount(
-    transactions: ptr seq[ETHTransaction]): cint {.exported.} =
+func ETHTransactionsGetCount(transactions: ptr seq[ETHTransaction]): cint {.exported.} =
   ## Indicates the total number of transactions in a transaction sequence.
   ##
   ## * Individual transactions may be inspected using `ETHTransactionsGet`.
@@ -1713,8 +1754,8 @@ func ETHTransactionsGetCount(
   transactions[].len.cint
 
 func ETHTransactionsGet(
-    transactions: ptr seq[ETHTransaction],
-    transactionIndex: cint): ptr ETHTransaction {.exported.} =
+    transactions: ptr seq[ETHTransaction], transactionIndex: cint
+): ptr ETHTransaction {.exported.} =
   ## Obtains an individual transaction by sequential index
   ## in a transaction sequence.
   ##
@@ -1731,7 +1772,8 @@ func ETHTransactionsGet(
   addr transactions[][transactionIndex.int]
 
 func ETHTransactionGetHash(
-    transaction: ptr ETHTransaction): ptr Eth2Digest {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr Eth2Digest {.exported.} =
   ## Obtains the transaction hash of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1746,7 +1788,8 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr ChainId {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr ChainId {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1761,7 +1804,8 @@ func ETHTransactionGetChainId(
   addr transaction[].chainId
 
 func ETHTransactionGetFrom(
-    transaction: ptr ETHTransaction): ptr ExecutionAddress {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr ExecutionAddress {.exported.} =
   ## Obtains the from address of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1775,8 +1819,7 @@ func ETHTransactionGetFrom(
   ## * From execution address.
   addr transaction[].`from`
 
-func ETHTransactionGetNonce(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+func ETHTransactionGetNonce(transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
   ## Obtains the nonce of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1791,7 +1834,8 @@ func ETHTransactionGetNonce(
   addr transaction[].nonce
 
 func ETHTransactionGetMaxPriorityFeePerGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr uint64 {.exported.} =
   ## Obtains the max priority fee per gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1806,7 +1850,8 @@ func ETHTransactionGetMaxPriorityFeePerGas(
   addr transaction[].maxPriorityFeePerGas
 
 func ETHTransactionGetMaxFeePerGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr uint64 {.exported.} =
   ## Obtains the max fee per gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1820,8 +1865,7 @@ func ETHTransactionGetMaxFeePerGas(
   ## * Max fee per gas.
   addr transaction[].maxFeePerGas
 
-func ETHTransactionGetGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+func ETHTransactionGetGas(transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
   ## Obtains the gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1836,7 +1880,8 @@ func ETHTransactionGetGas(
   addr transaction[].gas
 
 func ETHTransactionIsCreatingContract(
-    transaction: ptr ETHTransaction): bool {.exported.} =
+    transaction: ptr ETHTransaction
+): bool {.exported.} =
   ## Indicates whether or not a transaction is creating a contract.
   ##
   ## Parameters:
@@ -1845,13 +1890,12 @@ func ETHTransactionIsCreatingContract(
   ## Returns:
   ## * Whether or not the transaction is creating a contract.
   case transaction[].destinationType
-  of DestinationType.Regular:
-    false
-  of DestinationType.Create:
-    true
+  of DestinationType.Regular: false
+  of DestinationType.Create: true
 
 func ETHTransactionGetTo(
-    transaction: ptr ETHTransaction): ptr ExecutionAddress {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr ExecutionAddress {.exported.} =
   ## Obtains the to address of a transaction.
   ##
   ## * If the transaction is creating a contract, this function returns
@@ -1868,8 +1912,7 @@ func ETHTransactionGetTo(
   ## * To execution address.
   addr transaction[].to
 
-func ETHTransactionGetValue(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+func ETHTransactionGetValue(transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
   ## Obtains the value of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1885,7 +1928,9 @@ func ETHTransactionGetValue(
 
 func ETHTransactionGetInputBytes(
     transaction: ptr ETHTransaction,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the input of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1906,7 +1951,8 @@ func ETHTransactionGetInputBytes(
   cast[ptr UncheckedArray[byte]](addr transaction[].input[0])
 
 func ETHTransactionGetAccessList(
-    transaction: ptr ETHTransaction): ptr seq[ETHAccessTuple] {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr seq[ETHAccessTuple] {.exported.} =
   ## Obtains the access list of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1920,8 +1966,7 @@ func ETHTransactionGetAccessList(
   ## * Transaction access list.
   addr transaction[].accessList
 
-func ETHAccessListGetCount(
-    accessList: ptr seq[ETHAccessTuple]): cint {.exported.} =
+func ETHAccessListGetCount(accessList: ptr seq[ETHAccessTuple]): cint {.exported.} =
   ## Indicates the total number of access tuples in a transaction access list.
   ##
   ## * Individual access tuples may be inspected using `ETHAccessListGet`.
@@ -1934,8 +1979,8 @@ func ETHAccessListGetCount(
   accessList[].len.cint
 
 func ETHAccessListGet(
-    accessList: ptr seq[ETHAccessTuple],
-    accessTupleIndex: cint): ptr ETHAccessTuple {.exported.} =
+    accessList: ptr seq[ETHAccessTuple], accessTupleIndex: cint
+): ptr ETHAccessTuple {.exported.} =
   ## Obtains an individual access tuple by sequential index
   ## in a transaction access list.
   ##
@@ -1952,7 +1997,8 @@ func ETHAccessListGet(
   addr accessList[][accessTupleIndex.int]
 
 func ETHAccessTupleGetAddress(
-    accessTuple: ptr ETHAccessTuple): ptr ExecutionAddress {.exported.} =
+    accessTuple: ptr ETHAccessTuple
+): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of an access tuple.
   ##
   ## * The returned value is allocated in the given access tuple.
@@ -1967,7 +2013,8 @@ func ETHAccessTupleGetAddress(
   addr accessTuple[].address
 
 func ETHAccessTupleGetNumStorageKeys(
-    accessTuple: ptr ETHAccessTuple): cint {.exported.} =
+    accessTuple: ptr ETHAccessTuple
+): cint {.exported.} =
   ## Indicates the total number of storage keys in an access tuple.
   ##
   ## * Individual storage keys may be inspected using
@@ -1981,8 +2028,8 @@ func ETHAccessTupleGetNumStorageKeys(
   accessTuple[].storageKeys.len.cint
 
 func ETHAccessTupleGetStorageKey(
-    accessTuple: ptr ETHAccessTuple,
-    storageKeyIndex: cint): ptr Eth2Digest {.exported.} =
+    accessTuple: ptr ETHAccessTuple, storageKeyIndex: cint
+): ptr Eth2Digest {.exported.} =
   ## Obtains an individual storage key by sequential index
   ## in an access tuple.
   ##
@@ -1999,7 +2046,8 @@ func ETHAccessTupleGetStorageKey(
   addr accessTuple[].storageKeys[storageKeyIndex.int]
 
 func ETHTransactionGetMaxFeePerBlobGas(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+    transaction: ptr ETHTransaction
+): ptr UInt256 {.exported.} =
   ## Obtains the max fee per blob gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2014,7 +2062,8 @@ func ETHTransactionGetMaxFeePerBlobGas(
   addr transaction[].maxFeePerBlobGas
 
 func ETHTransactionGetNumBlobVersionedHashes(
-    transaction: ptr ETHTransaction): cint {.exported.} =
+    transaction: ptr ETHTransaction
+): cint {.exported.} =
   ## Indicates the total number of blob versioned hashes of a transaction.
   ##
   ## * Individual blob versioned hashes may be inspected using
@@ -2028,8 +2077,8 @@ func ETHTransactionGetNumBlobVersionedHashes(
   transaction[].blobVersionedHashes.len.cint
 
 func ETHTransactionGetBlobVersionedHash(
-    transaction: ptr ETHTransaction,
-    versionedHashIndex: cint): ptr Eth2Digest {.exported.} =
+    transaction: ptr ETHTransaction, versionedHashIndex: cint
+): ptr Eth2Digest {.exported.} =
   ## Obtains an individual blob versioned hash by sequential index
   ## in a transaction.
   ##
@@ -2046,7 +2095,8 @@ func ETHTransactionGetBlobVersionedHash(
   addr transaction[].blobVersionedHashes[versionedHashIndex.int]
 
 func ETHTransactionHasAuthorizationList(
-    transaction: ptr ETHTransaction): bool {.exported.} =
+    transaction: ptr ETHTransaction
+): bool {.exported.} =
   ## Indicates whether or not a transaction has an authorization list.
   ##
   ## Parameters:
@@ -2073,7 +2123,8 @@ func ETHTransactionGetAuthorizationList(
   addr transaction[].authorizationList
 
 func ETHAuthorizationListGetCount(
-    authorizationList: ptr seq[ETHAuthorization]): cint {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization]
+): cint {.exported.} =
   ## Indicates the total number of authorization tuples
   ## in a transaction authorization list.
   ##
@@ -2088,8 +2139,8 @@ func ETHAuthorizationListGetCount(
   authorizationList[].len.cint
 
 func ETHAuthorizationListGet(
-    authorizationList: ptr seq[ETHAuthorization],
-    authorizationIndex: cint): ptr ETHAuthorization {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization], authorizationIndex: cint
+): ptr ETHAuthorization {.exported.} =
   ## Obtains an individual authorization tuple by sequential index
   ## in a transaction authorization list.
   ##
@@ -2106,7 +2157,8 @@ func ETHAuthorizationListGet(
   addr authorizationList[][authorizationIndex.int]
 
 func ETHAuthorizationGetChainId(
-    authorization: ptr ETHAuthorization): ptr ChainId {.exported.} =
+    authorization: ptr ETHAuthorization
+): ptr ChainId {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2137,7 +2189,8 @@ func ETHAuthorizationGetAddress(
   addr authorization[].address
 
 func ETHAuthorizationGetNonce(
-    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
+    authorization: ptr ETHAuthorization
+): ptr uint64 {.exported.} =
   ## Obtains the nonce of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2169,7 +2222,9 @@ func ETHAuthorizationGetAuthority(
 
 func ETHAuthorizationGetSignatureBytes(
     authorization: ptr ETHAuthorization,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the signature of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2187,12 +2242,13 @@ func ETHAuthorizationGetSignatureBytes(
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
-  cast[ptr UncheckedArray[byte]](
-    addr distinctBase(authorization[].signature)[0])
+  cast[ptr UncheckedArray[byte]](addr distinctBase(authorization[].signature)[0])
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the signature of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2214,7 +2270,9 @@ func ETHTransactionGetSignatureBytes(
 
 func ETHTransactionGetBytes(
     transaction: ptr ETHTransaction,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the raw byte representation of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2241,8 +2299,8 @@ type
     data: seq[byte]
 
   ReceiptStatusType {.pure.} = enum
-    Root,
-    Status  # EIP-658
+    Root
+    Status # EIP-658
 
   ETHReceipt = object
     statusType: ReceiptStatusType
@@ -2259,7 +2317,8 @@ template append*(w: var RlpWriter, v: ETHReceipt) =
 proc ETHReceiptsCreateFromJson(
     receiptsRoot: ptr Eth2Digest,
     receiptsJson: cstring,
-    transactions: ptr seq[ETHTransaction]): ptr seq[ETHReceipt] {.exported.} =
+    transactions: ptr seq[ETHTransaction],
+): ptr seq[ETHReceipt] {.exported.} =
   ## Verifies that JSON receipts data is valid and that it matches
   ## the given `receiptsRoot`.
   ##
@@ -2283,13 +2342,14 @@ proc ETHReceiptsCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
-  var datas = try:
-    # a direct parameter like JrpcConv.decode($receiptsJson, seq[ReceiptObject])
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $receiptsJson
-    JrpcConv.decode(jsonBytes, seq[ReceiptObject])
-  except SerializationError:
-    return nil
+  var datas =
+    try:
+      # a direct parameter like JrpcConv.decode($receiptsJson, seq[ReceiptObject])
+      # will cause premature garbage collector kick in.
+      let jsonBytes = $receiptsJson
+      JrpcConv.decode(jsonBytes, seq[ReceiptObject])
+    except SerializationError:
+      return nil
   if datas.len != ETHTransactionsGetCount(transactions):
     return nil
 
@@ -2303,12 +2363,14 @@ proc ETHReceiptsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(ReceiptObject) == 17,
-      "Only update this number once code is adjusted to check new fields!"
-    static: doAssert totalSerializedFields(LogObject) == 9,
-      "Only update this number once code is adjusted to check new fields!"
+    static:
+      doAssert totalSerializedFields(ReceiptObject) == 17,
+        "Only update this number once code is adjusted to check new fields!"
+    static:
+      doAssert totalSerializedFields(LogObject) == 9,
+        "Only update this number once code is adjusted to check new fields!"
     let txType =
-      case data.`type`.get(0.Quantity):
+      case data.`type`.get(0.Quantity)
       of 0.Quantity:
         TxLegacy
       of 1.Quantity:
@@ -2321,8 +2383,7 @@ proc ETHReceiptsCreateFromJson(
         TxEip7702
       else:
         return nil
-    if data.root.isNone and data.status.isNone or
-        data.root.isSome and data.status.isSome:
+    if data.root.isNone and data.status.isNone or data.root.isSome and data.status.isSome:
       return nil
     if data.status.isSome and distinctBase(data.status.get) > 1:
       return nil
@@ -2374,10 +2435,14 @@ proc ETHReceiptsCreateFromJson(
             default(Hash32),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
         logsBloom: distinctBase(data.logsBloom).to(Bloom),
-        logs: data.logs.mapIt(Log(
-          address: distinctBase(it.address).to(EthAddress),
-          topics: it.topics.mapIt(distinctBase(it).to(Bytes32)),
-          data: it.data)))
+        logs: data.logs.mapIt(
+          Log(
+            address: distinctBase(it.address).to(EthAddress),
+            topics: it.topics.mapIt(distinctBase(it).to(Bytes32)),
+            data: it.data,
+          )
+        ),
+      )
       rlpBytes =
         try:
           rlp.encode(rec)
@@ -2385,20 +2450,20 @@ proc ETHReceiptsCreateFromJson(
           raiseAssert "Unreachable"
 
     recs.add ETHReceipt(
-      statusType:
-        if rec.isHash:
-          ReceiptStatusType.Root
-        else:
-          ReceiptStatusType.Status,
+      statusType: if rec.isHash: ReceiptStatusType.Root else: ReceiptStatusType.Status,
       root: rec.hash.asEth2Digest(),
       status: rec.status,
-      gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
+      gasUsed: distinctBase(data.gasUsed), # Validated during sanity checks.
       logsBloom: BloomLogs(data: rec.logsBloom.data),
-      logs: rec.logs.mapIt(ETHLog(
-        address: it.address,
-        topics: it.topics.mapIt(Eth2Digest(data: it.data)),
-        data: it.data)),
-      bytes: rlpBytes)
+      logs: rec.logs.mapIt(
+        ETHLog(
+          address: it.address,
+          topics: it.topics.mapIt(Eth2Digest(data: it.data)),
+          data: it.data,
+        )
+      ),
+      bytes: rlpBytes,
+    )
 
   if orderedTrieRoot(recs).asEth2Digest() != receiptsRoot[]:
     return nil
@@ -2407,8 +2472,7 @@ proc ETHReceiptsCreateFromJson(
   receipts[] = recs
   receipts.toUnmanagedPtr()
 
-proc ETHReceiptsDestroy(
-    receipts: ptr seq[ETHReceipt]) {.exported.} =
+proc ETHReceiptsDestroy(receipts: ptr seq[ETHReceipt]) {.exported.} =
   ## Destroys a receipt sequence.
   ##
   ## * The receipt sequence must no longer be used after destruction.
@@ -2417,8 +2481,7 @@ proc ETHReceiptsDestroy(
   ## * `receipts` - Receipt sequence.
   receipts.destroy()
 
-func ETHReceiptsGetCount(
-    receipts: ptr seq[ETHReceipt]): cint {.exported.} =
+func ETHReceiptsGetCount(receipts: ptr seq[ETHReceipt]): cint {.exported.} =
   ## Indicates the total number of receipts in a receipt sequence.
   ##
   ## * Individual receipts may be inspected using `ETHReceiptsGet`.
@@ -2431,8 +2494,8 @@ func ETHReceiptsGetCount(
   receipts[].len.cint
 
 func ETHReceiptsGet(
-    receipts: ptr seq[ETHReceipt],
-    receiptIndex: cint): ptr ETHReceipt {.exported.} =
+    receipts: ptr seq[ETHReceipt], receiptIndex: cint
+): ptr ETHReceipt {.exported.} =
   ## Obtains an individual receipt by sequential index
   ## in a receipt sequence.
   ##
@@ -2448,8 +2511,7 @@ func ETHReceiptsGet(
   ## * Receipt.
   addr receipts[][receiptIndex.int]
 
-func ETHReceiptHasStatus(
-    receipt: ptr ETHReceipt): bool {.exported.} =
+func ETHReceiptHasStatus(receipt: ptr ETHReceipt): bool {.exported.} =
   ## Indicates whether or not a receipt has a status code.
   ##
   ## Parameters:
@@ -2461,13 +2523,10 @@ func ETHReceiptHasStatus(
   ## See:
   ## * https://eips.ethereum.org/EIPS/eip-658
   case receipt[].statusType
-  of ReceiptStatusType.Root:
-    false
-  of ReceiptStatusType.Status:
-    true
+  of ReceiptStatusType.Root: false
+  of ReceiptStatusType.Status: true
 
-func ETHReceiptGetRoot(
-    receipt: ptr ETHReceipt): ptr Eth2Digest {.exported.} =
+func ETHReceiptGetRoot(receipt: ptr ETHReceipt): ptr Eth2Digest {.exported.} =
   ## Obtains the intermediate post-state root of a receipt with no status code.
   ##
   ## * If the receipt has a status code, this function returns a zero hash.
@@ -2483,8 +2542,7 @@ func ETHReceiptGetRoot(
   ## * Intermediate post-state root.
   addr receipt[].root
 
-func ETHReceiptGetStatus(
-    receipt: ptr ETHReceipt): bool {.exported.} =
+func ETHReceiptGetStatus(receipt: ptr ETHReceipt): bool {.exported.} =
   ## Obtains the status code of a receipt with a status code.
   ##
   ## * If the receipt has no status code, this function returns true.
@@ -2499,8 +2557,7 @@ func ETHReceiptGetStatus(
   ## * https://eips.ethereum.org/EIPS/eip-658
   receipt[].status
 
-func ETHReceiptGetGasUsed(
-    receipt: ptr ETHReceipt): ptr uint64 {.exported.} =
+func ETHReceiptGetGasUsed(receipt: ptr ETHReceipt): ptr uint64 {.exported.} =
   ## Obtains the gas used of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
@@ -2514,8 +2571,7 @@ func ETHReceiptGetGasUsed(
   ## * Gas used.
   addr receipt[].gasUsed
 
-func ETHReceiptGetLogsBloom(
-    receipt: ptr ETHReceipt): ptr BloomLogs {.exported.} =
+func ETHReceiptGetLogsBloom(receipt: ptr ETHReceipt): ptr BloomLogs {.exported.} =
   ## Obtains the logs Bloom of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
@@ -2529,8 +2585,7 @@ func ETHReceiptGetLogsBloom(
   ## * Logs Bloom.
   addr receipt[].logsBloom
 
-func ETHReceiptGetLogs(
-    receipt: ptr ETHReceipt): ptr seq[ETHLog] {.exported.} =
+func ETHReceiptGetLogs(receipt: ptr ETHReceipt): ptr seq[ETHLog] {.exported.} =
   ## Obtains the logs of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
@@ -2544,8 +2599,7 @@ func ETHReceiptGetLogs(
   ## * Log sequence.
   addr receipt[].logs
 
-func ETHLogsGetCount(
-    logs: ptr seq[ETHLog]): cint {.exported.} =
+func ETHLogsGetCount(logs: ptr seq[ETHLog]): cint {.exported.} =
   ## Indicates the total number of logs in a log sequence.
   ##
   ## * Individual logs may be inspected using `ETHLogsGet`.
@@ -2557,9 +2611,7 @@ func ETHLogsGetCount(
   ## * Number of available logs.
   logs[].len.cint
 
-func ETHLogsGet(
-    logs: ptr seq[ETHLog],
-    logIndex: cint): ptr ETHLog {.exported.} =
+func ETHLogsGet(logs: ptr seq[ETHLog], logIndex: cint): ptr ETHLog {.exported.} =
   ## Obtains an individual log by sequential index in a log sequence.
   ##
   ## * The returned value is allocated in the given log sequence.
@@ -2574,8 +2626,7 @@ func ETHLogsGet(
   ## * Log.
   addr logs[][logIndex.int]
 
-func ETHLogGetAddress(
-    log: ptr ETHLog): ptr ExecutionAddress {.exported.} =
+func ETHLogGetAddress(log: ptr ETHLog): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of a log.
   ##
   ## * The returned value is allocated in the given log.
@@ -2589,8 +2640,7 @@ func ETHLogGetAddress(
   ## * Address.
   addr log[].address
 
-func ETHLogGetNumTopics(
-    log: ptr ETHLog): cint {.exported.} =
+func ETHLogGetNumTopics(log: ptr ETHLog): cint {.exported.} =
   ## Indicates the total number of topics in a log.
   ##
   ## * Individual topics may be inspected using `ETHLogGetTopic`.
@@ -2602,9 +2652,7 @@ func ETHLogGetNumTopics(
   ## * Number of available topics.
   log[].topics.len.cint
 
-func ETHLogGetTopic(
-    log: ptr ETHLog,
-    topicIndex: cint): ptr Eth2Digest {.exported.} =
+func ETHLogGetTopic(log: ptr ETHLog, topicIndex: cint): ptr Eth2Digest {.exported.} =
   ## Obtains an individual topic by sequential index in a log.
   ##
   ## * The returned value is allocated in the given log.
@@ -2621,7 +2669,9 @@ func ETHLogGetTopic(
 
 func ETHLogGetDataBytes(
     log: ptr ETHLog,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the data of a log.
   ##
   ## * The returned value is allocated in the given log.
@@ -2643,7 +2693,9 @@ func ETHLogGetDataBytes(
 
 func ETHReceiptGetBytes(
     receipt: ptr ETHReceipt,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the raw byte representation of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
@@ -2663,8 +2715,7 @@ func ETHReceiptGetBytes(
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
 
-func ETHWithdrawalsGetCount(
-    withdrawals: ptr seq[ETHWithdrawal]): cint {.exported.} =
+func ETHWithdrawalsGetCount(withdrawals: ptr seq[ETHWithdrawal]): cint {.exported.} =
   ## Indicates the total number of withdrawals in a withdrawal sequence.
   ##
   ## * Individual withdrawals may be inspected using `ETHWithdrawalsGet`.
@@ -2677,8 +2728,8 @@ func ETHWithdrawalsGetCount(
   withdrawals[].len.cint
 
 func ETHWithdrawalsGet(
-    withdrawals: ptr seq[ETHWithdrawal],
-    withdrawalIndex: cint): ptr ETHWithdrawal {.exported.} =
+    withdrawals: ptr seq[ETHWithdrawal], withdrawalIndex: cint
+): ptr ETHWithdrawal {.exported.} =
   ## Obtains an individual withdrawal by sequential index
   ## in a withdrawal sequence.
   ##
@@ -2694,8 +2745,7 @@ func ETHWithdrawalsGet(
   ## * Withdrawal.
   addr withdrawals[][withdrawalIndex.int]
 
-func ETHWithdrawalGetIndex(
-    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+func ETHWithdrawalGetIndex(withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
   ## Obtains the index of a withdrawal.
   ##
   ## * The returned value is allocated in the given withdrawal.
@@ -2710,7 +2760,8 @@ func ETHWithdrawalGetIndex(
   addr withdrawal[].index
 
 func ETHWithdrawalGetValidatorIndex(
-    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+    withdrawal: ptr ETHWithdrawal
+): ptr uint64 {.exported.} =
   ## Obtains the validator index of a withdrawal.
   ##
   ## * The returned value is allocated in the given withdrawal.
@@ -2725,7 +2776,8 @@ func ETHWithdrawalGetValidatorIndex(
   addr withdrawal[].validatorIndex
 
 func ETHWithdrawalGetAddress(
-    withdrawal: ptr ETHWithdrawal): ptr ExecutionAddress {.exported.} =
+    withdrawal: ptr ETHWithdrawal
+): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of a withdrawal.
   ##
   ## * The returned value is allocated in the given withdrawal.
@@ -2739,8 +2791,7 @@ func ETHWithdrawalGetAddress(
   ## * Address.
   addr withdrawal[].address
 
-func ETHWithdrawalGetAmount(
-    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+func ETHWithdrawalGetAmount(withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
   ## Obtains the amount of a withdrawal.
   ##
   ## * The returned value is allocated in the given withdrawal.
@@ -2756,7 +2807,9 @@ func ETHWithdrawalGetAmount(
 
 func ETHWithdrawalGetBytes(
     withdrawal: ptr ETHWithdrawal,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#
+    : ptr cint,
+): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the raw byte representation of a withdrawal.
   ##
   ## * The returned value is allocated in the given withdrawal.

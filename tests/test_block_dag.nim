@@ -8,11 +8,10 @@
 {.push raises: [].}
 {.used.}
 
-import
-  unittest2,
-  ../beacon_chain/consensus_object_pools/block_dag
+import unittest2, ../beacon_chain/consensus_object_pools/block_dag
 
-func `$`(x: BlockRef): string = shortLog(x)
+func `$`(x: BlockRef): string =
+  shortLog(x)
 
 suite "BlockRef and helpers":
   test "isAncestorOf sanity":

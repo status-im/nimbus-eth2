@@ -12,8 +12,7 @@ import
   unittest2,
   ../beacon_chain/spec/datatypes/gloas,
   ../beacon_chain/spec/[digest, presets],
-  ../beacon_chain/consensus_object_pools/[
-    execution_payload_pool, blockchain_dag],
+  ../beacon_chain/consensus_object_pools/[execution_payload_pool, blockchain_dag],
   ../beacon_chain/beacon_clock,
   "."/[testutil, testdbutil]
 
@@ -22,7 +21,8 @@ func makeBid(
     builderIndex: uint64,
     parentBlockRoot: Eth2Digest,
     parentBlockHash: Eth2Digest,
-    value: Gwei): SignedExecutionPayloadBid =
+    value: Gwei,
+): SignedExecutionPayloadBid =
   SignedExecutionPayloadBid(
     message: ExecutionPayloadBid(
       slot: slot,
@@ -33,23 +33,28 @@ func makeBid(
       fee_recipient: default(ExecutionAddress),
       gas_limit: 30000000,
       value: value,
-      blob_kzg_commitments_root: Eth2Digest()),
-    signature: default(ValidatorSig))
+      blob_kzg_commitments_root: Eth2Digest(),
+    ),
+    signature: default(ValidatorSig),
+  )
 
 suite "Execution Payload Bid Pool":
   setup:
     let
       cfg = defaultRuntimeConfig
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
+      dag =
+        ChainDAGRef.init(cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       wallTime = BeaconTime(ns_since_genesis: 0)
       blockRoot = Eth2Digest.fromHex(
-        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+      )
       parentHash1 = Eth2Digest.fromHex(
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      )
       parentHash2 = Eth2Digest.fromHex(
-        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      )
     var pool = ExecutionPayloadBidPool.init(dag)
 
   test "Empty pool returns none":
@@ -66,8 +71,11 @@ suite "Execution Payload Bid Pool":
 
     check:
       pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).isSome()
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.value == 100.Gwei
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.builder_index == 1
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.value ==
+        100.Gwei
+      pool
+        .getHighestBidForSlotAndParent(10.Slot, parentHash1)
+        .get().message.builder_index == 1
 
   test "Duplicate detection - same builder same slot":
     let
@@ -98,9 +106,11 @@ suite "Execution Payload Bid Pool":
   test "Pruning removes old bids":
     let
       oldRoot = Eth2Digest.fromHex(
-        "0x1111111111111111111111111111111111111111111111111111111111111111")
+        "0x1111111111111111111111111111111111111111111111111111111111111111"
+      )
       newRoot = Eth2Digest.fromHex(
-        "0x2222222222222222222222222222222222222222222222222222222222222222")
+        "0x2222222222222222222222222222222222222222222222222222222222222222"
+      )
 
     pool.addBid(makeBid(10.Slot, 1, oldRoot, parentHash1, 100.Gwei), wallTime)
     pool.addBid(makeBid(100.Slot, 2, newRoot, parentHash1, 200.Gwei), wallTime)

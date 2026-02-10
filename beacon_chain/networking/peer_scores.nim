@@ -8,43 +8,28 @@
 {.push raises: [].}
 
 const
-  NewPeerScore* = 300
-    ## Score which will be assigned to newly connected peer
-  PeerScoreLowLimit* = 0
-    ## Score after which peer will be kicked
-  PeerScoreHighLimit* = 1000
-    ## Max value of peer's score
+  NewPeerScore* = 300 ## Score which will be assigned to newly connected peer
+  PeerScoreLowLimit* = 0 ## Score after which peer will be kicked
+  PeerScoreHighLimit* = 1000 ## Max value of peer's score
   PeerScorePoorRequest* = -50
     ## This peer is not responding on time or behaving improperly otherwise
-  PeerScoreInvalidRequest* = -500
-    ## This peer is sending malformed or nonsensical data
+  PeerScoreInvalidRequest* = -500 ## This peer is sending malformed or nonsensical data
 
-  PeerScoreNoStatus* = -100
-    ## Peer did not answer `status` request.
-  PeerScoreStaleStatus* = -50
-    ## Peer's `status` answer did not progress in time.
-  PeerScoreUseless* = -10
-    ## Peer's latest head is lower then ours.
-  PeerScoreGoodStatus* = 50
-    ## Peer's `status` answer is fine.
-  PeerScoreNoValues* = -100
-    ## Peer did not respond in time to a request.
-  PeerScoreGoodBatchValue* = 5
-    ## Individual portion of peer's multi-step answer is fine.
-  PeerScoreGoodValues* = 100
-    ## Peer's answer to our request is fine.
-  PeerScoreBadValues* = -1000
-    ## Peer's response contains incorrect data.
-  PeerScoreBadColumnIntersection* = -200
-    ## Peer custodies irrelevant custody columns
+  PeerScoreNoStatus* = -100 ## Peer did not answer `status` request.
+  PeerScoreStaleStatus* = -50 ## Peer's `status` answer did not progress in time.
+  PeerScoreUseless* = -10 ## Peer's latest head is lower then ours.
+  PeerScoreGoodStatus* = 50 ## Peer's `status` answer is fine.
+  PeerScoreNoValues* = -100 ## Peer did not respond in time to a request.
+  PeerScoreGoodBatchValue* = 5 ## Individual portion of peer's multi-step answer is fine.
+  PeerScoreGoodValues* = 100 ## Peer's answer to our request is fine.
+  PeerScoreBadValues* = -1000 ## Peer's response contains incorrect data.
+  PeerScoreBadColumnIntersection* = -200 ## Peer custodies irrelevant custody columns
   PeerScoreScantyColumnIntersection* = -3
     ## Peer custody overlaps less than 50% of our custody.
   PeerScoreDecentColumnIntersection* = 5
     ## Peer custody overlaps more than 50% of our custody.
-  PeerScoreSupernode* = 8
-    ## Peer can provide all columns, as they custody all columns.
-  PeerScoreBadResponse* = -1000
-    ## Peer's response is not in requested range.
+  PeerScoreSupernode* = 8 ## Peer can provide all columns, as they custody all columns.
+  PeerScoreBadResponse* = -1000 ## Peer's response is not in requested range.
   PeerScoreMissingValues* = -25
     ## Peer response contains too much missing data - this can happen either
     ## because a long reorg happened or the peer is falsely trying to convince
@@ -55,13 +40,13 @@ const
 
 type
   SyncResponseKind* {.pure.} = enum
-    Good, Empty
+    Good
+    Empty
 
   SyncResponseStats* = array[int(high(SyncResponseKind)) + 1, uint64]
 
 template get*(a: SyncResponseStats, index: SyncResponseKind): uint64 =
   a[int(index)]
 
-template update*(a: var SyncResponseStats, index: SyncResponseKind,
-                 value: uint64) =
+template update*(a: var SyncResponseStats, index: SyncResponseKind, value: uint64) =
   a[int(index)] += value

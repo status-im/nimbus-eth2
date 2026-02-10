@@ -18,11 +18,9 @@ import
 from std/algorithm import sort
 from std/sequtils import allIt, toSeq
 from snappy import encodeFramed, uncompressedLenFramed
-from ../beacon_chain/consensus_object_pools/block_pools_types import
-  ChainDAGRef
+from ../beacon_chain/consensus_object_pools/block_pools_types import ChainDAGRef
 from ../beacon_chain/consensus_object_pools/blockchain_dag import init
-from ../beacon_chain/spec/beaconstate import
-  initialize_hashed_beacon_state_from_eth1
+from ../beacon_chain/spec/beaconstate import initialize_hashed_beacon_state_from_eth1
 from ../beacon_chain/spec/state_transition import noRollback
 from ../beacon_chain/validators/validator_monitor import ValidatorMonitor
 from ./consensus_spec/fixtures_utils import genesisTestruntimeConfig
@@ -93,24 +91,20 @@ template TrustedBeaconBlock(kind: static ConsensusFork): typedesc =
     {.error: "TrustedBeaconBlock unsupported in " & $kind.}
 
 proc getStateRef(
-    db: BeaconChainDB,
-    consensusFork: static ConsensusFork,
-    root: Eth2Digest): auto =
+    db: BeaconChainDB, consensusFork: static ConsensusFork, root: Eth2Digest
+): auto =
   # load beaconstate the way the block pool does it - into an existing instance
-  var res: consensusFork.NilableBeaconStateRef =
-    (consensusFork.BeaconStateRef)()
+  var res: consensusFork.NilableBeaconStateRef = (consensusFork.BeaconStateRef)()
   if not db.getState(root, res[], noRollback):
     res = nil
   res
 
 func withDigest(blck: ForkyTrustedBeaconBlock): auto =
-  typeof(blck).kind.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck))
+  typeof(blck).kind.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
 proc getTestStates(
-    cfg: RuntimeConfig,
-    consensusFork: ConsensusFork): seq[ref ForkedHashedBeaconState] =
+    cfg: RuntimeConfig, consensusFork: ConsensusFork
+): seq[ref ForkedHashedBeaconState] =
   let
     db = cfg.makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
@@ -118,7 +112,7 @@ proc getTestStates(
   var testStates = getTestStates(dag.headState, consensusFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
-  sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+  sort(testStates) do(x, y: ref ForkedHashedBeaconState) -> int:
     cmp($getStateRoot(x[]), $getStateRoot(y[]))
 
   testStates
@@ -142,8 +136,8 @@ suite "Beacon chain DB" & preset():
 
   template doBlockTest(consensusFork: static ConsensusFork): untyped =
     block:
-      let db = BeaconChainDB.new(
-        "", consensusFork.genesisTestRuntimeConfig, inMemory = true)
+      let db =
+        BeaconChainDB.new("", consensusFork.genesisTestRuntimeConfig, inMemory = true)
 
       let
         signedBlock = withDigest((consensusFork.TrustedBeaconBlock)())
@@ -158,8 +152,7 @@ suite "Beacon chain DB" & preset():
         let ok = db.containsBlock(root, consensusFork.TrustedSignedBeaconBlock)
         check ok == (consensusFork == fork)
       check:
-        db.getBlock(
-          root, consensusFork.TrustedSignedBeaconBlock).get() == signedBlock
+        db.getBlock(root, consensusFork.TrustedSignedBeaconBlock).get() == signedBlock
         db.getBlockSSZ(root, tmp, consensusFork.TrustedSignedBeaconBlock)
         db.getBlockSZ(root, tmp2, consensusFork.TrustedSignedBeaconBlock)
         tmp == SSZ.encode(signedBlock)
@@ -221,8 +214,7 @@ suite "Beacon chain DB" & preset():
       else:
         consensusFork.doStateTest()
 
-  template doStateTestReusingBuffers(
-      consensusFork: static ConsensusFork): untyped =
+  template doStateTestReusingBuffers(consensusFork: static ConsensusFork): untyped =
     block:
       let
         db = cfg.makeTestDB(SLOTS_PER_EPOCH)
@@ -258,8 +250,8 @@ suite "Beacon chain DB" & preset():
         db = cfg.makeTestDB(SLOTS_PER_EPOCH)
         validatorMonitor = newClone(ValidatorMonitor.init(cfg))
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-        state = ForkedHashedBeaconState.new(
-          (ref consensusFork.BeaconState)(slot: 10.Slot)[])
+        state =
+          ForkedHashedBeaconState.new((ref consensusFork.BeaconState)(slot: 10.Slot)[])
         root = Eth2Digest()
 
       db.putCorruptState(consensusFork, root)
@@ -280,7 +272,8 @@ suite "Beacon chain DB" & preset():
         state[].phase0Data.data.slot != 10.Slot
 
   withAll(ConsensusFork):
-    let name = "sanity check " & $consensusFork &
+    let name =
+      "sanity check " & $consensusFork &
       (if consensusFork > ConsensusFork.Phase0: " and cross-fork" else: "") &
       " getState rollback"
     test name & preset():
@@ -293,12 +286,13 @@ suite "Beacon chain DB" & preset():
     var db = BeaconChainDB.new("", cfg, inMemory = true)
 
     let
-      a0 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
+      a0 = withDigest((phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
       a1 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root)
+      )
       a2 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root)
+      )
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
@@ -327,10 +321,15 @@ suite "Beacon chain DB" & preset():
     # not be deserialized because the deserialization was too strict.
     var db = BeaconChainDB.new("", cfg, inMemory = true)
 
-    let
-      state = newClone(initialize_hashed_beacon_state_from_eth1(
-        cfg, mockEth1BlockHash, 0,
-        makeInitialDeposits(cfg, SLOTS_PER_EPOCH), {skipBlsValidation}))
+    let state = newClone(
+      initialize_hashed_beacon_state_from_eth1(
+        cfg,
+        mockEth1BlockHash,
+        0,
+        makeInitialDeposits(cfg, SLOTS_PER_EPOCH),
+        {skipBlsValidation},
+      )
+    )
 
     db.putState(state[].root, state[].data)
 
@@ -363,10 +362,8 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check blobs" & preset():
     const
-      blockHeader0 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(0)))
-      blockHeader1 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(1)))
+      blockHeader0 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(1)))
 
     let
       blockRoot0 = hash_tree_root(blockHeader0.message)
@@ -463,10 +460,8 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check data columns" & preset():
     const
-      blockHeader0 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(0)))
-      blockHeader1 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(1)))
+      blockHeader0 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(1)))
 
     let
       blockRoot0 = hash_tree_root(blockHeader0.message)
@@ -474,9 +469,12 @@ suite "Beacon chain DB" & preset():
 
       # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
-      dataColumnSidecar0 = fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
-      dataColumnSidecar1 = fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
-      dataColumnSidecar2 = fulu.DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
+      dataColumnSidecar0 =
+        fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
+      dataColumnSidecar1 =
+        fulu.DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
+      dataColumnSidecar2 =
+        fulu.DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
@@ -583,34 +581,31 @@ suite "Quarantine" & preset():
     res
 
   func genBlobSidecar(
-      index: int,
-      slot: int,
-      kzg_commitment: int,
-      proposer_index: int
+      index: int, slot: int, kzg_commitment: int, proposer_index: int
   ): BlobSidecar =
     BlobSidecar(
       index: BlobIndex(index),
       kzg_commitment: genKzgCommitment(kzg_commitment),
       signed_block_header: SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(
-          slot: Slot(slot),
-          proposer_index: uint64(proposer_index))))
+        message:
+          BeaconBlockHeader(slot: Slot(slot), proposer_index: uint64(proposer_index))
+      ),
+    )
 
   func genDataColumnSidecar(
-      index: int,
-      slot: int,
-      proposer_index: int
+      index: int, slot: int, proposer_index: int
   ): fulu.DataColumnSidecar =
     fulu.DataColumnSidecar(
       index: ColumnIndex(index),
       signed_block_header: SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(
-          slot: Slot(slot),
-          proposer_index: uint64(proposer_index))))
+        message:
+          BeaconBlockHeader(slot: Slot(slot), proposer_index: uint64(proposer_index))
+      ),
+    )
 
   proc cmp(
-      a: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar],
-      b: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar]
+      a: openArray[ref BlobSidecar | ref fulu.DataColumnSidecar],
+      b: openArray[ref BlobSidecar | ref fulu.DataColumnSidecar],
   ): bool =
     if len(a) != len(b):
       return false
@@ -629,7 +624,7 @@ suite "Quarantine" & preset():
       newClone(genBlobSidecar(5, 100, 15, 24)),
       newClone(genBlobSidecar(6, 100, 16, 24)),
       newClone(genBlobSidecar(7, 100, 17, 24)),
-      newClone(genBlobSidecar(8, 100, 18, 24))
+      newClone(genBlobSidecar(8, 100, 18, 24)),
     ]
 
   proc generateDataColumnSidecars(): seq[ref fulu.DataColumnSidecar] =
@@ -654,22 +649,17 @@ suite "Quarantine" & preset():
 
   proc getSidecars(
       quarantine: QuarantineDB,
-      T: typedesc[BlobSidecar|fulu.DataColumnSidecar],
-      blockRoot: Eth2Digest
+      T: typedesc[BlobSidecar | fulu.DataColumnSidecar],
+      blockRoot: Eth2Digest,
   ): seq[ref T] =
     var res: seq[ref T]
     for item in quarantine.sidecars(T, blockRoot):
       res.add(newClone(item))
     res
 
-  proc runDataSidecarTest(
-      quarantine: QuarantineDB,
-      T: typedesc[ForkyDataSidecar]
-  ) =
+  proc runDataSidecarTest(quarantine: QuarantineDB, T: typedesc[ForkyDataSidecar]) =
     let
-      broots = @[
-        genBlockRoot(100), genBlockRoot(200), genBlockRoot(300)
-      ]
+      broots = @[genBlockRoot(100), genBlockRoot(200), genBlockRoot(300)]
       sidecars =
         when T is deneb.BlobSidecar:
           generateBlobSidecars()
@@ -691,12 +681,12 @@ suite "Quarantine" & preset():
     quarantine.removeDataSidecars(T, broots[1])
     quarantine.removeDataSidecars(T, broots[2])
 
-    quarantine.putDataSidecars(broots[0],
-      sidecars.toOpenArray(offsets[0][0], offsets[0][1]))
+    quarantine.putDataSidecars(
+      broots[0], sidecars.toOpenArray(offsets[0][0], offsets[0][1])
+    )
 
     block:
-      let
-        res1 = quarantine.getSidecars(T, broots[0])
+      let res1 = quarantine.getSidecars(T, broots[0])
       check:
         quarantine.sidecarsCount(T) == len(res1)
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
@@ -704,8 +694,9 @@ suite "Quarantine" & preset():
         len(quarantine.getSidecars(T, broots[1])) == 0
         len(quarantine.getSidecars(T, broots[2])) == 0
 
-    quarantine.putDataSidecars(broots[1],
-      sidecars.toOpenArray(offsets[1][0], offsets[1][1]))
+    quarantine.putDataSidecars(
+      broots[1], sidecars.toOpenArray(offsets[1][0], offsets[1][1])
+    )
 
     block:
       let
@@ -719,8 +710,9 @@ suite "Quarantine" & preset():
         cmp(res2, sidecars.toOpenArray(offsets[1][0], offsets[1][1])) == true
         len(quarantine.getSidecars(T, broots[2])) == 0
 
-    quarantine.putDataSidecars(broots[2],
-      sidecars.toOpenArray(offsets[2][0], offsets[2][1]))
+    quarantine.putDataSidecars(
+      broots[2], sidecars.toOpenArray(offsets[2][0], offsets[2][1])
+    )
 
     block:
       let
@@ -753,8 +745,7 @@ suite "Quarantine" & preset():
     quarantine.removeDataSidecars(T, broots[0])
 
     block:
-      let
-        res3 = quarantine.getSidecars(T, broots[2])
+      let res3 = quarantine.getSidecars(T, broots[2])
       check:
         len(quarantine.getSidecars(T, broots[0])) == 0
         len(quarantine.getSidecars(T, broots[1])) == 0
@@ -778,9 +769,9 @@ suite "Quarantine" & preset():
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
-    var
-      db = SqStoreRef.init("", "test", inMemory = true).expect(
-        "working database (out of memory?)")
+    var db = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)"
+      )
 
     var s = FinalizedBlocks.init(db, "finalized_blocks").get()
 
@@ -800,7 +791,9 @@ suite "FinalizedBlocks" & preset():
 
     var items = 0
     for k, v in s:
-      check: k in [Slot 0, Slot 5]
+      check:
+        k in [Slot 0, Slot 5]
       items += 1
 
-    check: items == 2
+    check:
+      items == 2

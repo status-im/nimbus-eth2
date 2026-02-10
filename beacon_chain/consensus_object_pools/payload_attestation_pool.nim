@@ -18,7 +18,8 @@ import
 
 from ../spec/beaconstate import get_ptc
 
-logScope: topics = "payattpool"
+logScope:
+  topics = "payattpool"
 
 declareGauge payload_attestation_pool_block_packing_time,
   "Time it took to create list of payload attestations for block"
@@ -50,9 +51,13 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
     pool.attestations.del(slot)
 
 func addPayloadAttestation*(
-    pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
-    wallTime: BeaconTime): bool =
-  template beacon_block_root: untyped = message.data.beacon_block_root
+    pool: var PayloadAttestationPool,
+    message: PayloadAttestationMessage,
+    wallTime: BeaconTime,
+): bool =
+  template beacon_block_root(): untyped =
+    message.data.beacon_block_root
+
   let
     slot = message.data.slot
     validator_index = message.validator_index
@@ -60,9 +65,9 @@ func addPayloadAttestation*(
   pool.pruneOldEntries(wallTime)
 
   # create an entry for this block and slot
-  let
-    entry = addr pool.attestations.mgetOrPut(slot).mgetOrPut(
-      beacon_block_root, PayloadAttestationEntry(data: message.data))
+  let entry = addr pool.attestations.mgetOrPut(slot).mgetOrPut(
+    beacon_block_root, PayloadAttestationEntry(data: message.data)
+  )
 
   # Check for duplicate
   let vidx = ValidatorIndex(validator_index)
@@ -76,10 +81,11 @@ func addPayloadAttestation*(
   true
 
 func aggregateMessages(
-    pool: PayloadAttestationPool, slot: Slot,
-    entry: var PayloadAttestationEntry, cache: var StateCache
+    pool: PayloadAttestationPool,
+    slot: Slot,
+    entry: var PayloadAttestationEntry,
+    cache: var StateCache,
 ): Opt[PayloadAttestation] =
-
   if entry.messages.len == 0:
     return Opt.none(PayloadAttestation)
 
@@ -102,20 +108,24 @@ func aggregateMessages(
         return Opt.none(PayloadAttestation)
 
       var aggregated_signature = AggregateSignature.init(signatures[0])
-      for i in 1..<signatures.len:
+      for i in 1 ..< signatures.len:
         aggregated_signature.aggregate(signatures[i])
 
-      Opt.some(PayloadAttestation(
-        aggregation_bits: aggregation_bits,
-        data: entry.data,
-        signature: aggregated_signature.finish().toValidatorSig()
-      ))
+      Opt.some(
+        PayloadAttestation(
+          aggregation_bits: aggregation_bits,
+          data: entry.data,
+          signature: aggregated_signature.finish().toValidatorSig(),
+        )
+      )
     else:
       Opt.none(PayloadAttestation)
 
 func getAggregatedPayloadAttestation*(
-    pool: var PayloadAttestationPool, slot: Slot,
-    beacon_block_root: Eth2Digest, cache: var StateCache
+    pool: var PayloadAttestationPool,
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+    cache: var StateCache,
 ): Opt[PayloadAttestation] =
   ## Get aggregated payload attestation for a specific block and slot
 
@@ -128,8 +138,8 @@ func getAggregatedPayloadAttestation*(
   Opt.none(PayloadAttestation)
 
 proc getPayloadAttestationsForBlock*(
-    pool: var PayloadAttestationPool, target_slot: Slot,
-    cache: var StateCache): seq[PayloadAttestation] =
+    pool: var PayloadAttestationPool, target_slot: Slot, cache: var StateCache
+): seq[PayloadAttestation] =
   ## Get payload attestations to include in a block for a target slot
   let startPackingTick = Moment.now()
 
@@ -149,8 +159,7 @@ proc getPayloadAttestationsForBlock*(
     for beacon_block_root, entry in slotEntries[]:
       totalCandidates += 1
       let aggregated =
-        pool.getAggregatedPayloadAttestation(
-          attestation_slot, beacon_block_root, cache)
+        pool.getAggregatedPayloadAttestation(attestation_slot, beacon_block_root, cache)
       if aggregated.isSome():
         payload_attestations.add(aggregated.get())
         if payload_attestations.len >= MAX_PAYLOAD_ATTESTATIONS.int:
@@ -159,8 +168,10 @@ proc getPayloadAttestationsForBlock*(
   let packingDur = Moment.now() - startPackingTick
 
   debug "Packed payload attestations for block",
-    target_slot = target_slot, attestation_slot = attestation_slot,
-    packingDur = packingDur, totalCandidates = totalCandidates,
+    target_slot = target_slot,
+    attestation_slot = attestation_slot,
+    packingDur = packingDur,
+    totalCandidates = totalCandidates,
     payload_attestations = payload_attestations.len()
 
   payload_attestation_pool_block_packing_time.set(packingDur.toFloatSeconds())

@@ -10,32 +10,33 @@
 
 import
   # Standard library
-  std/[
-    strutils, streams, strformat, strscans,
-    macros, typetraits],
+  std/[strutils, streams, strformat, strscans, macros, typetraits],
   # Status libraries
-  faststreams, serialization/case_objects, snappy, stint, ../testutil,
+  faststreams,
+  serialization/case_objects,
+  snappy,
+  stint,
+  ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/digest,
   ../../beacon_chain/spec/datatypes/base,
   # Test utilities
-  ./fixtures_utils, ./os_ops
+  ./fixtures_utils,
+  ./os_ops
 
 # Parsing definitions
 # ------------------------------------------------------------------------
 
-const
-  SSZDir = SszTestsDir/"general"/"phase0"/"ssz_generic"
+const SSZDir = SszTestsDir / "general" / "phase0" / "ssz_generic"
 
-type
-  SSZHashTreeRoot = object
-    # The test files have the values at the "root"
-    # so we **must** use "root" as a field name
-    root: string
-    # Containers have a root (thankfully) and signing_root field
-    signing_root {.defaultVal: "".}: string
+type SSZHashTreeRoot = object
+  # The test files have the values at the "root"
+  # so we **must** use "root" as a field name
+  root: string
+  # Containers have a root (thankfully) and signing_root field
+  signing_root {.defaultVal: "".}: string
 
 type
   # Heterogeneous containers
@@ -100,24 +101,20 @@ type
     K: BitList[1281]
     L: BitSeq
 
-  ProgressiveSingleFieldContainerTestStruct
-      {.sszActiveFields: [1].} = object
+  ProgressiveSingleFieldContainerTestStruct {.sszActiveFields: [1].} = object
     A: byte
 
-  ProgressiveSingleListContainerTestStruct
-      {.sszActiveFields: [0, 0, 0, 0, 1].} = object
+  ProgressiveSingleListContainerTestStruct {.sszActiveFields: [0, 0, 0, 0, 1].} = object
     C: BitSeq
 
-  ProgressiveVarTestStruct
-      {.sszActiveFields: [1, 0, 1, 0, 1].} = object
+  ProgressiveVarTestStruct {.sszActiveFields: [1, 0, 1, 0, 1].} = object
     A: byte
     B: List[uint16, 123]
     C: BitSeq
 
-  ProgressiveComplexTestStruct
-      {.sszActiveFields: [
-        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1
-      ].} = object
+  ProgressiveComplexTestStruct {.
+    sszActiveFields: [1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1]
+  .} = object
     A: byte
     B: List[uint16, 123]
     C: BitSeq
@@ -129,6 +126,7 @@ type
 
   SelectorA {.pure.} = enum
     a = 1
+
   CompatibleUnionA {.allowDiscriminatorsWithoutZero.} = object
     case selector: SelectorA
     of SelectorA.a: aData: ProgressiveSingleFieldContainerTestStruct
@@ -136,6 +134,7 @@ type
   SelectorBC {.pure.} = enum
     b = 2
     c = 3
+
   CompatibleUnionBC {.allowDiscriminatorsWithoutZero.} = object
     case selector: SelectorBC
     of SelectorBC.b: bData: ProgressiveSingleListContainerTestStruct
@@ -146,6 +145,7 @@ type
     b = 2
     c = 3
     a4 = 4
+
   CompatibleUnionABCA {.allowDiscriminatorsWithoutZero.} = object
     case selector: SelectorABCA
     of SelectorABCA.a1, SelectorABCA.a4:
@@ -157,11 +157,10 @@ type
 # ------------------------------------------------------------------------
 
 proc checkBasic(
-    T: typedesc,
-    dir: string,
-    expectedHash: SSZHashTreeRoot
+    T: typedesc, dir: string, expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput].} =
-  let fileContents = snappy.decode(readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
+  let fileContents =
+    snappy.decode(readFileBytes(dir / "serialized.ssz_snappy"), MaxObjectSize)
   let deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
@@ -174,14 +173,13 @@ proc checkBasic(
 
 proc checkProgressiveList(
     sszSubType, dir: string, expectedHash: SSZHashTreeRoot
-) {.raises: [
-    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+) {.raises: [IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
   var typeIdent: string
   let wasMatched =
     try:
       scanf(sszSubType, "proglist_$+_", typeIdent)
     except ValueError:
-      false  # Parsed `size` is out of range
+      false # Parsed `size` is out of range
   doAssert wasMatched
 
   case typeIdent
@@ -220,85 +218,105 @@ macro testVector(typeIdent: string, size: int): untyped =
     for s in sizes:
       # if size == s // elif size == s
       let T = nnkBracketExpr.newTree(
-        ident"array", newLit(s),
+        ident"array",
+        newLit(s),
         case t
-        of "uint128": ident("UInt128")
-        of "uint256": ident("UInt256")
-        else: ident(t)
+        of "uint128":
+          ident("UInt128")
+        of "uint256":
+          ident("UInt256")
+        else:
+          ident(t),
       )
-      let testStmt = quote do:
+      let testStmt = quote:
         checkBasic(`T`, dir, expectedHash)
       sizeDispatch.add nnkElifBranch.newTree(
-        newCall(ident"==", size, newLit(s)),
-        testStmt
+        newCall(ident"==", size, newLit(s)), testStmt
       )
     sizeDispatch.add nnkElse.newTree quote do:
-      raise newException(TestSizeError,
-        "Unsupported **size** in type/size combination: array[" &
-        $size & "," & typeIdent & ']')
+      raise newException(
+        TestSizeError,
+        "Unsupported **size** in type/size combination: array[" & $size & "," & typeIdent &
+          ']',
+      )
     dispatcher.add nnkElifBranch.newTree(
-      newCall(ident"==", typeIdent, newLit(t)),
-      sizeDispatch
+      newCall(ident"==", typeIdent, newLit(t)), sizeDispatch
     )
   dispatcher.add nnkElse.newTree quote do:
-    raise newException(ValueError,
-      "Unsupported **type** in type/size combination: array[" &
-      $`size` & ", " & `typeIdent` & ']')
+    raise newException(
+      ValueError,
+      "Unsupported **type** in type/size combination: array[" & $`size` & ", " &
+        `typeIdent` & ']',
+    )
 
   result = dispatcher
   # echo result.toStrLit() # view the generated code
 
 proc checkVector(
-    sszSubType, dir: string,
-    expectedHash: SSZHashTreeRoot
-) {.raises: [
-    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
   var typeIdent: string
   var size: int
   let wasMatched =
     try:
       scanf(sszSubType, "vec_$+_$i", typeIdent, size)
     except ValueError:
-      false  # Parsed `size` is out of range
+      false # Parsed `size` is out of range
   doAssert wasMatched
   testVector(typeIdent, size)
 
 proc checkBitVector(
-    sszSubType, dir: string,
-    expectedHash: SSZHashTreeRoot
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, TestSizeError, UnconsumedInput].} =
   var size: int
   let wasMatched =
     try:
       scanf(sszSubType, "bitvec_$i", size)
     except ValueError:
-      false  # Parsed `size` is out of range
+      false # Parsed `size` is out of range
   doAssert wasMatched
   case size
-  of 1: checkBasic(BitArray[1], dir, expectedHash)
-  of 2: checkBasic(BitArray[2], dir, expectedHash)
-  of 3: checkBasic(BitArray[3], dir, expectedHash)
-  of 4: checkBasic(BitArray[4], dir, expectedHash)
-  of 5: checkBasic(BitArray[5], dir, expectedHash)
-  of 6: checkBasic(BitArray[6], dir, expectedHash)
-  of 7: checkBasic(BitArray[7], dir, expectedHash)
-  of 8: checkBasic(BitArray[8], dir, expectedHash)
-  of 9: checkBasic(BitArray[9], dir, expectedHash)
-  of 15: checkBasic(BitArray[15], dir, expectedHash)
-  of 16: checkBasic(BitArray[16], dir, expectedHash)
-  of 17: checkBasic(BitArray[17], dir, expectedHash)
-  of 31: checkBasic(BitArray[31], dir, expectedHash)
-  of 32: checkBasic(BitArray[32], dir, expectedHash)
-  of 33: checkBasic(BitArray[33], dir, expectedHash)
-  of 511: checkBasic(BitArray[511], dir, expectedHash)
-  of 512: checkBasic(BitArray[512], dir, expectedHash)
-  of 513: checkBasic(BitArray[513], dir, expectedHash)
+  of 1:
+    checkBasic(BitArray[1], dir, expectedHash)
+  of 2:
+    checkBasic(BitArray[2], dir, expectedHash)
+  of 3:
+    checkBasic(BitArray[3], dir, expectedHash)
+  of 4:
+    checkBasic(BitArray[4], dir, expectedHash)
+  of 5:
+    checkBasic(BitArray[5], dir, expectedHash)
+  of 6:
+    checkBasic(BitArray[6], dir, expectedHash)
+  of 7:
+    checkBasic(BitArray[7], dir, expectedHash)
+  of 8:
+    checkBasic(BitArray[8], dir, expectedHash)
+  of 9:
+    checkBasic(BitArray[9], dir, expectedHash)
+  of 15:
+    checkBasic(BitArray[15], dir, expectedHash)
+  of 16:
+    checkBasic(BitArray[16], dir, expectedHash)
+  of 17:
+    checkBasic(BitArray[17], dir, expectedHash)
+  of 31:
+    checkBasic(BitArray[31], dir, expectedHash)
+  of 32:
+    checkBasic(BitArray[32], dir, expectedHash)
+  of 33:
+    checkBasic(BitArray[33], dir, expectedHash)
+  of 511:
+    checkBasic(BitArray[511], dir, expectedHash)
+  of 512:
+    checkBasic(BitArray[512], dir, expectedHash)
+  of 513:
+    checkBasic(BitArray[513], dir, expectedHash)
   else:
     raise newException(TestSizeError, "Unsupported BitVector of size " & $size)
 
 proc checkBitList(
-    sszSubType, dir: string,
-    expectedHash: SSZHashTreeRoot
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput, ValueError].} =
   if sszSubType.startsWith("bitlist_n"):
     # Invalid data, ensure that it does not deserialize with different sizes
@@ -328,95 +346,137 @@ proc checkBitList(
     try:
       scanf(sszSubType, "bitlist_$i", maxLen)
     except ValueError:
-      false  # Parsed `size` is out of range
+      false # Parsed `size` is out of range
   doAssert wasMatched
   case maxLen
-  of 0: checkBasic(BitList[0], dir, expectedHash)
-  of 1: checkBasic(BitList[1], dir, expectedHash)
-  of 2: checkBasic(BitList[2], dir, expectedHash)
-  of 3: checkBasic(BitList[3], dir, expectedHash)
-  of 4: checkBasic(BitList[4], dir, expectedHash)
-  of 5: checkBasic(BitList[5], dir, expectedHash)
-  of 6: checkBasic(BitList[6], dir, expectedHash)
-  of 7: checkBasic(BitList[7], dir, expectedHash)
-  of 8: checkBasic(BitList[8], dir, expectedHash)
-  of 9: checkBasic(BitList[9], dir, expectedHash)
-  of 15: checkBasic(BitList[15], dir, expectedHash)
-  of 16: checkBasic(BitList[16], dir, expectedHash)
-  of 17: checkBasic(BitList[17], dir, expectedHash)
-  of 31: checkBasic(BitList[31], dir, expectedHash)
-  of 32: checkBasic(BitList[32], dir, expectedHash)
-  of 33: checkBasic(BitList[33], dir, expectedHash)
-  of 511: checkBasic(BitList[511], dir, expectedHash)
-  of 512: checkBasic(BitList[512], dir, expectedHash)
-  of 513: checkBasic(BitList[513], dir, expectedHash)
+  of 0:
+    checkBasic(BitList[0], dir, expectedHash)
+  of 1:
+    checkBasic(BitList[1], dir, expectedHash)
+  of 2:
+    checkBasic(BitList[2], dir, expectedHash)
+  of 3:
+    checkBasic(BitList[3], dir, expectedHash)
+  of 4:
+    checkBasic(BitList[4], dir, expectedHash)
+  of 5:
+    checkBasic(BitList[5], dir, expectedHash)
+  of 6:
+    checkBasic(BitList[6], dir, expectedHash)
+  of 7:
+    checkBasic(BitList[7], dir, expectedHash)
+  of 8:
+    checkBasic(BitList[8], dir, expectedHash)
+  of 9:
+    checkBasic(BitList[9], dir, expectedHash)
+  of 15:
+    checkBasic(BitList[15], dir, expectedHash)
+  of 16:
+    checkBasic(BitList[16], dir, expectedHash)
+  of 17:
+    checkBasic(BitList[17], dir, expectedHash)
+  of 31:
+    checkBasic(BitList[31], dir, expectedHash)
+  of 32:
+    checkBasic(BitList[32], dir, expectedHash)
+  of 33:
+    checkBasic(BitList[33], dir, expectedHash)
+  of 511:
+    checkBasic(BitList[511], dir, expectedHash)
+  of 512:
+    checkBasic(BitList[512], dir, expectedHash)
+  of 513:
+    checkBasic(BitList[513], dir, expectedHash)
   else:
     raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
 
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(dir, sszType, sszSubType: string)
-    {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
-               ValueError, YamlConstructionError, YamlParserError].} =
+proc sszCheck(
+    dir, sszType, sszSubType: string
+) {.
+    raises: [
+      IOError, OSError, SerializationError, UnconsumedInput, ValueError,
+      YamlConstructionError, YamlParserError,
+    ]
+.} =
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
-  if fileExists(dir/"meta.yaml"):
-    let s = openFileStream(dir/"meta.yaml")
-    defer: close(s)
+  if fileExists(dir / "meta.yaml"):
+    let s = openFileStream(dir / "meta.yaml")
+    defer:
+      close(s)
     yaml.load(s, expectedHash)
 
   # Deserialization and checks
   case sszType
-  of "boolean": checkBasic(bool, dir, expectedHash)
+  of "boolean":
+    checkBasic(bool, dir, expectedHash)
   of "uints":
     var bitsize: int
     let wasMatched =
       try:
         scanf(sszSubType, "uint_$i", bitsize)
       except ValueError:
-        false  # Parsed `size` is out of range
+        false # Parsed `size` is out of range
     doAssert wasMatched
     case bitsize
-    of 8:   checkBasic(uint8, dir, expectedHash)
-    of 16:  checkBasic(uint16, dir, expectedHash)
-    of 32:  checkBasic(uint32, dir, expectedHash)
-    of 64:  checkBasic(uint64, dir, expectedHash)
-    of 128: checkBasic(UInt128, dir, expectedHash)
-    of 256: checkBasic(UInt256, dir, expectedHash)
+    of 8:
+      checkBasic(uint8, dir, expectedHash)
+    of 16:
+      checkBasic(uint16, dir, expectedHash)
+    of 32:
+      checkBasic(uint32, dir, expectedHash)
+    of 64:
+      checkBasic(uint64, dir, expectedHash)
+    of 128:
+      checkBasic(UInt128, dir, expectedHash)
+    of 256:
+      checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_progressive_list":
     checkProgressiveList(sszSubType, dir, expectedHash)
-  of "basic_vector": checkVector(sszSubType, dir, expectedHash)
-  of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
-  of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "basic_vector":
+    checkVector(sszSubType, dir, expectedHash)
+  of "bitvector":
+    checkBitVector(sszSubType, dir, expectedHash)
+  of "bitlist":
+    checkBitList(sszSubType, dir, expectedHash)
   of "compatible_unions":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
     case name
-    of "CompatibleUnionA": checkBasic(CompatibleUnionA, dir, expectedHash)
-    of "CompatibleUnionBC": checkBasic(CompatibleUnionBC, dir, expectedHash)
-    of "CompatibleUnionABCA": checkBasic(CompatibleUnionABCA, dir, expectedHash)
+    of "CompatibleUnionA":
+      checkBasic(CompatibleUnionA, dir, expectedHash)
+    of "CompatibleUnionBC":
+      checkBasic(CompatibleUnionBC, dir, expectedHash)
+    of "CompatibleUnionABCA":
+      checkBasic(CompatibleUnionABCA, dir, expectedHash)
     else:
-      raise newException(ValueError,
-        "unknown compatible union in test: " & sszSubType)
+      raise newException(ValueError, "unknown compatible union in test: " & sszSubType)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
     case name
-    of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
-    of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
-    of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
-    of "VarTestStruct": checkBasic(VarTestStruct, dir, expectedHash)
+    of "SingleFieldTestStruct":
+      checkBasic(SingleFieldTestStruct, dir, expectedHash)
+    of "SmallTestStruct":
+      checkBasic(SmallTestStruct, dir, expectedHash)
+    of "FixedTestStruct":
+      checkBasic(FixedTestStruct, dir, expectedHash)
+    of "VarTestStruct":
+      checkBasic(VarTestStruct, dir, expectedHash)
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
     of "ProgressiveTestStruct":
       checkBasic(ProgressiveTestStruct, dir, expectedHash)
-    of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
+    of "BitsStruct":
+      checkBasic(BitsStruct, dir, expectedHash)
     of "ProgressiveBitsStruct":
       checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
@@ -437,8 +497,8 @@ proc sszCheck(dir, sszType, sszSubType: string)
     of "ProgressiveComplexTestStruct":
       checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
     else:
-      raise newException(ValueError,
-        "unknown progressive container in test: " & sszSubType)
+      raise
+        newException(ValueError, "unknown progressive container in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -469,20 +529,21 @@ proc runInvalidTest(dir, sszType, sszSubType: string) =
       check false
 
 suite "EF - SSZ generic types":
-  doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
+  doAssert dirExists(SSZDir),
+    "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
     block:
-      let path = SSZDir/sszType/"valid"
-      for pathKind, sszSubType in walkDir(
-          path, relative = true, checkDir = true):
-        if pathKind != pcDir: continue
-        runValidTest(path/sszSubType, sszType, sszSubType)
+      let path = SSZDir / sszType / "valid"
+      for pathKind, sszSubType in walkDir(path, relative = true, checkDir = true):
+        if pathKind != pcDir:
+          continue
+        runValidTest(path / sszSubType, sszType, sszSubType)
 
     block:
-      let path = SSZDir/sszType/"invalid"
-      for pathKind, sszSubType in walkDir(
-          path, relative = true, checkDir = true):
-        if pathKind != pcDir: continue
-        runInvalidTest(path/sszSubType, sszType, sszSubType)
+      let path = SSZDir / sszType / "invalid"
+      for pathKind, sszSubType in walkDir(path, relative = true, checkDir = true):
+        if pathKind != pcDir:
+          continue
+        runInvalidTest(path / sszSubType, sszType, sszSubType)

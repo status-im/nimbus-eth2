@@ -9,9 +9,17 @@
 
 import
   std/[json, options, times],
-  chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
-  web3, eth/common/keys, eth/p2p/discoveryv5/random2,
-  stew/[io2, byteutils], json_rpc/jsonmarshal,
+  chronos,
+  bearssl/rand,
+  chronicles,
+  confutils,
+  stint,
+  json_serialization,
+  web3,
+  eth/common/keys,
+  eth/p2p/discoveryv5/random2,
+  stew/[io2, byteutils],
+  json_rpc/jsonmarshal,
   ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
@@ -25,7 +33,8 @@ from ../beacon_chain/el/engine_api_conversions import asEth2Digest
 from ../tests/teststateutil import initGenesisState, mockEth1BlockHash
 
 # For nim-confutils, which uses this kind of init(Type, value) pattern
-func init(T: type IpAddress, ip: IpAddress): T = ip
+func init(T: type IpAddress, ip: IpAddress): T =
+  ip
 
 type
   StartUpCommand {.pure.} = enum
@@ -39,191 +48,206 @@ type
 
   CliConfig* = object
     web3Url* {.
-      defaultValue: "",
-      desc: "URL of the Web3 server to observe Eth1"
-      name: "web3-url" }: string
+      defaultValue: "", desc: "URL of the Web3 server to observe Eth1", name: "web3-url"
+    .}: string
 
     privateKey* {.
-      defaultValue: ""
-      desc: "Private key of the controlling account"
-      name: "private-key" }: string
+      defaultValue: "",
+      desc: "Private key of the controlling account",
+      name: "private-key"
+    .}: string
 
     askForKey* {.
-      defaultValue: false
-      desc: "Ask for an Eth1 private key interactively"
-      name: "ask-for-key" }: bool
+      defaultValue: false,
+      desc: "Ask for an Eth1 private key interactively",
+      name: "ask-for-key"
+    .}: bool
 
-    eth2Network* {.
-      desc: "The Eth2 network preset to use"
-      name: "network" }: Option[string]
+    eth2Network* {.desc: "The Eth2 network preset to use", name: "network".}:
+      Option[string]
 
     case cmd* {.command.}: StartUpCommand
     of StartUpCommand.deployDepositContract:
       discard
-
     of StartUpCommand.sendEth:
       toAddress* {.name: "to".}: Eth1Address
       valueEth* {.name: "eth".}: string
-
     of StartUpCommand.generateDeposits:
       simulationDepositsCount* {.
-        desc: "The number of validator keystores to generate"
-        name: "count" }: Natural
+        desc: "The number of validator keystores to generate", name: "count"
+      .}: Natural
 
       outValidatorsDir* {.
-        desc: "A directory to store the generated validator keystores"
-        name: "out-validators-dir" }: OutDir
+        desc: "A directory to store the generated validator keystores",
+        name: "out-validators-dir"
+      .}: OutDir
 
       outSecretsDir* {.
-        desc: "A directory to store the generated keystore password files"
-        name: "out-secrets-dir" }: OutDir
+        desc: "A directory to store the generated keystore password files",
+        name: "out-secrets-dir"
+      .}: OutDir
 
       outDepositsFile* {.
-        desc: "A LaunchPad deposits file to write"
-        name: "out-deposits-file" }: OutFile
+        desc: "A LaunchPad deposits file to write", name: "out-deposits-file"
+      .}: OutFile
 
       threshold* {.
-        defaultValue: 1
-        desc: "Used to generate distributed keys"
-        name: "threshold" }: uint32
+        defaultValue: 1, desc: "Used to generate distributed keys", name: "threshold"
+      .}: uint32
 
       remoteValidatorsCount* {.
-        defaultValue: 0
-        desc: "The number of distributed validators validator"
-        name: "remote-validators-count" }: uint32
+        defaultValue: 0,
+        desc: "The number of distributed validators validator",
+        name: "remote-validators-count"
+      .}: uint32
 
-      remoteSignersUrls* {.
-        desc: "URLs of the remote signers"
-        name: "remote-signer" }: seq[string]
-
+      remoteSignersUrls* {.desc: "URLs of the remote signers", name: "remote-signer".}:
+        seq[string]
     of StartUpCommand.createTestnet:
       testnetDepositsFile* {.
-        desc: "A LaunchPad deposits file for the genesis state validators"
-        name: "deposits-file" .}: InputFile
+        desc: "A LaunchPad deposits file for the genesis state validators",
+        name: "deposits-file"
+      .}: InputFile
 
       totalValidators* {.
-        desc: "The number of validator deposits in the newly created chain"
-        name: "total-validators" .}: uint64
+        desc: "The number of validator deposits in the newly created chain",
+        name: "total-validators"
+      .}: uint64
 
       bootstrapAddress* {.
-        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "bootstrap-address" .}: IpAddress
+        desc:
+          "The public IP address that will be advertised as a bootstrap node for the testnet",
+        defaultValue: defaultAdminListenAddress,
+        defaultValueDesc: $defaultAdminListenAddressDesc,
+        name: "bootstrap-address"
+      .}: IpAddress
 
       bootstrapPort* {.
-        desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "bootstrap-port" .}: Port
+        desc: "The TCP/UDP port that will be used by the bootstrap node",
+        defaultValue: defaultEth2TcpPort,
+        defaultValueDesc: $defaultEth2TcpPortDesc,
+        name: "bootstrap-port"
+      .}: Port
 
       dataDir* {.
-        desc: "Nimbus data directory where the keys of the bootstrap node will be placed"
-        name: "data-dir" .}: OutDir
+        desc:
+          "Nimbus data directory where the keys of the bootstrap node will be placed",
+        name: "data-dir"
+      .}: OutDir
 
       netKeyFile* {.
-        desc: "Source of network (secp256k1) private key file"
-        name: "netkey-file" .}: OutFile
+        desc: "Source of network (secp256k1) private key file", name: "netkey-file"
+      .}: OutFile
 
       netKeyInsecurePassword* {.
-        desc: "Use pre-generated INSECURE password for network private key file"
+        desc: "Use pre-generated INSECURE password for network private key file",
         defaultValue: false,
-        name: "insecure-netkey-password" .}: bool
+        name: "insecure-netkey-password"
+      .}: bool
 
       genesisTime* {.
-        desc: "Unix epoch time of the network genesis"
-        name: "genesis-time" .}: Option[uint64]
+        desc: "Unix epoch time of the network genesis", name: "genesis-time"
+      .}: Option[uint64]
 
       genesisOffset* {.
-        desc: "Seconds from now to add to genesis time"
-        name: "genesis-offset" .}: Option[int]
+        desc: "Seconds from now to add to genesis time", name: "genesis-offset"
+      .}: Option[int]
 
       executionGenesisBlock* {.
-        desc: "The execution genesis block in a merged testnet"
-        name: "execution-genesis-block" .}: Option[InputFile]
+        desc: "The execution genesis block in a merged testnet",
+        name: "execution-genesis-block"
+      .}: Option[InputFile]
 
       capellaForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Capella hard-fork"
-        name: "capella-fork-epoch" .}: Epoch
+        defaultValue: FAR_FUTURE_EPOCH,
+        desc: "The epoch of the Capella hard-fork",
+        name: "capella-fork-epoch"
+      .}: Epoch
 
       denebForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Deneb hard-fork"
-        name: "deneb-fork-epoch" .}: Epoch
+        defaultValue: FAR_FUTURE_EPOCH,
+        desc: "The epoch of the Deneb hard-fork",
+        name: "deneb-fork-epoch"
+      .}: Epoch
 
       electraForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Electra hard-fork"
-        name: "electra-fork-epoch" .}: Epoch
+        defaultValue: FAR_FUTURE_EPOCH,
+        desc: "The epoch of the Electra hard-fork",
+        name: "electra-fork-epoch"
+      .}: Epoch
 
       fuluForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Fulu hard-fork"
-        name: "fulu-fork-epoch" .}: Epoch
+        defaultValue: FAR_FUTURE_EPOCH,
+        desc: "The epoch of the Fulu hard-fork",
+        name: "fulu-fork-epoch"
+      .}: Epoch
 
       gloasForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Gloas hard-fork"
-        name: "gloas-fork-epoch" .}: Epoch
+        defaultValue: FAR_FUTURE_EPOCH,
+        desc: "The epoch of the Gloas hard-fork",
+        name: "gloas-fork-epoch"
+      .}: Epoch
 
       outputGenesis* {.
-        desc: "Output file where to write the initial state snapshot"
-        name: "output-genesis" .}: OutFile
+        desc: "Output file where to write the initial state snapshot",
+        name: "output-genesis"
+      .}: OutFile
 
       outputBootstrapFile* {.
-        desc: "Output file with list of bootstrap nodes for the network"
-        name: "output-bootstrap-file" .}: OutFile
-
+        desc: "Output file with list of bootstrap nodes for the network",
+        name: "output-bootstrap-file"
+      .}: OutFile
     of StartUpCommand.createTestnetEnr:
-      inputBootstrapEnr* {.
-        desc: "Path to the bootstrap ENR"
-        name: "bootstrap-enr" .}: InputFile
+      inputBootstrapEnr* {.desc: "Path to the bootstrap ENR", name: "bootstrap-enr".}:
+        InputFile
 
       enrDataDir* {.
-        desc: "Nimbus data directory where the keys of the node will be placed"
-        name: "data-dir" .}: OutDir
+        desc: "Nimbus data directory where the keys of the node will be placed",
+        name: "data-dir"
+      .}: OutDir
 
       enrNetKeyFile* {.
-        desc: "Source of network (secp256k1) private key file"
-        name: "enr-netkey-file" .}: OutFile
+        desc: "Source of network (secp256k1) private key file", name: "enr-netkey-file"
+      .}: OutFile
 
       enrNetKeyInsecurePassword* {.
-        desc: "Use pre-generated INSECURE password for network private key file"
+        desc: "Use pre-generated INSECURE password for network private key file",
         defaultValue: false,
-        name: "insecure-netkey-password" .}: bool
+        name: "insecure-netkey-password"
+      .}: bool
 
       enrAddress* {.
-        desc: "The public IP address of that ENR"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "enr-address" .}: IpAddress
+        desc: "The public IP address of that ENR",
+        defaultValue: defaultAdminListenAddress,
+        defaultValueDesc: $defaultAdminListenAddressDesc,
+        name: "enr-address"
+      .}: IpAddress
 
       enrPort* {.
-        desc: "The TCP/UDP port of that ENR"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "enr-port" .}: Port
-
+        desc: "The TCP/UDP port of that ENR",
+        defaultValue: defaultEth2TcpPort,
+        defaultValueDesc: $defaultEth2TcpPortDesc,
+        name: "enr-port"
+      .}: Port
     of StartUpCommand.sendDeposits:
-      depositsFile* {.
-        desc: "A LaunchPad deposits file"
-        name: "deposits-file" }: InputFile
+      depositsFile* {.desc: "A LaunchPad deposits file", name: "deposits-file".}:
+        InputFile
 
       depositContractAddress* {.
-        desc: "Address of the deposit contract"
-        name: "deposit-contract" }: Eth1Address
+        desc: "Address of the deposit contract", name: "deposit-contract"
+      .}: Eth1Address
 
       minDelay* {.
-        defaultValue: 0.0
-        desc: "Minimum possible delay between making two deposits (in seconds)"
-        name: "min-delay" }: float
+        defaultValue: 0.0,
+        desc: "Minimum possible delay between making two deposits (in seconds)",
+        name: "min-delay"
+      .}: float
 
       maxDelay* {.
-        defaultValue: 0.0
-        desc: "Maximum possible delay between making two deposits (in seconds)"
-        name: "max-delay" }: float
-
+        defaultValue: 0.0,
+        desc: "Maximum possible delay between making two deposits (in seconds)",
+        name: "max-delay"
+      .}: float
     of StartUpCommand.run:
       discard
 
@@ -233,10 +257,12 @@ type
   SignatureBytes = DynamicBytes[96, 96]
 
 contract(DepositContract):
-  proc deposit(pubkey: PubKeyBytes,
-               withdrawalCredentials: WithdrawalCredentialsBytes,
-               signature: SignatureBytes,
-               deposit_data_root: web3.FixedBytes[32])
+  proc deposit(
+    pubkey: PubKeyBytes,
+    withdrawalCredentials: WithdrawalCredentialsBytes,
+    signature: SignatureBytes,
+    deposit_data_root: web3.FixedBytes[32],
+  )
 
 template `as`(address: Hash32, T: type Eth2Digest): T =
   asEth2Digest(address)
@@ -248,7 +274,8 @@ func getOrDefault[T](x: Opt[T]): T =
     default T
 
 func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
+  T(
+    parent_hash: blk.parentHash as Eth2Digest,
     fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
@@ -261,10 +288,12 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
     extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest)
+    transactions_root: blk.transactionsRoot as Eth2Digest,
+  )
 
 func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
+  T(
+    parent_hash: blk.parentHash as Eth2Digest,
     fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
@@ -278,10 +307,12 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest)
+    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
+  )
 
 func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
+  T(
+    parent_hash: blk.parentHash as Eth2Digest,
     fee_recipient: blk.miner,
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
@@ -297,41 +328,44 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     transactions_root: blk.transactionsRoot as Eth2Digest,
     withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
-    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
+    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault(),
+  )
 
-proc writeValue*(writer: var JsonWriter, value: DateTime) {.
-     raises: [IOError].} =
+proc writeValue*(writer: var JsonWriter, value: DateTime) {.raises: [IOError].} =
   writer.writeValue($value)
 
-proc readValue*(reader: var JsonReader, value: var DateTime) {.
-     raises: [IOError, SerializationError].} =
+proc readValue*(
+    reader: var JsonReader, value: var DateTime
+) {.raises: [IOError, SerializationError].} =
   let s = reader.readValue(string)
   try:
     value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
   except CatchableError:
     raiseUnexpectedValue(reader, "Invalid date time")
 
-proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
-     raises: [IOError].} =
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.raises: [IOError].} =
   writer.writeValue(distinctBase value)
 
-proc readValue*(reader: var JsonReader, value: var IoErrorCode) {.
-     raises: [IOError, SerializationError].} =
+proc readValue*(
+    reader: var JsonReader, value: var IoErrorCode
+) {.raises: [IOError, SerializationError].} =
   IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
-proc createEnr(rng: var HmacDrbgContext,
-               dataDir: string,
-               netKeyFile: string,
-               netKeyInsecurePassword: bool,
-               cfg: RuntimeConfig,
-               forkId: seq[byte],
-               address: IpAddress,
-               port: Port): enr.Record
-               {.raises: [CatchableError].} =
+proc createEnr(
+    rng: var HmacDrbgContext,
+    dataDir: string,
+    netKeyFile: string,
+    netKeyInsecurePassword: bool,
+    cfg: RuntimeConfig,
+    forkId: seq[byte],
+    address: IpAddress,
+    port: Port,
+): enr.Record {.raises: [CatchableError].} =
   type MetaData = altair.MetaData
   let
     networkKeys = rng.getPersistentNetKeys(
-      dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false)
+      dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false
+    )
 
     netMetadata = MetaData()
     bootstrapEnr = enr.Record.init(
@@ -342,29 +376,32 @@ proc createEnr(rng: var HmacDrbgContext,
       Opt.some(port),
       [
         toFieldPair(enrForkIdField, forkId),
-        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
-      ])
+        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets)),
+      ],
+    )
   bootstrapEnr.tryGet()
 
-proc doCreateTestnet*(config: CliConfig,
-                      rng: var HmacDrbgContext)
-                     {.raises: [CatchableError].} =
-  let launchPadDeposits = try:
-    Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
-  except SerializationError as err:
-    error "Invalid LaunchPad deposits file",
-          err = formatMsg(err, config.testnetDepositsFile.string)
-    quit 1
+proc doCreateTestnet*(
+    config: CliConfig, rng: var HmacDrbgContext
+) {.raises: [CatchableError].} =
+  let launchPadDeposits =
+    try:
+      Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
+    except SerializationError as err:
+      error "Invalid LaunchPad deposits file",
+        err = formatMsg(err, config.testnetDepositsFile.string)
+      quit 1
 
   var deposits: seq[DepositData]
   for i in 0 ..< launchPadDeposits.len:
     deposits.add(launchPadDeposits[i] as DepositData)
 
   let
-    startTime = if config.genesisTime.isSome:
-      config.genesisTime.get
-    else:
-      uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
+    startTime =
+      if config.genesisTime.isSome:
+        config.genesisTime.get
+      else:
+        uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
     outGenesis = config.outputGenesis.string
     eth1Hash = mockEth1BlockHash # TODO: Can we set a more appropriate value?
 
@@ -393,15 +430,14 @@ proc doCreateTestnet*(config: CliConfig,
     let genesisBlockContents = readAllChars(config.executionGenesisBlock.get.string)
     if genesisBlockContents.isErr:
       error "Failed to read the specified execution genesis block file",
-            err = genesisBlockContents.error
+        err = genesisBlockContents.error
       quit 1
 
     try:
       let blockAsJson = genesisBlockContents.get
       genesisBlock = JrpcConv.decode(blockAsJson, BlockObject)
     except CatchableError as err:
-      error "Failed to load the genesis block from json",
-            err = err.msg
+      error "Failed to load the genesis block from json", err = err.msg
       quit 1
 
   template createAndSaveState(): Eth2Digest =
@@ -429,8 +465,7 @@ proc doCreateTestnet*(config: CliConfig,
 
       let outSszGenesis = outGenesis.changeFileExt "ssz"
       SSZ.saveFile(outSszGenesis, forkyState.data)
-      info "SSZ genesis file written",
-            path = outSszGenesis, fork = consensusFork
+      info "SSZ genesis file written", path = outSszGenesis, fork = consensusFork
 
       forkyState.data.genesis_validators_root
 
@@ -439,29 +474,29 @@ proc doCreateTestnet*(config: CliConfig,
   let bootstrapFile = string config.outputBootstrapFile
   if bootstrapFile.len > 0:
     let
-      forkId = getENRForkID(
+      forkId = getENRForkID(cfg, Epoch(0), genesisValidatorsRoot)
+      enr = createEnr(
+        rng,
+        string config.dataDir,
+        string config.netKeyFile,
+        config.netKeyInsecurePassword,
         cfg,
-        Epoch(0),
-        genesisValidatorsRoot)
-      enr =
-        createEnr(rng, string config.dataDir, string config.netKeyFile,
-          config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
-          config.bootstrapAddress, config.bootstrapPort)
+        SSZ.encode(forkId),
+        config.bootstrapAddress,
+        config.bootstrapPort,
+      )
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 
 when isMainModule:
-  import
-    web3/confutils_defs,
-    ../beacon_chain/filepath
+  import web3/confutils_defs, ../beacon_chain/filepath
 
   from std/sequtils import mapIt, toSeq
   from std/terminal import readPasswordFromStdin
 
-  type
-    DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
+  type DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
 
   func ethToWei(eth: UInt256): UInt256 =
     eth * 1000000000000000000.u256
@@ -480,17 +515,24 @@ when isMainModule:
   const depositContractCode =
     hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
-  proc doCreateTestnetEnr(config: CliConfig,
-                          rng: var HmacDrbgContext)
-                         {.raises: [CatchableError].} =
+  proc doCreateTestnetEnr(
+      config: CliConfig, rng: var HmacDrbgContext
+  ) {.raises: [CatchableError].} =
     let
       cfg = getRuntimeConfig(config.eth2Network)
-      bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
+      bootstrapEnr =
+        parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
       forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
-      enr =
-        createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
-          config.enrNetKeyInsecurePassword, cfg, forkIdField,
-          config.enrAddress, config.enrPort)
+      enr = createEnr(
+        rng,
+        string config.enrDataDir,
+        string config.enrNetKeyFile,
+        config.enrNetKeyInsecurePassword,
+        cfg,
+        forkIdField,
+        config.enrAddress,
+        config.enrPort,
+      )
     stderr.writeLine(enr.toURI)
 
   proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
@@ -498,7 +540,8 @@ when isMainModule:
       `from`: Opt.some web3.defaultAccount,
       data: Opt.some code,
       gas: Opt.some Quantity(3000000),
-      gasPrice: Opt.some Quantity(1))
+      gasPrice: Opt.some Quantity(1),
+    )
 
     let r = await web3.send(tr)
     result = await web3.getMinedTransactionReceipt(r)
@@ -513,23 +556,23 @@ when isMainModule:
       gas: Opt.some Quantity(3000000),
       gasPrice: Opt.some Quantity(1),
       value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
-      to: Opt.some(to))
+      to: Opt.some(to),
+    )
     web3.send(tr)
 
   # TODO: async functions should note take `seq` inputs because
   #       this leads to full copies.
-  proc sendDeposits(deposits: seq[LaunchPadDeposit],
-                    web3Url, privateKey: string,
-                    depositContractAddress: Eth1Address,
-                    delayGenerator: DelayGenerator = nil) {.async.} =
-    notice "Sending deposits",
-      web3 = web3Url,
-      depositContract = depositContractAddress
+  proc sendDeposits(
+      deposits: seq[LaunchPadDeposit],
+      web3Url, privateKey: string,
+      depositContractAddress: Eth1Address,
+      delayGenerator: DelayGenerator = nil,
+  ) {.async.} =
+    notice "Sending deposits", web3 = web3Url, depositContract = depositContractAddress
 
     var web3 = await initWeb3(web3Url, privateKey)
     let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-    let depositContract = web3.contractSender(
-      DepositContract, depositContractAddress)
+    let depositContract = web3.contractSender(DepositContract, depositContractAddress)
     for i in 4200 ..< deposits.len:
       let dp = deposits[i] as DepositData
 
@@ -539,10 +582,10 @@ when isMainModule:
             PubKeyBytes(@(dp.pubkey.toRaw())),
             WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
             SignatureBytes(@(dp.signature.toRaw())),
-            FixedBytes[32](hash_tree_root(dp).data))
+            FixedBytes[32](hash_tree_root(dp).data),
+          )
 
-          let status = await tx.send(
-            value = 32.u256.ethToWei, gasPrice = gasPrice)
+          let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
 
           info "Deposit sent", tx = $status
 
@@ -555,11 +598,13 @@ when isMainModule:
           web3 = await initWeb3(web3Url, privateKey)
 
   proc main() {.async.} =
-    var conf = try: CliConfig.load()
-    except CatchableError as exc:
-      raise exc
-    except Exception as exc: # TODO fix confutils
-      raiseAssert exc.msg
+    var conf =
+      try:
+        CliConfig.load()
+      except CatchableError as exc:
+        raise exc
+      except Exception as exc: # TODO fix confutils
+        raiseAssert exc.msg
 
     let rng = HmacDrbgContext.new()
 
@@ -581,20 +626,21 @@ when isMainModule:
         cfg,
         rng[],
         seed,
-        0, conf.simulationDepositsCount,
+        0,
+        conf.simulationDepositsCount,
         string conf.outValidatorsDir,
         string conf.outSecretsDir,
         conf.remoteSignersUrls,
         conf.threshold,
         conf.remoteValidatorsCount,
-        KeystoreMode.Fast)
+        KeystoreMode.Fast,
+      )
 
       if deposits.isErr:
         fatal "Failed to generate deposits", err = deposits.error
         quit 1
 
-      let launchPadDeposits =
-        mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
+      let launchPadDeposits = mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
       Json.saveFile(string conf.outDepositsFile, launchPadDeposits)
       notice "Deposit data written", filename = conf.outDepositsFile
@@ -606,18 +652,19 @@ when isMainModule:
 
     if conf.askForKey:
       var
-        privateKey: string  # TODO consider using a SecretString type
+        privateKey: string # TODO consider using a SecretString type
         reasonForKey = ""
 
       if conf.cmd == StartUpCommand.sendDeposits:
         let
           depositsWord = if deposits.len > 1: "deposits" else: "deposit"
           totalEthNeeded = 32 * deposits.len
-        reasonForKey = " in order to make your $1 (you'll need access to $2 ETH)" %
-                       [depositsWord, $totalEthNeeded]
+        reasonForKey =
+          " in order to make your $1 (you'll need access to $2 ETH)" %
+          [depositsWord, $totalEthNeeded]
 
       echo "Please enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c)" &
-            reasonForKey
+        reasonForKey
 
       if not readPasswordFromStdin("> ", privateKey):
         error "Failed to read an Eth1 private key from standard input"
@@ -629,20 +676,16 @@ when isMainModule:
     of StartUpCommand.createTestnet:
       let rng = HmacDrbgContext.new()
       doCreateTestnet(conf, rng[])
-
     of StartUpCommand.createTestnetEnr:
       let rng = HmacDrbgContext.new()
       doCreateTestnetEnr(conf, rng[])
-
     of StartUpCommand.deployDepositContract:
       let web3 = await initWeb3(conf.web3Url, conf.privateKey)
       let receipt = await web3.deployContract(depositContractCode)
       echo receipt.contractAddress.get, ";", receipt.blockHash
-
     of StartUpCommand.sendEth:
       let web3 = await initWeb3(conf.web3Url, conf.privateKey)
       echo await sendEth(web3, conf.toAddress, conf.valueEth.parseInt)
-
     of StartUpCommand.sendDeposits:
       var delayGenerator: DelayGenerator
       if not (conf.maxDelay > 0.0):
@@ -652,18 +695,18 @@ when isMainModule:
         quit 1
 
       if conf.maxDelay > 0.0:
-        delayGenerator = proc (): chronos.Duration =
+        delayGenerator = proc(): chronos.Duration =
           let
-            minDelay = (conf.minDelay*1000).int64
-            maxDelay = (conf.maxDelay*1000).int64
+            minDelay = (conf.minDelay * 1000).int64
+            maxDelay = (conf.maxDelay * 1000).int64
           chronos.milliseconds (rng[].rand(maxDelay - minDelay) + minDelay)
 
-      await sendDeposits(deposits, conf.web3Url, conf.privateKey,
-                         conf.depositContractAddress, delayGenerator)
-
+      await sendDeposits(
+        deposits, conf.web3Url, conf.privateKey, conf.depositContractAddress,
+        delayGenerator,
+      )
     of StartUpCommand.run:
       discard
-
     of StartUpCommand.generateDeposits:
       # This is handled above before the case statement
       discard

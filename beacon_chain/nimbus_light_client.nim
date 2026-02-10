@@ -9,7 +9,9 @@
 
 import
   std/os,
-  chronicles, chronos, stew/io2,
+  chronicles,
+  chronos,
+  stew/io2,
   eth/db/kvstore_sqlite3,
   ./el/el_manager,
   ./gossip_processing/optimistic_processor,
@@ -47,25 +49,34 @@ proc main() {.noinline, raises: [CatchableError].} =
       path = dbDir, err = ioErrorMsg(res.error)
     quit 1
   let backend = SqStoreRef.init(dbDir, "nlc").expect("Database OK")
-  defer: backend.close()
-  let db = backend.initLightClientDB(LightClientDBNames(
-    legacyAltairHeaders: "altair_lc_headers",
-    headers: "lc_headers",
-    altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
-  defer: db.close()
+  defer:
+    backend.close()
+  let db = backend
+    .initLightClientDB(
+      LightClientDBNames(
+        legacyAltairHeaders: "altair_lc_headers",
+        headers: "lc_headers",
+        altairSyncCommittees: "altair_sync_committees",
+      )
+    )
+    .expect("Database OK")
+  defer:
+    db.close()
 
   let metadata = loadEth2Network(config.eth2Network)
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
-  template cfg(): auto = metadata.cfg
+  template cfg(): auto =
+    metadata.cfg
 
   let
-    genesisBytes = try: waitFor metadata.fetchGenesisBytes()
-                   except CatchableError as err:
-                     error "Failed to obtain genesis state",
-                            source = metadata.genesis.sourceDesc,
-                            err = err.msg
-                     quit 1
+    genesisBytes =
+      try:
+        waitFor metadata.fetchGenesisBytes()
+      except CatchableError as err:
+        error "Failed to obtain genesis state",
+          source = metadata.genesis.sourceDesc, err = err.msg
+        quit 1
     genesisState =
       try:
         newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
@@ -78,8 +89,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
-    genesis_validators_root =
-      getStateField(genesisState[], genesis_validators_root)
+    genesis_validators_root = getStateField(genesisState[], genesis_validators_root)
     forkDigests = newClone ForkDigests.init(cfg, genesis_validators_root)
 
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
@@ -103,18 +113,23 @@ proc main() {.noinline, raises: [CatchableError].} =
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         debugGloasComment ""
-        when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Bellatrix and
+            consensusFork != ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
-            template payload(): auto = forkyBlck.message.body.execution_payload
+            template payload(): auto =
+              forkyBlck.message.body.execution_payload
+
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(forkyBlck.message)
-        else: discard
-    optimisticProcessor = initOptimisticProcessor(
-      cfg.timeParams, getBeaconTime, optimisticHandler)
+        else:
+          discard
+    optimisticProcessor =
+      initOptimisticProcessor(cfg.timeParams, getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
-      network, rng, config, cfg, forkDigests, getBeaconTime,
-      genesis_validators_root, LightClientFinalizationMode.Optimistic)
+      network, rng, config, cfg, forkDigests, getBeaconTime, genesis_validators_root,
+      LightClientFinalizationMode.Optimistic,
+    )
 
   # Run `exchangeTransitionConfiguration` loop
   if elManager != nil:
@@ -122,8 +137,9 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   info "Listening to incoming network requests"
   network.registerProtocol(
-    PeerSync, PeerSync.NetworkState.init(
-      cfg, forkDigests, genesisBlockRoot, getBeaconTime))
+    PeerSync,
+    PeerSync.NetworkState.init(cfg, forkDigests, genesisBlockRoot, getBeaconTime),
+  )
 
   for consensusFork in ConsensusFork:
     for forkDigest in consensusFork.forkDigests(forkDigests[]):
@@ -132,12 +148,14 @@ proc main() {.noinline, raises: [CatchableError].} =
           debugGloasComment "consensusFork.SignedBeaconBlock support missing"
         else:
           network.addValidator(
-            getBeaconBlocksTopic(forkDigest), proc (
-                signedBlock: consensusFork.SignedBeaconBlock,
-                src: PeerId
+            getBeaconBlocksTopic(forkDigest),
+            proc(
+                signedBlock: consensusFork.SignedBeaconBlock, src: PeerId
             ): ValidationResult =
               toValidationResult(
-                optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+                optimisticProcessor.processSignedBeaconBlock(signedBlock)
+              ),
+          )
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
@@ -148,26 +166,28 @@ proc main() {.noinline, raises: [CatchableError].} =
     optimisticSlot >= max(wallSlot, maxAge.Slot) - maxAge
 
   proc onFinalizedHeader(
-      lightClient: LightClient, finalizedHeader: ForkedLightClientHeader) =
+      lightClient: LightClient, finalizedHeader: ForkedLightClientHeader
+  ) =
     withForkyHeader(finalizedHeader):
       when lcDataFork > LightClientDataFork.None:
-        info "New LC finalized header",
-          finalized_header = shortLog(forkyHeader)
+        info "New LC finalized header", finalized_header = shortLog(forkyHeader)
         let
           period = forkyHeader.beacon.slot.sync_committee_period
           syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
-    .Raising([CancelledError])
+  var optimisticFcuFut:
+    Future[(PayloadExecutionStatus, Opt[Hash32])].Raising([CancelledError])
   proc onOptimisticHeader(
-      lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
+      lightClient: LightClient, optimisticHeader: ForkedLightClientHeader
+  ) =
     if optimisticFcuFut != nil:
       return
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
-        logScope: optimistic_header = shortLog(forkyHeader)
+        logScope:
+          optimistic_header = shortLog(forkyHeader)
         when lcDataFork >= LightClientDataFork.Capella:
           let
             bid = forkyHeader.beacon.toBlockId()
@@ -192,14 +212,14 @@ proc main() {.noinline, raises: [CatchableError].} =
 
           withConsensusFork(consensusFork):
             when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
-              debug "Sending forkchoiceUpdated",
-                finalizedBlockHash = finalizedBlockHash
+              debug "Sending forkchoiceUpdated", finalizedBlockHash = finalizedBlockHash
               optimisticFcuFut = elManager.forkchoiceUpdated(
                 headBlockHash = blockHash,
-                safeBlockHash = finalizedBlockHash,  # justified not available
+                safeBlockHash = finalizedBlockHash, # justified not available
                 finalizedBlockHash = finalizedBlockHash,
-                payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
-              optimisticFcuFut.addCallback do (future: pointer):
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes),
+              )
+              optimisticFcuFut.addCallback do(future: pointer):
                 optimisticFcuFut = nil
         else:
           info "Ignoring new LC optimistic header until Capella"
@@ -251,16 +271,16 @@ proc main() {.noinline, raises: [CatchableError].} =
       isBehind = not shouldSyncOptimistically(slot)
       targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
 
-    template currentGossipState(): auto = blocksGossipState
+    template currentGossipState(): auto =
+      blocksGossipState
+
     if currentGossipState == targetGossipState:
       return
 
     if currentGossipState.len == 0 and targetGossipState.len > 0:
-      debug "Enabling blocks topic subscriptions",
-        wallSlot = slot, targetGossipState
+      debug "Enabling blocks topic subscriptions", wallSlot = slot, targetGossipState
     elif currentGossipState.len > 0 and targetGossipState.len == 0:
-      debug "Disabling blocks topic subscriptions",
-        wallSlot = slot
+      debug "Disabling blocks topic subscriptions", wallSlot = slot
     else:
       # Individual forks added / removed
       discard
@@ -274,7 +294,8 @@ proc main() {.noinline, raises: [CatchableError].} =
       network.subscribe(
         getBeaconBlocksTopic(forkDigest),
         getBlockTopicParams(cfg.timeParams),
-        enableTopicMetrics = true)
+        enableTopicMetrics = true,
+      )
 
     blocksGossipState = targetGossipState
 
@@ -319,8 +340,7 @@ proc main() {.noinline, raises: [CatchableError].} =
     var
       curSlot = beaconClock.currentSlot
       nextSlot = curSlot + 1
-      timeToNextSlot =
-        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
     while true:
       await sleepAsync(timeToNextSlot)
 
@@ -332,8 +352,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
       curSlot = wallSlot
       nextSlot = wallSlot + 1
-      timeToNextSlot =
-        nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
+      timeToNextSlot = nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
 
   proc onSecond(time: Moment) =
     let wallSlot = beaconClock.currentSlot

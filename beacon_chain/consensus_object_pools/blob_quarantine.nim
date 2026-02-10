@@ -10,7 +10,8 @@
 import
   stew/bitops2,
   std/[sets, sequtils, strutils, lists],
-  results, metrics,
+  results,
+  metrics,
   ../spec/[presets, helpers, column_map],
   ../beacon_chain_db_quarantine
 
@@ -32,7 +33,9 @@ declareGauge blob_quarantine_database_slots_occupied,
 
 type
   SidecarHolderKind {.pure.} = enum
-    Empty, Loaded, Unloaded
+    Empty
+    Loaded
+    Unloaded
 
   SidecarHolder[A] = object
     index: uint64
@@ -69,21 +72,18 @@ type
     db: QuarantineDB
     onSidecarCallback*: B
 
-  OnBlobSidecarCallback* = proc(
-    data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
-  OnDataColumnSidecarCallback* = proc(
-    data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
+  OnBlobSidecarCallback* = proc(data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
+  OnDataColumnSidecarCallback* =
+    proc(data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
   SomeSidecarRef* = ref fulu.DataColumnSidecar | ref BlobSidecar
   SomeSidecarIndex* = fulu.ColumnIndex | BlobIndex
 
-  BlobQuarantine* =
-    SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
+  BlobQuarantine* = SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
     SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
 
-  ColumnQuarantineNode* =
-    DoublyLinkedNode[RootTableRecord[fulu.DataColumnSidecar]]
+  ColumnQuarantineNode* = DoublyLinkedNode[RootTableRecord[fulu.DataColumnSidecar]]
 
 func indexLog*[T: SomeSidecarRef](sidecars: openArray[ref T]): string =
   "[" & sidecars.mapIt($uint64(it[].index)).join(",") & "]"
@@ -106,28 +106,30 @@ func maxSidecars*(maxSidecarsPerBlock: uint64): int =
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
 
 func init[A, B](
-    t: typedesc[RootTableRecord],
-    q: SidecarQuarantine[A, B]
+    t: typedesc[RootTableRecord], q: SidecarQuarantine[A, B]
 ): RootTableRecord[A] =
   RootTableRecord[A](
     sidecars: newSeq[SidecarHolder[A]](q.maxSidecarsPerBlockCount),
-    count: 0, unloaded: 0, slot: FAR_FUTURE_SLOT)
+    count: 0,
+    unloaded: 0,
+    slot: FAR_FUTURE_SLOT,
+  )
 
 func init[A, B](
-    t: typedesc[RootTableRecord],
-    q: SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest
-  ): RootTableRecord[A] =
+    t: typedesc[RootTableRecord], q: SidecarQuarantine[A, B], blockRoot: Eth2Digest
+): RootTableRecord[A] =
   RootTableRecord[A](
     blockRoot: blockRoot,
     sidecars: newSeq[SidecarHolder[A]](q.maxSidecarsPerBlockCount),
-    count: 0, unloaded: 0, slot: FAR_FUTURE_SLOT)
+    count: 0,
+    unloaded: 0,
+    slot: FAR_FUTURE_SLOT,
+  )
 
 func shortLog*[A, B](quarantine: SidecarQuarantine[A, B]): string =
-  "[M:" & $quarantine.memSidecarsCount & "/" &
-    $quarantine.maxMemSidecarsCount & ";D:" &
-    $quarantine.diskSidecarsCount & "/" &
-    $quarantine.maxDiskSidecarsCount & "]/" & $len(quarantine.roots)
+  "[M:" & $quarantine.memSidecarsCount & "/" & $quarantine.maxMemSidecarsCount & ";D:" &
+    $quarantine.diskSidecarsCount & "/" & $quarantine.maxDiskSidecarsCount & "]/" &
+    $len(quarantine.roots)
 
 func len*[A, B](q: SidecarQuarantine[A, B]): int =
   q.memSidecarsCount + q.diskSidecarsCount
@@ -164,16 +166,16 @@ func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
 func getIndex(quarantine: ColumnQuarantine, index: ColumnIndex): int =
   quarantine.indexMap[int(index)]
 
-template slot(b: BlobSidecar|fulu.DataColumnSidecar): Slot =
+template slot(b: BlobSidecar | fulu.DataColumnSidecar): Slot =
   b.signed_block_header.message.slot
 
-template proposer_index(b: BlobSidecar|fulu.DataColumnSidecar): uint64 =
+template proposer_index(b: BlobSidecar | fulu.DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
 proc removeNode[A, B](
     quarantine: var SidecarQuarantine[A, B],
     node: DoublyLinkedNode[RootTableRecord[A]],
-    databaseCount: int
+    databaseCount: int,
 ) =
   # This procedore removes all the sidecars associated with ``node`` from
   # memory, disk and data structures.
@@ -184,24 +186,21 @@ proc removeNode[A, B](
   for index in 0 ..< len(node[].value.sidecars):
     case node[].value.sidecars[index].kind
     of SidecarHolderKind.Empty:
-        discard
+      discard
     of SidecarHolderKind.Loaded:
       node[].value.sidecars[index].data = nil
       dec(quarantine.memSidecarsCount)
-      blob_quarantine_memory_slots_occupied.set(
-        int64(quarantine.memSidecarsCount))
+      blob_quarantine_memory_slots_occupied.set(int64(quarantine.memSidecarsCount))
     of SidecarHolderKind.Unloaded:
       dec(quarantine.diskSidecarsCount)
-      blob_quarantine_database_slots_occupied.set(
-        int64(quarantine.diskSidecarsCount))
+      blob_quarantine_database_slots_occupied.set(int64(quarantine.diskSidecarsCount))
       inc(sidecarsOnDisk)
 
   if (sidecarsOnDisk > 0) or (databaseCount > 0):
     quarantine.db.removeDataSidecars(A, blockRoot)
     if databaseCount > 0:
       dec(quarantine.diskSidecarsCount, databaseCount)
-      blob_quarantine_database_slots_occupied.set(
-        int64(quarantine.diskSidecarsCount))
+      blob_quarantine_database_slots_occupied.set(int64(quarantine.diskSidecarsCount))
 
   if quarantine.lastMemoryNode == node:
     quarantine.lastMemoryNode = node.prev
@@ -209,10 +208,7 @@ proc removeNode[A, B](
   quarantine.roots.del(blockRoot)
   quarantine.list.remove(node)
 
-proc offloadRoot[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest
-) =
+proc offloadRoot[A, B](quarantine: var SidecarQuarantine[A, B], blockRoot: Eth2Digest) =
   # This procedore offloads all the sidecars associated with `blockRoot` from
   # memory to disk.
 
@@ -229,10 +225,8 @@ proc offloadRoot[A, B](
     quarantine.db.putDataSidecars(blockRoot, res)
     dec(quarantine.memSidecarsCount, len(res))
     inc(quarantine.diskSidecarsCount, len(res))
-    blob_quarantine_memory_slots_occupied.set(
-      int64(quarantine.memSidecarsCount))
-    blob_quarantine_database_slots_occupied.set(
-      int64(quarantine.diskSidecarsCount))
+    blob_quarantine_memory_slots_occupied.set(int64(quarantine.memSidecarsCount))
+    blob_quarantine_database_slots_occupied.set(int64(quarantine.diskSidecarsCount))
     inc(node[].value.unloaded, len(res))
 
 func fitsInMemory[A, B](q: SidecarQuarantine[A, B], count: int): bool =
@@ -243,17 +237,16 @@ func fitsInQuarantine[A, B](q: SidecarQuarantine[A, B], count: int): bool =
     (q.maxMemSidecarsCount + q.maxDiskSidecarsCount)
 
 proc ensureSidecarsFits[A, B](
-    q: var SidecarQuarantine[A, B],
-    count: int
+    q: var SidecarQuarantine[A, B], count: int
 ): Result[void, cstring] =
-  while not(q.fitsInQuarantine(count)):
+  while not (q.fitsInQuarantine(count)):
     # Pruning process.
     let node = q.list.tail
     if isNil(node):
       return err("Tail node is nil")
     q.removeNode(node, 0)
 
-  while not(q.fitsInMemory(count)):
+  while not (q.fitsInMemory(count)):
     # Offloading process
     let node = q.lastMemoryNode
     if isNil(node):
@@ -264,29 +257,26 @@ proc ensureSidecarsFits[A, B](
   ok()
 
 proc put*[A, B](
-    q: var SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest,
-    sidecars: openArray[ref A]
+    q: var SidecarQuarantine[A, B], blockRoot: Eth2Digest, sidecars: openArray[ref A]
 ) =
   let
-    (node, missing) =
-      block:
-        let res = q.roots.getOrDefault(blockRoot)
-        if isNil(res):
-          (newDoublyLinkedNode(RootTableRecord.init(q, blockRoot)), true)
-        else:
-          (res, false)
-    newSidecarsCount =
-      block:
-        var res = 0
-        for sidecar in sidecars:
-          let index = q.getIndex(sidecar.index)
-          doAssert(index >= 0,
-            "Incorrect sidecar index " & $sidecar.index & " points to " &
-            $index)
-          if isEmpty(node[].value.sidecars[index]):
-            inc(res)
-        res
+    (node, missing) = block:
+      let res = q.roots.getOrDefault(blockRoot)
+      if isNil(res):
+        (newDoublyLinkedNode(RootTableRecord.init(q, blockRoot)), true)
+      else:
+        (res, false)
+    newSidecarsCount = block:
+      var res = 0
+      for sidecar in sidecars:
+        let index = q.getIndex(sidecar.index)
+        doAssert(
+          index >= 0,
+          "Incorrect sidecar index " & $sidecar.index & " points to " & $index,
+        )
+        if isEmpty(node[].value.sidecars[index]):
+          inc(res)
+      res
 
   q.ensureSidecarsFits(newSidecarsCount).isOkOr:
     return
@@ -296,17 +286,16 @@ proc put*[A, B](
     if isEmpty(node[].value.sidecars[index]):
       inc(node[].value.count)
       node[].value.slot = sidecar[].slot()
-      node[].value.sidecars[index] =
-        SidecarHolder[A](
-          kind: SidecarHolderKind.Loaded,
-          slot: sidecar[].slot(),
-          index: uint64(sidecar[].index),
-          proposer_index: sidecar[].proposer_index(),
-          data: sidecar)
+      node[].value.sidecars[index] = SidecarHolder[A](
+        kind: SidecarHolderKind.Loaded,
+        slot: sidecar[].slot(),
+        index: uint64(sidecar[].index),
+        proposer_index: sidecar[].proposer_index(),
+        data: sidecar,
+      )
 
   q.memSidecarsCount += newSidecarsCount
-  blob_quarantine_memory_slots_occupied.set(
-    int64(q.memSidecarsCount))
+  blob_quarantine_memory_slots_occupied.set(int64(q.memSidecarsCount))
 
   if missing:
     # Add first
@@ -328,17 +317,10 @@ proc put*[A, B](
   if isNil(q.lastMemoryNode):
     q.lastMemoryNode = node
 
-proc put*[A, B](
-    q: var SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest,
-    sidecar: ref A
-) =
+proc put*[A, B](q: var SidecarQuarantine[A, B], blockRoot: Eth2Digest, sidecar: ref A) =
   q.put(blockRoot, [sidecar])
 
-proc remove*[A, B](
-    q: var SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest
-) =
+proc remove*[A, B](q: var SidecarQuarantine[A, B], blockRoot: Eth2Digest) =
   ## Remove all the data columns or blobs related to the block root ``blockRoot`
   ## from the quarantine ``q``.
   ##
@@ -354,33 +336,35 @@ func load[A](holder: var SidecarHolder[A], sidecar: ref A) =
     slot: holder.slot,
     index: holder.index,
     proposer_index: holder.proposer_index,
-    data: sidecar
+    data: sidecar,
   )
 
 proc loadRoot[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    record: var RootTableRecord[A]
+    record: var RootTableRecord[A],
 ) =
   for sidecar in quarantine.db.sidecars(A, blockRoot):
     let index = quarantine.getIndex(sidecar.index)
-    doAssert(index >= 0,
-      "Incorrect sidecar index " & $sidecar.index & " points to " & $index)
-    doAssert(record.sidecars[index].isUnloaded(),
-      "Database storage is inconsistent, record should be `Unloaded`, " &
-      "but it is `" & $record.sidecars[index].kind & "`")
+    doAssert(
+      index >= 0, "Incorrect sidecar index " & $sidecar.index & " points to " & $index
+    )
+    doAssert(
+      record.sidecars[index].isUnloaded(),
+      "Database storage is inconsistent, record should be `Unloaded`, " & "but it is `" &
+        $record.sidecars[index].kind & "`",
+    )
     record.sidecars[index].load(newClone(sidecar))
     dec(record.unloaded)
     inc(quarantine.memSidecarsCount)
 
-  doAssert(record.unloaded == 0,
-    "Record's unloaded count should be zero, but it is " & $record.unloaded)
+  doAssert(
+    record.unloaded == 0,
+    "Record's unloaded count should be zero, but it is " & $record.unloaded,
+  )
 
 template hasSidecarImpl(
-    blockRoot: Eth2Digest,
-    slot: Slot,
-    proposerIndex: uint64,
-    sidecarIndex: typed
+    blockRoot: Eth2Digest, slot: Slot, proposerIndex: uint64, sidecarIndex: typed
 ): bool =
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
@@ -389,14 +373,11 @@ template hasSidecarImpl(
   if (index == -1) or node[].value.sidecars[index].isEmpty():
     return false
   if (node[].value.sidecars[index].proposer_index != proposer_index) or
-     (node[].value.sidecars[index].slot != slot):
+      (node[].value.sidecars[index].slot != slot):
     return false
   true
 
-template hasSidecarImpl(
-    blockRoot: Eth2Digest,
-    sidecarIndex: typed
-): bool =
+template hasSidecarImpl(blockRoot: Eth2Digest, sidecarIndex: typed): bool =
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return false
@@ -419,24 +400,21 @@ func hasSidecar*(
     blockRoot: Eth2Digest,
     slot: Slot,
     proposer_index: uint64,
-    index: ColumnIndex
+    index: ColumnIndex,
 ): bool =
   ## Function returns ``true``if quarantine has column corresponding to specific
   ## ``index``, ``slot`` and ``proposer_index``.
   hasSidecarImpl(blockRoot, slot, proposer_index, index)
 
 func hasSidecar*(
-    quarantine: ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    index: ColumnIndex
+    quarantine: ColumnQuarantine, blockRoot: Eth2Digest, index: ColumnIndex
 ): bool =
   hasSidecarImpl(blockRoot, index)
 
 func hasSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
 ): bool =
   ## Function returns ``true`` if quarantine has all the blobs for block
   ## ``blck`` with block root ``blockRoot``.
@@ -453,9 +431,7 @@ func hasSidecars*(
   true
 
 func hasSidecars*(
-    quarantine: ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock
+    quarantine: ColumnQuarantine, blockRoot: Eth2Digest, blck: fulu.SignedBeaconBlock
 ): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
@@ -481,17 +457,13 @@ func hasSidecars*(
 
 func hasSidecars*(
     quarantine: BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
 ): bool =
   ## Function returns ``true`` if quarantine has all the blobs for block
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root, blck)
 
-func hasSidecars*(
-    quarantine: ColumnQuarantine,
-    blck: fulu.SignedBeaconBlock
-): bool =
+func hasSidecars*(quarantine: ColumnQuarantine, blck: fulu.SignedBeaconBlock): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root, blck)
@@ -499,7 +471,7 @@ func hasSidecars*(
 proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
 ): Opt[seq[ref BlobSidecar]] =
   ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
   ## block ``blck``.
@@ -528,9 +500,11 @@ proc popSidecars*(
   var sidecars: seq[ref BlobSidecar]
   for bindex in 0 ..< len(blck.message.body.blob_kzg_commitments):
     let index = quarantine.getIndex(BlobIndex(bindex))
-    doAssert(node[].value.sidecars[index].isLoaded(),
+    doAssert(
+      node[].value.sidecars[index].isLoaded(),
       "Record should only have loaded values, but it is `" &
-        $node[].value.sidecars[index].kind & "`")
+        $node[].value.sidecars[index].kind & "`",
+    )
     sidecars.add(node[].value.sidecars[index].data)
 
   # popSidecars() should remove all the artifacts from the quarantine in both
@@ -540,8 +514,7 @@ proc popSidecars*(
   Opt.some(sidecars)
 
 proc popSidecars*(
-    quarantine: var ColumnQuarantine,
-    blockRoot: Eth2Digest
+    quarantine: var ColumnQuarantine, blockRoot: Eth2Digest
 ): Opt[seq[ref fulu.DataColumnSidecar]] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
@@ -572,27 +545,33 @@ proc popSidecars*(
   if supernode:
     for sidecar in node[].value.sidecars:
       # Supernode could have some of the columns not filled.
-      if not(sidecar.isEmpty()):
-        doAssert(sidecar.isLoaded(),
-          "Record should only have loaded values, but it is `" &
-            $sidecar.kind & "`")
+      if not (sidecar.isEmpty()):
+        doAssert(
+          sidecar.isLoaded(),
+          "Record should only have loaded values, but it is `" & $sidecar.kind & "`",
+        )
         sidecars.add(sidecar.data)
       if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
         break
 
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
-      "Incorrect amount of sidecars in record for supernode - " &
-        $len(sidecars))
+    doAssert(
+      len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
+      "Incorrect amount of sidecars in record for supernode - " & $len(sidecars),
+    )
   else:
     for cindex in quarantine.custodyColumns:
       let index = quarantine.getIndex(cindex)
-      doAssert(node[].value.sidecars[index].isLoaded(),
+      doAssert(
+        node[].value.sidecars[index].isLoaded(),
         "Record should only have loaded values, but it is `" &
-          $node[].value.sidecars[index].kind & "`")
+          $node[].value.sidecars[index].kind & "`",
+      )
       sidecars.add(node[].value.sidecars[index].data)
 
-    doAssert(len(sidecars) == len(quarantine.custodyColumns),
-      "Incorrect amount of sidecars in record for node - " & $len(sidecars))
+    doAssert(
+      len(sidecars) == len(quarantine.custodyColumns),
+      "Incorrect amount of sidecars in record for node - " & $len(sidecars),
+    )
 
   # popSidecars() should remove all the artifacts from the quarantine in both
   # memory and disk.
@@ -602,7 +581,7 @@ proc popSidecars*(
 
 proc popSidecars*(
     quarantine: var BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
 ): Opt[seq[ref BlobSidecar]] =
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
@@ -610,7 +589,7 @@ proc popSidecars*(
 func fetchMissingSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
 ): seq[BlobIdentifier] =
   ## Function returns sequence of BlobIdentifiers for blobs which are missing
   ## for block root ``blockRoot`` and block ``blck``.
@@ -621,7 +600,7 @@ func fetchMissingSidecars*(
 
   if commitmentsCount == 0:
     return res
-  if not(isNil(node)) and (node[].value.count == commitmentsCount):
+  if not (isNil(node)) and (node[].value.count == commitmentsCount):
     return res
 
   for bindex in 0 ..< commitmentsCount:
@@ -633,7 +612,7 @@ func fetchMissingSidecars*(
 func getMissingSidecarIndices*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
 ): seq[BlobIndex] =
   ## Function returns sequence of BlobIndex for blobs which are missing for
   ## block root ``blockRoot`` and block ``blck``.
@@ -644,7 +623,7 @@ func getMissingSidecarIndices*(
 
   if commitmentsCount == 0:
     return res
-  if not(isNil(node)) and (node[].value.count == commitmentsCount):
+  if not (isNil(node)) and (node[].value.count == commitmentsCount):
     return res
 
   for bindex in 0 ..< commitmentsCount:
@@ -657,7 +636,7 @@ func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
-    peerMap: ColumnMap
+    peerMap: ColumnMap,
 ): DataColumnsByRootIdentifier =
   ## Function returns a DataColumnsByRootIdentifier for data columns
   ## which are missing for the block associated with root ``blockRoot`` and
@@ -672,15 +651,15 @@ func fetchMissingSidecars*(
   if len(blck.message.body.blob_kzg_commitments) == 0:
     # Fast-path if block does not have any columns
     return DataColumnsByRootIdentifier(
-      block_root: blockRoot,
-      indices: DataColumnIndices(default(seq[ColumnIndex])))
+      block_root: blockRoot, indices: DataColumnIndices(default(seq[ColumnIndex]))
+    )
 
   if peerMap.empty():
     # Fast-path if peer's columns map is empty, we can't figure which columns
     # we could ask.
     return DataColumnsByRootIdentifier(
-      block_root: blockRoot,
-      indices: DataColumnIndices(default(seq[ColumnIndex])))
+      block_root: blockRoot, indices: DataColumnIndices(default(seq[ColumnIndex]))
+    )
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -701,10 +680,9 @@ func fetchMissingSidecars*(
     else:
       if node[].value.count > columnsCount:
         # We already have enough columns for reconstruction.
-        return
-          DataColumnsByRootIdentifier(
-            block_root: blockRoot,
-            indices: DataColumnIndices(default(seq[ColumnIndex])))
+        return DataColumnsByRootIdentifier(
+          block_root: blockRoot, indices: DataColumnIndices(default(seq[ColumnIndex]))
+        )
 
       for column in peerMap.items():
         if node[].value.count + len(res) > columnsCount:
@@ -725,20 +703,19 @@ func fetchMissingSidecars*(
           res.incl(column)
 
   DataColumnsByRootIdentifier(
-    block_root: blockRoot, indices: DataColumnIndices(res.items().toSeq()))
+    block_root: blockRoot, indices: DataColumnIndices(res.items().toSeq())
+  )
 
 func fetchMissingSidecars*(
     quarantine: ColumnQuarantine,
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
-    peerCustodyColumns: openArray[ColumnIndex] = []
+    peerCustodyColumns: openArray[ColumnIndex] = [],
 ): DataColumnsByRootIdentifier =
   if len(peerCustodyColumns) == 0:
-    quarantine.fetchMissingSidecars(
-      blockRoot, blck, quarantine.custodyMap)
+    quarantine.fetchMissingSidecars(blockRoot, blck, quarantine.custodyMap)
   else:
-    quarantine.fetchMissingSidecars(
-      blockRoot, blck, ColumnMap.init(peerCustodyColumns))
+    quarantine.fetchMissingSidecars(blockRoot, blck, ColumnMap.init(peerCustodyColumns))
 
 func getMissingColumnsMap*(
     quarantine: ColumnQuarantine,
@@ -780,9 +757,7 @@ func getMissingSidecarIndices*(
   res
 
 proc pruneAfterFinalization*(
-    quarantine: var BlobQuarantine,
-    epoch: Epoch,
-    backfillNeeded: bool
+    quarantine: var BlobQuarantine, epoch: Epoch, backfillNeeded: bool
 ) =
   let
     startEpoch =
@@ -808,9 +783,7 @@ proc pruneAfterFinalization*(
     quarantine.removeNode(node, 0)
 
 proc pruneAfterFinalization*(
-    quarantine: var ColumnQuarantine,
-    epoch: Epoch,
-    backfillNeeded: bool
+    quarantine: var ColumnQuarantine, epoch: Epoch, backfillNeeded: bool
 ) =
   let
     startEpoch =
@@ -835,9 +808,7 @@ proc pruneAfterFinalization*(
   for node in nodes:
     quarantine.removeNode(node, 0)
 
-template onBlobSidecarCallback*(
-    quarantine: BlobQuarantine
-): OnBlobSidecarCallback =
+template onBlobSidecarCallback*(quarantine: BlobQuarantine): OnBlobSidecarCallback =
   quarantine.onSidecarCallback
 
 template onDataColumnSidecarCallback*(
@@ -850,7 +821,7 @@ proc init*(
     cfg: RuntimeConfig,
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onBlobSidecarCallback: OnBlobSidecarCallback
+    onBlobSidecarCallback: OnBlobSidecarCallback,
 ): BlobQuarantine =
   # BlobSidecars maps are trivial, but still useful
   var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
@@ -860,16 +831,13 @@ proc init*(
   let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
   blob_quarantine_memory_slots_total.set(int64(size))
-  blob_quarantine_database_slots_total.set(
-    int64(size) * int64(maxDiskSizeMultipler))
+  blob_quarantine_database_slots_total.set(int64(size) * int64(maxDiskSizeMultipler))
   blob_quarantine_memory_slots_occupied.set(0'i64)
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   BlobQuarantine(
-    minEpochsForSidecarsRequests:
-      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-    maxSidecarsPerBlockCount:
-      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
+    minEpochsForSidecarsRequests: cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+    maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
     memSidecarsCount: 0,
@@ -877,7 +845,7 @@ proc init*(
     indexMap: indexMap,
     onSidecarCallback: onBlobSidecarCallback,
     list: initDoublyLinkedList[RootTableRecord[BlobSidecar]](),
-    db: database
+    db: database,
   )
 
 proc init*(
@@ -886,7 +854,7 @@ proc init*(
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
 
@@ -901,14 +869,12 @@ proc init*(
   let size = maxSidecars(NUMBER_OF_COLUMNS)
 
   blob_quarantine_memory_slots_total.set(int64(size))
-  blob_quarantine_database_slots_total.set(
-    int64(size) * int64(maxDiskSizeMultipler))
+  blob_quarantine_database_slots_total.set(int64(size) * int64(maxDiskSizeMultipler))
   blob_quarantine_memory_slots_occupied.set(0'i64)
   blob_quarantine_database_slots_occupied.set(0'i64)
 
   ColumnQuarantine(
-    minEpochsForSidecarsRequests:
-      cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS,
+    minEpochsForSidecarsRequests: cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS,
     maxSidecarsPerBlockCount: len(custodyColumns),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
@@ -919,13 +885,13 @@ proc init*(
     custodyMap: custodyMap,
     list: initDoublyLinkedList[RootTableRecord[fulu.DataColumnSidecar]](),
     db: database,
-    onSidecarCallback: onDataColumnSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback,
   )
 
 proc update*(
     quarantine: var ColumnQuarantine,
     cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex]
+    custodyColumns: openArray[ColumnIndex],
 ) =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let
@@ -946,8 +912,7 @@ proc update*(
 
   for node in quarantine.list.nodes():
     var
-      sidecars =
-        newSeq[SidecarHolder[fulu.DataColumnSidecar]](len(custodyMap))
+      sidecars = newSeq[SidecarHolder[fulu.DataColumnSidecar]](len(custodyMap))
       count = 0
       unloaded = 0
 
@@ -956,13 +921,13 @@ proc update*(
         index = quarantine.getIndex(cindex)
         sidecar = node[].value.sidecars[index]
 
-      if not(isEmpty(sidecar)):
+      if not (isEmpty(sidecar)):
         if cindex in custodyMap:
           let dindex = indexMap[int(cindex)]
           if dindex >= 0:
             sidecars[dindex] = sidecar
             inc(count)
-            if not(sidecar.isLoaded()):
+            if not (sidecar.isLoaded()):
               inc(unloaded)
 
     node.value.sidecars.reset()
@@ -987,10 +952,8 @@ proc update*(
 
   quarantine.diskSidecarsCount = diskSidecarsCount
   quarantine.memSidecarsCount = memSidecarsCount
-  blob_quarantine_memory_slots_occupied.set(
-    int64(quarantine.memSidecarsCount))
-  blob_quarantine_database_slots_occupied.set(
-    int64(quarantine.diskSidecarsCount))
+  blob_quarantine_memory_slots_occupied.set(int64(quarantine.memSidecarsCount))
+  blob_quarantine_database_slots_occupied.set(int64(quarantine.diskSidecarsCount))
 
   quarantine.maxSidecarsPerBlockCount = maxSidecarsPerBlockCount
   quarantine.indexMap = indexMap

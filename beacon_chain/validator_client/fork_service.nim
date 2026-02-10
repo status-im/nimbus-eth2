@@ -11,10 +11,10 @@ import std/algorithm
 import chronicles
 import "."/[common, api]
 
-const
-  ServiceName = "fork_service"
+const ServiceName = "fork_service"
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
 proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [].} =
   # Check if `forks` list is linked list.
@@ -29,18 +29,19 @@ proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [].} =
     current_version = item.current_version
   true
 
-proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
-     raises: [].} =
+proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.raises: [].} =
   proc cmp(x, y: Fork): int {.closure.} =
-    if uint64(x.epoch) == uint64(y.epoch): return 0
-    if uint64(x.epoch) < uint64(y.epoch): return -1
+    if uint64(x.epoch) == uint64(y.epoch):
+      return 0
+    if uint64(x.epoch) < uint64(y.epoch):
+      return -1
     return 1
 
   if len(forks) == 0:
     return err("Empty fork schedule")
 
   let sortedForks = sorted(forks, cmp)
-  if not(validateForkSchedule(sortedForks)):
+  if not (validateForkSchedule(sortedForks)):
     return err("Invalid fork schedule")
   ok(sortedForks)
 
@@ -50,7 +51,7 @@ proc pollForFork(vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
       await vc.getForkSchedule()
     except ValidatorApiError as exc:
       warn "Unable to retrieve fork schedule",
-           reason = exc.getFailureReason(), err_msg = exc.msg
+        reason = exc.getFailureReason(), err_msg = exc.msg
       return
     except CancelledError as exc:
       debug "Fork retrieval process was interrupted"
@@ -59,13 +60,12 @@ proc pollForFork(vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
   if len(forks) == 0:
     return
 
-  let sortedForks =
-    block:
-      let res = sortForks(forks)
-      if res.isErr():
-        warn "Invalid fork schedule received", reason = res.error()
-        return
-      res.get()
+  let sortedForks = block:
+    let res = sortForks(forks)
+    if res.isErr():
+      warn "Invalid fork schedule received", reason = res.error()
+      return
+    res.get()
 
   if (len(vc.forks) == 0) or (vc.forks != sortedForks):
     vc.forks = sortedForks
@@ -101,12 +101,12 @@ proc mainLoop(service: ForkServiceRef) {.async: (raises: []).} =
       break
 
 proc init*(
-    t: typedesc[ForkServiceRef],
-    vc: ValidatorClientRef
+    t: typedesc[ForkServiceRef], vc: ValidatorClientRef
 ): Future[ForkServiceRef] {.async: (raises: []).} =
-  logScope: service = ServiceName
-  let res = ForkServiceRef(name: ServiceName,
-                           client: vc, state: ServiceState.Initialized)
+  logScope:
+    service = ServiceName
+  let res =
+    ForkServiceRef(name: ServiceName, client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
   res
 

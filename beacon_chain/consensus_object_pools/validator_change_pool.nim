@@ -28,12 +28,10 @@ const
   BLS_TO_EXECUTION_CHANGES_BOUND = 16384'u64
 
 type
-  OnVoluntaryExitCallback =
-    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
+  OnVoluntaryExitCallback = proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
   OnBLSToExecutionChangeCallback =
     proc(data: SignedBLSToExecutionChange) {.gcsafe, raises: [].}
-  OnProposerSlashingCallback =
-    proc(data: ProposerSlashing) {.gcsafe, raises: [].}
+  OnProposerSlashingCallback = proc(data: ProposerSlashing) {.gcsafe, raises: [].}
   OnPhase0AttesterSlashingCallback =
     proc(data: phase0.AttesterSlashing) {.gcsafe, raises: [].}
   OnElectraAttesterSlashingCallback =
@@ -43,38 +41,27 @@ type
     ## The validator change pool tracks attester slashings, proposer slashings,
     ## voluntary exits, and BLS to execution changes that could be added to a
     ## proposed block.
-
-    phase0_attester_slashings*: Deque[phase0.AttesterSlashing]  ## \
+    phase0_attester_slashings*: Deque[phase0.AttesterSlashing] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    electra_attester_slashings*: Deque[electra.AttesterSlashing]  ## \
+    electra_attester_slashings*: Deque[electra.AttesterSlashing] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    proposer_slashings*: Deque[ProposerSlashing]  ## \
+    proposer_slashings*: Deque[ProposerSlashing] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
+    voluntary_exits*: Deque[SignedVoluntaryExit] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    bls_to_execution_changes_gossip*: Deque[SignedBLSToExecutionChange]  ## \
+    bls_to_execution_changes_gossip*: Deque[SignedBLSToExecutionChange] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    bls_to_execution_changes_api*: Deque[SignedBLSToExecutionChange]  ## \
+    bls_to_execution_changes_api*: Deque[SignedBLSToExecutionChange] ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
     prior_seen_attester_slashed_indices: HashSet[uint64] ## \
     ## Records attester-slashed indices seen. Share these across attester
     ## slashing types.
-
     prior_seen_proposer_slashed_indices: HashSet[uint64] ## \
     ## Records proposer-slashed indices seen.
-
     prior_seen_voluntary_exit_indices: HashSet[uint64] ##\
     ## Records voluntary exit indices seen.
-
     prior_seen_bls_to_execution_change_indices: HashSet[uint64] ##\
     ## Records BLS to execution change indices seen.
-
     dag*: ChainDAGRef
     attestationPool: ref AttestationPool
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
@@ -83,23 +70,23 @@ type
     onPhase0AttesterSlashingReceived*: OnPhase0AttesterSlashingCallback
     onElectraAttesterSlashingReceived*: OnElectraAttesterSlashingCallback
 
-func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
-           attestationPool: ref AttestationPool = nil,
-           onVoluntaryExit: OnVoluntaryExitCallback = nil,
-           onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil,
-           onProposerSlashing: OnProposerSlashingCallback = nil,
-           onPhase0AttesterSlashing: OnPhase0AttesterSlashingCallback = nil,
-           onElectraAttesterSlashing: OnElectraAttesterSlashingCallback = nil):
-           T =
+func init*(
+    T: type ValidatorChangePool,
+    dag: ChainDAGRef,
+    attestationPool: ref AttestationPool = nil,
+    onVoluntaryExit: OnVoluntaryExitCallback = nil,
+    onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil,
+    onProposerSlashing: OnProposerSlashingCallback = nil,
+    onPhase0AttesterSlashing: OnPhase0AttesterSlashingCallback = nil,
+    onElectraAttesterSlashing: OnElectraAttesterSlashingCallback = nil,
+): T =
   ## Initialize an ValidatorChangePool from the dag `headState`
   T(
     # Allow filtering some validator change messages during block production
     phase0_attester_slashings:
-      initDeque[phase0.AttesterSlashing](
-        initialSize = ATTESTER_SLASHINGS_BOUND.int),
+      initDeque[phase0.AttesterSlashing](initialSize = ATTESTER_SLASHINGS_BOUND.int),
     electra_attester_slashings:
-      initDeque[electra.AttesterSlashing](
-        initialSize = ATTESTER_SLASHINGS_BOUND.int),
+      initDeque[electra.AttesterSlashing](initialSize = ATTESTER_SLASHINGS_BOUND.int),
     proposer_slashings:
       initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
@@ -120,11 +107,15 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
     onBLSToExecutionChangeReceived: onBLSToExecutionChange,
     onProposerSlashingReceived: onProposerSlashing,
     onPhase0AttesterSlashingReceived: onPhase0AttesterSlashing,
-    onElectraAttesterSlashingReceived: onElectraAttesterSlashing)
+    onElectraAttesterSlashingReceived: onElectraAttesterSlashing,
+  )
 
 func addValidatorChangeMessage(
-    subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,
-    bound: static[uint64]) =
+    subpool: var auto,
+    seenpool: var auto,
+    validatorChangeMessage: auto,
+    bound: static[uint64],
+) =
   # Prefer newer to older validator change messages
   while subpool.lenu64 >= bound:
     # TODO remove temporary workaround once capella happens
@@ -143,12 +134,13 @@ iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
   yield voluntary_exit.message.validator_index
 
 iterator getValidatorIndices(
-    bls_to_execution_change: SignedBLSToExecutionChange): uint64 =
+    bls_to_execution_change: SignedBLSToExecutionChange
+): uint64 =
   yield bls_to_execution_change.message.validator_index
 
 func isSeen*(
-    pool: ValidatorChangePool,
-    msg: phase0.AttesterSlashing | electra.AttesterSlashing): bool =
+    pool: ValidatorChangePool, msg: phase0.AttesterSlashing | electra.AttesterSlashing
+): bool =
   for idx in getValidatorIndices(msg):
     # One index is enough!
     if idx notin pool.prior_seen_attester_slashed_indices:
@@ -156,15 +148,13 @@ func isSeen*(
   true
 
 func isSeen*(pool: ValidatorChangePool, msg: ProposerSlashing): bool =
-  msg.signed_header_1.message.proposer_index in
-    pool.prior_seen_proposer_slashed_indices
+  msg.signed_header_1.message.proposer_index in pool.prior_seen_proposer_slashed_indices
 
 func isSeen*(pool: ValidatorChangePool, msg: SignedVoluntaryExit): bool =
   msg.message.validator_index in pool.prior_seen_voluntary_exit_indices
 
 func isSeen*(pool: ValidatorChangePool, msg: SignedBLSToExecutionChange): bool =
-  msg.message.validator_index in
-    pool.prior_seen_bls_to_execution_change_indices
+  msg.message.validator_index in pool.prior_seen_bls_to_execution_change_indices
 
 func addMessage*(pool: var ValidatorChangePool, msg: phase0.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
@@ -175,7 +165,8 @@ func addMessage*(pool: var ValidatorChangePool, msg: phase0.AttesterSlashing) =
       pool.attestationPool.forkChoice.process_equivocation(i)
 
   pool.phase0_attester_slashings.addValidatorChangeMessage(
-    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND)
+    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND
+  )
 
 func addMessage*(pool: var ValidatorChangePool, msg: electra.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
@@ -186,53 +177,69 @@ func addMessage*(pool: var ValidatorChangePool, msg: electra.AttesterSlashing) =
       pool.attestationPool.forkChoice.process_equivocation(i)
 
   pool.electra_attester_slashings.addValidatorChangeMessage(
-    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND)
+    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND
+  )
 
 func addMessage*(pool: var ValidatorChangePool, msg: ProposerSlashing) =
   pool.prior_seen_proposer_slashed_indices.incl(
-    msg.signed_header_1.message.proposer_index)
+    msg.signed_header_1.message.proposer_index
+  )
   pool.proposer_slashings.addValidatorChangeMessage(
-    pool.prior_seen_proposer_slashed_indices, msg, PROPOSER_SLASHINGS_BOUND)
+    pool.prior_seen_proposer_slashed_indices, msg, PROPOSER_SLASHINGS_BOUND
+  )
 
 func addMessage*(pool: var ValidatorChangePool, msg: SignedVoluntaryExit) =
-  pool.prior_seen_voluntary_exit_indices.incl(
-    msg.message.validator_index)
+  pool.prior_seen_voluntary_exit_indices.incl(msg.message.validator_index)
   pool.voluntary_exits.addValidatorChangeMessage(
-    pool.prior_seen_voluntary_exit_indices, msg, VOLUNTARY_EXITS_BOUND)
+    pool.prior_seen_voluntary_exit_indices, msg, VOLUNTARY_EXITS_BOUND
+  )
 
 func addMessage*(
-    pool: var ValidatorChangePool, msg: SignedBLSToExecutionChange,
-    localPriorityMessage: bool) =
-  pool.prior_seen_bls_to_execution_change_indices.incl(
-    msg.message.validator_index)
+    pool: var ValidatorChangePool,
+    msg: SignedBLSToExecutionChange,
+    localPriorityMessage: bool,
+) =
+  pool.prior_seen_bls_to_execution_change_indices.incl(msg.message.validator_index)
   template addMessageAux(subpool) =
     addValidatorChangeMessage(
       subpool, pool.prior_seen_bls_to_execution_change_indices, msg,
-      BLS_TO_EXECUTION_CHANGES_BOUND)
+      BLS_TO_EXECUTION_CHANGES_BOUND,
+    )
+
   if localPriorityMessage:
     addMessageAux(pool.bls_to_execution_changes_api)
   else:
     addMessageAux(pool.bls_to_execution_changes_gossip)
 
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing
+): bool =
   check_proposer_slashing(state, msg, {}).isOk
+
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg:
-    phase0.AttesterSlashing | electra.AttesterSlashing): bool =
+    cfg: RuntimeConfig,
+    state: ForkyBeaconState,
+    msg: phase0.AttesterSlashing | electra.AttesterSlashing,
+): bool =
   check_attester_slashing(state, msg, {}).isOk
+
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit):
-    bool =
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit
+): bool =
   check_voluntary_exit(cfg, state, msg, {}).isOk
+
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState,
-    msg: SignedBLSToExecutionChange): bool =
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedBLSToExecutionChange
+): bool =
   check_bls_to_execution_change(cfg.GENESIS_FORK_VERSION, state, msg, {}).isOk
 
 proc getValidatorChangeMessagesForBlock(
-    subpool: var Deque, cfg: RuntimeConfig, state: ForkyBeaconState,
-    seen: var HashSet, output: var List) =
+    subpool: var Deque,
+    cfg: RuntimeConfig,
+    state: ForkyBeaconState,
+    seen: var HashSet,
+    output: var List,
+) =
   # Approach taken here is to simply collect messages, effectively, a circular
   # buffer and only re-validate that they haven't already found themselves out
   # of the network eventually via some exit message at block construction time
@@ -271,8 +278,8 @@ proc getValidatorChangeMessagesForBlock(
       break
 
 proc getBeaconBlockValidatorChanges*(
-    pool: var ValidatorChangePool, cfg: RuntimeConfig, state: ForkyBeaconState):
-    BeaconBlockValidatorChanges =
+    pool: var ValidatorChangePool, cfg: RuntimeConfig, state: ForkyBeaconState
+): BeaconBlockValidatorChanges =
   var res: BeaconBlockValidatorChanges
 
   # Exits (with priority on slashings)
@@ -281,15 +288,19 @@ proc getBeaconBlockValidatorChanges*(
     when typeof(state).kind >= ConsensusFork.Electra:
       getValidatorChangeMessagesForBlock(
         pool.electra_attester_slashings, cfg, state, indices,
-        res.electra_attester_slashings)
+        res.electra_attester_slashings,
+      )
     else:
       getValidatorChangeMessagesForBlock(
         pool.phase0_attester_slashings, cfg, state, indices,
-        res.phase0_attester_slashings)
+        res.phase0_attester_slashings,
+      )
     getValidatorChangeMessagesForBlock(
-      pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
+      pool.proposer_slashings, cfg, state, indices, res.proposer_slashings
+    )
     getValidatorChangeMessagesForBlock(
-      pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
+      pool.voluntary_exits, cfg, state, indices, res.voluntary_exits
+    )
 
   # Credential changes (can be combined with exit)
   when typeof(state).kind >= ConsensusFork.Capella:
@@ -298,9 +309,11 @@ proc getBeaconBlockValidatorChanges*(
       # Prioritize those from API
       getValidatorChangeMessagesForBlock(
         pool.bls_to_execution_changes_api, cfg, state, indices,
-        res.bls_to_execution_changes)
+        res.bls_to_execution_changes,
+      )
       getValidatorChangeMessagesForBlock(
         pool.bls_to_execution_changes_gossip, cfg, state, indices,
-        res.bls_to_execution_changes)
+        res.bls_to_execution_changes,
+      )
 
   res

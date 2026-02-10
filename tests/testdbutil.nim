@@ -18,9 +18,8 @@ import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
-    cfg: RuntimeConfig,
-    validators: Natural,
-    eth1Data = Opt.none(Eth1Data)): BeaconChainDB =
+    cfg: RuntimeConfig, validators: Natural, eth1Data = Opt.none(Eth1Data)
+): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires FULU_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
@@ -45,9 +44,11 @@ proc makeTestDB*(
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
-    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
-    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
-    Eth2Digest =
+    dag: ChainDAGRef,
+    initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest,
+    defaultEarliestInvalidBlockRoot: Eth2Digest,
+): Eth2Digest =
   # Earliest within a chain/fork in question, per LVH definition. Intended to
   # be called with `initialRoot` as the parent of the block regarding which a
   # newPayload or forkchoiceUpdated execution_status has been received as the
@@ -64,20 +65,19 @@ proc getEarliestInvalidBlockRoot*(
 
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block
-  if  curBlck.executionBlockHash.isSome and
+  if curBlck.executionBlockHash.isSome and
       curBlck.executionBlockHash.get == latestValidHash:
     return defaultEarliestInvalidBlockRoot
 
   while true:
     # This was supposed to have been either caught by the pre-loop check or the
     # parent check.
-    if  curBlck.executionBlockHash.isSome and
+    if curBlck.executionBlockHash.isSome and
         curBlck.executionBlockHash.get == latestValidHash:
       doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockHash.get(latestValidHash) ==
-         latestValidHash:
+        curBlck.parent.executionBlockHash.get(latestValidHash) == latestValidHash:
       break
     curBlck = curBlck.parent
 

@@ -18,7 +18,7 @@ proc print(t: auto, n: string, indent: int) =
     # https://github.com/nim-lang/Nim/pull/23356
     raiseAssert "Arguments match the format string"
 
-  when t is object|tuple:
+  when t is object | tuple:
     for n, p in t.fieldPairs:
       print(p, n, indent + 1)
 

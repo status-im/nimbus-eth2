@@ -14,36 +14,33 @@ import spec/keystore
 when defined(windows):
   import stew/[windows/acl]
 
-type
-  ByteChar = byte | char
+type ByteChar = byte | char
 
-const
-  INCOMPLETE_ERROR =
-    when defined(windows):
-      IoErrorCode(996) # ERROR_IO_INCOMPLETE
-    else:
-      IoErrorCode(28) # ENOSPC
+const INCOMPLETE_ERROR =
+  when defined(windows):
+    IoErrorCode(996) # ERROR_IO_INCOMPLETE
+  else:
+    IoErrorCode(28) # ENOSPC
 
 proc openLockedFile*(keystorePath: string): IoResult[FileLockHandle] =
   let
     flags = {OpenFlags.Read, OpenFlags.Write, OpenFlags.Exclusive}
-    handle = ? openFile(keystorePath, flags)
+    handle = ?openFile(keystorePath, flags)
 
   var success = false
   defer:
-    if not(success):
+    if not (success):
       discard closeFile(handle)
 
-  let lock = ? lockFile(handle, LockType.Exclusive)
+  let lock = ?lockFile(handle, LockType.Exclusive)
   success = true
   ok(FileLockHandle(ioHandle: lock, opened: true))
 
-proc getData*(lockHandle: FileLockHandle,
-              maxBufferSize: int): IoResult[string] =
-  let filesize = ? getFileSize(lockHandle.ioHandle.handle)
+proc getData*(lockHandle: FileLockHandle, maxBufferSize: int): IoResult[string] =
+  let filesize = ?getFileSize(lockHandle.ioHandle.handle)
   let length = min(filesize, maxBufferSize)
   var buffer = newString(length)
-  let bytesRead = ? readFile(lockHandle.ioHandle.handle, buffer)
+  let bytesRead = ?readFile(lockHandle.ioHandle.handle, buffer)
   if uint64(bytesRead) != uint64(len(buffer)):
     err(INCOMPLETE_ERROR)
   else:
@@ -54,20 +51,20 @@ proc closeLockedFile*(lockHandle: FileLockHandle): IoResult[void] =
     var success = false
     defer:
       lockHandle.opened = false
-      if not(success):
+      if not (success):
         discard lockHandle.ioHandle.handle.closeFile()
 
-    ? lockHandle.ioHandle.unlockFile()
+    ?lockHandle.ioHandle.unlockFile()
     success = true
-    ? lockHandle.ioHandle.handle.closeFile()
+    ?lockHandle.ioHandle.handle.closeFile()
   ok()
 
 proc secureCreatePath*(path: string): IoResult[void] =
   when defined(windows):
     let sres = createFoldersUserOnlySecurityDescriptor()
     if sres.isErr():
-      error "Could not allocate security descriptor", path = path,
-            errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
+      error "Could not allocate security descriptor",
+        path = path, errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
       err(sres.error)
     else:
       var sd = sres.get()
@@ -75,13 +72,12 @@ proc secureCreatePath*(path: string): IoResult[void] =
   else:
     createPath(path, 0o700)
 
-proc secureWriteFile*[T: ByteChar](path: string,
-                                   data: openArray[T]): IoResult[void] =
+proc secureWriteFile*[T: ByteChar](path: string, data: openArray[T]): IoResult[void] =
   when defined(windows):
     let sres = createFilesUserOnlySecurityDescriptor()
     if sres.isErr():
-      error "Could not allocate security descriptor", path = path,
-            errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
+      error "Could not allocate security descriptor",
+        path = path, errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
       err(sres.error())
     else:
       var sd = sres.get()
@@ -101,29 +97,28 @@ proc secureWriteFile*[T: ByteChar](path: string,
     else:
       ok()
 
-proc secureWriteLockedFile*[T: ByteChar](path: string,
-                                         data: openArray[T]
-                                        ): IoResult[FileLockHandle] =
-  let handle =
-    block:
-      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create,
-                   OpenFlags.Exclusive}
-      when defined(windows):
-        var sd = ? createFilesUserOnlySecurityDescriptor()
-        ? openFile(path, flags, 0o600, sd.getDescriptor())
-      else:
-        ? openFile(path, flags, 0o600)
+proc secureWriteLockedFile*[T: ByteChar](
+    path: string, data: openArray[T]
+): IoResult[FileLockHandle] =
+  let handle = block:
+    let flags =
+      {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Exclusive}
+    when defined(windows):
+      var sd = ?createFilesUserOnlySecurityDescriptor()
+      ?openFile(path, flags, 0o600, sd.getDescriptor())
+    else:
+      ?openFile(path, flags, 0o600)
   var success = false
   defer:
-    if not(success):
+    if not (success):
       discard closeFile(handle)
       # We will try to remove file, if something goes wrong.
       discard removeFile(path)
-  let bytesWrote = ? writeFile(handle, data)
+  let bytesWrote = ?writeFile(handle, data)
   if uint64(bytesWrote) != uint64(len(data)):
     # Data was partially written, and `write` did not return any errors, so
     # lets return INCOMPLETE_ERROR.
     return err(INCOMPLETE_ERROR)
-  let res = ? lockFile(handle, LockType.Exclusive)
+  let res = ?lockFile(handle, LockType.Exclusive)
   success = true
   ok(FileLockHandle(ioHandle: res, opened: true))

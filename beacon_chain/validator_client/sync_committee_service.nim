@@ -9,29 +9,29 @@
 
 import
   std/sets,
-  metrics, chronicles,
+  metrics,
+  chronicles,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
   "."/[common, api, selection_proofs]
 
-const
-  ServiceName = "sync_committee_service"
+const ServiceName = "sync_committee_service"
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
-type
-  ContributionItem* = object
-    aggregator_index: uint64
-    selection_proof: ValidatorSig
-    validator: AttachedValidator
-    subcommitteeIdx: SyncSubcommitteeIndex
+type ContributionItem* = object
+  aggregator_index: uint64
+  selection_proof: ValidatorSig
+  validator: AttachedValidator
+  subcommitteeIdx: SyncSubcommitteeIndex
 
 proc serveSyncCommitteeMessage*(
     service: SyncCommitteeServiceRef,
     slot: Slot,
     beaconBlockRoot: Eth2Digest,
-    duty: SyncCommitteeDuty
+    duty: SyncCommitteeDuty,
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -40,40 +40,38 @@ proc serveSyncCommitteeMessage*(
     currentFork = vc.getConsensusFork(fork)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
     vindex = duty.validator_index
-    validator = vc.getValidatorForDuties(
-      duty.pubkey, slot, slashingSafe = true).valueOr: return false
+    validator = vc.getValidatorForDuties(duty.pubkey, slot, slashingSafe = true).valueOr:
+      return false
 
   logScope:
     validator = validatorLog(validator)
     block_root = shortLog(beaconBlockRoot)
     slot = slot
 
-  let
-    message =
-      block:
-        let res = await getSyncCommitteeMessage(validator, fork,
-                                                genesisValidatorsRoot,
-                                                slot, beaconBlockRoot)
-        if res.isErr():
-          warn "Unable to sign committee message using remote signer"
-          return
-        res.get()
+  let message = block:
+    let res = await getSyncCommitteeMessage(
+      validator, fork, genesisValidatorsRoot, slot, beaconBlockRoot
+    )
+    if res.isErr():
+      warn "Unable to sign committee message using remote signer"
+      return
+    res.get()
 
   logScope:
     message = shortLog(message)
 
   debug "Sending sync committee message",
-        delay = vc.getDelay(
-          message.slot.sync_committee_message_deadline(
-            vc.timeParams, currentFork))
+    delay = vc.getDelay(
+      message.slot.sync_committee_message_deadline(vc.timeParams, currentFork)
+    )
 
   let res =
     try:
       await vc.submitPoolSyncCommitteeSignature(
-        message, vc.getMode()[FnKind.submitPoolSyncCommitteeSignature])
+        message, vc.getMode()[FnKind.submitPoolSyncCommitteeSignature]
+      )
     except ValidatorApiError as exc:
-      warn "Unable to publish sync committee message",
-           reason = exc.getFailureReason()
+      warn "Unable to publish sync committee message", reason = exc.getFailureReason()
       return false
     except CancelledError:
       debug "Publish sync committee message request was interrupted"
@@ -81,77 +79,77 @@ proc serveSyncCommitteeMessage*(
 
   let
     delay = vc.getDelay(
-      message.slot.sync_committee_message_deadline(
-        vc.timeParams, currentFork))
+      message.slot.sync_committee_message_deadline(vc.timeParams, currentFork)
+    )
     dur = Moment.now() - startTime
 
   if res:
     beacon_sync_committee_messages_sent.inc()
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
     notice "Sync committee message published",
-           validator_index = vindex, delay = delay, duration = dur
+      validator_index = vindex, delay = delay, duration = dur
   else:
     warn "Sync committee message was not accepted by beacon node",
-         validator_index = vindex, delay = delay, duration = dur
+      validator_index = vindex, delay = delay, duration = dur
   res
 
 proc produceAndPublishSyncCommitteeMessages(
     service: SyncCommitteeServiceRef,
     slot: Slot,
     beaconBlockRoot: Eth2Digest,
-    duties: seq[SyncCommitteeDuty]
+    duties: seq[SyncCommitteeDuty],
 ): Future[void] {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
     startTime = Moment.now()
 
-  let pendingSyncCommitteeMessages =
-    block:
-      var res: seq[Future[bool]]
-      for duty in duties:
-        debug "Serving sync message duty", duty, epoch = slot.epoch()
-        res.add(service.serveSyncCommitteeMessage(slot,
-                                                  beaconBlockRoot,
-                                                  duty))
-      res
+  let pendingSyncCommitteeMessages = block:
+    var res: seq[Future[bool]]
+    for duty in duties:
+      debug "Serving sync message duty", duty, epoch = slot.epoch()
+      res.add(service.serveSyncCommitteeMessage(slot, beaconBlockRoot, duty))
+    res
 
-  let statistics =
-    block:
-      var errored, succeed, failed = 0
-      try:
-        await allFutures(pendingSyncCommitteeMessages)
-      except CancelledError as exc:
-        let pending = pendingSyncCommitteeMessages
-          .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-        await noCancel allFutures(pending)
-        raise exc
+  let statistics = block:
+    var errored, succeed, failed = 0
+    try:
+      await allFutures(pendingSyncCommitteeMessages)
+    except CancelledError as exc:
+      let pending = pendingSyncCommitteeMessages.filterIt(not (it.finished())).mapIt(
+          it.cancelAndWait()
+        )
+      await noCancel allFutures(pending)
+      raise exc
 
-      for future in pendingSyncCommitteeMessages:
-        if future.completed():
-          if future.value:
-            inc(succeed)
-          else:
-            inc(failed)
+    for future in pendingSyncCommitteeMessages:
+      if future.completed():
+        if future.value:
+          inc(succeed)
         else:
-          inc(errored)
-      (succeed, errored, failed)
+          inc(failed)
+      else:
+        inc(errored)
+    (succeed, errored, failed)
 
   let
     consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-    delay = vc.getDelay(slot.attestation_deadline(
-      vc.timeParams, consensusFork))
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams, consensusFork))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
-        total = len(pendingSyncCommitteeMessages),
-        succeed = statistics[0], failed_to_deliver = statistics[1],
-        not_accepted = statistics[2], delay = delay, duration = dur,
-        slot = slot, duties_count = len(duties)
+    total = len(pendingSyncCommitteeMessages),
+    succeed = statistics[0],
+    failed_to_deliver = statistics[1],
+    not_accepted = statistics[2],
+    delay = delay,
+    duration = dur,
+    slot = slot,
+    duties_count = len(duties)
 
 proc serveContributionAndProof*(
     service: SyncCommitteeServiceRef,
     proof: ContributionAndProof,
-    validator: AttachedValidator
+    validator: AttachedValidator,
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Signs ConributionAndProof object and sends it to BN.
   let
@@ -166,36 +164,32 @@ proc serveContributionAndProof*(
     validator = validatorLog(validator)
     contribution = shortLog(proof.contribution)
 
-  let signature =
-    block:
-      let res =
-        try:
-          await validator.getContributionAndProofSignature(
-            fork, genesisRoot, proof)
-        except CancelledError:
-          debug "Sync contribution signing process was interrupted"
-          return false
-
-      if res.isErr():
-        warn "Unable to sign sync committee contribution using remote signer",
-             reason = res.error()
+  let signature = block:
+    let res =
+      try:
+        await validator.getContributionAndProofSignature(fork, genesisRoot, proof)
+      except CancelledError:
+        debug "Sync contribution signing process was interrupted"
         return false
-      res.get()
+
+    if res.isErr():
+      warn "Unable to sign sync committee contribution using remote signer",
+        reason = res.error()
+      return false
+    res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline(
-          vc.timeParams, consensusFork))
+    delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams, consensusFork))
 
-  let restSignedProof = RestSignedContributionAndProof.init(
-    proof, signature)
+  let restSignedProof = RestSignedContributionAndProof.init(proof, signature)
 
   let res =
     try:
       await vc.publishContributionAndProofs(
-        @[restSignedProof], vc.getMode()[FnKind.publishContributionAndProofs])
+        @[restSignedProof], vc.getMode()[FnKind.publishContributionAndProofs]
+      )
     except ValidatorApiError as exc:
-      warn "Unable to publish sync contribution",
-           reason = exc.getFailureReason()
+      warn "Unable to publish sync contribution", reason = exc.getFailureReason()
       false
     except CancelledError:
       debug "Publication process of sync contribution was interrupted"
@@ -213,7 +207,7 @@ proc produceAndPublishContributions(
     service: SyncCommitteeServiceRef,
     slot: Slot,
     beaconBlockRoot: Eth2Digest,
-    duties: seq[SyncCommitteeDuty]
+    duties: seq[SyncCommitteeDuty],
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -223,118 +217,115 @@ proc produceAndPublishContributions(
     slot = slot
     block_root = shortLog(beaconBlockRoot)
 
-  var (contributions, pendingFutures, contributionsMap) =
-    block:
-      var
-        resItems: seq[ContributionItem]
-        resFutures: seq[FutureBase]
-        resMap: array[SYNC_COMMITTEE_SUBNET_COUNT,
-                      Future[SyncCommitteeContribution]]
-      for duty in duties:
-        let validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
-          continue
-        if validator.index.isNone():
-          continue
-        for inindex in duty.validator_sync_committee_indices:
-          let
-            subCommitteeIdx = getSubcommitteeIndex(inindex)
-            signature =
-              vc.getSyncCommitteeSelectionProof(duty.pubkey,
-                                                slot, inindex).valueOr:
-                continue
+  var (contributions, pendingFutures, contributionsMap) = block:
+    var
+      resItems: seq[ContributionItem]
+      resFutures: seq[FutureBase]
+      resMap: array[SYNC_COMMITTEE_SUBNET_COUNT, Future[SyncCommitteeContribution]]
+    for duty in duties:
+      let validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
+        continue
+      if validator.index.isNone():
+        continue
+      for inindex in duty.validator_sync_committee_indices:
+        let
+          subCommitteeIdx = getSubcommitteeIndex(inindex)
+          signature = vc.getSyncCommitteeSelectionProof(duty.pubkey, slot, inindex).valueOr:
+            continue
 
-          if is_sync_committee_aggregator(signature):
-            resItems.add(ContributionItem(
+        if is_sync_committee_aggregator(signature):
+          resItems.add(
+            ContributionItem(
               aggregator_index: uint64(validator.index.get()),
               selection_proof: signature,
               validator: validator,
-              subcommitteeIdx: subCommitteeIdx
-            ))
-            if isNil(resMap[subCommitteeIdx]):
-              let future =
-                vc.produceSyncCommitteeContribution(
-                  slot, subCommitteeIdx, beaconBlockRoot,
-                  vc.getMode()[FnKind.produceSyncCommitteeContribution])
-              resMap[int(subCommitteeIdx)] = future
-              resFutures.add(FutureBase(future))
-      (resItems, resFutures, resMap)
+              subcommitteeIdx: subCommitteeIdx,
+            )
+          )
+          if isNil(resMap[subCommitteeIdx]):
+            let future = vc.produceSyncCommitteeContribution(
+              slot,
+              subCommitteeIdx,
+              beaconBlockRoot,
+              vc.getMode()[FnKind.produceSyncCommitteeContribution],
+            )
+            resMap[int(subCommitteeIdx)] = future
+            resFutures.add(FutureBase(future))
+    (resItems, resFutures, resMap)
 
   if len(contributions) > 0:
     let
-      pendingAggregates =
-        block:
-          var res: seq[Future[bool]]
-          while len(pendingFutures) > 0:
-            try:
-              discard await race(pendingFutures)
-            except ValueError:
-              raiseAssert "Number of pendingFutures should not be zero"
-            except CancelledError as exc:
-              let pending = pendingFutures
-                .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-              await noCancel allFutures(pending)
-              raise exc
-
-            var completed: seq[int]
-            for contrib in contributions:
-              let future = contributionsMap[contrib.subcommitteeIdx]
-              doAssert(not(isNil(future)))
-              let index = pendingFutures.find(FutureBase(future))
-              if future.finished() and (index >= 0):
-                if index notin completed: completed.add(index)
-                let aggContribution =
-                  try:
-                    let tfut =
-                      cast[Future[SyncCommitteeContribution].
-                        Raising([CancelledError, ValidatorApiError])](future)
-                    Opt.some(tfut.read())
-                  except FuturePendingError:
-                    raiseAssert "Future should be finished"
-                  except ValidatorApiError as exc:
-                    warn "Unable to get sync message contribution data",
-                         reason = exc.getFailureReason()
-                    Opt.none(SyncCommitteeContribution)
-                  except CancelledError as exc:
-                    debug "Request for sync message contribution was " &
-                          "interrupted"
-                    raise exc
-
-                if aggContribution.isSome():
-                  let proof = ContributionAndProof(
-                    aggregator_index: contrib.aggregator_index,
-                    contribution: aggContribution.get(),
-                    selection_proof: contrib.selection_proof
-                  )
-                  res.add(
-                    service.serveContributionAndProof(proof, contrib.validator))
-
-            pendingFutures =
-              block:
-                var tres: seq[FutureBase]
-                for index, value in pendingFutures.pairs():
-                  if index notin completed: tres.add(value)
-                tres
-          res
-      statistics =
-        block:
-          var errored, succeed, failed = 0
+      pendingAggregates = block:
+        var res: seq[Future[bool]]
+        while len(pendingFutures) > 0:
           try:
-            await allFutures(pendingAggregates)
+            discard await race(pendingFutures)
+          except ValueError:
+            raiseAssert "Number of pendingFutures should not be zero"
           except CancelledError as exc:
-            let pending = pendingAggregates
-              .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+            let pending =
+              pendingFutures.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
             await noCancel allFutures(pending)
             raise exc
 
-          for future in pendingAggregates:
-            if future.completed():
-              if future.value:
-                inc(succeed)
-              else:
-                inc(failed)
+          var completed: seq[int]
+          for contrib in contributions:
+            let future = contributionsMap[contrib.subcommitteeIdx]
+            doAssert(not (isNil(future)))
+            let index = pendingFutures.find(FutureBase(future))
+            if future.finished() and (index >= 0):
+              if index notin completed:
+                completed.add(index)
+              let aggContribution =
+                try:
+                  let tfut = cast[Future[SyncCommitteeContribution].Raising(
+                    [CancelledError, ValidatorApiError]
+                  )](future)
+                  Opt.some(tfut.read())
+                except FuturePendingError:
+                  raiseAssert "Future should be finished"
+                except ValidatorApiError as exc:
+                  warn "Unable to get sync message contribution data",
+                    reason = exc.getFailureReason()
+                  Opt.none(SyncCommitteeContribution)
+                except CancelledError as exc:
+                  debug "Request for sync message contribution was " & "interrupted"
+                  raise exc
+
+              if aggContribution.isSome():
+                let proof = ContributionAndProof(
+                  aggregator_index: contrib.aggregator_index,
+                  contribution: aggContribution.get(),
+                  selection_proof: contrib.selection_proof,
+                )
+                res.add(service.serveContributionAndProof(proof, contrib.validator))
+
+          pendingFutures = block:
+            var tres: seq[FutureBase]
+            for index, value in pendingFutures.pairs():
+              if index notin completed:
+                tres.add(value)
+            tres
+        res
+      statistics = block:
+        var errored, succeed, failed = 0
+        try:
+          await allFutures(pendingAggregates)
+        except CancelledError as exc:
+          let pending =
+            pendingAggregates.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          raise exc
+
+        for future in pendingAggregates:
+          if future.completed():
+            if future.value:
+              inc(succeed)
             else:
-              inc(errored)
-          (succeed, errored, failed)
+              inc(failed)
+          else:
+            inc(errored)
+        (succeed, errored, failed)
 
     let
       consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
@@ -342,20 +333,18 @@ proc produceAndPublishContributions(
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
-          total = len(contributions),
-          succeed = statistics[0],
-          failed_to_create = len(pendingAggregates) - len(contributions),
-          failed_to_deliver = statistics[1],
-          not_accepted = statistics[2],
-          delay = delay, duration = dur
-
+      total = len(contributions),
+      succeed = statistics[0],
+      failed_to_create = len(pendingAggregates) - len(contributions),
+      failed_to_deliver = statistics[1],
+      not_accepted = statistics[2],
+      delay = delay,
+      duration = dur
   else:
     debug "No contribution and proofs scheduled for the slot"
 
 proc publishSyncMessagesAndContributions(
-    service: SyncCommitteeServiceRef,
-    slot: Slot,
-    duties: seq[SyncCommitteeDuty]
+    service: SyncCommitteeServiceRef, slot: Slot, duties: seq[SyncCommitteeDuty]
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
@@ -365,44 +354,40 @@ proc publishSyncMessagesAndContributions(
     slot = slot
 
   block:
-    let 
+    let
       currentFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-      delay = vc.getDelay(
-        slot.sync_committee_message_deadline(vc.timeParams, currentFork))
-    debug "Producing sync committee messages", delay = delay,
-          duties_count = len(duties)
+      delay =
+        vc.getDelay(slot.sync_committee_message_deadline(vc.timeParams, currentFork))
+    debug "Producing sync committee messages", delay = delay, duties_count = len(duties)
 
-  let beaconBlockRoot =
-    block:
-      try:
-        let res = await vc.getHeadBlockRoot(
-          vc.getMode()[FnKind.getHeadBlockRoot])
-        if res.execution_optimistic.isNone():
-          ## The `execution_optimistic` is missing from the response, we assume
-          ## that the BN is unaware optimistic sync, so we consider the BN
-          ## to be synchronized with the network.
-          ## TODO (cheatfate): This should be removed when VC will be able to
-          ## handle getSpec() API call with fork constants.
-          res.data.root
-        else:
-          if res.execution_optimistic.get():
-            notice "Execution client not in sync"
-            return
-          res.data.root
-      except ValidatorApiError as exc:
-        warn "Unable to retrieve head block's root to sign", reason = exc.msg,
-             reason = exc.getFailureReason()
-        return
-      except CancelledError:
-        debug "Block root request was interrupted"
-        return
+  let beaconBlockRoot = block:
+    try:
+      let res = await vc.getHeadBlockRoot(vc.getMode()[FnKind.getHeadBlockRoot])
+      if res.execution_optimistic.isNone():
+        ## The `execution_optimistic` is missing from the response, we assume
+        ## that the BN is unaware optimistic sync, so we consider the BN
+        ## to be synchronized with the network.
+        ## TODO (cheatfate): This should be removed when VC will be able to
+        ## handle getSpec() API call with fork constants.
+        res.data.root
+      else:
+        if res.execution_optimistic.get():
+          notice "Execution client not in sync"
+          return
+        res.data.root
+    except ValidatorApiError as exc:
+      warn "Unable to retrieve head block's root to sign",
+        reason = exc.msg, reason = exc.getFailureReason()
+      return
+    except CancelledError:
+      debug "Block root request was interrupted"
+      return
 
   try:
-    await service.produceAndPublishSyncCommitteeMessages(
-      slot, beaconBlockRoot, duties)
+    await service.produceAndPublishSyncCommitteeMessages(slot, beaconBlockRoot, duties)
   except ValidatorApiError as exc:
     warn "Unable to proceed sync committee messages",
-         duties_count = len(duties), reason = exc.getFailureReason()
+      duties_count = len(duties), reason = exc.getFailureReason()
     return
   except CancelledError:
     debug "Sync committee messages production was interrupted"
@@ -410,18 +395,17 @@ proc publishSyncMessagesAndContributions(
 
   let currentTime = vc.beaconClock.now()
   let consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-  if slot.sync_contribution_deadline(
-      vc.timeParams, consensusFork) > currentTime:
-    let waitDur = nanoseconds((
-      slot.sync_contribution_deadline(
-        vc.timeParams, consensusFork) - currentTime).nanoseconds)
+  if slot.sync_contribution_deadline(vc.timeParams, consensusFork) > currentTime:
+    let waitDur = nanoseconds(
+      (slot.sync_contribution_deadline(vc.timeParams, consensusFork) - currentTime).nanoseconds
+    )
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(
-      slot.sync_contribution_deadline(vc.timeParams, consensusFork))
+    let delay =
+      vc.getDelay(slot.sync_contribution_deadline(vc.timeParams, consensusFork))
     debug "Producing contribution and proofs", delay = delay
 
   try:
@@ -431,8 +415,7 @@ proc publishSyncMessagesAndContributions(
     return
 
 proc processSyncCommitteeTasks(
-    service: SyncCommitteeServiceRef,
-    slot: Slot
+    service: SyncCommitteeServiceRef, slot: Slot
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -443,11 +426,10 @@ proc processSyncCommitteeTasks(
     slot = slot
 
   try:
-    await service.publishSyncMessagesAndContributions(slot,
-                                                      duties).wait(timeout)
+    await service.publishSyncMessagesAndContributions(slot, duties).wait(timeout)
   except AsyncTimeoutError:
     warn "Unable to publish sync committee messages and contributions in time",
-         timeout = timeout
+      timeout = timeout
   except CancelledError as exc:
     debug "Sync committee publish task has been interrupted"
     raise exc
@@ -463,7 +445,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
       vc.preGenesisEvent.wait(),
       vc.genesisEvent.wait(),
       vc.indicesAvailable.wait(),
-      vc.forksAvailable.wait()
+      vc.forksAvailable.wait(),
     )
   except CancelledError:
     debug "Service interrupted"
@@ -481,8 +463,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
         let
           # We use zero offset here, because we do waiting in
           # waitForBlock(vc.timeParams.syncCommitteeMessageSlotOffset).
-          slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
-                                                 false)
+          slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff, false)
         if slot.isNone():
           debug "System time adjusted backwards significantly, exiting"
           true
@@ -498,12 +479,13 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async: (raises: []).} =
       break
 
 proc init*(
-    t: typedesc[SyncCommitteeServiceRef],
-    vc: ValidatorClientRef
+    t: typedesc[SyncCommitteeServiceRef], vc: ValidatorClientRef
 ): Future[SyncCommitteeServiceRef] {.async: (raises: []).} =
-  logScope: service = ServiceName
-  let res = SyncCommitteeServiceRef(name: ServiceName, client: vc,
-                                    state: ServiceState.Initialized)
+  logScope:
+    service = ServiceName
+  let res = SyncCommitteeServiceRef(
+    name: ServiceName, client: vc, state: ServiceState.Initialized
+  )
   debug "Initializing service"
   res
 

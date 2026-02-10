@@ -45,7 +45,6 @@ const
   # Number of field elements in a Reed-Solomon extended blob |
   BYTES_PER_CELL* = kzg_abi.FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |
-
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
@@ -118,8 +117,8 @@ type
     row_index*: RowIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
-  KzgProofs* = List[KzgProof,
-    Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  KzgProofs* =
+    List[KzgProof, Limit FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.5/specs/fulu/validator.md#blobsbundle
   BlobsBundle* = object
@@ -147,8 +146,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
-    beacon*: BeaconBlockHeader
-      ## Beacon block header
+    beacon*: BeaconBlockHeader ## Beacon block header
 
     execution*: deneb.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
@@ -156,8 +154,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    header*: LightClientHeader
-      ## Header matching the requested beacon block root
+    header*: LightClientHeader ## Header matching the requested beacon block root
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
@@ -165,8 +162,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    attested_header*: LightClientHeader
-      ## Header attested to by the sync committee
+    attested_header*: LightClientHeader ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
@@ -177,14 +173,12 @@ type
     finalized_header*: LightClientHeader
     finality_branch*: electra.FinalityBranch
 
-    sync_aggregate*: SyncAggregate
-      ## Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate ## Sync committee aggregate signature
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
-  LightClientFinalityUpdate* = object
-    # Header attested to by the sync committee
+  LightClientFinalityUpdate* = object # Header attested to by the sync committee
     attested_header*: LightClientHeader
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -197,8 +191,7 @@ type
     signature_slot*: Slot
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
-  LightClientOptimisticUpdate* = object
-    # Header attested to by the sync committee
+  LightClientOptimisticUpdate* = object # Header attested to by the sync committee
     attested_header*: LightClientHeader
 
     # Sync committee aggregate signature
@@ -206,26 +199,18 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  SomeLightClientUpdateWithSyncCommittee* =
-    LightClientUpdate
+  SomeLightClientUpdateWithSyncCommittee* = LightClientUpdate
 
-  SomeLightClientUpdateWithFinality* =
-    LightClientUpdate |
-    LightClientFinalityUpdate
+  SomeLightClientUpdateWithFinality* = LightClientUpdate | LightClientFinalityUpdate
 
   SomeLightClientUpdate* =
-    LightClientUpdate |
-    LightClientFinalityUpdate |
-    LightClientOptimisticUpdate
+    LightClientUpdate | LightClientFinalityUpdate | LightClientOptimisticUpdate
 
-  SomeLightClientObject* =
-    LightClientBootstrap |
-    SomeLightClientUpdate
+  SomeLightClientObject* = LightClientBootstrap | SomeLightClientUpdate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    finalized_header*: LightClientHeader
-      ## Header that is finalized
+    finalized_header*: LightClientHeader ## Header that is finalized
 
     current_sync_committee*: SyncCommittee
       ## Sync committees corresponding to the finalized header
@@ -235,8 +220,7 @@ type
       ## Best available header to switch finalized head to
       ## if we see nothing else
 
-    optimistic_header*: LightClientHeader
-      ## Most recent available reasonably-safe header
+    optimistic_header*: LightClientHeader ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
       ## Max number of active participants in a sync committee
@@ -244,8 +228,7 @@ type
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
-  BeaconState* = object
-    # Versioning
+  BeaconState* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -284,8 +267,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -306,15 +288,14 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
-    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
-    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    deposit_requests_start_index*: uint64 # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch # [New in Electra:EIP7251]
     pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
@@ -326,7 +307,7 @@ type
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
-        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+      HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
       ## [New in Electra:EIP7251]
 
@@ -348,30 +329,24 @@ type
     ## validators that will have a chance to vote on it through attestations.
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -401,11 +376,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -423,7 +396,7 @@ type
     execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    execution_requests*: ExecutionRequests # [New in Electra]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -440,15 +413,12 @@ type
     ##
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
       List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -463,20 +433,16 @@ type
     execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    execution_requests*: ExecutionRequests # [New in Electra]
 
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
+  TrustedBeaconBlockBody* = object ## A full verified block
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
       List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -491,7 +457,7 @@ type
     execution_payload*: deneb.ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    execution_requests*: ExecutionRequests # [New in Electra]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -526,17 +492,10 @@ type
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
   SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
+    SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
   BlockContents* = object
     `block`*: BeaconBlock
@@ -560,11 +519,8 @@ func shortLog*(x: seq[DataColumnIdentifier]): string =
 func shortLog*(xs: seq[DataColumnsByRootIdentifier]): string =
   ## Formats like:  [abcd…/0,2,4,  ef09…/1,3]
   "[" &
-    xs.mapIt(
-      shortLog(it.block_root) & "/" &
-      it.indices.mapIt($it).join(",")
-    ).join(", ") &
-  "]"
+    xs.mapIt(shortLog(it.block_root) & "/" & it.indices.mapIt($it).join(",")).join(", ") &
+    "]"
 
 func shortLog*(x: seq[ColumnIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"
@@ -597,26 +553,22 @@ func shortLog*(v: SomeBeaconBlock): auto =
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))
 
 template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
+    x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+    x: SignedBeaconBlock | TrustedSignedBeaconBlock
+): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+template asSigVerified*(x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock
+): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

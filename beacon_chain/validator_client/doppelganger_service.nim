@@ -10,10 +10,10 @@
 import chronicles
 import "."/[common, api]
 
-const
-  ServiceName = "doppelganger_service"
+const ServiceName = "doppelganger_service"
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
 proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]
@@ -23,8 +23,11 @@ proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex]
       res.add validator.index.get()
   res
 
-proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
-                       activities: GetValidatorsLivenessResponse) =
+proc processActivities(
+    service: DoppelgangerServiceRef,
+    epoch: Epoch,
+    activities: GetValidatorsLivenessResponse,
+) =
   let vc = service.client
   if len(activities.data) == 0:
     debug "Unable to monitor validator's activity for epoch", epoch = epoch
@@ -57,9 +60,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async: (raises: []).} =
   debug "Doppelganger detection loop is waiting for initialization"
   try:
     await allFutures(
-      vc.preGenesisEvent.wait(),
-      vc.genesisEvent.wait(),
-      vc.indicesAvailable.wait()
+      vc.preGenesisEvent.wait(), vc.genesisEvent.wait(), vc.indicesAvailable.wait()
     )
   except CancelledError:
     debug "Service interrupted"
@@ -90,8 +91,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async: (raises: []).} =
           currentEpoch - 1'u64
       validators = vc.getCheckingList(previousEpoch)
     if len(validators) > 0:
-      let activities = await vc.getValidatorsLiveness(previousEpoch,
-                                                      validators)
+      let activities = await vc.getValidatorsLiveness(previousEpoch, validators)
       service.processActivities(previousEpoch, activities)
     else:
       debug "No validators found that require doppelganger protection"
@@ -100,16 +100,20 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async: (raises: []).} =
   except CancelledError:
     debug "Service interrupted"
     false
-  : discard
+  :
+    discard
 
 proc init*(
-    t: type DoppelgangerServiceRef,
-    vc: ValidatorClientRef
+    t: type DoppelgangerServiceRef, vc: ValidatorClientRef
 ): Future[DoppelgangerServiceRef] {.async: (raises: []).} =
-  logScope: service = ServiceName
-  let res = DoppelgangerServiceRef(name: ServiceName,
-                                   client: vc, state: ServiceState.Initialized,
-                                   enabled: vc.config.doppelgangerDetection)
+  logScope:
+    service = ServiceName
+  let res = DoppelgangerServiceRef(
+    name: ServiceName,
+    client: vc,
+    state: ServiceState.Initialized,
+    enabled: vc.config.doppelgangerDetection,
+  )
   debug "Initializing service"
   res
 

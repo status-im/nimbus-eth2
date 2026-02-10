@@ -19,13 +19,18 @@ import
 
 from ../beacon_chain/spec/state_transition import process_slots
 
-template cfg: untyped = defaultRuntimeConfig
+template cfg(): untyped =
+  defaultRuntimeConfig
 
 suite "Beacon state" & preset():
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
-    let state = newClone(initialize_hashed_beacon_state_from_eth1(
-      cfg, ZERO_HASH, 0, makeInitialDeposits(cfg, SLOTS_PER_EPOCH), {}))
-    check: state.data.validators.lenu64 == SLOTS_PER_EPOCH
+    let state = newClone(
+      initialize_hashed_beacon_state_from_eth1(
+        cfg, ZERO_HASH, 0, makeInitialDeposits(cfg, SLOTS_PER_EPOCH), {}
+      )
+    )
+    check:
+      state.data.validators.lenu64 == SLOTS_PER_EPOCH
 
   test "process_slots":
     var
@@ -52,7 +57,8 @@ suite "Beacon state" & preset():
       state[].phase0Data.latest_block_root == genBlock.root
 
     let blck = addTestBlock(
-      state[], cache, nextSlot = false, flags = {skipBlsValidation}).phase0Data
+      state[], cache, nextSlot = false, flags = {skipBlsValidation}
+    ).phase0Data
 
     check: # Works for random blocks
       state[].phase0Data.latest_block_root == blck.root
@@ -67,18 +73,18 @@ suite "Beacon state" & preset():
 
     check:
       get_beacon_proposer_index(state[].phase0Data.data, cache, Slot 1).isSome()
-      get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(1).start_slot()).isNone()
-      get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
+      get_beacon_proposer_index(state[].phase0Data.data, cache, Epoch(1).start_slot())
+        .isNone()
+      get_beacon_proposer_index(state[].phase0Data.data, cache, Epoch(2).start_slot())
+        .isNone()
 
     check:
       process_slots(cfg, state[], Epoch(1).start_slot(), cache, info, {}).isOk()
       get_beacon_proposer_index(state[].phase0Data.data, cache, Slot 1).isNone()
-      get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(1).start_slot()).isSome()
-      get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
+      get_beacon_proposer_index(state[].phase0Data.data, cache, Epoch(1).start_slot())
+        .isSome()
+      get_beacon_proposer_index(state[].phase0Data.data, cache, Epoch(2).start_slot())
+        .isNone()
 
   test "dependent_root":
     var
@@ -118,8 +124,7 @@ suite "Beacon state" & preset():
       state[].can_advance_slots(genBlock.root, Slot(0))
       state[].can_advance_slots(genBlock.root, Slot(0))
 
-    let blck = addTestBlock(
-      state[], cache, flags = {skipBlsValidation})
+    let blck = addTestBlock(state[], cache, flags = {skipBlsValidation})
 
     check:
       not state[].can_advance_slots(genBlock.root, Slot(0))

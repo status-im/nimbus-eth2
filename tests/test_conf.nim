@@ -8,9 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import
-  unittest2,
-  ../beacon_chain/conf
+import unittest2, ../beacon_chain/conf
 
 template reject(val: string) =
   expect CatchableError:
@@ -20,12 +18,19 @@ suite "Configuration parsing":
   suite "weak-subjectivity-checkpoint":
     test "Correct values":
       let
-        c1 = Checkpoint.parseCmdArg("0x3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5:31714")
-        c2 = Checkpoint.parseCmdArg("3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5:31714")
+        c1 = Checkpoint.parseCmdArg(
+          "0x3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5:31714"
+        )
+        c2 = Checkpoint.parseCmdArg(
+          "3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5:31714"
+        )
 
       check:
         c1.epoch == 31714
-        c1.root == Eth2Digest.fromHex("3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5")
+        c1.root ==
+          Eth2Digest.fromHex(
+            "3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb5"
+          )
         c1 == c2
 
       #[

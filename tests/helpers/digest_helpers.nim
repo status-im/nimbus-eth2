@@ -7,8 +7,7 @@
 
 {.push raises: [].}
 
-import
-  ../../beacon_chain/spec/digest
+import ../../beacon_chain/spec/digest
 
 func `*`*(a: static array[1, byte], n: static int): static Eth2Digest =
   doAssert n == 32

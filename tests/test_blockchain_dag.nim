@@ -15,17 +15,17 @@ import
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
-  ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+  ../beacon_chain/consensus_object_pools/
+    [attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./[testblockutil, testdbutil, teststateutil, testutil]
 
 from std/random import rand, randomize, sample
 from std/sequtils import mapIt, toSeq
-from ../beacon_chain/spec/datatypes/capella import
-  SignedBLSToExecutionChangeList
+from ../beacon_chain/spec/datatypes/capella import SignedBLSToExecutionChangeList
 from ./testbcutil import addHeadBlock
 
-func `$`(x: BlockRef): string = shortLog(x)
+func `$`(x: BlockRef): string =
+  shortLog(x)
 
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
@@ -72,8 +72,7 @@ suite "Block pool processing" & preset():
       bh.isSome()
       bh2.isSome()
 
-      dag.getBlockRef(dag.finalizedHead.blck.root).get() ==
-        dag.finalizedHead.blck
+      dag.getBlockRef(dag.finalizedHead.blck.root).get() == dag.finalizedHead.blck
       dag.getBlockRef(dag.head.root).get() == dag.head
 
   test "Simple block add&get" & preset():
@@ -123,8 +122,9 @@ suite "Block pool processing" & preset():
       dag.validatorKey(validators).isNone()
 
     # Skip one slot to get a gap
-    check cfg.process_slots(
-      state[], getStateField(state[], slot) + 1, cache, info, {}).isOk()
+    check cfg
+      .process_slots(state[], getStateField(state[], slot) + 1, cache, info, {})
+      .isOk()
 
     let
       b4 = addTestBlock(state[], cache).phase0Data
@@ -148,10 +148,10 @@ suite "Block pool processing" & preset():
 
     check:
       dag.getBlockRange(Slot(0), blocks.toOpenArray(0, 0)) == 0
-      blocks[0..<1] == [dag.tail]
+      blocks[0 ..< 1] == [dag.tail]
 
       dag.getBlockRange(Slot(0), blocks.toOpenArray(0, 1)) == 0
-      blocks[0..<2] == [dag.tail, b1Add[].bid]
+      blocks[0 ..< 2] == [dag.tail, b1Add[].bid]
 
       # No blocks in sight
       dag.getBlockRange(Slot(5), blocks.toOpenArray(0, 1)) == 2
@@ -172,13 +172,13 @@ suite "Block pool processing" & preset():
           default(seq[Opt[ValidatorIndex]])
         else:
           get_beacon_proposer_indices(
-            forkyState.data, shufflingRef.shuffled_active_validator_indices,
-            nextEpoch)
+            forkyState.data, shufflingRef.shuffled_active_validator_indices, nextEpoch
+          )
 
     check:
       # get_beacon_proposer_indices based on ShufflingRef matches EpochRef
-      nextEpochProposers == dag.getEpochRef(
-        dag.head, nextEpoch, true).get.beacon_proposers
+      nextEpochProposers ==
+        dag.getEpochRef(dag.head, nextEpoch, true).get.beacon_proposers
 
       parentBsi.bid == dag.head.parent.bid
       parentBsi.slot == nextEpochSlot
@@ -212,8 +212,7 @@ suite "Block pool processing" & preset():
       not b10[].isNil
 
   test "updateHead updates head and headState" & preset():
-    let
-      b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
+    let b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     dag.updateHead(b1Add[], quarantine, [])
     dag.pruneAtFinalization()
@@ -248,8 +247,12 @@ suite "Block pool processing" & preset():
     # Move back slots, but not blocks
     check:
       dag.updateState(
-        tmpState[], dag.parent(bs1_3.bid).expect("block").atSlot(), false,
-        cache, dag.updateFlags)
+        tmpState[],
+        dag.parent(bs1_3.bid).expect("block").atSlot(),
+        false,
+        cache,
+        dag.updateFlags,
+      )
       tmpState[].latest_block_root == b1Add[].parent.root
       getStateField(tmpState[], slot) == b1Add[].parent.slot
 
@@ -268,8 +271,12 @@ suite "Block pool processing" & preset():
     # Move back to genesis
     check:
       dag.updateState(
-        tmpState[], dag.parent(bs1.bid).expect("block").atSlot(), false, cache,
-        dag.updateFlags)
+        tmpState[],
+        dag.parent(bs1.bid).expect("block").atSlot(),
+        false,
+        cache,
+        dag.updateFlags,
+      )
       tmpState[].latest_block_root == b1Add[].parent.root
       getStateField(tmpState[], slot) == b1Add[].parent.slot
 
@@ -293,8 +300,9 @@ suite "Block pool altair processing" & preset():
 
     # Advance to altair
     check:
-      cfg.process_slots(
-        state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache, info, {}).isOk()
+      cfg
+        .process_slots(state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache, info, {})
+        .isOk()
 
       state[].kind == ConsensusFork.Altair
 
@@ -305,8 +313,9 @@ suite "Block pool altair processing" & preset():
 
   test "Invalid signatures" & preset():
     let badSignature = get_slot_signature(
-      Fork(), ZERO_HASH, 42.Slot,
-      MockPrivKeys[ValidatorIndex(0)]).toValidatorSig()
+        Fork(), ZERO_HASH, 42.Slot, MockPrivKeys[ValidatorIndex(0)]
+      )
+      .toValidatorSig()
 
     check:
       dag.addHeadBlock(verifier, b1, nilAltairCallback).isOk()
@@ -314,32 +323,28 @@ suite "Block pool altair processing" & preset():
     block: # Main signature
       var b = b2
       b.signature = badSignature
-      let
-        bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
+      let bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
         bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Randao reveal
       var b = b2
       b.message.body.randao_reveal = badSignature
-      let
-        bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
+      let bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
         bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Attestations
       var b = b2
       b.message.body.attestations[0].signature = badSignature
-      let
-        bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
+      let bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
         bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
       b.message.body.sync_aggregate.sync_committee_signature = badSignature
-      let
-        bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
+      let bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
         bAdd == AddHeadRes.err VerifierError.Invalid
 
@@ -348,8 +353,7 @@ suite "Block pool altair processing" & preset():
       b.message.body.sync_aggregate.sync_committee_signature = badSignature
       b.message.body.sync_aggregate.sync_committee_bits[0] = true
 
-      let
-        bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
+      let bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
         bAdd == AddHeadRes.err VerifierError.Invalid
 
@@ -373,21 +377,30 @@ suite "chain DAG finalization tests" & preset():
     var
       blck = makeTestBlock(dag.headState, cache).phase0Data
       tmpState = assignClone(dag.headState)
-    check cfg.process_slots(
-      tmpState[], getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH),
-      cache, info, {}).isOk()
+    check cfg
+      .process_slots(
+        tmpState[],
+        getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH),
+        cache,
+        info,
+        {},
+      )
+      .isOk()
 
     let lateBlock = addTestBlock(tmpState[], cache).phase0Data
     block:
       let status = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-      check: status.isOk()
+      check:
+        status.isOk()
 
     assign(tmpState[], dag.headState)
 
     # skip slots so we can test gappy getBlockIdAtSlot
-    check cfg.process_slots(
-      tmpState[], getStateField(tmpState[], slot) + 2.uint64,
-      cache, info, {}).isOk()
+    check cfg
+      .process_slots(
+        tmpState[], getStateField(tmpState[], slot) + 2.uint64, cache, info, {}
+      )
+      .isOk()
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
@@ -396,11 +409,15 @@ suite "chain DAG finalization tests" & preset():
           dag.heads.len == 2
 
       blck = addTestBlock(
-        tmpState[], cache,
+        tmpState[],
+        cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {}
+        ),
+      ).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-      check: added.isOk()
+      check:
+        added.isOk()
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
@@ -410,15 +427,16 @@ suite "chain DAG finalization tests" & preset():
       dag.getBlockIdAtSlot(2.Slot).get() ==
         BlockSlotId.init(dag.getBlockIdAtSlot(1.Slot).get().bid, 2.Slot)
 
-      dag.getBlockIdAtSlot(dag.head.slot).get() == BlockSlotId.init(
-        dag.head.bid, dag.head.slot)
-      dag.getBlockIdAtSlot(dag.head.slot + 1).get() == BlockSlotId.init(
-        dag.head.bid, dag.head.slot + 1)
+      dag.getBlockIdAtSlot(dag.head.slot).get() ==
+        BlockSlotId.init(dag.head.bid, dag.head.slot)
+      dag.getBlockIdAtSlot(dag.head.slot + 1).get() ==
+        BlockSlotId.init(dag.head.bid, dag.head.slot + 1)
 
       not dag.containsForkBlock(dag.getBlockIdAtSlot(5.Slot).get().bid.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
-      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone() # Finalized - no BlockRef
+      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone()
+        # Finalized - no BlockRef
 
       dag.getBlockRef(dag.finalizedHead.blck.root).isSome()
 
@@ -439,7 +457,8 @@ suite "chain DAG finalization tests" & preset():
           check:
             parent.isErr()
           break
-      check: cur.slot == 0
+      check:
+        cur.slot == 0
 
     block:
       var cur = dag.head.bid.atSlot()
@@ -447,17 +466,19 @@ suite "chain DAG finalization tests" & preset():
         let parent = dag.parentOrSlot(cur)
         if cur.slot > 0:
           check:
-            parent.isSome and (parent.get().slot < cur.slot or parent.get().bid != cur.bid)
+            parent.isSome and
+              (parent.get().slot < cur.slot or parent.get().bid != cur.bid)
           cur = parent.get()
         else:
           check:
             parent.isErr()
           break
-      check: cur.slot == 0
+      check:
+        cur.slot == 0
 
     let
-      finalER = dag.getEpochRef(
-        dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false)
+      finalER =
+        dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false)
 
       # The EpochRef for the finalized block is needed for eth1 voting, so we
       # should never drop it!
@@ -466,7 +487,8 @@ suite "chain DAG finalization tests" & preset():
 
     block:
       for er in dag.epochRefs.entries:
-        check: er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
+        check:
+          er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
 
     block:
       let tmpStateData = assignClone(dag.headState)
@@ -475,10 +497,15 @@ suite "chain DAG finalization tests" & preset():
       # just processed the head the relevant epochrefs should not have been
       # evicted yet
       cache = StateCache()
-      check: updateState(
-        dag, tmpStateData[],
-        dag.head.atSlot(dag.head.slot).toBlockSlotId().expect("not nil"),
-        false, cache, dag.updateFlags)
+      check:
+        updateState(
+          dag,
+          tmpStateData[],
+          dag.head.atSlot(dag.head.slot).toBlockSlotId().expect("not nil"),
+          false,
+          cache,
+          dag.updateFlags,
+        )
 
       check:
         dag.head.slot.epoch in cache.shuffled_active_validator_indices
@@ -492,13 +519,16 @@ suite "chain DAG finalization tests" & preset():
       let status = dag.addHeadBlock(verifier, lateBlock, nilPhase0Callback)
       # This _should_ be Unviable, but we can't tell, from the data that we have
       # so MissingParent is the least wrong thing to reply
-      check: status == AddHeadRes.err VerifierError.UnviableFork
+      check:
+        status == AddHeadRes.err VerifierError.UnviableFork
 
     block:
       let
-        finalizedCheckpoint = dag.stateCheckpoint(dag.finalizedHead.toBlockSlotId().get())
+        finalizedCheckpoint =
+          dag.stateCheckpoint(dag.finalizedHead.toBlockSlotId().get())
         headCheckpoint = dag.stateCheckpoint(dag.head.bid.atSlot())
-        prunedCheckpoint = dag.stateCheckpoint(dag.parent(dag.finalizedHead.blck.bid).get().atSlot())
+        prunedCheckpoint =
+          dag.stateCheckpoint(dag.parent(dag.finalizedHead.blck.bid).get().atSlot())
       check:
         db.getStateRoot(headCheckpoint.bid.root, headCheckpoint.slot).isSome
         db.getStateRoot(finalizedCheckpoint.bid.root, finalizedCheckpoint.slot).isSome
@@ -507,7 +537,8 @@ suite "chain DAG finalization tests" & preset():
     # Roll back head block (e.g., because it was declared INVALID)
     let parentRoot = dag.head.parent.root
     dag.updateHead(dag.head.parent, quarantine, [])
-    check: dag.head.root == parentRoot
+    check:
+      dag.head.root == parentRoot
 
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
@@ -523,13 +554,15 @@ suite "chain DAG finalization tests" & preset():
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
 
     # No canonical block data should be pruned by the removal of the fork
-    for i in Slot(0)..dag2.head.slot:
+    for i in Slot(0) .. dag2.head.slot:
       let bids = dag.getBlockIdAtSlot(i).expect("found it")
       if bids.isProposed:
-        check: dag2.getForkedBlock(bids.bid).isSome
+        check:
+          dag2.getForkedBlock(bids.bid).isSome
 
     # The unviable block should have been pruned however
-    check: dag2.getForkedBlock(lateBlock.root).isNone
+    check:
+      dag2.getForkedBlock(lateBlock.root).isNone
 
   test "orphaned epoch block" & preset():
     let prestate = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
@@ -539,7 +572,8 @@ suite "chain DAG finalization tests" & preset():
 
       let blck = makeTestBlock(dag.headState, cache).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-      check: added.isOk()
+      check:
+        added.isOk()
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
@@ -549,16 +583,17 @@ suite "chain DAG finalization tests" & preset():
     # The loop creates multiple branches, which StateCache isn't suitable for
     cache = StateCache()
 
-    doAssert cfg.process_slots(
-      prestate[], getStateField(prestate[], slot) + 1,
-      cache, info, {}).isOk()
+    doAssert cfg
+      .process_slots(prestate[], getStateField(prestate[], slot) + 1, cache, info, {})
+      .isOk()
 
     # create another block, orphaning the head
     let blck = makeTestBlock(prestate[], cache).phase0Data
 
     # Add block, but don't update head
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-    check: added.isOk()
+    check:
+      added.isOk()
 
     var
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
@@ -566,29 +601,35 @@ suite "chain DAG finalization tests" & preset():
 
     # check that we can apply the block after the orphaning
     let added2 = dag2.addHeadBlock(verifier, blck, nilPhase0Callback)
-    check: added2.isOk()
+    check:
+      added2.isOk()
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2), attested = true):
+      dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2), attested = true
+    ):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
-      check: added.isOk()
+      check:
+        added.isOk()
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     # Advance past epoch so that the epoch transition is gapped
-    check cfg.process_slots(
-      dag.headState, Slot(SLOTS_PER_EPOCH * 6 + 2),
-      cache, info, {}).isOk()
+    check cfg
+      .process_slots(dag.headState, Slot(SLOTS_PER_EPOCH * 6 + 2), cache, info, {})
+      .isOk()
 
     let blck = makeTestBlock(
-      dag.headState, cache,
+      dag.headState,
+      cache,
       attestations = makeFullAttestations(
-        dag.headState, dag.head.root, getStateField(dag.headState, slot),
-        cache, {})).phase0Data
+        dag.headState, dag.head.root, getStateField(dag.headState, slot), cache, {}
+      ),
+    ).phase0Data
 
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-    check: added.isOk()
+    check:
+      added.isOk()
     dag.updateHead(added[], quarantine, [])
     dag.pruneAtFinalization()
 
@@ -600,12 +641,12 @@ suite "chain DAG finalization tests" & preset():
       while cur != nil: # Go all the way to dag.finalizedHead
         assign(tmpStateData[], dag.headState)
         check:
-          dag.updateState(tmpStateData[], cur.bid.atSlot(), false, cache,
-                          dag.updateFlags)
+          dag.updateState(
+            tmpStateData[], cur.bid.atSlot(), false, cache, dag.updateFlags
+          )
           dag.getForkedBlock(cur.bid).get().phase0Data.message.state_root ==
             getStateRoot(tmpStateData[])
-          getStateRoot(tmpStateData[]) == hash_tree_root(
-            tmpStateData[].phase0Data.data)
+          getStateRoot(tmpStateData[]) == hash_tree_root(tmpStateData[].phase0Data.data)
         cur = cur.parent
 
     let
@@ -636,8 +677,7 @@ suite "chain DAG finalization tests" & preset():
         let
           stateFinalizedSlot =
             dag.headState.getStateField(finalized_checkpoint).epoch.start_slot
-          dbFinalizedSlot =
-            dag.db.finalizedBlocks.high.expect("Valid DB")
+          dbFinalizedSlot = dag.db.finalizedBlocks.high.expect("Valid DB")
         doAssert stateFinalizedSlot > dbFinalizedSlot, "Finalized not written"
 
         # If the beacon node were to exit _now_, this is what the DB looks like.
@@ -645,12 +685,15 @@ suite "chain DAG finalization tests" & preset():
         let validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
         discard ChainDAGRef.init(cfg, db, validatorMonitor2, {})
         testPassed = true
+
     dag.setHeadCb(onHeadChanged)
 
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 4), attested = true):
+      dag.headState, cache, int(SLOTS_PER_EPOCH * 4), attested = true
+    ):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
-      check: added.isOk
+      check:
+        added.isOk
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
@@ -671,7 +714,8 @@ suite "Old database versions" & preset():
     # only kvstore, no immutable validator keys
     let
       sq = SqStoreRef.init("", "test", inMemory = true).expect(
-        "working database (out of memory?)")
+          "working database (out of memory?)"
+        )
       v0 = BeaconChainDBV0.new(sq, readOnly = false)
       db = BeaconChainDB.new(sq, cfg)
 
@@ -679,15 +723,14 @@ suite "Old database versions" & preset():
     v0.putStateV0(genState[].root, genState[].data)
     v0.putBlockV0(genBlock)
 
-    db.putStateRoot(
-      genState[].latest_block_root, genState[].data.slot, genState[].root)
+    db.putStateRoot(genState[].latest_block_root, genState[].data.slot, genState[].root)
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putGenesisBlock(genBlock.root)
 
     var
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = init(ChainDAGRef, cfg, db,validatorMonitor, {})
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       state = newClone(dag.headState)
       cache = StateCache()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
@@ -711,8 +754,7 @@ suite "Diverging hardforks":
         res
     var
       db = phase0RuntimeConfig.makeTestDB(SLOTS_PER_EPOCH)
-      validatorMonitor = newClone(
-        ValidatorMonitor.init(phase0RuntimeConfig))
+      validatorMonitor = newClone(ValidatorMonitor.init(phase0RuntimeConfig))
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -724,9 +766,14 @@ suite "Diverging hardforks":
   test "Tail block only in common":
     check:
       process_slots(
-        phase0RuntimeConfig, tmpState[],
+        phase0RuntimeConfig,
+        tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, info, {}).isOk()
+        cache,
+        info,
+        {},
+      )
+        .isOk()
 
     # Because the first block is after the Altair transition, the only block in
     # common is the tail block
@@ -737,19 +784,23 @@ suite "Diverging hardforks":
     check b1Add.isOk()
     dag.updateHead(b1Add[], quarantine[], [])
 
-    let validatorMonitorAltair = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig))
+    let validatorMonitorAltair = newClone(ValidatorMonitor.init(altairRuntimeConfig))
 
-    let dagAltair = init(
-      ChainDAGRef, altairRuntimeConfig, db, validatorMonitorAltair, {})
+    let dagAltair =
+      init(ChainDAGRef, altairRuntimeConfig, db, validatorMonitorAltair, {})
     discard AttestationPool.init(dagAltair, quarantine)
 
   test "Non-tail block in common":
     check:
       process_slots(
-        phase0RuntimeConfig, tmpState[],
+        phase0RuntimeConfig,
+        tmpState[],
         getStateField(tmpState[], slot) + SLOTS_PER_EPOCH.uint64,
-        cache, info, {}).isOk()
+        cache,
+        info,
+        {},
+      )
+        .isOk()
 
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
     var
@@ -759,9 +810,14 @@ suite "Diverging hardforks":
     check:
       b1Add.isOk()
       process_slots(
-        phase0RuntimeConfig, tmpState[],
+        phase0RuntimeConfig,
+        tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, info, {}).isOk()
+        cache,
+        info,
+        {},
+      )
+        .isOk()
 
     var
       b2 = addTestBlock(tmpState[], cache).phase0Data
@@ -770,11 +826,9 @@ suite "Diverging hardforks":
     check b2Add.isOk()
     dag.updateHead(b2Add[], quarantine[], [])
 
-    let validatorMonitor = newClone(
-      ValidatorMonitor.init(altairRuntimeConfig))
+    let validatorMonitor = newClone(ValidatorMonitor.init(altairRuntimeConfig))
 
-    let dagAltair = init(
-      ChainDAGRef, altairRuntimeConfig, db, validatorMonitor, {})
+    let dagAltair = init(ChainDAGRef, altairRuntimeConfig, db, validatorMonitor, {})
     discard AttestationPool.init(dagAltair, quarantine)
 
 suite "Backfill":
@@ -787,12 +841,11 @@ suite "Backfill":
       blocks = block:
         var blocks: seq[ForkedSignedBeaconBlock]
         var cache: StateCache
-        for i in 0..<SLOTS_PER_EPOCH * 2:
+        for i in 0 ..< SLOTS_PER_EPOCH * 2:
           blocks.add addTestBlock(tailState[], cache)
         blocks
 
-    let
-      db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
   test "Backfill to genesis":
     let
@@ -816,11 +869,11 @@ suite "Backfill":
       dag.getBlockId(blocks[^2].root).isNone()
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
-      dag.getBlockIdAtSlot(dag.tail.slot - 1).get().bid ==
-        blocks[^2].toBlockId()  # recovered from tailState
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get().bid == blocks[^2].toBlockId()
+        # recovered from tailState
 
-      dag.getBlockIdAtSlot(Slot(0)).isSome()  # genesis stored in db
-      dag.getBlockIdAtSlot(Slot(1)).isSome()  # recovered from tailState
+      dag.getBlockIdAtSlot(Slot(0)).isSome() # genesis stored in db
+      dag.getBlockIdAtSlot(Slot(1)).isSome() # recovered from tailState
 
       # No EpochRef for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
@@ -830,9 +883,13 @@ suite "Backfill":
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       # Should not get EpochRef for random block
-      dag.getEpochRef(
-        BlockId(root: blocks[^2].root, slot: dag.tail.slot),  # incorrect slot
-        dag.tail.slot.epoch, true).isErr()
+      dag
+        .getEpochRef(
+          BlockId(root: blocks[^2].root, slot: dag.tail.slot), # incorrect slot
+          dag.tail.slot.epoch,
+          true,
+        )
+        .isErr()
 
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
@@ -840,9 +897,8 @@ suite "Backfill":
 
       # Checkpoint block is unavailable, and should be backfileld first
       not dag.containsBlock(dag.tail)
-      dag.backfill == BeaconBlockSummary(
-        slot: dag.tail.slot + 1,
-        parent_root: dag.tail.root)
+      dag.backfill ==
+        BeaconBlockSummary(slot: dag.tail.slot + 1, parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
@@ -872,23 +928,22 @@ suite "Backfill":
       dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
-      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
-        blocks[^2].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
-        blocks[^3].toBlockId().atSlot()  # recovered from tailState
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() == blocks[^2].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() == blocks[^3].toBlockId().atSlot()
+        # recovered from tailState
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
 
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
-        blocks[^3].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() ==
-        blocks[^4].toBlockId().atSlot()  # recovered from tailState
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() == blocks[^3].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() == blocks[^4].toBlockId().atSlot()
+        # recovered from tailState
 
-    for i in 3..<blocks.len:
-      check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
+    for i in 3 ..< blocks.len:
+      check:
+        dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned) ==
@@ -901,12 +956,11 @@ suite "Backfill":
     check:
       dag.getFinalizedEpochRef() != nil
 
-    for i in 0..<blocks.len:
+    for i in 0 ..< blocks.len:
       check dag.containsBlock(blocks[i].toBlockId())
 
   test "Reload backfill position":
-    let
-      tailBlock = blocks[^1]
+    let tailBlock = blocks[^1]
 
     ChainDAGRef.preInit(db, genState[])
     ChainDAGRef.preInit(db, tailState[])
@@ -935,10 +989,9 @@ suite "Backfill":
 
       dag2.getBlockIdAtSlot(dag.tail.slot).get().bid.root == dag.tail.root
 
-      dag2.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
-        blocks[^2].toBlockId().atSlot()
-      dag2.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
-        blocks[^3].toBlockId().atSlot()  # recovered from tailState
+      dag2.getBlockIdAtSlot(dag.tail.slot - 1).get() == blocks[^2].toBlockId().atSlot()
+      dag2.getBlockIdAtSlot(dag.tail.slot - 2).get() == blocks[^3].toBlockId().atSlot()
+        # recovered from tailState
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
   test "Init without genesis / block":
@@ -954,18 +1007,18 @@ suite "Backfill":
       dag.getFinalizedEpochRef() != nil
 
     # Try importing blocks too early
-    for i in 0..<blocks.len - 1:
+    for i in 0 ..< blocks.len - 1:
       check dag.addBackfillBlock(blocks[i].phase0Data) ==
         AddBackRes.err VerifierError.MissingParent
 
-    for i in 0..<blocks.len:
-      check: dag.addBackfillBlock(
-        blocks[blocks.len - i - 1].phase0Data).isOk()
+    for i in 0 ..< blocks.len:
+      check:
+        dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
-      dag.addBackfillBlock(
-        genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned) ==
+        AddBackRes.err VerifierError.Duplicate
 
     let
       rng = HmacDrbgContext.new()
@@ -990,7 +1043,7 @@ suite "Backfill":
   test "Restart after each block":
     ChainDAGRef.preInit(db, tailState[])
 
-    for i in 1..blocks.len:
+    for i in 1 .. blocks.len:
       let
         validatorMonitor = newClone(ValidatorMonitor.init(cfg))
         dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
@@ -1001,9 +1054,11 @@ suite "Backfill":
         else:
           BeaconBlockSummary(
             slot: blocks[^1].phase0Data.message.slot + 1,
-            parent_root: blocks[^1].phase0Data.root))
+            parent_root: blocks[^1].phase0Data.root,
+          )
+      )
 
-      for j in 1..blocks.len:
+      for j in 1 .. blocks.len:
         if j < i:
           check dag.addBackfillBlock(blocks[^j].phase0Data) ==
             AddBackRes.err VerifierError.Duplicate
@@ -1053,8 +1108,7 @@ suite "Starting states":
         blocks
       tailBlock = blocks[^1]
 
-    check cfg.process_slots(
-      tailState[], Slot(SLOTS_PER_EPOCH), cache, info, {}).isOk()
+    check cfg.process_slots(tailState[], Slot(SLOTS_PER_EPOCH), cache, info, {}).isOk()
 
     ChainDAGRef.preInit(db, tailState[])
 
@@ -1066,25 +1120,29 @@ suite "Starting states":
     dag.updateHead(dag.head, quarantine[], [])
 
     check:
-      dag.finalizedHead.toBlockSlotId()[] == BlockSlotId(
-        bid: dag.tail, slot: (dag.tail.slot.epoch+1).start_slot)
+      dag.finalizedHead.toBlockSlotId()[] ==
+        BlockSlotId(bid: dag.tail, slot: (dag.tail.slot.epoch + 1).start_slot)
       dag.getBlockRef(tailBlock.root).get().bid == dag.tail
       dag.getBlockRef(blocks[^2].root).isNone()
 
       dag.getBlockId(tailBlock.root).get() == dag.tail
       dag.getBlockId(blocks[^2].root).isNone()
 
-      dag.getBlockIdAtSlot(Slot(0)).isSome()  # recovered from tailState
-      dag.getBlockIdAtSlot(Slot(1)).isSome()  # recovered from tailState
+      dag.getBlockIdAtSlot(Slot(0)).isSome() # recovered from tailState
+      dag.getBlockIdAtSlot(Slot(1)).isSome() # recovered from tailState
 
       # Should get EpochRef for the tail however
       # dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       # Should not get EpochRef for random block
-      dag.getEpochRef(
-        BlockId(root: blocks[^2].root, slot: dag.tail.slot),  # incorrect slot
-        dag.tail.slot.epoch, true).isErr()
+      dag
+        .getEpochRef(
+          BlockId(root: blocks[^2].root, slot: dag.tail.slot), # incorrect slot
+          dag.tail.slot.epoch,
+          true,
+        )
+        .isErr()
 
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
@@ -1092,9 +1150,8 @@ suite "Starting states":
 
       # Checkpoint block is unavailable, and should be backfileld first
       not dag.containsBlock(dag.tail)
-      dag.backfill == BeaconBlockSummary(
-        slot: dag.tail.slot + 1,
-        parent_root: dag.tail.root)
+      dag.backfill ==
+        BeaconBlockSummary(slot: dag.tail.slot + 1, parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
@@ -1124,23 +1181,22 @@ suite "Starting states":
       dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
-      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
-        blocks[^2].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
-        blocks[^3].toBlockId().atSlot()  # recovered from tailState
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() == blocks[^2].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() == blocks[^3].toBlockId().atSlot()
+        # recovered from tailState
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
 
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
-        blocks[^3].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() ==
-        blocks[^4].toBlockId().atSlot()  # recovered from tailState
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() == blocks[^3].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() == blocks[^4].toBlockId().atSlot()
+        # recovered from tailState
 
-    for i in 3..<blocks.len:
-      check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
+    for i in 3 ..< blocks.len:
+      check:
+        dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
@@ -1172,9 +1228,11 @@ suite "Latest valid hash" & preset():
 
   test "LVH searching":
     # Reach Bellatrix, where execution payloads exist
-    check cfg.process_slots(
-      state[], getStateField(state[], slot) + (3 * SLOTS_PER_EPOCH),
-      cache, info, {}).isOk()
+    check cfg
+      .process_slots(
+        state[], getStateField(state[], slot) + (3 * SLOTS_PER_EPOCH), cache, info, {}
+      )
+      .isOk()
 
     var
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
@@ -1185,17 +1243,21 @@ suite "Latest valid hash" & preset():
       b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
 
     dag.updateHead(b3Add[], quarantine[], [])
-    check: dag.head.root == b3.root
+    check:
+      dag.head.root == b3.root
 
     # Ensure that head can go backwards in case of head being marked invalid
     dag.updateHead(b2Add[], quarantine[], [])
-    check: dag.head.root == b2.root
+    check:
+      dag.head.root == b2.root
 
     dag.updateHead(b1Add[], quarantine[], [])
-    check: dag.head.root == b1.root
+    check:
+      dag.head.root == b1.root
 
-    const fallbackEarliestInvalid =
-      Eth2Digest.fromHex("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+    const fallbackEarliestInvalid = Eth2Digest.fromHex(
+      "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    )
     check:
       # Represents where LVH is two behind the invalid-marked block (because
       # first param is parent). It searches using LVH (i.e. execution hash),
@@ -1204,7 +1266,8 @@ suite "Latest valid hash" & preset():
       # to be valid here by being the LVH, it means that b2 must be invalid.
       dag.getEarliestInvalidBlockRoot(
         b2Add[].root, b1.message.body.execution_payload.block_hash,
-          fallbackEarliestInvalid) == b2Add[].root
+        fallbackEarliestInvalid,
+      ) == b2Add[].root
 
       # This simulates calling it based on b3 (child of b2), where there's no
       # gap in detecting the invalid blocks. Because the API, due to testcase
@@ -1214,7 +1277,8 @@ suite "Latest valid hash" & preset():
       # newest block in the chain it's examining is already valid.
       dag.getEarliestInvalidBlockRoot(
         b2Add[].root, b2.message.body.execution_payload.block_hash,
-          fallbackEarliestInvalid) == fallbackEarliestInvalid
+        fallbackEarliestInvalid,
+      ) == fallbackEarliestInvalid
 
 suite "Pruning":
   setup:
@@ -1239,13 +1303,19 @@ suite "Pruning":
       cache = StateCache()
       blocks = @[dag.head]
 
-    for i in 0 ..< (SLOTS_PER_EPOCH * (EPOCHS_PER_STATE_SNAPSHOT + cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)):
+    for i in 0 ..< (
+      SLOTS_PER_EPOCH * (EPOCHS_PER_STATE_SNAPSHOT + cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)
+    ):
       let blck = addTestBlock(
-        tmpState[], cache,
+        tmpState[],
+        cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {}
+        ),
+      ).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-      check: added.isOk()
+      check:
+        added.isOk()
       blocks.add(added[])
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
@@ -1259,13 +1329,17 @@ suite "Pruning":
       db.containsBlock(blocks[1].root)
 
     # Add a block
-    for i in 0..2:
+    for i in 0 .. 2:
       let blck = addTestBlock(
-        tmpState[], cache,
+        tmpState[],
+        cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {}
+        ),
+      ).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
-      check: added.isOk()
+      check:
+        added.isOk()
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
@@ -1281,9 +1355,7 @@ suite "State history":
     let
       cfg = defaultRuntimeConfig
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(numValidators),
-        validatorMonitor, {})
+      dag = ChainDAGRef.init(cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
@@ -1293,12 +1365,12 @@ suite "State history":
       cache: StateCache
       info: ForkedEpochInfo
       res: Result[void, cstring]
-    template state: untyped = dag.headState.phase0Data
+    template state(): untyped =
+      dag.headState.phase0Data
 
     let gen = get_initial_beacon_block(dag.headState).toBlockId()
     check:
-      state.getBlockIdAtSlot(0.Slot) ==
-        Opt.some BlockSlotId.init(gen, 0.Slot)
+      state.getBlockIdAtSlot(0.Slot) == Opt.some BlockSlotId.init(gen, 0.Slot)
       state.getBlockIdAtSlot(1.Slot).isNone
 
     # Miss 5 slots
@@ -1317,25 +1389,20 @@ suite "State history":
       check added.isOk()
       dag.updateHead(added[], quarantine[], [])
     for i in 0.Slot .. 5.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(gen, i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(gen, i)
     for i in 6.Slot .. 10.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(bids[(i - 6).int], i)
     check state.getBlockIdAtSlot(11.Slot).isNone
 
     # Jump to SLOTS_PER_HISTORICAL_ROOT
     let periodSlot = SLOTS_PER_HISTORICAL_ROOT.Slot
     res = process_slots(cfg, dag.headState, periodSlot, cache, info, flags = {})
     for i in 0.Slot .. 5.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(gen, i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(gen, i)
     for i in 6.Slot .. 10.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(bids[(i - 6).int], i)
     check:
-      state.getBlockIdAtSlot(11.Slot) ==
-        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(11.Slot) == Opt.some BlockSlotId.init(bids[^1], 11.Slot)
       state.getBlockIdAtSlot(periodSlot) ==
         Opt.some BlockSlotId.init(bids[^1], periodSlot)
       state.getBlockIdAtSlot(periodSlot + 1).isNone
@@ -1349,11 +1416,9 @@ suite "State history":
     for i in 0.Slot .. 5.Slot:
       check state.getBlockIdAtSlot(i).isNone
     for i in 6.Slot .. 10.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(bids[(i - 6).int], i)
     check:
-      state.getBlockIdAtSlot(11.Slot) ==
-        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(11.Slot) == Opt.some BlockSlotId.init(bids[^1], 11.Slot)
       state.getBlockIdAtSlot(periodSlot) ==
         Opt.some BlockSlotId.init(bids[^1], periodSlot)
       state.getBlockIdAtSlot(periodSlot + 1) ==
@@ -1366,16 +1431,13 @@ suite "State history":
     for i in 0.Slot .. 5.Slot:
       check state.getBlockIdAtSlot(i).isNone
     for i in 6.Slot .. 10.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(bids[(i - 6).int], i)
     check:
-      state.getBlockIdAtSlot(11.Slot) ==
-        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(11.Slot) == Opt.some BlockSlotId.init(bids[^1], 11.Slot)
       state.getBlockIdAtSlot(periodSlot) ==
         Opt.some BlockSlotId.init(bids[^1], periodSlot)
     for i in periodSlot + 1 .. plusFive:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(blck.toBlockId(), i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(blck.toBlockId(), i)
     check state.getBlockIdAtSlot(plusFive + 1).isNone
 
     # Go to periodSlot + 6
@@ -1384,16 +1446,13 @@ suite "State history":
     for i in 0.Slot .. 6.Slot:
       check state.getBlockIdAtSlot(i).isNone
     for i in 7.Slot .. 10.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(bids[(i - 6).int], i)
     check:
-      state.getBlockIdAtSlot(11.Slot) ==
-        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(11.Slot) == Opt.some BlockSlotId.init(bids[^1], 11.Slot)
       state.getBlockIdAtSlot(periodSlot) ==
         Opt.some BlockSlotId.init(bids[^1], periodSlot)
     for i in periodSlot + 1 .. plusSix:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(blck.toBlockId(), i)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(blck.toBlockId(), i)
     check state.getBlockIdAtSlot(plusSix + 1).isNone
 
 suite "Ancestry":
@@ -1402,15 +1461,14 @@ suite "Ancestry":
     let
       cfg = defaultRuntimeConfig
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(numValidators),
-        validatorMonitor, {})
+      dag = ChainDAGRef.init(cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       quarantine = newClone(Quarantine.init(dag.cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
 
     type Node = tuple[blck: BlockRef, state: ref phase0.HashedBeaconState]
-    template bid(n: Node): BlockId = n.blck.bid
+    template bid(n: Node): BlockId =
+      n.blck.bid
 
     var verifier = BatchVerifier.init(rng, taskpool)
     proc addBlock(parent: Node, slot: Slot): Node =
@@ -1694,13 +1752,15 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     )
   let
     eth1Data = Eth1Data(
-      deposit_root: deposits.attachMerkleProofs(),
-      deposit_count: deposits.lenu64)
+      deposit_root: deposits.attachMerkleProofs(), deposit_count: deposits.lenu64
+    )
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(
-      cfg, cfg.makeTestDB(
-        numValidators, eth1Data = Opt.some(eth1Data)),
-      validatorMonitor, {})
+      cfg,
+      cfg.makeTestDB(numValidators, eth1Data = Opt.some(eth1Data)),
+      validatorMonitor,
+      {},
+    )
     quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
@@ -1709,11 +1769,17 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     verifier = BatchVerifier.init(rng, taskpool)
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
-    inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
+    inc distinctBase(graffiti)[0] # Avoid duplicate blocks across branches
     for forkedBlck in makeTestBlocks(
-        dag.headState, cache, blocks.int, eth1_data = eth1Data,
-        attested = attested, allDeposits = deposits,
-        graffiti = graffiti, cfg = cfg):
+      dag.headState,
+      cache,
+      blocks.int,
+      eth1_data = eth1Data,
+      attested = attested,
+      allDeposits = deposits,
+      graffiti = graffiti,
+      cfg = cfg,
+    ):
       let added = withBlck(forkedBlck):
         const nilCallback = OnBlockAdded[consensusFork](nil)
         dag.addHeadBlock(verifier, forkyBlck, nilCallback)
@@ -1735,7 +1801,10 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       check cfg.process_slots(
         dag.headState,
         getStateField(dag.headState, slot) + delaySlots,
-        cache, info, flags = {}).isOk
+        cache,
+        info,
+        flags = {},
+      ).isOk
 
     # Add 0.75 epochs
     addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = attested, cache)
@@ -1764,8 +1833,8 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
   const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
 
   template checkShuffling(
-      epochRef: Result[EpochRef, cstring],
-      computedShufflingRefParam: Opt[ShufflingRef]) =
+      epochRef: Result[EpochRef, cstring], computedShufflingRefParam: Opt[ShufflingRef]
+  ) =
     ## Check that computed shuffling matches the one from `EpochRef`.
     block:
       let computedShufflingRef = computedShufflingRefParam
@@ -1775,7 +1844,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< numRandomTests:  # Each test runs against _all_ cached states
+    for _ in 0 ..< numRandomTests: # Each test runs against _all_ cached states
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
@@ -1788,9 +1857,11 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       check dependentBsi.isSome
       let
         memoryMix = dag.computeRandaoMixFromMemory(
-          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
+          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling
+        )
         databaseMix = dag.computeRandaoMixFromDatabase(
-          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
+          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling
+        )
 
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
@@ -1803,12 +1874,13 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
             shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
-            mix = dag.computeRandaoMix(forkyState,
-              dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
+            mix = dag.computeRandaoMix(
+              forkyState, dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling
+            )
           if compute_activation_exit_epoch(minEpoch) <= epoch or
               dag.ancestorSlot(
-                forkyState, dependentBsi.get.bid,
-                epoch.lowSlotForAttesterShuffling).isNone:
+                forkyState, dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling
+              ).isNone:
             check:
               shufflingRef.isNone
               mix.isNone
@@ -1822,8 +1894,9 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
             epochRef.checkShuffling Opt.some ShufflingRef(
               epoch: epoch,
               attester_dependent_root: dependentBsi.get.bid.root,
-              shuffled_active_validator_indices: forkyState.data
-                .get_shuffled_active_validator_indices(epoch, mix.get))
+              shuffled_active_validator_indices:
+                forkyState.data.get_shuffled_active_validator_indices(epoch, mix.get),
+            )
 
   test "Accelerated shuffling computation (with epochRefState jump)":
     # Test cases where `epochRefState` is set to a very old block
@@ -1861,8 +1934,8 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
 
     # The epoch for the first block can range from at least 4 to 10
     for (blockIdx, epoch) in [
-        (findKeyedBlck(64.Slot), 10.Epoch),
-        (findKeyedBlck(255.Slot), 8.Epoch)]:
+      (findKeyedBlck(64.Slot), 10.Epoch), (findKeyedBlck(255.Slot), 8.Epoch)
+    ]:
       let
         blck = forkBlocks[blockIdx].data
         epochRef = dag.getEpochRef(blck, epoch, true)

@@ -19,9 +19,13 @@ suite "Envelope Quarantine":
   setup:
     var quarantine = EnvelopeQuarantine.init()
     # Block root for testing
-    let root1 = Eth2Digest(data:hexToByteArray[32](
-      "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001"
-      .toOpenArray(0, 63)))
+    let root1 = Eth2Digest(
+      data: hexToByteArray[32](
+        "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001".toOpenArray(
+          0, 63
+        )
+      )
+    )
 
   test "Add missing":
     check root1 notin quarantine.missing
@@ -30,25 +34,27 @@ suite "Envelope Quarantine":
 
   test "Add orphan":
     check root1 notin quarantine.orphans
-    quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(
-        beacon_block_root: root1,
-        builder_index: 1'u64)))
+    quarantine.addOrphan(
+      SignedExecutionPayloadEnvelope(
+        message:
+          ExecutionPayloadEnvelope(beacon_block_root: root1, builder_index: 1'u64)
+      )
+    )
     check root1 in quarantine.orphans
     check 1'u64 in quarantine.orphans[root1]
 
   test "Pop orphan":
     let
       envelope = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root1,
-          builder_index: 1'u64))
+        message:
+          ExecutionPayloadEnvelope(beacon_block_root: root1, builder_index: 1'u64)
+      )
       blckBid = gloas.SignedExecutionPayloadBid(
-        message: gloas.ExecutionPayloadBid(
-          builder_index: 1'u64))
+        message: gloas.ExecutionPayloadBid(builder_index: 1'u64)
+      )
       blck = gloas.BeaconBlock(
-        body: gloas.BeaconBlockBody(
-          signed_execution_payload_bid: blckBid))
+        body: gloas.BeaconBlockBody(signed_execution_payload_bid: blckBid)
+      )
       signedBlck = gloas.SignedBeaconBlock(root: root1, message: blck)
 
     quarantine.addOrphan(envelope)
@@ -67,19 +73,36 @@ suite "Envelope Quarantine":
 
   test "Clean up orphans":
     let
-      root2 = Eth2Digest(data:hexToByteArray[32](
-        "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0002"
-        .toOpenArray(0, 63)))
-      root3 = Eth2Digest(data:hexToByteArray[32](
-        "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0003"
-        .toOpenArray(0, 63)))
+      root2 = Eth2Digest(
+        data: hexToByteArray[32](
+          "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0002".toOpenArray(
+            0, 63
+          )
+        )
+      )
+      root3 = Eth2Digest(
+        data: hexToByteArray[32](
+          "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0003".toOpenArray(
+            0, 63
+          )
+        )
+      )
 
-    quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root1, slot: 3.Slot)))
-    quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root2, slot: 5.Slot)))
-    quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root3, slot: 7.Slot)))
+    quarantine.addOrphan(
+      SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: root1, slot: 3.Slot)
+      )
+    )
+    quarantine.addOrphan(
+      SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: root2, slot: 5.Slot)
+      )
+    )
+    quarantine.addOrphan(
+      SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(beacon_block_root: root3, slot: 7.Slot)
+      )
+    )
 
     quarantine.cleanupOrphans(3.Slot)
     check quarantine.orphans.len == 2

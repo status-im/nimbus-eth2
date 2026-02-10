@@ -15,9 +15,7 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-import
-  chronicles,
-  ./base
+import chronicles, ./base
 
 from std/sets import toHashSet
 
@@ -25,8 +23,7 @@ export base
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
-  BeaconState* = object
-    # Versioning
+  BeaconState* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -66,11 +63,9 @@ type
       HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -120,15 +115,12 @@ type
     ## validators that will have a chance to vote on it through attestations.
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
@@ -138,11 +130,9 @@ type
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -172,11 +162,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -208,8 +196,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
+  TrustedBeaconBlockBody* = object ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
@@ -307,26 +294,20 @@ type
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
   SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
+    SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
   SomeAttestation* = Attestation | TrustedAttestation
 
-  EpochInfo* = object
-    ## Information about the outcome of epoch processing
+  EpochInfo* = object ## Information about the outcome of epoch processing
     validators*: seq[RewardStatus]
     balances*: TotalBalances
 
-chronicles.formatIt BeaconBlock: it.shortLog
-chronicles.formatIt Attestation: it.shortLog
+chronicles.formatIt BeaconBlock:
+  it.shortLog
+chronicles.formatIt Attestation:
+  it.shortLog
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
@@ -336,12 +317,15 @@ func shortLog*(v: SomeIndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
     data: shortLog(v.data),
-    signature: shortLog(v.signature)
+    signature: shortLog(v.signature),
   )
 
 iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
+  template attestation_1(): auto =
+    attester_slashing.attestation_1
+
+  template attestation_2(): auto =
+    attester_slashing.attestation_2
 
   let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
   for validator_index in attestation_1.attesting_indices.asSeq:
@@ -350,10 +334,7 @@ iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
     yield validator_index
 
 func shortLog*(v: SomeAttesterSlashing): auto =
-  (
-    attestation_1: shortLog(v.attestation_1),
-    attestation_2: shortLog(v.attestation_2),
-  )
+  (attestation_1: shortLog(v.attestation_1), attestation_2: shortLog(v.attestation_2))
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -370,11 +351,11 @@ func shortLog*(v: SomeBeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: -1, # Altair logging compatibility
     block_number: 0'u64, # Bellatrix compat
-    block_hash: "",      # Bellatrix compat
-    parent_hash: "",     # Bellatrix compat
-    fee_recipient: "",   # Bellatrix compat
-    bls_to_execution_changes_len: 0,  # Capella compat
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    block_hash: "", # Bellatrix compat
+    parent_hash: "", # Bellatrix compat
+    fee_recipient: "", # Bellatrix compat
+    bls_to_execution_changes_len: 0, # Capella compat
+    blob_kzg_commitments_len: 0, # Deneb compat
   )
 
 # TODO: There should be only a single generic HashedBeaconState definition
@@ -382,38 +363,34 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))
 
 func shortLog*(v: SomeAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),
-    signature: shortLog(v.signature)
+    signature: shortLog(v.signature),
   )
 
 template asTrusted*(x: Attestation): TrustedAttestation =
   isomorphicCast[TrustedAttestation](x)
 
 template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
+    x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+    x: SignedBeaconBlock | TrustedSignedBeaconBlock
+): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+template asSigVerified*(x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock
+): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
 func init*(
@@ -421,14 +398,12 @@ func init*(
     indices_in_committee: openArray[uint64],
     committee_len: int,
     data: AttestationData,
-    signature: ValidatorSig): Result[T, cstring] =
+    signature: ValidatorSig,
+): Result[T, cstring] =
   var bits = CommitteeValidatorsBits.init(committee_len)
   for index_in_committee in indices_in_committee:
-    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    if index_in_committee >= committee_len.uint64:
+      return err("Invalid index for committee")
     bits.setBit index_in_committee
 
-  ok Attestation(
-    aggregation_bits: bits,
-    data: data,
-    signature: signature
-  )
+  ok Attestation(aggregation_bits: bits, data: data, signature: signature)

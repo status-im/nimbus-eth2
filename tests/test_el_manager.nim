@@ -8,10 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import
-  unittest2,
-  ../beacon_chain/el/el_conf,
-  ./testutil
+import unittest2, ../beacon_chain/el/el_conf, ./testutil
 
 suite "Eth1 monitor":
   test "Rewrite URLs":

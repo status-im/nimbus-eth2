@@ -20,10 +20,9 @@ const
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
   sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-  gitRevision* = strip(generateGitRevision(sourcePath))[0..5]
+  gitRevision* = strip(generateGitRevision(sourcePath))[0 .. 5]
 
-  versionAsStr* =
-    $versionMajor & "." & $versionMinor & "." & $versionBuild
+  versionAsStr* = $versionMajor & "." & $versionMinor & "." & $versionBuild
 
   fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
 
@@ -31,5 +30,6 @@ const
 
 when not defined(nimscript):
   import metrics
-  declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-  versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+  declareGauge versionGauge,
+    "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+  versionGauge.set(1, labelValues = [fullVersionStr, gitRevision])

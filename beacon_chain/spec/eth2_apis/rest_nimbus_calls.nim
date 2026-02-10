@@ -7,22 +7,21 @@
 
 {.push raises: [].}
 
-import
-  chronicles, presto/client,
-  "."/[rest_types, eth2_rest_serialization, rest_common]
+import chronicles, presto/client, "."/[rest_types, eth2_rest_serialization, rest_common]
 
-proc getValidatorsActivity*(epoch: Epoch,
-                            body: seq[ValidatorIndex]
-                           ): RestPlainResponse {.
-     rest, endpoint: "/nimbus/v1/validator/activity/{epoch}",
-     meth: MethodPost.}
+proc getValidatorsActivity*(
+  epoch: Epoch, body: seq[ValidatorIndex]
+): RestPlainResponse {.
+  rest, endpoint: "/nimbus/v1/validator/activity/{epoch}", meth: MethodPost
+.}
 
-proc getTimesyncInfo(body: RestNimbusTimestamp1): RestPlainResponse {.
-     rest, endpoint: "/nimbus/v1/timesync", meth: MethodPost.}
+proc getTimesyncInfo(
+  body: RestNimbusTimestamp1
+): RestPlainResponse {.rest, endpoint: "/nimbus/v1/timesync", meth: MethodPost.}
 
-proc getTimeOffset*(client: RestClientRef,
-                    delay: Duration): Future[int64] {.
-     async: (raises: [RestError, RestResponseError, CancelledError]).} =
+proc getTimeOffset*(
+    client: RestClientRef, delay: Duration
+): Future[int64] {.async: (raises: [RestError, RestResponseError, CancelledError]).} =
   let
     timestamp1 = getTimestamp()
     data = RestNimbusTimestamp1(timestamp1: timestamp1)
@@ -31,22 +30,20 @@ proc getTimeOffset*(client: RestClientRef,
 
   case resp.status
   of 200:
-    if resp.contentType.isNone() or
-       isWildCard(resp.contentType.get().mediaType) or
-       resp.contentType.get().mediaType != ApplicationJsonMediaType:
+    if resp.contentType.isNone() or isWildCard(resp.contentType.get().mediaType) or
+        resp.contentType.get().mediaType != ApplicationJsonMediaType:
       raise newException(RestError, "Missing or incorrect Content-Type")
 
-    let stamps = decodeBytes(RestNimbusTimestamp2, resp.data,
-                             resp.contentType).valueOr:
+    let stamps = decodeBytes(RestNimbusTimestamp2, resp.data, resp.contentType).valueOr:
       raise newException(RestError, $error)
 
     trace "Time offset data",
-          timestamp1 = timestamp1,
-          timestamp2 = stamps.timestamp2,
-          timestamp3 = stamps.timestamp3,
-          timestamp4 = timestamp4,
-          delay14 = delay.nanoseconds,
-          delay23 = stamps.delay
+      timestamp1 = timestamp1,
+      timestamp2 = stamps.timestamp2,
+      timestamp3 = stamps.timestamp3,
+      timestamp4 = timestamp4,
+      delay14 = delay.nanoseconds,
+      delay23 = stamps.delay
 
     # t1 - time when we sent request.
     # t2 - time when remote server received request.
@@ -63,19 +60,19 @@ proc getTimeOffset*(client: RestClientRef,
     let
       delay14 = delay.nanoseconds
       delay23 = int64(stamps.delay)
-      offset = (int64(stamps.timestamp2) - int64(timestamp1) +
-                int64(stamps.timestamp3) - int64(timestamp4) +
-                delay14 - delay23) div 2
+      offset =
+        (
+          int64(stamps.timestamp2) - int64(timestamp1) + int64(stamps.timestamp3) -
+          int64(timestamp4) + delay14 - delay23
+        ) div 2
     offset
   else:
-    let error = decodeBytes(RestErrorMessage, resp.data,
-                            resp.contentType).valueOr:
-      let msg = "Incorrect response error format (" & $resp.status &
-                ") [" & $error & "]"
+    let error = decodeBytes(RestErrorMessage, resp.data, resp.contentType).valueOr:
+      let msg =
+        "Incorrect response error format (" & $resp.status & ") [" & $error & "]"
       raise (ref RestResponseError)(msg: msg, status: resp.status)
     let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-    raise (ref RestResponseError)(
-      msg: msg, status: error.code, message: error.message)
+    raise (ref RestResponseError)(msg: msg, status: error.code, message: error.message)
 
 func decodeSszResponse(
     T: type ForkedHistoricalSummariesWithProof,
@@ -130,9 +127,13 @@ proc decodeHttpResponse(
     raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
 
   if mediaType == OctetStreamMediaType:
-    ForkedHistoricalSummariesWithProof.decodeSszResponse(data, historicalSummariesFork, cfg)
+    ForkedHistoricalSummariesWithProof.decodeSszResponse(
+      data, historicalSummariesFork, cfg
+    )
   elif mediaType == ApplicationJsonMediaType:
-    ForkedHistoricalSummariesWithProof.decodeJsonResponse(data, historicalSummariesFork, cfg)
+    ForkedHistoricalSummariesWithProof.decodeJsonResponse(
+      data, historicalSummariesFork, cfg
+    )
   else:
     raise newException(RestDecodingError, "Unsupported content-type")
 

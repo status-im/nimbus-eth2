@@ -7,8 +7,7 @@
 
 {.push raises: [].}
 
-import
-  std/[times, stats]
+import std/[times, stats]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow

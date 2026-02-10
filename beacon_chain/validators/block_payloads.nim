@@ -48,9 +48,7 @@ type
 
   NoBlobsBundle = object
 
-  MaybeBlobsBundle =
-    ForkyBlobsBundle |
-    NoBlobsBundle
+  MaybeBlobsBundle = ForkyBlobsBundle | NoBlobsBundle
 
   EngineBlock[BB: ForkyBeaconBlock, FB: MaybeBlobsBundle] = object
     blck*: BB
@@ -63,7 +61,8 @@ type
     executionValue*: Wei
     consensusValue*: UInt256
 
-  EngineBlockResult[BB: ForkyBeaconBlock, FB: MaybeBlobsBundle] = Result[EngineBlock[BB, FB], string]
+  EngineBlockResult[BB: ForkyBeaconBlock, FB: MaybeBlobsBundle] =
+    Result[EngineBlock[BB, FB], string]
   BuilderBlockResult[BBB: ForkyBlindedBeaconBlock] = Result[BuilderBlock[BBB], string]
 
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
@@ -303,8 +302,10 @@ proc getExecutionPayload*(
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
-    timestamp = withState(proposalState[]): node.dag.timeParams
-      .compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+    timestamp = withState(proposalState[]):
+      node.dag.timeParams.compute_timestamp_at_slot(
+        forkyState.data, forkyState.data.slot
+      )
     prevRandao = withState(proposalState[]):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
     withdrawals = withState(proposalState[]):
@@ -496,8 +497,8 @@ proc makeBuilderBlock*(
 
 func isExcludedTestnet(cfg: RuntimeConfig): bool =
   ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and
-    cfg.DEPOSIT_CHAIN_ID == 560048'u64  # Hoodi
+  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
+    # Hoodi
 
 proc collectBids*(
     node: BeaconNode,
@@ -534,11 +535,9 @@ proc collectBids*(
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
             when consensusFork == ConsensusFork.Gloas:
-              get_expected_withdrawals(
-                proposalState[].forky(consensusFork).data)[0]
+              get_expected_withdrawals(proposalState[].forky(consensusFork).data)[0]
             else:
-              get_expected_withdrawals(
-                proposalState[].forky(consensusFork).data)
+              get_expected_withdrawals(proposalState[].forky(consensusFork).data)
           )
           expected_withdrawals_root = hash_tree_root(withdrawals)
         node.getBuilderBid(
@@ -655,19 +654,18 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
   if bids.engineBid.isNone:
     return err("Engine payload is not available")
 
-  let engineBlock =
-    ?node.makeEngineBlock(
-      consensusFork,
-      state[].forky(consensusFork),
-      cache[],
-      validator_index,
-      randao_reveal,
-      graffiti,
-      head,
-      slot,
-      bids.engineBid[].eps,
-      bids.engineBid[].execution_requests,
-    )
+  let engineBlock = ?node.makeEngineBlock(
+    consensusFork,
+    state[].forky(consensusFork),
+    cache[],
+    validator_index,
+    randao_reveal,
+    graffiti,
+    head,
+    slot,
+    bids.engineBid[].eps,
+    bids.engineBid[].execution_requests,
+  )
 
   ok(
     (
@@ -710,19 +708,18 @@ proc makeBeaconBlockForHeadAndSlot*(
     ).valueOr:
       return err("Engine payload is not available")
 
-  let engineBlock =
-    ?node.makeEngineBlock(
-      consensusFork,
-      state[].forky(consensusFork),
-      cache[],
-      validator_index,
-      randao_reveal,
-      graffiti,
-      head,
-      slot,
-      enginePayload.eps,
-      enginePayload.execution_requests,
-    )
+  let engineBlock = ?node.makeEngineBlock(
+    consensusFork,
+    state[].forky(consensusFork),
+    cache[],
+    validator_index,
+    randao_reveal,
+    graffiti,
+    head,
+    slot,
+    enginePayload.eps,
+    enginePayload.execution_requests,
+  )
 
   ok(
     (

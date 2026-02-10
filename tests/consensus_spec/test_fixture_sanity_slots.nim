@@ -17,17 +17,17 @@ from ../../beacon_chain/spec/state_transition import process_slots
 from ../helpers/debug_state import reportDiff
 
 proc runTest(
-    T: type,
-    testDir, forkName: static[string],
-    suiteName, identifier: string) {.raises: [IOError, ValueError].} =
+    T: type, testDir, forkName: static[string], suiteName, identifier: string
+) {.raises: [IOError, ValueError].} =
   let
     testDir = testDir / identifier
     num_slots = readLines(testDir / "slots.yaml", 2)[0].parseBiggestInt.uint64
 
-  test "EF - " & forkName & " - Slots - " & identifier & " [Preset: " & const_preset & "]":
+  test "EF - " & forkName & " - Slots - " & identifier & " [Preset: " & const_preset &
+    "]":
     let
-      preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
-      postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
+      preState = newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, T))
+      postState = newClone(parseTest(testDir / "post.ssz_snappy", SSZ, T))
     var
       fhPreState = ForkedHashedBeaconState.new(preState[])
       cache = StateCache()
@@ -36,8 +36,13 @@ proc runTest(
     check:
       process_slots(
         defaultRuntimeConfig,
-        fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
-        info, {}).isOk()
+        fhPreState[],
+        getStateField(fhPreState[], slot) + num_slots,
+        cache,
+        info,
+        {},
+      )
+        .isOk()
 
       getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
@@ -48,71 +53,60 @@ proc runTest(
         reportDiff(forkyState.data, postState[])
 
 func sanitySlotsDir(preset_dir: string): string {.compileTime.} =
-  SszTestsDir/const_preset/preset_dir/"sanity"/"slots"/"pyspec_tests"
+  SszTestsDir / const_preset / preset_dir / "sanity" / "slots" / "pyspec_tests"
 
 from ../../beacon_chain/spec/datatypes/phase0 import BeaconState
 
 suite "EF - Phase 0 - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("phase0")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
     runTest(phase0.BeaconState, sanitySlotsDir, "Phase 0", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/altair import BeaconState
 
 suite "EF - Altair - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("altair")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
     runTest(altair.BeaconState, sanitySlotsDir, "Altair", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/bellatrix import BeaconState
 
 suite "EF - Bellatrix - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("bellatrix")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
     runTest(bellatrix.BeaconState, sanitySlotsDir, "Bellatrix", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
 
 suite "EF - Capella - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("capella")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
     runTest(capella.BeaconState, sanitySlotsDir, "Capella", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 suite "EF - Deneb - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("deneb")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
     runTest(deneb.BeaconState, sanitySlotsDir, "Deneb", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/electra import BeaconState
 
 suite "EF - Electra - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("electra")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
-    runTest(
-      electra.BeaconState, sanitySlotsDir, "Electra", suiteName, path)
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
+    runTest(electra.BeaconState, sanitySlotsDir, "Electra", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/fulu import BeaconState
 
 suite "EF - Fulu - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("fulu")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
-    runTest(
-      fulu.BeaconState, sanitySlotsDir, "Fulu", suiteName, path)
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
+    runTest(fulu.BeaconState, sanitySlotsDir, "Fulu", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/gloas import BeaconState
 
 suite "EF - Gloas - Sanity - Slots " & preset():
   const sanitySlotsDir = sanitySlotsDir("gloas")
-  for kind, path in walkDir(
-      sanitySlotsDir, relative = true, checkDir = true):
-    runTest(
-      gloas.BeaconState, sanitySlotsDir, "Gloas", suiteName, path)
+  for kind, path in walkDir(sanitySlotsDir, relative = true, checkDir = true):
+    runTest(gloas.BeaconState, sanitySlotsDir, "Gloas", suiteName, path)

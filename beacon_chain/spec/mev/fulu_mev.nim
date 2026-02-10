@@ -13,8 +13,7 @@ from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, ExecutionPayloadHeader, KzgCommitments
-from ".."/datatypes/electra import
-  Attestation, AttesterSlashing, ExecutionRequests
+from ".."/datatypes/electra import Attestation, AttesterSlashing, ExecutionRequests
 from ".."/eth2_merkleization import hash_tree_root
 
 type
@@ -43,8 +42,7 @@ type
     sync_aggregate*: SyncAggregate
     execution_payload_header*: deneb.ExecutionPayloadHeader
     bls_to_execution_changes*:
-      List[SignedBLSToExecutionChange,
-        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
     execution_requests*: ExecutionRequests # [New in Electra]
 
@@ -61,8 +59,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
     execution_payload_header*: deneb.ExecutionPayloadHeader
     bls_to_execution_changes*:
-      List[SignedBLSToExecutionChange,
-        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
     execution_requests*: ExecutionRequests # [New in Electra]
 
@@ -114,15 +111,11 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     parent_hash: to0xHex(v.body.execution_payload_header.parent_hash.data),
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    blob_kzg_commitments_len: 0, # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))
 
-template asSigVerified*(
-    x: BlindedBeaconBlock): SigVerifiedBlindedBeaconBlock =
+template asSigVerified*(x: BlindedBeaconBlock): SigVerifiedBlindedBeaconBlock =
   isomorphicCast[SigVerifiedBlindedBeaconBlock](x)

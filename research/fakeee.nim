@@ -23,61 +23,54 @@ proc setupEngineAPI*(server: RpcServer) =
     info "engine_newPayloadV1",
       number = $(distinctBase payload.blockNumber), hash = payload.blockHash
 
-    return PayloadStatusV1(
-      status: PayloadExecutionStatus.syncing,
-    )
+    return PayloadStatusV1(status: PayloadExecutionStatus.syncing)
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#engine_newpayloadv2
   server.rpc("engine_newPayloadV2") do(payload: ExecutionPayloadV2) -> PayloadStatusV1:
     info "engine_newPayloadV2", payload
 
-    return PayloadStatusV1(
-      status: PayloadExecutionStatus.syncing,
-    )
+    return PayloadStatusV1(status: PayloadExecutionStatus.syncing)
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_getpayloadv1
   server.rpc("engine_getPayloadV1") do(payloadId: Bytes8) -> ExecutionPayloadV1:
-    info "engine_getPayloadV1",
-      id = payloadId.toHex
+    info "engine_getPayloadV1", id = payloadId.toHex
 
-    raise (ref InvalidRequest)(
-      code: engineApiUnknownPayload,
-      msg: "Unknown payload"
-    )
+    raise (ref InvalidRequest)(code: engineApiUnknownPayload, msg: "Unknown payload")
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_forkchoiceupdatedv1
   server.rpc("engine_forkchoiceUpdatedV1") do(
-      update: ForkchoiceStateV1,
-      payloadAttributes: Opt[PayloadAttributesV1]) -> ForkchoiceUpdatedResponse:
-    info "engine_forkchoiceUpdatedV1",
-      update,
-      payloadAttributes
+    update: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV1]
+  ) -> ForkchoiceUpdatedResponse:
+    info "engine_forkchoiceUpdatedV1", update, payloadAttributes
 
     return ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(
-      status: PayloadExecutionStatus.syncing))
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+    )
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#engine_forkchoiceupdatedv2
   server.rpc("engine_forkchoiceUpdatedV2") do(
-      forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]) -> ForkchoiceUpdatedResponse:
-    info "engine_forkchoiceUpdatedV2",
-      forkchoiceState, payloadAttributes
+    forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]
+  ) -> ForkchoiceUpdatedResponse:
+    info "engine_forkchoiceUpdatedV2", forkchoiceState, payloadAttributes
 
     return ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(
-      status: PayloadExecutionStatus.syncing))
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+    )
 
   server.rpc("eth_getBlockByNumber") do(
-      quantityTag: string, fullTransactions: bool) -> JsonString:
+    quantityTag: string, fullTransactions: bool
+  ) -> JsonString:
     info "eth_getBlockByNumber", quantityTag, fullTransactions
 
-    return if quantityTag == "latest":
-      JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
-    else:
-      "{}".JsonString
+    return
+      if quantityTag == "latest":
+        JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
+      else:
+        "{}".JsonString
 
   server.rpc("eth_getBlockByHash") do(
-      data: string, fullTransactions: bool) -> BlockObject:
+    data: string, fullTransactions: bool
+  ) -> BlockObject:
     info "eth_getBlockByHash", data = toHex(data), fullTransactions
 
     return BlockObject(number: 1000.Quantity)
@@ -88,13 +81,12 @@ proc setupEngineAPI*(server: RpcServer) =
     return 1.u256
 
 when isMainModule:
-  let server = newRpcHttpServer(
-        # authHooks = @[httpJwtAuthHook, httpCorsHook],
+  let server = newRpcHttpServer( # authHooks = @[httpJwtAuthHook, httpCorsHook],
   )
 
   server.addHttpServer(
-    initTAddress("127.0.0.1", 8551),
-    maxRequestBodySize = 16 * 1024 * 1024)
+    initTAddress("127.0.0.1", 8551), maxRequestBodySize = 16 * 1024 * 1024
+  )
 
   server.setupEngineAPI()
   server.start()

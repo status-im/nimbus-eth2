@@ -9,10 +9,7 @@
 
 # Import this module to get access to `hash_tree_root` for spec types
 
-import
-  std/sets,
-  ssz_serialization/[merkleization, proofs],
-  ./ssz_codec
+import std/sets, ssz_serialization/[merkleization, proofs], ./ssz_codec
 
 from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
@@ -28,18 +25,18 @@ export ssz_codec, merkleization, proofs
 # Can't use `ForkyHashedBeaconState`/`ForkyHashedSignedBeaconBlock` without
 # creating recursive module dependency through `forks`.
 func hash_tree_root*(
-    x: phase0.HashedBeaconState | altair.HashedBeaconState |
-       bellatrix.HashedBeaconState | capella.HashedBeaconState |
-       deneb.HashedBeaconState | electra.HashedBeaconState |
-       fulu.HashedBeaconState) {.
-  error: "HashedBeaconState should not be hashed".}
+  x:
+    phase0.HashedBeaconState | altair.HashedBeaconState | bellatrix.HashedBeaconState |
+    capella.HashedBeaconState | deneb.HashedBeaconState | electra.HashedBeaconState |
+    fulu.HashedBeaconState
+) {.error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
-    x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-       deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-       fulu.SignedBeaconBlock) {.
-  error: "SignedBeaconBlock should not be hashed".}
+  x:
+    phase0.SignedBeaconBlock | altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock |
+    capella.SignedBeaconBlock | deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+    fulu.SignedBeaconBlock
+) {.error: "SignedBeaconBlock should not be hashed".}
 
 func hash*(v: ref HashedValidatorPubKeyItem): Hash =
   if not isNil(v):
@@ -60,10 +57,7 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
     var keys {.threadvar.}: HashSet[ref HashedValidatorPubKeyItem]
 
     let
-      tmp = (ref HashedValidatorPubKeyItem)(
-        key: key,
-        root: hash_tree_root(key)
-      )
+      tmp = (ref HashedValidatorPubKeyItem)(key: key, root: hash_tree_root(key))
       cached =
         if keys.containsOrIncl(tmp):
           try:
@@ -76,4 +70,4 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
         else:
           addr tmp[]
 
-  HashedValidatorPubKey(value: cached)  # https://github.com/nim-lang/Nim/issues/23505
+  HashedValidatorPubKey(value: cached) # https://github.com/nim-lang/Nim/issues/23505

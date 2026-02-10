@@ -10,7 +10,8 @@
 
 import
   std/[typetraits, sequtils],
-  unittest2, stew/byteutils,
+  unittest2,
+  stew/byteutils,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
 
@@ -19,7 +20,9 @@ func sign(secrets: seq[SecretShare], message: seq[byte]): seq[SignatureShare] =
 
 suite "Key spliting":
   let
-    privateKey = ValidatorPrivKey.init("0x25295f0d1d592a90b333e26e85149708208e9f8e8bc18f6c77bd62f8ad7a6866")
+    privateKey = ValidatorPrivKey.init(
+      "0x25295f0d1d592a90b333e26e85149708208e9f8e8bc18f6c77bd62f8ad7a6866"
+    )
     pubKey = privateKey.toPubKey.toPubKey
     rng = HmacDrbgContext.new()
     msg = rng[].generateBytes(32)

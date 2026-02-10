@@ -14,9 +14,17 @@ import
   std/[cpuinfo, exitprocs, os, tables, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization, metrics,
-  chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2, metrics/chronos_httpserver, taskpools,
+  chronos,
+  confutils,
+  presto,
+  toml_serialization,
+  metrics,
+  chronicles,
+  chronicles/helpers as chroniclesHelpers,
+  chronicles/topics_registry,
+  stew/io2,
+  metrics/chronos_httpserver,
+  taskpools,
 
   # Local modules
   ./spec/keystore,
@@ -36,16 +44,14 @@ when defaultChroniclesStream.outputs.type.arity == 2:
 when defined(posix):
   import termios
 
-export
-  confutils, toml_serialization
+export confutils, toml_serialization
 
-type
-  StdoutLogKind* {.pure.} = enum
-    Auto = "auto"
-    Colors = "colors"
-    NoColors = "nocolors"
-    Json = "json"
-    None = "none"
+type StdoutLogKind* {.pure.} = enum
+  Auto = "auto"
+  Colors = "colors"
+  NoColors = "nocolors"
+  Json = "json"
+  None = "none"
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -53,10 +59,12 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   try:
     setLogLevel(parseEnum[LogLevel](directives[0].capitalizeAscii()))
   except ValueError:
-    raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+    raise (ref ValueError)(
+      msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+    )
 
   if directives.len > 1:
-    for topicName, settings in parseTopicDirectives(directives[1..^1]):
+    for topicName, settings in parseTopicDirectives(directives[1 ..^ 1]):
       if not setTopicState(topicName, settings.state, settings.logLevel):
         warn "Unrecognized logging topic", topic = topicName
 
@@ -77,8 +85,7 @@ proc setupFileLimits*() =
   when not defined(windows):
     # In addition to databases and sockets, we need a file descriptor for every
     # validator - setting it to 16k should provide sufficient margin
-    let
-      limit = getMaxOpenFiles2().valueOr(16384)
+    let limit = getMaxOpenFiles2().valueOr(16384)
 
     if limit < 16384:
       setMaxOpenFiles2(16384).isOkOr:
@@ -95,7 +102,8 @@ proc writePanicLine*(v: varargs[string, `$`]) =
     discard # Nothing to do..
 
 proc setupLogging*(
-    logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)) =
+    logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)
+) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
   # Here, we either write those logs to an output, or not, depending on the
   # given configuration.
@@ -104,7 +112,9 @@ proc setupLogging*(
   when defaultChroniclesStream.outputs.type.arity != 2:
     warn "Logging configuration options not enabled in the current build"
   else:
-    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
+    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) =
+      discard
+
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
         f.write(msg)
@@ -133,10 +143,10 @@ proc setupLogging*(
             noOutput
         else:
           error "Failed to create directory for log file",
-                path = logFileDir, err = ioErrorMsg(lres.error)
+            path = logFileDir, err = ioErrorMsg(lres.error)
           noOutput
-    else:
-      noOutput
+      else:
+        noOutput
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
@@ -153,14 +163,15 @@ proc setupLogging*(
       defaultChroniclesStream.outputs[0].writer = noOutput
 
       let prevWriter = defaultChroniclesStream.outputs[1].writer
-      defaultChroniclesStream.outputs[1].writer =
-        proc(logLevel: LogLevel, msg: LogOutputStr) =
-          stdoutFlush(logLevel, msg)
-          prevWriter(logLevel, msg)
+      defaultChroniclesStream.outputs[1].writer = proc(
+          logLevel: LogLevel, msg: LogOutputStr
+      ) =
+        stdoutFlush(logLevel, msg)
+        prevWriter(logLevel, msg)
     of StdoutLogKind.None:
-     defaultChroniclesStream.outputs[0].writer = noOutput
+      defaultChroniclesStream.outputs[0].writer = noOutput
 
-    staticFor i, 0..<defaultChroniclesStream.outputs.type.arity:
+    staticFor i, 0 ..< defaultChroniclesStream.outputs.type.arity:
       setLogEnabled(defaultChroniclesStream.outputs[i].writer != noOutput, i)
 
     if logFile.isSome():
@@ -234,11 +245,9 @@ proc loadWithBanners*(
       if (exc[] of ConfigurationError) and not (isNil(exc.parent)) and
           (exc.parent[] of TomlFieldReadingError):
         let fieldName = ((ref TomlFieldReadingError)(exc.parent)).field
-        if fieldName in
-            [
-              "el", "web3-url", "bootstrap-node", "direct-peer",
-              "validator-monitor-pubkey",
-            ]:
+        if fieldName in [
+          "el", "web3-url", "bootstrap-node", "direct-peer", "validator-monitor-pubkey"
+        ]:
           msg &=
             "Since the '" & fieldName & "' option is allowed to " &
             "have more than one value, please make sure to supply " &
@@ -247,15 +256,12 @@ proc loadWithBanners*(
   {.pop.}
   ok(config)
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
-                               stopAtEpoch: uint64): bool =
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
       (scheduledSlot - 3).epoch() >= stopAtEpoch:
     info "Stopping at pre-chosen epoch",
-      chosenEpoch = stopAtEpoch,
-      epoch = scheduledSlot.epoch(),
-      slot = scheduledSlot
+      chosenEpoch = stopAtEpoch, epoch = scheduledSlot.epoch(), slot = scheduledSlot
     true
   else:
     false
@@ -278,22 +284,24 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async: (raises: [])
     discard
   cache.clear()
 
-proc sleepAsync*(t: TimeDiff): Future[void] {.
-     async: (raises: [CancelledError], raw: true).} =
-  sleepAsync(nanoseconds(
-    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
+proc sleepAsync*(
+    t: TimeDiff
+): Future[void] {.async: (raises: [CancelledError], raw: true).} =
+  sleepAsync(nanoseconds(if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
-proc init*(T: type RestServerRef,
-           ip: IpAddress,
-           port: Port,
-           allowedOrigin: Option[string],
-           validateFn: PatternCallback,
-           ident: string,
-           config: auto): T =
+proc init*(
+    T: type RestServerRef,
+    ip: IpAddress,
+    port: Port,
+    allowedOrigin: Option[string],
+    validateFn: PatternCallback,
+    ident: string,
+    config: auto,
+): T =
   let
     address = initTAddress(ip, port)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
+    serverFlags =
+      {HttpServerFlags.QueryCommaSeparatedArray, HttpServerFlags.NotifyDisconnect}
   # We increase default timeout to help validator clients who poll our server
   # at least once per slot (12.seconds).
   let
@@ -305,79 +313,80 @@ proc init*(T: type RestServerRef,
     maxHeadersSize = config.restMaxRequestHeadersSize * 1024
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
 
-  let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
-                              address, serverFlags = serverFlags,
-                              serverIdent = ident,
-                              httpHeadersTimeout = headersTimeout,
-                              maxHeadersSize = maxHeadersSize,
-                              maxRequestBodySize = maxRequestBodySize,
-                              errorType = string)
+  let res = RestServerRef.new(
+    RestRouter.init(validateFn, allowedOrigin),
+    address,
+    serverFlags = serverFlags,
+    serverIdent = ident,
+    httpHeadersTimeout = headersTimeout,
+    maxHeadersSize = maxHeadersSize,
+    maxRequestBodySize = maxRequestBodySize,
+    errorType = string,
+  )
   if res.isErr():
-    notice "REST HTTP server could not be started", address = $address,
-           reason = res.error()
+    notice "REST HTTP server could not be started",
+      address = $address, reason = res.error()
     nil
   else:
     let server = res.get()
     notice "Starting REST HTTP server", url = "http://" & $server.localAddress()
     server
 
-type
-  KeymanagerInitResult* = object
-    server*: RestServerRef
-    token*: string
+type KeymanagerInitResult* = object
+  server*: RestServerRef
+  token*: string
 
 proc initKeymanagerServer*(
-    config: auto,
-    existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [].} =
-
+    config: auto, existingRestServer: RestServerRef = nil
+): KeymanagerInitResult {.raises: [].} =
   var token: string
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
-      echo "To enable the Keymanager API, you must also specify " &
-           "the --keymanager-token-file option."
-      quit 1
+  let keymanagerServer =
+    if config.keymanagerEnabled:
+      if config.keymanagerTokenFile.isNone:
+        echo "To enable the Keymanager API, you must also specify " &
+          "the --keymanager-token-file option."
+        quit 1
 
-    let
-      tokenFilePath = config.keymanagerTokenFile.get.string
-      tokenFileReadRes = readAllChars(tokenFilePath)
+      let
+        tokenFilePath = config.keymanagerTokenFile.get.string
+        tokenFileReadRes = readAllChars(tokenFilePath)
 
-    if tokenFileReadRes.isErr:
-      fatal "Failed to read the keymanager token file",
-            error = $tokenFileReadRes.error
-      quit 1
+      if tokenFileReadRes.isErr:
+        fatal "Failed to read the keymanager token file",
+          error = $tokenFileReadRes.error
+        quit 1
 
-    token = tokenFileReadRes.value.strip
-    if token.len == 0:
-      fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
+      token = tokenFileReadRes.value.strip
+      if token.len == 0:
+        fatal "The keymanager token should not be empty", tokenFilePath
+        quit 1
 
-    when compiles(config.restPort):
-      if existingRestServer != nil and
-         config.restAddress == config.keymanagerAddress and
-        config.restPort == config.keymanagerPort:
-        existingRestServer
+      when compiles(config.restPort):
+        if existingRestServer != nil and config.restAddress == config.keymanagerAddress and
+            config.restPort == config.keymanagerPort:
+          existingRestServer
+        else:
+          RestServerRef.init(
+            config.keymanagerAddress, config.keymanagerPort,
+            config.keymanagerAllowedOrigin, validateKeymanagerApiQueries,
+            nimbusAgentStr, config,
+          )
       else:
-        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                           config.keymanagerAllowedOrigin,
-                           validateKeymanagerApiQueries,
-                           nimbusAgentStr,
-                           config)
+        RestServerRef.init(
+          config.keymanagerAddress, config.keymanagerPort,
+          config.keymanagerAllowedOrigin, validateKeymanagerApiQueries, nimbusAgentStr,
+          config,
+        )
     else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config.keymanagerAllowedOrigin,
-                         validateKeymanagerApiQueries,
-                         nimbusAgentStr,
-                         config)
-  else:
-    nil
+      nil
 
   KeymanagerInitResult(server: keymanagerServer, token: token)
 
 proc initMetricsServer*(
     config: auto
 ): Future[Result[Opt[MetricsHttpServerRef], string]] {.
-  async: (raises: [CancelledError]).} =
+    async: (raises: [CancelledError])
+.} =
   if config.metricsEnabled:
     let
       metricsAddress = config.metricsAddress
@@ -387,23 +396,20 @@ proc initMetricsServer*(
     info "Starting metrics HTTP server", url = url
 
     let server = MetricsHttpServerRef.new($metricsAddress, metricsPort).valueOr:
-      fatal "Could not start metrics HTTP server",
-            url = url, reason = error
+      fatal "Could not start metrics HTTP server", url = url, reason = error
       return err($error)
 
     try:
       await server.start()
     except MetricsError as exc:
-      fatal "Could not start metrics HTTP server",
-            url = url, reason = exc.msg
+      fatal "Could not start metrics HTTP server", url = url, reason = exc.msg
       return err(exc.msg)
 
     ok(Opt.some(server))
   else:
     ok(Opt.none(MetricsHttpServerRef))
 
-proc stopMetricsServer*(v: Opt[MetricsHttpServerRef]) {.
-     async: (raises: []).} =
+proc stopMetricsServer*(v: Opt[MetricsHttpServerRef]) {.async: (raises: []).} =
   if v.isSome():
     info "Shutting down metrics HTTP server"
     await v.get().close()
@@ -472,4 +478,5 @@ proc createPidFile*(filename: string) {.raises: [IOError].} =
   pidFile = cast[cstring](c_malloc(csize_t(filename.len + 1)))
   copyMem(pidFile, cstring(filename), filename.len + 1)
 
-  addExitProc proc {.noconv.} = discard io2.removeFile($pidFile)
+  addExitProc proc() {.noconv.} =
+    discard io2.removeFile($pidFile)

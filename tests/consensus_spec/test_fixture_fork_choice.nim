@@ -16,13 +16,15 @@ import
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
   ../../beacon_chain/beacon_chain_db,
-  ../../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_clearance, block_quarantine, spec_cache],
+  ../../beacon_chain/consensus_object_pools/
+    [blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
   yaml/tojson,
   # Test
-  ../testutil, ../testdbutil,
-  ./fixtures_utils, ./os_ops
+  ../testutil,
+  ../testdbutil,
+  ./fixtures_utils,
+  ./os_ops
 
 from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
@@ -31,16 +33,17 @@ from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
 from ../testbcutil import addHeadBlock
 from ../../beacon_chain/spec/peerdas_helpers import
-  verify_data_column_sidecar_inclusion_proof,
-  verify_data_column_sidecar_kzg_proofs
+  verify_data_column_sidecar_inclusion_proof, verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
 
 block:
-  template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
+  template sourceDir(): string =
+    currentSourcePath.rsplit(io2.DirSep, 1)[0]
+
   doAssert loadTrustedSetup(
-    sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+    sourceDir & "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0
+  ).isOk
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -89,13 +92,9 @@ type
       checks: JsonNode
 
 proc initialLoad(
-    path: string, db: BeaconChainDB,
-    StateType, BlockType: typedesc
+    path: string, db: BeaconChainDB, StateType, BlockType: typedesc
 ): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
-  let
-    forkedState = loadForkedState(
-      path/"anchor_state.ssz_snappy",
-      StateType.kind)
+  let forkedState = loadForkedState(path / "anchor_state.ssz_snappy", StateType.kind)
 
   ChainDAGRef.preInit(db, forkedState[])
 
@@ -103,16 +102,15 @@ proc initialLoad(
     cfg = forkedState[].kind.genesisTestRuntimeConfig
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
-    fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+    fkChoice =
+      newClone(ForkChoice.init(dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
 
 proc loadOps(
-    path: string,
-    fork: ConsensusFork
+    path: string, fork: ConsensusFork
 ): seq[Operation] {.raises: [KeyError, ValueError].} =
-  let stepsYAML = os_ops.readFile(path/"steps.yaml")
+  let stepsYAML = os_ops.readFile(path / "steps.yaml")
   let steps = loadToJson(stepsYAML)
 
   result = @[]
@@ -120,34 +118,43 @@ proc loadOps(
     var numExtraFields = 0
 
     if step.hasKey"tick":
-      result.add Operation(kind: opOnTick,
-        tick: step["tick"].getInt())
+      result.add Operation(kind: opOnTick, tick: step["tick"].getInt())
     elif step.hasKey"attestation":
       let filename = step["attestation"].getStr()
       if fork >= ConsensusFork.Electra:
         result.add Operation(
-          kind: opOnElectraAttestation, electraAtt: parseTest(
-            path/filename & ".ssz_snappy", SSZ, electra.Attestation))
+          kind: opOnElectraAttestation,
+          electraAtt:
+            parseTest(path / filename & ".ssz_snappy", SSZ, electra.Attestation),
+        )
       else:
-        result.add Operation(kind: opOnPhase0Attestation, phase0Att: parseTest(
-          path/filename & ".ssz_snappy", SSZ, phase0.Attestation))
+        result.add Operation(
+          kind: opOnPhase0Attestation,
+          phase0Att: parseTest(path / filename & ".ssz_snappy", SSZ, phase0.Attestation),
+        )
     elif step.hasKey"block":
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
         let
-          blck = loadBlock(path/filename & ".ssz_snappy", consensusFork)
+          blck = loadBlock(path / filename & ".ssz_snappy", consensusFork)
           blobData =
             when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
               doAssert not step.hasKey"columns"
               if step.hasKey"blobs":
                 numExtraFields += 2
                 Opt.some BlobData(
-                  blobs: distinctBase(parseTest(
-                    path/(step["blobs"].getStr()) & ".ssz_snappy",
-                    SSZ, List[KzgBlob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
+                  blobs: distinctBase(
+                    parseTest(
+                      path / (step["blobs"].getStr()) & ".ssz_snappy",
+                      SSZ,
+                      List[KzgBlob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK],
+                    )
+                  ),
                   proofs: step["proofs"].mapIt(
-                    KzgProof(bytes: fromHex(array[48, byte], it.getStr()))))
+                    KzgProof(bytes: fromHex(array[48, byte], it.getStr()))
+                  ),
+                )
               else:
                 Opt.none(BlobData)
             else:
@@ -163,40 +170,49 @@ proc loadOps(
               columnsValid = false
             for column_name in step["columns"]:
               let column = parseTest(
-                path/(column_name.getStr()) & ".ssz_snappy", SSZ,
-                fulu.DataColumnSidecar)
-              columnsValid = columnsValid and
-                verify_data_column_sidecar_inclusion_proof(column).isOk and
+                path / (column_name.getStr()) & ".ssz_snappy",
+                SSZ,
+                fulu.DataColumnSidecar,
+              )
+              columnsValid =
+                columnsValid and verify_data_column_sidecar_inclusion_proof(column).isOk and
                 verify_data_column_sidecar_kzg_proofs(column).isOk
               if not columnsValid:
                 break
         else:
           doAssert not step.hasKey"columns"
 
-        result.add Operation(kind: opOnBlock,
+        result.add Operation(
+          kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck),
           blobData: blobData,
-          columnsValid: columnsValid)
+          columnsValid: columnsValid,
+        )
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       if fork >= ConsensusFork.Electra:
-        result.add Operation(kind: opOnElectraAttesterSlashing,
-          electraAttesterSlashing: parseTest(
-            path/filename & ".ssz_snappy", SSZ, electra.AttesterSlashing))
+        result.add Operation(
+          kind: opOnElectraAttesterSlashing,
+          electraAttesterSlashing:
+            parseTest(path / filename & ".ssz_snappy", SSZ, electra.AttesterSlashing),
+        )
       else:
-        result.add Operation(kind: opOnPhase0AttesterSlashing,
-          phase0AttesterSlashing: parseTest(
-            path/filename & ".ssz_snappy", SSZ, phase0.AttesterSlashing))
+        result.add Operation(
+          kind: opOnPhase0AttesterSlashing,
+          phase0AttesterSlashing:
+            parseTest(path / filename & ".ssz_snappy", SSZ, phase0.AttesterSlashing),
+        )
     elif step.hasKey"payload_status":
       if step["payload_status"]["status"].getStr() == "INVALID":
-        result.add Operation(kind: opInvalidateHash,
+        result.add Operation(
+          kind: opInvalidateHash,
           valid: true,
           invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
-          latestValidHash: Eth2Digest.fromHex(
-            step["payload_status"]["latest_valid_hash"].getStr()))
+          latestValidHash:
+            Eth2Digest.fromHex(step["payload_status"]["latest_valid_hash"].getStr()),
+        )
     elif step.hasKey"checks":
-      result.add Operation(kind: opChecks,
-        checks: step["checks"])
+      result.add Operation(kind: opChecks, checks: step["checks"])
     else:
       raiseAssert "Unknown test step: " & $step
 
@@ -208,23 +224,23 @@ proc loadOps(
       result[^1].valid = true
 
 proc stepOnBlock(
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       verifier: var BatchVerifier,
-       state: var ForkedHashedBeaconState,
-       stateCache: var StateCache,
-       signedBlock: ForkySignedBeaconBlock,
-       blobData: Opt[BlobData],
-       columnsValid: bool,
-       time: BeaconTime,
-       invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
-       Result[BlockRef, VerifierError] =
+    dag: ChainDAGRef,
+    fkChoice: ref ForkChoice,
+    verifier: var BatchVerifier,
+    state: var ForkedHashedBeaconState,
+    stateCache: var StateCache,
+    signedBlock: ForkySignedBeaconBlock,
+    blobData: Opt[BlobData],
+    columnsValid: bool,
+    time: BeaconTime,
+    invalidatedHashes: Table[Eth2Digest, Eth2Digest],
+): Result[BlockRef, VerifierError] =
   # 1. Validate blobs and columns
   when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if kzgCommits.len > 0 or blobData.isSome:
-      if blobData.isNone or kzgCommits.validate_blobs(
-          blobData.get.blobs, blobData.get.proofs).isErr:
+      if blobData.isNone or
+          kzgCommits.validate_blobs(blobData.get.blobs, blobData.get.proofs).isErr:
         return err(VerifierError.Invalid)
   else:
     doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
@@ -235,11 +251,10 @@ proc stepOnBlock(
   # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
-    dag.getBlockIdAtSlot(time.slotOrZero(dag.timeParams))
-      .expect("block exists"),
+    dag.getBlockIdAtSlot(time.slotOrZero(dag.timeParams)).expect("block exists"),
     save = false,
     stateCache,
-    dag.updateFlags
+    dag.updateFlags,
   )
 
   # 3. Add block to DAG
@@ -253,29 +268,34 @@ proc stepOnBlock(
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
     debugGloasComment "skip execution payload for Gloas?"
-    let executionBlockHash =
-      signedBlock.message.body.execution_payload.block_hash
+    let executionBlockHash = signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
       # Mocks fork choice INVALID list application. These tests sequence this
       # in a way the block processor does not, specifying each payload_status
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedHashes.getOrDefault(
-        executionBlockHash, static(default(Eth2Digest)))
-      fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
-        signedBlock.message.parent_root, lvh, executionBlockHash))
+      let lvh =
+        invalidatedHashes.getOrDefault(executionBlockHash, static(default(Eth2Digest)))
+      fkChoice[].mark_root_invalid(
+        dag.getEarliestInvalidBlockRoot(
+          signedBlock.message.parent_root, lvh, executionBlockHash
+        )
+      )
 
       return err VerifierError.Invalid
 
-  let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
-      blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
-      state: consensusFork.BeaconState,
-      epochRef: EpochRef, unrealized: FinalityCheckpoints):
-
+  let blockAdded = dag.addHeadBlock(verifier, signedBlock) do(
+    blckRef: BlockRef,
+    signedBlock: consensusFork.TrustedSignedBeaconBlock,
+    state: consensusFork.BeaconState,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints
+  ):
     # 4. Update fork choice if valid
     let status = fkChoice[].process_block(
-      dag, epochRef, blckRef, unrealized, signedBlock.message, time)
+      dag, epochRef, blckRef, unrealized, signedBlock.message, time
+    )
     doAssert status.isOk()
 
     # 5. Update DAG with new head
@@ -290,10 +310,8 @@ proc stepOnBlock(
   blockAdded
 
 proc stepChecks(
-    checks: JsonNode,
-    dag: ChainDAGRef,
-    fkChoice: ref ForkChoice,
-    time: BeaconTime) {.raises: [KeyError].} =
+    checks: JsonNode, dag: ChainDAGRef, fkChoice: ref ForkChoice, time: BeaconTime
+) {.raises: [KeyError].} =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
@@ -332,18 +350,15 @@ proc stepChecks(
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
-proc doRunTest(
-    path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
+proc doRunTest(path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
   let db = withConsensusFork(fork):
-    BeaconChainDB.new(
-      "", consensusFork.genesisTestRuntimeConfig, inMemory = true)
+    BeaconChainDB.new("", consensusFork.genesisTestRuntimeConfig, inMemory = true)
   defer:
     db.close()
 
   let
     stores = withConsensusFork(fork):
-      initialLoad(
-        path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
+      initialLoad(path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
 
     rng = HmacDrbgContext.new()
     taskpool =
@@ -370,32 +385,39 @@ proc doRunTest(
       doAssert status.isOk == step.valid
     of opOnPhase0Attestation:
       let status = stores.fkChoice[].on_attestation(
-        stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)), time)
+        stores.dag,
+        step.phase0Att.data.slot,
+        step.phase0Att.data.beacon_block_root,
+        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)),
+        time,
+      )
       doAssert status.isOk == step.valid
     of opOnElectraAttestation:
       let status = stores.fkChoice[].on_attestation(
-        stores.dag, step.electraAtt.data.slot,
+        stores.dag,
+        step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt, true)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt, true)),
+        time,
+      )
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
         let status = stepOnBlock(
-          stores.dag, stores.fkChoice,
-          verifier, state[], stateCache,
-          forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
+          stores.dag, stores.fkChoice, verifier, state[], stateCache, forkyBlck,
+          step.blobData, step.columnsValid, time, invalidatedHashes,
+        )
         doAssert status.isOk == step.valid
     of opOnPhase0AttesterSlashing:
-      let indices = check_attester_slashing(
-        state[], step.phase0AttesterSlashing, flags = {})
+      let indices =
+        check_attester_slashing(state[], step.phase0AttesterSlashing, flags = {})
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
       doAssert indices.isOk == step.valid
     of opOnElectraAttesterSlashing:
-      let indices = check_attester_slashing(
-        state[], step.electraAttesterSlashing, flags = {})
+      let indices =
+        check_attester_slashing(state[], step.electraAttesterSlashing, flags = {})
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
@@ -440,9 +462,9 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
 
 template fcSuite(suiteName: static[string], testPathElem: static[string]) =
   suite "EF - " & suiteName & preset():
-    const presetPath = SszTestsDir/const_preset
+    const presetPath = SszTestsDir / const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
-      let testsPath = presetPath/path/testPathElem
+      let testsPath = presetPath / path / testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
       if path.contains("eip7732") or path.contains("eip7805") or path.contains("gloas"):
@@ -450,11 +472,11 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
-        let basePath = testsPath/path/"pyspec_tests"
+        let basePath = testsPath / path / "pyspec_tests"
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          runTest(suiteName, basePath/path, fork)
+          runTest(suiteName, basePath / path, fork)
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

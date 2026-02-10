@@ -23,13 +23,13 @@ import
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
-    beaconstate, crypto, engine_authentication, forks, helpers,
-    signatures, state_transition],
+    beaconstate, crypto, engine_authentication, forks, helpers, signatures,
+    state_transition,
+  ],
   ../beacon_chain/validators/[keystore_management, validator_pool]
 
 from std/sequtils import filterIt, toSeq
-from ../beacon_chain/gossip_processing/block_processor import
-  newExecutionPayload
+from ../beacon_chain/gossip_processing/block_processor import newExecutionPayload
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
@@ -39,8 +39,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
-func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
-    Opt[ValidatorIndex] =
+func findValidator(
+    validators: seq[Validator], pubkey: ValidatorPubKey
+): Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     Opt.none ValidatorIndex
@@ -50,10 +51,17 @@ func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
 from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
-cli do(validatorsDir: string, secretsDir: string,
-       startState: string, startBlock: string,
-       network: string, elUrl: string, jwtSecret: string,
-       suggestedFeeRecipient: string, graffiti = "insecura"):
+cli do(
+  validatorsDir: string,
+  secretsDir: string,
+  startState: string,
+  startBlock: string,
+  network: string,
+  elUrl: string,
+  jwtSecret: string,
+  suggestedFeeRecipient: string,
+  graffiti = "insecura"
+):
   let
     metadata = getMetadataForNetwork(network)
     cfg = metadata.cfg
@@ -89,8 +97,8 @@ cli do(validatorsDir: string, secretsDir: string,
       if jwtSecret.isErr:
         fatal "failed to parse JWT secret file", err = jwtSecret.error
         quit QuitFailure
-      let finalUrl = EngineApiUrlConfigValue(url: elUrl)
-        .toFinalUrl(Opt.some jwtSecret.get)
+      let finalUrl =
+        EngineApiUrlConfigValue(url: elUrl).toFinalUrl(Opt.some jwtSecret.get)
       if finalUrl.isErr:
         fatal "failed to read EL URL", err = finalUrl.error
         quit QuitFailure
@@ -115,22 +123,25 @@ cli do(validatorsDir: string, secretsDir: string,
   elManager.start(syncChain = false)
   withBlck(blck[]):
     debugGloasComment ""
-    when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Bellatrix and
+        consensusFork != ConsensusFork.Gloas:
       if forkyBlck.message.is_execution_block:
-        template payload(): auto = forkyBlck.message.body.execution_payload
+        template payload(): auto =
+          forkyBlck.message.body.execution_payload
+
         if not payload.block_hash.isZero:
           notice "Syncing EL", elUrl, jwtSecret
           while true:
             waitFor noCancel sleepAsync(chronos.seconds(2))
-            (waitFor noCancel elManager
-                .newExecutionPayload(forkyBlck.message)).isOkOr:
+            (waitFor noCancel elManager.newExecutionPayload(forkyBlck.message)).isOkOr:
               continue
 
             let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
               headBlockHash = payload.block_hash,
               safeBlockHash = payload.block_hash,
               finalizedBlockHash = ZERO_HASH,
-              payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+              payloadAttributes = Opt.none(consensusFork.PayloadAttributes),
+            )
             if status != PayloadExecutionStatus.valid:
               continue
 
@@ -147,8 +158,9 @@ cli do(validatorsDir: string, secretsDir: string,
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 
-  for item in listLoadableKeystores(validatorsDir, secretsDir, true,
-                                    {KeystoreKind.Local}, nil):
+  for item in listLoadableKeystores(
+    validatorsDir, secretsDir, true, {KeystoreKind.Local}, nil
+  ):
     let
       pubkey = item.privateKey.toPubKey().toPubKey()
       idx = findValidator(getStateField(state[], validators).toSeq, pubkey)
@@ -160,34 +172,28 @@ cli do(validatorsDir: string, secretsDir: string,
       warn "Unknown validator", pubkey
 
   var
-    blockRoot = withState(state[]): forkyState.latest_block_root
+    blockRoot = withState(state[]):
+      forkyState.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
     aggregates: seq[phase0.Attestation]
     syncAggregate = SyncAggregate.init()
 
-  let
-    genesis_validators_root = getStateField(state[], genesis_validators_root)
+  let genesis_validators_root = getStateField(state[], genesis_validators_root)
 
   block:
-    let
-      active = withState(state[]):
-        get_active_validator_indices_len(
-          forkyState.data, forkyState.data.slot.epoch)
+    let active = withState(state[]):
+      get_active_validator_indices_len(forkyState.data, forkyState.data.slot.epoch)
 
-    notice "Let's play",
-      validators = validators.len(),
-      active
+    notice "Let's play", validators = validators.len(), active
 
   while true:
     # Move to slot
-    let
-      slot = getStateField(state[], slot) + 1
+    let slot = getStateField(state[], slot) + 1
     process_slots(cfg, state[], slot, cache, info, {}).expect("works")
 
     if slot.start_beacon_time(cfg.timeParams) > beaconClock.now():
-      notice "Ran out of time",
-        epoch = slot.epoch
+      notice "Ran out of time", epoch = slot.epoch
       break
 
     var exited: seq[ValidatorIndex]
@@ -207,13 +213,17 @@ cli do(validatorsDir: string, secretsDir: string,
         balance = block:
           var b: Gwei
           for k, _ in validators:
-            if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
+            if is_active_validator(
+              getStateField(state[], validators).asSeq[k], slot.epoch
+            ):
               b += getStateField(state[], balances).asSeq[k]
           b
         validators = block:
           var b: int
           for k, _ in validators:
-            if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
+            if is_active_validator(
+              getStateField(state[], validators).asSeq[k], slot.epoch
+            ):
               b += 1
           b
         avgBalance = balance.int64 div validators.int64
@@ -228,7 +238,8 @@ cli do(validatorsDir: string, secretsDir: string,
         avgBalance
 
       if slot.epoch mod 32 == 0:
-        withState(state[]): dump(".", forkyState)
+        withState(state[]):
+          dump(".", forkyState)
 
     let
       fork = getStateField(state[], fork)
@@ -238,12 +249,16 @@ cli do(validatorsDir: string, secretsDir: string,
       let
         blockAggregates = aggregates.filterIt(
           it.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= slot and
-          slot <= it.data.slot + SLOTS_PER_EPOCH)
+            slot <= it.data.slot + SLOTS_PER_EPOCH
+        )
         randao_reveal = get_epoch_signature(
-          fork, genesis_validators_root, slot.epoch,
-          # should never fall back to default value
-          validators.getOrDefault(
-            proposer, default(ValidatorPrivKey))).toValidatorSig()
+            fork,
+            genesis_validators_root,
+            slot.epoch,
+            # should never fall back to default value
+            validators.getOrDefault(proposer, default(ValidatorPrivKey)),
+          )
+          .toValidatorSig()
       withState(state[]):
         debugGloasComment ""
         when consensusFork != ConsensusFork.Gloas:
@@ -261,18 +276,23 @@ cli do(validatorsDir: string, secretsDir: string,
 
                 var pl: consensusFork.ExecutionPayloadForSigning
                 while true:
-                  pl = (waitFor noCancel elManager.getPayload(
+                  pl = (
+                    waitFor noCancel elManager.getPayload(
                       consensusFork.ExecutionPayloadForSigning,
                       consensusHead = forkyState.latest_block_root,
                       headBlock = executionHead,
                       safeBlock = executionHead,
                       finalizedBlock = ZERO_HASH,
                       timestamp = cfg.timeParams.compute_timestamp_at_slot(
-                        forkyState.data, forkyState.data.slot),
+                        forkyState.data, forkyState.data.slot
+                      ),
                       prevRandao = get_randao_mix(
-                        forkyState.data, get_current_epoch(forkyState.data)),
+                        forkyState.data, get_current_epoch(forkyState.data)
+                      ),
                       suggestedFeeRecipient = feeRecipient,
-                      withdrawals = withdrawals)).valueOr:
+                      withdrawals = withdrawals,
+                    )
+                  ).valueOr:
                     waitFor noCancel sleepAsync(chronos.seconds(2))
                     continue
                   break
@@ -280,23 +300,25 @@ cli do(validatorsDir: string, secretsDir: string,
               else:
                 default(bellatrix.ExecutionPayloadForSigning)
             message = makeBeaconBlock(
-              cfg,
-              consensusFork,
-              forkyState,
-              cache,
-              proposer,
-              randao_reveal,
-              forkyState.data.eth1_data,
-              graffitiValue,
-              when consensusFork >= ConsensusFork.Electra:
-                default(seq[electra.Attestation])
-              else:
-                blockAggregates,
-              @[],
-              BeaconBlockValidatorChanges(),
-              syncAggregate,
-              payload,
-              {}).expect("block")
+                cfg,
+                consensusFork,
+                forkyState,
+                cache,
+                proposer,
+                randao_reveal,
+                forkyState.data.eth1_data,
+                graffitiValue,
+                when consensusFork >= ConsensusFork.Electra:
+                  default(seq[electra.Attestation])
+                else:
+                  blockAggregates,
+                @[],
+                BeaconBlockValidatorChanges(),
+                syncAggregate,
+                payload,
+                {},
+              )
+              .expect("block")
 
           blockRoot = message.hash_tree_root()
           let
@@ -309,13 +331,16 @@ cli do(validatorsDir: string, secretsDir: string,
               message: message,
               root: blockRoot,
               signature: get_block_signature(
-                fork, genesis_validators_root, slot, blockRoot,
-                proposerPrivkey).toValidatorSig())
+                  fork, genesis_validators_root, slot, blockRoot, proposerPrivkey
+                )
+                .toValidatorSig(),
+            )
 
           dump(".", signedBlock)
           when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
             let blobs = signedBlock.create_blob_sidecars(
-              payload.blobsBundle.proofs, payload.blobsBundle.blobs)
+              payload.blobsBundle.proofs, payload.blobsBundle.blobs
+            )
             for blob in blobs:
               dump(".", blob)
 
@@ -323,15 +348,15 @@ cli do(validatorsDir: string, secretsDir: string,
 
           when consensusFork >= ConsensusFork.Bellatrix:
             while true:
-              let status = waitFor noCancel elManager
-                .newExecutionPayload(signedBlock.message)
+              let status =
+                waitFor noCancel elManager.newExecutionPayload(signedBlock.message)
               if status.isNone:
                 waitFor noCancel sleepAsync(chronos.seconds(2))
                 continue
               doAssert status.get in [
-                PayloadExecutionStatus.valid,
-                PayloadExecutionStatus.accepted,
-                PayloadExecutionStatus.syncing]
+                PayloadExecutionStatus.valid, PayloadExecutionStatus.accepted,
+                PayloadExecutionStatus.syncing,
+              ]
               break
 
       aggregates.setLen(0)
@@ -339,27 +364,29 @@ cli do(validatorsDir: string, secretsDir: string,
     syncAggregate = SyncAggregate.init()
 
     withState(state[]):
-      let committees_per_slot = get_committee_count_per_slot(
-        forkyState.data, slot.epoch, cache)
+      let committees_per_slot =
+        get_committee_count_per_slot(forkyState.data, slot.epoch, cache)
       for committee_index in get_committee_indices(committees_per_slot):
-        let committee = get_beacon_committee(
-          forkyState.data, slot, committee_index, cache)
+        let committee =
+          get_beacon_committee(forkyState.data, slot, committee_index, cache)
 
         var
           attestation = phase0.Attestation(
-            data: makeAttestationData(
-              forkyState.data, slot, committee_index, blockRoot),
-            aggregation_bits: CommitteeValidatorsBits.init(committee.len))
+            data: makeAttestationData(forkyState.data, slot, committee_index, blockRoot),
+            aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+          )
           agg: AggregateSignature
 
         for index_in_committee, validator_index in committee:
           if validator_index notin validators:
             continue
 
-          let
-            signature = get_attestation_signature(
-              fork, genesis_validators_root, attestation.data,
-              validators.getOrDefault(validator_index, default(ValidatorPrivKey)))
+          let signature = get_attestation_signature(
+            fork,
+            genesis_validators_root,
+            attestation.data,
+            validators.getOrDefault(validator_index, default(ValidatorPrivKey)),
+          )
           if attestation.aggregation_bits.isZeros:
             agg = AggregateSignature.init(signature)
           else:
@@ -390,7 +417,8 @@ cli do(validatorsDir: string, secretsDir: string,
         for i, pubkey in pubkeys:
           validatorKeys.withValue(pubkey, privkey):
             let sig = get_sync_committee_message_signature(
-              fork, genesis_validators_root, slot, blockRoot, privkey[])
+              fork, genesis_validators_root, slot, blockRoot, privkey[]
+            )
 
             if inited:
               agg.aggregate(sig)

@@ -9,7 +9,10 @@
 {.used.}
 
 import
-  results, unittest2, stew/io2, nimcrypto/hash,
+  results,
+  unittest2,
+  stew/io2,
+  nimcrypto/hash,
   ../beacon_chain/spec/forks,
   ../beacon_chain/beacon_chain_file
 
@@ -18,8 +21,7 @@ template onDiskChunkSize(data: int): int =
 
 const
   FixtureFile =
-    currentSourcePath().dirname() & DirSep & "fixtures" & DirSep &
-    "bfdata-test.bin"
+    currentSourcePath().dirname() & DirSep & "fixtures" & DirSep & "bfdata-test.bin"
 
   Block0Root =
     "4bbd1c7468626d6520e27a534ce9f3ee305160860367431528404697c60ce222".toDigest
@@ -41,37 +43,33 @@ const
   Block2Blob1ChunkSize = 7090
   Block2Blob2ChunkSize = 7056
 
-  Block0FullSize = onDiskChunkSize(Block0BlockChunkSize) +
-                   onDiskChunkSize(Block0Blob0ChunkSize)
-  Block1FullSize = onDiskChunkSize(Block1BlockChunkSize) +
-                   onDiskChunkSize(Block1Blob0ChunkSize) +
-                   onDiskChunkSize(Block1Blob1ChunkSize) +
-                   onDiskChunkSize(Block1Blob2ChunkSize)
-  Block2FullSize = onDiskChunkSize(Block2BlockChunkSize) +
-                   onDiskChunkSize(Block2Blob0ChunkSize) +
-                   onDiskChunkSize(Block2Blob1ChunkSize) +
-                   onDiskChunkSize(Block2Blob2ChunkSize)
+  Block0FullSize =
+    onDiskChunkSize(Block0BlockChunkSize) + onDiskChunkSize(Block0Blob0ChunkSize)
+  Block1FullSize =
+    onDiskChunkSize(Block1BlockChunkSize) + onDiskChunkSize(Block1Blob0ChunkSize) +
+    onDiskChunkSize(Block1Blob1ChunkSize) + onDiskChunkSize(Block1Blob2ChunkSize)
+  Block2FullSize =
+    onDiskChunkSize(Block2BlockChunkSize) + onDiskChunkSize(Block2Blob0ChunkSize) +
+    onDiskChunkSize(Block2Blob1ChunkSize) + onDiskChunkSize(Block2Blob2ChunkSize)
 
-type
-  AutoRepairObject = object
-    data: ChainFileData
-    size: int64
+type AutoRepairObject = object
+  data: ChainFileData
+  size: int64
 
 suite "Beacon chain file test suite":
   var fixtureData: seq[byte]
 
   proc doAutoCheckRepairTest(id, size: int): Result[AutoRepairObject, string] =
-    let path =
-      block:
-        let res = getTempPath().valueOr:
-          return err(ioErrorMsg(error))
-        res & DirSep & "tmp_" & $id & "_" & $size & ".tmp"
+    let path = block:
+      let res = getTempPath().valueOr:
+        return err(ioErrorMsg(error))
+      res & DirSep & "tmp_" & $id & "_" & $size & ".tmp"
     discard removeFile(path)
     io2.writeFile(path, fixtureData.toOpenArray(0, size - 1)).isOkOr:
       return err(ioErrorMsg(error))
     let
       flags = {ChainFileFlag.Repair}
-      fres = ? ChainFileHandle.init(path, flags)
+      fres = ?ChainFileHandle.init(path, flags)
     closeFile(fres.handle).isOkOr:
       return err(ioErrorMsg(error))
     let filesize = getFileSize(path).valueOr:
@@ -87,8 +85,10 @@ suite "Beacon chain file test suite":
     let
       head = adata.data.head.get()
       tail = adata.data.tail.get()
-      headRoot = withBlck(head.blck): forkyBlck.root
-      tailRoot = withBlck(tail.blck): forkyBlck.root
+      headRoot = withBlck(head.blck):
+        forkyBlck.root
+      tailRoot = withBlck(tail.blck):
+        forkyBlck.root
 
     check:
       head.blob.isSome()
@@ -106,8 +106,10 @@ suite "Beacon chain file test suite":
     let
       head = adata.data.head.get()
       tail = adata.data.tail.get()
-      headRoot = withBlck(head.blck): forkyBlck.root
-      tailRoot = withBlck(tail.blck): forkyBlck.root
+      headRoot = withBlck(head.blck):
+        forkyBlck.root
+      tailRoot = withBlck(tail.blck):
+        forkyBlck.root
 
     check:
       head.blob.isSome()
@@ -133,8 +135,10 @@ suite "Beacon chain file test suite":
     let
       head = handle.head.get()
       tail = handle.tail.get()
-      headRoot = withBlck(head.blck): forkyBlck.root
-      tailRoot = withBlck(tail.blck): forkyBlck.root
+      headRoot = withBlck(head.blck):
+        forkyBlck.root
+      tailRoot = withBlck(tail.blck):
+        forkyBlck.root
     check:
       head.blob.isSome()
       tail.blob.isSome()

@@ -14,12 +14,9 @@ export tables, minilru, forks
 const
   MaxRetriesPerMissingItem = 7
     ## Exponential backoff, double interval between each attempt
-  MaxMissingItems* = 1024
-    ## Arbitrary
-  MaxOrphans = int(SLOTS_PER_EPOCH * 3)
-    ## Enough for finalization in an alternative fork
-  MaxSidecarless = int(SLOTS_PER_EPOCH * 128)
-    ## Arbitrary
+  MaxMissingItems* = 1024 ## Arbitrary
+  MaxOrphans = int(SLOTS_PER_EPOCH * 3) ## Enough for finalization in an alternative fork
+  MaxSidecarless = int(SLOTS_PER_EPOCH * 128) ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
 
@@ -118,7 +115,9 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
       if result.len >= max:
         break
 
-proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, UnviableKind] =
+proc addMissing*(
+    quarantine: var Quarantine, root: Eth2Digest
+): Result[void, UnviableKind] =
   ## Schedule the download a given block or its ancestor, if we're keeping
   ## track of it as an orphan
 
@@ -135,7 +134,7 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
     return ok()
 
   var r = root
-  for i in 0 .. MaxOrphans:  # Blocks are not trusted, avoid endless loops
+  for i in 0 .. MaxOrphans: # Blocks are not trusted, avoid endless loops
     # It's not really missing if we're keeping it in the quarantine.
     # In that case, add the next missing parent root instead
     var found = false
@@ -221,7 +220,9 @@ func removeUnviableSidecarlessTree(
 
     toRemove.setLen(0)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest, kind: UnviableKind): UnviableKind =
+func addUnviable*(
+    quarantine: var Quarantine, root: Eth2Digest, kind: UnviableKind
+): UnviableKind =
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -301,9 +302,7 @@ func pruneAfterFinalization*(
 # will be a block for the last couple of slots for which the parent is a
 # likely imminent arrival.
 proc addOrphan*(
-    quarantine: var Quarantine,
-    finalizedSlot: Slot,
-    signedBlock: ForkySignedBeaconBlock
+    quarantine: var Quarantine, finalizedSlot: Slot, signedBlock: ForkySignedBeaconBlock
 ): Result[void, UnviableKind] =
   ## Adds block to quarantine's `orphans` and `missing` lists assuming the
   ## parent isn't unviable
@@ -353,9 +352,11 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest): ForkedSignedBeaconB
       yield v
 
 proc addSidecarless(
-    quarantine: var Quarantine, finalizedSlot: Opt[Slot],
-    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    quarantine: var Quarantine,
+    finalizedSlot: Opt[Slot],
+    signedBlock:
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+      gloas.SignedBeaconBlock,
 ): bool =
   if finalizedSlot.isSome():
     if signedBlock.message.isUnviableFork(finalizedSlot.get()):
@@ -373,16 +374,19 @@ proc addSidecarless(
   true
 
 proc addSidecarless*(
-  quarantine: var Quarantine, finalizedSlot: Slot,
-  signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    quarantine: var Quarantine,
+    finalizedSlot: Slot,
+    signedBlock:
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+      gloas.SignedBeaconBlock,
 ): bool =
   quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
 
 proc addSidecarless*(
-  quarantine: var Quarantine,
-  signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+    quarantine: var Quarantine,
+    signedBlock:
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+      gloas.SignedBeaconBlock,
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 

@@ -10,9 +10,12 @@
 import
   std/json,
   # Nimble packages:
-  chronos, metrics, chronicles/timings,
+  chronos,
+  metrics,
+  chronicles/timings,
   json_rpc/[client, errors],
-  web3, web3/[engine_api, primitives, conversions],
+  web3,
+  web3/[engine_api, primitives, conversions],
   eth/common/eth_types,
   results,
   kzg4844/[kzg_abi, kzg],
@@ -28,15 +31,12 @@ from std/typetraits import distinctBase
 from ../spec/engine_authentication import getSignedIatToken
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
-export
-  el_conf, engine_api, base
+export el_conf, engine_api, base
 
 logScope:
   topics = "elman"
 
-const
-  SleepDurations =
-    [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
+const SleepDurations = [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
 
 type
   WithoutTimeout = distinct int
@@ -44,17 +44,15 @@ type
   DeadlineFuture* = Future[void].Raising([CancelledError])
 
   SomeEnginePayloadWithValue =
-    BellatrixExecutionPayloadWithValue |
-    GetPayloadV2Response |
-    GetPayloadV3Response |
-    GetPayloadV4Response |
-    GetPayloadV5Response
+    BellatrixExecutionPayloadWithValue | GetPayloadV2Response | GetPayloadV3Response |
+    GetPayloadV4Response | GetPayloadV5Response
 
 const
   noTimeout = WithoutTimeout(0)
 
   # Engine API timeouts
-  engineApiConnectionTimeout = 5.seconds  # How long we wait before giving up connecting to the Engine API
+  engineApiConnectionTimeout = 5.seconds
+    # How long we wait before giving up connecting to the Engine API
   web3RequestsTimeout = 8.seconds # How long we wait for eth_* requests
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#request-2
@@ -79,8 +77,7 @@ type
       ## If this value is supplied the EL manager will check whether
       ## all configured EL nodes are connected to the same network.
 
-    elConnections: seq[ELConnection]
-      ## All active EL connections
+    elConnections: seq[ELConnection] ## All active EL connections
 
     checkChainIdLoopFut: Future[void]
     nextExpectedPayloadParams: Opt[NextExpectedPayloadParams]
@@ -106,8 +103,7 @@ type
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
-    chainIdStatus: ChainIdStatus
-      ## The latest status of the `checkChainId` exchange.
+    chainIdStatus: ChainIdStatus ## The latest status of the `checkChainId` exchange.
 
     state: ELConnectionState
     hysteresisCounter: int
@@ -121,20 +117,18 @@ declareCounter engine_api_responses,
 
 declareHistogram engine_api_request_duration_seconds,
   "Time(s) used to generate signature usign remote signer",
-   buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-   labels = ["url", "request"]
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+  labels = ["url", "request"]
 
 declareCounter engine_api_timeouts,
-  "Number of timed-out requests to Engine API end-point",
-  labels = ["url", "request"]
+  "Number of timed-out requests to Engine API end-point", labels = ["url", "request"]
 
 declareCounter engine_api_last_minute_forkchoice_updates_sent,
   "Number of last minute requests to the forkchoiceUpdated Engine API end-point just before block proposals",
   labels = ["url"]
 
 proc variedSleep(
-    counter: var int,
-    durations: openArray[Duration]
+    counter: var int, durations: openArray[Duration]
 ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
   doAssert(len(durations) > 0, "Empty durations array!")
   let index =
@@ -152,12 +146,11 @@ proc close(connection: ELConnection): Future[void] {.async: (raises: []).} =
       await noCancel web3.close().wait(30.seconds)
     except AsyncTimeoutError:
       debug "Failed to close execution layer data provider in time",
-            timeout = 30.seconds
+        timeout = 30.seconds
     except CatchableError as exc:
       # TODO (cheatfate): This handler should be removed when `nim-web3` will
       # adopt `asyncraises`.
-      debug "Failed to close execution layer", error = $exc.name,
-            reason = $exc.msg
+      debug "Failed to close execution layer", error = $exc.name, reason = $exc.msg
 
 func increaseCounterTowardsStateChange(connection: ELConnection): bool =
   result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
@@ -175,10 +168,7 @@ func decreaseCounterTowardsStateChange(connection: ELConnection) =
     connection.hysteresisCounter = connection.hysteresisCounter div 5
 
 proc setDegradedState(
-    connection: ELConnection,
-    requestName: string,
-    statusCode: int,
-    errMsg: string
+    connection: ELConnection, requestName: string, statusCode: int, errMsg: string
 ): Future[void] {.async: (raises: []).} =
   debug "Failed EL Request", requestName, statusCode, err = errMsg
   case connection.state
@@ -187,7 +177,8 @@ proc setDegradedState(
       warn "Connection to EL node degraded",
         url = url(connection.engineUrl),
         failedRequest = requestName,
-        statusCode, err = errMsg
+        statusCode,
+        err = errMsg
 
       connection.state = Degraded
 
@@ -203,8 +194,7 @@ proc setWorkingState(connection: ELConnection) =
     connection.state = Working
   of ELConnectionState.Degraded:
     if connection.increaseCounterTowardsStateChange():
-      info "Connection to EL node restored",
-        url = url(connection.engineUrl)
+      info "Connection to EL node restored", url = url(connection.engineUrl)
       connection.state = Working
   of ELConnectionState.Working:
     connection.decreaseCounterTowardsStateChange()
@@ -215,7 +205,7 @@ proc engineApiRequest[T](
     requestName: string,
     startTime: Moment,
     deadline: Future[void] | Duration | WithoutTimeout,
-    failureAllowed = false
+    failureAllowed = false,
 ): Future[T] {.async: (raises: [CatchableError]).} =
   ## This procedure raises `CancelledError` and `DataProviderTimeout`
   ## exceptions, and everything which `request` could raise.
@@ -227,14 +217,14 @@ proc engineApiRequest[T](
         await request.wait(deadline)
     engine_api_request_duration_seconds.observe(
       float(milliseconds(Moment.now - startTime)) / 1000.0,
-        [connection.engineUrl.url, requestName])
-    engine_api_responses.inc(
-      1, [connection.engineUrl.url, requestName, "200"])
+      [connection.engineUrl.url, requestName],
+    )
+    engine_api_responses.inc(1, [connection.engineUrl.url, requestName, "200"])
     connection.setWorkingState()
     res
   except AsyncTimeoutError:
     engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
-    if not(failureAllowed):
+    if not (failureAllowed):
       await connection.setDegradedState(requestName, 0, "Request timed out")
     raise newException(DataProviderTimeout, "Request timed out")
   except CancelledError as exc:
@@ -242,10 +232,10 @@ proc engineApiRequest[T](
       # When `deadline` is set to `noTimeout`, we usually get cancelled on
       # timeout which was handled by caller.
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
-      if not(failureAllowed):
+      if not (failureAllowed):
         await connection.setDegradedState(requestName, 0, "Request timed out")
     else:
-      if not(failureAllowed):
+      if not (failureAllowed):
         await connection.setDegradedState(requestName, 0, "Request interrupted")
     raise exc
   except CatchableError as exc:
@@ -254,11 +244,9 @@ proc engineApiRequest[T](
         ((ref ErrorResponse) request.error).status
       else:
         0
-    engine_api_responses.inc(
-      1, [connection.engineUrl.url, requestName, $statusCode])
-    if not(failureAllowed):
-      await connection.setDegradedState(
-        requestName, statusCode, request.error.msg)
+    engine_api_responses.inc(1, [connection.engineUrl.url, requestName, $statusCode])
+    if not (failureAllowed):
+      await connection.setDegradedState(requestName, statusCode, request.error.msg)
     raise exc
 
 func raiseIfNil(web3block: BlockObject): BlockObject {.raises: [ValueError].} =
@@ -278,24 +266,33 @@ func hasJwtSecret(m: ELManager): bool =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
-    auto =
+func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]): auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
-    (proc(): seq[(string, string)] =
-      # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
-      @[("Authorization", "Bearer " & getSignedIatToken(
-        secret, (getTime() - initTime(0, 0)).inSeconds))])
+    (
+      proc(): seq[(string, string)] =
+        # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
+        @[
+          (
+            "Authorization",
+            "Bearer " & getSignedIatToken(
+              secret, (getTime() - initTime(0, 0)).inSeconds
+            ),
+          )
+        ]
+    )
   else:
-    (proc(): seq[(string, string)] = @[])
+    (
+      proc(): seq[(string, string)] =
+        @[]
+    )
 
 proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
-  newWeb3(engineUrl.url,
-          getJsonRpcRequestHeaders(engineUrl.jwtSecret), httpFlags = {})
+  newWeb3(engineUrl.url, getJsonRpcRequestHeaders(engineUrl.jwtSecret), httpFlags = {})
 
-proc establishEngineApiConnection(url: EngineApiUrl):
-                                  Future[Result[Web3, string]] {.
-                                  async: (raises: [CancelledError]).} =
+proc establishEngineApiConnection(
+    url: EngineApiUrl
+): Future[Result[Web3, string]] {.async: (raises: [CancelledError]).} =
   try:
     ok(await newWeb3(url).wait(engineApiConnectionTimeout))
   except AsyncTimeoutError:
@@ -305,15 +302,15 @@ proc establishEngineApiConnection(url: EngineApiUrl):
   except CatchableError as exc:
     err exc.msg
 
-proc tryConnecting(connection: ELConnection): Future[bool] {.
-     async: (raises: [CancelledError]).} =
+proc tryConnecting(
+    connection: ELConnection
+): Future[bool] {.async: (raises: [CancelledError]).} =
   if connection.isConnected:
     return true
 
-  if connection.connectingFut == nil or
-     connection.connectingFut.finished: # The previous attempt was not successful
-    connection.connectingFut =
-      establishEngineApiConnection(connection.engineUrl)
+  if connection.connectingFut == nil or connection.connectingFut.finished:
+    # The previous attempt was not successful
+    connection.connectingFut = establishEngineApiConnection(connection.engineUrl)
 
   let web3Res = await connection.connectingFut
   if web3Res.isErr:
@@ -323,22 +320,24 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.
     connection.web3 = Opt.some(web3Res.get)
     true
 
-proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
-     async: (raises: [CancelledError]).} =
+proc connectedRpcClient(
+    connection: ELConnection
+): Future[RpcClient] {.async: (raises: [CancelledError]).} =
   while not connection.isConnected:
-    if not(await connection.tryConnecting()):
+    if not (await connection.tryConnecting()):
       await sleepAsync(chronos.seconds(10))
 
   connection.web3.get.provider
 
-func areSameAs(expectedParams: Opt[NextExpectedPayloadParams],
-               latestHead, latestSafe, latestFinalized: Eth2Digest,
-               timestamp: uint64,
-               randomData: Eth2Digest,
-               feeRecipient: Eth1Address,
-               withdrawals: seq[WithdrawalV1]): bool =
-  expectedParams.isSome and
-    expectedParams.get.headBlockHash == latestHead and
+func areSameAs(
+    expectedParams: Opt[NextExpectedPayloadParams],
+    latestHead, latestSafe, latestFinalized: Eth2Digest,
+    timestamp: uint64,
+    randomData: Eth2Digest,
+    feeRecipient: Eth1Address,
+    withdrawals: seq[WithdrawalV1],
+): bool =
+  expectedParams.isSome and expectedParams.get.headBlockHash == latestHead and
     expectedParams.get.safeBlockHash == latestSafe and
     expectedParams.get.finalizedBlockHash == latestFinalized and
     expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
@@ -346,12 +345,12 @@ func areSameAs(expectedParams: Opt[NextExpectedPayloadParams],
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
     expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
-proc forkchoiceUpdated(rpcClient: RpcClient,
-                       state: ForkchoiceStateV1,
-                       payloadAttributes: Opt[PayloadAttributesV1] |
-                                          Opt[PayloadAttributesV2] |
-                                          Opt[PayloadAttributesV3]):
-                       Future[ForkchoiceUpdatedResponse] =
+proc forkchoiceUpdated(
+    rpcClient: RpcClient,
+    state: ForkchoiceStateV1,
+    payloadAttributes:
+      Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2] | Opt[PayloadAttributesV3],
+): Future[ForkchoiceUpdatedResponse] =
   when payloadAttributes is Opt[PayloadAttributesV1]:
     rpcClient.engine_forkchoiceUpdatedV1(state, payloadAttributes)
   elif payloadAttributes is Opt[PayloadAttributesV2]:
@@ -359,7 +358,8 @@ proc forkchoiceUpdated(rpcClient: RpcClient,
   elif payloadAttributes is Opt[PayloadAttributesV3]:
     rpcClient.engine_forkchoiceUpdatedV3(state, payloadAttributes)
   else:
-    static: doAssert false
+    static:
+      doAssert false
 
 proc getPayloadFromSingleEL(
     connection: ELConnection,
@@ -370,76 +370,89 @@ proc getPayloadFromSingleEL(
     timestamp: uint64,
     prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[WithdrawalV1]
+    withdrawals: seq[WithdrawalV1],
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
-
   let
     rpcClient = await connection.connectedRpcClient()
-    payloadId = if isForkChoiceUpToDate and connection.lastPayloadId.isSome:
-      connection.lastPayloadId.get
-    elif not headBlock.isZero:
-      engine_api_last_minute_forkchoice_updates_sent.inc(1, [connection.engineUrl.url])
+    payloadId =
+      if isForkChoiceUpToDate and connection.lastPayloadId.isSome:
+        connection.lastPayloadId.get
+      elif not headBlock.isZero:
+        engine_api_last_minute_forkchoice_updates_sent.inc(
+          1, [connection.engineUrl.url]
+        )
 
-      when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
-        let response = await rpcClient.forkchoiceUpdated(
-          ForkchoiceStateV1(
-            headBlockHash: headBlock.asBlockHash,
-            safeBlockHash: safeBlock.asBlockHash,
-            finalizedBlockHash: finalizedBlock.asBlockHash),
-          Opt.some PayloadAttributesV1(
-            timestamp: Quantity timestamp,
-            prevRandao: Bytes32 prevRandao.to(Hash32),
-            suggestedFeeRecipient: suggestedFeeRecipient))
-      elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
-        let response = await rpcClient.forkchoiceUpdated(
-          ForkchoiceStateV1(
-            headBlockHash: headBlock.asBlockHash,
-            safeBlockHash: safeBlock.asBlockHash,
-            finalizedBlockHash: finalizedBlock.asBlockHash),
-          Opt.some PayloadAttributesV2(
-            timestamp: Quantity timestamp,
-            prevRandao: Bytes32 prevRandao.to(Hash32),
-            suggestedFeeRecipient: suggestedFeeRecipient,
-            withdrawals: withdrawals))
-      elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
+        when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
+          let response = await rpcClient.forkchoiceUpdated(
+            ForkchoiceStateV1(
+              headBlockHash: headBlock.asBlockHash,
+              safeBlockHash: safeBlock.asBlockHash,
+              finalizedBlockHash: finalizedBlock.asBlockHash,
+            ),
+            Opt.some PayloadAttributesV1(
+              timestamp: Quantity timestamp,
+              prevRandao: Bytes32 prevRandao.to(Hash32),
+              suggestedFeeRecipient: suggestedFeeRecipient,
+            ),
+          )
+        elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
+          let response = await rpcClient.forkchoiceUpdated(
+            ForkchoiceStateV1(
+              headBlockHash: headBlock.asBlockHash,
+              safeBlockHash: safeBlock.asBlockHash,
+              finalizedBlockHash: finalizedBlock.asBlockHash,
+            ),
+            Opt.some PayloadAttributesV2(
+              timestamp: Quantity timestamp,
+              prevRandao: Bytes32 prevRandao.to(Hash32),
+              suggestedFeeRecipient: suggestedFeeRecipient,
+              withdrawals: withdrawals,
+            ),
+          )
+        elif GetPayloadResponseType is engine_api.GetPayloadV3Response or
             GetPayloadResponseType is engine_api.GetPayloadV4Response or
             GetPayloadResponseType is engine_api.GetPayloadV5Response:
-        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
-        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-        # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
-        let response = await rpcClient.forkchoiceUpdated(
-          ForkchoiceStateV1(
-            headBlockHash: headBlock.asBlockHash,
-            safeBlockHash: safeBlock.asBlockHash,
-            finalizedBlockHash: finalizedBlock.asBlockHash),
-          Opt.some PayloadAttributesV3(
-            timestamp: Quantity timestamp,
-            prevRandao: Bytes32 prevRandao.to(Hash32),
-            suggestedFeeRecipient: suggestedFeeRecipient,
-            withdrawals: withdrawals,
-            parentBeaconBlockRoot: consensusHead.to(Hash32)))
+          # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
+          # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+          # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
+          let response = await rpcClient.forkchoiceUpdated(
+            ForkchoiceStateV1(
+              headBlockHash: headBlock.asBlockHash,
+              safeBlockHash: safeBlock.asBlockHash,
+              finalizedBlockHash: finalizedBlock.asBlockHash,
+            ),
+            Opt.some PayloadAttributesV3(
+              timestamp: Quantity timestamp,
+              prevRandao: Bytes32 prevRandao.to(Hash32),
+              suggestedFeeRecipient: suggestedFeeRecipient,
+              withdrawals: withdrawals,
+              parentBeaconBlockRoot: consensusHead.to(Hash32),
+            ),
+          )
+        else:
+          static:
+            doAssert false
+
+        if response.payloadStatus.status != PayloadExecutionStatus.valid or
+            response.payloadId.isNone:
+          raise newException(
+            CatchableError, "Head block is not a valid payload; " & $response
+          )
+
+        # Give the EL some time to assemble the block
+        await sleepAsync(chronos.milliseconds 500)
+
+        response.payloadId.get
       else:
-        static: doAssert false
-
-      if response.payloadStatus.status != PayloadExecutionStatus.valid or
-         response.payloadId.isNone:
-        raise newException(CatchableError, "Head block is not a valid payload; " & $response)
-
-      # Give the EL some time to assemble the block
-      await sleepAsync(chronos.milliseconds 500)
-
-      response.payloadId.get
-    else:
-      raise newException(CatchableError, "No confirmed execution head yet")
+        raise newException(CatchableError, "No confirmed execution head yet")
 
   when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
-    let payload =
-      await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
+    let payload = await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
-      executionPayload: payload, blockValue: Wei.zero)
+      executionPayload: payload, blockValue: Wei.zero
+    )
   else:
-    return await engine_api.getPayload(
-      rpcClient, GetPayloadResponseType, payloadId)
+    return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
 
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
@@ -465,7 +478,7 @@ template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[Withdra
 template kind(T: type ExecutionPayloadV1): ConsensusFork =
   ConsensusFork.Bellatrix
 
-template kind(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
+template kind(T: typedesc[ExecutionPayloadV1OrV2 | ExecutionPayloadV2]): ConsensusFork =
   ConsensusFork.Capella
 
 template kind(T: type ExecutionPayloadV3): ConsensusFork =
@@ -479,7 +492,7 @@ proc getPayload*(
     timestamp: uint64,
     prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[capella.Withdrawal]
+    withdrawals: seq[capella.Withdrawal],
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
@@ -488,8 +501,9 @@ proc getPayload*(
   let
     engineApiWithdrawals = toEngineWithdrawals withdrawals
     isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
-      headBlock, safeBlock, finalizedBlock, timestamp,
-      prevRandao, suggestedFeeRecipient, engineApiWithdrawals)
+      headBlock, safeBlock, finalizedBlock, timestamp, prevRandao,
+      suggestedFeeRecipient, engineApiWithdrawals,
+    )
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -500,11 +514,20 @@ proc getPayload*(
   var bestPayloadIdx = Opt.none(int)
 
   while true:
-    let requests =
-      m.elConnections.mapIt(
-        it.getPayloadFromSingleEL(EngineApiResponseType(PayloadType),
-          isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
-          timestamp, prevRandao, suggestedFeeRecipient, engineApiWithdrawals))
+    let requests = m.elConnections.mapIt(
+      it.getPayloadFromSingleEL(
+        EngineApiResponseType(PayloadType),
+        isFcUpToDate,
+        consensusHead,
+        headBlock,
+        safeBlock,
+        finalizedBlock,
+        timestamp,
+        prevRandao,
+        suggestedFeeRecipient,
+        engineApiWithdrawals,
+      )
+    )
 
     let timeoutExceeded =
       try:
@@ -513,19 +536,17 @@ proc getPayload*(
       except AsyncTimeoutError:
         true
       except CancelledError as exc:
-        let pending =
-          requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        let pending = requests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
         await noCancel allFutures(pending)
         raise exc
 
     for idx, req in requests:
-      if not(req.finished()):
+      if not (req.finished()):
         warn "Timeout while getting execution payload",
-             url = m.elConnections[idx].engineUrl.url
+          url = m.elConnections[idx].engineUrl.url
       elif req.failed():
         warn "Failed to get execution payload from EL",
-             url = m.elConnections[idx].engineUrl.url,
-             reason = req.error.msg
+          url = m.elConnections[idx].engineUrl.url, reason = req.error.msg
       else:
         const payloadFork = PayloadType.kind
         when payloadFork >= ConsensusFork.Capella:
@@ -535,12 +556,11 @@ proc getPayload*(
             # rule below will be enforced during deserialization).
             if req.value().executionPayload.withdrawals.isNone:
               warn "Execution client returned a block without a " &
-                   "'withdrawals' field for a post-Shanghai block",
-                    url = m.elConnections[idx].engineUrl.url
+                "'withdrawals' field for a post-Shanghai block",
+                url = m.elConnections[idx].engineUrl.url
               continue
 
-          if engineApiWithdrawals !=
-             req.value().executionPayload.withdrawals.maybeDeref:
+          if engineApiWithdrawals != req.value().executionPayload.withdrawals.maybeDeref:
             # otherwise it formats as "@[(index: ..., validatorIndex: ...,
             # address: ..., amount: ...), (index: ..., validatorIndex: ...,
             # address: ..., amount: ...)]"
@@ -553,10 +573,10 @@ proc getPayload*(
                 req.value().executionPayload.withdrawals.maybeDeref.len,
               withdrawals_from_cl =
                 mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
-              withdrawals_from_el =
-                mapIt(
-                  req.value().executionPayload.withdrawals.maybeDeref,
-                  it.asConsensusWithdrawal),
+              withdrawals_from_el = mapIt(
+                req.value().executionPayload.withdrawals.maybeDeref,
+                it.asConsensusWithdrawal,
+              ),
               url = m.elConnections[idx].engineUrl.url
             # If we have more than one EL connection we consider this as
             # a failure.
@@ -565,21 +585,20 @@ proc getPayload*(
 
         if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
           warn "Execution client provided a block with invalid extraData " &
-               "(size exceeds limit)",
-               url = m.elConnections[idx].engineUrl.url,
-               size = req.value().executionPayload.extraData.len,
-               limit = MAX_EXTRA_DATA_BYTES
+            "(size exceeds limit)",
+            url = m.elConnections[idx].engineUrl.url,
+            size = req.value().executionPayload.extraData.len,
+            limit = MAX_EXTRA_DATA_BYTES
           continue
 
         if bestPayloadIdx.isNone:
           bestPayloadIdx = Opt.some(idx)
         else:
-          if cmpGetPayloadResponses(
-               req.value(), requests[bestPayloadIdx.get].value()) > 0:
+          if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) >
+              0:
             bestPayloadIdx = Opt.some(idx)
 
-    let pending =
-      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    let pending = requests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
 
     if bestPayloadIdx.isSome():
@@ -591,15 +610,13 @@ proc getPayload*(
   err()
 
 proc sendNewPayloadToSingleEL(
-    connection: ELConnection,
-    payload: engine_api.ExecutionPayloadV1
+    connection: ELConnection, payload: engine_api.ExecutionPayloadV1
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV1(payload)
 
 proc sendNewPayloadToSingleEL(
-    connection: ELConnection,
-    payload: engine_api.ExecutionPayloadV2
+    connection: ELConnection, payload: engine_api.ExecutionPayloadV2
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV2(payload)
@@ -608,95 +625,81 @@ proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: Hash32
+    parent_beacon_block_root: Hash32,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV3(
-    payload, versioned_hashes, parent_beacon_block_root)
+    payload, versioned_hashes, parent_beacon_block_root
+  )
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
     parent_beacon_block_root: Hash32,
-    executionRequests: seq[seq[byte]]
+    executionRequests: seq[seq[byte]],
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, parent_beacon_block_root,
-    executionRequests)
+    payload, versioned_hashes, parent_beacon_block_root, executionRequests
+  )
 
 proc sendGetBlobsV2toSingleEl(
-    connection: ELConnection,
-    versioned_hashes: seq[engine_api.VersionedHash]
+    connection: ELConnection, versioned_hashes: seq[engine_api.VersionedHash]
 ): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV2(versioned_hashes)
 
-type
-  StatusRelation = enum
-    newStatusIsPreferable
-    oldStatusIsOk
-    disagreement
+type StatusRelation = enum
+  newStatusIsPreferable
+  oldStatusIsOk
+  disagreement
 
-func compareStatuses(
-    newStatus, prevStatus: PayloadExecutionStatus
-): StatusRelation =
+func compareStatuses(newStatus, prevStatus: PayloadExecutionStatus): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
       oldStatusIsOk
     else:
       newStatusIsPreferable
-
   of PayloadExecutionStatus.valid:
     case newStatus
-    of PayloadExecutionStatus.syncing,
-       PayloadExecutionStatus.accepted,
-       PayloadExecutionStatus.valid:
+    of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted,
+        PayloadExecutionStatus.valid:
       oldStatusIsOk
-    of PayloadExecutionStatus.invalid_block_hash,
-       PayloadExecutionStatus.invalid:
+    of PayloadExecutionStatus.invalid_block_hash, PayloadExecutionStatus.invalid:
       disagreement
-
   of PayloadExecutionStatus.invalid:
     case newStatus
-    of PayloadExecutionStatus.syncing,
-       PayloadExecutionStatus.invalid:
+    of PayloadExecutionStatus.syncing, PayloadExecutionStatus.invalid:
       oldStatusIsOk
-    of PayloadExecutionStatus.valid,
-       PayloadExecutionStatus.accepted,
-       PayloadExecutionStatus.invalid_block_hash:
+    of PayloadExecutionStatus.valid, PayloadExecutionStatus.accepted,
+        PayloadExecutionStatus.invalid_block_hash:
       disagreement
-
   of PayloadExecutionStatus.accepted:
     case newStatus
-    of PayloadExecutionStatus.accepted,
-       PayloadExecutionStatus.syncing:
+    of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
       oldStatusIsOk
     of PayloadExecutionStatus.valid:
       newStatusIsPreferable
-    of PayloadExecutionStatus.invalid_block_hash,
-       PayloadExecutionStatus.invalid:
+    of PayloadExecutionStatus.invalid_block_hash, PayloadExecutionStatus.invalid:
       disagreement
-
   of PayloadExecutionStatus.invalid_block_hash:
     if newStatus == PayloadExecutionStatus.invalid_block_hash:
       oldStatusIsOk
     else:
       disagreement
 
-type
-  ELConsensusViolationDetector = object
-    selectedResponse: Opt[int]
-    selectedStatus: Opt[PayloadExecutionStatus]
-    disagreementAlreadyDetected: bool
+type ELConsensusViolationDetector = object
+  selectedResponse: Opt[int]
+  selectedStatus: Opt[PayloadExecutionStatus]
+  disagreementAlreadyDetected: bool
 
 func init(T: type ELConsensusViolationDetector): T =
   ELConsensusViolationDetector(
     selectedResponse: Opt.none(int),
     selectedStatus: Opt.none(PayloadExecutionStatus),
-    disagreementAlreadyDetected: false
+    disagreementAlreadyDetected: false,
   )
 
 proc processResponse(
@@ -704,8 +707,8 @@ proc processResponse(
     elResponseType: typedesc,
     connections: openArray[ELConnection],
     requests: auto,
-    idx: int) =
-
+    idx: int,
+) =
   if not requests[idx].completed:
     return
 
@@ -724,18 +727,15 @@ proc processResponse(
     of disagreement:
       d.disagreementAlreadyDetected = true
       error "Execution layer consensus violation detected",
-            responseType = name(elResponseType),
-            url1 = connections[d.selectedResponse.get].engineUrl.url,
-            status1 = prevStatus,
-            url2 = connections[idx].engineUrl.url,
-            status2 = status
+        responseType = name(elResponseType),
+        url1 = connections[d.selectedResponse.get].engineUrl.url,
+        status1 = prevStatus,
+        url2 = connections[idx].engineUrl.url,
+        status2 = status
 
 func couldBeBetter(d: ELConsensusViolationDetector): bool =
-  const
-    SyncingOrAccepted = {
-      PayloadExecutionStatus.syncing,
-      PayloadExecutionStatus.accepted
-    }
+  const SyncingOrAccepted =
+    {PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted}
   if d.disagreementAlreadyDetected:
     return false
   if d.selectedStatus.isNone():
@@ -744,7 +744,7 @@ func couldBeBetter(d: ELConsensusViolationDetector): bool =
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
   block:
-    let pending = futures.filterIt(not(it.finished()))
+    let pending = futures.filterIt(not (it.finished()))
     if len(pending) > 0:
       try:
         await allFutures(pending).wait(30.seconds)
@@ -754,13 +754,12 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
         discard
 
   block:
-    let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    let pending = futures.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
     if len(pending) > 0:
       await noCancel allFutures(pending)
 
 proc sendGetBlobsV2*(
-    m: ELManager,
-    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
@@ -775,9 +774,11 @@ proc sendGetBlobsV2*(
 
     while true:
       let requests = m.elConnections.mapIt(
-        sendGetBlobsV2toSingleEl(it,
-          mapIt(blck.message.body.blob_kzg_commitments,
-                kzg_commitment_to_versioned_hash(it))
+        sendGetBlobsV2toSingleEl(
+          it,
+          mapIt(
+            blck.message.body.blob_kzg_commitments, kzg_commitment_to_versioned_hash(it)
+          ),
         )
       )
 
@@ -801,12 +802,9 @@ proc sendGetBlobsV2*(
             bestIdx = Opt.some(idx)
         else:
           # finished == false
-          let errmsg =
-            if req.error.isNil: "request still pending"
-            else: req.error.msg
+          let errmsg = if req.error.isNil: "request still pending" else: req.error.msg
           warn "Timeout while getting blobs & proofs",
-              url = m.elConnections[idx].engineUrl.url,
-              reason = errmsg
+            url = m.elConnections[idx].engineUrl.url, reason = errmsg
 
       await noCancel allFutures(
         requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
@@ -825,10 +823,7 @@ proc sendGetBlobsV2*(
     err()
 
 proc sendNewPayload*(
-    m: ELManager,
-    blck: SomeForkyBeaconBlock,
-    deadline: DeadlineFuture,
-    retry: bool,
+    m: ELManager, blck: SomeForkyBeaconBlock, deadline: DeadlineFuture, retry: bool
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
@@ -883,31 +878,30 @@ proc sendNewPayload*(
             raiseAssert "pendingRequests should not be empty!"
           except CancelledError as exc:
             let pending =
-              requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+              requests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
             await noCancel allFutures(pending)
             raise exc
 
         var stillPending: type(pendingRequests)
         for request in pendingRequests:
-          if not(request.finished()):
+          if not (request.finished()):
             stillPending.add(request)
           elif request.completed():
             let index = requests.find(request)
             doAssert(index >= 0)
-            responseProcessor.processResponse(type(payload),
-                                              m.elConnections, requests, index)
+            responseProcessor.processResponse(
+              type(payload), m.elConnections, requests, index
+            )
         pendingRequests = stillPending
 
         if responseProcessor.disagreementAlreadyDetected:
           let pending =
-            pendingRequests.filterIt(not(it.finished())).
-              mapIt(it.cancelAndWait())
+            pendingRequests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
           return Opt.some PayloadExecutionStatus.invalid
 
         if responseProcessor.selectedResponse.isSome():
-          if (len(pendingRequests) == 0) or
-             not(responseProcessor.couldBeBetter()):
+          if (len(pendingRequests) == 0) or not (responseProcessor.couldBeBetter()):
             # We spawn task which will wait for all other responses which are
             # still pending, after 30.seconds all pending requests will be
             # cancelled.
@@ -918,8 +912,7 @@ proc sendNewPayload*(
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
           let pending =
-            pendingRequests.filterIt(not(it.finished())).
-              mapIt(it.cancelAndWait())
+            pendingRequests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
           return Opt.none(PayloadExecutionStatus)
 
@@ -936,9 +929,8 @@ proc sendNewPayload*(
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
     state: ref ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+    payloadAttributes:
+      Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2] | Opt[PayloadAttributesV3],
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -946,11 +938,11 @@ proc forkchoiceUpdatedForSingleEL(
 
   if response.payloadStatus.status notin {syncing, valid, invalid}:
     debug "Invalid fork-choice updated response from the EL",
-          payloadStatus = response.payloadStatus
+      payloadStatus = response.payloadStatus
     return
 
   if response.payloadStatus.status == PayloadExecutionStatus.valid and
-     response.payloadId.isSome:
+      response.payloadId.isSome:
     connection.lastPayloadId = response.payloadId
 
   return response.payloadStatus
@@ -958,13 +950,11 @@ proc forkchoiceUpdatedForSingleEL(
 proc forkchoiceUpdated*(
     m: ELManager,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+    payloadAttributes:
+      Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2] | Opt[PayloadAttributesV3],
     deadline: DeadlineFuture,
     retry: bool,
-): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
-   async: (raises: [CancelledError]).} =
+): Future[(PayloadExecutionStatus, Opt[Hash32])] {.async: (raises: [CancelledError]).} =
   doAssert not headBlockHash.isZero
 
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
@@ -988,6 +978,7 @@ proc forkchoiceUpdated*(
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
+
   elif payloadAttributes is Opt[PayloadAttributesV2]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
@@ -996,10 +987,12 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: payloadAttributes.get.withdrawals,
-          parentBeaconBlockRoot: default(Hash32))
+          parentBeaconBlockRoot: default(Hash32),
+        )
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
+
   elif payloadAttributes is Opt[PayloadAttributesV1]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
@@ -1008,18 +1001,22 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: @[],
-          parentBeaconBlockRoot: default(Hash32))
+          parentBeaconBlockRoot: default(Hash32),
+        )
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
+
   else:
-    static: doAssert false
+    static:
+      doAssert false
 
   let
     state = newClone ForkchoiceStateV1(
       headBlockHash: headBlockHash.asBlockHash,
       safeBlockHash: safeBlockHash.asBlockHash,
-      finalizedBlockHash: finalizedBlockHash.asBlockHash)
+      finalizedBlockHash: finalizedBlockHash.asBlockHash,
+    )
     startTime = Moment.now
 
   var
@@ -1029,10 +1026,9 @@ proc forkchoiceUpdated*(
 
   while true:
     block mainLoop:
-      let requests =
-        m.elConnections.mapIt:
-          let req = it.forkchoiceUpdatedForSingleEL(state, payloadAttributes)
-          engineApiRequest(it, req, "forkchoiceUpdated", startTime, noTimeout)
+      let requests = m.elConnections.mapIt:
+        let req = it.forkchoiceUpdatedForSingleEL(state, payloadAttributes)
+        engineApiRequest(it, req, "forkchoiceUpdated", startTime, noTimeout)
 
       var pendingRequests = requests
 
@@ -1047,20 +1043,20 @@ proc forkchoiceUpdated*(
             true
           except CancelledError as exc:
             let pending =
-              pendingRequests.filterIt(not(it.finished())).
-                mapIt(it.cancelAndWait())
+              pendingRequests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
             await noCancel allFutures(pending)
             raise exc
 
         var stillPending: type(pendingRequests)
         for request in pendingRequests:
-          if not(request.finished()):
+          if not (request.finished()):
             stillPending.add(request)
           elif request.completed():
             let index = requests.find(request)
             doAssert(index >= 0)
             responseProcessor.processResponse(
-              PayloadStatusV1, m.elConnections, requests, index)
+              PayloadStatusV1, m.elConnections, requests, index
+            )
         pendingRequests = stillPending
 
         template assignNextExpectedPayloadParams() =
@@ -1074,16 +1070,16 @@ proc forkchoiceUpdated*(
             headBlockHash: headBlockHash,
             safeBlockHash: safeBlockHash,
             finalizedBlockHash: finalizedBlockHash,
-            payloadAttributes: payloadAttributesV3)
+            payloadAttributes: payloadAttributesV3,
+          )
 
-        template getSelected: untyped =
+        template getSelected(): untyped =
           let data = requests[responseProcessor.selectedResponse.get].value()
           (data.status, data.latestValidHash)
 
         if responseProcessor.disagreementAlreadyDetected:
           let pending =
-            pendingRequests.filterIt(not(it.finished())).
-              mapIt(it.cancelAndWait())
+            pendingRequests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
           return (PayloadExecutionStatus.invalid, Opt.none Hash32)
         elif responseProcessor.selectedResponse.isSome:
@@ -1097,8 +1093,7 @@ proc forkchoiceUpdated*(
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
           let pending =
-            pendingRequests.filterIt(not(it.finished())).
-              mapIt(it.cancelAndWait())
+            pendingRequests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
           return (PayloadExecutionStatus.syncing, Opt.none Hash32)
 
@@ -1117,39 +1112,44 @@ proc forkchoiceUpdated*(
 proc forkchoiceUpdated*(
     m: ELManager,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+    payloadAttributes:
+      Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2] | Opt[PayloadAttributesV3],
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
-    async: (raises: [CancelledError], raw: true).} =
+    async: (raises: [CancelledError], raw: true)
+.} =
   forkchoiceUpdated(
-    m, headBlockHash, safeBlockHash, finalizedBlockHash,
-    payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
+    m,
+    headBlockHash,
+    safeBlockHash,
+    finalizedBlockHash,
+    payloadAttributes,
+    sleepAsync(FORKCHOICEUPDATED_TIMEOUT),
+    true,
+  )
 
 proc checkChainIdWithSingleEL(
-    m: ELManager,
-    connection: ELConnection
+    m: ELManager, connection: ELConnection
 ) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
-  if m.eth1Network.isSome and
-     connection.chainIdStatus == ChainIdStatus.notExchangedYet:
+  if m.eth1Network.isSome and connection.chainIdStatus == ChainIdStatus.notExchangedYet:
     try:
       let
         providerChain = await connection.engineApiRequest(
-          rpcClient.eth_chainId(), "chainId", Moment.now(),
-          web3RequestsTimeout)
+          rpcClient.eth_chainId(), "chainId", Moment.now(), web3RequestsTimeout
+        )
 
         # https://chainid.network/
-        expectedChain = case m.eth1Network.get
+        expectedChain =
+          case m.eth1Network.get
           of mainnet: 1.u256
           of sepolia: 11155111.u256
           of hoodi: 560048.u256
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
-              url = connection.engineUrl,
-              expectedChain = distinctBase(expectedChain),
-              actualChain = distinctBase(providerChain)
+          url = connection.engineUrl,
+          expectedChain = distinctBase(expectedChain),
+          actualChain = distinctBase(providerChain)
         connection.chainIdStatus = ChainIdStatus.mismatch
         return
     except CancelledError as exc:
@@ -1162,9 +1162,7 @@ proc checkChainIdWithSingleEL(
 
   connection.chainIdStatus = ChainIdStatus.match
 
-proc checkChainId(
-    m: ELManager
-) {.async: (raises: [CancelledError]).} =
+proc checkChainId(m: ELManager) {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return
 
@@ -1174,41 +1172,38 @@ proc checkChainId(
   except AsyncTimeoutError:
     discard
   except CancelledError as exc:
-    let pending = requests.filterIt(not(it.finished())).
-                    mapIt(it.cancelAndWait())
+    let pending = requests.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
     raise exc
 
-  let (pending, failed, finished) =
-    block:
-      var
-        failed = 0
-        done = 0
-        pending: seq[Future[void]]
-      for req in requests:
-        if not req.finished():
-          pending.add(req.cancelAndWait())
+  let (pending, failed, finished) = block:
+    var
+      failed = 0
+      done = 0
+      pending: seq[Future[void]]
+    for req in requests:
+      if not req.finished():
+        pending.add(req.cancelAndWait())
+      else:
+        if req.completed():
+          inc(done)
         else:
-          if req.completed():
-            inc(done)
-          else:
-            inc(failed)
-      (pending, failed, done)
+          inc(failed)
+    (pending, failed, done)
 
   await noCancel allFutures(pending)
 
   if (len(pending) > 0) or (failed != 0):
     warn "Failed to exchange configuration with the configured EL end-points",
-         completed = finished, failed = failed, timed_out = len(pending)
+      completed = finished, failed = failed, timed_out = len(pending)
 
 func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
   ELConnection(engineUrl: engineUrl)
 
-func new*(T: type ELManager,
-          engineApiUrls: seq[EngineApiUrl],
-          eth1Network: Opt[Eth1Network]): T =
-  T(elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
-    eth1Network: eth1Network)
+func new*(
+    T: type ELManager, engineApiUrls: seq[EngineApiUrl], eth1Network: Opt[Eth1Network]
+): T =
+  T(elConnections: mapIt(engineApiUrls, ELConnection.new(it)), eth1Network: eth1Network)
 
 func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
@@ -1216,9 +1211,7 @@ func hasConnection*(m: ELManager): bool =
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
 
-proc startCheckChainIdLoop(
-    m: ELManager
-) {.async: (raises: [CancelledError]).} =
+proc startCheckChainIdLoop(m: ELManager) {.async: (raises: [CancelledError]).} =
   debug "Starting chain ID checking loop"
 
   while true:
@@ -1241,20 +1234,17 @@ func `$`(x: BlockObject): string =
 proc testWeb3Provider*(
     web3Url: Uri, jwtSecret: Opt[seq[byte]]
 ) {.async: (raises: [CatchableError]).} =
-
   stdout.write "Establishing web3 connection..."
   let web3 =
     try:
-      await newWeb3($web3Url,
-                    getJsonRpcRequestHeaders(jwtSecret)).wait(5.seconds)
+      await newWeb3($web3Url, getJsonRpcRequestHeaders(jwtSecret)).wait(5.seconds)
     except CatchableError as exc:
       stdout.write "\rEstablishing web3 connection: Failure(" & exc.msg & ")\n"
       quit 1
 
   stdout.write "\rEstablishing web3 connection: Connected\n"
 
-  template request(actionDesc: static string,
-                   action: untyped): untyped =
+  template request(actionDesc: static string, action: untyped): untyped =
     stdout.write actionDesc & "..."
     stdout.flushFile()
     var res: typeof(read action)

@@ -9,8 +9,7 @@
 
 # All tests except scenarios, which as compiled separately for mainnet and minimal
 
-import
-  ./testutil
+import ./testutil
 
 import # Unit test
   ./test_action_tracker,
@@ -67,6 +66,6 @@ import # Unit test
   ./test_mev_calls,
   ./test_column_map,
   ./test_quarantine,
-  ./test_keymanager_api   # currently has to run after test_remote_keystore
+  ./test_keymanager_api # currently has to run after test_remote_keystore
 
 summarizeLongTests("AllTests")

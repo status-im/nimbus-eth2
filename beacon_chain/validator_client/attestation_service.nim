@@ -13,30 +13,27 @@ import
   ../validators/[activity_metrics, validator_duties],
   "."/[common, api]
 
-const
-  ServiceName = "attestation_service"
+const ServiceName = "attestation_service"
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
-type
-  AggregateItem* = object
-    aggregator_index: uint64
-    selection_proof: ValidatorSig
-    committee_index: CommitteeIndex
-    validator: AttachedValidator
+type AggregateItem* = object
+  aggregator_index: uint64
+  selection_proof: ValidatorSig
+  committee_index: CommitteeIndex
+  validator: AttachedValidator
 
 func getAttesterDutiesByCommittee(
     duties: openArray[DutyAndProof]
 ): Table[CommitteeIndex, seq[DutyAndProof]] =
   var res: Table[CommitteeIndex, seq[DutyAndProof]]
   for item in duties:
-    res.mgetOrPut(item.data.committee_index, default(seq[DutyAndProof])).
-      add(item)
+    res.mgetOrPut(item.data.committee_index, default(seq[DutyAndProof])).add(item)
   res
 
 proc serveAttestation(
-    service: AttestationServiceRef,
-    registered: RegisteredAttestation
+    service: AttestationServiceRef, registered: RegisteredAttestation
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -51,9 +48,9 @@ proc serveAttestation(
 
   let signature =
     try:
-      let res =
-        await validator.getAttestationSignature(
-          fork, vc.beaconGenesis.genesis_validators_root, registered.data)
+      let res = await validator.getAttestationSignature(
+        fork, vc.beaconGenesis.genesis_validators_root, registered.data
+      )
       if res.isErr():
         warn "Unable to sign attestation", reason = res.error()
         return false
@@ -63,8 +60,8 @@ proc serveAttestation(
       raise exc
 
   logScope:
-    delay = vc.getDelay(attestationSlot.attestation_deadline(
-      vc.timeParams, consensusFork))
+    delay =
+      vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams, consensusFork))
 
   debug "Sending attestation"
 
@@ -76,8 +73,8 @@ proc serveAttestation(
       attestation = shortLog(atst)
     try:
       await vc.submitPoolAttestationsV2(
-        @[atst], consensusFork,
-        vc.getMode()[FnKind.submitPoolAttestations])
+        @[atst], consensusFork, vc.getMode()[FnKind.submitPoolAttestations]
+      )
     except ValidatorApiError as exc:
       warn "Unable to publish attestation", reason = exc.getFailureReason()
       return false
@@ -94,8 +91,8 @@ proc serveAttestation(
       submitAttestation(attestation)
 
   if res:
-    let delay = vc.getDelay(attestationSlot.attestation_deadline(
-      vc.timeParams, consensusFork))
+    let delay =
+      vc.getDelay(attestationSlot.attestation_deadline(vc.timeParams, consensusFork))
     beacon_attestations_sent.inc()
     beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
     notice "Attestation published"
@@ -107,7 +104,7 @@ proc serveAttestation(
 proc serveAggregateAndProofV2*(
     service: AttestationServiceRef,
     proof: ForkyAggregateAndProof,
-    validator: AttachedValidator
+    validator: AttachedValidator,
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -124,11 +121,10 @@ proc serveAggregateAndProofV2*(
 
   let signature =
     try:
-      let res =
-        await validator.getAggregateAndProofSignature(fork, genesisRoot, proof)
+      let res = await validator.getAggregateAndProofSignature(fork, genesisRoot, proof)
       if res.isErr():
         warn "Unable to sign aggregate and proof using remote signer",
-              reason = res.error()
+          reason = res.error()
         return false
       res.get()
     except CancelledError as exc:
@@ -137,11 +133,9 @@ proc serveAggregateAndProofV2*(
 
   let signedProof =
     when proof is phase0.AggregateAndProof:
-      phase0.SignedAggregateAndProof(
-        message: proof, signature: signature)
+      phase0.SignedAggregateAndProof(message: proof, signature: signature)
     elif proof is electra.AggregateAndProof:
-      electra.SignedAggregateAndProof(
-        message: proof, signature: signature)
+      electra.SignedAggregateAndProof(message: proof, signature: signature)
     else:
       static:
         raiseAssert "Unsupported SignedAggregateAndProof"
@@ -156,11 +150,10 @@ proc serveAggregateAndProofV2*(
   let res =
     try:
       await vc.publishAggregateAndProofsV2(
-        @[signedProof], consensusFork,
-        vc.getMode()[FnKind.publishAggregateAndProofs])
+        @[signedProof], consensusFork, vc.getMode()[FnKind.publishAggregateAndProofs]
+      )
     except ValidatorApiError as exc:
-      warn "Unable to publish aggregated attestation",
-            reason = exc.getFailureReason()
+      warn "Unable to publish aggregated attestation", reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Publish aggregate and proofs request was interrupted"
@@ -174,204 +167,83 @@ proc serveAggregateAndProofV2*(
   res
 
 proc produceAndPublishAttestationsV2*(
-    service: AttestationServiceRef,
-    slot: Slot,
-    duties: seq[DutyAndProof]
-): Future[AttestationData] {.
-   async: (raises: [CancelledError, ValidatorApiError]).} =
+    service: AttestationServiceRef, slot: Slot, duties: seq[DutyAndProof]
+): Future[AttestationData] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   doAssert(MAX_VALIDATORS_PER_COMMITTEE <= uint64(high(int)))
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     data = await vc.produceAttestationData(
-      slot,
-      CommitteeIndex(0),
-      vc.getMode()[FnKind.produceAttestationData])
-    registeredRes =
-      vc.attachedValidators[].slashingProtection.withContext:
-        var tmp: seq[RegisteredAttestation]
-        for duty in duties:
-          if (duty.data.slot != data.slot):
-            warn "Inconsistent validator duties during attestation signing",
-                  pubkey = shortLog(duty.data.pubkey),
-                  duty_slot = duty.data.slot,
-                  duty_index = duty.data.committee_index,
-                  attestation_slot = data.slot
-            continue
+      slot, CommitteeIndex(0), vc.getMode()[FnKind.produceAttestationData]
+    )
+    registeredRes = vc.attachedValidators[].slashingProtection.withContext:
+      var tmp: seq[RegisteredAttestation]
+      for duty in duties:
+        if (duty.data.slot != data.slot):
+          warn "Inconsistent validator duties during attestation signing",
+            pubkey = shortLog(duty.data.pubkey),
+            duty_slot = duty.data.slot,
+            duty_index = duty.data.committee_index,
+            attestation_slot = data.slot
+          continue
 
-          let validator =
-            vc.getValidatorForDuties(duty.data.pubkey, duty.data.slot).valueOr:
-              continue
+        let validator = vc.getValidatorForDuties(duty.data.pubkey, duty.data.slot).valueOr:
+          continue
 
-          doAssert(validator.index.isSome())
-          let validator_index = validator.index.get()
+        doAssert(validator.index.isSome())
+        let validator_index = validator.index.get()
 
-          logScope:
-            validator = validatorLog(validator)
+        logScope:
+          validator = validatorLog(validator)
 
-          # TODO: signing_root is recomputed in getAttestationSignature just
-          # after, but not for locally attached validators.
-          let
-            signingRoot =
-              compute_attestation_signing_root(
-                fork, vc.beaconGenesis.genesis_validators_root, data)
-            registered =
-              registerAttestationInContext(
-                validator_index, validator.pubkey, data.source.epoch,
-                data.target.epoch, signingRoot)
+        # TODO: signing_root is recomputed in getAttestationSignature just
+        # after, but not for locally attached validators.
+        let
+          signingRoot = compute_attestation_signing_root(
+            fork, vc.beaconGenesis.genesis_validators_root, data
+          )
+          registered = registerAttestationInContext(
+            validator_index, validator.pubkey, data.source.epoch, data.target.epoch,
+            signingRoot,
+          )
 
-          if registered.isErr():
-            warn "Slashing protection activated for attestation",
-                attestationData = shortLog(data),
-                signingRoot = shortLog(signingRoot),
-                badVoteDetails = $registered.error()
-            continue
+        if registered.isErr():
+          warn "Slashing protection activated for attestation",
+            attestationData = shortLog(data),
+            signingRoot = shortLog(signingRoot),
+            badVoteDetails = $registered.error()
+          continue
 
-          tmp.add(RegisteredAttestation(
+        tmp.add(
+          RegisteredAttestation(
             validator: validator,
             validator_index: validator_index,
             committee_index: duty.data.committee_index,
             index_in_committee: duty.data.validator_committee_index,
             committee_len: int(duty.data.committee_length),
-            data: data
-          ))
-        tmp
+            data: data,
+          )
+        )
+      tmp
 
   if registeredRes.isErr():
     warn "Could not update slashing database, skipping attestation duties",
-         reason = registeredRes.error()
+      reason = registeredRes.error()
     return
 
   let
     pendingAttestations = registeredRes[].mapIt(service.serveAttestation(it))
-    statistics =
-      block:
-        var errored, succeed, failed = 0
-        try:
-          await allFutures(pendingAttestations)
-        except CancelledError as exc:
-          let pending = pendingAttestations
-            .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-          await noCancel allFutures(pending)
-          raise exc
-
-        for future in pendingAttestations:
-          if future.completed():
-            if future.value:
-              inc(succeed)
-            else:
-              inc(failed)
-          else:
-            inc(errored)
-        (succeed, errored, failed)
-    
-    consensusFork = vc.getConsensusFork(fork)
-    delay = vc.getDelay(slot.attestation_deadline(
-      vc.timeParams, consensusFork))
-
-  debug "Attestation statistics", total = len(pendingAttestations),
-        succeed = statistics[0], failed_to_deliver = statistics[1],
-        not_accepted = statistics[2], delay = delay, slot = slot,
-        duties_count = len(duties)
-  data
-
-proc produceAndPublishAggregatesV2(
-    service: AttestationServiceRef,
-    adata: AttestationData,
-    duties: seq[DutyAndProof]
-) {.async: (raises: [CancelledError]).} =
-  let
-    vc = service.client
-    slot = adata.slot
-    attestationRoot = adata.hash_tree_root()
-
-  let aggregateItems =
-    block:
-      var res: seq[AggregateItem]
-      for duty in duties:
-        let validator =
-          vc.getValidatorForDuties(duty.data.pubkey, slot).valueOr:
-            continue
-
-        if duty.data.slot != slot:
-          warn "Inconsistent validator duties during aggregate signing",
-               duty_slot = duty.data.slot, slot = slot,
-               duty_committee_index = duty.data.committee_index
-          continue
-        if duty.slotSig.isSome():
-          let slotSignature = duty.slotSig.get()
-          if is_aggregator(duty.data.committee_length, slotSignature):
-            res.add(AggregateItem(
-              aggregator_index: uint64(duty.data.validator_index),
-              committee_index: duty.data.committee_index,
-              selection_proof: slotSignature,
-              validator: validator
-            ))
-      res
-
-  if len(aggregateItems) == 0:
-    debug "No aggregate and proofs scheduled for slot", slot = slot
-    return
-
-  # All duties should be sorted by `committee_index`.
-  let committee_index = duties[0].data.committee_index
-
-  let aggregates =
-    block:
-      let attestation =
-        try:
-          await vc.getAggregatedAttestationV2(
-            slot, attestationRoot,
-            committee_index,
-            vc.getMode()[FnKind.getAggregatedAttestation])
-        except ValidatorApiError as exc:
-          warn "Unable to get aggregated attestation data", slot = slot,
-               attestation_root = shortLog(attestationRoot),
-               reason = exc.getFailureReason()
-          return
-        except CancelledError as exc:
-          debug "Aggregated attestation request was interrupted"
-          raise exc
-
-      if isLowestScoreAggregatedAttestation(attestation):
-        warn "Aggregated attestation with the root was not seen by the " &
-             "beacon node",
-             attestation_root = shortLog(attestationRoot)
-        return
-
-      var res: seq[Future[bool].Raising([CancelledError])]
-      for item in aggregateItems:
-        withAttestation(attestation):
-          when consensusFork > ConsensusFork.Deneb:
-            let proof =
-              electra.AggregateAndProof(
-                aggregator_index: item.aggregator_index,
-                aggregate: forkyAttestation,
-                selection_proof: item.selection_proof
-              )
-            res.add(service.serveAggregateAndProofV2(proof, item.validator))
-          else:
-            let proof =
-              phase0.AggregateAndProof(
-                aggregator_index: item.aggregator_index,
-                aggregate: forkyAttestation,
-                selection_proof: item.selection_proof
-              )
-            res.add(service.serveAggregateAndProofV2(proof, item.validator))
-      res
-
-  let statistics =
-    block:
+    statistics = block:
       var errored, succeed, failed = 0
       try:
-        await allFutures(aggregates)
+        await allFutures(pendingAttestations)
       except CancelledError as exc:
-        let pending = aggregates
-          .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        let pending =
+          pendingAttestations.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
         await noCancel allFutures(pending)
         raise exc
 
-      for future in aggregates:
+      for future in pendingAttestations:
         if future.completed():
           if future.value:
             inc(succeed)
@@ -381,37 +253,151 @@ proc produceAndPublishAggregatesV2(
           inc(errored)
       (succeed, errored, failed)
 
-  let
-    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-    delay = vc.getDelay(
-      slot.aggregate_deadline(vc.timeParams, consensusFork))
-  debug "Aggregated attestation statistics", total = len(aggregates),
-        succeed = statistics[0], failed_to_deliver = statistics[1],
-        not_accepted = statistics[2], delay = delay, slot = slot,
-        committee_index = committeeIndex
+    consensusFork = vc.getConsensusFork(fork)
+    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams, consensusFork))
 
-proc publishAttestationsAndAggregatesV2(
-    service: AttestationServiceRef,
-    slot: Slot,
-    duties: seq[DutyAndProof]
+  debug "Attestation statistics",
+    total = len(pendingAttestations),
+    succeed = statistics[0],
+    failed_to_deliver = statistics[1],
+    not_accepted = statistics[2],
+    delay = delay,
+    slot = slot,
+    duties_count = len(duties)
+  data
+
+proc produceAndPublishAggregatesV2(
+    service: AttestationServiceRef, adata: AttestationData, duties: seq[DutyAndProof]
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
+    slot = adata.slot
+    attestationRoot = adata.hash_tree_root()
+
+  let aggregateItems = block:
+    var res: seq[AggregateItem]
+    for duty in duties:
+      let validator = vc.getValidatorForDuties(duty.data.pubkey, slot).valueOr:
+        continue
+
+      if duty.data.slot != slot:
+        warn "Inconsistent validator duties during aggregate signing",
+          duty_slot = duty.data.slot,
+          slot = slot,
+          duty_committee_index = duty.data.committee_index
+        continue
+      if duty.slotSig.isSome():
+        let slotSignature = duty.slotSig.get()
+        if is_aggregator(duty.data.committee_length, slotSignature):
+          res.add(
+            AggregateItem(
+              aggregator_index: uint64(duty.data.validator_index),
+              committee_index: duty.data.committee_index,
+              selection_proof: slotSignature,
+              validator: validator,
+            )
+          )
+    res
+
+  if len(aggregateItems) == 0:
+    debug "No aggregate and proofs scheduled for slot", slot = slot
+    return
+
+  # All duties should be sorted by `committee_index`.
+  let committee_index = duties[0].data.committee_index
+
+  let aggregates = block:
+    let attestation =
+      try:
+        await vc.getAggregatedAttestationV2(
+          slot,
+          attestationRoot,
+          committee_index,
+          vc.getMode()[FnKind.getAggregatedAttestation],
+        )
+      except ValidatorApiError as exc:
+        warn "Unable to get aggregated attestation data",
+          slot = slot,
+          attestation_root = shortLog(attestationRoot),
+          reason = exc.getFailureReason()
+        return
+      except CancelledError as exc:
+        debug "Aggregated attestation request was interrupted"
+        raise exc
+
+    if isLowestScoreAggregatedAttestation(attestation):
+      warn "Aggregated attestation with the root was not seen by the " & "beacon node",
+        attestation_root = shortLog(attestationRoot)
+      return
+
+    var res: seq[Future[bool].Raising([CancelledError])]
+    for item in aggregateItems:
+      withAttestation(attestation):
+        when consensusFork > ConsensusFork.Deneb:
+          let proof = electra.AggregateAndProof(
+            aggregator_index: item.aggregator_index,
+            aggregate: forkyAttestation,
+            selection_proof: item.selection_proof,
+          )
+          res.add(service.serveAggregateAndProofV2(proof, item.validator))
+        else:
+          let proof = phase0.AggregateAndProof(
+            aggregator_index: item.aggregator_index,
+            aggregate: forkyAttestation,
+            selection_proof: item.selection_proof,
+          )
+          res.add(service.serveAggregateAndProofV2(proof, item.validator))
+    res
+
+  let statistics = block:
+    var errored, succeed, failed = 0
+    try:
+      await allFutures(aggregates)
+    except CancelledError as exc:
+      let pending = aggregates.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
+      raise exc
+
+    for future in aggregates:
+      if future.completed():
+        if future.value:
+          inc(succeed)
+        else:
+          inc(failed)
+      else:
+        inc(errored)
+    (succeed, errored, failed)
+
+  let
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+    delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams, consensusFork))
+  debug "Aggregated attestation statistics",
+    total = len(aggregates),
+    succeed = statistics[0],
+    failed_to_deliver = statistics[1],
+    not_accepted = statistics[2],
+    delay = delay,
+    slot = slot,
+    committee_index = committeeIndex
+
+proc publishAttestationsAndAggregatesV2(
+    service: AttestationServiceRef, slot: Slot, duties: seq[DutyAndProof]
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
 
   block:
     let
       consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-      delay = vc.getDelay(slot.attestation_deadline(
-        vc.timeParams, consensusFork))
-    debug "Producing attestations", delay = delay, slot = slot,
-                                    duties_count = len(duties)
+      delay = vc.getDelay(slot.attestation_deadline(vc.timeParams, consensusFork))
+    debug "Producing attestations",
+      delay = delay, slot = slot, duties_count = len(duties)
 
   let ad =
     try:
       await service.produceAndPublishAttestationsV2(slot, duties)
     except ValidatorApiError as exc:
-      warn "Unable to proceed attestations", slot = slot,
-           duties_count = len(duties), reason = exc.getFailureReason()
+      warn "Unable to proceed attestations",
+        slot = slot, duties_count = len(duties), reason = exc.getFailureReason()
       return
     except CancelledError as exc:
       debug "Publish attestation request was interrupted"
@@ -419,15 +405,14 @@ proc publishAttestationsAndAggregatesV2(
 
   let
     consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
-    aggregateTime = vc.beaconClock.fromNow(
-      slot.aggregate_deadline(vc.timeParams, consensusFork))
+    aggregateTime =
+      vc.beaconClock.fromNow(slot.aggregate_deadline(vc.timeParams, consensusFork))
   if aggregateTime.inFuture:
     await sleepAsync(aggregateTime.offset)
 
   block:
     let
-      delay = vc.getDelay(
-        slot.aggregate_deadline(vc.timeParams, consensusFork))
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams, consensusFork))
       dutiesByCommittee = getAttesterDutiesByCommittee(duties)
     debug "Producing aggregate and proofs", delay = delay
     var tasks: seq[Future[void].Raising([CancelledError])]
@@ -437,13 +422,12 @@ proc publishAttestationsAndAggregatesV2(
       await allFutures(tasks)
     except CancelledError as exc:
       # Cancelling all the pending tasks.
-      let pending = tasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      let pending = tasks.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
       await noCancel allFutures(pending)
       raise exc
 
 proc spawnAttestationTasksV2(
-    service: AttestationServiceRef,
-    slot: Slot
+    service: AttestationServiceRef, slot: Slot
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
@@ -472,7 +456,7 @@ proc mainLoop(service: AttestationServiceRef) {.async: (raises: []).} =
       vc.preGenesisEvent.wait(),
       vc.genesisEvent.wait(),
       vc.indicesAvailable.wait(),
-      vc.forksAvailable.wait()
+      vc.forksAvailable.wait(),
     )
   except CancelledError:
     debug "Service interrupted"
@@ -486,8 +470,7 @@ proc mainLoop(service: AttestationServiceRef) {.async: (raises: []).} =
       let
         # We use zero offset here, because we do waiting in
         # waitForBlock(vc.timeParams.attestationSlotOffset).
-        slot = await vc.checkedWaitForNextSlot(currentSlot,
-                                               ZeroTimeDiff, false)
+        slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff, false)
       if slot.isNone():
         debug "System time adjusted backwards significantly, exiting"
         return
@@ -499,12 +482,13 @@ proc mainLoop(service: AttestationServiceRef) {.async: (raises: []).} =
       return
 
 proc init*(
-    t: typedesc[AttestationServiceRef],
-    vc: ValidatorClientRef
+    t: typedesc[AttestationServiceRef], vc: ValidatorClientRef
 ): Future[AttestationServiceRef] {.async: (raises: []).} =
-  logScope: service = ServiceName
-  let res = AttestationServiceRef(name: ServiceName,
-                                  client: vc, state: ServiceState.Initialized)
+  logScope:
+    service = ServiceName
+  let res = AttestationServiceRef(
+    name: ServiceName, client: vc, state: ServiceState.Initialized
+  )
   debug "Initializing service"
   res
 

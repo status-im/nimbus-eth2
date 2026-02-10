@@ -13,14 +13,13 @@ from stew/staticfor import staticFor
 from "."/spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
 
 const
-  BUCKET_BITS = 9    # >= 13 gets slow to construct
+  BUCKET_BITS = 9 # >= 13 gets slow to construct
   NUM_BUCKETS = 1 shl BUCKET_BITS
 
-type
-  BucketSortedValidators* = object
-    bucketSorted*: seq[ValidatorIndex]
-    bucketUpperBounds: array[NUM_BUCKETS, uint] # avoids over/underflow checks
-    extraItems*: seq[ValidatorIndex]
+type BucketSortedValidators* = object
+  bucketSorted*: seq[ValidatorIndex]
+  bucketUpperBounds: array[NUM_BUCKETS, uint] # avoids over/underflow checks
+  extraItems*: seq[ValidatorIndex]
 
 template getBucketNumber(h: ValidatorPubKey): uint =
   # This assumes https://en.wikipedia.org/wiki/Avalanche_effect for uniform
@@ -29,13 +28,15 @@ template getBucketNumber(h: ValidatorPubKey): uint =
   # doesn't affect correctness, only speed.
 
   # Otherwise need more than 2 bytes of input
-  static: doAssert BUCKET_BITS <= 16
+  static:
+    doAssert BUCKET_BITS <= 16
 
   const BUCKET_MASK = (NUM_BUCKETS - 1)
   ((h.blob[0] * 256 + h.blob[1]) and BUCKET_MASK)
 
-func sortValidatorBuckets*(validators: openArray[Validator]):
-    ref BucketSortedValidators {.noinline.} =
+func sortValidatorBuckets*(
+    validators: openArray[Validator]
+): ref BucketSortedValidators {.noinline.} =
   var bucketSizes: array[NUM_BUCKETS, uint]
   for validator in validators:
     inc bucketSizes[getBucketNumber(validator.pubkey)]
@@ -49,11 +50,11 @@ func sortValidatorBuckets*(validators: openArray[Validator]):
   doAssert accum == validators.len.uint
   let res = (ref BucketSortedValidators)(
     bucketSorted: newSeqUninit[ValidatorIndex](validators.len),
-    bucketUpperBounds: bucketInsertPositions)
+    bucketUpperBounds: bucketInsertPositions,
+  )
 
   for i, validator in validators:
-    let insertPos =
-      addr bucketInsertPositions[getBucketNumber(validator.pubkey)]
+    let insertPos = addr bucketInsertPositions[getBucketNumber(validator.pubkey)]
     dec insertPos[]
     res.bucketSorted[insertPos[]] = i.ValidatorIndex
 
@@ -64,13 +65,15 @@ func sortValidatorBuckets*(validators: openArray[Validator]):
   res
 
 func add*(
-    bucketSortedValidators: var BucketSortedValidators,
-    validatorIndex: ValidatorIndex) =
+    bucketSortedValidators: var BucketSortedValidators, validatorIndex: ValidatorIndex
+) =
   bucketSortedValidators.extraItems.add validatorIndex
 
 func findValidatorIndex*(
-    validators: openArray[Validator], bsv: BucketSortedValidators,
-    pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+    validators: openArray[Validator],
+    bsv: BucketSortedValidators,
+    pubkey: ValidatorPubKey,
+): Opt[ValidatorIndex] =
   for validatorIndex in bsv.extraItems:
     if validators[validatorIndex.distinctBase].pubkey == pubkey:
       return Opt.some validatorIndex

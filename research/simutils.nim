@@ -9,7 +9,8 @@
 
 import
   stew/io2,
-  ../tests/[testblockutil, teststateutil], ../tests/consensus_spec/os_ops,
+  ../tests/[testblockutil, teststateutil],
+  ../tests/consensus_spec/os_ops,
   ../beacon_chain/spec/[beaconstate, forks]
 
 from std/stats import RunningStat, mean, push, standardDeviationS
@@ -48,11 +49,10 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: float) =
 
   let current_epoch = get_current_epoch(state)
   if current_epoch >= 3:
-    doAssert getStateField(
-      state, current_justified_checkpoint).epoch + 1 >= current_epoch
+    doAssert getStateField(state, current_justified_checkpoint).epoch + 1 >=
+      current_epoch
   if current_epoch >= 4:
-    doAssert getStateField(
-      state, finalized_checkpoint).epoch + 2 >= current_epoch
+    doAssert getStateField(state, finalized_checkpoint).epoch + 2 >= current_epoch
 
 func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   var cfg = defaultRuntimeConfig
@@ -64,34 +64,27 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.FULU_FORK_EPOCH = 3.Epoch
   cfg
 
-proc loadGenesis*(
-    validators: Natural, validate: bool): ref ForkedHashedBeaconState =
+proc loadGenesis*(validators: Natural, validate: bool): ref ForkedHashedBeaconState =
   const genesisDir = "test_sim"
   if (let res = secureCreatePath(genesisDir); res.isErr):
-    fatal "Could not create directory",
-      path = genesisDir, err = ioErrorMsg(res.error)
+    fatal "Could not create directory", path = genesisDir, err = ioErrorMsg(res.error)
     quit 1
 
   let
     suffix = const_preset & "_" & $validators & "_" & SPEC_VERSION
-    genesisFn = genesisDir /
-      "genesis_" & suffix & ".ssz"
-    contractSnapshotFn = genesisDir /
-      "deposit_contract_snapshot_" & suffix & ".ssz"
+    genesisFn = genesisDir / "genesis_" & suffix & ".ssz"
+    contractSnapshotFn = genesisDir / "deposit_contract_snapshot_" & suffix & ".ssz"
   const cfg = getSimulationConfig()
 
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
     let res =
       try:
-        newClone(readSszForkedHashedBeaconState(
-          cfg, readAllBytes(genesisFn).tryGet()))
+        newClone(readSszForkedHashedBeaconState(cfg, readAllBytes(genesisFn).tryGet()))
       except ResultError[IoErrorCode] as exc:
-        fatal "Genesis file failed to load",
-          fileName = genesisFn, exc = exc.msg
+        fatal "Genesis file failed to load", fileName = genesisFn, exc = exc.msg
         quit 1
       except SerializationError as exc:
-        fatal "Genesis file malformed",
-          fileName = genesisFn, exc = exc.msg
+        fatal "Genesis file malformed", fileName = genesisFn, exc = exc.msg
         quit 1
 
     withState(res[]):
@@ -113,7 +106,11 @@ proc loadGenesis*(
     warn "Genesis file not found, making one up",
       hint = "use nimbus_beacon_node createTestnet to make one"
 
-    let flags = if validate: {} else: {skipBlsValidation}
+    let flags =
+      if validate:
+        {}
+      else:
+        {skipBlsValidation}
 
     info "Generating Genesis..."
     let res = initGenesisState(
@@ -128,15 +125,12 @@ proc loadGenesis*(
     try:
       SSZ.saveFile(genesisFn, res.electraData.data)
     except IOError as exc:
-      fatal "Genesis file failed to save",
-        fileName = genesisFn, exc = exc.msg
+      fatal "Genesis file failed to save", fileName = genesisFn, exc = exc.msg
       quit 1
 
     res
 
-proc printTimers*[Timers: enum](
-    validate: bool,
-    timers: array[Timers, RunningStat]) =
+proc printTimers*[Timers: enum](validate: bool, timers: array[Timers, RunningStat]) =
   func fmtTime(t: float): string =
     try:
       &"{t * 1000 :>12.3f}, "
@@ -152,16 +146,22 @@ proc printTimers*[Timers: enum](
       echo "Validation is turned off; no BLS operations are performed"
 
     for t in Timers:
-      echo fmtTime(timers[t].mean), fmtTime(timers[t].standardDeviationS),
-        fmtTime(timers[t].min), fmtTime(timers[t].max), &"{timers[t].n :>12}, ",
+      echo fmtTime(timers[t].mean),
+        fmtTime(timers[t].standardDeviationS),
+        fmtTime(timers[t].min),
+        fmtTime(timers[t].max),
+        &"{timers[t].n :>12}, ",
         $t
   except ValueError as exc:
     raiseAssert "formatValue failed unexpectedly: " & $exc.msg
 
 proc printTimers*[Timers: enum](
-    state: ForkedHashedBeaconState, attesters: RunningStat, validate: bool,
-    timers: array[Timers, RunningStat]) =
-  echo "Validators: ", getStateField(state, validators).len,
-    ", epoch length: ", SLOTS_PER_EPOCH
+    state: ForkedHashedBeaconState,
+    attesters: RunningStat,
+    validate: bool,
+    timers: array[Timers, RunningStat],
+) =
+  echo "Validators: ",
+    getStateField(state, validators).len, ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean
   printTimers(validate, timers)

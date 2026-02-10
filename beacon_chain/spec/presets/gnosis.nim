@@ -9,9 +9,10 @@
 
 import
   ./gnosis/[
-    phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset, electra_preset, fulu_preset, gloas_preset]
+    phase0_preset, altair_preset, bellatrix_preset, capella_preset, deneb_preset,
+    electra_preset, fulu_preset, gloas_preset,
+  ]
 
 export
-  phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset, electra_preset, fulu_preset, gloas_preset
+  phase0_preset, altair_preset, bellatrix_preset, capella_preset, deneb_preset,
+  electra_preset, fulu_preset, gloas_preset

@@ -40,15 +40,29 @@ type
 #
 # Policy: Retain retired art files in the directory, but don't link them anymore
 
-proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
-proc capellaBlink*() = notice "\n" & staticRead("capella" / "blink.ans")
+proc capellaMono*() =
+  notice "\n" & staticRead("capella" / "mono.txt")
 
-proc denebMono*()  = notice "\n" & staticRead("deneb" / "mono.txt")
-proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
+proc capellaBlink*() =
+  notice "\n" & staticRead("capella" / "blink.ans")
 
-proc electraMono*()  = notice "\n" & staticRead("electra" / "mono.txt")
-proc electraColor*() = notice "\n" & staticRead("electra" / "color.ans")
-proc electraBlink*() = notice "\n" & staticRead("electra" / "blink.ans")
+proc denebMono*() =
+  notice "\n" & staticRead("deneb" / "mono.txt")
 
-proc fuluMono*()  = notice "\n" & staticRead("fulu" / "mono.txt")
-proc fuluColor*() = notice "\n" & staticRead("fulu" / "color.ans")
+proc denebColor*() =
+  notice "\n" & staticRead("deneb" / "color.ans")
+
+proc electraMono*() =
+  notice "\n" & staticRead("electra" / "mono.txt")
+
+proc electraColor*() =
+  notice "\n" & staticRead("electra" / "color.ans")
+
+proc electraBlink*() =
+  notice "\n" & staticRead("electra" / "blink.ans")
+
+proc fuluMono*() =
+  notice "\n" & staticRead("fulu" / "mono.txt")
+
+proc fuluColor*() =
+  notice "\n" & staticRead("fulu" / "color.ans")

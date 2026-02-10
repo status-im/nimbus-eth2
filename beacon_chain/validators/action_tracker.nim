@@ -7,15 +7,12 @@
 
 {.push raises: [].}
 
-import
-  stew/shims/hashes, chronicles,
-  ../spec/forks
+import stew/shims/hashes, chronicles, ../spec/forks
 
 from stew/shims/sets import keepItIf
 from ../spec/validator import compute_subscribed_subnets
 from ../consensus_object_pools/block_pools_types import ShufflingRef
-from ../consensus_object_pools/spec_cache import
-  epoch, get_committee_assignments
+from ../consensus_object_pools/spec_cache import epoch, get_committee_assignments
 
 export forks, tables, sets
 
@@ -50,8 +47,7 @@ type
     currentSlot: Slot
       ## Duties that we accept are limited to a range around the current slot
 
-    subscribedSubnets*: AttnetBits
-      ## All subnets we're currently subscribed to
+    subscribedSubnets*: AttnetBits ## All subnets we're currently subscribed to
 
     nextCycleEpoch: Epoch
 
@@ -84,11 +80,14 @@ func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
 proc registerDuty*(
-    tracker: var ActionTracker, slot: Slot, subnet_id: SubnetId,
-    vidx: ValidatorIndex, isAggregator: bool) =
+    tracker: var ActionTracker,
+    slot: Slot,
+    subnet_id: SubnetId,
+    vidx: ValidatorIndex,
+    isAggregator: bool,
+) =
   # Only register relevant duties
-  if slot < tracker.currentSlot or
-      slot + (SLOTS_PER_EPOCH * 2) <= tracker.currentSlot:
+  if slot < tracker.currentSlot or slot + (SLOTS_PER_EPOCH * 2) <= tracker.currentSlot:
     debug "Irrelevant duty", slot, subnet_id, vidx
     return
 
@@ -104,11 +103,12 @@ proc registerDuty*(
     tracker.duties.incl(newDuty)
 
 proc registerSyncDuty*(
-    tracker: var ActionTracker, pubkey: ValidatorPubKey, until_epoch: Epoch) =
+    tracker: var ActionTracker, pubkey: ValidatorPubKey, until_epoch: Epoch
+) =
   if tracker.currentSlot.epoch >= until_epoch:
     return
 
-  tracker.syncDuties.withValue(pubkey, entry) do:
+  tracker.syncDuties.withValue(pubkey, entry):
     if entry[] < until_epoch:
       debug "Updating sync duty",
         pubkey = shortLog(pubkey), prev_until_epoch = entry[], until_epoch
@@ -119,12 +119,10 @@ proc registerSyncDuty*(
     tracker.syncDuties[pubkey] = until_epoch
     reset(tracker.lastSyncUpdate)
 
-func hasSyncDuty*(
-    tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+func hasSyncDuty*(tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
-proc registerPTCDuty*(
-    tracker: var ActionTracker, slot: Slot, vidx: ValidatorIndex) =
+proc registerPTCDuty*(tracker: var ActionTracker, slot: Slot, vidx: ValidatorIndex) =
   if slot < tracker.currentSlot or
       slot >= Slot(uint64(tracker.currentSlot) + (SLOTS_PER_EPOCH * 2)):
     debug "Irrelevant PTC duty", slot, vidx
@@ -155,14 +153,14 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   for duty in tracker.duties:
     if wallSlot <= duty.slot and
         wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS > duty.slot:
-
       res[duty.subnet_id.int] = true
   res
 
 # TODO https://github.com/nim-lang/Nim/issues/12172 keeps from stabilitySubnets
 const allSubnetBits = block:
   var res: AttnetBits
-  for i in 0..<res.len: res[i] = true
+  for i in 0 ..< res.len:
+    res[i] = true
   res
 
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
@@ -191,7 +189,8 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
 
   var toPrune: seq[ValidatorIndex]
   for k, v in tracker.knownValidators:
-    if v + KNOWN_VALIDATOR_DECAY < wallSlot: toPrune.add k
+    if v + KNOWN_VALIDATOR_DECAY < wallSlot:
+      toPrune.add k
   for k in toPrune:
     debug "Validator no longer active", index = k
     tracker.knownValidators.del k
@@ -199,15 +198,17 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   tracker.currentSlot = wallSlot
 
 func getNextValidatorAction(
-    actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot): Slot =
+    actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot
+): Slot =
   # The relevant actions are in, depending on calculated bounds:
   # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
   #  current epoch          next epoch
   let orderedActionSlots = [
-    actionSlotSource[     slot.epoch mod 2'u64],
-    actionSlotSource[1 - (slot.epoch mod 2'u64)]]
+    actionSlotSource[slot.epoch mod 2'u64], actionSlotSource[1 - (slot.epoch mod 2'u64)]
+  ]
 
-  static: doAssert MIN_ATTESTATION_INCLUSION_DELAY == 1
+  static:
+    doAssert MIN_ATTESTATION_INCLUSION_DELAY == 1
 
   # Cleverer ways exist, but a short loop is fine. O(n) vs O(log n) isn't that
   # important when n is 32 or 64, with early exit on average no more than half
@@ -227,27 +228,31 @@ func getNextValidatorAction(
   FAR_FUTURE_SLOT
 
 func getNextAttestationSlot*(tracker: ActionTracker, slot: Slot): Slot =
-  getNextValidatorAction(
-    tracker.attestingSlots,
-    tracker.lastCalculatedEpoch, slot)
+  getNextValidatorAction(tracker.attestingSlots, tracker.lastCalculatedEpoch, slot)
 
 func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
-  getNextValidatorAction(
-    tracker.proposingSlots,
-    tracker.lastCalculatedEpoch, slot)
+  getNextValidatorAction(tracker.proposingSlots, tracker.lastCalculatedEpoch, slot)
 
 func needsUpdate*(
-    tracker: ActionTracker, state: ForkyHashedBeaconState, epoch: Epoch): bool =
+    tracker: ActionTracker, state: ForkyHashedBeaconState, epoch: Epoch
+): bool =
   # Using the attester dependent root here means we lock the action tracking to
   # the dependent root for attestation duties and not block proposal -
   # however, the risk of a proposer reordering in the last epoch is small
   # and the action tracker is speculative in nature.
   tracker.attesterDepRoot !=
-    state.dependent_root(if epoch > Epoch(0): epoch - 1 else: epoch)
+    state.dependent_root(
+      if epoch > Epoch(0):
+        epoch - 1
+      else:
+        epoch
+    )
 
 func updateActions*(
-    tracker: var ActionTracker, shufflingRef: ShufflingRef,
-    beaconProposers: openArray[Opt[ValidatorIndex]]) =
+    tracker: var ActionTracker,
+    shufflingRef: ShufflingRef,
+    beaconProposers: openArray[Opt[ValidatorIndex]],
+) =
   let epoch = shufflingRef.epoch
 
   # Updates the schedule for upcoming attestation and proposal work
@@ -267,10 +272,12 @@ func updateActions*(
   tracker.ptcSlots[epoch mod 2] = 0
 
   # The relevant bitmaps are 32 bits each.
-  static: doAssert SLOTS_PER_EPOCH <= 32
+  static:
+    doAssert SLOTS_PER_EPOCH <= 32
 
-  for (committeeIndex, subnet_id, slot) in
-      get_committee_assignments(shufflingRef, validatorIndices):
+  for (committeeIndex, subnet_id, slot) in get_committee_assignments(
+    shufflingRef, validatorIndices
+  ):
     doAssert epoch(slot) == epoch
 
     # Each get_committee_assignments() call here is on the next epoch. At any
@@ -287,18 +294,12 @@ func updateActions*(
     # as important to attest if blocks aren't flowing as only attestations in
     # blocks garner rewards.
     tracker.attestingSlots[epoch mod 2] =
-      tracker.attestingSlots[epoch mod 2] or
-        (1'u32 shl (slot mod SLOTS_PER_EPOCH))
+      tracker.attestingSlots[epoch mod 2] or (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
   for duty in tracker.ptcDuties:
     if duty.slot.epoch == epoch:
       tracker.ptcSlots[epoch mod 2] =
-        tracker.ptcSlots[epoch mod 2] or
-          (1'u32 shl (duty.slot mod SLOTS_PER_EPOCH))
+        tracker.ptcSlots[epoch mod 2] or (1'u32 shl (duty.slot mod SLOTS_PER_EPOCH))
 
-func init*(
-    T: type ActionTracker, nodeId: UInt256, subscribeAllAttnets: bool): T =
-  T(
-    nodeId: nodeId,
-    subscribeAllAttnets: subscribeAllAttnets,
-  )
+func init*(T: type ActionTracker, nodeId: UInt256, subscribeAllAttnets: bool): T =
+  T(nodeId: nodeId, subscribeAllAttnets: subscribeAllAttnets)

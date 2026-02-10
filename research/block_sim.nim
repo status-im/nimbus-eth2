@@ -87,10 +87,15 @@ cli do(
     verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init(cfg))
     attPool = AttestationPool.init(dag, quarantine)
-    batchCrypto = BatchCrypto.new(
-      rng, cfg.timeParams, eager,
-      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
+    batchCrypto = BatchCrypto
+      .new(
+        rng,
+        cfg.timeParams,
+        eager,
+        genesis_validators_root = dag.genesis_validators_root,
+        taskpool,
+      )
+      .expect("working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -136,7 +141,8 @@ cli do(
                 attestation.aggregation_bits.len,
                 -1,
                 sig,
-                data.slot.start_beacon_time(cfg.timeParams))
+                data.slot.start_beacon_time(cfg.timeParams),
+              )
             else:
               var data =
                 makeAttestationData(updatedState, slot, committee_index, bid.root)
@@ -158,7 +164,8 @@ cli do(
                 committee.len,
                 index_in_committee,
                 sig,
-                data.slot.start_beacon_time(cfg.timeParams))
+                data.slot.start_beacon_time(cfg.timeParams),
+              )
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -300,7 +307,7 @@ cli do(
         state.data.fork, state.data.genesis_validators_root, newBlock.message.slot,
         blockRoot, privKey,
       )
-      .toValidatorSig()
+        .toValidatorSig()
 
     # TODO without the OnBlockAdded cast, Nim can't figure out the type (?)
     let onAdded: OnBlockAdded[consensusFork] = proc(
@@ -312,7 +319,10 @@ cli do(
     ) =
       # Callback add to fork choice if valid
       attPool.addForkChoice(
-        epochRef, blckRef, unrealized, signedBlock.message,
+        epochRef,
+        blckRef,
+        unrealized,
+        signedBlock.message,
         blckRef.slot.start_beacon_time(cfg.timeParams),
       )
 

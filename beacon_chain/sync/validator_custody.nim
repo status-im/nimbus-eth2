@@ -21,8 +21,8 @@ import
 from std/sequtils import toSeq
 from ../beacon_clock import GetBeaconTimeFn
 
-logScope: topics = "validator_custody"
-
+logScope:
+  topics = "validator_custody"
 
 type
   ValidatorCustody* = object
@@ -35,29 +35,30 @@ type
 
   ValidatorCustodyRef* = ref ValidatorCustody
 
-func init*(T: type ValidatorCustodyRef, network: Eth2Node,
-           dag: ChainDAGRef,
-           older_column_set: HashSet[ColumnIndex],
-           dataColumnQuarantine: ref ColumnQuarantine): ValidatorCustodyRef =
+func init*(
+    T: type ValidatorCustodyRef,
+    network: Eth2Node,
+    dag: ChainDAGRef,
+    older_column_set: HashSet[ColumnIndex],
+    dataColumnQuarantine: ref ColumnQuarantine,
+): ValidatorCustodyRef =
   (ValidatorCustodyRef)(
     network: network,
     dag: dag,
     older_column_set: older_column_set,
-    dataColumnQuarantine: dataColumnQuarantine)
+    dataColumnQuarantine: dataColumnQuarantine,
+  )
 
-proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
-                                current_slot: Slot,
-                                total_node_balance: Gwei) =
+proc detectNewValidatorCustody*(
+    vcus: ValidatorCustodyRef, current_slot: Slot, total_node_balance: Gwei
+) =
   debug "Total node balance before applying validator custody",
     total_node_balance = total_node_balance
   let
-    vcustody =
-      vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
-    newer_columns =
-      vcus.dag.cfg.resolve_columns_from_custody_groups(
-        vcus.network.nodeId,
-        max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64,
-        vcustody))
+    vcustody = vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
+    newer_columns = vcus.dag.cfg.resolve_columns_from_custody_groups(
+      vcus.network.nodeId, max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64, vcustody)
+    )
 
   # check which custody set is larger
   if newer_columns.len >= vcus.older_column_set.len:

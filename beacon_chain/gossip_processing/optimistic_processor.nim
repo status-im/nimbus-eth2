@@ -7,11 +7,7 @@
 
 {.push raises: [].}
 
-import
-  chronicles, chronos,
-  ../spec/forks,
-  ../beacon_clock,
-  ./gossip_validation
+import chronicles, chronos, ../spec/forks, ../beacon_clock, ./gossip_validation
 
 from ./eth2_processor import ValidationRes
 
@@ -21,9 +17,9 @@ logScope:
   topics = "gossip_opt"
 
 type
-  OptimisticBlockVerifier* = proc(
-      signedBlock: ForkedSignedBeaconBlock
-    ): Future[void] {.async: (raises: [CancelledError]).}
+  OptimisticBlockVerifier* = proc(signedBlock: ForkedSignedBeaconBlock): Future[void] {.
+    async: (raises: [CancelledError])
+  .}
 
   OptimisticProcessor* = ref object
     timeParams: TimeParams
@@ -34,19 +30,24 @@ type
 proc initOptimisticProcessor*(
     timeParams: TimeParams,
     getBeaconTime: GetBeaconTimeFn,
-    optimisticVerifier: OptimisticBlockVerifier): OptimisticProcessor =
+    optimisticVerifier: OptimisticBlockVerifier,
+): OptimisticProcessor =
   OptimisticProcessor(
     timeParams: timeParams,
     getBeaconTime: getBeaconTime,
-    optimisticVerifier: optimisticVerifier)
+    optimisticVerifier: optimisticVerifier,
+  )
 
 proc validateBeaconBlock(
     self: OptimisticProcessor,
     signed_beacon_block: ForkySignedBeaconBlock,
-    wallTime: BeaconTime): Result[void, ValidationError] =
+    wallTime: BeaconTime,
+): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
-  if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)):
+  if not (
+    signed_beacon_block.message.slot <=
+    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)
+  ):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():
@@ -55,8 +56,8 @@ proc validateBeaconBlock(
   ok()
 
 proc processSignedBeaconBlock*(
-    self: OptimisticProcessor,
-    signedBlock: ForkySignedBeaconBlock): ValidationRes =
+    self: OptimisticProcessor, signedBlock: ForkySignedBeaconBlock
+): ValidationRes =
   let
     wallTime = self.getBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.timeParams)
@@ -72,8 +73,7 @@ proc processSignedBeaconBlock*(
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay =
-    wallTime - signedBlock.message.slot.start_beacon_time(self.timeParams)
+  let delay = wallTime - signedBlock.message.slot.start_beacon_time(self.timeParams)
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -87,8 +87,7 @@ proc processSignedBeaconBlock*(
   # Only process one block at a time (backpressure)
   trace "Optimistic block validated"
   if self.processFut == nil:
-    self.processFut = self.optimisticVerifier(
-      ForkedSignedBeaconBlock.init(signedBlock))
+    self.processFut = self.optimisticVerifier(ForkedSignedBeaconBlock.init(signedBlock))
 
     proc handleFinishedProcess(future: pointer) =
       self.processFut = nil

@@ -8,11 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import
-  std/typetraits,
-  unittest2,
-  ../beacon_chain/spec/datatypes/base,
-  ./testutil
+import std/typetraits, unittest2, ../beacon_chain/spec/datatypes/base, ./testutil
 
 suite "Spec datatypes":
   test "Graffiti bytes":

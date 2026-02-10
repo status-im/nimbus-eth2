@@ -19,14 +19,12 @@ const
   # 2
   PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64 = 2
 
-
   # Sync committee
   # ---------------------------------------------------------------
   # 2**9 (= 512)
   SYNC_COMMITTEE_SIZE* = 512
   # 2**9 (= 512)
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 512
-
 
   # Sync protocol
   # ---------------------------------------------------------------

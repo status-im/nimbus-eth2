@@ -8,19 +8,15 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronos, presto/client,
+  chronos,
+  presto/client,
   "."/[
-    rest_beacon_calls, rest_config_calls, rest_debug_calls,
-    rest_keymanager_calls, rest_light_client_calls,
-    rest_node_calls, rest_validator_calls,
-    rest_nimbus_calls, rest_event_calls, rest_common,
-    rest_fork_config
+    rest_beacon_calls, rest_config_calls, rest_debug_calls, rest_keymanager_calls,
+    rest_light_client_calls, rest_node_calls, rest_validator_calls, rest_nimbus_calls,
+    rest_event_calls, rest_common, rest_fork_config,
   ]
 
 export
-  chronos, client,
-  rest_beacon_calls, rest_config_calls, rest_debug_calls,
-  rest_keymanager_calls, rest_light_client_calls,
-  rest_node_calls, rest_validator_calls,
-  rest_nimbus_calls, rest_event_calls, rest_common,
-  rest_fork_config
+  chronos, client, rest_beacon_calls, rest_config_calls, rest_debug_calls,
+  rest_keymanager_calls, rest_light_client_calls, rest_node_calls, rest_validator_calls,
+  rest_nimbus_calls, rest_event_calls, rest_common, rest_fork_config

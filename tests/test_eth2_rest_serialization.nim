@@ -15,19 +15,21 @@ import
   json_serialization/std/tables,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization
 
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+template sourceDir(): string =
+  currentSourcePath.rsplit(DirSep, 1)[0]
 
-const denebSignedContents = staticRead(sourceDir & "/test_files/denebSignedContents.json")
+const denebSignedContents =
+  staticRead(sourceDir & "/test_files/denebSignedContents.json")
 
 # Examples from:
 # https://github.com/ethereum/remote-signing-api/blob/87a392deb4e43209ca896dde6b4ec40bef7ee02c/signing/paths/sign.yaml
 # via https://jsonformatter.org/yaml-to-json with pre-bellatrix removed
-const Web3SignerExamples = staticRead(sourceDir & "/test_files/web3signer.examples.json")
+const Web3SignerExamples =
+  staticRead(sourceDir & "/test_files/web3signer.examples.json")
 
 # Can't be in same namespace as some other KZG-related fromHex overloads due to
 # https://github.com/nim-lang/Nim/issues/22861
-func fromHex(T: typedesc[KzgCommitment], s: string): T {.
-     raises: [ValueError].} =
+func fromHex(T: typedesc[KzgCommitment], s: string): T {.raises: [ValueError].} =
   var res: T
   hexToByteArray(s, res.bytes)
   res
@@ -36,12 +38,18 @@ suite "REST encoding and decoding":
   test "DenebSignedBlockContents decoding":
     let blck = RestJson.decode(denebSignedContents, DenebSignedBlockContents)
     check:
-      hash_tree_root(blck.signed_block.message) == Eth2Digest.fromHex(
-        "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da")
-      blck.signed_block.root == Eth2Digest.fromHex(
-        "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da")
-      blck.signed_block.signature == ValidatorSig.fromHex(
-        "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d")[]
+      hash_tree_root(blck.signed_block.message) ==
+        Eth2Digest.fromHex(
+          "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da"
+        )
+      blck.signed_block.root ==
+        Eth2Digest.fromHex(
+          "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da"
+        )
+      blck.signed_block.signature ==
+        ValidatorSig.fromHex(
+          "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d"
+        )[]
       blck.kzg_proofs.len == 0
       blck.blobs.len == 0
       blck == RestJson.decode(RestJson.encode(blck), DenebSignedBlockContents)
@@ -55,9 +63,11 @@ suite "REST encoding and decoding":
       randString =
         "\"0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb\""
       zeroKzgCommitment = KzgCommitment.fromHex(
-        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      )
       randKzgCommitment = KzgCommitment.fromHex(
-        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb")
+        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb"
+      )
 
     check:
       RestJson.decode(zeroString, KzgCommitment) == zeroKzgCommitment
@@ -77,9 +87,11 @@ suite "REST encoding and decoding":
       randString =
         "\"0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb\""
       zeroKzgProof = KzgProof.fromHex(
-        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      )
       randKzgProof = KzgProof.fromHex(
-        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb")
+        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb"
+      )
 
     check:
       RestJson.decode(zeroString, KzgProof) == zeroKzgProof
@@ -106,26 +118,22 @@ suite "REST encoding and decoding":
       nonzeroString = newClone(RestJson.encode(nonzeroBlob[]))
 
     let
-      zeroBlobRoundTrip =
-        newClone(RestJson.decode(zeroString[], Blob))
-      nonzeroBlobRoundTrip =
-        newClone(RestJson.decode(nonzeroString[], Blob))
+      zeroBlobRoundTrip = newClone(RestJson.decode(zeroString[], Blob))
+      nonzeroBlobRoundTrip = newClone(RestJson.decode(nonzeroString[], Blob))
 
     check:
       zeroString[].startsWith "\"0x0000000000000000000000000000000000000000000000000"
       nonzeroString[].startsWith "\"0x111111111111111111111111111111111111111111111111"
       zeroString[].endsWith "0000000000000000000000000000000000000000000000\""
       nonzeroString[].endsWith "1111111111111111111111111111111111111111111111\""
-      zeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
-      nonzeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
+      zeroString[].lenu64 == 2 * blobLen + 4 # quotation marks and 0x prefix
+      nonzeroString[].lenu64 == 2 * blobLen + 4 # quotation marks and 0x prefix
       zeroBlob[] == zeroBlobRoundTrip[]
       nonzeroBlob[] == nonzeroBlobRoundTrip[]
       zeroBlob[] != nonzeroBlob[]
 
   test "Validator pubkey hack":
-
-    let
-      encoded = """
+    let encoded = """
       {
         "pubkey": "0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95",
         "withdrawal_credentials": "0x00f50428677c60f997aadeab24aabf7fceaef491c96a52b463ae91f95611cf71",
@@ -139,69 +147,68 @@ suite "REST encoding and decoding":
 
     let validator = RestJson.decode(encoded, Validator)
     check:
-      validator.pubkey == ValidatorPubKey.fromHex(
-        "0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95")[]
+      validator.pubkey ==
+        ValidatorPubKey.fromHex(
+          "0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95"
+        )[]
       validator.exit_epoch == FAR_FUTURE_EPOCH
 
   test "RestErrorMessage parser tests":
     const GoodTestVectors = [
       (
         """{"code": 500, "message": "block not found"}""",
-        RestErrorMessage.init(500, "block not found")
+        RestErrorMessage.init(500, "block not found"),
       ),
       (
         """{"code": "600", "message": "block not found"}""",
-        RestErrorMessage.init(600, "block not found")
+        RestErrorMessage.init(600, "block not found"),
       ),
       (
         """{"code": "700", "message": "block not found",
             "data": "data", "custom": "field"}""",
-        RestErrorMessage.init(700, "block not found")
+        RestErrorMessage.init(700, "block not found"),
       ),
       (
         """{"code":"701", "message": "block not found",
             "data": "data", "custom": 300}""",
-        RestErrorMessage.init(701, "block not found")
+        RestErrorMessage.init(701, "block not found"),
       ),
       (
         """{"code": "702", "message": "block not found",
             "data": "data", "custom": {"field1": "value1"}}""",
-        RestErrorMessage.init(702, "block not found")
+        RestErrorMessage.init(702, "block not found"),
       ),
       (
         """{"code": 800, "message": "block not found",
             "custom": "data", "stacktraces": []}""",
-        RestErrorMessage.init(800, "block not found", [])
+        RestErrorMessage.init(800, "block not found", []),
       ),
       (
         """{"code": 801, "message": "block not found",
             "custom": 100, "stacktraces": []}""",
-        RestErrorMessage.init(801, "block not found", [])
+        RestErrorMessage.init(801, "block not found", []),
       ),
       (
         """{"code": 802, "message": "block not found",
             "custom": {"field1": "value1"}, "stacktraces": []}""",
-        RestErrorMessage.init(802, "block not found", [])
+        RestErrorMessage.init(802, "block not found", []),
       ),
       (
         """{"code": "900", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"], "custom": "data"}""",
-        RestErrorMessage.init(900, "block not found",
-                              ["line1", "line2", "line3"])
+        RestErrorMessage.init(900, "block not found", ["line1", "line2", "line3"]),
       ),
       (
         """{"code": "901", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"], "custom": 2000}""",
-        RestErrorMessage.init(901, "block not found",
-                              ["line1", "line2", "line3"])
+        RestErrorMessage.init(901, "block not found", ["line1", "line2", "line3"]),
       ),
       (
         """{"code": "902", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"],
             "custom": {"field1": "value1"}}""",
-        RestErrorMessage.init(902, "block not found",
-                              ["line1", "line2", "line3"])
-      )
+        RestErrorMessage.init(902, "block not found", ["line1", "line2", "line3"]),
+      ),
     ]
 
     const FailureTestVectors = [
@@ -226,15 +233,17 @@ suite "REST encoding and decoding":
       # missing required field `message`.
       """{"code":"400"}""",
       # missing required field `code`.
-      """{"message": "block not found"}"""
+      """{"message": "block not found"}""",
     ]
 
     let contentType = getContentType("application/json").get()
 
     for test in GoodTestVectors:
       let res = decodeBytes(
-        RestErrorMessage, test[0].toOpenArrayByte(0, len(test[0]) - 1),
-        Opt.some(contentType))
+        RestErrorMessage,
+        test[0].toOpenArrayByte(0, len(test[0]) - 1),
+        Opt.some(contentType),
+      )
       check res.isOk()
       let response = res.get()
       check:
@@ -249,8 +258,8 @@ suite "REST encoding and decoding":
 
     for test in FailureTestVectors:
       let res = decodeBytes(
-        RestErrorMessage, test.toOpenArrayByte(0, len(test) - 1),
-        Opt.some(contentType))
+        RestErrorMessage, test.toOpenArrayByte(0, len(test) - 1), Opt.some(contentType)
+      )
       checkpoint test
       check res.isErr()
 
@@ -263,11 +272,10 @@ suite "REST encoding and decoding":
         a.errobj.message == b
       else:
         raiseAssert "Unsupported RestApiResponse kind"
+
     check:
-      jsonMsgResponse(RestApiResponse, "data") ==
-          """{"code":200,"message":"data"}"""
-      jsonError(RestApiResponse, Http202, "data") ==
-        """{"code":202,"message":"data"}"""
+      jsonMsgResponse(RestApiResponse, "data") == """{"code":200,"message":"data"}"""
+      jsonError(RestApiResponse, Http202, "data") == """{"code":202,"message":"data"}"""
       jsonError(RestApiResponse, Http400, "data", "") ==
         """{"code":400,"message":"data"}"""
       jsonError(RestApiResponse, Http404, "data", "stacktrace") ==
@@ -280,55 +288,69 @@ suite "REST encoding and decoding":
   test "strictParse(Stuint) tests":
     const
       GoodVectors16 = [
-        ("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
-        ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-           "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
-        ("0x123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-           "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff"),
-        ("123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-         "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff")
+        (
+          "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
+        (
+          "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
+        (
+          "0x123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+          "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
+        (
+          "123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+          "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
       ]
       GoodVectors10 = [
-        ("115792089237316195423570985008687907853269984665640564039457584007913129639935",
-         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        (
+          "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
         ("0", "0"),
       ]
       GoodVectors8 = [
-        ("0o17777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
-         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        (
+          "0o17777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
+          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        )
       ]
       GoodVectors2 = [
-        ("0b1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
-         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        (
+          "0b1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        )
       ]
       OverflowVectors16 = [
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0",
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE",
         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0",
-        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE"
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE",
       ]
       OverflowVectors10 = [
         "1157920892373161954235709850086879078532699846656405640394575840079131296399350",
-        "1157920892373161954235709850086879078532699846656405640394575840079131296399351"
+        "1157920892373161954235709850086879078532699846656405640394575840079131296399351",
       ]
       OverflowVectors8 = [
         "0o177777777777777777777777777777777777777777777777777777777777777777777777777777777777770",
-        "0o177777777777777777777777777777777777777777777777777777777777777777777777777777777777777"
+        "0o177777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
       ]
       OverflowVectors2 = [
         "0b11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111110",
-        "0b11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+        "0b11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
       ]
       InvalidCharsVectors16 = [
         "GFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         "0xGFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         "0x0123456789ABCDEFZFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-        "0123456789ABCDEFXFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+        "0123456789ABCDEFXFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
       ]
       InvalidCharsVectors10 = [
         "11579208923731619542357098500868790785326998466564056403945758400791312963993A",
-        "K"
+        "K",
       ]
       InvalidCharsVectors8 = [
         "0o17777777777777777777777777777777777777777777777777777777777777777777777777777777777778"
@@ -401,7 +423,8 @@ suite "REST encoding and decoding":
       let res = strictParse(vector, UInt256, 2)
       check res.isErr()
 
-  let examples = Json.decode(Web3SignerExamples, Table[string, Table[string, JsonString]])
+  let examples =
+    Json.decode(Web3SignerExamples, Table[string, Table[string, JsonString]])
 
   for name, example in examples:
     test "remote signing example " & name:

@@ -21,36 +21,25 @@ logScope:
 type
   Nothing = object
   ResponseError = object of CatchableError
-  Endpoint[K, V] =
-    (K, V) # https://github.com/nim-lang/Nim/issues/19531
-  Bootstrap =
-    Endpoint[Eth2Digest, ForkedLightClientBootstrap]
-  UpdatesByRange =
-    Endpoint[
-      tuple[startPeriod: SyncCommitteePeriod, count: uint64],
-      ForkedLightClientUpdate]
-  FinalityUpdate =
-    Endpoint[Nothing, ForkedLightClientFinalityUpdate]
-  OptimisticUpdate =
-    Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
+  Endpoint[K, V] = (K, V) # https://github.com/nim-lang/Nim/issues/19531
+  Bootstrap = Endpoint[Eth2Digest, ForkedLightClientBootstrap]
+  UpdatesByRange = Endpoint[
+    tuple[startPeriod: SyncCommitteePeriod, count: uint64], ForkedLightClientUpdate
+  ]
+  FinalityUpdate = Endpoint[Nothing, ForkedLightClientFinalityUpdate]
+  OptimisticUpdate = Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
-  ValueVerifier[V] =
-    proc(v: V): Future[Result[void, LightClientVerifierError]] {.async: (raises: [CancelledError]).}
-  BootstrapVerifier* =
-    ValueVerifier[ForkedLightClientBootstrap]
-  UpdateVerifier* =
-    ValueVerifier[ForkedLightClientUpdate]
-  FinalityUpdateVerifier* =
-    ValueVerifier[ForkedLightClientFinalityUpdate]
-  OptimisticUpdateVerifier* =
-    ValueVerifier[ForkedLightClientOptimisticUpdate]
+  ValueVerifier[V] = proc(v: V): Future[Result[void, LightClientVerifierError]] {.
+    async: (raises: [CancelledError])
+  .}
+  BootstrapVerifier* = ValueVerifier[ForkedLightClientBootstrap]
+  UpdateVerifier* = ValueVerifier[ForkedLightClientUpdate]
+  FinalityUpdateVerifier* = ValueVerifier[ForkedLightClientFinalityUpdate]
+  OptimisticUpdateVerifier* = ValueVerifier[ForkedLightClientOptimisticUpdate]
 
-  GetTrustedBlockRootCallback* =
-    proc(): Option[Eth2Digest] {.gcsafe, raises: [].}
-  GetBoolCallback* =
-    proc(): bool {.gcsafe, raises: [].}
-  GetSyncCommitteePeriodCallback* =
-    proc(): SyncCommitteePeriod {.gcsafe, raises: [].}
+  GetTrustedBlockRootCallback* = proc(): Option[Eth2Digest] {.gcsafe, raises: [].}
+  GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
+  GetSyncCommitteePeriodCallback* = proc(): SyncCommitteePeriod {.gcsafe, raises: [].}
 
   LightClientManager* = object
     network: Eth2Node
@@ -84,7 +73,7 @@ func init*(
     getFinalizedPeriod: GetSyncCommitteePeriodCallback,
     getOptimisticPeriod: GetSyncCommitteePeriodCallback,
     getBeaconTime: GetBeaconTimeFn,
-    shouldInhibitSync: GetBoolCallback = nil
+    shouldInhibitSync: GetBoolCallback = nil,
 ): LightClientManager =
   ## Initialize light client manager.
   LightClientManager(
@@ -101,63 +90,65 @@ func init*(
     getFinalizedPeriod: getFinalizedPeriod,
     getOptimisticPeriod: getOptimisticPeriod,
     getBeaconTime: getBeaconTime,
-    shouldInhibitSync: shouldInhibitSync)
+    shouldInhibitSync: shouldInhibitSync,
+  )
 
-proc isGossipSupported*(
-    self: LightClientManager,
-    period: SyncCommitteePeriod
-): bool =
+proc isGossipSupported*(self: LightClientManager, period: SyncCommitteePeriod): bool =
   ## Indicate whether the light client is sufficiently synced to accept gossip.
   if not self.isLightClientStoreInitialized():
     return false
 
   period.isGossipSupported(
     finalizedPeriod = self.getFinalizedPeriod(),
-    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
+    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown(),
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
-    e: typedesc[Bootstrap],
-    peer: Peer,
-    blockRoot: Eth2Digest
-): Future[NetRes[ForkedLightClientBootstrap]] {.async: (raises: [CancelledError], raw: true).} =
+    e: typedesc[Bootstrap], peer: Peer, blockRoot: Eth2Digest
+): Future[NetRes[ForkedLightClientBootstrap]] {.
+    async: (raises: [CancelledError], raw: true)
+.} =
   peer.lightClientBootstrap(blockRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 type LightClientUpdatesByRangeResponse =
   NetRes[List[ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
+
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
-    key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
-): Future[LightClientUpdatesByRangeResponse] {.async: (raises: [ResponseError, CancelledError]).} =
+    key: tuple[startPeriod: SyncCommitteePeriod, count: uint64],
+): Future[LightClientUpdatesByRangeResponse] {.
+    async: (raises: [ResponseError, CancelledError])
+.} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
   let response = await peer.lightClientUpdatesByRange(startPeriod, count)
   if response.isOk:
-    let e = distinctBase(response.get)
-      .checkLightClientUpdates(startPeriod, count)
+    let e = distinctBase(response.get).checkLightClientUpdates(startPeriod, count)
     if e.isErr:
       raise newException(ResponseError, e.error)
   return response
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
-    e: typedesc[FinalityUpdate],
-    peer: Peer
-): Future[NetRes[ForkedLightClientFinalityUpdate]] {.async: (raises: [CancelledError], raw: true).} =
+    e: typedesc[FinalityUpdate], peer: Peer
+): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
+    async: (raises: [CancelledError], raw: true)
+.} =
   peer.lightClientFinalityUpdate()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
-    e: typedesc[OptimisticUpdate],
-    peer: Peer
-): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.async: (raises: [CancelledError], raw: true).} =
+    e: typedesc[OptimisticUpdate], peer: Peer
+): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
+    async: (raises: [CancelledError], raw: true)
+.} =
   peer.lightClientOptimisticUpdate()
 
 template valueVerifier[E](
-    self: LightClientManager,
-    e: typedesc[E]
+    self: LightClientManager, e: typedesc[E]
 ): ValueVerifier[E.V] =
   when E.V is ForkedLightClientBootstrap:
     self.bootstrapVerifier
@@ -167,7 +158,9 @@ template valueVerifier[E](
     self.finalityUpdateVerifier
   elif E.V is ForkedLightClientOptimisticUpdate:
     self.optimisticUpdateVerifier
-  else: static: doAssert false
+  else:
+    static:
+      doAssert false
 
 iterator values(v: auto): auto =
   ## Local helper for `workerTask` to share the same implementation for both
@@ -179,9 +172,7 @@ iterator values(v: auto): auto =
     yield v
 
 proc workerTask[E](
-    self: LightClientManager,
-    e: typedesc[E],
-    key: E.K
+    self: LightClientManager, e: typedesc[E], key: E.K
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   var
     peer: Peer
@@ -214,7 +205,9 @@ proc workerTask[E](
               when lcDataFork > LightClientDataFork.None:
                 notice "Received value from an unviable fork",
                   value = forkyObject,
-                  endpoint = E.name, peer, peer_score = peer.getScore()
+                  endpoint = E.name,
+                  peer,
+                  peer_score = peer.getScore()
               else:
                 notice "Received value from an unviable fork",
                   endpoint = E.name, peer, peer_score = peer.getScore()
@@ -224,8 +217,11 @@ proc workerTask[E](
             # Descore, received data is malformed
             withForkyObject(val):
               when lcDataFork > LightClientDataFork.None:
-                warn "Received invalid value", value = forkyObject.shortLog,
-                  endpoint = E.name, peer, peer_score = peer.getScore()
+                warn "Received invalid value",
+                  value = forkyObject.shortLog,
+                  endpoint = E.name,
+                  peer,
+                  peer_score = peer.getScore()
               else:
                 warn "Received invalid value",
                   endpoint = E.name, peer, peer_score = peer.getScore()
@@ -239,11 +235,11 @@ proc workerTask[E](
         peer.updateScore(PeerScoreGoodValues)
     else:
       peer.updateScore(PeerScoreNoValues)
-      debug "Failed to receive value on request", value,
-        endpoint = E.name, peer, peer_score = peer.getScore()
+      debug "Failed to receive value on request",
+        value, endpoint = E.name, peer, peer_score = peer.getScore()
   except ResponseError as exc:
-    warn "Received invalid response", error = exc.msg,
-      endpoint = E.name, peer, peer_score = peer.getScore()
+    warn "Received invalid response",
+      error = exc.msg, endpoint = E.name, peer, peer_score = peer.getScore()
     peer.updateScore(PeerScoreBadValues)
   except CancelledError as exc:
     raise exc
@@ -255,9 +251,7 @@ proc workerTask[E](
   return didProgress
 
 proc query[E](
-    self: LightClientManager,
-    e: typedesc[E],
-    key: E.K
+    self: LightClientManager, e: typedesc[E], key: E.K
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   const PARALLEL_REQUESTS = 2
   var workers: array[PARALLEL_REQUESTS, Future[bool]]
@@ -328,8 +322,7 @@ proc query[E](
   return progressFut.completed
 
 template query[E](
-    self: LightClientManager,
-    e: typedesc[E]
+    self: LightClientManager, e: typedesc[E]
 ): Future[bool].Raising([CancelledError]) =
   self.query(e, Nothing())
 
@@ -371,13 +364,15 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
         current = current,
         finalized = self.getFinalizedPeriod(),
         optimistic = self.getOptimisticPeriod(),
-        isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
+        isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown(),
+      )
 
       didProgress =
         case syncTask.kind
         of LcSyncKind.UpdatesByRange:
-          await self.query(UpdatesByRange,
-            (startPeriod: syncTask.startPeriod, count: syncTask.count))
+          await self.query(
+            UpdatesByRange, (startPeriod: syncTask.startPeriod, count: syncTask.count)
+          )
         of LcSyncKind.FinalityUpdate:
           haveFinalityUpdate = true
           await self.query(FinalityUpdate)
@@ -392,8 +387,7 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
       finalized = self.getFinalizedPeriod()
       optimistic = self.getOptimisticPeriod()
       isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
-      isGossipSupported =
-        current.isGossipSupported(finalized, isNextSyncCommitteeKnown)
+      isGossipSupported = current.isGossipSupported(finalized, isNextSyncCommitteeKnown)
     nextSyncTaskTime =
       if not wasGossipSupported and isGossipSupported:
         # Obtain an extra finality update after finishing sync
@@ -401,10 +395,15 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
         haveFinalityUpdate = false
         wallTime
       else:
-        wallTime + self.rng.nextLcSyncTaskDelay(
-          self.timeParams, wallTime,
-          finalized, optimistic, isNextSyncCommitteeKnown,
-          didLatestSyncTaskProgress = didProgress)
+        wallTime +
+          self.rng.nextLcSyncTaskDelay(
+            self.timeParams,
+            wallTime,
+            finalized,
+            optimistic,
+            isNextSyncCommitteeKnown,
+            didLatestSyncTaskProgress = didProgress,
+          )
     wasGossipSupported = isGossipSupported
 
 proc start*(self: var LightClientManager) =

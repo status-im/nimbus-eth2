@@ -25,35 +25,28 @@ import
 
 export results, rand, altair, phase0, taskpools, signatures
 
-type
-  BatchVerifier* = object
-    sigVerifCache*: BatchedBLSVerifierCache
-      ## A cache for batch BLS signature verification contexts
-    rng*: ref HmacDrbgContext
-      ## A reference to the Nimbus application-wide RNG
-    taskpool*: Taskpool
+type BatchVerifier* = object
+  sigVerifCache*: BatchedBLSVerifierCache
+    ## A cache for batch BLS signature verification contexts
+  rng*: ref HmacDrbgContext ## A reference to the Nimbus application-wide RNG
+  taskpool*: Taskpool
 
 proc init*(
-    T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: Taskpool): BatchVerifier =
+    T: type BatchVerifier, rng: ref HmacDrbgContext, taskpool: Taskpool
+): BatchVerifier =
   BatchVerifier(
-    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
-    rng: rng,
-    taskpool: taskpool,
+    sigVerifCache: BatchedBLSVerifierCache.init(taskpool), rng: rng, taskpool: taskpool
   )
 
 proc new*(
-    T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: Taskpool): ref BatchVerifier =
+    T: type BatchVerifier, rng: ref HmacDrbgContext, taskpool: Taskpool
+): ref BatchVerifier =
   (ref BatchVerifier)(
-    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
-    rng: rng,
-    taskpool: taskpool,
+    sigVerifCache: BatchedBLSVerifierCache.init(taskpool), rng: rng, taskpool: taskpool
   )
 
 func `$`*(s: SignatureSet): string =
-  "(pubkey: 0x" & s.pubkey.toHex() &
-    ", signing_root: 0x" & s.message.toHex() &
+  "(pubkey: 0x" & s.pubkey.toHex() & ", signing_root: 0x" & s.message.toHex() &
     ", signature: 0x" & s.signature.toHex() & ')'
 
 # Important:
@@ -62,21 +55,19 @@ func `$`*(s: SignatureSet): string =
 #     there is no guarantee that pubkeys and signatures received are valid
 #     unlike when Nimbus did eager loading which ensured they were correct beforehand
 
-func init(T: type SignatureSet,
-    pubkey: CookedPubKey, signing_root: Eth2Digest,
-    signature: CookedSig): T =
+func init(
+    T: type SignatureSet,
+    pubkey: CookedPubKey,
+    signing_root: Eth2Digest,
+    signature: CookedSig,
+): T =
   ## Add a new signature set triplet (pubkey, message, signature)
   ## to a collection of signature sets for batch verification.
-  (
-    blscurve.PublicKey(pubkey),
-    signing_root.data,
-    blscurve.Signature(signature)
-  )
+  (blscurve.PublicKey(pubkey), signing_root.data, blscurve.Signature(signature))
 
 func aggregateAttesters(
-      validatorIndices: openArray[uint64|ValidatorIndex],
-      validatorKeys: auto,
-     ): Result[CookedPubKey, cstring] =
+    validatorIndices: openArray[uint64 | ValidatorIndex], validatorKeys: auto
+): Result[CookedPubKey, cstring] =
   if validatorIndices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
@@ -84,11 +75,10 @@ func aggregateAttesters(
     # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
-  let
-    firstKey = validatorKeys.load(validatorIndices[0]).valueOr:
-      return err("aggregateAttesters: invalid attesting index")
+  let firstKey = validatorKeys.load(validatorIndices[0]).valueOr:
+    return err("aggregateAttesters: invalid attesting index")
 
-  var attestersAgg{.noinit.}: AggregatePublicKey
+  var attestersAgg {.noinit.}: AggregatePublicKey
 
   attestersAgg.init(firstKey)
   for i in 1 ..< validatorIndices.len:
@@ -99,10 +89,10 @@ func aggregateAttesters(
   ok(finish(attestersAgg))
 
 func aggregateAttesters(
-      validatorIndices: openArray[uint64|ValidatorIndex],
-      bits: auto,
-      validatorKeys: auto,
-     ): Result[CookedPubKey, cstring] =
+    validatorIndices: openArray[uint64 | ValidatorIndex],
+    bits: auto,
+    validatorKeys: auto,
+): Result[CookedPubKey, cstring] =
   if validatorIndices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
@@ -110,10 +100,10 @@ func aggregateAttesters(
     # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
-  var attestersAgg{.noinit.}: AggregatePublicKey
+  var attestersAgg {.noinit.}: AggregatePublicKey
 
   var inited = false
-  for i in 0..<bits.len:
+  for i in 0 ..< bits.len:
     if bits[i]:
       let key = validatorKeys.load(validatorIndices[i]).valueOr:
         return err("aggregateAttesters: invalid attesting index")
@@ -133,149 +123,188 @@ func aggregateAttesters(
 
 # See also: verify_slot_signature
 func slot_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_slot_signing_root(
-    fork, genesis_validators_root, slot)
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root = compute_slot_signing_root(fork, genesis_validators_root, slot)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_epoch_signature
 func epoch_signature_set*(
-   fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_epoch_signing_root(
-    fork, genesis_validators_root, epoch)
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    epoch: Epoch,
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root = compute_epoch_signing_root(fork, genesis_validators_root, epoch)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_block_signature
 func block_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_block_signing_root(
-    fork, genesis_validators_root, slot, blck)
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root =
+    compute_block_signing_root(fork, genesis_validators_root, slot, blck)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_aggregate_and_proof_signature
 func aggregate_and_proof_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
   let signing_root = compute_aggregate_and_proof_signing_root(
-    fork, genesis_validators_root, aggregate_and_proof)
+    fork, genesis_validators_root, aggregate_and_proof
+  )
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_attestation_signature
 func attestation_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_attestation_signing_root(
-    fork, genesis_validators_root, attestation_data)
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root =
+    compute_attestation_signing_root(fork, genesis_validators_root, attestation_data)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 func payload_attestation_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     payload_attestation_message: PayloadAttestationMessage,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
   let signing_root = compute_payload_attestation_message_signing_root(
-    fork, genesis_validators_root, payload_attestation_message)
+    fork, genesis_validators_root, payload_attestation_message
+  )
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_voluntary_exit_signature
 func voluntary_exit_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_voluntary_exit_signing_root(
-    fork, genesis_validators_root, voluntary_exit)
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root =
+    compute_voluntary_exit_signing_root(fork, genesis_validators_root, voluntary_exit)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_message_signature
 func sync_committee_message_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, block_root: Eth2Digest,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    block_root: Eth2Digest,
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
   let signing_root = compute_sync_committee_message_signing_root(
-    fork, genesis_validators_root, slot, block_root)
+    fork, genesis_validators_root, slot, block_root
+  )
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_selection_proof
 func sync_committee_selection_proof_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, subcommittee_index: SyncSubcommitteeIndex,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    subcommittee_index: SyncSubcommitteeIndex,
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
   let signing_root = compute_sync_committee_selection_proof_signing_root(
-    fork, genesis_validators_root, slot, subcommittee_index)
+    fork, genesis_validators_root, slot, subcommittee_index
+  )
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 func contribution_and_proof_signature_set*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
-  let signing_root = compute_contribution_and_proof_signing_root(
-    fork, genesis_validators_root, msg)
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
+  let signing_root =
+    compute_contribution_and_proof_signing_root(fork, genesis_validators_root, msg)
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 func bls_to_execution_change_signature_set*(
-    genesis_fork_version: Version, genesis_validators_root: Eth2Digest,
+    genesis_fork_version: Version,
+    genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange,
-    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+    pubkey: CookedPubKey,
+    signature: CookedSig,
+): SignatureSet =
   let signing_root = compute_bls_to_execution_change_signing_root(
-    genesis_fork_version, genesis_validators_root, msg)
+    genesis_fork_version, genesis_validators_root, msg
+  )
 
   SignatureSet.init(pubkey, signing_root, signature)
 
 proc collectProposerSignatureSet*(
-  sigs: var seq[SignatureSet],
-  blocks: openArray[ForkedSignedBeaconBlock],
-  validatorKeys: openArray[ImmutableValidatorData2],
-  fork: Fork,
-  genesis_validators_root: Eth2Digest
+    sigs: var seq[SignatureSet],
+    blocks: openArray[ForkedSignedBeaconBlock],
+    validatorKeys: openArray[ImmutableValidatorData2],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
 ): Result[void, string] =
   mixin load
 
   for forkedBlock in blocks:
-    let item =
-      withBlck(forkedBlock):
-        let
-          proposerKey =
-            validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
-              let msg = "collectProposerSignatureSet: " &
-                        "invalid proposer index (" &
-                        $forkyBlck.message.proposer_index & ")"
-              return err(msg)
-          signature =
-            forkyBlck.signature.load().valueOr:
-              let msg = "collectProposerSignatureSet: " &
-                        "cannot load signature (" &
-                        $ forkyBlck.signature & ")"
-              return err(msg)
-        block_signature_set(
-          fork, genesis_validators_root,
-          forkyBlck.message.slot, forkyBlck.root,
-          proposerKey, signature)
+    let item = withBlck(forkedBlock):
+      let
+        proposerKey = validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
+          let msg =
+            "collectProposerSignatureSet: " & "invalid proposer index (" &
+            $forkyBlck.message.proposer_index & ")"
+          return err(msg)
+        signature = forkyBlck.signature.load().valueOr:
+          let msg =
+            "collectProposerSignatureSet: " & "cannot load signature (" &
+            $forkyBlck.signature & ")"
+          return err(msg)
+      block_signature_set(
+        fork, genesis_validators_root, forkyBlck.message.slot, forkyBlck.root,
+        proposerKey, signature,
+      )
     sigs.add(item)
   ok()
 
 proc collectSignatureSets*(
-       sigs: var seq[SignatureSet],
-       signed_block: ForkySignedBeaconBlock,
-       validatorKeys: openArray[ImmutableValidatorData2],
-       state: ForkedHashedBeaconState,
-       genesis_fork_version: Version,
-       capella_fork_version: Version,
-       cache: var StateCache): Result[void, cstring] =
+    sigs: var seq[SignatureSet],
+    signed_block: ForkySignedBeaconBlock,
+    validatorKeys: openArray[ImmutableValidatorData2],
+    state: ForkedHashedBeaconState,
+    genesis_fork_version: Version,
+    capella_fork_version: Version,
+    cache: var StateCache,
+): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
   ## except deposits, in one go.
   ##
@@ -306,7 +335,6 @@ proc collectSignatureSets*(
     proposer_index = signed_block.message.proposer_index
     proposer_key = validatorKeys.load(proposer_index).valueOr:
       return err("collectSignatureSets: invalid proposer index")
-
 
   # 1. Block proposer
   # ----------------------------------------------------
@@ -373,10 +401,9 @@ proc collectSignatureSets*(
     # Attestation 1
     block:
       let
-        key =
-          ?aggregateAttesters(
-            slashing.attestation_1.attesting_indices.asSeq(), validatorKeys
-          )
+        key = ?aggregateAttesters(
+          slashing.attestation_1.attesting_indices.asSeq(), validatorKeys
+        )
         sig = slashing.attestation_1.signature.load().valueOr:
           return err("Invalid attestation slashing signature 1")
       sigs.add attestation_signature_set(
@@ -386,10 +413,9 @@ proc collectSignatureSets*(
     # Conflicting attestation 2
     block:
       let
-        key =
-          ?aggregateAttesters(
-            slashing.attestation_2.attesting_indices.asSeq(), validatorKeys
-          )
+        key = ?aggregateAttesters(
+          slashing.attestation_2.attesting_indices.asSeq(), validatorKeys
+        )
         sig = slashing.attestation_2.signature.load().valueOr:
           return err("Invalid attestation slashing signature 2")
       sigs.add attestation_signature_set(
@@ -460,11 +486,10 @@ proc collectSignatureSets*(
           forkyState.data.get_sync_committee_cache(cache).current_sync_committee
         previous_slot = max(forkyState.data.slot, Slot(1)) - 1
         beacon_block_root = get_block_root_at_slot(forkyState.data, previous_slot)
-        pubkey =
-          ?aggregateAttesters(
-            current_sync_committee,
-            signed_block.message.body.sync_aggregate.sync_committee_bits, validatorKeys,
-          )
+        pubkey = ?aggregateAttesters(
+          current_sync_committee,
+          signed_block.message.body.sync_aggregate.sync_committee_bits, validatorKeys,
+        )
         sig = signed_block.message.body.sync_aggregate.sync_committee_signature.load().valueOr:
           return err("collectSignatureSets: cannot load signature")
 

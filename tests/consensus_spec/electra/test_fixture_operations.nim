@@ -17,262 +17,291 @@ import
   ../../../beacon_chain/spec/datatypes/electra,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops,
+  ../fixtures_utils,
+  ../os_ops,
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
-  get_base_reward_per_increment, get_state_exit_queue_info,
-  get_total_active_balance, latest_block_root, process_attestation
+  get_base_reward_per_increment, get_state_exit_queue_info, get_total_active_balance,
+  latest_block_root, process_attestation
 
 const
-  OpDir                     = SszTestsDir/const_preset/"electra"/"operations"
-  OpAttestationsDir         = OpDir/"attestation"
-  OpAttSlashingDir          = OpDir/"attester_slashing"
-  OpBlockHeaderDir          = OpDir/"block_header"
-  OpBlsToExecutionChangeDir = OpDir/"bls_to_execution_change"
-  OpConsolidationRequestDir = OpDir/"consolidation_request"
-  OpDepositRequestDir       = OpDir/"deposit_request"
-  OpDepositsDir             = OpDir/"deposit"
-  OpWithdrawalRequestDir    = OpDir/"withdrawal_request"
-  OpExecutionPayloadDir     = OpDir/"execution_payload"
-  OpProposerSlashingDir     = OpDir/"proposer_slashing"
-  OpSyncAggregateDir        = OpDir/"sync_aggregate"
-  OpVoluntaryExitDir        = OpDir/"voluntary_exit"
-  OpWithdrawalsDir          = OpDir/"withdrawals"
+  OpDir = SszTestsDir / const_preset / "electra" / "operations"
+  OpAttestationsDir = OpDir / "attestation"
+  OpAttSlashingDir = OpDir / "attester_slashing"
+  OpBlockHeaderDir = OpDir / "block_header"
+  OpBlsToExecutionChangeDir = OpDir / "bls_to_execution_change"
+  OpConsolidationRequestDir = OpDir / "consolidation_request"
+  OpDepositRequestDir = OpDir / "deposit_request"
+  OpDepositsDir = OpDir / "deposit"
+  OpWithdrawalRequestDir = OpDir / "withdrawal_request"
+  OpExecutionPayloadDir = OpDir / "execution_payload"
+  OpProposerSlashingDir = OpDir / "proposer_slashing"
+  OpSyncAggregateDir = OpDir / "sync_aggregate"
+  OpVoluntaryExitDir = OpDir / "voluntary_exit"
+  OpWithdrawalsDir = OpDir / "withdrawals"
 
   baseDescription = "EF - Electra - Operations - "
 
+const testDirs = toHashSet(
+  [
+    OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir, OpBlsToExecutionChangeDir,
+    OpConsolidationRequestDir, OpDepositRequestDir, OpDepositsDir,
+    OpWithdrawalRequestDir, OpExecutionPayloadDir, OpProposerSlashingDir,
+    OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir,
+  ]
+)
 
-const testDirs = toHashSet([
-  OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-  OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
-  OpWithdrawalsDir])
-
-doAssert toHashSet(
-  mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
+doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
 
 proc runTest[T, U](
-    testSuiteDir, suiteName, opName, applyFile: string,
-    applyProc: U, identifier: string) =
+    testSuiteDir, suiteName, opName, applyFile: string, applyProc: U, identifier: string
+) =
   let testDir = testSuiteDir / "pyspec_tests" / identifier
 
   let prefix =
-    if fileExists(testDir/"post.ssz_snappy"):
-      "[Valid]   "
-    else:
-      "[Invalid] "
+    if fileExists(testDir / "post.ssz_snappy"): "[Valid]   " else: "[Invalid] "
 
   test prefix & baseDescription & opName & " - " & identifier:
-    let preState = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, electra.BeaconState))
-    let done = applyProc(
-      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+    let preState =
+      newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, electra.BeaconState))
+    let done =
+      applyProc(preState[], parseTest(testDir / (applyFile & ".ssz_snappy"), SSZ, T))
 
-    if fileExists(testDir/"post.ssz_snappy"):
+    if fileExists(testDir / "post.ssz_snappy"):
       let postState =
-        newClone(parseTest(
-          testDir/"post.ssz_snappy", SSZ, electra.BeaconState))
+        newClone(parseTest(testDir / "post.ssz_snappy", SSZ, electra.BeaconState))
 
       reportDiff(preState, postState)
       check:
         done.isOk()
         preState[].hash_tree_root() == postState[].hash_tree_root()
     else:
-      check: done.isErr() # No post state = processing should fail
+      check:
+        done.isErr() # No post state = processing should fail
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var electra.BeaconState, attestation: electra.Attestation):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, attestation: electra.Attestation
+  ): Result[void, cstring] =
     var cache: StateCache
     let
       total_active_balance = get_total_active_balance(preState, cache)
-      base_reward_per_increment =
-        get_base_reward_per_increment(total_active_balance)
+      base_reward_per_increment = get_base_reward_per_increment(total_active_balance)
 
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
-    discard ? process_attestation(
-      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
+    discard ?process_attestation(
+      preState, attestation, {strictVerification}, base_reward_per_increment, cache
+    )
     ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[electra.Attestation, typeof applyAttestation](
-      OpAttestationsDir, suiteName, "Attestation", "attestation",
-      applyAttestation, path)
+      OpAttestationsDir, suiteName, "Attestation", "attestation", applyAttestation, path
+    )
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var electra.BeaconState,
-      attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
+      preState: var electra.BeaconState, attesterSlashing: electra.AttesterSlashing
+  ): Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {},
-      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
+    doAssert (
+      ?process_attester_slashing(
+        defaultRuntimeConfig,
+        preState,
+        attesterSlashing,
+        {},
+        get_state_exit_queue_info(preState),
+        cache,
+      )
+    )[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[electra.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
-      applyAttesterSlashing, path)
+      applyAttesterSlashing, path,
+    )
 
 suite baseDescription & "Block Header " & preset():
   proc applyBlockHeader(
-      preState: var electra.BeaconState, blck: electra.BeaconBlock):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, blck: electra.BeaconBlock
+  ): Result[void, cstring] =
     if blck.is_execution_block:
-      check blck.body.execution_payload.block_hash ==
-        blck.compute_execution_block_hash()
+      check blck.body.execution_payload.block_hash == blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
     runTest[electra.BeaconBlock, typeof applyBlockHeader](
-      OpBlockHeaderDir, suiteName, "Block Header", "block",
-      applyBlockHeader, path)
+      OpBlockHeaderDir, suiteName, "Block Header", "block", applyBlockHeader, path
+    )
 
-from ../../../beacon_chain/spec/datatypes/capella import
-  SignedBLSToExecutionChange
+from ../../../beacon_chain/spec/datatypes/capella import SignedBLSToExecutionChange
 
 suite baseDescription & "BLS to execution change " & preset():
   proc applyBlsToExecutionChange(
       preState: var electra.BeaconState,
-      signed_address_change: SignedBLSToExecutionChange):
-      Result[void, cstring] =
+      signed_address_change: SignedBLSToExecutionChange,
+  ): Result[void, cstring] =
     process_bls_to_execution_change(
-      defaultRuntimeConfig, preState, signed_address_change)
+      defaultRuntimeConfig, preState, signed_address_change
+    )
 
   for path in walkTests(OpBlsToExecutionChangeDir):
     runTest[SignedBLSToExecutionChange, typeof applyBlsToExecutionChange](
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
-      applyBlsToExecutionChange, path)
+      applyBlsToExecutionChange, path,
+    )
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ".."/".."/".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Consolidation Request " & preset():
   proc applyConsolidationRequest(
-      preState: var electra.BeaconState,
-      consolidation_request: ConsolidationRequest): Result[void, cstring] =
+      preState: var electra.BeaconState, consolidation_request: ConsolidationRequest
+  ): Result[void, cstring] =
     var cache: StateCache
     process_consolidation_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[],
-      consolidation_request, cache)
+      defaultRuntimeConfig, preState, sortValidatorBuckets(preState.validators.asSeq)[],
+      consolidation_request, cache,
+    )
     ok()
 
   for path in walkTests(OpConsolidationRequestDir):
     runTest[ConsolidationRequest, typeof applyConsolidationRequest](
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
-      "consolidation_request", applyConsolidationRequest, path)
+      "consolidation_request", applyConsolidationRequest, path,
+    )
 
 suite baseDescription & "Deposit " & preset():
   func applyDeposit(
-      preState: var electra.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, deposit: Deposit
+  ): Result[void, cstring] =
     process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
+      defaultRuntimeConfig,
+      preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      deposit,
+      {},
+    )
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
+      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path
+    )
 
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
-      preState: var electra.BeaconState, depositRequest: DepositRequest):
-      Result[void, cstring] =
-    process_deposit_request(
-      defaultRuntimeConfig, preState, depositRequest, {})
+      preState: var electra.BeaconState, depositRequest: DepositRequest
+  ): Result[void, cstring] =
+    process_deposit_request(defaultRuntimeConfig, preState, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
-      applyDepositRequest, path)
+      applyDepositRequest, path,
+    )
 
 suite baseDescription & "Execution Payload " & preset():
   func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
-        preState: var electra.BeaconState, body: electra.BeaconBlockBody):
-        Result[void, cstring] =
-      let payloadValid = os_ops.readFile(
-          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-        ).contains("execution_valid: true")
+        preState: var electra.BeaconState, body: electra.BeaconBlockBody
+    ): Result[void, cstring] =
+      let payloadValid = os_ops
+        .readFile(OpExecutionPayloadDir / "pyspec_tests" / path / "execution.yaml")
+        .contains("execution_valid: true")
       if payloadValid and body.is_execution_block and
           not body.execution_payload.transactions.anyIt(it.len == 0):
         let expectedOk = (path != "incorrect_block_hash")
-        check expectedOk == (body.execution_payload.block_hash ==
+        check expectedOk == (
+          body.execution_payload.block_hash ==
           body.compute_execution_block_hash(
-            preState.latest_block_root(
-              assignClone(preState)[].hash_tree_root())))
-      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      process_execution_payload(
-        defaultRuntimeConfig, preState, body, executePayload)
+            preState.latest_block_root(assignClone(preState)[].hash_tree_root())
+          )
+        )
+      func executePayload(_: deneb.ExecutionPayload): bool =
+        payloadValid
+      process_execution_payload(defaultRuntimeConfig, preState, body, executePayload)
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[electra.BeaconBlockBody, typeof applyExecutionPayload](
       OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
-      applyExecutionPayload, path)
+      applyExecutionPayload, path,
+    )
 
 suite baseDescription & "Withdrawal Request " & preset():
   func applyWithdrawalRequest(
-      preState: var electra.BeaconState, withdrawalRequest: WithdrawalRequest):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, withdrawalRequest: WithdrawalRequest
+  ): Result[void, cstring] =
     var cache: StateCache
     process_withdrawal_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], withdrawalRequest,
-      cache)
+      defaultRuntimeConfig, preState, sortValidatorBuckets(preState.validators.asSeq)[],
+      withdrawalRequest, cache,
+    )
     ok()
 
   for path in walkTests(OpWithdrawalRequestDir):
     runTest[WithdrawalRequest, typeof applyWithdrawalRequest](
-      OpWithdrawalRequestDir, suiteName, "Withdrawal Request",
-      "withdrawal_request", applyWithdrawalRequest, path)
+      OpWithdrawalRequestDir, suiteName, "Withdrawal Request", "withdrawal_request",
+      applyWithdrawalRequest, path,
+    )
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var electra.BeaconState, proposerSlashing: ProposerSlashing):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, proposerSlashing: ProposerSlashing
+  ): Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {},
-      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
+    doAssert (
+      ?process_proposer_slashing(
+        defaultRuntimeConfig,
+        preState,
+        proposerSlashing,
+        {},
+        get_state_exit_queue_info(preState),
+        cache,
+      )
+    )[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
       OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
-      applyProposerSlashing, path)
+      applyProposerSlashing, path,
+    )
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var electra.BeaconState, syncAggregate: SyncAggregate):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, syncAggregate: SyncAggregate
+  ): Result[void, cstring] =
     var cache: StateCache
-    discard ? process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)
+    discard ?process_sync_aggregate(
+      preState, syncAggregate, get_total_active_balance(preState, cache), {}, cache
+    )
     ok()
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
       OpSyncAggregateDir, suiteName, "Sync Aggregate", "sync_aggregate",
-      applySyncAggregate, path)
+      applySyncAggregate, path,
+    )
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var electra.BeaconState, voluntaryExit: SignedVoluntaryExit):
-      Result[void, cstring] =
+      preState: var electra.BeaconState, voluntaryExit: SignedVoluntaryExit
+  ): Result[void, cstring] =
     var cache: StateCache
     if process_voluntary_exit(
-        defaultRuntimeConfig, preState, voluntaryExit, {},
-        get_state_exit_queue_info(preState), cache).isOk:
+      defaultRuntimeConfig,
+      preState,
+      voluntaryExit,
+      {},
+      get_state_exit_queue_info(preState),
+      cache,
+    ).isOk:
       ok()
     else:
       err("")
@@ -280,15 +309,17 @@ suite baseDescription & "Voluntary Exit " & preset():
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
-      applyVoluntaryExit, path)
+      applyVoluntaryExit, path,
+    )
 
 suite baseDescription & "Withdrawals " & preset():
   func applyWithdrawals(
-      preState: var electra.BeaconState,
-      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
+      preState: var electra.BeaconState, executionPayload: deneb.ExecutionPayload
+  ): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)
 
   for path in walkTests(OpWithdrawalsDir):
     runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
-      OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
-      applyWithdrawals, path)
+      OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload", applyWithdrawals,
+      path,
+    )

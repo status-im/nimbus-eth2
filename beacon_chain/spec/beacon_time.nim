@@ -8,11 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, typetraits],
-  chronicles,
-  chronos/timer,
-  json_serialization,
-  ./presets
+  std/[hashes, typetraits], chronicles, chronos/timer, json_serialization, ./presets
 
 export hashes, timer, json_serialization, presets
 
@@ -45,8 +41,7 @@ const
 
 func FAR_FUTURE_BEACON_TIME(timeParams: TimeParams): BeaconTime =
   # Ensure all representable slots are complete
-  BeaconTime(ns_since_genesis:
-    int64.high() - timeParams.SLOT_DURATION.nanoseconds)
+  BeaconTime(ns_since_genesis: int64.high() - timeParams.SLOT_DURATION.nanoseconds)
 
 template ethTimeUnit*(typ: type) {.dirty.} =
   func `+`*(x: typ, y: uint64): typ {.borrow.}
@@ -87,41 +82,58 @@ template ethTimeUnit*(typ: type) {.dirty.} =
   func `$`*(x: typ): string {.borrow.}
   func hash*(x: typ): Hash {.borrow.}
 
-  template asUInt64*(v: typ): uint64 = distinctBase(v)
-  template shortLog*(v: typ): auto = distinctBase(v)
+  template asUInt64*(v: typ): uint64 =
+    distinctBase(v)
+
+  template shortLog*(v: typ): auto =
+    distinctBase(v)
 
   # Serialization
   proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
     writeValue(writer, uint64 value)
 
-  proc readValue*(reader: var JsonReader, value: var typ)
-                 {.raises: [IOError, SerializationError].} =
+  proc readValue*(
+      reader: var JsonReader, value: var typ
+  ) {.raises: [IOError, SerializationError].} =
     value = typ reader.readValue(uint64)
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
 ethTimeUnit SyncCommitteePeriod
 
-template `<`*(a, b: BeaconTime): bool = a.ns_since_genesis < b.ns_since_genesis
-template `<=`*(a, b: BeaconTime): bool = a.ns_since_genesis <= b.ns_since_genesis
-template `<`*(a, b: TimeDiff): bool = a.nanoseconds < b.nanoseconds
-template `<=`*(a, b: TimeDiff): bool = a.nanoseconds <= b.nanoseconds
-template `<`*(a: TimeDiff, b: Duration): bool = a.nanoseconds < b.nanoseconds
+template `<`*(a, b: BeaconTime): bool =
+  a.ns_since_genesis < b.ns_since_genesis
+
+template `<=`*(a, b: BeaconTime): bool =
+  a.ns_since_genesis <= b.ns_since_genesis
+
+template `<`*(a, b: TimeDiff): bool =
+  a.nanoseconds < b.nanoseconds
+
+template `<=`*(a, b: TimeDiff): bool =
+  a.nanoseconds <= b.nanoseconds
+
+template `<`*(a: TimeDiff, b: Duration): bool =
+  a.nanoseconds < b.nanoseconds
 
 func afterGenesis*(t: BeaconTime): bool =
   t.ns_since_genesis >= 0
 
 func toSlot*(
-    t: BeaconTime,
-    timeParams: TimeParams): tuple[afterGenesis: bool, slot: Slot] =
+    t: BeaconTime, timeParams: TimeParams
+): tuple[afterGenesis: bool, slot: Slot] =
   if t >= timeParams.FAR_FUTURE_BEACON_TIME:
     (true, FAR_FUTURE_SLOT)
   elif t.ns_since_genesis >= 0:
-    (true, Slot(uint64(t.ns_since_genesis) div
-      timeParams.SLOT_DURATION.nanoseconds.uint64))
+    (
+      true,
+      Slot(uint64(t.ns_since_genesis) div timeParams.SLOT_DURATION.nanoseconds.uint64),
+    )
   else:
-    (false, Slot(uint64(-t.ns_since_genesis) div
-      timeParams.SLOT_DURATION.nanoseconds.uint64))
+    (
+      false,
+      Slot(uint64(-t.ns_since_genesis) div timeParams.SLOT_DURATION.nanoseconds.uint64),
+    )
 
 template `+`*(t: BeaconTime, offset: Duration | TimeDiff): BeaconTime =
   BeaconTime(ns_since_genesis: t.ns_since_genesis + offset.nanoseconds)
@@ -191,84 +203,72 @@ func toFloatSeconds*(t: TimeDiff): float =
 
 func start_beacon_time*(s: Slot, timeParams: TimeParams): BeaconTime =
   # The point in time that a slot begins
-  let maxSlot = Slot(uint64(
-    timeParams.FAR_FUTURE_BEACON_TIME.ns_since_genesis div
-    timeParams.SLOT_DURATION.nanoseconds))
+  let maxSlot = Slot(
+    uint64(
+      timeParams.FAR_FUTURE_BEACON_TIME.ns_since_genesis div
+        timeParams.SLOT_DURATION.nanoseconds
+    )
+  )
   if s > maxSlot:
     timeParams.FAR_FUTURE_BEACON_TIME
   else:
-    BeaconTime(ns_since_genesis:
-      int64(uint64(s)) * timeParams.SLOT_DURATION.nanoseconds)
+    BeaconTime(
+      ns_since_genesis: int64(uint64(s)) * timeParams.SLOT_DURATION.nanoseconds
+    )
 
 func block_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams)
 
-func attestation_deadline*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.attestationSlotOffset
+func attestation_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.attestationSlotOffset
 
-func aggregate_deadline*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.aggregateSlotOffset
+func aggregate_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.aggregateSlotOffset
 
-func sync_committee_message_deadline*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.syncCommitteeMessageSlotOffset
+func sync_committee_message_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.syncCommitteeMessageSlotOffset
 
-func sync_contribution_deadline*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.syncContributionSlotOffset
+func sync_contribution_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.syncContributionSlotOffset
 
 # Gloas
-func attestation_deadline_gloas*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.attestationSlotOffsetGloas
+func attestation_deadline_gloas*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.attestationSlotOffsetGloas
 
-func aggregate_deadline_gloas*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.aggregateSlotOffsetGloas
+func aggregate_deadline_gloas*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.aggregateSlotOffsetGloas
 
 func sync_committee_message_deadline_gloas*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.syncCommitteeMessageSlotOffsetGloas
+    s: Slot, timeParams: TimeParams
+): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.syncCommitteeMessageSlotOffsetGloas
 
-func sync_contribution_deadline_gloas*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.syncContributionSlotOffsetGloas
+func sync_contribution_deadline_gloas*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.syncContributionSlotOffsetGloas
 
-func payload_attestation_deadline*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.payloadAttestationSlotOffset
+func payload_attestation_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.payloadAttestationSlotOffset
 
-func light_client_finality_update_time*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.lightClientFinalityUpdateSlotOffset
+func light_client_finality_update_time*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.lightClientFinalityUpdateSlotOffset
 
-func light_client_optimistic_update_time*(
-    s: Slot, timeParams: TimeParams): BeaconTime =
-  s.start_beacon_time(timeParams) +
-    timeParams.lightClientOptimisticUpdateSlotOffset
+func light_client_optimistic_update_time*(s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime, timeParams: TimeParams): Slot =
   let exSlot = time.toSlot(timeParams)
-  if exSlot.afterGenesis: exSlot.slot
-  else: Slot(0)
+  if exSlot.afterGenesis:
+    exSlot.slot
+  else:
+    Slot(0)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
-  if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH
-  else: Epoch(slot div SLOTS_PER_EPOCH)
+  if slot == FAR_FUTURE_SLOT:
+    FAR_FUTURE_EPOCH
+  else:
+    Epoch(slot div SLOTS_PER_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
 func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_start
@@ -282,8 +282,10 @@ template is_epoch*(slot: Slot): bool =
 func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   ## Return the start slot of ``epoch``.
   const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
-  if epoch >= maxEpoch: FAR_FUTURE_SLOT
-  else: Slot(epoch * SLOTS_PER_EPOCH)
+  if epoch >= maxEpoch:
+    FAR_FUTURE_SLOT
+  else:
+    Slot(epoch * SLOTS_PER_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
@@ -300,12 +302,16 @@ iterator slots*(epoch: Epoch): Slot =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee
 template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
-  if epoch == FAR_FUTURE_EPOCH: FAR_FUTURE_PERIOD
-  else: SyncCommitteePeriod(epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+  if epoch == FAR_FUTURE_EPOCH:
+    FAR_FUTURE_PERIOD
+  else:
+    SyncCommitteePeriod(epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
 
 template sync_committee_period*(slot: Slot): SyncCommitteePeriod =
-  if slot == FAR_FUTURE_SLOT: FAR_FUTURE_PERIOD
-  else: SyncCommitteePeriod(slot div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+  if slot == FAR_FUTURE_SLOT:
+    FAR_FUTURE_PERIOD
+  else:
+    SyncCommitteePeriod(slot div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
 
 func since_sync_committee_period_start*(slot: Slot): uint64 =
   ## How many slots since the beginning of the epoch (`[0..SLOTS_PER_SYNC_COMMITTEE_PERIOD-1]`)
@@ -323,23 +329,33 @@ template is_sync_committee_period*(epoch: Epoch): bool =
 
 template start_epoch*(period: SyncCommitteePeriod): Epoch =
   ## Return the start epoch of ``period``.
-  const maxPeriod = SyncCommitteePeriod(
-    FAR_FUTURE_EPOCH div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
-  if period >= maxPeriod: FAR_FUTURE_EPOCH
-  else: Epoch(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+  const maxPeriod =
+    SyncCommitteePeriod(FAR_FUTURE_EPOCH div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+  if period >= maxPeriod:
+    FAR_FUTURE_EPOCH
+  else:
+    Epoch(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
 
 template start_slot*(period: SyncCommitteePeriod): Slot =
   ## Return the start slot of ``period``.
-  const maxPeriod = SyncCommitteePeriod(
-    FAR_FUTURE_SLOT div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
-  if period >= maxPeriod: FAR_FUTURE_SLOT
-  else: Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+  const maxPeriod =
+    SyncCommitteePeriod(FAR_FUTURE_SLOT div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+  if period >= maxPeriod:
+    FAR_FUTURE_SLOT
+  else:
+    Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
 
 func proposer_dependent_slot*(epoch: Epoch): Slot =
-  if epoch >= 1: epoch.start_slot() - 1 else: Slot(0)
+  if epoch >= 1:
+    epoch.start_slot() - 1
+  else:
+    Slot(0)
 
 func attester_dependent_slot*(epoch: Epoch): Slot =
-  if epoch >= 2: (epoch - 1).start_slot() - 1 else: Slot(0)
+  if epoch >= 2:
+    (epoch - 1).start_slot() - 1
+  else:
+    Slot(0)
 
 func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:
@@ -353,10 +369,16 @@ func `$`*(t: TimeDiff): string =
   else:
     "-" & $(timer.nanoseconds(-t.nanoseconds))
 
-func shortLog*(t: BeaconTime | TimeDiff): string = $t
+func shortLog*(t: BeaconTime | TimeDiff): string =
+  $t
 
-chronicles.formatIt BeaconTime: it.shortLog
-chronicles.formatIt TimeDiff: it.shortLog
-chronicles.formatIt Slot: it.shortLog
-chronicles.formatIt Epoch: it.shortLog
-chronicles.formatIt SyncCommitteePeriod: it.shortLog
+chronicles.formatIt BeaconTime:
+  it.shortLog
+chronicles.formatIt TimeDiff:
+  it.shortLog
+chronicles.formatIt Slot:
+  it.shortLog
+chronicles.formatIt Epoch:
+  it.shortLog
+chronicles.formatIt SyncCommitteePeriod:
+  it.shortLog

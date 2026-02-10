@@ -7,15 +7,18 @@
 
 {.push raises: [].}
 
-import results, chronos,
-       ".."/spec/[forks_light_client, signatures_batch],
-       ".."/consensus_object_pools/[block_pools_types, blockchain_dag,
-                                    attestation_pool, blockchain_list,
-                                    consensus_manager],
-       ".."/validators/validator_monitor,
-       ".."/[beacon_clock, conf],
-       ".."/networking/eth2_network,
-       "."/sync_manager
+import
+  results,
+  chronos,
+  ".."/spec/[forks_light_client, signatures_batch],
+  ".."/consensus_object_pools/[
+    block_pools_types, blockchain_dag, attestation_pool, blockchain_list,
+    consensus_manager,
+  ],
+  ".."/validators/validator_monitor,
+  ".."/[beacon_clock, conf],
+  ".."/networking/eth2_network,
+  "."/sync_manager
 
 export results, chronos, block_pools_types, conf
 
@@ -26,9 +29,10 @@ type
     blocks*: seq[BlockData]
 
   SyncKind* {.pure.} = enum
-    ForwardSync, TrustedNodeSync,
-    UntrustedSyncInit,
-    UntrustedSyncDownload,
+    ForwardSync
+    TrustedNodeSync
+    UntrustedSyncInit
+    UntrustedSyncDownload
     UntrustedSyncRebuild
 
   SyncOverseer* = object
@@ -67,7 +71,7 @@ proc new*(
     batchVerifier: ref BatchVerifier,
     forwardSync: SyncManager[Peer, PeerId],
     backwardSync: SyncManager[Peer, PeerId],
-    untrustedSync: SyncManager[Peer, PeerId]
+    untrustedSync: SyncManager[Peer, PeerId],
 ): SyncOverseerRef =
   SyncOverseerRef(
     consensusManager: cm,
@@ -83,10 +87,9 @@ proc new*(
     backwardSync: backwardSync,
     untrustedSync: untrustedSync,
     untrustedInProgress: false,
-    blocksQueue: newAsyncQueue[BlockDataChunk]())
+    blocksQueue: newAsyncQueue[BlockDataChunk](),
+  )
 
 proc syncInProgress*(overseer: SyncOverseerRef): bool =
-  overseer.forwardSync.inProgress or
-  overseer.backwardSync.inProgress or
-  overseer.untrustedSync.inProgress or
-  overseer.untrustedInProgress
+  overseer.forwardSync.inProgress or overseer.backwardSync.inProgress or
+    overseer.untrustedSync.inProgress or overseer.untrustedInProgress

@@ -10,16 +10,20 @@
 import
   std/tables,
   snappy,
-  chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
+  chronicles,
+  confutils,
+  stew/[byteutils, io2],
+  eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/[
-    beaconstate, state_transition, state_transition_epoch, validator,
-    ssz_codec],
+  ../beacon_chain/spec/
+    [beaconstate, state_transition, state_transition_epoch, validator, ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
-  ./era, ./ncli_common, ./validator_db_aggregator
+  ./era,
+  ./ncli_common,
+  ./validator_db_aggregator
 
 from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
@@ -41,12 +45,15 @@ type Timers = enum
 type
   DbCmd* {.pure.} = enum
     bench = "Run a replay benchmark for block and epoch processing"
-    dumpState = "Extract a state from the database as-is - only works for states that have been explicitly stored"
+    dumpState =
+      "Extract a state from the database as-is - only works for states that have been explicitly stored"
     putState = "Store a given BeaconState in the database"
     dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
-    putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
+    putBlock =
+      "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
     putBlob = "Store a given BlobSidecar in the database"
-    rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
+    rewindState =
+      "Extract any state from the database based on a given block and slot, replaying if needed"
     verifyEra = "Verify a single era file"
     exportEra = "Export historical data to era store in current directory"
     importEra = "Import era files to the database"
@@ -55,171 +62,147 @@ type
 
   DbConf = object
     databaseDir* {.
-      defaultValue: "db"
-      desc: "Directory where `nbc.sqlite` is stored"
-      name: "db".}: InputDir
+      defaultValue: "db", desc: "Directory where `nbc.sqlite` is stored", name: "db"
+    .}: InputDir
 
     eraDir* {.
-      defaultValue: "era"
-      desc: "Directory where era files are read from"
-      name: "era-dir".}: string
+      defaultValue: "era",
+      desc: "Directory where era files are read from",
+      name: "era-dir"
+    .}: string
 
-    eth2Network* {.
-      desc: "The Eth2 network preset to use"
-      name: "network".}: Option[string]
+    eth2Network* {.desc: "The Eth2 network preset to use", name: "network".}:
+      Option[string]
 
-    case cmd* {.
-      command
-      desc: ""
-      .}: DbCmd
-
+    case cmd* {.command, desc: "".}: DbCmd
     of DbCmd.bench:
       benchSlot* {.
-        defaultValue: 0
-        name: "start-slot"
-        desc: "Starting slot, negative = backwards from head".}: int64
+        defaultValue: 0,
+        name: "start-slot",
+        desc: "Starting slot, negative = backwards from head"
+      .}: int64
       benchSlots* {.
-        defaultValue: 50000
-        name: "slots"
-        desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
+        defaultValue: 50000,
+        name: "slots",
+        desc: "Number of slots to run benchmark for, 0 = all the way to head"
+      .}: uint64
       storeBlocks* {.
-        defaultValue: false
-        desc: "Store each read block back into a separate database".}: bool
+        defaultValue: false, desc: "Store each read block back into a separate database"
+      .}: bool
       storeStates* {.
-        defaultValue: false
-        name: "store-states"
-        desc: "Store a state each epoch into a separate database".}: bool
+        defaultValue: false,
+        name: "store-states",
+        desc: "Store a state each epoch into a separate database"
+      .}: bool
       printTimes* {.
-        defaultValue: true
-        name: "print-times"
-        desc: "Print csv of block processing time".}: bool
+        defaultValue: true,
+        name: "print-times",
+        desc: "Print csv of block processing time"
+      .}: bool
       resetCache* {.
-        defaultValue: false
-        name: "reset-cache"
-        desc: "Process each block with a fresh cache".}: bool
-
+        defaultValue: false,
+        name: "reset-cache",
+        desc: "Process each block with a fresh cache"
+      .}: bool
     of DbCmd.dumpState:
-      stateRoot* {.
-        argument
-        name: "state-root"
-        desc: "State root(s) to save".}: seq[string]
-
+      stateRoot* {.argument, name: "state-root", desc: "State root(s) to save".}:
+        seq[string]
     of DbCmd.putState:
-      stateFile {.
-        argument
-        name: "file"
-        desc: "Files to import".}: seq[string]
-
+      stateFile {.argument, name: "file", desc: "Files to import".}: seq[string]
     of DbCmd.dumpBlock:
-      blockRootx* {.
-        argument
-        name: "block-root"
-        desc: "Block root(s) to save".}: seq[string]
-
+      blockRootx* {.argument, name: "block-root", desc: "Block root(s) to save".}:
+        seq[string]
     of DbCmd.putBlock:
-      blckFile {.
-        argument
-        name: "file"
-        desc: "Files to import".}: seq[string]
+      blckFile {.argument, name: "file", desc: "Files to import".}: seq[string]
       setHead {.
-        defaultValue: false
-        name: "set-head"
-        desc: "Update head to this block"}: bool
+        defaultValue: false, name: "set-head", desc: "Update head to this block"
+      .}: bool
       setTail {.
-        defaultValue: false
-        name: "set-tail"
-        desc: "Update tail to this block"}: bool
+        defaultValue: false, name: "set-tail", desc: "Update tail to this block"
+      .}: bool
       setGenesis {.
-        defaultValue: false
-        name: "set-genesis"
-        desc: "Update genesis to this block"}: bool
-
+        defaultValue: false, name: "set-genesis", desc: "Update genesis to this block"
+      .}: bool
     of DbCmd.putBlob:
-      blobFile {.
-        argument
-        name: "file"
-        desc: "Files to import".}: seq[string]
-
+      blobFile {.argument, name: "file", desc: "Files to import".}: seq[string]
     of DbCmd.rewindState:
-      blockRoot* {.
-        argument
-        name: "block-root"
-        desc: "Block root".}: string
+      blockRoot* {.argument, name: "block-root", desc: "Block root".}: string
 
-      slot* {.
-        argument
-        desc: "Slot".}: uint64
-
+      slot* {.argument, desc: "Slot".}: uint64
     of DbCmd.verifyEra:
-      eraFile* {.
-        desc: "Era file name".}: string
-
+      eraFile* {.desc: "Era file name".}: string
     of DbCmd.exportEra:
-      era* {.
-        defaultValue: 0
-        desc: "The era number to write".}: uint64
+      era* {.defaultValue: 0, desc: "The era number to write".}: uint64
       eraCount* {.
-        defaultValue: 0
-        name: "count"
-        desc: "Number of eras to write (0=all)".}: uint64
-
+        defaultValue: 0, name: "count", desc: "Number of eras to write (0=all)"
+      .}: uint64
     of DbCmd.importEra:
       eraFiles* {.
-        argument
-        name: "file"
-        desc: "The name of the era file(s) to import".}: seq[string]
-
+        argument, name: "file", desc: "The name of the era file(s) to import"
+      .}: seq[string]
     of DbCmd.validatorPerf:
       perfSlot* {.
-        defaultValue: -128 * SLOTS_PER_EPOCH.int64
-        name: "start-slot"
-        desc: "Starting slot, negative = backwards from head".}: int64
+        defaultValue: -128 * SLOTS_PER_EPOCH.int64,
+        name: "start-slot",
+        desc: "Starting slot, negative = backwards from head"
+      .}: int64
       perfSlots* {.
-        defaultValue: 0
-        name: "slots"
-        desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
+        defaultValue: 0,
+        name: "slots",
+        desc: "Number of slots to run benchmark for, 0 = all the way to head"
+      .}: uint64
     of DbCmd.validatorDb:
-      outDir* {.
-        name: "out-dir"
-        abbr: "o"
-        desc: "Output directory".}: string
+      outDir* {.name: "out-dir", abbr: "o", desc: "Output directory".}: string
       startEpoch* {.
-        name: "start-epoch"
-        abbr: "s"
-        desc: "Epoch from which to start recording statistics." &
-              "By default one past the last epoch in the output directory".}: Option[uint]
+        name: "start-epoch",
+        abbr: "s",
+        desc:
+          "Epoch from which to start recording statistics." &
+          "By default one past the last epoch in the output directory"
+      .}: Option[uint]
       endEpoch* {.
-        name: "end-epoch"
-        abbr: "e"
-        desc: "The last for which to record statistics." &
-              "By default the last epoch in the input database".}: Option[uint]
+        name: "end-epoch",
+        abbr: "e",
+        desc:
+          "The last for which to record statistics." &
+          "By default the last epoch in the input database"
+      .}: Option[uint]
       resolution {.
         defaultValue: 225,
-        name: "resolution"
-        abbr: "r"
-        desc: "How many epochs to be aggregated in a single compacted file" .}: uint
+        name: "resolution",
+        abbr: "r",
+        desc: "How many epochs to be aggregated in a single compacted file"
+      .}: uint
       writeAggregatedFiles {.
-        name: "aggregated"
-        defaultValue: true
-        abbr: "a"
-        desc: "Whether to write aggregated files for a range of epochs with a given resolution" .}: bool
+        name: "aggregated",
+        defaultValue: true,
+        abbr: "a",
+        desc:
+          "Whether to write aggregated files for a range of epochs with a given resolution"
+      .}: bool
       writeUnaggregatedFiles {.
-        name: "unaggregated"
-        defaultValue: true
-        abbr: "u"
-        desc: "Whether to write unaggregated file for each epoch" .}: bool
+        name: "unaggregated",
+        defaultValue: true,
+        abbr: "u",
+        desc: "Whether to write unaggregated file for each epoch"
+      .}: bool
 
 var shouldShutDown = false
 
 func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slot) =
   let
     start =
-      if startSlot >= 0: Slot(startSlot)
-      elif uint64(-startSlot) >= dag.head.slot: Slot(0)
-      else: dag.head.slot - uint64(-startSlot)
+      if startSlot >= 0:
+        Slot(startSlot)
+      elif uint64(-startSlot) >= dag.head.slot:
+        Slot(0)
+      else:
+        dag.head.slot - uint64(-startSlot)
     ends =
-      if count == 0: dag.head.slot + 1
-      else: start + count
+      if count == 0:
+        dag.head.slot + 1
+      else:
+        start + count
   (start, ends)
 
 proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
@@ -254,10 +237,10 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[deneb.TrustedSignedBeaconBlock],
       seq[electra.TrustedSignedBeaconBlock],
       seq[fulu.TrustedSignedBeaconBlock],
-      seq[gloas.TrustedSignedBeaconBlock])
+      seq[gloas.TrustedSignedBeaconBlock],
+    )
 
-  echo "Loaded head slot ", dag.head.slot,
-    " selected ", blockRefs.len, " blocks"
+  echo "Loaded head slot ", dag.head.slot, " selected ", blockRefs.len, " blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0 ..< blockRefs.len:
@@ -266,29 +249,21 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     withTimer(timers[tLoadBlock]):
       case cfg.consensusForkAtEpoch(blck.slot.epoch)
       of ConsensusFork.Phase0:
-        blocks[0].add dag.db.getBlock(
-          blck.root, phase0.TrustedSignedBeaconBlock).get()
+        blocks[0].add dag.db.getBlock(blck.root, phase0.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Altair:
-        blocks[1].add dag.db.getBlock(
-          blck.root, altair.TrustedSignedBeaconBlock).get()
+        blocks[1].add dag.db.getBlock(blck.root, altair.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Bellatrix:
-        blocks[2].add dag.db.getBlock(
-          blck.root, bellatrix.TrustedSignedBeaconBlock).get()
+        blocks[2].add dag.db.getBlock(blck.root, bellatrix.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Capella:
-        blocks[3].add dag.db.getBlock(
-          blck.root, capella.TrustedSignedBeaconBlock).get()
+        blocks[3].add dag.db.getBlock(blck.root, capella.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Deneb:
-        blocks[4].add dag.db.getBlock(
-          blck.root, deneb.TrustedSignedBeaconBlock).get()
+        blocks[4].add dag.db.getBlock(blck.root, deneb.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Electra:
-        blocks[5].add dag.db.getBlock(
-          blck.root, electra.TrustedSignedBeaconBlock).get()
+        blocks[5].add dag.db.getBlock(blck.root, electra.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Fulu:
-        blocks[6].add dag.db.getBlock(
-          blck.root, fulu.TrustedSignedBeaconBlock).get()
+        blocks[6].add dag.db.getBlock(blck.root, fulu.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Gloas:
-        blocks[7].add dag.db.getBlock(
-          blck.root, gloas.TrustedSignedBeaconBlock).get()
+        blocks[7].add dag.db.getBlock(blck.root, gloas.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -303,36 +278,42 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref deneb.HashedBeaconState)(),
       (ref electra.HashedBeaconState)(),
       (ref fulu.HashedBeaconState)(),
-      (ref gloas.HashedBeaconState)())
+      (ref gloas.HashedBeaconState)(),
+    )
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
       stateData[],
       dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("not nil"),
-      false, cache, dag.updateFlags)
+      false,
+      cache,
+      dag.updateFlags,
+    )
 
   template processBlocks(blocks: auto) =
     for b in blocks.mitems():
-      if shouldShutDown: quit QuitSuccess
+      if shouldShutDown:
+        quit QuitSuccess
       while getStateField(stateData[], slot) < b.message.slot:
         let isEpoch = (getStateField(stateData[], slot) + 1).is_epoch()
         withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
           process_slots(
-            dag.cfg, stateData[], getStateField(stateData[], slot) + 1, cache,
-            info, {}).expect("Slot processing can't fail with correct inputs")
+            dag.cfg, stateData[], getStateField(stateData[], slot) + 1, cache, info, {}
+          )
+            .expect("Slot processing can't fail with correct inputs")
 
       var start = Moment.now()
       withTimer(timers[tApplyBlock]):
         if conf.resetCache:
           cache = StateCache()
-        let res = state_transition_block(
-            dag.cfg, stateData[], b, cache, {}, noRollback)
+        let res = state_transition_block(dag.cfg, stateData[], b, cache, {}, noRollback)
         if res.isErr():
           dump("./", b)
           echo "State transition failed (!) ", res.error()
           quit 1
       if conf.printTimes:
-        echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
+        echo b.message.slot,
+          ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
       if conf.storeBlocks:
         withTimer(timers[tDbStore]):
           dbBenchmark.putBlock(b)
@@ -351,39 +332,56 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               case consensusFork
               of ConsensusFork.Phase0:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[0][].data, noRollback)
+                  forkyState.root, loadedState[0][].data, noRollback
+                )
               of ConsensusFork.Altair:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[1][].data, noRollback)
+                  forkyState.root, loadedState[1][].data, noRollback
+                )
               of ConsensusFork.Bellatrix:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[2][].data, noRollback)
+                  forkyState.root, loadedState[2][].data, noRollback
+                )
               of ConsensusFork.Capella:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[3][].data, noRollback)
+                  forkyState.root, loadedState[3][].data, noRollback
+                )
               of ConsensusFork.Deneb:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[4][].data, noRollback)
+                  forkyState.root, loadedState[4][].data, noRollback
+                )
               of ConsensusFork.Electra:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[5][].data, noRollback)
+                  forkyState.root, loadedState[5][].data, noRollback
+                )
               of ConsensusFork.Fulu:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[6][].data, noRollback)
+                  forkyState.root, loadedState[6][].data, noRollback
+                )
               of ConsensusFork.Gloas:
                 doAssert dbBenchmark.getState(
-                  forkyState.root, loadedState[7][].data, noRollback)
+                  forkyState.root, loadedState[7][].data, noRollback
+                )
 
             if forkyState.data.slot.epoch mod 16 == 0:
-              let loadedRoot = case consensusFork
-                of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
-                of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
-                of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
-                of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
-                of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
-                of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
-                of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
+              let loadedRoot =
+                case consensusFork
+                of ConsensusFork.Phase0:
+                  hash_tree_root(loadedState[0][].data)
+                of ConsensusFork.Altair:
+                  hash_tree_root(loadedState[1][].data)
+                of ConsensusFork.Bellatrix:
+                  hash_tree_root(loadedState[2][].data)
+                of ConsensusFork.Capella:
+                  hash_tree_root(loadedState[3][].data)
+                of ConsensusFork.Deneb:
+                  hash_tree_root(loadedState[4][].data)
+                of ConsensusFork.Electra:
+                  hash_tree_root(loadedState[5][].data)
+                of ConsensusFork.Fulu:
+                  hash_tree_root(loadedState[6][].data)
+                of ConsensusFork.Gloas:
+                  hash_tree_root(loadedState[7][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   staticFor i, 0 .. 7:
@@ -392,20 +390,22 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdDumpState(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
-  defer: db.close()
+  defer:
+    db.close()
 
   let
-    phase0State    = (ref phase0.HashedBeaconState)()
-    altairState    = (ref altair.HashedBeaconState)()
+    phase0State = (ref phase0.HashedBeaconState)()
+    altairState = (ref altair.HashedBeaconState)()
     bellatrixState = (ref bellatrix.HashedBeaconState)()
-    capellaState   = (ref capella.HashedBeaconState)()
-    denebState     = (ref deneb.HashedBeaconState)()
-    electraState   = (ref electra.HashedBeaconState)()
-    fuluState      = (ref fulu.HashedBeaconState)()
-    gloasState     = (ref gloas.HashedBeaconState)()
+    capellaState = (ref capella.HashedBeaconState)()
+    denebState = (ref deneb.HashedBeaconState)()
+    electraState = (ref electra.HashedBeaconState)()
+    fuluState = (ref fulu.HashedBeaconState)()
+    gloasState = (ref gloas.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
     template doit(state: untyped) =
       try:
         state.root = Eth2Digest.fromHex(stateRoot)
@@ -429,15 +429,16 @@ proc cmdDumpState(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
-  defer: db.close()
+  defer:
+    db.close()
 
   for file in conf.stateFile:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
 
     let state =
       try:
-        newClone(readSszForkedHashedBeaconState(
-          cfg, readAllBytes(file).tryGet()))
+        newClone(readSszForkedHashedBeaconState(cfg, readAllBytes(file).tryGet()))
       except ResultError[IoErrorCode] as e:
         echo "Couldn't load ", file, ": ", e.msg
         continue
@@ -450,10 +451,12 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdDumpBlock(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
-  defer: db.close()
+  defer:
+    db.close()
 
   for blockRoot in conf.blockRootx:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
     try:
       let root = Eth2Digest.fromHex(blockRoot)
       var found = false
@@ -470,15 +473,16 @@ proc cmdDumpBlock(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
-  defer: db.close()
+  defer:
+    db.close()
 
   for file in conf.blckFile:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
 
     let blck =
       try:
-        readSszForkedSignedBeaconBlock(
-          cfg, readAllBytes(file).tryGet())
+        readSszForkedSignedBeaconBlock(cfg, readAllBytes(file).tryGet())
       except ResultError[IoErrorCode] as e:
         echo "Couldn't load ", file, ": ", e.msg
         continue
@@ -497,10 +501,12 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
-  defer: db.close()
+  defer:
+    db.close()
 
   for file in conf.blobFile:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
 
     let
       blob =
@@ -522,7 +528,8 @@ proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
-  defer: db.close()
+  defer:
+    db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
     echo "Database not initialized: ", v.error()
@@ -540,11 +547,13 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
   let tmpState = assignClone(dag.headState)
   dag.withUpdatedState(
-      tmpState[], dag.atSlot(bid, Slot(conf.slot)).expect("block found")) do:
+    tmpState[], dag.atSlot(bid, Slot(conf.slot)).expect("block found")
+  ):
     echo "Writing state..."
     withState(updatedState):
       dump("./", forkyState)
-  do: raiseAssert "withUpdatedState failed"
+  do:
+    raiseAssert "withUpdatedState failed"
 
 proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   let
@@ -558,7 +567,8 @@ proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
-  defer: db.close()
+  defer:
+    db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
     fatal "Database not initialized", error = v.error()
@@ -581,7 +591,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     era = Era(conf.era)
     missingHistory = false
   while conf.eraCount == 0 or era < Era(conf.era) + conf.eraCount:
-    defer: era += 1
+    defer:
+      era += 1
 
     if shouldShutDown:
       break
@@ -590,8 +601,10 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     # the era itself
     let
       firstSlot =
-        if era == 0: none(Slot)
-        else: some((era - 1).start_slot)
+        if era == 0:
+          none(Slot)
+        else:
+          some((era - 1).start_slot)
       endSlot = era.start_slot
 
     if endSlot > dag.head.slot:
@@ -604,7 +617,9 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
           forkyState.data.genesis_validators_root,
           forkyState.data.historical_roots.asSeq,
           dag.headState.historical_summaries().asSeq,
-          era).expect("have era root since we checked slot")
+          era,
+        )
+          .expect("have era root since we checked slot")
       name = eraFileName(cfg, era, eraRoot)
 
     if isFile(name):
@@ -615,21 +630,18 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     # database - we perform this check after checking for existing era files
     # since the database might have been pruned up to the "existing" era files!
     if endSlot < dag.tail.slot and era != 0:
-      notice "Skipping era, state history not available",
-        era, tail = shortLog(dag.tail)
+      notice "Skipping era, state history not available", era, tail = shortLog(dag.tail)
       missingHistory = true
       continue
 
-    let
-      eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
-        notice "Skipping era, blocks not available", era, name
-        missingHistory = true
-        continue
+    let eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
+      notice "Skipping era, blocks not available", era, name
+      missingHistory = true
+      continue
 
     withTimer(timers[tState]):
       var cache: StateCache
-      if not updateState(dag, tmpState[], eraBid, false, cache,
-                         dag.updateFlags):
+      if not updateState(dag, tmpState[], eraBid, false, cache, dag.updateFlags):
         notice "Skipping era, state history not available", era, name
         missingHistory = true
         continue
@@ -638,14 +650,16 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     let tmpName = name & ".tmp"
     var completed = false
     block writeFileBlock:
-      let e2 = openFile(tmpName, {OpenFlags.Write, OpenFlags.Create, OpenFlags.Truncate}).get()
-      defer: discard closeFile(e2)
+      let e2 =
+        openFile(tmpName, {OpenFlags.Write, OpenFlags.Create, OpenFlags.Truncate}).get()
+      defer:
+        discard closeFile(e2)
 
       var group = EraGroup.init(e2, firstSlot).get()
       if firstSlot.isSome():
         withTimer(timers[tBlocks]):
           var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
-          for i in dag.getBlockRange(firstSlot.get(), blocks)..<blocks.len:
+          for i in dag.getBlockRange(firstSlot.get(), blocks) ..< blocks.len:
             if not dag.getBlockSZ(blocks[i], tmp):
               break writeFileBlock
             group.update(e2, blocks[i].slot, tmp).get()
@@ -677,7 +691,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
-  defer: db.close()
+  defer:
+    db.close()
 
   type Timers = enum
     tBlock
@@ -691,12 +706,14 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
 
   var data: seq[byte]
   for file in conf.eraFiles:
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
 
     let f = openFile(file, {OpenFlags.Read}).valueOr:
       warn "Can't open ", file
       continue
-    defer: discard closeFile(f)
+    defer:
+      discard closeFile(f)
 
     while true:
       let header = readRecord(f, data).valueOr:
@@ -705,10 +722,12 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
       if header.typ == SnappyBeaconBlock:
         withTimer(timers[tBlock]):
           let uncompressed = decodeFramed(data, checkIntegrity = false)
-          let blck = try: readSszForkedSignedBeaconBlock(cfg, uncompressed)
-          except CatchableError as exc:
-            error "Invalid snappy block", msg = exc.msg, file
-            continue
+          let blck =
+            try:
+              readSszForkedSignedBeaconBlock(cfg, uncompressed)
+            except CatchableError as exc:
+              error "Invalid snappy block", msg = exc.msg, file
+              continue
 
           withBlck(blck.asTrusted()):
             db.putBlock(forkyBlck)
@@ -740,8 +759,7 @@ type
 
 proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
-  let
-    db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
   defer:
     db.close()
 
@@ -757,8 +775,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    perfs = newSeq[ValidatorPerformance](
-      getStateField(dag.headState, validators).len())
+    perfs = newSeq[ValidatorPerformance](getStateField(dag.headState, validators).len())
     cache = StateCache()
     info = ForkedEpochInfo()
     blck: phase0.TrustedSignedBeaconBlock
@@ -772,26 +789,31 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   doAssert dag.updateState(
     state[],
     dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("block found"),
-    false, cache, dag.updateFlags)
+    false,
+    cache,
+    dag.updateFlags,
+  )
 
   proc processEpoch() =
     let
-      prev_epoch_target_slot =
-        state[].get_previous_epoch().start_slot()
+      prev_epoch_target_slot = state[].get_previous_epoch().start_slot()
       penultimate_epoch_end_slot =
-        if prev_epoch_target_slot == 0: Slot(0)
-        else: prev_epoch_target_slot - 1
+        if prev_epoch_target_slot == 0:
+          Slot(0)
+        else:
+          prev_epoch_target_slot - 1
       first_slot_empty =
         state[].get_block_root_at_slot(prev_epoch_target_slot) ==
         state[].get_block_root_at_slot(penultimate_epoch_end_slot)
 
     let first_slot_attesters = block:
-      let committees_per_slot = state[].get_committee_count_per_slot(
-        prev_epoch_target_slot.epoch, cache)
+      let committees_per_slot =
+        state[].get_committee_count_per_slot(prev_epoch_target_slot.epoch, cache)
       var indices = HashSet[ValidatorIndex]()
       for committee_index in get_committee_indices(committees_per_slot):
         for validator_index in state[].get_beacon_committee(
-            prev_epoch_target_slot, committee_index, cache):
+          prev_epoch_target_slot, committee_index, cache
+        ):
           indices.incl(validator_index)
       indices
     case info.kind
@@ -800,7 +822,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
         let perf = addr perfs[i]
         if RewardFlags.isActiveInPreviousEpoch in s.flags:
           if s.is_previous_epoch_attester.isSome():
-            perf.attestation_hits += 1;
+            perf.attestation_hits += 1
 
             if RewardFlags.isPreviousEpochHeadAttester in s.flags:
               perf.head_attestation_hits += 1
@@ -819,44 +841,43 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
                 perf.first_slot_head_attester_when_first_slot_not_empty += 1
 
             if s.is_previous_epoch_attester.isSome():
-              perf.delays.mgetOrPut(
-                s.is_previous_epoch_attester.get().delay, 0'u64) += 1
-
+              perf.delays.mgetOrPut(s.is_previous_epoch_attester.get().delay, 0'u64) += 1
           else:
-            perf.attestation_misses += 1;
+            perf.attestation_misses += 1
     of EpochInfoFork.Altair:
       echo "TODO altair"
 
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
 
   for bi in 0 ..< blockRefs.len:
-    blck = db.getBlock(
-      blockRefs[blockRefs.len - bi - 1].root,
-      phase0.TrustedSignedBeaconBlock).get()
+    blck = db
+      .getBlock(blockRefs[blockRefs.len - bi - 1].root, phase0.TrustedSignedBeaconBlock)
+      .get()
     while getStateField(state[], slot) < blck.message.slot:
       let
         nextSlot = getStateField(state[], slot) + 1
         flags =
-          if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
-          else: {}
-      process_slots(
-        dag.cfg, state[], nextSlot, cache, info, flags).expect(
-          "Slot processing can't fail with correct inputs")
+          if nextSlot == blck.message.slot:
+            {skipLastStateRootCalculation}
+          else:
+            {}
+      process_slots(dag.cfg, state[], nextSlot, cache, info, flags).expect(
+        "Slot processing can't fail with correct inputs"
+      )
 
       if getStateField(state[], slot).is_epoch():
         processEpoch()
 
-    let res = state_transition_block(
-        dag.cfg, state[], blck, cache, {}, noRollback)
+    let res = state_transition_block(dag.cfg, state[], blck, cache, {}, noRollback)
     if res.isErr:
       echo "State transition failed (!) ", res.error()
       quit 1
 
   # Capture rewards of empty slots as well
   while getStateField(state[], slot) < ends:
-    process_slots(
-      dag.cfg, state[], getStateField(state[], slot) + 1, cache,
-      info, {}).expect("Slot processing can't fail with correct inputs")
+    process_slots(dag.cfg, state[], getStateField(state[], slot) + 1, cache, info, {})
+      .expect("Slot processing can't fail with correct inputs")
 
     if getStateField(state[], slot).is_epoch():
       processEpoch()
@@ -868,59 +889,77 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       count = 0'u64
       sum = 0'u64
     for delay, n in perf.delays:
-        count += n
-        sum += delay * n
-    echo i,",",
-      perf.attestation_hits,",",
-      perf.attestation_misses,",",
-      perf.head_attestation_hits,",",
-      perf.head_attestation_misses,",",
-      perf.target_attestation_hits,",",
-      perf.target_attestation_misses,",",
-      if count == 0: 0.0
-      else: sum.float / count.float,",",
-      perf.first_slot_head_attester_when_first_slot_empty,",",
+      count += n
+      sum += delay * n
+    echo i,
+      ",",
+      perf.attestation_hits,
+      ",",
+      perf.attestation_misses,
+      ",",
+      perf.head_attestation_hits,
+      ",",
+      perf.head_attestation_misses,
+      ",",
+      perf.target_attestation_hits,
+      ",",
+      perf.target_attestation_misses,
+      ",",
+      if count == 0:
+        0.0
+      else:
+        sum.float / count.float,
+      ",",
+      perf.first_slot_head_attester_when_first_slot_empty,
+      ",",
       perf.first_slot_head_attester_when_first_slot_not_empty
 
 proc createValidatorsRawTable(db: SqStoreRef) =
-  db.exec("""
+  db
+    .exec(
+      """
     CREATE TABLE IF NOT EXISTS validators_raw(
       validator_index INTEGER PRIMARY KEY,
       pubkey BLOB NOT NULL UNIQUE
     );
-  """).expect("DB")
+  """
+    )
+    .expect("DB")
 
 proc createValidatorsView(db: SqStoreRef) =
-  db.exec("""
+  db
+    .exec(
+      """
     CREATE VIEW IF NOT EXISTS validators AS
     SELECT
       validator_index,
       '0x' || lower(hex(pubkey)) as pubkey
     FROM validators_raw;
-  """).expect("DB")
+  """
+    )
+    .expect("DB")
 
 proc createInsertValidatorProc(db: SqStoreRef): auto =
-  db.prepareStmt("""
+  db
+    .prepareStmt(
+      """
     INSERT OR IGNORE INTO validators_raw(
       validator_index,
       pubkey)
     VALUES(?, ?);""",
-    (int64, array[48, byte]), void).expect("DB")
+      (int64, array[48, byte]),
+      void,
+    )
+    .expect("DB")
 
 func collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
     balances = seq[uint64](forkyState.data.balances.data)
 
 func calculateDelta(info: RewardsAndPenalties): int64 =
-  info.source_outcome +
-  info.target_outcome +
-  info.head_outcome +
-  info.inclusion_delay_outcome +
-  info.sync_committee_outcome +
-  info.proposer_outcome +
-  info.slashing_outcome -
-  info.inactivity_penalty.int64 +
-  info.deposits.int64
+  info.source_outcome + info.target_outcome + info.head_outcome +
+    info.inclusion_delay_outcome + info.sync_committee_outcome + info.proposer_outcome +
+    info.slashing_outcome - info.inactivity_penalty.int64 + info.deposits.int64
 
 proc printComponents(info: RewardsAndPenalties) =
   echo "Components:"
@@ -934,10 +973,12 @@ proc printComponents(info: RewardsAndPenalties) =
   echo "Inactivity penalty: ", info.inactivity_penalty
   echo "Deposits: ", info.deposits
 
-proc checkBalance(validatorIndex: int64,
-                  validator: RewardStatus | ParticipationInfo,
-                  currentEpochBalance, previousEpochBalance: int64,
-                  validatorInfo: RewardsAndPenalties) =
+proc checkBalance(
+    validatorIndex: int64,
+    validator: RewardStatus | ParticipationInfo,
+    currentEpochBalance, previousEpochBalance: int64,
+    validatorInfo: RewardsAndPenalties,
+) =
   let delta = validatorInfo.calculateDelta
   if currentEpochBalance == previousEpochBalance + delta:
     return
@@ -948,12 +989,14 @@ proc checkBalance(validatorIndex: int64,
   echo "State delta: ", currentEpochBalance - previousEpochBalance
   echo "Computed delta: ", delta
   printComponents(validatorInfo)
-  raiseAssert("Validator's previous epoch balance plus computed validator's " &
-              "delta is not equal to the validator's current epoch balance.")
+  raiseAssert(
+    "Validator's previous epoch balance plus computed validator's " &
+      "delta is not equal to the validator's current epoch balance."
+  )
 
 proc getDbValidatorsCount(db: SqStoreRef): int64 =
   var res: int64
-  discard db.exec("SELECT count(*) FROM validators", ()) do (r: int64):
+  discard db.exec("SELECT count(*) FROM validators", ()) do(r: int64):
     res = r
   return res
 
@@ -964,22 +1007,25 @@ template inTransaction(db: SqStoreRef, dbName: string, body: untyped) =
   finally:
     db.exec("END TRANSACTION;").expect(dbName)
 
-proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
-                      startIndex, endIndex: int64) =
-  var insertValidator {.global.}: SqliteStmt[
-    (int64, array[48, byte]), void]
-  once: insertValidator = db.createInsertValidatorProc
+proc insertValidators(
+    db: SqStoreRef, state: ForkedHashedBeaconState, startIndex, endIndex: int64
+) =
+  var insertValidator {.global.}: SqliteStmt[(int64, array[48, byte]), void]
+  once:
+    insertValidator = db.createInsertValidatorProc
   withState(state):
     db.inTransaction("DB"):
       for i in startIndex ..< endIndex:
-        insertValidator.exec(
-          (i, forkyState.data.validators[i].pubkey.toRaw)).expect("DB")
+        insertValidator.exec((i, forkyState.data.validators[i].pubkey.toRaw)).expect(
+          "DB"
+        )
 
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
   info "Opening database..."
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
-  defer: db.close()
+  defer:
+    db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
     echo "Database not initialized"
@@ -991,7 +1037,8 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
-  defer: outDb.close()
+  defer:
+    outDb.close()
 
   outDb.createValidatorsRawTable
   outDb.createValidatorsView
@@ -1004,10 +1051,10 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         Epoch(conf.startEpoch.get)
       else:
         try:
-          let unaggregatedFilesNextEpoch = getUnaggregatedFilesLastEpoch(
-            unaggregatedFilesOutputDir) + 1
-          let aggregatedFilesNextEpoch = getAggregatedFilesLastEpoch(
-            aggregatedFilesOutputDir) + 1
+          let unaggregatedFilesNextEpoch =
+            getUnaggregatedFilesLastEpoch(unaggregatedFilesOutputDir) + 1
+          let aggregatedFilesNextEpoch =
+            getAggregatedFilesLastEpoch(aggregatedFilesOutputDir) + 1
           if conf.writeUnaggregatedFiles and conf.writeAggregatedFiles:
             min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
           elif conf.writeUnaggregatedFiles:
@@ -1030,11 +1077,10 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   if startEpoch > endEpoch:
     fatal "Start epoch cannot be bigger than end epoch.",
-          startEpoch = startEpoch, endEpoch = endEpoch
+      startEpoch = startEpoch, endEpoch = endEpoch
     quit QuitFailure
 
-  info "Analyzing performance for epochs.",
-       startEpoch = startEpoch, endEpoch = endEpoch
+  info "Analyzing performance for epochs.", startEpoch = startEpoch, endEpoch = endEpoch
 
   let
     startEpochSlot = startEpoch.start_slot
@@ -1067,15 +1113,27 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   let tmpState = newClone(dag.headState)
   var cache = StateCache()
-  let slot = if startEpochSlot > 0: startEpochSlot - 1 else: 0.Slot
+  let slot =
+    if startEpochSlot > 0:
+      startEpochSlot - 1
+    else:
+      0.Slot
   if blockRefs.len > 0:
     discard dag.updateState(
-      tmpState[], dag.atSlot(blockRefs[^1], slot).expect("block"), false, cache,
-                             dag.updateFlags)
+      tmpState[],
+      dag.atSlot(blockRefs[^1], slot).expect("block"),
+      false,
+      cache,
+      dag.updateFlags,
+    )
   else:
     discard dag.updateState(
-      tmpState[], dag.getBlockIdAtSlot(slot).expect("block"), false, cache,
-      dag.updateFlags)
+      tmpState[],
+      dag.getBlockIdAtSlot(slot).expect("block"),
+      false,
+      cache,
+      dag.updateFlags,
+    )
 
   let savedValidatorsCount = outDb.getDbValidatorsCount
   var validatorsCount = getStateField(tmpState[], validators).len
@@ -1091,8 +1149,8 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   var auxiliaryState: AuxiliaryState
   auxiliaryState.copyParticipationFlags(tmpState[])
 
-  var aggregator = ValidatorDbAggregator.init(
-    aggregatedFilesOutputDir, conf.resolution, endEpoch)
+  var aggregator =
+    ValidatorDbAggregator.init(aggregatedFilesOutputDir, conf.resolution, endEpoch)
 
   proc processEpoch() =
     let epoch = getStateField(tmpState[], slot).epoch
@@ -1107,11 +1165,16 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         doAssert forkyState.data.balances.len == rewardsAndPenalties.len
 
         for index, validator in info.validators:
-          template rp: untyped = rewardsAndPenalties[index]
+          template rp(): untyped =
+            rewardsAndPenalties[index]
 
           checkBalance(
-            index, validator, forkyState.data.balances.item(index).int64,
-            previousEpochBalances[index].int64, rp)
+            index,
+            validator,
+            forkyState.data.balances.item(index).int64,
+            previousEpochBalances[index].int64,
+            rp,
+          )
 
           when infoFork == EpochInfoFork.Phase0:
             rp.inclusion_delay = block:
@@ -1137,20 +1200,26 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     if conf.writeAggregatedFiles:
       aggregator.advanceEpochs(epoch, shouldShutDown)
 
-    if shouldShutDown: quit QuitSuccess
+    if shouldShutDown:
+      quit QuitSuccess
     collectBalances(previousEpochBalances, tmpState[])
 
   proc processSlots(ends: Slot, endsFlags: UpdateFlags) =
     var currentSlot = getStateField(tmpState[], slot)
     while currentSlot < ends:
       let nextSlot = currentSlot + 1
-      let flags = if nextSlot == ends: endsFlags else: {}
+      let flags =
+        if nextSlot == ends:
+          endsFlags
+        else:
+          {}
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
           var stateData = newClone(forkyState.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            stateData[], cache, cfg, flags)
+            stateData[], cache, cfg, flags
+          )
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"
@@ -1170,10 +1239,11 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       processSlots(forkyBlck.message.slot, {skipLastStateRootCalculation})
 
       rewardsAndPenalties.collectBlockRewardsAndPenalties(
-        tmpState[], forkedBlock, auxiliaryState, cache, cfg)
+        tmpState[], forkedBlock, auxiliaryState, cache, cfg
+      )
 
-      let res = state_transition_block(
-        cfg, tmpState[], forkyBlck, cache, {}, noRollback)
+      let res =
+        state_transition_block(cfg, tmpState[], forkyBlck, cache, {}, noRollback)
       if res.isErr:
         fatal "State transition failed (!)"
         quit QuitFailure
@@ -1185,15 +1255,14 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         rewardsAndPenalties.setLen(newValidatorsCount)
         previousEpochBalances.setLen(newValidatorsCount)
         # ... and add the new validators to the database.
-        outDb.insertValidators(
-          tmpState[], validatorsCount, newValidatorsCount)
+        outDb.insertValidators(tmpState[], validatorsCount, newValidatorsCount)
         validatorsCount = newValidatorsCount
 
   # Capture rewards of empty slots as well, including the epoch that got
   # finalized
   processSlots(endSlot, {})
 
-proc controlCHook {.noconv.} =
+proc controlCHook() {.noconv.} =
   notice "Shutting down after having received SIGINT."
   shouldShutDown = true
 

@@ -15,99 +15,96 @@ import
 
 suite "Beacon validators test suite":
   test "builderBetterBid(builderBoostFactor) test":
-    const TestVectors =
-      [
-        (
-          # zero comparison
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          0'u64,
-          false
-        ),
-        (
-          # less or equal
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          100'u64,
-          true
-        ),
-        (
-          # overflow #1
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          101'u64,
-          true
-        ),
-        (
-          # overflow #2
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          0xffffffffffffffff'u64,
-          true
-        ),
-        (
-          "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          0'u64,
-          false
-        ),
-        (
-          # less
-          "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          100'u64,
-          false
-        ),
-        (
-          # overflow #1
-          "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          101'u64,
-          true
-        ),
-        (
-          # overflow #2
-          "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-          0xffffffffffffffff'u64,
-          true
-        ),
-        (
-          # zeros
-          "0",
-          "0",
-          0'u64,
-          false
-        ),
-        (
-          # 10 * (50 div 100) < 6
-          "a",
-          "6",
-          50'u64,
-          false
-        ),
-        (
-          # 10 * (50 div 100) >= 5
-          "a",
-          "5",
-          50'u64,
-          true
-        ),
-        (
-          # 5 * (150 div 100) < 8
-          "5",
-          "8",
-          150'u64,
-          false
-        ),
-        (
-          # 5 * (150 div 100) >= 7
-          "5",
-          "7",
-          150'u64,
-          true
-        ),
-      ]
+    const TestVectors = [
+      (
+        # zero comparison
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        0'u64,
+        false,
+      ),
+      (
+        # less or equal
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        100'u64,
+        true,
+      ),
+      (
+        # overflow #1
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        101'u64,
+        true,
+      ),
+      (
+        # overflow #2
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        0xffffffffffffffff'u64,
+        true,
+      ),
+      (
+        "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0'u64, false,
+      ),
+      (
+        # less
+        "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        100'u64,
+        false,
+      ),
+      (
+        # overflow #1
+        "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        101'u64,
+        true,
+      ),
+      (
+        # overflow #2
+        "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        0xffffffffffffffff'u64,
+        true,
+      ),
+      (
+        # zeros
+        "0",
+        "0",
+        0'u64,
+        false,
+      ),
+      (
+        # 10 * (50 div 100) < 6
+        "a",
+        "6",
+        50'u64,
+        false,
+      ),
+      (
+        # 10 * (50 div 100) >= 5
+        "a",
+        "5",
+        50'u64,
+        true,
+      ),
+      (
+        # 5 * (150 div 100) < 8
+        "5",
+        "8",
+        150'u64,
+        false,
+      ),
+      (
+        # 5 * (150 div 100) >= 7
+        "5",
+        "7",
+        150'u64,
+        true,
+      ),
+    ]
 
     for index, vector in TestVectors.pairs():
       let

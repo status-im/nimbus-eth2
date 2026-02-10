@@ -7,16 +7,14 @@
 
 {.push raises: [].}
 
-import
-  presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+import presto/client, "."/[rest_types, eth2_rest_serialization]
 
 export client, rest_types, eth2_rest_serialization
 
 proc getForkSchedulePlain*(): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
+  rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
 
 proc getSpecVC*(): RestResponse[GetSpecVCResponse] {.
-     rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
+  rest, endpoint: "/eth/v1/config/spec", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec

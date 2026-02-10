@@ -19,18 +19,19 @@ import
   ../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
-  ./fixtures_utils, ./os_ops
+  ./fixtures_utils,
+  ./os_ops
 
-type
-  TestMeta = object
-    updates_count: uint64
+type TestMeta = object
+  updates_count: uint64
 
 proc runTest(suiteName, path: string, lcDataFork: static LightClientDataFork) =
   let relativePathComponent = path.relativeTestPathComponent()
   test "Light client - Update ranking - " & relativePathComponent:
     let meta = block:
-      var s = openFileStream(path/"meta.yaml")
-      defer: close(s)
+      var s = openFileStream(path / "meta.yaml")
+      defer:
+        close(s)
       var res: TestMeta
       yaml.load(s, res)
       res
@@ -38,24 +39,29 @@ proc runTest(suiteName, path: string, lcDataFork: static LightClientDataFork) =
     var updates = newSeqOfCap[lcDataFork.LightClientUpdate](meta.updates_count)
     for i in 0 ..< meta.updates_count:
       updates.add parseTest(
-        path/"updates_" & Base10.toString(i) & ".ssz_snappy",
-        SSZ, lcDataFork.LightClientUpdate)
+        path / "updates_" & Base10.toString(i) & ".ssz_snappy",
+        SSZ,
+        lcDataFork.LightClientUpdate,
+      )
 
     proc cmp(a, b: lcDataFork.LightClientUpdate): int =
       if a.is_better_update(b):
-        check: not b.is_better_update(a)
+        check:
+          not b.is_better_update(a)
         -1
       elif b.is_better_update(a):
         1
       else:
         0
-    check: updates.isSorted(cmp)
+
+    check:
+      updates.isSorted(cmp)
 
 suite "EF - Light client - Update ranking" & preset():
-  const presetPath = SszTestsDir/const_preset
+  const presetPath = SszTestsDir / const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
     let testsPath =
-      presetPath/path/"light_client"/"update_ranking"/"pyspec_tests"
+      presetPath / path / "light_client" / "update_ranking" / "pyspec_tests"
     if kind != pcDir or not dirExists(testsPath):
       continue
     let fork = forkForPathComponent(path).valueOr:
@@ -66,5 +72,6 @@ suite "EF - Light client - Update ranking" & preset():
       withConsensusFork(fork):
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         when lcDataFork > LightClientDataFork.None:
-          runTest(suiteName, testsPath/path, lcDataFork)
-        else: raiseAssert "Unreachable"
+          runTest(suiteName, testsPath / path, lcDataFork)
+        else:
+          raiseAssert "Unreachable"

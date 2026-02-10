@@ -10,9 +10,7 @@
 {.push raises: [].}
 {.used.}
 
-import
-  unittest2,
-  ../../beacon_chain/spec/forks
+import unittest2, ../../beacon_chain/spec/forks
 
 var cfg = defaultRuntimeConfig
 cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
@@ -27,18 +25,23 @@ cfg.BLOB_SCHEDULE = @[
   BlobParameters(EPOCH: 200.Epoch, MAX_BLOBS_PER_BLOCK: 200),
   BlobParameters(EPOCH: 150.Epoch, MAX_BLOBS_PER_BLOCK: 175),
   BlobParameters(EPOCH: 100.Epoch, MAX_BLOBS_PER_BLOCK: 100),
-  BlobParameters(EPOCH: 9.Epoch, MAX_BLOBS_PER_BLOCK: 9)]
+  BlobParameters(EPOCH: 9.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+]
 
 proc cfd(
-    cfg: RuntimeConfig, epoch: uint64, genesis_validators_root: Eth2Digest,
-    fork_version: array[4, byte], expected: array[4, byte]) =
+    cfg: RuntimeConfig,
+    epoch: uint64,
+    genesis_validators_root: Eth2Digest,
+    fork_version: array[4, byte],
+    expected: array[4, byte],
+) =
   var cfg = cfg
   cfg.FULU_FORK_VERSION = Version(fork_version)
   check:
-    ForkDigest(expected) == atEpoch(
-      ForkDigests.init(cfg, genesis_validators_root), epoch.Epoch, cfg)
-    ForkDigest(expected) == compute_fork_digest_fulu(
-      cfg, genesis_validators_root, epoch.Epoch)
+    ForkDigest(expected) ==
+      atEpoch(ForkDigests.init(cfg, genesis_validators_root), epoch.Epoch, cfg)
+    ForkDigest(expected) ==
+      compute_fork_digest_fulu(cfg, genesis_validators_root, epoch.Epoch)
 
 func getGvr(filling: uint8): Eth2Digest =
   var res: Eth2Digest
@@ -79,9 +82,14 @@ suite "EF - Fulu - BPO forkdigests":
       BlobParameters(EPOCH: 1280.Epoch, MAX_BLOBS_PER_BLOCK: 9),
       BlobParameters(EPOCH: 1024.Epoch, MAX_BLOBS_PER_BLOCK: 18),
       BlobParameters(EPOCH: 768.Epoch, MAX_BLOBS_PER_BLOCK: 15),
-      BlobParameters(EPOCH: 512.Epoch, MAX_BLOBS_PER_BLOCK: 12)]
+      BlobParameters(EPOCH: 512.Epoch, MAX_BLOBS_PER_BLOCK: 12),
+    ]
 
     cfg.cfd(
       256,
-      Eth2Digest.fromHex("0xd9d36cce7e1e5b021676d15cbc674ec2e02183a98373ca191a3cbcefca479f9b"),
-      [0x70'u8, 0x93, 0x75, 0x44], [0x36'u8, 0x9f, 0x89, 0xf7])
+      Eth2Digest.fromHex(
+        "0xd9d36cce7e1e5b021676d15cbc674ec2e02183a98373ca191a3cbcefca479f9b"
+      ),
+      [0x70'u8, 0x93, 0x75, 0x44],
+      [0x36'u8, 0x9f, 0x89, 0xf7],
+    )

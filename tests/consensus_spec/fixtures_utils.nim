@@ -13,14 +13,12 @@ import
   # Internals
   ./os_ops,
   ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
-  ../../beacon_chain/spec/[
-    eth2_merkleization, eth2_ssz_serialization, forks, helpers],
+  ../../beacon_chain/spec/[eth2_merkleization, eth2_ssz_serialization, forks, helpers],
   # Status libs,
   snappy,
   stew/byteutils
 
-export
-  eth2_merkleization, eth2_ssz_serialization, helpers
+export eth2_merkleization, eth2_ssz_serialization, helpers
 
 # Process current EF test format
 # ---------------------------------------------
@@ -102,12 +100,12 @@ type
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    # All other eth1 block fields
+    deposit_count*: uint64 # All other eth1 block fields
 
 const
   FixturesDir* =
-    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
+    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" /
+    "nim-eth2-scenarios"
   SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
   MaxObjectSize* = 10_000_000
 
@@ -131,8 +129,7 @@ proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
     quit 1
 
 proc sszDecodeEntireInput*(
-    input: openArray[byte],
-    Decoded: type
+    input: openArray[byte], Decoded: type
 ): Decoded {.raises: [IOError, SerializationError, UnconsumedInput].} =
   let stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
@@ -142,9 +139,8 @@ proc sszDecodeEntireInput*(
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
 iterator walkTests*(dir: static string): string {.raises: [OSError].} =
-   for kind, path in walkDir(
-       dir/"pyspec_tests", relative = true, checkDir = true):
-     yield path
+  for kind, path in walkDir(dir / "pyspec_tests", relative = true, checkDir = true):
+    yield path
 
 proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
   try:
@@ -176,7 +172,8 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     quit 1
 
 proc loadForkedState*(
-    path: string, consensusFork: ConsensusFork): ref ForkedHashedBeaconState =
+    path: string, consensusFork: ConsensusFork
+): ref ForkedHashedBeaconState =
   let state = (ref ForkedHashedBeaconState)(kind: consensusFork)
   withState(state[]):
     forkyState.data = parseTest(path, SSZ, consensusFork.BeaconState)
@@ -184,9 +181,8 @@ proc loadForkedState*(
   state
 
 proc loadBlock*(
-    path: string,
-    consensusFork: static ConsensusFork,
-    validateBlockHash = true): auto =
+    path: string, consensusFork: static ConsensusFork, validateBlockHash = true
+): auto =
   var blck = parseTest(path, SSZ, consensusFork.SignedBeaconBlock)
   blck.root = hash_tree_root(blck.message)
   debugGloasComment ""

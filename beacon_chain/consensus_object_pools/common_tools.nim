@@ -7,16 +7,13 @@
 
 {.push raises: [].}
 
-import
-  std/typetraits,
-  results,
-  ../spec/datatypes/base
+import std/typetraits, results, ../spec/datatypes/base
 
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
-     getPerValidatorDefaultFeeRecipient, getSuggestedGasLimit,
-     getSuggestedFeeRecipient, getSuggestedGraffiti
+  getPerValidatorDefaultFeeRecipient, getSuggestedGasLimit, getSuggestedFeeRecipient,
+  getSuggestedGraffiti
 from ../spec/beaconstate import has_eth1_withdrawal_credential
 from ../spec/presets import Eth1Address
 
@@ -29,13 +26,11 @@ proc getFeeRecipient*(
     stateValidator: Opt[Validator],
     configFeeRecipient: Opt[Eth1Address],
     configValidatorsDir: string,
-    epoch: Epoch
+    epoch: Epoch,
 ): Eth1Address =
-
   let dynFeeRecipient =
     if validatorIdx.isSome:
-      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        validatorIdx.get(), epoch)
+      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx.get(), epoch)
     else:
       Opt.none(Eth1Address)
 
@@ -53,20 +48,18 @@ proc getFeeRecipient*(
         else:
           Opt.none Eth1Address
       defaultFeeRecipient =
-        getPerValidatorDefaultFeeRecipient(configFeeRecipient,
-          withdrawalAddress)
-    getSuggestedFeeRecipient(
-      configValidatorsDir, pubkey, defaultFeeRecipient).valueOr:
+        getPerValidatorDefaultFeeRecipient(configFeeRecipient, withdrawalAddress)
+    getSuggestedFeeRecipient(configValidatorsDir, pubkey, defaultFeeRecipient).valueOr:
       defaultFeeRecipient
 
-proc getGasLimit*(configValidatorsDir: string,
-                  configGasLimit: uint64,
-                  pubkey: ValidatorPubKey): uint64 =
+proc getGasLimit*(
+    configValidatorsDir: string, configGasLimit: uint64, pubkey: ValidatorPubKey
+): uint64 =
   getSuggestedGasLimit(configValidatorsDir, pubkey, configGasLimit).valueOr:
     configGasLimit
 
-proc getGraffiti*(configValidatorsDir: string,
-                  configGraffiti: GraffitiBytes,
-                  pubkey: ValidatorPubKey): GraffitiBytes =
+proc getGraffiti*(
+    configValidatorsDir: string, configGraffiti: GraffitiBytes, pubkey: ValidatorPubKey
+): GraffitiBytes =
   getSuggestedGraffiti(configValidatorsDir, pubkey, configGraffiti).valueOr:
     configGraffiti

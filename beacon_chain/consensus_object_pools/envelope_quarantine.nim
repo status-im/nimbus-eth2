@@ -10,17 +10,16 @@
 import std/tables
 import ../spec/[digest, forks]
 
-type
-  EnvelopeQuarantine* = object
-    orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
-      ## Envelopes that we have received but did not have a block yet. In the
-      ## ideal scenario, block should arrive before envelope but that is not
-      ## guaranteed.
+type EnvelopeQuarantine* = object
+  orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
+    ## Envelopes that we have received but did not have a block yet. In the
+    ## ideal scenario, block should arrive before envelope but that is not
+    ## guaranteed.
 
-    missing*: HashSet[Eth2Digest]
-      ## List of block roots that we would like to have the envelopes but we
-      ## have not got yet. Missing envelopes should usually be found when we
-      ## received a block, blob or data column.
+  missing*: HashSet[Eth2Digest]
+    ## List of block roots that we would like to have the envelopes but we
+    ## have not got yet. Missing envelopes should usually be found when we
+    ## received a block, blob or data column.
 
 func init*(T: typedesc[EnvelopeQuarantine]): T =
   T()
@@ -28,27 +27,25 @@ func init*(T: typedesc[EnvelopeQuarantine]): T =
 template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
   v.message.beacon_block_root
 
-func addMissing*(
-    self: var EnvelopeQuarantine,
-    root: Eth2Digest) =
+func addMissing*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.missing.incl(root)
 
 func addOrphan*(
-    self: var EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope) =
-  discard self.orphans
-    .mgetOrPut(envelope.root)
-    .hasKeyOrPut(envelope.message.builder_index, envelope)
+    self: var EnvelopeQuarantine, envelope: SignedExecutionPayloadEnvelope
+) =
+  discard self.orphans.mgetOrPut(envelope.root).hasKeyOrPut(
+      envelope.message.builder_index, envelope
+    )
 
 func popOrphan*(
-    self: var EnvelopeQuarantine,
-    blck: gloas.SignedBeaconBlock,
+    self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock
 ): Opt[SignedExecutionPayloadEnvelope] =
   if blck.root notin self.orphans:
     return Opt.none(SignedExecutionPayloadEnvelope)
 
-  template builderIdx: untyped =
+  template builderIdx(): untyped =
     blck.message.body.signed_execution_payload_bid.message.builder_index
+
   try:
     var envelope: SignedExecutionPayloadEnvelope
     if self.orphans[blck.root].pop(builderIdx, envelope):

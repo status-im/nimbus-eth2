@@ -7,10 +7,7 @@
 
 {.push raises: [].}
 
-import
-  std/[sequtils],
-  results,
-  stew/shims/macros, chronos, faststreams/outputs
+import std/[sequtils], results, stew/shims/macros, chronos, faststreams/outputs
 
 export chronos, results
 
@@ -44,30 +41,24 @@ type
     ## If it's a Request, then the return type will be a Future
     ## of the respective Response type. All send procs also have
     ## an automatically inserted `timeout` parameter.
+    msg*: Message ## The message being implemented
 
-    msg*: Message
-      ## The message being implemented
+    def*: NimNode ## The definition of the proc
 
-    def*: NimNode
-      ## The definition of the proc
-
-    peerParam*: NimNode
-      ## Cached ident for the peer param
+    peerParam*: NimNode ## Cached ident for the peer param
 
     msgParams*: seq[NimNode]
       ## Cached param ident for all values that must be written
       ## on the wire. The automatically inserted `timeout` is not
       ## included.
 
-    timeoutParam*: NimNode
-      ## Cached ident for the timeout parameter
+    timeoutParam*: NimNode ## Cached ident for the timeout parameter
 
     extraDefs*: NimNode
       ## The response procs have extra templates that must become
       ## part of the generated code
 
-  P2PProtocol* = ref object
-    # Settings
+  P2PProtocol* = ref object # Settings
     name*: string
     version*: int
     timeouts*: int64
@@ -100,12 +91,11 @@ type
     onPeerConnected*: NimNode
     onPeerDisconnected*: NimNode
 
-  Backend* = ref object
-    # Code generators
-    implementMsg*: proc (msg: Message)
-    implementProtocolInit*: proc (protocol: P2PProtocol): NimNode
+  Backend* = ref object # Code generators
+    implementMsg*: proc(msg: Message)
+    implementProtocolInit*: proc(protocol: P2PProtocol): NimNode
 
-    afterProtocolInit*: proc (protocol: P2PProtocol)
+    afterProtocolInit*: proc(protocol: P2PProtocol)
 
     # Bound symbols to the back-end run-time types and procs
     PeerType*: NimNode
@@ -117,7 +107,7 @@ type
     registerProtocol*: NimNode
     setEventHandlers*: NimNode
 
-  BackendFactory* = proc (p: P2PProtocol): Backend
+  BackendFactory* = proc(p: P2PProtocol): Backend
 
   P2PBackendError* = object of CatchableError
   InvalidMsgError* = object of P2PBackendError
@@ -128,24 +118,25 @@ const
 
 let
   # Variable names affecting the public interface of the library:
-  peerVar*              {.compileTime.} = ident "peer"
-  responseVar*          {.compileTime.} = ident "response"
-  streamVar*            {.compileTime.} = ident "stream"
-  protocolVar*          {.compileTime.} = ident "protocol"
-  timeoutVar*           {.compileTime.} = ident "timeout"
-  currentProtocolSym*   {.compileTime.} = ident "CurrentProtocol"
-  resultIdent*          {.compileTime.} = ident "result"
+  peerVar* {.compileTime.} = ident "peer"
+  responseVar* {.compileTime.} = ident "response"
+  streamVar* {.compileTime.} = ident "stream"
+  protocolVar* {.compileTime.} = ident "protocol"
+  timeoutVar* {.compileTime.} = ident "timeout"
+  currentProtocolSym* {.compileTime.} = ident "CurrentProtocol"
+  resultIdent* {.compileTime.} = ident "result"
 
   # Locally used symbols:
-  Opt                   {.compileTime.} = ident "Opt"
-  Future                {.compileTime.} = ident "Future"
-  Void                  {.compileTime.} = ident "void"
-  writeField            {.compileTime.} = ident "writeField"
+  Opt {.compileTime.} = ident "Opt"
+  Future {.compileTime.} = ident "Future"
+  Void {.compileTime.} = ident "void"
+  writeField {.compileTime.} = ident "writeField"
 
-  PROTO                 {.compileTime.} = ident "PROTO"
-  MSG                   {.compileTime.} = ident "MSG"
+  PROTO {.compileTime.} = ident "PROTO"
+  MSG {.compileTime.} = ident "MSG"
 
-template Fut(T): auto = newTree(nnkBracketExpr, Future, T)
+template Fut(T): auto =
+  newTree(nnkBracketExpr, Future, T)
 
 proc initFuture*[T](loc: var Future[T]) =
   loc = newFuture[T]()
@@ -155,10 +146,9 @@ template applyDecorator(p: NimNode, decorator: NimNode) =
     p.pragma.insert(0, decorator)
 
 when tracingEnabled:
-  proc logSentMsgFields(peer: NimNode,
-                        protocolInfo: NimNode,
-                        msgName: string,
-                        fields: openArray[NimNode]): NimNode =
+  proc logSentMsgFields(
+      peer: NimNode, protocolInfo: NimNode, msgName: string, fields: openArray[NimNode]
+  ): NimNode =
     ## This generates the tracing code inserted in the message sending procs
     ## `fields` contains all the params that were serialized in the message
     let
@@ -166,7 +156,7 @@ when tracingEnabled:
       tracerStream = ident "tracerStream"
       logMsgEventImpl = ident "logMsgEventImpl"
 
-    result = quote do:
+    result = quote:
       var `tracerStream` = memoryOutput()
       var `tracer` = JsonWriter.init(`tracerStream`)
       beginRecord(`tracer`)
@@ -176,9 +166,13 @@ when tracingEnabled:
 
     result.add quote do:
       endRecord(`tracer`)
-      `logMsgEventImpl`("outgoing_msg", `peer`,
-                        `protocolInfo`, `msgName`,
-                        getOutput(`tracerStream`, string))
+      `logMsgEventImpl`(
+        "outgoing_msg",
+        `peer`,
+        `protocolInfo`,
+        `msgName`,
+        getOutput(`tracerStream`, string),
+      )
 
 proc createPeerState[Peer, ProtocolState](peer: Peer): RootRef =
   var res = new ProtocolState
@@ -187,7 +181,8 @@ proc createPeerState[Peer, ProtocolState](peer: Peer): RootRef =
   return cast[RootRef](res)
 
 proc expectBlockWithProcs*(n: NimNode): seq[NimNode] =
-  template helperName: auto = $n[0]
+  template helperName(): auto =
+    $n[0]
 
   if n.len != 2 or n[1].kind != nnkStmtList:
     error(helperName & " expects a block", n)
@@ -241,7 +236,7 @@ proc outputParamType*(msg: Message): NimNode =
 proc refreshParam(n: NimNode): NimNode =
   result = copyNimTree(n)
   if n.kind == nnkIdentDefs:
-    for i in 0..<n.len-2:
+    for i in 0 ..< n.len - 2:
       if n[i].kind == nnkSym:
         result[i] = genSym(symKind(n[i]), $n[i])
 
@@ -276,16 +271,20 @@ proc verifyStateType(t: NimNode): NimNode =
 
 proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode)
 
-proc init*(T: type P2PProtocol, backendFactory: BackendFactory,
-           name: string, version: int, body: NimNode,
-           timeouts: int64,
-           outgoingRequestDecorator: NimNode,
-           incomingRequestDecorator: NimNode,
-           incomingRequestThunkDecorator: NimNode,
-           incomingResponseDecorator: NimNode,
-           incomingResponseThunkDecorator: NimNode,
-           peerState, networkState: NimNode): P2PProtocol =
-
+proc init*(
+    T: type P2PProtocol,
+    backendFactory: BackendFactory,
+    name: string,
+    version: int,
+    body: NimNode,
+    timeouts: int64,
+    outgoingRequestDecorator: NimNode,
+    incomingRequestDecorator: NimNode,
+    incomingRequestThunkDecorator: NimNode,
+    incomingResponseDecorator: NimNode,
+    incomingResponseThunkDecorator: NimNode,
+    peerState, networkState: NimNode,
+): P2PProtocol =
   result = P2PProtocol(
     name: name,
     version: version,
@@ -301,7 +300,8 @@ proc init*(T: type P2PProtocol, backendFactory: BackendFactory,
     protocolInfoVar: ident(name & "Protocol"),
     outSendProcs: newStmtList(),
     outRecvProcs: newStmtList(),
-    outProcRegistrations: newStmtList())
+    outProcRegistrations: newStmtList(),
+  )
 
   result.backend = backendFactory(result)
   assert(not result.backend.implementProtocolInit.isNil)
@@ -353,7 +353,9 @@ proc augmentUserHandler(p: P2PProtocol, userHandlerProc: NimNode) =
 proc addPreludeDefs*(userHandlerProc: NimNode, definitions: NimNode) =
   userHandlerProc.body[0].add definitions
 
-proc eventHandlerToProc(p: P2PProtocol, doBlock: NimNode, handlerName: string): NimNode =
+proc eventHandlerToProc(
+    p: P2PProtocol, doBlock: NimNode, handlerName: string
+): NimNode =
   ## Turns a "named" do block to a regular async proc
   ## (e.g. onPeerConnected do ...)
   result = newTree(nnkProcDef)
@@ -366,25 +368,25 @@ proc addTimeoutParam(procDef: NimNode, defaultValue: int64) =
     Duration = bindSym"Duration"
     milliseconds = bindSym"milliseconds"
 
-  procDef.params.add newTree(nnkIdentDefs,
-                             timeoutVar,
-                             Duration,
-                             newCall(milliseconds, newLit(defaultValue)))
+  procDef.params.add newTree(
+    nnkIdentDefs, timeoutVar, Duration, newCall(milliseconds, newLit(defaultValue))
+  )
 
 proc ResponderType(msg: Message): NimNode =
   var resp = if msg.kind == msgRequest: msg.response else: msg
-  newTree(nnkBracketExpr,
-          msg.protocol.backend.ResponderType, resp.strongRecName)
+  newTree(nnkBracketExpr, msg.protocol.backend.ResponderType, resp.strongRecName)
 
 proc needsSingleParamInlining(msg: Message): bool =
   msg.recBody.kind == nnkDistinctTy
 
-proc newMsg(protocol: P2PProtocol, kind: MessageKind,
-            procDef: NimNode, response: Message = nil): Message =
-
+proc newMsg(
+    protocol: P2PProtocol, kind: MessageKind, procDef: NimNode, response: Message = nil
+): Message =
   if procDef[0].kind == nnkPostfix:
-    error("p2pProtocol procs are public by default. " &
-          "Please remove the postfix `*`.", procDef)
+    error(
+      "p2pProtocol procs are public by default. " & "Please remove the postfix `*`.",
+      procDef,
+    )
 
   var
     msgIdent = procDef.name
@@ -395,10 +397,12 @@ proc newMsg(protocol: P2PProtocol, kind: MessageKind,
     recName = strongRecName
 
   for param, paramType in procDef.typedInputParams(skip = 1):
-    recFields.add newTree(nnkIdentDefs,
+    recFields.add newTree(
+      nnkIdentDefs,
       newTree(nnkPostfix, ident("*"), param), # The fields are public
-      chooseFieldType(paramType),             # some types such as openArray
-      newEmptyNode())                         # are automatically remapped
+      chooseFieldType(paramType), # some types such as openArray
+      newEmptyNode(),
+    ) # are automatically remapped
 
   if recFields.len == 1:
     # When we have a single parameter, it's treated as the transferred message
@@ -410,14 +414,16 @@ proc newMsg(protocol: P2PProtocol, kind: MessageKind,
     recName = recFields[0][1]
     recBody = newTree(nnkDistinctTy, recName)
 
-  result = Message(protocol: protocol,
-                   ident: msgIdent,
-                   kind: kind,
-                   procDef: procDef,
-                   recName: recName,
-                   strongRecName: strongRecName,
-                   recBody: recBody,
-                   response: response)
+  result = Message(
+    protocol: protocol,
+    ident: msgIdent,
+    kind: kind,
+    procDef: procDef,
+    recName: recName,
+    strongRecName: strongRecName,
+    recBody: recBody,
+    response: response,
+  )
 
   if procDef.body.kind != nnkEmpty:
     var userHandler = copy procDef
@@ -426,9 +432,12 @@ proc newMsg(protocol: P2PProtocol, kind: MessageKind,
     userHandler.name = ident(msgName & "UserHandler")
 
     case kind
-    of msgRequest:  userHandler.applyDecorator protocol.incomingRequestDecorator
-    of msgResponse: userHandler.applyDecorator protocol.incomingResponseDecorator
-    else: discard
+    of msgRequest:
+      userHandler.applyDecorator protocol.incomingRequestDecorator
+    of msgResponse:
+      userHandler.applyDecorator protocol.incomingResponseDecorator
+    else:
+      discard
 
     result.userHandler = userHandler
     protocol.outRecvProcs.add result.userHandler
@@ -453,13 +462,15 @@ proc addMsg(p: P2PProtocol, procDef: NimNode) =
   if hasReturnValue:
     let
       responseIdent = ident($procDef.name & "Response")
-      response = Message(protocol: p,
-                         ident: responseIdent,
-                         kind: msgResponse,
-                         recName: returnType,
-                         strongRecName: returnType,
-                         recBody: returnType,
-                         outputParamDef: outputParam)
+      response = Message(
+        protocol: p,
+        ident: responseIdent,
+        kind: msgResponse,
+        recName: returnType,
+        strongRecName: returnType,
+        recBody: returnType,
+        outputParamDef: outputParam,
+      )
 
     p.messages.add response
     let msg = p.newMsg(msgRequest, procDef, response = response)
@@ -485,31 +496,40 @@ proc requestResultType*(msg: Message): NimNode =
   else:
     return newTree(nnkBracketExpr, Opt, responseRec)
 
-proc createSendProc*(msg: Message,
-                     procType = nnkProcDef,
-                     isRawSender = false,
-                     nameSuffix = ""): SendProc =
+proc createSendProc*(
+    msg: Message, procType = nnkProcDef, isRawSender = false, nameSuffix = ""
+): SendProc =
   # TODO: file an issue:
   # macros.newProc and macros.params doesn't work with nnkMacroDef
 
   let
-    nameSuffix = if nameSuffix.len == 0: (if isRawSender: "RawSender" else: "")
-                 else: nameSuffix
+    nameSuffix =
+      if nameSuffix.len == 0:
+        (if isRawSender: "RawSender" else: "")
+      else:
+        nameSuffix
 
-    name = if nameSuffix.len == 0: msg.identWithExportMarker
-           else: ident($msg.ident & nameSuffix)
+    name =
+      if nameSuffix.len == 0:
+        msg.identWithExportMarker
+      else:
+        ident($msg.ident & nameSuffix)
 
-    pragmas = if procType == nnkProcDef: newTree(nnkPragma, ident"gcsafe")
-              else: newEmptyNode()
+    pragmas =
+      if procType == nnkProcDef:
+        newTree(nnkPragma, ident"gcsafe")
+      else:
+        newEmptyNode()
 
   var def = newNimNode(procType).add(
-    name,
-    newEmptyNode(),
-    newEmptyNode(),
-    copyInputParams msg.procDef.params,
-    pragmas,
-    newEmptyNode(),
-    newStmtList()) ## body
+      name,
+      newEmptyNode(),
+      newEmptyNode(),
+      copyInputParams msg.procDef.params,
+      pragmas,
+      newEmptyNode(),
+      newStmtList(),
+    ) ## body
 
   if procType == nnkProcDef:
     for p in msg.procDef.pragma:
@@ -529,7 +549,6 @@ proc createSendProc*(msg: Message,
   of msgRequest:
     # Add a timeout parameter for all request procs
     def.addTimeoutParam(msg.protocol.timeouts)
-
   of msgResponse:
     if msg.ResponderType != nil:
       # A response proc must be called with a response object that originates
@@ -544,19 +563,20 @@ proc createSendProc*(msg: Message,
 
       # We create a helper that enables the `response.send()` syntax
       # inside the user handler of the request proc:
-      result.extraDefs = quote do:
+      result.extraDefs = quote:
         template send*(r: `ResponderType`, args: varargs[untyped]): auto =
           `sendProcName`(r, args)
 
   of msgNotification:
     discard
 
-  def[3][0] = if procType == nnkMacroDef:
-                ident "untyped"
-              elif msg.kind == msgRequest and not isRawSender:
-                ident "auto"
-              else:
-                Fut(Void)
+  def[3][0] =
+    if procType == nnkMacroDef:
+      ident "untyped"
+    elif msg.kind == msgRequest and not isRawSender:
+      ident "auto"
+    else:
+      Fut(Void)
 
 proc setBody*(sendProc: SendProc, body: NimNode) =
   var
@@ -575,8 +595,9 @@ proc setBody*(sendProc: SendProc, body: NimNode) =
   if sendProc.extraDefs != nil:
     msg.protocol.outSendProcs.add sendProc.extraDefs
 
-proc writeParamsAsRecord*(params: openArray[NimNode],
-                          outputStream, Format, RecordType: NimNode): NimNode =
+proc writeParamsAsRecord*(
+    params: openArray[NimNode], outputStream, Format, RecordType: NimNode
+): NimNode =
   if params.len == 0:
     return newStmtList()
 
@@ -586,12 +607,10 @@ proc writeParamsAsRecord*(params: openArray[NimNode],
     writer = ident "writer"
 
   for param in params:
-    appendParams.add newCall(writeField,
-                             writer, recordWriterCtx,
-                             newLit($param), param)
+    appendParams.add newCall(writeField, writer, recordWriterCtx, newLit($param), param)
 
   if params.len > 1:
-    result = quote do:
+    result = quote:
       mixin init, writerType, beginRecord, endRecord
 
       var `writer` = init(WriterType(`Format`), `outputStream`)
@@ -601,14 +620,16 @@ proc writeParamsAsRecord*(params: openArray[NimNode],
   else:
     let param = params[0]
 
-    result = quote do:
+    result = quote:
       var `writer` = init(WriterType(`Format`), `outputStream`)
       writeValue(`writer`, `param`)
 
-proc useStandardBody*(sendProc: SendProc,
-                      preSerializationStep: proc(stream: NimNode): NimNode,
-                      postSerializationStep: proc(stream: NimNode): NimNode,
-                      sendCallGenerator: proc (peer, bytes: NimNode): NimNode) =
+proc useStandardBody*(
+    sendProc: SendProc,
+    preSerializationStep: proc(stream: NimNode): NimNode,
+    postSerializationStep: proc(stream: NimNode): NimNode,
+    sendCallGenerator: proc(peer, bytes: NimNode): NimNode,
+) =
   let
     msg = sendProc.msg
     msgBytes = ident "msgBytes"
@@ -627,22 +648,28 @@ proc useStandardBody*(sendProc: SendProc,
     msgRecName = msg.recName
     Format = msg.protocol.backend.SerializationFormat
 
-    preSerialization = if preSerializationStep.isNil: newStmtList()
-                       else: preSerializationStep(outputStream)
+    preSerialization =
+      if preSerializationStep.isNil:
+        newStmtList()
+      else:
+        preSerializationStep(outputStream)
 
-    serialization = writeParamsAsRecord(sendProc.msgParams,
-                                       outputStream, Format, msgRecName)
+    serialization =
+      writeParamsAsRecord(sendProc.msgParams, outputStream, Format, msgRecName)
 
-    postSerialization = if postSerializationStep.isNil: newStmtList()
-                        else: postSerializationStep(outputStream)
+    postSerialization =
+      if postSerializationStep.isNil:
+        newStmtList()
+      else:
+        postSerializationStep(outputStream)
 
-    tracing = when not tracingEnabled:
-                newStmtList()
-              else:
-                logSentMsgFields(recipient,
-                                 msg.protocol.protocolInfoVar,
-                                 $msg.ident,
-                                 sendProc.msgParams)
+    tracing =
+      when not tracingEnabled:
+        newStmtList()
+      else:
+        logSentMsgFields(
+          recipient, msg.protocol.protocolInfoVar, $msg.ident, sendProc.msgParams
+        )
 
   sendProc.setBody quote do:
     mixin init, WriterType, beginRecord, endRecord, getOutput
@@ -664,15 +691,21 @@ proc defineThunk*(msg: Message, thunk: NimNode) =
   let protocol = msg.protocol
 
   case msg.kind
-  of msgRequest:  thunk.applyDecorator protocol.incomingRequestThunkDecorator
-  of msgResponse: thunk.applyDecorator protocol.incomingResponseThunkDecorator
-  else: discard
+  of msgRequest:
+    thunk.applyDecorator protocol.incomingRequestThunkDecorator
+  of msgResponse:
+    thunk.applyDecorator protocol.incomingResponseThunkDecorator
+  else:
+    discard
 
   protocol.outRecvProcs.add thunk
 
-proc genUserHandlerCall*(msg: Message, receivedMsg: NimNode,
-                         leadingParams: openArray[NimNode],
-                         outputParam: NimNode = nil): NimNode =
+proc genUserHandlerCall*(
+    msg: Message,
+    receivedMsg: NimNode,
+    leadingParams: openArray[NimNode],
+    outputParam: NimNode = nil,
+): NimNode =
   if msg.userHandler == nil:
     return newStmtList()
 
@@ -688,11 +721,15 @@ proc genUserHandlerCall*(msg: Message, receivedMsg: NimNode,
   if outputParam != nil:
     result.add outputParam
 
-proc genAwaitUserHandler*(msg: Message, receivedMsg: NimNode,
-                          leadingParams: openArray[NimNode],
-                          outputParam: NimNode = nil): NimNode =
+proc genAwaitUserHandler*(
+    msg: Message,
+    receivedMsg: NimNode,
+    leadingParams: openArray[NimNode],
+    outputParam: NimNode = nil,
+): NimNode =
   result = msg.genUserHandlerCall(receivedMsg, leadingParams, outputParam)
-  if result.len > 0: result = newCall("await", result)
+  if result.len > 0:
+    result = newCall("await", result)
 
 proc appendAllInputParams*(node: NimNode, procDef: NimNode): NimNode =
   result = node
@@ -717,9 +754,9 @@ proc peerInit*(p: P2PProtocol): NimNode =
   if p.PeerStateType == nil:
     newNilLit()
   else:
-    newTree(nnkBracketExpr, bindSym"createPeerState",
-                            p.backend.PeerType,
-                            p.PeerStateType)
+    newTree(
+      nnkBracketExpr, bindSym"createPeerState", p.backend.PeerType, p.PeerStateType
+    )
 
 proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) =
   ## This procs handles all DSL statements valid inside a p2pProtocol.
@@ -752,22 +789,16 @@ proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) =
           queries.add p.newMsg(msgRequest, procs[i], response = responseMsg)
 
         p.requests.add Request(queries: queries, response: responseMsg)
-
       elif eqIdent(n[0], "onPeerConnected"):
         p.onPeerConnected = p.eventHandlerToProc(n[1], "PeerConnected")
-
       elif eqIdent(n[0], "onPeerDisconnected"):
         p.onPeerDisconnected = p.eventHandlerToProc(n[1], "PeerDisconnected")
-
       else:
         error(repr(n) & " is not a recognized call in P2P protocol definitions", n)
-
     of nnkProcDef, nnkIteratorDef:
       p.addMsg(n)
-
     of nnkCommentStmt:
       discard
-
     else:
       error "Illegal syntax in a P2P protocol definition", n
 
@@ -775,7 +806,7 @@ proc genTypeSection*(p: P2PProtocol): NimNode =
   var
     protocolName = p.nameIdent
     peerState = p.PeerStateType
-    networkState= p.NetworkStateType
+    networkState = p.NetworkStateType
 
   result = newStmtList()
   result.add quote do:
@@ -785,11 +816,13 @@ proc genTypeSection*(p: P2PProtocol): NimNode =
 
   if peerState != nil:
     result.add quote do:
-      template State*(`PROTO`: type `protocolName`): type = `peerState`
+      template State*(`PROTO`: type `protocolName`): type =
+        `peerState`
 
   if networkState != nil:
     result.add quote do:
-      template NetworkState*(`PROTO`: type `protocolName`): type = `networkState`
+      template NetworkState*(`PROTO`: type `protocolName`): type =
+        `networkState`
 
   for msg in p.messages:
     if msg.procDef == nil:
@@ -807,12 +840,16 @@ proc genTypeSection*(p: P2PProtocol): NimNode =
 
       # Add a helper template for accessing the message type:
       # e.g. p2p.hello:
-      template `msgName`*(`PROTO`: type `protocolName`): type = `msgRecName`
+      template `msgName`*(`PROTO`: type `protocolName`): type =
+        `msgRecName`
 
       # Add a helper template for obtaining the message Id for
       # a particular message type:
-      template msgProtocol*(`MSG`: type `msgStrongRecName`): type = `protocolName`
-      template RecType*(`MSG`: type `msgStrongRecName`): untyped = `msgRecName`
+      template msgProtocol*(`MSG`: type `msgStrongRecName`): type =
+        `protocolName`
+
+      template RecType*(`MSG`: type `msgStrongRecName`): untyped =
+        `msgRecName`
 
 proc genCode*(p: P2PProtocol): NimNode =
   for msg in p.messages:
@@ -834,19 +871,22 @@ proc genCode*(p: P2PProtocol): NimNode =
 
     # The protocol run-time data is available as a pseudo-field
     # (e.g. `p2p.protocolInfo`)
-    template protocolInfo*(`PROTO`: type `protocolName`): auto = `protocolInfoVar`
+    template protocolInfo*(`PROTO`: type `protocolName`): auto =
+      `protocolInfoVar`
 
-  result.add p.outSendProcs,
-             p.outRecvProcs,
-             p.outProcRegistrations
+  result.add p.outSendProcs, p.outRecvProcs, p.outProcRegistrations
 
-  if p.onPeerConnected != nil: result.add p.onPeerConnected
-  if p.onPeerDisconnected != nil: result.add p.onPeerDisconnected
+  if p.onPeerConnected != nil:
+    result.add p.onPeerConnected
+  if p.onPeerDisconnected != nil:
+    result.add p.onPeerDisconnected
 
-  result.add newCall(p.backend.setEventHandlers,
-                     protocolInfoVar,
-                     nameOrNil p.onPeerConnected,
-                     nameOrNil p.onPeerDisconnected)
+  result.add newCall(
+    p.backend.setEventHandlers,
+    protocolInfoVar,
+    nameOrNil p.onPeerConnected,
+    nameOrNil p.onPeerDisconnected,
+  )
 
 macro emitForSingleBackend(
     name: static[string],
@@ -861,17 +901,13 @@ macro emitForSingleBackend(
     incomingResponseDecorator: untyped = nil,
     incomingResponseThunkDecorator: untyped = nil,
     peerState = type(nil),
-    networkState = type(nil)): untyped =
-
+    networkState = type(nil),
+): untyped =
   var p = P2PProtocol.init(
-    backend,
-    name, version, body, timeouts,
-    outgoingRequestDecorator,
-    incomingRequestDecorator,
-    incomingRequestThunkDecorator,
-    incomingResponseDecorator,
-    incomingResponseThunkDecorator,
-    peerState.getType, networkState.getType)
+    backend, name, version, body, timeouts, outgoingRequestDecorator,
+    incomingRequestDecorator, incomingRequestThunkDecorator, incomingResponseDecorator,
+    incomingResponseThunkDecorator, peerState.getType, networkState.getType,
+  )
 
   result = p.genCode()
   try:

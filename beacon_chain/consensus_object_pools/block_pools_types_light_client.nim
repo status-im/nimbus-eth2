@@ -16,17 +16,16 @@ import
 type
   LightClientDataImportMode* {.pure.} = enum
     ## Controls which classes of light client data are imported.
-    None = "none"
-      ## Do not import new light client data.
-    OnlyNew = "only-new"
-      ## Incrementally import new light client data.
-    Full = "full"
-      ## Import historic light client data (slow startup).
-    OnDemand = "on-demand"
-      ## Like `full`, but import on demand instead of on start.
+    None = "none" ## Do not import new light client data.
+    OnlyNew = "only-new" ## Incrementally import new light client data.
+    Full = "full" ## Import historic light client data (slow startup).
+    OnDemand = "on-demand" ## Like `full`, but import on demand instead of on start.
 
   LightClientVerifierError* {.pure.} = enum
-    Invalid, MissingParent, UnviableFork, Duplicate
+    Invalid
+    MissingParent
+    UnviableFork
+    Duplicate
 
   OnLightClientFinalityUpdateCallback* =
     proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [].}
@@ -36,10 +35,8 @@ type
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
-    current_sync_committee_branch*:
-      LightClientDataFork.high.CurrentSyncCommitteeBranch
-    next_sync_committee_branch*:
-      LightClientDataFork.high.NextSyncCommitteeBranch
+    current_sync_committee_branch*: LightClientDataFork.high.CurrentSyncCommitteeBranch
+    next_sync_committee_branch*: LightClientDataFork.high.NextSyncCommitteeBranch
 
     finalized_slot*: Slot
     finality_branch*: LightClientDataFork.high.FinalityBranch
@@ -57,15 +54,13 @@ type
       ## Tracks light client data for the latest slot that was signed by
       ## at least `MIN_SYNC_COMMITTEE_PARTICIPANTS`. May be older than head.
 
-    tailSlot*: Slot
-      ## The earliest slot for which light client data is imported.
+    tailSlot*: Slot ## The earliest slot for which light client data is imported.
 
     recentHeaders*: OrderedTable[BlockId, ForkedLightClientHeader]
     recentSyncAggregates*: OrderedTable[BlockId, SyncAggregate]
 
   LightClientDataConfig* = object
-    serve*: bool
-      ## Whether to make local light client data available or not
+    serve*: bool ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
     maxPeriods*: Option[uint64]
@@ -78,17 +73,13 @@ type
   LightClientDataStore* = object
     # -----------------------------------
     # Light client data
-
-    cache*: LightClientDataCache
-      ## Cached data to accelerate creating light client data
+    cache*: LightClientDataCache ## Cached data to accelerate creating light client data
     db*: LightClientDataDB
       ## Persistent light client data to avoid expensive recomputations
 
     # -----------------------------------
     # Config
-
-    serve*: bool
-      ## Whether to make local light client data available or not
+    serve*: bool ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
     maxPeriods*: uint64
@@ -96,7 +87,6 @@ type
 
     # -----------------------------------
     # Callbacks
-
     onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
       ## On new `LightClientFinalityUpdate` callback
     onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback

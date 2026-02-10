@@ -12,117 +12,63 @@ import std/strutils
 import httputils, stew/base10
 import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
-import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-       ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
+import
+  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+  ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
 
 const
   HostNames = [
-    "[2001:db8::1]",
-    "127.0.0.1",
-    "hostname.com",
-    "localhost",
-    "username:password@[2001:db8::1]",
-    "username:password@127.0.0.1",
-    "username:password@hostname.com",
-    "username:password@localhost",
+    "[2001:db8::1]", "127.0.0.1", "hostname.com", "localhost",
+    "username:password@[2001:db8::1]", "username:password@127.0.0.1",
+    "username:password@hostname.com", "username:password@localhost",
   ]
 
   GoodTestVectors = [
-    ("http://$1",
-     "ok(http://$1)"),
-    ("http://$1?q=query",
-     "ok(http://$1?q=query)"),
-    ("http://$1?q=query#anchor",
-     "ok(http://$1?q=query#anchor)"),
-    ("http://$1/subpath/",
-     "ok(http://$1/subpath/)"),
-    ("http://$1/subpath/q=query",
-     "ok(http://$1/subpath/q=query)"),
-    ("http://$1/subpath/q=query#anchor",
-     "ok(http://$1/subpath/q=query#anchor)"),
-    ("http://$1/subpath",
-     "ok(http://$1/subpath)"),
-    ("http://$1/subpath?q=query",
-     "ok(http://$1/subpath?q=query)"),
-    ("http://$1/subpath?q=query#anchor",
-     "ok(http://$1/subpath?q=query#anchor)"),
-
-    ("https://$1",
-     "ok(https://$1)"),
-    ("https://$1?q=query",
-     "ok(https://$1?q=query)"),
-    ("https://$1?q=query#anchor",
-     "ok(https://$1?q=query#anchor)"),
-    ("https://$1/subpath/",
-     "ok(https://$1/subpath/)"),
-    ("https://$1/subpath/q=query",
-     "ok(https://$1/subpath/q=query)"),
-    ("https://$1/subpath/q=query#anchor",
-     "ok(https://$1/subpath/q=query#anchor)"),
-    ("https://$1/subpath",
-     "ok(https://$1/subpath)"),
-    ("https://$1/subpath?q=query",
-     "ok(https://$1/subpath?q=query)"),
-    ("https://$1/subpath?q=query#anchor",
-     "ok(https://$1/subpath?q=query#anchor)"),
-
-    ("$1:5052",
-     "ok(http://$1:5052)"),
-    ("$1:5052?q=query",
-     "ok(http://$1:5052?q=query)"),
-    ("$1:5052?q=query#anchor",
-     "ok(http://$1:5052?q=query#anchor)"),
-    ("$1:5052/subpath/",
-     "ok(http://$1:5052/subpath/)"),
-    ("$1:5052/subpath/q=query",
-     "ok(http://$1:5052/subpath/q=query)"),
-    ("$1:5052/subpath/q=query#anchor",
-     "ok(http://$1:5052/subpath/q=query#anchor)"),
-    ("$1:5052/subpath",
-     "ok(http://$1:5052/subpath)"),
-    ("$1:5052/subpath?q=query",
-     "ok(http://$1:5052/subpath?q=query)"),
-    ("$1:5052/subpath?q=query#anchor",
-     "ok(http://$1:5052/subpath?q=query#anchor)"),
-
-    ("bnode://$1:5052",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052?q=query",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052?q=query#anchor",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath/",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath/q=query",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath/q=query#anchor",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath?q=query",
-     "err(Unknown scheme value)"),
-    ("bnode://$1:5052/subpath?q=query#anchor",
-     "err(Unknown scheme value)"),
-
-    ("//$1:5052",
-     "ok(http://$1:5052)"),
-    ("//$1:5052?q=query",
-     "ok(http://$1:5052?q=query)"),
-    ("//$1:5052?q=query#anchor",
-     "ok(http://$1:5052?q=query#anchor)"),
-    ("//$1:5052/subpath/",
-     "ok(http://$1:5052/subpath/)"),
-    ("//$1:5052/subpath/q=query",
-     "ok(http://$1:5052/subpath/q=query)"),
-    ("//$1:5052/subpath/q=query#anchor",
-     "ok(http://$1:5052/subpath/q=query#anchor)"),
-    ("//$1:5052/subpath",
-     "ok(http://$1:5052/subpath)"),
-    ("//$1:5052/subpath?q=query",
-     "ok(http://$1:5052/subpath?q=query)"),
-    ("//$1:5052/subpath?q=query#anchor",
-     "ok(http://$1:5052/subpath?q=query#anchor)"),
-
+    ("http://$1", "ok(http://$1)"),
+    ("http://$1?q=query", "ok(http://$1?q=query)"),
+    ("http://$1?q=query#anchor", "ok(http://$1?q=query#anchor)"),
+    ("http://$1/subpath/", "ok(http://$1/subpath/)"),
+    ("http://$1/subpath/q=query", "ok(http://$1/subpath/q=query)"),
+    ("http://$1/subpath/q=query#anchor", "ok(http://$1/subpath/q=query#anchor)"),
+    ("http://$1/subpath", "ok(http://$1/subpath)"),
+    ("http://$1/subpath?q=query", "ok(http://$1/subpath?q=query)"),
+    ("http://$1/subpath?q=query#anchor", "ok(http://$1/subpath?q=query#anchor)"),
+    ("https://$1", "ok(https://$1)"),
+    ("https://$1?q=query", "ok(https://$1?q=query)"),
+    ("https://$1?q=query#anchor", "ok(https://$1?q=query#anchor)"),
+    ("https://$1/subpath/", "ok(https://$1/subpath/)"),
+    ("https://$1/subpath/q=query", "ok(https://$1/subpath/q=query)"),
+    ("https://$1/subpath/q=query#anchor", "ok(https://$1/subpath/q=query#anchor)"),
+    ("https://$1/subpath", "ok(https://$1/subpath)"),
+    ("https://$1/subpath?q=query", "ok(https://$1/subpath?q=query)"),
+    ("https://$1/subpath?q=query#anchor", "ok(https://$1/subpath?q=query#anchor)"),
+    ("$1:5052", "ok(http://$1:5052)"),
+    ("$1:5052?q=query", "ok(http://$1:5052?q=query)"),
+    ("$1:5052?q=query#anchor", "ok(http://$1:5052?q=query#anchor)"),
+    ("$1:5052/subpath/", "ok(http://$1:5052/subpath/)"),
+    ("$1:5052/subpath/q=query", "ok(http://$1:5052/subpath/q=query)"),
+    ("$1:5052/subpath/q=query#anchor", "ok(http://$1:5052/subpath/q=query#anchor)"),
+    ("$1:5052/subpath", "ok(http://$1:5052/subpath)"),
+    ("$1:5052/subpath?q=query", "ok(http://$1:5052/subpath?q=query)"),
+    ("$1:5052/subpath?q=query#anchor", "ok(http://$1:5052/subpath?q=query#anchor)"),
+    ("bnode://$1:5052", "err(Unknown scheme value)"),
+    ("bnode://$1:5052?q=query", "err(Unknown scheme value)"),
+    ("bnode://$1:5052?q=query#anchor", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath/", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath/q=query", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath/q=query#anchor", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath?q=query", "err(Unknown scheme value)"),
+    ("bnode://$1:5052/subpath?q=query#anchor", "err(Unknown scheme value)"),
+    ("//$1:5052", "ok(http://$1:5052)"),
+    ("//$1:5052?q=query", "ok(http://$1:5052?q=query)"),
+    ("//$1:5052?q=query#anchor", "ok(http://$1:5052?q=query#anchor)"),
+    ("//$1:5052/subpath/", "ok(http://$1:5052/subpath/)"),
+    ("//$1:5052/subpath/q=query", "ok(http://$1:5052/subpath/q=query)"),
+    ("//$1:5052/subpath/q=query#anchor", "ok(http://$1:5052/subpath/q=query#anchor)"),
+    ("//$1:5052/subpath", "ok(http://$1:5052/subpath)"),
+    ("//$1:5052/subpath?q=query", "ok(http://$1:5052/subpath?q=query)"),
+    ("//$1:5052/subpath?q=query#anchor", "ok(http://$1:5052/subpath?q=query#anchor)"),
     ("//$1", "err(Missing port number)"),
     ("//$1?q=query", "err(Missing port number)"),
     ("//$1?q=query#anchor", "err(Missing port number)"),
@@ -132,7 +78,6 @@ const
     ("//$1/subpath", "err(Missing port number)"),
     ("//$1/subpath?q=query", "err(Missing port number)"),
     ("//$1/subpath?q=query#anchor", "err(Missing port number)"),
-
     ("$1", "err(Missing port number)"),
     ("$1?q=query", "err(Missing port number)"),
     ("$1?q=query#anchor", "err(Missing port number)"),
@@ -142,8 +87,7 @@ const
     ("$1/subpath", "err(Missing port number)"),
     ("$1/subpath?q=query", "err(Missing port number)"),
     ("$1/subpath?q=query#anchor", "err(Missing port number)"),
-
-    ("", "err(Missing hostname)")
+    ("", "err(Missing hostname)"),
   ]
 
   ObolBeaconRequestTestVector = """
@@ -198,23 +142,27 @@ const
     (
       validator_index: RestValidatorIndex(1),
       slot: Slot(1),
-      selection_proof: "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(2),
       slot: Slot(2),
-      selection_proof: "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(3),
       slot: Slot(3),
-      selection_proof: "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(4),
       slot: Slot(4),
-      selection_proof: "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
-    )
+      selection_proof:
+        "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+    ),
   ]
   ObolSyncRequestTestVector = """
 [
@@ -277,39 +225,43 @@ const
       validator_index: RestValidatorIndex(1),
       slot: Slot(1),
       subcommittee_index: 1'u64,
-      selection_proof: "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(2),
       slot: Slot(2),
       subcommittee_index: 2'u64,
-      selection_proof: "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(3),
       slot: Slot(3),
       subcommittee_index: 3'u64,
-      selection_proof: "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+      selection_proof:
+        "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
     ),
     (
       validator_index: RestValidatorIndex(4),
       slot: Slot(4),
       subcommittee_index: 4'u64,
-      selection_proof: "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
-    )
+      selection_proof:
+        "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+    ),
   ]
 
 type
-  TestDecodeTypes = seq[RestBeaconCommitteeSelection] |
-                    seq[RestSyncCommitteeSelection]
+  TestDecodeTypes = seq[RestBeaconCommitteeSelection] | seq[RestSyncCommitteeSelection]
 
-  AttestationDataTuple* = tuple[
-    slot: uint64,
-    index: uint64,
-    beacon_block_root: string,
-    source: uint64,
-    target: uint64
-  ]
+  AttestationDataTuple* =
+    tuple[
+      slot: uint64,
+      index: uint64,
+      beacon_block_root: string,
+      source: uint64,
+      target: uint64,
+    ]
 
   AttestationBitsObject = object
     data: CommitteeValidatorsBits
@@ -317,77 +269,167 @@ type
   SyncCommitteeBitsObject = object
     data: SyncCommitteeAggregationBits
 
-RestJson.useDefaultSerializationFor(
-  AttestationBitsObject,
-  SyncCommitteeBitsObject
-)
+RestJson.useDefaultSerializationFor(AttestationBitsObject, SyncCommitteeBitsObject)
 
 const
   AttestationDataVectors = [
     # Attestation score with block monitoring enabled (perfect).
-    ((6002798'u64, 10'u64, "22242212", 187586'u64, 187587'u64),
-     ("22242212", 6002798'u64), "<perfect>"),
-    ((6002811'u64, 24'u64, "26ec78d6", 187586'u64, 187587'u64),
-     ("26ec78d6", 6002811'u64), "<perfect>"),
-    ((6002821'u64, 11'u64, "10c6d1a2", 187587'u64, 187588'u64),
-     ("10c6d1a2", 6002821'u64), "<perfect>"),
-    ((6002836'u64, 15'u64, "42354ded", 187587'u64, 187588'u64),
-     ("42354ded", 6002836'u64), "<perfect>"),
-    ((6002859'u64, 10'u64, "97d8ac69", 187588'u64, 187589'u64),
-     ("97d8ac69", 6002859'u64), "<perfect>"),
+    (
+      (6002798'u64, 10'u64, "22242212", 187586'u64, 187587'u64),
+      ("22242212", 6002798'u64),
+      "<perfect>",
+    ),
+    (
+      (6002811'u64, 24'u64, "26ec78d6", 187586'u64, 187587'u64),
+      ("26ec78d6", 6002811'u64),
+      "<perfect>",
+    ),
+    (
+      (6002821'u64, 11'u64, "10c6d1a2", 187587'u64, 187588'u64),
+      ("10c6d1a2", 6002821'u64),
+      "<perfect>",
+    ),
+    (
+      (6002836'u64, 15'u64, "42354ded", 187587'u64, 187588'u64),
+      ("42354ded", 6002836'u64),
+      "<perfect>",
+    ),
+    (
+      (6002859'u64, 10'u64, "97d8ac69", 187588'u64, 187589'u64),
+      ("97d8ac69", 6002859'u64),
+      "<perfect>",
+    ),
     # Attestation score with block monitoring enabled #1 (not perfect).
-    ((6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
-     ("524a9e2b", 6002870'u64), "375177.5000"),
-    ((6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
-     ("524a9e2b", 6002869'u64), "375177.3333"),
-    ((6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
-     ("524a9e2b", 6002868'u64), "375177.2500"),
-    ((6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
-     ("524a9e2b", 6002867'u64), "375177.2000"),
-    ((6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
-     ("524a9e2b", 6002866'u64), "375177.1667"),
+    (
+      (6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
+      ("524a9e2b", 6002870'u64),
+      "375177.5000",
+    ),
+    (
+      (6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
+      ("524a9e2b", 6002869'u64),
+      "375177.3333",
+    ),
+    (
+      (6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
+      ("524a9e2b", 6002868'u64),
+      "375177.2500",
+    ),
+    (
+      (6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
+      ("524a9e2b", 6002867'u64),
+      "375177.2000",
+    ),
+    (
+      (6002871'u64, 25'u64, "524a9e2b", 187588'u64, 187589'u64),
+      ("524a9e2b", 6002866'u64),
+      "375177.1667",
+    ),
     # Attestation score with block monitoring enabled #2 (not perfect).
-    ((6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
-     ("22a19d87", 6002961'u64), "375183.5000"),
-    ((6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
-     ("22a19d87", 6002960'u64), "375183.3333"),
-    ((6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
-     ("22a19d87", 6002959'u64), "375183.2500"),
-    ((6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
-     ("22a19d87", 6002958'u64), "375183.2000"),
-    ((6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
-     ("22a19d87", 6002957'u64), "375183.1667"),
+    (
+      (6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
+      ("22a19d87", 6002961'u64),
+      "375183.5000",
+    ),
+    (
+      (6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
+      ("22a19d87", 6002960'u64),
+      "375183.3333",
+    ),
+    (
+      (6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
+      ("22a19d87", 6002959'u64),
+      "375183.2500",
+    ),
+    (
+      (6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
+      ("22a19d87", 6002958'u64),
+      "375183.2000",
+    ),
+    (
+      (6002962'u64, 14'u64, "22a19d87", 187591'u64, 187592'u64),
+      ("22a19d87", 6002957'u64),
+      "375183.1667",
+    ),
     # Attestation score with block monitoring disabled #1.
-    ((6003217'u64, 52'u64, "5e945218", 187599'u64, 187600'u64),
-     ("00000000", 0'u64), "375199.0000"),
-    ((6003217'u64, 52'u64, "5e945218", 187598'u64, 187600'u64),
-     ("00000000", 0'u64), "375198.0000"),
-    ((6003217'u64, 52'u64, "5e945218", 187597'u64, 187600'u64),
-     ("00000000", 0'u64), "375197.0000"),
-    ((6003217'u64, 52'u64, "5e945218", 187596'u64, 187600'u64),
-     ("00000000", 0'u64), "375196.0000"),
-    ((6003217'u64, 52'u64, "5e945218", 187595'u64, 187600'u64),
-     ("00000000", 0'u64), "375195.0000"),
+    (
+      (6003217'u64, 52'u64, "5e945218", 187599'u64, 187600'u64),
+      ("00000000", 0'u64),
+      "375199.0000",
+    ),
+    (
+      (6003217'u64, 52'u64, "5e945218", 187598'u64, 187600'u64),
+      ("00000000", 0'u64),
+      "375198.0000",
+    ),
+    (
+      (6003217'u64, 52'u64, "5e945218", 187597'u64, 187600'u64),
+      ("00000000", 0'u64),
+      "375197.0000",
+    ),
+    (
+      (6003217'u64, 52'u64, "5e945218", 187596'u64, 187600'u64),
+      ("00000000", 0'u64),
+      "375196.0000",
+    ),
+    (
+      (6003217'u64, 52'u64, "5e945218", 187595'u64, 187600'u64),
+      ("00000000", 0'u64),
+      "375195.0000",
+    ),
     # Attestation score with block monitoring disabled #2.
-    ((6003257'u64, 9'u64, "7bfa464e", 187600'u64, 187601'u64),
-     ("00000000", 0'u64), "375201.0000"),
-    ((6003257'u64, 9'u64, "7bfa464e", 187599'u64, 187601'u64),
-     ("00000000", 0'u64), "375200.0000"),
-    ((6003257'u64, 9'u64, "7bfa464e", 187598'u64, 187601'u64),
-     ("00000000", 0'u64), "375199.0000"),
-    ((6003257'u64, 9'u64, "7bfa464e", 187597'u64, 187601'u64),
-     ("00000000", 0'u64), "375198.0000"),
-    ((6003257'u64, 9'u64, "7bfa464e", 187596'u64, 187601'u64),
-     ("00000000", 0'u64), "375197.0000"),
+    (
+      (6003257'u64, 9'u64, "7bfa464e", 187600'u64, 187601'u64),
+      ("00000000", 0'u64),
+      "375201.0000",
+    ),
+    (
+      (6003257'u64, 9'u64, "7bfa464e", 187599'u64, 187601'u64),
+      ("00000000", 0'u64),
+      "375200.0000",
+    ),
+    (
+      (6003257'u64, 9'u64, "7bfa464e", 187598'u64, 187601'u64),
+      ("00000000", 0'u64),
+      "375199.0000",
+    ),
+    (
+      (6003257'u64, 9'u64, "7bfa464e", 187597'u64, 187601'u64),
+      ("00000000", 0'u64),
+      "375198.0000",
+    ),
+    (
+      (6003257'u64, 9'u64, "7bfa464e", 187596'u64, 187601'u64),
+      ("00000000", 0'u64),
+      "375197.0000",
+    ),
   ]
 
   AggregatedDataVectors = [
-    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01", "<perfect>"),
-    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.2500"),
-    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.5000"),
-    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.7500"),
-    ("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01", "0.9995"),
-    ("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101", "0.0005"),
+    (
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "<perfect>",
+    ),
+    (
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+      "0.2500",
+    ),
+    (
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+      "0.5000",
+    ),
+    (
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+      "0.7500",
+    ),
+    (
+      "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01",
+      "0.9995",
+    ),
+    (
+      "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101",
+      "0.0005",
+    ),
   ]
 
   ContributionDataVectors = [
@@ -399,84 +441,76 @@ const
     ("0xffffffff7f7f7f7f7f7f7f7f7f7f7f7f", "0.9062"),
     ("0xffff7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8906"),
     ("0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8750"),
-    ("0xffffffffffffffffffffffffffffffff", "<perfect>")
+    ("0xffffffffffffffffffffffffffffffff", "<perfect>"),
   ]
 
   SyncMessageDataVectors = [
     # Sync committee messages score with block monitoring enabled (perfect)
-    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
-     "<perfect>"),
-    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
-     "<perfect>"),
-    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
-     "<perfect>"),
-    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
-     "<perfect>"),
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(false), "<perfect>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false), "<perfect>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false), "<perfect>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false), "<perfect>"),
     # Sync committee messages score when beacon node is optimistically synced
-    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(true),
-     "<bad>"),
-    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(true),
-     "<bad>"),
-    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(true),
-     "<bad>"),
-    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(true),
-     "<bad>"),
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(true), "<bad>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(true), "<bad>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(true), "<bad>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(true), "<bad>"),
     # Sync committee messages score with block monitoring enabled (not perfect)
-    (6002797'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
-     "1.5000"),
-    (6002809'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
-     "1.3333"),
-    (6002826'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
-     "1.0909"),
-    (6002819'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
-     "1.0244"),
+    (6002797'u64, "22242212", "22242212", 6002798'u64, Opt.some(false), "1.5000"),
+    (6002809'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false), "1.3333"),
+    (6002826'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false), "1.0909"),
+    (6002819'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false), "1.0244"),
     # Sync committee messages score with block monitoring disabled
-    (6002797'u64, "00000000", "22242212", 6002798'u64, Opt.some(false),
-     "0.1334"),
-    (6002809'u64, "00000000", "26ec78d6", 6002811'u64, Opt.some(false),
-     "0.1520"),
-    (6002826'u64, "00000000", "42354ded", 6002836'u64, Opt.some(false),
-     "0.2586"),
-    (6002819'u64, "00000000", "97d8ac69", 6002859'u64, Opt.some(false),
-     "0.5931"),
+    (6002797'u64, "00000000", "22242212", 6002798'u64, Opt.some(false), "0.1334"),
+    (6002809'u64, "00000000", "26ec78d6", 6002811'u64, Opt.some(false), "0.1520"),
+    (6002826'u64, "00000000", "42354ded", 6002836'u64, Opt.some(false), "0.2586"),
+    (6002819'u64, "00000000", "97d8ac69", 6002859'u64, Opt.some(false), "0.5931"),
   ]
 
   AttestationBitsVectors = [
     ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 0'u64)], 8),
     ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(1), 0'u64)], 16),
-    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 1'u64)], 16)
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 1'u64)], 16),
   ]
 
   UInt256ScoreVectors = [
-    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-     "0x0000000000000000000000000000000000000000000000000000000000000001",
-     "0"),
-    ("0x10",
-     "0x10",
-     "32")
+    (
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0x0000000000000000000000000000000000000000000000000000000000000001", "0",
+    ),
+    ("0x10", "0x10", "32"),
   ]
 
 proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
   let length = len(data)
   var dst = Eth2Digest()
   try:
-    hexToByteArray(data.toOpenArray(0, len(data) - 1),
-                   dst.data.toOpenArray(0, (length div 2) - 1))
+    hexToByteArray(
+      data.toOpenArray(0, len(data) - 1), dst.data.toOpenArray(0, (length div 2) - 1)
+    )
   except ValueError:
     discard
   dst
 
-proc init(t: typedesc[ProduceAttestationDataResponse],
-          ad: AttestationDataTuple): ProduceAttestationDataResponse =
-  ProduceAttestationDataResponse(data: AttestationData(
-    slot: Slot(ad.slot), index: ad.index,
-    beacon_block_root: Eth2Digest.init(ad.beacon_block_root),
-    source: Checkpoint(epoch: Epoch(ad.source)),
-    target: Checkpoint(epoch: Epoch(ad.target))
-  ))
+proc init(
+    t: typedesc[ProduceAttestationDataResponse], ad: AttestationDataTuple
+): ProduceAttestationDataResponse =
+  ProduceAttestationDataResponse(
+    data: AttestationData(
+      slot: Slot(ad.slot),
+      index: ad.index,
+      beacon_block_root: Eth2Digest.init(ad.beacon_block_root),
+      source: Checkpoint(epoch: Epoch(ad.source)),
+      target: Checkpoint(epoch: Epoch(ad.target)),
+    )
+  )
 
-proc init(t: typedesc[phase0.Attestation], bits: string,
-          slot: Slot = GENESIS_SLOT, index: uint64 = 0'u64): phase0.Attestation =
+proc init(
+    t: typedesc[phase0.Attestation],
+    bits: string,
+    slot: Slot = GENESIS_SLOT,
+    index: uint64 = 0'u64,
+): phase0.Attestation =
   let
     jdata = "{\"data\":\"" & bits & "\"}"
     bits =
@@ -484,15 +518,18 @@ proc init(t: typedesc[phase0.Attestation], bits: string,
         RestJson.decode(jdata, AttestationBitsObject)
       except SerializationError as exc:
         raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
-  phase0.Attestation(aggregation_bits: bits.data,
-                     data: AttestationData(slot: slot, index: index))
+  phase0.Attestation(
+    aggregation_bits: bits.data, data: AttestationData(slot: slot, index: index)
+  )
 
-proc init(t: typedesc[GetAggregatedAttestationResponse],
-          bits: string): GetAggregatedAttestationResponse =
+proc init(
+    t: typedesc[GetAggregatedAttestationResponse], bits: string
+): GetAggregatedAttestationResponse =
   GetAggregatedAttestationResponse(data: phase0.Attestation.init(bits))
 
-proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
-          bits: string): ProduceSyncCommitteeContributionResponse =
+proc init(
+    t: typedesc[ProduceSyncCommitteeContributionResponse], bits: string
+): ProduceSyncCommitteeContributionResponse =
   let
     jdata = "{\"data\":\"" & bits & "\"}"
     bits =
@@ -500,27 +537,26 @@ proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
         RestJson.decode(jdata, SyncCommitteeBitsObject)
       except SerializationError as exc:
         raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
-  ProduceSyncCommitteeContributionResponse(data: SyncCommitteeContribution(
-    aggregation_bits: bits.data
-  ))
+  ProduceSyncCommitteeContributionResponse(
+    data: SyncCommitteeContribution(aggregation_bits: bits.data)
+  )
 
-proc init(t: typedesc[GetBlockRootResponse],
-          optimistic: Opt[bool], root: Eth2Digest): GetBlockRootResponse =
+proc init(
+    t: typedesc[GetBlockRootResponse], optimistic: Opt[bool], root: Eth2Digest
+): GetBlockRootResponse =
   GetBlockRootResponse(data: RestRoot(root: root), execution_optimistic: optimistic)
 
-proc createRootsSeen(
-       root: tuple[root: string, slot: uint64]): Table[Eth2Digest, Slot] =
+proc createRootsSeen(root: tuple[root: string, slot: uint64]): Table[Eth2Digest, Slot] =
   var res: Table[Eth2Digest, Slot]
   res[Eth2Digest.init(root.root)] = Slot(root.slot)
   res
 
 suite "Validator Client test suite":
-
   proc decodeBytes[T: TestDecodeTypes](
-       t: typedesc[T],
-       value: openArray[byte],
-       contentType: Opt[ContentTypeData] = Opt.none(ContentTypeData)
-     ): RestResult[T] =
+      t: typedesc[T],
+      value: openArray[byte],
+      contentType: Opt[ContentTypeData] = Opt.none(ContentTypeData),
+  ): RestResult[T] =
     let mediaType =
       if contentType.isNone():
         ApplicationJsonMediaType
@@ -538,21 +574,21 @@ suite "Validator Client test suite":
       err("Content-Type not supported")
 
   proc submitBeaconCommitteeSelectionsPlain(
-         body: seq[RestBeaconCommitteeSelection]
-       ): RestPlainResponse {.
-       rest, endpoint: "/eth/v1/validator/beacon_committee_selections",
-       meth: MethodPost.}
+    body: seq[RestBeaconCommitteeSelection]
+  ): RestPlainResponse {.
+    rest, endpoint: "/eth/v1/validator/beacon_committee_selections", meth: MethodPost
+  .}
     ## https://ethereum.github.io/beacon-APIs/#/Validator/submitBeaconCommitteeSelections
 
   proc submitSyncCommitteeSelectionsPlain(
-         body: seq[RestSyncCommitteeSelection]
-       ): RestPlainResponse {.
-       rest, endpoint: "/eth/v1/validator/sync_committee_selections",
-       meth: MethodPost.}
-    ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
+    body: seq[RestSyncCommitteeSelection]
+  ): RestPlainResponse {.
+    rest, endpoint: "/eth/v1/validator/sync_committee_selections", meth: MethodPost
+  .} ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
 
-  proc createServer(address: TransportAddress,
-                    process: HttpProcessCallback, secure: bool): HttpServerRef =
+  proc createServer(
+      address: TransportAddress, process: HttpProcessCallback, secure: bool
+  ): HttpServerRef =
     let
       socketFlags = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr}
       res = HttpServerRef.new(address, process, socketFlags = socketFlags)
@@ -565,7 +601,7 @@ suite "Validator Client test suite":
         check $normalizeUri(parseUri(vector[0] % (hostname))) == expect
 
   asyncTest "/eth/v1/validator/beacon_committee_selections " &
-            "serialization/deserialization test":
+    "serialization/deserialization test":
     var clientRequest: seq[byte]
     proc process(r: RequestFence): Future[HttpResponseRef] {.async.} =
       if r.isOk():
@@ -574,14 +610,13 @@ suite "Validator Client test suite":
         of "/eth/v1/validator/beacon_committee_selections":
           clientRequest = await request.getBody()
           let headers = HttpTable.init([("Content-Type", "application/json")])
-          return await request.respond(Http200, ObolBeaconResponseTestVector,
-                                       headers)
+          return await request.respond(Http200, ObolBeaconResponseTestVector, headers)
         else:
           return await request.respond(Http404, "Page not found")
       else:
         return defaultResponse()
 
-    let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
+    let server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
     defer:
       await server.stop()
@@ -591,19 +626,19 @@ suite "Validator Client test suite":
       serverAddress = server.instance.localAddress
       flags = {RestClientFlag.CommaSeparatedArray}
       remoteUri = "http://" & $serverAddress
-      client =
-        block:
-          let res = RestClientRef.new(remoteUri, flags = flags)
-          check res.isOk()
-          res.get()
-      selections =
-        block:
-          let res = decodeBytes(
-            seq[RestBeaconCommitteeSelection],
-            ObolBeaconRequestTestVector.toOpenArrayByte(
-              0, len(ObolBeaconRequestTestVector) - 1))
-          check res.isOk()
-          res.get()
+      client = block:
+        let res = RestClientRef.new(remoteUri, flags = flags)
+        check res.isOk()
+        res.get()
+      selections = block:
+        let res = decodeBytes(
+          seq[RestBeaconCommitteeSelection],
+          ObolBeaconRequestTestVector.toOpenArrayByte(
+            0, len(ObolBeaconRequestTestVector) - 1
+          ),
+        )
+        check res.isOk()
+        res.get()
 
     defer:
       await client.closeWait()
@@ -613,17 +648,15 @@ suite "Validator Client test suite":
       resp.status == 200
       resp.contentType == MediaType.init("application/json")
 
-    let request =
-      block:
-        let res = decodeBytes(
-          seq[RestBeaconCommitteeSelection],
-          clientRequest)
-        check res.isOk()
-        res.get()
+    let request = block:
+      let res = decodeBytes(seq[RestBeaconCommitteeSelection], clientRequest)
+      check res.isOk()
+      res.get()
 
     let response = block:
-      let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
-                            resp.data, resp.contentType)
+      let res = decodeBytes(
+        SubmitBeaconCommitteeSelectionsResponse, resp.data, resp.contentType
+      )
       check res.isOk()
       res.get()
 
@@ -634,10 +667,8 @@ suite "Validator Client test suite":
     # Checking response
     for index, item in response.data.pairs():
       check:
-        item.validator_index ==
-          ObolBeaconResponseTestVectorObject[index].validator_index
-        item.slot ==
-          ObolBeaconResponseTestVectorObject[index].slot
+        item.validator_index == ObolBeaconResponseTestVectorObject[index].validator_index
+        item.slot == ObolBeaconResponseTestVectorObject[index].slot
         item.selection_proof.toHex() ==
           ObolBeaconResponseTestVectorObject[index].selection_proof
 
@@ -649,7 +680,7 @@ suite "Validator Client test suite":
         item.selection_proof.toHex() == request[index].selection_proof.toHex()
 
   asyncTest "/eth/v1/validator/sync_committee_selections " &
-            "serialization/deserialization test":
+    "serialization/deserialization test":
     var clientRequest: seq[byte]
     proc process(r: RequestFence): Future[HttpResponseRef] {.async.} =
       if r.isOk():
@@ -658,14 +689,13 @@ suite "Validator Client test suite":
         of "/eth/v1/validator/sync_committee_selections":
           clientRequest = await request.getBody()
           let headers = HttpTable.init([("Content-Type", "application/json")])
-          return await request.respond(Http200, ObolSyncResponseTestVector,
-                                       headers)
+          return await request.respond(Http200, ObolSyncResponseTestVector, headers)
         else:
           return await request.respond(Http404, "Page not found")
       else:
         return defaultResponse()
 
-    let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
+    let server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
     defer:
       await server.stop()
@@ -675,19 +705,19 @@ suite "Validator Client test suite":
       serverAddress = server.instance.localAddress
       flags = {RestClientFlag.CommaSeparatedArray}
       remoteUri = "http://" & $serverAddress
-      client =
-        block:
-          let res = RestClientRef.new(remoteUri, flags = flags)
-          check res.isOk()
-          res.get()
-      selections =
-        block:
-          let res = decodeBytes(
-            seq[RestSyncCommitteeSelection],
-            ObolSyncRequestTestVector.toOpenArrayByte(
-              0, len(ObolSyncRequestTestVector) - 1))
-          check res.isOk()
-          res.get()
+      client = block:
+        let res = RestClientRef.new(remoteUri, flags = flags)
+        check res.isOk()
+        res.get()
+      selections = block:
+        let res = decodeBytes(
+          seq[RestSyncCommitteeSelection],
+          ObolSyncRequestTestVector.toOpenArrayByte(
+            0, len(ObolSyncRequestTestVector) - 1
+          ),
+        )
+        check res.isOk()
+        res.get()
 
     defer:
       await client.closeWait()
@@ -697,17 +727,14 @@ suite "Validator Client test suite":
       resp.status == 200
       resp.contentType == MediaType.init("application/json")
 
-    let request =
-      block:
-        let res = decodeBytes(
-          seq[RestSyncCommitteeSelection],
-          clientRequest)
-        check res.isOk()
-        res.get()
+    let request = block:
+      let res = decodeBytes(seq[RestSyncCommitteeSelection], clientRequest)
+      check res.isOk()
+      res.get()
 
     let response = block:
-      let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
-                            resp.data, resp.contentType)
+      let res =
+        decodeBytes(SubmitSyncCommitteeSelectionsResponse, resp.data, resp.contentType)
       check res.isOk()
       res.get()
 
@@ -718,10 +745,8 @@ suite "Validator Client test suite":
     # Checking response
     for index, item in response.data.pairs():
       check:
-        item.validator_index ==
-          ObolSyncResponseTestVectorObject[index].validator_index
-        item.slot ==
-          ObolSyncResponseTestVectorObject[index].slot
+        item.validator_index == ObolSyncResponseTestVectorObject[index].validator_index
+        item.slot == ObolSyncResponseTestVectorObject[index].slot
         item.selection_proof.toHex() ==
           ObolSyncResponseTestVectorObject[index].selection_proof
         item.subcommittee_index == request[index].subcommittee_index
@@ -751,8 +776,7 @@ suite "Validator Client test suite":
 
   test "getAggregatedAttestationDataScore() default test":
     let
-      adata = GetAggregatedAttestationResponse(
-        data: LowestScoreAggregatedAttestation)
+      adata = GetAggregatedAttestationResponse(data: LowestScoreAggregatedAttestation)
       score = shortScore(getAggregatedAttestationDataScore(adata))
     check:
       score == "0.0000"
@@ -761,15 +785,10 @@ suite "Validator Client test suite":
   test "getProduceBlockResponseV3Score() default test":
     let
       bdata1 = ProduceBlockResponseV3()
-      bdata2 = ProduceBlockResponseV3(
-        consensusValue: Opt.some(UInt256.zero)
-      )
-      bdata3 = ProduceBlockResponseV3(
-        executionValue: Opt.some(UInt256.zero),
-      )
+      bdata2 = ProduceBlockResponseV3(consensusValue: Opt.some(UInt256.zero))
+      bdata3 = ProduceBlockResponseV3(executionValue: Opt.some(UInt256.zero))
       bdata4 = ProduceBlockResponseV3(
-        consensusValue: Opt.some(UInt256.zero),
-        executionValue: Opt.some(UInt256.zero)
+        consensusValue: Opt.some(UInt256.zero), executionValue: Opt.some(UInt256.zero)
       )
     check:
       shortScore(getProduceBlockResponseV3Score(bdata1)) == "0"
@@ -790,8 +809,7 @@ suite "Validator Client test suite":
         roots = createRootsSeen((vector[1], vector[0]))
         rdata = GetBlockRootResponse.init(vector[4], Eth2Digest.init(vector[2]))
         currentSlot = Slot(vector[3])
-        score = shortScore(getSyncCommitteeMessageDataScore(roots, currentSlot,
-                                                            rdata))
+        score = shortScore(getSyncCommitteeMessageDataScore(roots, currentSlot, rdata))
       check:
         score == vector[5]
 
@@ -801,18 +819,15 @@ suite "Validator Client test suite":
         value1 = strictParse(vector[0], UInt256, 16).get()
         value2 = strictParse(vector[1], UInt256, 16).get()
         bdata = ProduceBlockResponseV3(
-          executionValue: Opt.some(value1),
-          consensusValue: Opt.some(value2)
+          executionValue: Opt.some(value1), consensusValue: Opt.some(value2)
         )
       check shortScore(getProduceBlockResponseV3Score(bdata)) == vector[2]
 
   test "getUniqueVotes() test vectors":
     for vector in AttestationBitsVectors:
       let
-        a1 = phase0.Attestation.init(vector[0][0][0], vector[0][0][1],
-                                     vector[0][0][2])
-        a2 = phase0.Attestation.init(vector[0][1][0], vector[0][1][1],
-                                     vector[0][1][2])
+        a1 = phase0.Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
+        a2 = phase0.Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
       check getUniqueVotes([a1, a2]) == vector[1]
 
   asyncTest "firstSuccessParallel() API timeout test":
@@ -820,7 +835,8 @@ suite "Validator Client test suite":
       uri = parseUri("http://127.0.0.1/")
       beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
       vconf = ValidatorClientConf.load(
-        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it))
+        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it)
+      )
       epoch = Epoch(1)
       strategy = ApiStrategyKind.Priority
 
@@ -828,16 +844,16 @@ suite "Validator Client test suite":
     var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
-    proc getTestDuties(client: RestClientRef,
-                       epoch: Epoch): Future[RestPlainResponse] {.async.} =
+    proc getTestDuties(
+        client: RestClientRef, epoch: Epoch
+    ): Future[RestPlainResponse] {.async.} =
       try:
         await sleepAsync(1.seconds)
       except CancelledError as exc:
         gotCancellation = true
         raise exc
 
-    const
-      RequestName = "getTestDuties"
+    const RequestName = "getTestDuties"
 
     let response = vc.firstSuccessParallel(
       RestPlainResponse,
@@ -845,12 +861,12 @@ suite "Validator Client test suite":
       100.milliseconds,
       AllBeaconNodeStatuses,
       {BeaconNodeRole.Duties},
-      getTestDuties(it, epoch)):
-        check:
-          apiResponse.isErr()
-          apiResponse.error ==
-            "Timeout exceeded while awaiting for the response"
-        ApiResponse[uint64].err(apiResponse.error)
+      getTestDuties(it, epoch),
+    ):
+      check:
+        apiResponse.isErr()
+        apiResponse.error == "Timeout exceeded while awaiting for the response"
+      ApiResponse[uint64].err(apiResponse.error)
 
     check:
       response.isErr()
@@ -861,7 +877,8 @@ suite "Validator Client test suite":
       uri = parseUri("http://127.0.0.1/")
       beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
       vconf = ValidatorClientConf.load(
-        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it))
+        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it)
+      )
       epoch = Epoch(1)
       strategy = ApiStrategyKind.Priority
 
@@ -869,18 +886,19 @@ suite "Validator Client test suite":
     var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
-    proc getTestDuties(client: RestClientRef,
-                       epoch: Epoch): Future[RestPlainResponse] {.async.} =
+    proc getTestDuties(
+        client: RestClientRef, epoch: Epoch
+    ): Future[RestPlainResponse] {.async.} =
       try:
         await sleepAsync(1.seconds)
       except CancelledError as exc:
         gotCancellation = true
         raise exc
 
-    proc getTestScore(data: uint64): float64 = Inf
+    proc getTestScore(data: uint64): float64 =
+      Inf
 
-    const
-      RequestName = "getTestDuties"
+    const RequestName = "getTestDuties"
 
     let response = vc.bestSuccess(
       RestPlainResponse,
@@ -891,12 +909,12 @@ suite "Validator Client test suite":
       AllBeaconNodeStatuses,
       {BeaconNodeRole.Duties},
       getTestDuties(it, epoch),
-      getTestScore(itresponse)):
-        check:
-          apiResponse.isErr()
-          apiResponse.error ==
-            "Timeout exceeded while awaiting for the response"
-        ApiResponse[uint64].err(apiResponse.error)
+      getTestScore(itresponse),
+    ):
+      check:
+        apiResponse.isErr()
+        apiResponse.error == "Timeout exceeded while awaiting for the response"
+      ApiResponse[uint64].err(apiResponse.error)
 
     check:
       response.isErr()
@@ -909,19 +927,20 @@ suite "Validator Client test suite":
         BeaconNodeServerRef.init(parseUri("http://127.0.0.1/"), 0).tryGet(),
         BeaconNodeServerRef.init(parseUri("http://127.0.0.2/"), 1).tryGet(),
         BeaconNodeServerRef.init(parseUri("http://127.0.0.3/"), 2).tryGet(),
-        BeaconNodeServerRef.init(parseUri("http://127.0.0.4/"), 3).tryGet()
+        BeaconNodeServerRef.init(parseUri("http://127.0.0.4/"), 3).tryGet(),
       ]
       vconf = ValidatorClientConf.load(
-        cmdLine = mapIt([
-          "--beacon-node=http://127.0.0.1",
-          "--beacon-node=http://127.0.0.2",
-          "--beacon-node=http://127.0.0.3",
-          "--beacon-node=http://127.0.0.4"
-        ], it))
+        cmdLine = mapIt(
+          [
+            "--beacon-node=http://127.0.0.1", "--beacon-node=http://127.0.0.2",
+            "--beacon-node=http://127.0.0.3", "--beacon-node=http://127.0.0.4",
+          ],
+          it,
+        )
+      )
       epoch = Epoch(1)
 
-    let
-      vc = newClone(ValidatorClient(config: vconf, beaconNodes: beaconNodes))
+    let vc = newClone(ValidatorClient(config: vconf, beaconNodes: beaconNodes))
 
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
@@ -937,18 +956,17 @@ suite "Validator Client test suite":
       RestPlainResponse(
         status: 200,
         contentType: Opt.some(getContentType("text/plain").get()),
-        data: stringToBytes(data)
+        data: stringToBytes(data),
       )
 
     template generateTestProcedures(
-      tm1, tm2, tm3, tm4: untyped,
-      rsps1, rsps2, rsps3, rsps4: static string,
-      rspu1, rspu2, rspu3, rspu4: static uint64,
-      score1, score2, score3, score4: static float64
+        tm1, tm2, tm3, tm4: untyped,
+        rsps1, rsps2, rsps3, rsps4: static string,
+        rspu1, rspu2, rspu3, rspu4: static uint64,
+        score1, score2, score3, score4: static float64,
     ) =
       proc getTestDuties(
-          client: RestClientRef,
-          epoch: Epoch
+          client: RestClientRef, epoch: Epoch
       ): Future[RestPlainResponse] {.async: (raises: [CancelledError]).} =
         let index = getIndex(client.address.hostname)
         try:
@@ -989,47 +1007,39 @@ suite "Validator Client test suite":
         else:
           raiseAssert "Should not be here"
 
-    const
-      RequestName = "getTestDuties"
+    const RequestName = "getTestDuties"
 
     block:
-      let events = @[
-        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
-      ]
+      let events = @[newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()]
       var cancellations = @[false, false, false, false]
 
       generateTestProcedures(
-        1500.milliseconds,
-        900.milliseconds,
-        600.milliseconds,
-        1200.milliseconds,
-        "0", "10", "100", "1000",
-        0'u64, 10'u64, 100'u64, 1000'u64,
-        0'f64, 10'f64, 100'f64, 1000'f64
+        1500.milliseconds, 900.milliseconds, 600.milliseconds, 1200.milliseconds, "0",
+        "10", "100", "1000", 0'u64, 10'u64, 100'u64, 1000'u64, 0'f64, 10'f64, 100'f64,
+        1000'f64,
       )
 
       let
-        response =
-          vc.bestSuccess(
-            RestPlainResponse,
-            uint64,
-            float64,
-            500.milliseconds,
-            1000.milliseconds,
-            AllBeaconNodeStatuses,
-            {BeaconNodeRole.Duties},
-            getTestDuties(it, epoch),
-            getTestScore(itresponse)):
-              if apiResponse.isErr():
-                ApiResponse[uint64].err(apiResponse.error)
-              else:
-                let response = apiResponse.get()
-                case response.status
-                of 200:
-                  ApiResponse[uint64].ok(
-                    Base10.decode(uint64, response.data).get())
-                else:
-                  ApiResponse[uint64].ok(0'u64)
+        response = vc.bestSuccess(
+          RestPlainResponse,
+          uint64,
+          float64,
+          500.milliseconds,
+          1000.milliseconds,
+          AllBeaconNodeStatuses,
+          {BeaconNodeRole.Duties},
+          getTestDuties(it, epoch),
+          getTestScore(itresponse),
+        ):
+          if apiResponse.isErr():
+            ApiResponse[uint64].err(apiResponse.error)
+          else:
+            let response = apiResponse.get()
+            case response.status
+            of 200:
+              ApiResponse[uint64].ok(Base10.decode(uint64, response.data).get())
+            else:
+              ApiResponse[uint64].ok(0'u64)
         pendingFutures = events.mapIt(it.wait())
 
       await allFutures(pendingFutures)
@@ -1040,43 +1050,36 @@ suite "Validator Client test suite":
         response.get() == 100'u64
 
     block:
-      let events = @[
-        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
-      ]
+      let events = @[newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()]
       var cancellations = @[false, false, false, false]
 
       generateTestProcedures(
-        1500.milliseconds,
-        100.milliseconds,
-        1200.milliseconds,
-        1100.milliseconds,
-        "0", "10", "100", "1000",
-        0'u64, 10'u64, 100'u64, 1000'u64,
-        0'f64, 10'f64, 100'f64, 1000'f64
+        1500.milliseconds, 100.milliseconds, 1200.milliseconds, 1100.milliseconds, "0",
+        "10", "100", "1000", 0'u64, 10'u64, 100'u64, 1000'u64, 0'f64, 10'f64, 100'f64,
+        1000'f64,
       )
 
       let
-        response =
-          vc.bestSuccess(
-            RestPlainResponse,
-            uint64,
-            float64,
-            500.milliseconds,
-            1000.milliseconds,
-            AllBeaconNodeStatuses,
-            {BeaconNodeRole.Duties},
-            getTestDuties(it, epoch),
-            getTestScore(itresponse)):
-              if apiResponse.isErr():
-                ApiResponse[uint64].err(apiResponse.error)
-              else:
-                let response = apiResponse.get()
-                case response.status
-                of 200:
-                  ApiResponse[uint64].ok(
-                    Base10.decode(uint64, response.data).get())
-                else:
-                  ApiResponse[uint64].ok(0'u64)
+        response = vc.bestSuccess(
+          RestPlainResponse,
+          uint64,
+          float64,
+          500.milliseconds,
+          1000.milliseconds,
+          AllBeaconNodeStatuses,
+          {BeaconNodeRole.Duties},
+          getTestDuties(it, epoch),
+          getTestScore(itresponse),
+        ):
+          if apiResponse.isErr():
+            ApiResponse[uint64].err(apiResponse.error)
+          else:
+            let response = apiResponse.get()
+            case response.status
+            of 200:
+              ApiResponse[uint64].ok(Base10.decode(uint64, response.data).get())
+            else:
+              ApiResponse[uint64].ok(0'u64)
         pendingFutures = events.mapIt(it.wait())
 
       await allFutures(pendingFutures)
@@ -1087,43 +1090,36 @@ suite "Validator Client test suite":
         response.get() == 10'u64
 
     block:
-      let events = @[
-        newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()
-      ]
+      let events = @[newAsyncEvent(), newAsyncEvent(), newAsyncEvent(), newAsyncEvent()]
       var cancellations = @[false, false, false, false]
 
       generateTestProcedures(
-        1500.milliseconds,
-        100.milliseconds,
-        300.milliseconds,
-        1200.milliseconds,
-        "0", "10", "100", "1000",
-        0'u64, 10'u64, 100'u64, 1000'u64,
-        0'f64, 10'f64, 100'f64, 1000'f64
+        1500.milliseconds, 100.milliseconds, 300.milliseconds, 1200.milliseconds, "0",
+        "10", "100", "1000", 0'u64, 10'u64, 100'u64, 1000'u64, 0'f64, 10'f64, 100'f64,
+        1000'f64,
       )
 
       let
-        response =
-          vc.bestSuccess(
-            RestPlainResponse,
-            uint64,
-            float64,
-            500.milliseconds,
-            1000.milliseconds,
-            AllBeaconNodeStatuses,
-            {BeaconNodeRole.Duties},
-            getTestDuties(it, epoch),
-            getTestScore(itresponse)):
-              if apiResponse.isErr():
-                ApiResponse[uint64].err(apiResponse.error)
-              else:
-                let response = apiResponse.get()
-                case response.status
-                of 200:
-                  ApiResponse[uint64].ok(
-                    Base10.decode(uint64, response.data).get())
-                else:
-                  ApiResponse[uint64].ok(0'u64)
+        response = vc.bestSuccess(
+          RestPlainResponse,
+          uint64,
+          float64,
+          500.milliseconds,
+          1000.milliseconds,
+          AllBeaconNodeStatuses,
+          {BeaconNodeRole.Duties},
+          getTestDuties(it, epoch),
+          getTestScore(itresponse),
+        ):
+          if apiResponse.isErr():
+            ApiResponse[uint64].err(apiResponse.error)
+          else:
+            let response = apiResponse.get()
+            case response.status
+            of 200:
+              ApiResponse[uint64].ok(Base10.decode(uint64, response.data).get())
+            else:
+              ApiResponse[uint64].ok(0'u64)
         pendingFutures = events.mapIt(it.wait())
 
       await allFutures(pendingFutures)
@@ -1134,50 +1130,47 @@ suite "Validator Client test suite":
         response.get() == 100'u64
 
   test "getLiveness() response deserialization test":
-    proc generateLivenessResponse(T: typedesc[string],
-                                  start, count, modv: int): string =
+    proc generateLivenessResponse(
+        T: typedesc[string], start, count, modv: int
+    ): string =
       var res: seq[string]
       for index in start ..< (start + count):
         let
           validator = Base10.toString(uint64(index))
           visibility = if index mod modv == 0: "true" else: "false"
-        res.add("{\"index\":\"" & validator & "\",\"is_live\":" &
-                visibility & "}")
+        res.add("{\"index\":\"" & validator & "\",\"is_live\":" & visibility & "}")
       "{\"data\":[" & res.join(",") & "]}"
 
     proc generateLivenessResponse(
-      T: typedesc[RestLivenessItem],
-      start, count, modv: int
+        T: typedesc[RestLivenessItem], start, count, modv: int
     ): seq[RestLivenessItem] =
       var res: seq[RestLivenessItem]
       for index in start ..< (start + count):
         let visibility = if index mod modv == 0: true else: false
-        res.add(RestLivenessItem(index: ValidatorIndex(uint64(index)),
-                                 is_live: visibility))
+        res.add(
+          RestLivenessItem(index: ValidatorIndex(uint64(index)), is_live: visibility)
+        )
       res
 
     const Tests = [(0, 2_000_000, 3)]
 
     for test in Tests:
       let
-        datastr = string.generateLivenessResponse(
-          test[0], test[1], test[2])
+        datastr = string.generateLivenessResponse(test[0], test[1], test[2])
         data = stringToBytes(datastr)
         contentType = getContentType("application/json").get()
-        res = decodeBytes(GetValidatorsLivenessResponse,
-                          data, Opt.some(contentType))
-        expect = RestLivenessItem.generateLivenessResponse(
-          test[0], test[1], test[2])
+        res = decodeBytes(GetValidatorsLivenessResponse, data, Opt.some(contentType))
+        expect = RestLivenessItem.generateLivenessResponse(test[0], test[1], test[2])
       check:
         res.isOk()
         res.get().data == expect
 
     let vector = stringToBytes(
-      "{\"data\":[{\"index\":\"100000\",\"epoch\":\"202919\",\"is_live\":true}]}")
+      "{\"data\":[{\"index\":\"100000\",\"epoch\":\"202919\",\"is_live\":true}]}"
+    )
 
     let contentType = getContentType("application/json").tryGet()
-    let res = decodeBytes(
-      GetValidatorsLivenessResponse, vector, Opt.some(contentType))
+    let res = decodeBytes(GetValidatorsLivenessResponse, vector, Opt.some(contentType))
     check:
       res.isOk()
       len(res.get().data) == 1

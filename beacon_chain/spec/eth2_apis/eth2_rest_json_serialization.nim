@@ -569,10 +569,9 @@ template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
 template unrecognizedFieldIgnore() =
   discard r.readValue(JsonString)
 
-type
-  VersionedData = object
-    version: ConsensusFork
-    data: JsonString
+type VersionedData = object
+  version: ConsensusFork
+  data: JsonString
 
 RestJson.useDefaultSerializationFor VersionedData
 

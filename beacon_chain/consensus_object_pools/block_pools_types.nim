@@ -17,7 +17,8 @@ import
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
-  ./block_dag, block_pools_types_light_client
+  ./block_dag,
+  block_pools_types_light_client
 
 from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
@@ -33,27 +34,19 @@ type
     Invalid
       ## Value is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
-
     MissingParent
       ## We don't know the parent of this value so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
-
     UnviableFork
       ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint
+    Duplicate ## We've seen this value already, can't add again
 
-    Duplicate
-      ## We've seen this value already, can't add again
-
-  OnBlockCallback* =
-    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
-  OnBlockGossipCallback* =
-    proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
-  OnHeadCallback* =
-    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
-  OnReorgCallback* =
-    proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
+  OnBlockCallback* = proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
+  OnBlockGossipCallback* = proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
+  OnHeadCallback* = proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
+  OnReorgCallback* = proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
 
@@ -120,7 +113,6 @@ type
     ## from `backfill` to `finalizedHead`. Finalized blocks are generally not
     ## needed for day-to-day validation work - rather, they're used for
     ## auxiliary functionality such as historical state access and replays.
-
     db*: BeaconChainDB
       ## Database of recent chain history as well as the state and metadata
       ## needed to pick up where we left off after a restart - in particular,
@@ -171,8 +163,7 @@ type
       ## A temporary cache of blocks that we could load from era files, once
       ## backfilling reaches this point - empty when not backfilling.
 
-    heads*: seq[BlockRef]
-      ## Candidate heads of candidate chains
+    heads*: seq[BlockRef] ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
       ## The latest block that was finalized according to the block in head
@@ -180,7 +171,6 @@ type
 
     # -----------------------------------
     # Pruning metadata
-
     lastPrunePoint*: BlockSlotId
       ## The last prune point
       ## We can prune up to finalizedHead
@@ -188,12 +178,10 @@ type
     lastHistoryPruneHorizon*: Slot
       ## The horizon when we last pruned, for horizon diff computation
 
-    lastHistoryPruneBlockHorizon*: Slot
-      ## Block pruning progress at the last call
+    lastHistoryPruneBlockHorizon*: Slot ## Block pruning progress at the last call
 
     # -----------------------------------
     # Rewinder - Mutable state processing
-
     headState*: ForkedHashedBeaconState
       ## State given by the head block - must only be updated in `updateHead` -
       ## always matches dag.head
@@ -223,28 +211,20 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
-    vanityLogs*: VanityLogs
-      ## Logs for celebratory events, typically featuring ANSI art.
+    vanityLogs*: VanityLogs ## Logs for celebratory events, typically featuring ANSI art.
 
     # -----------------------------------
     # Light client data
-
     lcDataStore*: LightClientDataStore
       # Data store to enable light clients to sync with the network
 
     # -----------------------------------
     # Callbacks
-
-    onBlockAdded*: OnBlockCallback
-      ## On block added callback
-    onBlockGossipAdded*: OnBlockGossipCallback
-      ## On block gossip added callback
-    onHeadChanged*: OnHeadCallback
-      ## On head changed callback
-    onReorgHappened*: OnReorgCallback
-      ## On beacon chain reorganization
-    onFinHappened*: OnFinalizedCallback
-      ## On finalization callback
+    onBlockAdded*: OnBlockCallback ## On block added callback
+    onBlockGossipAdded*: OnBlockGossipCallback ## On block gossip added callback
+    onHeadChanged*: OnHeadCallback ## On head changed callback
+    onReorgHappened*: OnReorgCallback ## On beacon chain reorganization
+    onFinHappened*: OnFinalizedCallback ## On finalization callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -296,12 +276,14 @@ type
     blob*: Opt[BlobSidecars]
 
   OnBlockAdded*[consensusFork: static ConsensusFork] = proc(
-    blckRef: BlockRef, blck: consensusFork.TrustedSignedBeaconBlock,
-    state: consensusFork.BeaconState, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
+    blckRef: BlockRef,
+    blck: consensusFork.TrustedSignedBeaconBlock,
+    state: consensusFork.BeaconState,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints,
+  ) {.gcsafe, raises: [].}
 
-  OnStateUpdated* = proc(
-    slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
+  OnStateUpdated* = proc(slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -345,7 +327,8 @@ func proposer_dependent_slot*(epochRef: EpochRef): Slot =
 func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
   shufflingRef.epoch.attester_dependent_slot()
 
-template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
+template head*(dag: ChainDAGRef): BlockRef =
+  dag.headState.blck
 
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   ## When there's a gap in the block database, this is the most recent block
@@ -355,7 +338,8 @@ template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   let dag = dagParam
   if dag.frontfillBlocks.lenu64 > 0:
     Opt.some BlockId(
-      slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
+      slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1]
+    )
   else:
     dag.genesis
 
@@ -372,7 +356,8 @@ func horizon*(dag: ChainDAGRef): Slot =
 func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
   dag.eaSlot
 
-template epoch*(e: EpochRef): Epoch = e.key.epoch
+template epoch*(e: EpochRef): Epoch =
+  e.key.epoch
 
 func shortLog*(v: EpochKey): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -400,8 +385,10 @@ func shortLog*(v: EpochRef): string =
   else:
     shortLog(v.key)
 
-chronicles.formatIt EpochKey: shortLog(it)
-chronicles.formatIt EpochRef: shortLog(it)
+chronicles.formatIt EpochKey:
+  shortLog(it)
+chronicles.formatIt EpochRef:
+  shortLog(it)
 
 func hash*(key: KeyedBlockRef): Hash =
   hash(key.data.root)
@@ -419,54 +406,64 @@ func init*(T: type KeyedBlockRef, blck: BlockRef): KeyedBlockRef =
 func blockRef*(key: KeyedBlockRef): BlockRef =
   key.data
 
-func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epochTransition: bool,
-           previousDutyDepRoot: Eth2Digest,
-           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
+func init*(
+    t: typedesc[HeadChangeInfoObject],
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    stateRoot: Eth2Digest,
+    epochTransition: bool,
+    previousDutyDepRoot: Eth2Digest,
+    currentDutyDepRoot: Eth2Digest,
+): HeadChangeInfoObject =
   HeadChangeInfoObject(
     slot: slot,
     block_root: blockRoot,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_dependent_root: currentDutyDepRoot
+    current_duty_dependent_root: currentDutyDepRoot,
   )
 
-func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
-           oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
-           oldHeadStateRoot: Eth2Digest,
-           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
+func init*(
+    t: typedesc[ReorgInfoObject],
+    slot: Slot,
+    depth: uint64,
+    oldHeadBlockRoot: Eth2Digest,
+    newHeadBlockRoot: Eth2Digest,
+    oldHeadStateRoot: Eth2Digest,
+    newHeadStateRoot: Eth2Digest,
+): ReorgInfoObject =
   ReorgInfoObject(
     slot: slot,
     depth: depth,
     old_head_block: oldHeadBlockRoot,
     new_head_block: newHeadBlockRoot,
     old_head_state: oldHeadStateRoot,
-    new_head_state: newHeadStateRoot
+    new_head_state: newHeadStateRoot,
   )
 
-func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
-  FinalizationInfoObject(
-    block_root: blockRoot,
-    state_root: stateRoot,
-    epoch: epoch
-  )
+func init*(
+    t: typedesc[FinalizationInfoObject],
+    blockRoot: Eth2Digest,
+    stateRoot: Eth2Digest,
+    epoch: Epoch,
+): FinalizationInfoObject =
+  FinalizationInfoObject(block_root: blockRoot, state_root: stateRoot, epoch: epoch)
 
-func init*(t: typedesc[EventBeaconBlockObject],
-           v: ForkedTrustedSignedBeaconBlock,
-           optimistic: Opt[bool]): EventBeaconBlockObject =
+func init*(
+    t: typedesc[EventBeaconBlockObject],
+    v: ForkedTrustedSignedBeaconBlock,
+    optimistic: Opt[bool],
+): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
-      slot: forkyBlck.message.slot,
-      block_root: forkyBlck.root,
-      optimistic: optimistic
+      slot: forkyBlck.message.slot, block_root: forkyBlck.root, optimistic: optimistic
     )
 
-func init*(t: typedesc[EventBeaconBlockGossipObject],
-           v: ForkedSignedBeaconBlock): EventBeaconBlockGossipObject =
+func init*(
+    t: typedesc[EventBeaconBlockGossipObject], v: ForkedSignedBeaconBlock
+): EventBeaconBlockGossipObject =
   withBlck(v):
     EventBeaconBlockGossipObject(
-      slot: forkyBlck.message.slot,
-      block_root: forkyBlck.root
+      slot: forkyBlck.message.slot, block_root: forkyBlck.root
     )

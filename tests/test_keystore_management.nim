@@ -10,7 +10,11 @@
 
 import
   std/[os, options, json, typetraits, uri, algorithm],
-  unittest2, chronos, chronicles, stint, json_serialization,
+  unittest2,
+  chronos,
+  chronicles,
+  stint,
+  json_serialization,
   blscurve,
   libp2p/crypto/crypto as lcrypto,
   stew/[io2, byteutils],
@@ -36,12 +40,12 @@ proc validatorPubKeysInDir(dir: string): seq[string] {.raises: [OSError].} =
     if kind == pcDir:
       result.add(splitFile(file).name)
 
-proc contentEquals(
-    filePath, expectedContent: string): bool {.raises: [IOError].} =
+proc contentEquals(filePath, expectedContent: string): bool {.raises: [IOError].} =
   var file: File
 
   discard open(file, filePath)
-  defer: close(file)
+  defer:
+    close(file)
 
   expectedContent == readAll(file)
 
@@ -61,20 +65,16 @@ when not defined(windows):
 
 if validatorDirRes.isErr():
   warn "Could not create validators folder",
-        path = testValidatorsDir, err = ioErrorMsg(validatorDirRes.error)
+    path = testValidatorsDir, err = ioErrorMsg(validatorDirRes.error)
 
 let secretDirRes = secureCreatePath(testSecretsDir)
 if secretDirRes.isErr():
   warn "Could not create secrets folder",
-        path = testSecretsDir, err = ioErrorMsg(secretDirRes.error)
+    path = testSecretsDir, err = ioErrorMsg(secretDirRes.error)
 
 let deposits = generateDeposits(
-  cfg,
-  rng[],
-  seed,
-  0, simulationDepositsCount,
-  testValidatorsDir,
-  testSecretsDir)
+  cfg, rng[], seed, 0, simulationDepositsCount, testValidatorsDir, testSecretsDir
+)
 
 if deposits.isErr:
   fatal "Failed to generate deposits", err = deposits.error
@@ -83,16 +83,15 @@ if deposits.isErr:
 let validatorPubKeys = validatorPubKeysInDir(testValidatorsDir)
 
 const
-  MultiplePassword = string.fromBytes(
-    hexToSeqByte("7465737470617373776f7264f09f9491"))
-  MultipleSalt = hexToSeqByte(
-    "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+  MultiplePassword = string.fromBytes(hexToSeqByte("7465737470617373776f7264f09f9491"))
+  MultipleSalt =
+    hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
   MultipleIv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
   MultipleRemoteUri = HttpHostUri(parseUri("https://127.0.0.1/eth/web3signer"))
 
   MultiplePrivateKeys = [
     "3b89cdf5c62b423dab64dd69476c6c74bdbccc684abc89f3b392ac1f679e06c3",
-    "5140621611300ed419f901d8c56baf32d89d876272bbb3ab16e1c9f0884487d4"
+    "5140621611300ed419f901d8c56baf32d89d876272bbb3ab16e1c9f0884487d4",
   ]
 
 var
@@ -110,11 +109,15 @@ for key in MultiplePrivateKeys:
     keystoreName = "0x" & npubkey.toHex()
 
     localKeystore = createKeystore(
-      kdfPbkdf2, rng[], nsecret,
+      kdfPbkdf2,
+      rng[],
+      nsecret,
       KeystorePass.init MultiplePassword,
-      salt = MultipleSalt, iv = MultipleIv,
+      salt = MultipleSalt,
+      iv = MultipleIv,
       description = "This is a test keystore.",
-      path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+      path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"),
+    )
     localKeystoreJson = Json.encode(localKeystore)
 
     remoteKeystore = createRemoteKeystore(npubkey, MultipleRemoteUri)
@@ -134,7 +137,8 @@ suite "removeValidatorFiles()":
       secretsCountBefore = directoryItemsCount(testSecretsDir)
       firstValidator = validatorPubKeys[0]
       removeValidatorFilesRes = removeValidatorFiles(
-        testValidatorsDir, testSecretsDir, firstValidator, KeystoreKind.Local)
+        testValidatorsDir, testSecretsDir, firstValidator, KeystoreKind.Local
+      )
       validatorsCountAfter = directoryItemsCount(testValidatorsDir)
       secretsCountAfter = directoryItemsCount(testSecretsDir)
 
@@ -151,18 +155,21 @@ suite "removeValidatorFiles()":
     let
       nonexistentValidator =
         "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-      res = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                 nonexistentValidator, KeystoreKind.Local)
+      res = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, nonexistentValidator, KeystoreKind.Local
+      )
 
     check(res.isOk and res.value == RemoveValidatorStatus.notFound)
 
   test "Remove validator files twice":
     let
       secondValidator = validatorPubKeys[1]
-      res1 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  secondValidator, KeystoreKind.Local)
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  secondValidator, KeystoreKind.Local)
+      res1 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, secondValidator, KeystoreKind.Local
+      )
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, secondValidator, KeystoreKind.Local
+      )
 
     check:
       not fileExists(testValidatorsDir / secondValidator)
@@ -201,15 +208,23 @@ suite "removeValidatorFiles() multiple keystore types":
 
   test "Remove [LOCAL] when [LOCAL] is present":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       validatorsCount1 = directoryItemsCount(testValidatorsDir)
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[0], KeystoreKind.Local)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[0], KeystoreKind.Local
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -225,25 +240,33 @@ suite "removeValidatorFiles() multiple keystore types":
       validatorsCount2 == 0
       secretsCount2 == 0
 
-      not(dirExists(curKeystoreDir0))
-      not(fileExists(remoteKeystoreFile0))
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (dirExists(curKeystoreDir0))
+      not (fileExists(remoteKeystoreFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys1, [MultipleKeystoreNames[0]])
       namesEqual(validatorPubKeys2, [])
 
   test "Remove [LOCAL] when [LOCAL] is missing":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       validatorsCount1 = directoryItemsCount(testValidatorsDir)
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[1], KeystoreKind.Local)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[1], KeystoreKind.Local
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -260,7 +283,7 @@ suite "removeValidatorFiles() multiple keystore types":
       secretsCount2 == 1
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
@@ -275,8 +298,9 @@ suite "removeValidatorFiles() multiple keystore types":
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[0], KeystoreKind.Remote)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[0], KeystoreKind.Remote
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -292,10 +316,10 @@ suite "removeValidatorFiles() multiple keystore types":
       validatorsCount2 == 0
       secretsCount2 == 0
 
-      not(dirExists(curKeystoreDir0))
-      not(fileExists(remoteKeystoreFile0))
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (dirExists(curKeystoreDir0))
+      not (fileExists(remoteKeystoreFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys1, [MultipleKeystoreNames[0]])
       namesEqual(validatorPubKeys2, [])
@@ -308,8 +332,9 @@ suite "removeValidatorFiles() multiple keystore types":
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[1], KeystoreKind.Remote)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[1], KeystoreKind.Remote
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -327,8 +352,8 @@ suite "removeValidatorFiles() multiple keystore types":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys1, [MultipleKeystoreNames[0]])
       namesEqual(validatorPubKeys2, [MultipleKeystoreNames[0]])
@@ -341,8 +366,9 @@ suite "removeValidatorFiles() multiple keystore types":
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[0], KeystoreKind.Local)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[0], KeystoreKind.Local
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -360,23 +386,31 @@ suite "removeValidatorFiles() multiple keystore types":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys1, [MultipleKeystoreNames[0]])
       namesEqual(validatorPubKeys2, [MultipleKeystoreNames[0]])
 
   test "Remove [REMOTE] when [LOCAL] is present":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       validatorsCount1 = directoryItemsCount(testValidatorsDir)
       secretsCount1 = directoryItemsCount(testSecretsDir)
       validatorPubKeys1 = validatorPubKeysInDir(testValidatorsDir)
 
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
-                                  MultipleKeystoreNames[0], KeystoreKind.Remote)
+      res2 = removeValidatorFiles(
+        testValidatorsDir, testSecretsDir, MultipleKeystoreNames[0], KeystoreKind.Remote
+      )
 
       validatorsCount2 = directoryItemsCount(testValidatorsDir)
       secretsCount2 = directoryItemsCount(testSecretsDir)
@@ -393,7 +427,7 @@ suite "removeValidatorFiles() multiple keystore types":
       secretsCount2 == 1
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
@@ -407,26 +441,31 @@ suite "createValidatorFiles()":
   setup:
     const
       password = string.fromBytes hexToSeqByte("7465737470617373776f7264f09f9491")
-      secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-      salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
+      secretBytes =
+        hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+      salt =
+        hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
       iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
 
     let
       secret = ValidatorPrivKey.fromRaw(secretBytes).get
 
       keystore = createKeystore(
-        kdfPbkdf2, rng[], secret,
+        kdfPbkdf2,
+        rng[],
+        secret,
         KeystorePass.init password,
-        salt=salt, iv=iv,
+        salt = salt,
+        iv = iv,
         description = "This is a test keystore that uses PBKDF2 to secure the secret.",
-        path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"),
+      )
       keystoreJsonContents {.used.} = Json.encode(keystore)
 
-      hexEncodedPubkey =  "0x" & keystore.pubkey.toHex()
+      hexEncodedPubkey = "0x" & keystore.pubkey.toHex()
       keystoreDir {.used.} = testValidatorsDir / hexEncodedPubkey
       secretFile {.used.} = testSecretsDir / hexEncodedPubkey
-      keystoreFile {.used.} = testValidatorsDir / hexEncodedPubkey /
-                              KeystoreFileName
+      keystoreFile {.used.} = testValidatorsDir / hexEncodedPubkey / KeystoreFileName
 
   teardown:
     os.removeDir testValidatorsDir
@@ -434,10 +473,10 @@ suite "createValidatorFiles()":
 
   test "Add keystore files [LOCAL]":
     let
-      res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                      keystoreDir,
-                                      secretFile, password,
-                                      keystoreFile, keystoreJsonContents)
+      res = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -460,15 +499,15 @@ suite "createValidatorFiles()":
 
   test "Add keystore files twice [LOCAL]":
     let
-      res1 = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                       keystoreDir,
-                                       secretFile, password,
-                                       keystoreFile, keystoreJsonContents)
+      res1 = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
 
-      res2 = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                       keystoreDir,
-                                       secretFile, password,
-                                       keystoreFile, keystoreJsonContents)
+      res2 = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -495,9 +534,12 @@ suite "createValidatorFiles()":
       remoteKeystoreFile = curKeystoreDir / RemoteKeystoreFileName
       localKeystoreFile = curKeystoreDir / KeystoreFileName
 
-      res = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                       remoteKeystoreFile,
-                                       MultipleRemoteKeystoreJsons[0])
+      res = createRemoteValidatorFiles(
+        testValidatorsDir,
+        curKeystoreDir,
+        remoteKeystoreFile,
+        MultipleRemoteKeystoreJsons[0],
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -512,11 +554,10 @@ suite "createValidatorFiles()":
 
       dirExists(curKeystoreDir)
       fileExists(remoteKeystoreFile)
-      not(fileExists(localKeystoreFile))
-      not(fileExists(curSecretsFile))
+      not (fileExists(localKeystoreFile))
+      not (fileExists(curSecretsFile))
 
       remoteKeystoreFile.contentEquals MultipleRemoteKeystoreJsons[0]
-
 
       namesEqual(validatorPubKeys, [MultipleKeystoreNames[0]])
 
@@ -527,13 +568,19 @@ suite "createValidatorFiles()":
       remoteKeystoreFile = curKeystoreDir / RemoteKeystoreFileName
       localKeystoreFile = curKeystoreDir / KeystoreFileName
 
-      res1 = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                        remoteKeystoreFile,
-                                        MultipleRemoteKeystoreJsons[0])
+      res1 = createRemoteValidatorFiles(
+        testValidatorsDir,
+        curKeystoreDir,
+        remoteKeystoreFile,
+        MultipleRemoteKeystoreJsons[0],
+      )
 
-      res2 = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                        remoteKeystoreFile,
-                                        MultipleRemoteKeystoreJsons[0])
+      res2 = createRemoteValidatorFiles(
+        testValidatorsDir,
+        curKeystoreDir,
+        remoteKeystoreFile,
+        MultipleRemoteKeystoreJsons[0],
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -549,8 +596,8 @@ suite "createValidatorFiles()":
 
       dirExists(curKeystoreDir)
       fileExists(remoteKeystoreFile)
-      not(fileExists(localKeystoreFile))
-      not(fileExists(curSecretsFile))
+      not (fileExists(localKeystoreFile))
+      not (fileExists(curSecretsFile))
 
       remoteKeystoreFile.contentEquals MultipleRemoteKeystoreJsons[0]
 
@@ -565,11 +612,10 @@ suite "createValidatorFiles()":
       # with creating a secret file inside the dir:
       discard createPath(testSecretsDir, 0o400)
 
-      let
-        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                        keystoreDir,
-                                        secretFile, password,
-                                        keystoreFile, keystoreJsonContents)
+      let res = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
       check:
         res.isErr and res.error.kind == FailedToCreateSecretFile
 
@@ -587,11 +633,10 @@ suite "createValidatorFiles()":
       # creating `keystoreDir` inside the dir.
       discard createPath(testValidatorsDir, 0o400)
 
-      let
-        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                        keystoreDir,
-                                        secretFile, password,
-                                        keystoreFile, keystoreJsonContents)
+      let res = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
       check:
         res.isErr and res.error.kind == FailedToCreateKeystoreDir
 
@@ -610,11 +655,10 @@ suite "createValidatorFiles()":
       discard createPath(testValidatorsDir, 0o700)
       discard createPath(keystoreDir, 0o400)
 
-      let
-        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                        keystoreDir,
-                                        secretFile, password,
-                                        keystoreFile, keystoreJsonContents)
+      let res = createLocalValidatorFiles(
+        testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+        keystoreFile, keystoreJsonContents,
+      )
       check:
         res.isErr and res.error.kind == FailedToCreateKeystoreFile
 
@@ -628,12 +672,8 @@ suite "createValidatorFiles()":
       # Generate deposits so we have files and dirs already existing
       # before testing `createValidatorFiles` failure
       discard generateDeposits(
-        cfg,
-        rng[],
-        seed,
-        0, simulationDepositsCount,
-        testValidatorsDir,
-        testSecretsDir)
+        cfg, rng[], seed, 0, simulationDepositsCount, testValidatorsDir, testSecretsDir
+      )
 
       let
         validatorsCountBefore = directoryItemsCount(testValidatorsDir)
@@ -644,10 +684,10 @@ suite "createValidatorFiles()":
       discard createPath(keystoreDir, 0o400)
 
       let
-        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
-                                        keystoreDir,
-                                        secretFile, password,
-                                        keystoreFile, keystoreJsonContents)
+        res = createLocalValidatorFiles(
+          testSecretsDir, testValidatorsDir, keystoreDir, secretFile, password,
+          keystoreFile, keystoreJsonContents,
+        )
 
         validatorsCountAfter = directoryItemsCount(testValidatorsDir)
         secretsCountAfter = directoryItemsCount(testSecretsDir)
@@ -693,12 +733,26 @@ suite "saveKeystore()":
 
   test "Save [LOCAL] keystore after [LOCAL] keystore with same id":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
-      res2 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
+      res2 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
 
@@ -713,7 +767,7 @@ suite "saveKeystore()":
       secretsCount == 1
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
@@ -739,16 +793,23 @@ suite "saveKeystore()":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys, [MultipleKeystoreNames[0]])
 
   test "Save [REMOTE] keystore after [LOCAL] keystore with same id":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       res2 = saveKeystore(testValidatorsDir, curPublicKey0, MultipleRemoteUri)
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
@@ -765,7 +826,7 @@ suite "saveKeystore()":
       secretsCount == 1
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
@@ -774,9 +835,16 @@ suite "saveKeystore()":
   test "Save [LOCAL] keystore after [REMOTE] keystore with same id":
     let
       res1 = saveKeystore(testValidatorsDir, curPublicKey0, MultipleRemoteUri)
-      res2 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res2 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -793,19 +861,33 @@ suite "saveKeystore()":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       namesEqual(validatorPubKeys, [MultipleKeystoreNames[0]])
 
   test "Save [LOCAL] keystore after [LOCAL] keystore with different id":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
-      res2 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey1, curCookedKey1, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
+      res2 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey1,
+        curCookedKey1,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
 
@@ -819,17 +901,16 @@ suite "saveKeystore()":
       secretsCount == 2
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
       dirExists(curKeystoreDir1)
-      not(fileExists(remoteKeystoreFile1))
+      not (fileExists(remoteKeystoreFile1))
       fileExists(localKeystoreFile1)
       fileExists(curSecretsFile1)
 
-      namesEqual(validatorPubKeys,
-                 [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
+      namesEqual(validatorPubKeys, [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
 
   test "Save [REMOTE] keystore after [REMOTE] keystore with different id":
     let
@@ -850,23 +931,29 @@ suite "saveKeystore()":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       dirExists(curKeystoreDir1)
       fileExists(remoteKeystoreFile1)
-      not(fileExists(localKeystoreFile1))
-      not(fileExists(curSecretsFile1))
+      not (fileExists(localKeystoreFile1))
+      not (fileExists(curSecretsFile1))
 
-      namesEqual(validatorPubKeys,
-                 [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
+      namesEqual(validatorPubKeys, [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
 
   test "Save [LOCAL] keystore after [REMOTE] keystore with different id":
     let
       res1 = saveKeystore(testValidatorsDir, curPublicKey0, MultipleRemoteUri)
-      res2 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey1, curCookedKey1, curSigningPath,
-                          "", mode = Fast)
+      res2 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey1,
+        curCookedKey1,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -882,22 +969,28 @@ suite "saveKeystore()":
 
       dirExists(curKeystoreDir0)
       fileExists(remoteKeystoreFile0)
-      not(fileExists(localKeystoreFile0))
-      not(fileExists(curSecretsFile0))
+      not (fileExists(localKeystoreFile0))
+      not (fileExists(curSecretsFile0))
 
       dirExists(curKeystoreDir1)
-      not(fileExists(remoteKeystoreFile1))
+      not (fileExists(remoteKeystoreFile1))
       fileExists(localKeystoreFile1)
       fileExists(curSecretsFile1)
 
-      namesEqual(validatorPubKeys,
-                 [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
+      namesEqual(validatorPubKeys, [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
 
   test "Save [REMOTE] keystore after [LOCAL] keystore with different id":
     let
-      res1 = saveKeystore(rng[], testValidatorsDir, testSecretsDir,
-                          curSigningKey0, curCookedKey0, curSigningPath,
-                          "", mode = Fast)
+      res1 = saveKeystore(
+        rng[],
+        testValidatorsDir,
+        testSecretsDir,
+        curSigningKey0,
+        curCookedKey0,
+        curSigningPath,
+        "",
+        mode = Fast,
+      )
       res2 = saveKeystore(testValidatorsDir, curPublicKey1, MultipleRemoteUri)
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
@@ -913,14 +1006,13 @@ suite "saveKeystore()":
       secretsCount == 1
 
       dirExists(curKeystoreDir0)
-      not(fileExists(remoteKeystoreFile0))
+      not (fileExists(remoteKeystoreFile0))
       fileExists(localKeystoreFile0)
       fileExists(curSecretsFile0)
 
       dirExists(curKeystoreDir1)
       fileExists(remoteKeystoreFile1)
-      not(fileExists(localKeystoreFile1))
-      not(fileExists(curSecretsFile1))
+      not (fileExists(localKeystoreFile1))
+      not (fileExists(curSecretsFile1))
 
-      namesEqual(validatorPubKeys,
-                 [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
+      namesEqual(validatorPubKeys, [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])

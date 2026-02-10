@@ -8,23 +8,31 @@
 {.push raises: [].}
 
 import std/[tables, os, strutils]
-import serialization, json_serialization,
-       json_serialization/std/[options, net],
-       chronos, presto, presto/secureserver, chronicles, confutils,
-       results, stew/[base10, byteutils, io2, bitops2]
-import "."/spec/datatypes/[base, altair, phase0],
-       "."/spec/[crypto, digest, network, signatures, forks],
-       "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       "."/rpc/rest_constants,
-       "."/[buildinfo, conf, version, nimbus_binary_common],
-       "."/validators/[keystore_management, validator_pool]
+import
+  serialization,
+  json_serialization,
+  json_serialization/std/[options, net],
+  chronos,
+  presto,
+  presto/secureserver,
+  chronicles,
+  confutils,
+  results,
+  stew/[base10, byteutils, io2, bitops2]
+import
+  "."/spec/datatypes/[base, altair, phase0],
+  "."/spec/[crypto, digest, network, signatures, forks],
+  "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
+  "."/rpc/rest_constants,
+  "."/[buildinfo, conf, version, nimbus_binary_common],
+  "."/validators/[keystore_management, validator_pool]
 
-const
-  NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
+const NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
 
 type
   SigningNodeKind* {.pure.} = enum
-    NonSecure, Secure
+    NonSecure
+    Secure
 
   SigningNodeServer* = object
     case kind: SigningNodeKind
@@ -50,20 +58,16 @@ type
 
 func validate(key: string, value: string): int =
   case key
-  of "{validator_key}":
-    0
-  else:
-    1
+  of "{validator_key}": 0
+  else: 1
 
 proc getRouter*(): RestRouter =
   RestRouter.init(validate)
 
 proc router(sn: SigningNodeRef): RestRouter =
   case sn.signingServer.kind
-  of SigningNodeKind.Secure:
-    sn.signingServer.sserver.router
-  of SigningNodeKind.NonSecure:
-    sn.signingServer.nserver.router
+  of SigningNodeKind.Secure: sn.signingServer.sserver.router
+  of SigningNodeKind.NonSecure: sn.signingServer.nserver.router
 
 proc start(sn: SigningNodeRef) =
   case sn.signingServer.kind
@@ -87,12 +91,11 @@ proc close(sn: SigningNodeRef) {.async: (raises: []).} =
     await sn.signingServer.nserver.closeWait()
 
 proc loadTLSCert(pathName: InputFile): Result[TLSCertificate, cstring] =
-  let data =
-    block:
-      let res = io2.readAllChars(string(pathName))
-      if res.isErr():
-        return err("Could not read certificate file")
-      res.get()
+  let data = block:
+    let res = io2.readAllChars(string(pathName))
+    if res.isErr():
+      return err("Could not read certificate file")
+    res.get()
   let cert =
     try:
       TLSCertificate.init(data)
@@ -101,12 +104,11 @@ proc loadTLSCert(pathName: InputFile): Result[TLSCertificate, cstring] =
   ok(cert)
 
 proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
-  let data =
-    block:
-      let res = io2.readAllChars(string(pathName))
-      if res.isErr():
-        return err("Could not read private key file")
-      res.get()
+  let data = block:
+    let res = io2.readAllChars(string(pathName))
+    if res.isErr():
+      return err("Could not read private key file")
+    res.get()
   let key =
     try:
       TLSPrivateKey.init(data)
@@ -115,15 +117,14 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
   ok(key)
 
 proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
-  let
-    genesis_fork_version =
-      # With `mainnet` compile-time preset, these are not available
-      if config.eth2Network == some("minimal"):
-        Version [byte 0x00, 0x00, 0x00, 0x01]
-      elif config.eth2Network == some("gnosis"):
-        Version [byte 0x00, 0x00, 0x00, 0x64]
-      else:
-        config.loadEth2Network().cfg.GENESIS_FORK_VERSION
+  let genesis_fork_version =
+    # With `mainnet` compile-time preset, these are not available
+    if config.eth2Network == some("minimal"):
+      Version [byte 0x00, 0x00, 0x00, 0x01]
+    elif config.eth2Network == some("gnosis"):
+      Version [byte 0x00, 0x00, 0x00, 0x64]
+    else:
+      config.loadEth2Network().cfg.GENESIS_FORK_VERSION
 
   when declared(waitSignal):
     SigningNodeRef(
@@ -146,8 +147,9 @@ template errorResponse(code: HttpCode, message: string): RestApiResponse =
   RestApiResponse.response("{\"error\": \"" & message & "\"}", code)
 
 template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
-  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}",
-                           code, "application/json")
+  RestApiResponse.response(
+    "{\"signature\": \"0x" & signature & "\"}", code, "application/json"
+  )
 
 proc loadKeystores*(node: SigningNodeRef) =
   var keysList: seq[string]
@@ -157,86 +159,86 @@ proc loadKeystores*(node: SigningNodeRef) =
     let feeRecipient = default(Eth1Address)
     case keystore.kind
     of KeystoreKind.Local:
-      discard node.attachedValidators.addValidator(keystore,
-                                                   feeRecipient,
-                                                   defaultGasLimit)
+      discard
+        node.attachedValidators.addValidator(keystore, feeRecipient, defaultGasLimit)
       keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
     of KeystoreKind.Remote:
       warn "Signing node do not support remote validators",
-           path = node.config.validatorsDir(),
-           validator_pubkey = keystore.pubkey
+        path = node.config.validatorsDir(), validator_pubkey = keystore.pubkey
 
   node.keysList = "[" & keysList.join(", ") & "]"
 
 proc installApiHandlers*(node: SigningNodeRef) =
   var router = node.router()
 
-  router.api(MethodGet, "/api/v1/eth2/publicKeys") do () -> RestApiResponse:
-    return RestApiResponse.response(node.keysList, Http200,
-                                    "application/json")
+  router.api(MethodGet, "/api/v1/eth2/publicKeys") do() -> RestApiResponse:
+    return RestApiResponse.response(node.keysList, Http200, "application/json")
 
-  router.api(MethodGet, "/upcheck") do () -> RestApiResponse:
-    return RestApiResponse.response("{\"status\": \"OK\"}", Http200,
-                                    "application/json")
+  router.api(MethodGet, "/upcheck") do() -> RestApiResponse:
+    return RestApiResponse.response("{\"status\": \"OK\"}", Http200, "application/json")
 
-  router.api(MethodPost, "/reload") do () -> RestApiResponse:
+  router.api(MethodPost, "/reload") do() -> RestApiResponse:
     node.attachedValidators.close()
     node.loadKeystores()
     return RestApiResponse.response(Http200)
 
-  router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do (
-    validator_key: ValidatorPubKey,
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-    let request =
-      block:
-        if contentBody.isNone():
-          return errorResponse(Http400, EmptyRequestBodyError)
-        let res = decodeBody(Web3SignerRequest, contentBody.get())
-        if res.isErr():
-          return errorResponse(Http400, $res.error())
-        res.get()
+  router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do(
+    validator_key: ValidatorPubKey, contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
+    let request = block:
+      if contentBody.isNone():
+        return errorResponse(Http400, EmptyRequestBodyError)
+      let res = decodeBody(Web3SignerRequest, contentBody.get())
+      if res.isErr():
+        return errorResponse(Http400, $res.error())
+      res.get()
 
-    let validator =
-      block:
-        if validator_key.isErr():
-          return errorResponse(Http400, InvalidValidatorPublicKey)
-        let key = validator_key.get()
-        let validator = node.attachedValidators.getValidator(key).valueOr:
-          return errorResponse(Http404, ValidatorNotFoundError)
-        validator
+    let validator = block:
+      if validator_key.isErr():
+        return errorResponse(Http400, InvalidValidatorPublicKey)
+      let key = validator_key.get()
+      let validator = node.attachedValidators.getValidator(key).valueOr:
+        return errorResponse(Http404, ValidatorNotFoundError)
+      validator
 
     return
       case request.kind
       of Web3SignerRequestKind.AggregationSlot:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_slot_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root,
-            request.aggregationSlot.slot,
-            validator.data.privateKey).toHex()
+          signature = get_slot_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root,
+              request.aggregationSlot.slot, validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.AggregateAndProof:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_aggregate_and_proof_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, request.aggregateAndProof,
-            validator.data.privateKey).toHex()
+          signature = get_aggregate_and_proof_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root,
+              request.aggregateAndProof, validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.AggregateAndProofV2:
         let
           forkInfo = request.forkInfo.get()
-          signature =
-            withAggregateAndProof(request.forkedAggregateAndProof):
-              get_aggregate_and_proof_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, forkyProof,
-                validator.data.privateKey).toHex()
+          signature = withAggregateAndProof(request.forkedAggregateAndProof):
+            get_aggregate_and_proof_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root, forkyProof,
+              validator.data.privateKey,
+            )
+              .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_attestation_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, request.attestation,
-            validator.data.privateKey).toHex()
+          signature = get_attestation_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root, request.attestation,
+              validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.BlockV2:
         if node.config.expectedFeeRecipient.isNone():
@@ -244,9 +246,11 @@ proc installApiHandlers*(node: SigningNodeRef) =
             forkInfo = request.forkInfo.get()
             blockRoot = hash_tree_root(request.beaconBlockHeader)
             signature = get_block_signature(
-              forkInfo.fork, forkInfo.genesis_validators_root,
-              request.beaconBlockHeader.data.slot, blockRoot,
-              validator.data.privateKey).toHex()
+                forkInfo.fork, forkInfo.genesis_validators_root,
+                request.beaconBlockHeader.data.slot, blockRoot,
+                validator.data.privateKey,
+              )
+              .toHex()
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
@@ -271,76 +275,93 @@ proc installApiHandlers*(node: SigningNodeRef) =
         if proof.index != feeRecipientIndex:
           return errorResponse(Http400, InvalidMerkleProofIndexError)
 
-        let feeRecipientRoot = hash_tree_root(distinctBase(
-          node.config.expectedFeeRecipient.get()))
+        let feeRecipientRoot =
+          hash_tree_root(distinctBase(node.config.expectedFeeRecipient.get()))
 
-        if not(is_valid_merkle_branch(feeRecipientRoot, proof.proof,
-                                      log2trunc(proof.index),
-                                      get_subtree_index(proof.index),
-                                      blockHeader.body_root)):
+        if not (
+          is_valid_merkle_branch(
+            feeRecipientRoot,
+            proof.proof,
+            log2trunc(proof.index),
+            get_subtree_index(proof.index),
+            blockHeader.body_root,
+          )
+        ):
           return errorResponse(Http400, InvalidMerkleProofError)
 
         let
           forkInfo = request.forkInfo.get()
           blockRoot = hash_tree_root(request.beaconBlockHeader)
-          signature = get_block_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root,
-            request.beaconBlockHeader.data.slot, blockRoot,
-            validator.data.privateKey).toHex()
+          signature = get_block_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root,
+              request.beaconBlockHeader.data.slot, blockRoot, validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Deposit:
         let
-          data = DepositMessage(pubkey: request.deposit.pubkey,
+          data = DepositMessage(
+            pubkey: request.deposit.pubkey,
             withdrawal_credentials: request.deposit.withdrawalCredentials,
-            amount: request.deposit.amount)
+            amount: request.deposit.amount,
+          )
           signature = get_deposit_signature(
-            request.deposit.genesisForkVersion, data,
-            validator.data.privateKey).toHex()
+              request.deposit.genesisForkVersion, data, validator.data.privateKey
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.RandaoReveal:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_epoch_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, request.randaoReveal.epoch,
-            validator.data.privateKey).toHex()
+          signature = get_epoch_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root,
+              request.randaoReveal.epoch, validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.VoluntaryExit:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_voluntary_exit_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, request.voluntaryExit,
-            validator.data.privateKey).toHex()
+          signature = get_voluntary_exit_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root, request.voluntaryExit,
+              validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeMessage:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeMessage
-          signature = get_sync_committee_message_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, msg.slot, msg.beaconBlockRoot,
-            validator.data.privateKey).toHex()
+          signature = get_sync_committee_message_signature(
+              forkInfo.fork, forkInfo.genesis_validators_root, msg.slot,
+              msg.beaconBlockRoot, validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeSelectionProof:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncAggregatorSelectionData
-          subcommittee =
-            SyncSubcommitteeIndex.init(msg.subcommittee_index).valueOr:
-              return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
-          signature = get_sync_committee_selection_proof(forkInfo.fork,
-            forkInfo.genesis_validators_root, msg.slot, subcommittee,
-            validator.data.privateKey).toHex()
+          subcommittee = SyncSubcommitteeIndex.init(msg.subcommittee_index).valueOr:
+            return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
+          signature = get_sync_committee_selection_proof(
+              forkInfo.fork, forkInfo.genesis_validators_root, msg.slot, subcommittee,
+              validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeContributionAndProof
           signature = get_contribution_and_proof_signature(
-            forkInfo.fork, forkInfo.genesis_validators_root, msg,
-            validator.data.privateKey).toHex()
+              forkInfo.fork, forkInfo.genesis_validators_root, msg,
+              validator.data.privateKey,
+            )
+            .toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
-        let
-          signature = get_builder_signature(
+        let signature = get_builder_signature(
             node.genesis_fork_version,
             ValidatorRegistrationV1(
               fee_recipient: request.validatorRegistration.fee_recipient,
@@ -348,12 +369,14 @@ proc installApiHandlers*(node: SigningNodeRef) =
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),
-            validator.data.privateKey).toHex()
+            validator.data.privateKey,
+          )
+          .toHex()
         signatureResponse(Http200, signature)
 
 proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
-  notice "Launching signing node", version = fullVersionStr,
-         cmdParams = commandLineParams(), config = sn.config
+  notice "Launching signing node",
+    version = fullVersionStr, cmdParams = commandLineParams(), config = sn.config
 
   info "Initializing validators", path = sn.config.validatorsDir()
   sn.loadKeystores()
@@ -364,8 +387,8 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
 
   let
     address = initTAddress(sn.config.bindAddress, sn.config.bindPort)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
+    serverFlags =
+      {HttpServerFlags.QueryCommaSeparatedArray, HttpServerFlags.NotifyDisconnect}
     timeout =
       if sn.config.requestTimeout < 0:
         warn "Negative value of request timeout, using default instead"
@@ -388,45 +411,48 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
         fatal "TLS private key path is missing, please use --tls-key option"
         raise newException(SigningNodeError, "")
 
-      let cert =
-        block:
-          let res = loadTLSCert(sn.config.tlsCertificate.get())
-          if res.isErr():
-            fatal "Could not initialize SSL certificate",
-                  reason = $res.error()
-            raise newException(SigningNodeError, "")
-          res.get()
-      let key =
-        block:
-          let res = loadTLSKey(sn.config.tlsPrivateKey.get())
-          if res.isErr():
-            fatal "Could not initialize SSL private key",
-                  reason = $res.error()
-            raise newException(SigningNodeError, "")
-          res.get()
-      let res = SecureRestServerRef.new(getRouter(), address, key, cert,
-                                        serverFlags = serverFlags,
-                                        httpHeadersTimeout = timeout,
-                                        serverIdent = serverIdent)
+      let cert = block:
+        let res = loadTLSCert(sn.config.tlsCertificate.get())
+        if res.isErr():
+          fatal "Could not initialize SSL certificate", reason = $res.error()
+          raise newException(SigningNodeError, "")
+        res.get()
+      let key = block:
+        let res = loadTLSKey(sn.config.tlsPrivateKey.get())
+        if res.isErr():
+          fatal "Could not initialize SSL private key", reason = $res.error()
+          raise newException(SigningNodeError, "")
+        res.get()
+      let res = SecureRestServerRef.new(
+        getRouter(),
+        address,
+        key,
+        cert,
+        serverFlags = serverFlags,
+        httpHeadersTimeout = timeout,
+        serverIdent = serverIdent,
+      )
       if res.isErr():
-        fatal "HTTPS(REST) server could not be started", address = $address,
-              reason = $res.error()
+        fatal "HTTPS(REST) server could not be started",
+          address = $address, reason = $res.error()
         raise newException(SigningNodeError, "")
       SigningNodeServer(kind: SigningNodeKind.Secure, sserver: res.get())
     else:
-      let res = RestServerRef.new(getRouter(), address,
-                                  serverFlags = serverFlags,
-                                  httpHeadersTimeout = timeout,
-                                  serverIdent = serverIdent)
+      let res = RestServerRef.new(
+        getRouter(),
+        address,
+        serverFlags = serverFlags,
+        httpHeadersTimeout = timeout,
+        serverIdent = serverIdent,
+      )
       if res.isErr():
-        fatal "HTTP(REST) server could not be started", address = $address,
-               reason = $res.error()
+        fatal "HTTP(REST) server could not be started",
+          address = $address, reason = $res.error()
         raise newException(SigningNodeError, "")
       SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
 
 proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
-  sn.runKeystoreCachePruningLoopFut =
-    runKeystoreCachePruningLoop(sn.keystoreCache)
+  sn.runKeystoreCachePruningLoopFut = runKeystoreCachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
   sn.start()
 
@@ -436,8 +462,8 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   except CancelledError:
     debug "Main loop interrupted"
   except CatchableError as exc:
-    warn "Main loop failed with unexpected error", err_name = $exc.name,
-         reason = $exc.msg
+    warn "Main loop failed with unexpected error",
+      err_name = $exc.name, reason = $exc.msg
 
   # This is trick to fool `asyncraises` from generating warning:
   # No exceptions possible with this operation, `error` always returns nil.
@@ -446,7 +472,7 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
 
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
-  if not(sn.runKeystoreCachePruningLoopFut.finished()):
+  if not (sn.runKeystoreCachePruningLoopFut.finished()):
     pending.add(cancelAndWait(sn.runKeystoreCachePruningLoopFut))
   pending.add(sn.stop())
   pending.add(sn.close())
@@ -461,15 +487,15 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
   if future.finished():
     if future.failed() or future.cancelled():
       let exc = future.error
-      if not(isNil(exc)):
+      if not (isNil(exc)):
         debug "Signing node initialization failed",
-              error_name = $exc.name, reason = $exc.msg
+          error_name = $exc.name, reason = $exc.msg
       else:
         debug "Signing node initialization failed"
       var pending: seq[Future[void]]
-      if not(sn.sigintHandleFut.finished()):
+      if not (sn.sigintHandleFut.finished()):
         pending.add(cancelAndWait(sn.sigintHandleFut))
-      if not(sn.sigtermHandleFut.finished()):
+      if not (sn.sigtermHandleFut.finished()):
         pending.add(cancelAndWait(sn.sigtermHandleFut))
       await noCancel allFutures(pending)
       false
@@ -479,9 +505,9 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
     let signal = if sn.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
     info "Got interrupt, trying to shutdown gracefully", signal = signal
     var pending = @[cancelAndWait(future)]
-    if not(sn.sigintHandleFut.finished()):
+    if not (sn.sigintHandleFut.finished()):
       pending.add(cancelAndWait(sn.sigintHandleFut))
-    if not(sn.sigtermHandleFut.finished()):
+    if not (sn.sigtermHandleFut.finished()):
       pending.add(cancelAndWait(sn.sigtermHandleFut))
     await noCancel allFutures(pending)
     false

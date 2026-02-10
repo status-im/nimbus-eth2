@@ -13,11 +13,7 @@
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
 
-import
-  std/[json, tables],
-  results,
-  stew/base10, httputils, stew/bitops2,
-  ../forks
+import std/[json, tables], results, stew/base10, httputils, stew/bitops2, ../forks
 
 export forks, tables, httputils, results
 
@@ -44,11 +40,10 @@ const
 const
   preferSSZ* = "application/octet-stream,application/json;q=0.9"
   LowestScoreAggregatedAttestation* =
-    phase0.Attestation(
-      aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
-  LowestScoreAggregatedElectraAttestation* =
-    electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
+    phase0.Attestation(aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
+  LowestScoreAggregatedElectraAttestation* = electra.Attestation(
+    aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1))
+  )
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -56,20 +51,34 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
-    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate
+    Head
+    Block
+    Attestation
+    BlockGossip
+    VoluntaryExit
+    BLSToExecutionChange
+    ProposerSlashing
+    AttesterSlashing
+    BlobSidecar
+    DataColumnSidecar
+    SingleAttestation
+    FinalizedCheckpoint
+    ChainReorg
+    ContributionAndProof
+    LightClientFinalityUpdate
+    LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
   RestValidatorIndex* = distinct uint64
 
   ValidatorQueryKind* {.pure.} = enum
-    Index, Key
+    Index
+    Key
 
   ValidatorIndexError* {.pure.} = enum
-    UnsupportedValue, TooHighValue
+    UnsupportedValue
+    TooHighValue
 
   ValidatorIdent* = object
     case kind*: ValidatorQueryKind
@@ -79,21 +88,33 @@ type
       key*: ValidatorPubKey
 
   ValidatorFilterKind* {.pure.} = enum
-    PendingInitialized, PendingQueued,
-    ActiveOngoing, ActiveExiting, ActiveSlashed,
-    ExitedUnslashed, ExitedSlashed,
-    WithdrawalPossible, WithdrawalDone
+    PendingInitialized
+    PendingQueued
+    ActiveOngoing
+    ActiveExiting
+    ActiveSlashed
+    ExitedUnslashed
+    ExitedSlashed
+    WithdrawalPossible
+    WithdrawalDone
 
   ValidatorFilter* = set[ValidatorFilterKind]
 
   StateQueryKind* {.pure.} = enum
-    Slot, Root, Named
+    Slot
+    Root
+    Named
 
   StateIdentType* {.pure.} = enum
-    Head, Genesis, Finalized, Justified
+    Head
+    Genesis
+    Finalized
+    Justified
 
   BroadcastValidationType* {.pure.} = enum
-    Gossip, Consensus, ConsensusAndEquivocation
+    Gossip
+    Consensus
+    ConsensusAndEquivocation
 
   StateIdent* = object
     case kind*: StateQueryKind
@@ -105,9 +126,14 @@ type
       value*: StateIdentType
 
   BlockQueryKind* {.pure.} = enum
-    Slot, Root, Named
+    Slot
+    Root
+    Named
+
   BlockIdentType* {.pure.} = enum
-    Head, Genesis, Finalized
+    Head
+    Genesis
+    Finalized
 
   BlockIdent* = object
     case kind*: BlockQueryKind
@@ -119,10 +145,14 @@ type
       value*: BlockIdentType
 
   PeerStateKind* {.pure.} = enum
-    Disconnected, Connecting, Connected, Disconnecting
+    Disconnected
+    Connecting
+    Connected
+    Disconnecting
 
   PeerDirectKind* {.pure.} = enum
-    Inbound, Outbound
+    Inbound
+    Outbound
 
   RestNumeric* = distinct int
 
@@ -327,14 +357,14 @@ type
 
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
-    of ConsensusFork.Altair:    altairData*:    altair.SignedBeaconBlock
+    of ConsensusFork.Phase0: phase0Data*: phase0.SignedBeaconBlock
+    of ConsensusFork.Altair: altairData*: altair.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
-    of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
-    of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
-    of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
+    of ConsensusFork.Capella: capellaData*: capella.SignedBeaconBlock
+    of ConsensusFork.Deneb: denebData*: DenebSignedBlockContents
+    of ConsensusFork.Electra: electraData*: ElectraSignedBlockContents
+    of ConsensusFork.Fulu: fuluData*: FuluSignedBlockContents
+    of ConsensusFork.Gloas: gloasData*: GloasSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -404,15 +434,12 @@ type
 
   Web3SignerDepositData* = object
     pubkey*: ValidatorPubKey
-    withdrawalCredentials* {.
-      serializedFieldName: "withdrawal_credentials".}: Eth2Digest
-    genesisForkVersion* {.
-      serializedFieldName: "genesis_fork_version".}: Version
+    withdrawalCredentials* {.serializedFieldName: "withdrawal_credentials".}: Eth2Digest
+    genesisForkVersion* {.serializedFieldName: "genesis_fork_version".}: Version
     amount*: Gwei
 
   Web3SignerSyncCommitteeMessageData* = object
-    beaconBlockRoot* {.
-      serializedFieldName: "beacon_block_root".}: Eth2Digest
+    beaconBlockRoot* {.serializedFieldName: "beacon_block_root".}: Eth2Digest
     slot*: Slot
 
   # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
@@ -436,7 +463,7 @@ type
     Deposit = "DEPOSIT"
     RandaoReveal = "RANDAO_REVEAL"
     VoluntaryExit = "VOLUNTARY_EXIT"
-    SyncCommitteeMessage = "SYNC_COMMITTEE_MESSAGE",
+    SyncCommitteeMessage = "SYNC_COMMITTEE_MESSAGE"
     SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
     SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
     ValidatorRegistration = "VALIDATOR_REGISTRATION"
@@ -446,45 +473,42 @@ type
     forkInfo* {.serializedFieldName: "fork_info".}: Opt[Web3SignerForkInfo]
     case kind* {.dontSerialize.}: Web3SignerRequestKind
     of Web3SignerRequestKind.AggregationSlot:
-      aggregationSlot* {.
-        serializedFieldName: "aggregation_slot".}: Web3SignerAggregationSlotData
+      aggregationSlot* {.serializedFieldName: "aggregation_slot".}:
+        Web3SignerAggregationSlotData
     of Web3SignerRequestKind.AggregateAndProof:
-      aggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
+      aggregateAndProof* {.serializedFieldName: "aggregate_and_proof".}:
+        phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      forkedAggregateAndProof* {.serializedFieldName: "aggregate_and_proof".}:
+        ForkedAggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
       # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
       # https://github.com/Consensys/web3signer/blob/2d956c019663ac70f60640d23196d1d321c1b1fa/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L483-L500
-      beaconBlockHeader* {.
-        serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
+      beaconBlockHeader* {.serializedFieldName: "beacon_block".}:
+        Web3SignerForkedBeaconBlock
       proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
       deposit*: Web3SignerDepositData
     of Web3SignerRequestKind.RandaoReveal:
-      randaoReveal* {.
-        serializedFieldName: "randao_reveal".}: Web3SignerRandaoRevealData
+      randaoReveal* {.serializedFieldName: "randao_reveal".}: Web3SignerRandaoRevealData
     of Web3SignerRequestKind.VoluntaryExit:
-      voluntaryExit* {.
-        serializedFieldName: "voluntary_exit".}: VoluntaryExit
+      voluntaryExit* {.serializedFieldName: "voluntary_exit".}: VoluntaryExit
     of Web3SignerRequestKind.SyncCommitteeMessage:
-      syncCommitteeMessage* {.
-        serializedFieldName: "sync_committee_message".}:
-          Web3SignerSyncCommitteeMessageData
+      syncCommitteeMessage* {.serializedFieldName: "sync_committee_message".}:
+        Web3SignerSyncCommitteeMessageData
     of Web3SignerRequestKind.SyncCommitteeSelectionProof:
       syncAggregatorSelectionData* {.
-        serializedFieldName: "sync_aggregator_selection_data".}:
-          SyncAggregatorSelectionData
+        serializedFieldName: "sync_aggregator_selection_data"
+      .}: SyncAggregatorSelectionData
     of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
       syncCommitteeContributionAndProof* {.
-        serializedFieldName: "contribution_and_proof".}: ContributionAndProof
+        serializedFieldName: "contribution_and_proof"
+      .}: ContributionAndProof
     of Web3SignerRequestKind.ValidatorRegistration:
-      validatorRegistration* {.
-        serializedFieldName: "validator_registration".}:
-          Web3SignerValidatorRegistration
+      validatorRegistration* {.serializedFieldName: "validator_registration".}:
+        Web3SignerValidatorRegistration
 
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
@@ -536,13 +560,13 @@ type
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
   GetPeersResponse* = DataMetaEnclosedObject[seq[RestNodePeer]]
   GetPoolAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
-  GetPoolAttesterSlashingsResponse* =
-    DataEnclosedObject[seq[phase0.AttesterSlashing]]
+  GetPoolAttesterSlashingsResponse* = DataEnclosedObject[seq[phase0.AttesterSlashing]]
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
   GetSpecVCResponse* = DataEnclosedObject[VCRuntimeConfig]
-  GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
+  GetStateFinalityCheckpointsResponse* =
+    DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
   GetStateRootResponse* = DataOptimisticObject[RestRoot]
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
@@ -555,19 +579,23 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
-  ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
+  ProduceSyncCommitteeContributionResponse* =
+    DataEnclosedObject[SyncCommitteeContribution]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
-  SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
-  SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
+  SubmitBeaconCommitteeSelectionsResponse* =
+    DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
+  SubmitSyncCommitteeSelectionsResponse* =
+    DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseElectra* =
+    DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
-    valid = "VALID",
-    invalid = "INVALID",
+    valid = "VALID"
+    invalid = "INVALID"
     optimistic = "OPTIMISTIC"
 
   RestNodeExtraData* = object
@@ -601,74 +629,120 @@ type
   EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
-  (a.data.slot == GENESIS_SLOT) and
-  (a.data.index == 0'u64) and
-  (a.data.source.epoch == GENESIS_EPOCH) and
-  (a.data.target.epoch == GENESIS_EPOCH)
+  (a.data.slot == GENESIS_SLOT) and (a.data.index == 0'u64) and
+    (a.data.source.epoch == GENESIS_EPOCH) and (a.data.target.epoch == GENESIS_EPOCH)
 
 func isLowestScoreAggregatedAttestation*(a: ForkedAttestation): bool =
   withAttestation(a):
     (forkyAttestation.data.slot == GENESIS_SLOT) and
-    (forkyAttestation.data.index == 0'u64) and
-    (forkyAttestation.data.source.epoch == GENESIS_EPOCH) and
-    (forkyAttestation.data.target.epoch == GENESIS_EPOCH)
+      (forkyAttestation.data.index == 0'u64) and
+      (forkyAttestation.data.source.epoch == GENESIS_EPOCH) and
+      (forkyAttestation.data.target.epoch == GENESIS_EPOCH)
 
 func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 
-template withForkyBlck*(
-    x: RestPublishedSignedBlockContents, body: untyped): untyped =
+template withForkyBlck*(x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyData: untyped {.inject, used.} = x.gloasData
-    template forkyBlck: untyped {.inject, used.} = x.gloasData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.gloasData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.gloasData.blobs
+    template forkyData(): untyped {.inject, used.} =
+      x.gloasData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.gloasData.signed_block
+
+    template kzg_proofs(): untyped {.inject, used.} =
+      x.gloasData.kzg_proofs
+
+    template blobs(): untyped {.inject, used.} =
+      x.gloasData.blobs
+
     body
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyData: untyped {.inject, used.} = x.fuluData
-    template forkyBlck: untyped {.inject, used.} = x.fuluData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.fuluData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.fuluData.blobs
+    template forkyData(): untyped {.inject, used.} =
+      x.fuluData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.fuluData.signed_block
+
+    template kzg_proofs(): untyped {.inject, used.} =
+      x.fuluData.kzg_proofs
+
+    template blobs(): untyped {.inject, used.} =
+      x.fuluData.blobs
+
     body
   of ConsensusFork.Electra:
     const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyData: untyped {.inject, used.} = x.electraData
-    template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.electraData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.electraData.blobs
+    template forkyData(): untyped {.inject, used.} =
+      x.electraData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.electraData.signed_block
+
+    template kzg_proofs(): untyped {.inject, used.} =
+      x.electraData.kzg_proofs
+
+    template blobs(): untyped {.inject, used.} =
+      x.electraData.blobs
+
     body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyData: untyped {.inject, used.} = x.denebData
-    template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
+    template forkyData(): untyped {.inject, used.} =
+      x.denebData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.denebData.signed_block
+
+    template kzg_proofs(): untyped {.inject, used.} =
+      x.denebData.kzg_proofs
+
+    template blobs(): untyped {.inject, used.} =
+      x.denebData.blobs
+
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyData: untyped {.inject, used.} = x.capellaData
-    template forkyBlck: untyped {.inject, used.} = x.capellaData
+    template forkyData(): untyped {.inject, used.} =
+      x.capellaData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.capellaData
+
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyData: untyped {.inject, used.} = x.bellatrixData
-    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
+    template forkyData(): untyped {.inject, used.} =
+      x.bellatrixData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.bellatrixData
+
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyData: untyped {.inject, used.} = x.altairData
-    template forkyBlck: untyped {.inject, used.} = x.altairData
+    template forkyData(): untyped {.inject, used.} =
+      x.altairData
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.altairData
+
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyData: untyped {.inject, used.} = x.phase0Data
-    template forkyBlck: untyped {.inject, used.} = x.phase0Data
+    template forkyData(): untyped {.inject, used.} =
+      x.phase0Data
+
+    template forkyBlck(): untyped {.inject, used.} =
+      x.phase0Data
+
     body
 
-func init*(T: type ForkedSignedBeaconBlock,
-           contents: RestPublishedSignedBlockContents): T =
+func init*(
+    T: type ForkedSignedBeaconBlock, contents: RestPublishedSignedBlockContents
+): T =
   return
     case contents.kind
     of ConsensusFork.Phase0:
@@ -688,108 +762,120 @@ func init*(T: type ForkedSignedBeaconBlock,
     of ConsensusFork.Gloas:
       ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           blck: phase0.BeaconBlock, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    blck: phase0.BeaconBlock,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Phase0,
-    phase0Data: phase0.SignedBeaconBlock(
-      message: blck, root: root, signature: signature
-    )
+    phase0Data:
+      phase0.SignedBeaconBlock(message: blck, root: root, signature: signature),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           blck: altair.BeaconBlock, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    blck: altair.BeaconBlock,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Altair,
-    altairData: altair.SignedBeaconBlock(
-      message: blck, root: root, signature: signature
-    )
+    altairData:
+      altair.SignedBeaconBlock(message: blck, root: root, signature: signature),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           blck: bellatrix.BeaconBlock, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    blck: bellatrix.BeaconBlock,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Bellatrix,
-    bellatrixData: bellatrix.SignedBeaconBlock(
-      message: blck, root: root, signature: signature
-    )
+    bellatrixData:
+      bellatrix.SignedBeaconBlock(message: blck, root: root, signature: signature),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           blck: capella.BeaconBlock, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    blck: capella.BeaconBlock,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Capella,
-    capellaData: capella.SignedBeaconBlock(
-      message: blck, root: root, signature: signature
-    )
+    capellaData:
+      capella.SignedBeaconBlock(message: blck, root: root, signature: signature),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: deneb.BlockContents, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    contents: deneb.BlockContents,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Deneb,
     denebData: DenebSignedBlockContents(
       signed_block: deneb.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
+        message: contents.`block`, root: root, signature: signature
       ),
       kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
-    )
+      blobs: contents.blobs,
+    ),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: electra.BlockContents, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    contents: electra.BlockContents,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Electra,
     electraData: ElectraSignedBlockContents(
       signed_block: electra.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
+        message: contents.`block`, root: root, signature: signature
       ),
       kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
-    )
+      blobs: contents.blobs,
+    ),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: fulu.BlockContents, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    contents: fulu.BlockContents,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Fulu,
     fuluData: FuluSignedBlockContents(
       signed_block: fulu.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
+        message: contents.`block`, root: root, signature: signature
       ),
       kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
-    )
+      blobs: contents.blobs,
+    ),
   )
 
-func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: gloas.BlockContents, root: Eth2Digest,
-           signature: ValidatorSig): RestPublishedSignedBlockContents =
+func init*(
+    t: typedesc[RestPublishedSignedBlockContents],
+    contents: gloas.BlockContents,
+    root: Eth2Digest,
+    signature: ValidatorSig,
+): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Gloas,
     gloasData: GloasSignedBlockContents(
       signed_block: gloas.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
+        message: contents.`block`, root: root, signature: signature
       ),
       kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
-    )
+      blobs: contents.blobs,
+    ),
   )
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
@@ -816,51 +902,71 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
 
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
+func init*(
+    t: typedesc[RestBlockInfo], v: ForkedTrustedSignedBeaconBlock
+): RestBlockInfo =
   withBlck(v):
     RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
-func init*(t: typedesc[RestValidator], index: ValidatorIndex,
-           balance: Gwei, status: string,
-           validator: Validator): RestValidator =
-  RestValidator(index: index, balance: Base10.toString(balance),
-                status: status, validator: validator)
-
-func init*(t: typedesc[RestValidatorIdentity], index: ValidatorIndex,
-           pubkey: ValidatorPubKey,
-           activation_epoch: Epoch): RestValidatorIdentity =
-  RestValidatorIdentity(index: index, pubkey: pubkey,
-                        activation_epoch: activation_epoch)
-
-func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
-           balance: Gwei): RestValidatorBalance =
-  RestValidatorBalance(index: index, balance: Base10.toString(balance))
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: Slot,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
-  Web3SignerRequest(
-    kind: Web3SignerRequestKind.AggregationSlot,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
-    signingRoot: signingRoot,
-    aggregationSlot: Web3SignerAggregationSlotData(slot: data)
+func init*(
+    t: typedesc[RestValidator],
+    index: ValidatorIndex,
+    balance: Gwei,
+    status: string,
+    validator: Validator,
+): RestValidator =
+  RestValidator(
+    index: index,
+    balance: Base10.toString(balance),
+    status: status,
+    validator: validator,
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: phase0.AggregateAndProof,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[RestValidatorIdentity],
+    index: ValidatorIndex,
+    pubkey: ValidatorPubKey,
+    activation_epoch: Epoch,
+): RestValidatorIdentity =
+  RestValidatorIdentity(
+    index: index, pubkey: pubkey, activation_epoch: activation_epoch
+  )
+
+func init*(
+    t: typedesc[RestValidatorBalance], index: ValidatorIndex, balance: Gwei
+): RestValidatorBalance =
+  RestValidatorBalance(index: index, balance: Base10.toString(balance))
+
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: Slot,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregationSlot,
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
+    signingRoot: signingRoot,
+    aggregationSlot: Web3SignerAggregationSlotData(slot: data),
+  )
+
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: phase0.AggregateAndProof,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregateAndProof,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    aggregateAndProof: data
+    aggregateAndProof: data,
   )
 
 func init*(
@@ -868,65 +974,73 @@ func init*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
     data: electra.AggregateAndProof,
-    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
 ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregateAndProofV2,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    forkedAggregateAndProof: ForkedAggregateAndProof.init(data, typeof(data).kind),
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: AttestationData,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: AttestationData,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Attestation,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    attestation: data
+    attestation: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest,
-           data: Web3SignerForkedBeaconBlock,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: Web3SignerForkedBeaconBlock,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    beaconBlockHeader: data
+    beaconBlockHeader: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest,
-           data: Web3SignerForkedBeaconBlock,
-           proofs: openArray[Web3SignerMerkleProof],
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: Web3SignerForkedBeaconBlock,
+    proofs: openArray[Web3SignerMerkleProof],
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
     proofs: Opt.some(@proofs),
-    beaconBlockHeader: data
+    beaconBlockHeader: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
-           data: DepositMessage,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    genesisForkVersion: Version,
+    data: DepositMessage,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Deposit,
     signingRoot: signingRoot,
@@ -934,84 +1048,98 @@ func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
       pubkey: data.pubkey,
       withdrawalCredentials: data.withdrawal_credentials,
       genesisForkVersion: genesisForkVersion,
-      amount: data.amount
-    )
+      amount: data.amount,
+    ),
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: Epoch,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: Epoch,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.RandaoReveal,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    randaoReveal: Web3SignerRandaoRevealData(epoch: data)
+    randaoReveal: Web3SignerRandaoRevealData(epoch: data),
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: VoluntaryExit,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: VoluntaryExit,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.VoluntaryExit,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    voluntaryExit: data
+    voluntaryExit: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, blockRoot: Eth2Digest,
-           slot: Slot, signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    blockRoot: Eth2Digest,
+    slot: Slot,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeMessage,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    syncCommitteeMessage: Web3SignerSyncCommitteeMessageData(
-      beaconBlockRoot: blockRoot, slot: slot
-    )
+    syncCommitteeMessage:
+      Web3SignerSyncCommitteeMessageData(beaconBlockRoot: blockRoot, slot: slot),
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest,
-           data: SyncAggregatorSelectionData,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: SyncAggregatorSelectionData,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    syncAggregatorSelectionData: data
+    syncAggregatorSelectionData: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest,
-           data: ContributionAndProof,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: ContributionAndProof,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
+    forkInfo: Opt.some(
+      Web3SignerForkInfo(fork: fork, genesis_validators_root: genesis_validators_root)
+    ),
     signingRoot: signingRoot,
-    syncCommitteeContributionAndProof: data
+    syncCommitteeContributionAndProof: data,
   )
 
-func init*(t: typedesc[Web3SignerRequest],
-           genesis_validators_root: Eth2Digest,
-           data: ValidatorRegistrationV1,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
+func init*(
+    t: typedesc[Web3SignerRequest],
+    genesis_validators_root: Eth2Digest,
+    data: ValidatorRegistrationV1,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest),
+): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
     signingRoot: signingRoot,
@@ -1019,92 +1147,114 @@ func init*(t: typedesc[Web3SignerRequest],
       fee_recipient: data.fee_recipient,
       gas_limit: data.gas_limit,
       timestamp: data.timestamp,
-      pubkey: data.pubkey)
+      pubkey: data.pubkey,
+    ),
   )
 
-func init*(t: typedesc[RestSyncCommitteeMessage],
-           slot: Slot,
-           beacon_block_root: Eth2Digest,
-           validator_index: uint64,
-           signature: ValidatorSig): RestSyncCommitteeMessage =
+func init*(
+    t: typedesc[RestSyncCommitteeMessage],
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+    validator_index: uint64,
+    signature: ValidatorSig,
+): RestSyncCommitteeMessage =
   RestSyncCommitteeMessage(
     slot: slot,
     beacon_block_root: beacon_block_root,
     validator_index: validator_index,
-    signature: signature
+    signature: signature,
   )
 
-func init*(t: typedesc[RestSyncCommitteeContribution],
-           slot: Slot,
-           beacon_block_root: Eth2Digest,
-           subcommittee_index: uint64,
-           aggregation_bits: SyncCommitteeAggregationBits,
-           signature: ValidatorSig): RestSyncCommitteeContribution =
+func init*(
+    t: typedesc[RestSyncCommitteeContribution],
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+    subcommittee_index: uint64,
+    aggregation_bits: SyncCommitteeAggregationBits,
+    signature: ValidatorSig,
+): RestSyncCommitteeContribution =
   RestSyncCommitteeContribution(
     slot: slot,
     beacon_block_root: beacon_block_root,
     subcommittee_index: subcommittee_index,
     aggregation_bits: aggregation_bits,
-    signature: signature)
+    signature: signature,
+  )
 
-func init*(t: typedesc[RestContributionAndProof],
-           aggregator_index: uint64,
-           selection_proof: ValidatorSig,
-           contribution: SyncCommitteeContribution): RestContributionAndProof =
+func init*(
+    t: typedesc[RestContributionAndProof],
+    aggregator_index: uint64,
+    selection_proof: ValidatorSig,
+    contribution: SyncCommitteeContribution,
+): RestContributionAndProof =
   RestContributionAndProof(
     aggregator_index: aggregator_index,
     selection_proof: selection_proof,
     contribution: RestSyncCommitteeContribution.init(
-      contribution.slot,
-      contribution.beacon_block_root,
-      contribution.subcommittee_index,
-      contribution.aggregation_bits,
-      contribution.signature
-    ))
+      contribution.slot, contribution.beacon_block_root,
+      contribution.subcommittee_index, contribution.aggregation_bits,
+      contribution.signature,
+    ),
+  )
 
-func init*(t: typedesc[RestSignedContributionAndProof],
-           message: ContributionAndProof,
-           signature: ValidatorSig): RestSignedContributionAndProof =
+func init*(
+    t: typedesc[RestSignedContributionAndProof],
+    message: ContributionAndProof,
+    signature: ValidatorSig,
+): RestSignedContributionAndProof =
   RestSignedContributionAndProof(
     message: RestContributionAndProof.init(
-      message.aggregator_index,
-      message.selection_proof,
-      message.contribution
+      message.aggregator_index, message.selection_proof, message.contribution
     ),
-    signature: signature)
+    signature: signature,
+  )
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
+func len*(p: RestWithdrawalPrefix): int =
+  sizeof(p)
 
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string): RestErrorMessage =
+func init*(
+    t: typedesc[RestErrorMessage], code: int, message: string
+): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
 
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
+func init*(
+    t: typedesc[RestErrorMessage], code: int, message: string, stacktrace: string
+): RestErrorMessage =
+  RestErrorMessage(code: code, message: message, stacktraces: Opt.some(@[stacktrace]))
 
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: openArray[string]): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@stacktrace))
+func init*(
+    t: typedesc[RestErrorMessage],
+    code: int,
+    message: string,
+    stacktrace: openArray[string],
+): RestErrorMessage =
+  RestErrorMessage(code: code, message: message, stacktraces: Opt.some(@stacktrace))
 
-func init*(t: typedesc[RestErrorMessage], code: HttpCode,
-           message: string): RestErrorMessage =
+func init*(
+    t: typedesc[RestErrorMessage], code: HttpCode, message: string
+): RestErrorMessage =
   RestErrorMessage(code: code.toInt(), message: message)
 
-func init*(t: typedesc[RestErrorMessage], code: HttpCode,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code.toInt(), message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
+func init*(
+    t: typedesc[RestErrorMessage], code: HttpCode, message: string, stacktrace: string
+): RestErrorMessage =
+  RestErrorMessage(
+    code: code.toInt(), message: message, stacktraces: Opt.some(@[stacktrace])
+  )
 
-func init*(t: typedesc[RestErrorMessage], code: HttpCode,
-           message: string, stacktrace: openArray[string]): RestErrorMessage =
-  RestErrorMessage(code: code.toInt(), message: message,
-                   stacktraces: Opt.some(@stacktrace))
+func init*(
+    t: typedesc[RestErrorMessage],
+    code: HttpCode,
+    message: string,
+    stacktrace: openArray[string],
+): RestErrorMessage =
+  RestErrorMessage(
+    code: code.toInt(), message: message, stacktraces: Opt.some(@stacktrace)
+  )
 
-func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
-                                                          ValidatorIndexError] =
+func toValidatorIndex*(
+    value: RestValidatorIndex
+): Result[ValidatorIndex, ValidatorIndexError] =
   when sizeof(ValidatorIndex) == 4:
     if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
       # On x86 platform Nim allows only `int32` indexes, so all the indexes in
@@ -1148,29 +1298,27 @@ type
     slot*: Slot
 
   ForkyGetHistoricalSummariesV1Response* =
-    GetHistoricalSummariesV1Response |
-    GetHistoricalSummariesV1ResponseElectra
+    GetHistoricalSummariesV1Response | GetHistoricalSummariesV1ResponseElectra
 
   HistoricalSummariesFork* {.pure.} = enum
-    Capella = 0,
+    Capella = 0
     Electra = 1
 
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
     case kind*: HistoricalSummariesFork
     of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
-    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+    of HistoricalSummariesFork.Electra:
+    electraData*: GetHistoricalSummariesV1ResponseElectra
 
 template historical_summaries_gindex*(
-    kind: static HistoricalSummariesFork): GeneralizedIndex =
+    kind: static HistoricalSummariesFork
+): GeneralizedIndex =
   case kind
-  of HistoricalSummariesFork.Electra:
-    HISTORICAL_SUMMARIES_GINDEX_ELECTRA
-  of HistoricalSummariesFork.Capella:
-    HISTORICAL_SUMMARIES_GINDEX
+  of HistoricalSummariesFork.Electra: HISTORICAL_SUMMARIES_GINDEX_ELECTRA
+  of HistoricalSummariesFork.Capella: HISTORICAL_SUMMARIES_GINDEX
 
-template getHistoricalSummariesResponse*(
-    kind: static HistoricalSummariesFork): auto =
+template getHistoricalSummariesResponse*(kind: static HistoricalSummariesFork): auto =
   when kind >= HistoricalSummariesFork.Electra:
     GetHistoricalSummariesV1ResponseElectra
   elif kind >= HistoricalSummariesFork.Capella:
@@ -1180,32 +1328,40 @@ template init*(
     T: type ForkedHistoricalSummariesWithProof,
     historical_summaries: GetHistoricalSummariesV1Response,
 ): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
-    )
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
+  )
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
     historical_summaries: GetHistoricalSummariesV1ResponseElectra,
 ): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
-    )
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
+  )
 
 template withForkyHistoricalSummariesWithProof*(
-    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
+    x: ForkedHistoricalSummariesWithProof, body: untyped
+): untyped =
   case x.kind
   of HistoricalSummariesFork.Electra:
     const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
-    template forkySummaries: untyped {.inject, used.} = x.electraData
+    template forkySummaries(): untyped {.inject, used.} =
+      x.electraData
+
     body
   of HistoricalSummariesFork.Capella:
     const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
-    template forkySummaries: untyped {.inject, used.} = x.capellaData
+    template forkySummaries(): untyped {.inject, used.} =
+      x.capellaData
+
     body
 
-func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
-  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+func historicalSummariesForkAtConsensusFork*(
+    consensusFork: ConsensusFork
+): Opt[HistoricalSummariesFork] =
+  static:
+    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
   if consensusFork >= ConsensusFork.Electra:
     Opt.some HistoricalSummariesFork.Electra
   elif consensusFork >= ConsensusFork.Capella:
@@ -1216,10 +1372,10 @@ func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[
 func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
   # Either key or index depending on prefix
   if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
-    let res = ? ValidatorPubKey.fromHex(value)
+    let res = ?ValidatorPubKey.fromHex(value)
     ok(ValidatorIdent(kind: ValidatorQueryKind.Key, key: res))
   else:
-    let res = RestValidatorIndex(? Base10.decode(uint64, value))
+    let res = RestValidatorIndex(?Base10.decode(uint64, value))
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index, index: res))
 
 func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
@@ -1243,40 +1399,32 @@ func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cst
   of "withdrawal_done":
     ok({ValidatorFilterKind.WithdrawalDone})
   of "pending":
-    ok({
-      ValidatorFilterKind.PendingInitialized,
-      ValidatorFilterKind.PendingQueued
-    })
+    ok({ValidatorFilterKind.PendingInitialized, ValidatorFilterKind.PendingQueued})
   of "active":
-    ok({
-      ValidatorFilterKind.ActiveOngoing,
-      ValidatorFilterKind.ActiveExiting,
-      ValidatorFilterKind.ActiveSlashed
-    })
+    ok(
+      {
+        ValidatorFilterKind.ActiveOngoing, ValidatorFilterKind.ActiveExiting,
+        ValidatorFilterKind.ActiveSlashed,
+      }
+    )
   of "exited":
-    ok({
-      ValidatorFilterKind.ExitedUnslashed,
-      ValidatorFilterKind.ExitedSlashed
-    })
+    ok({ValidatorFilterKind.ExitedUnslashed, ValidatorFilterKind.ExitedSlashed})
   of "withdrawal":
-    ok({
-      ValidatorFilterKind.WithdrawalPossible,
-      ValidatorFilterKind.WithdrawalDone
-    })
+    ok({ValidatorFilterKind.WithdrawalPossible, ValidatorFilterKind.WithdrawalDone})
   else:
     err("Incorrect validator state identifier value")
 
 func toList*(value: set[ValidatorFilterKind]): seq[string] =
   const
-    pendingSet = {ValidatorFilterKind.PendingInitialized,
-                  ValidatorFilterKind.PendingQueued}
-    activeSet = {ValidatorFilterKind.ActiveOngoing,
-                 ValidatorFilterKind.ActiveExiting,
-                 ValidatorFilterKind.ActiveSlashed}
-    exitedSet = {ValidatorFilterKind.ExitedUnslashed,
-                 ValidatorFilterKind.ExitedSlashed}
-    withdrawSet = {ValidatorFilterKind.WithdrawalPossible,
-                   ValidatorFilterKind.WithdrawalDone}
+    pendingSet =
+      {ValidatorFilterKind.PendingInitialized, ValidatorFilterKind.PendingQueued}
+    activeSet = {
+      ValidatorFilterKind.ActiveOngoing, ValidatorFilterKind.ActiveExiting,
+      ValidatorFilterKind.ActiveSlashed,
+    }
+    exitedSet = {ValidatorFilterKind.ExitedUnslashed, ValidatorFilterKind.ExitedSlashed}
+    withdrawSet =
+      {ValidatorFilterKind.WithdrawalPossible, ValidatorFilterKind.WithdrawalDone}
   var
     res: seq[string]
     v = value

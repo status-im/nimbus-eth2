@@ -88,7 +88,7 @@ type
     gas_limit*: uint64
 
   KeystoreStatus* = enum
-    error =  "error"
+    error = "error"
     notActive = "not_active"
     notFound = "not_found"
     deleted = "deleted"
@@ -118,12 +118,13 @@ type
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
     let c = cmp(a, b)
-    if c < 0: return true
-    if c > 0: return false
+    if c < 0:
+      return true
+    if c > 0:
+      return false
   return false
 
-func init*(T: type GraffitiString,
-           input: string): Result[GraffitiString, string] =
+func init*(T: type GraffitiString, input: string): Result[GraffitiString, string] =
   var res: GraffitiString
   if len(input) > MAX_GRAFFITI_SIZE:
     return err("The graffiti value should be 32 characters or less")

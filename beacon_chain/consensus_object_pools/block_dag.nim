@@ -7,9 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  chronicles,
-  ../spec/forks
+import chronicles, ../spec/forks
 
 export chronicles, forks
 
@@ -33,14 +31,15 @@ type
     ## they are not valid across `await` calls.
     ##
     ## Block graph forms a tree - in particular, there are no cycles.
-
-    bid*: BlockId ##\
+    bid*: BlockId
+      ##\
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
     optimisticStatus*: OptimisticStatus
 
-    parent*: BlockRef ##\
+    parent*: BlockRef
+      ##\
       ## Not nil, except for the finalized head
 
   BlockSlot* = object
@@ -49,12 +48,16 @@ type
     ## produced, the chain progresses anyway, producing a new state for every
     ## slot.
     blck*: BlockRef
-    slot*: Slot ##\
+    slot*: Slot
+      ##\
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-template root*(blck: BlockRef): Eth2Digest = blck.bid.root
-template slot*(blck: BlockRef): Slot = blck.bid.slot
+template root*(blck: BlockRef): Eth2Digest =
+  blck.bid.root
+
+template slot*(blck: BlockRef): Slot =
+  blck.bid.slot
 
 func init*(
     T: type BlockRef,
@@ -70,27 +73,37 @@ func init*(
   )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
-    blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
-          phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    _: OptimisticStatus,
+    blck:
+      phase0.SomeBeaconBlock | altair.SomeBeaconBlock | phase0.TrustedBeaconBlock |
+      altair.TrustedBeaconBlock,
+): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
   BlockRef.init(root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.slot)
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
-    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
-          capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
-          deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
-          electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
-          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    optimisticStatus: OptimisticStatus,
+    blck:
+      bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock | capella.SomeBeaconBlock |
+      capella.TrustedBeaconBlock | deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
+      electra.SomeBeaconBlock | electra.TrustedBeaconBlock | fulu.SomeBeaconBlock |
+      fulu.TrustedBeaconBlock,
+): BlockRef =
   BlockRef.init(
     root, Opt.some blck.body.execution_payload.block_hash, optimisticStatus, blck.slot
   )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
-    blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    optimisticStatus: OptimisticStatus,
+    blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock,
+): BlockRef =
   BlockRef.init(
     root,
     Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
@@ -109,8 +122,7 @@ func parent*(bs: BlockSlot): BlockSlot =
     BlockSlot(blck: nil, slot: Slot(0))
   else:
     BlockSlot(
-      blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
-      slot: bs.slot - 1
+      blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent, slot: bs.slot - 1
     )
 
 func parentOrSlot*(bs: BlockSlot): BlockSlot =
@@ -125,7 +137,7 @@ func parentOrSlot*(bs: BlockSlot): BlockSlot =
 
 # This is used to detect internal inconsistencies, e.g., circular references.
 # Note that `BlockRef` is only used for the non-finalized chain segment.
-const defaultMaxDepth = 1'i64 shl 24  # More than enough for years
+const defaultMaxDepth = 1'i64 shl 24 # More than enough for years
 
 func getDepth*(a, b: BlockRef): tuple[ancestor: bool, depth: int] =
   var b = b
@@ -150,18 +162,17 @@ func isAncestorOf*(a, b: BlockRef): bool =
   isAncestor
 
 func link*(parent, child: BlockRef) =
-  doAssert (not (parent.root.isZero or child.root.isZero)),
-    "blocks missing root!"
+  doAssert (not (parent.root.isZero or child.root.isZero)), "blocks missing root!"
   doAssert parent.root != child.root, "self-references not allowed"
 
   child.parent = parent
 
-func get_ancestor*(
-    blck: BlockRef, slot: Slot, maxDepth = defaultMaxDepth): BlockRef =
+func get_ancestor*(blck: BlockRef, slot: Slot, maxDepth = defaultMaxDepth): BlockRef =
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
-  if isNil(blck): return nil
+  if isNil(blck):
+    return nil
 
   var blck = blck
 
@@ -270,5 +281,7 @@ proc markExecutionValid*(blck: BlockRef, valid: bool) =
 
       cur = cur.parent
 
-chronicles.formatIt BlockSlot: shortLog(it)
-chronicles.formatIt BlockRef: shortLog(it)
+chronicles.formatIt BlockSlot:
+  shortLog(it)
+chronicles.formatIt BlockRef:
+  shortLog(it)

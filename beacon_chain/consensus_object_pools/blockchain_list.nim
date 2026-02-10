@@ -7,10 +7,15 @@
 
 {.push raises: [].}
 
-import std/sequtils, stew/io2, chronicles, chronos, metrics,
-       ../spec/forks,
-       ../[beacon_chain_file, beacon_clock],
-       ../sszdump
+import
+  std/sequtils,
+  stew/io2,
+  chronicles,
+  chronos,
+  metrics,
+  ../spec/forks,
+  ../[beacon_chain_file, beacon_clock],
+  ../sszdump
 
 from ./block_pools_types import VerifierError, BlockData
 from ../spec/state_transition_block import validate_blobs
@@ -18,13 +23,11 @@ from std/os import `/`
 
 export beacon_chain_file
 
-const
-  ChainFileName = "nbc.bfdata"
+const ChainFileName = "nbc.bfdata"
 
-type
-  ChainListRef* = ref object
-    path*: string
-    handle*: Opt[ChainFileHandle]
+type ChainListRef* = ref object
+  path*: string
+  handle*: Opt[ChainFileHandle]
 
 template chainFilePath*(directory: string): string =
   directory / ChainFileName
@@ -36,7 +39,7 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let
     filename = directory.chainFilePath()
     handle =
-      if not(isFile(filename)):
+      if not (isFile(filename)):
         Opt.none(ChainFileHandle)
       else:
         let
@@ -44,18 +47,19 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
           res = ChainFileHandle.init(filename, flags)
         if res.isErr():
           fatal "Unexpected failure while loading backfill data",
-                filename = filename, reason = res.error
+            filename = filename, reason = res.error
           quit 1
         Opt.some(res.get())
   ChainListRef(path: directory, handle: handle)
 
-proc init*(T: type ChainListRef, directory: string,
-           slot: Slot): Result[ChainListRef, string] =
+proc init*(
+    T: type ChainListRef, directory: string, slot: Slot
+): Result[ChainListRef, string] =
   let
     flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
     filename = directory.chainFilePath()
-    handle = ? ChainFileHandle.init(filename, flags)
-    offset {.used.} = ? seekForSlot(handle, slot)
+    handle = ?ChainFileHandle.init(filename, flags)
+    offset {.used.} = ?seekForSlot(handle, slot)
   ok(ChainListRef(path: directory, handle: Opt.some(handle)))
 
 proc seekForSlot*(clist: ChainListRef, slot: Slot): Result[void, string] =
@@ -63,21 +67,21 @@ proc seekForSlot*(clist: ChainListRef, slot: Slot): Result[void, string] =
     let
       flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
       filename = clist.path.chainFilePath()
-      handle = ? ChainFileHandle.init(filename, flags)
+      handle = ?ChainFileHandle.init(filename, flags)
     clist.handle = Opt.some(handle)
 
-  let offset {.used.} = ? seekForSlot(clist.handle.get(), slot)
+  let offset {.used.} = ?seekForSlot(clist.handle.get(), slot)
   ok()
 
 proc close*(clist: ChainListRef): Result[void, string] =
   if clist.handle.isNone():
     return ok()
-  ? clist.handle.get().close()
+  ?clist.handle.get().close()
   ok()
 
 proc clear*(clist: ChainListRef): Result[void, string] =
-  ? clist.close()
-  ? clearFile(clist.path.chainFilePath())
+  ?clist.close()
+  ?clearFile(clist.path.chainFilePath())
   clist.handle = Opt.none(ChainFileHandle)
   ok()
 
@@ -85,16 +89,22 @@ template slot*(data: BlockData): Slot =
   data.blck.slot
 
 template parent_root*(data: ForkedSignedBeaconBlock): Eth2Digest =
-  withBlck(data): forkyBlck.message.parent_root
+  withBlck(data):
+    forkyBlck.message.parent_root
 
 template parent_root*(data: BlockData): Eth2Digest =
   data.blck.parent_root()
 
 template root*(data: BlockData): Eth2Digest =
-  withBlck(data.blck): forkyBlck.root
+  withBlck(data.blck):
+    forkyBlck.root
 
 template shortLog*(x: BlockData): string =
-  let count = if x.blob.isSome(): $len(x.blob.get()) else: "0"
+  let count =
+    if x.blob.isSome():
+      $len(x.blob.get())
+    else:
+      "0"
   $(x.slot()) & "@" & shortLog(x.parent_root()) & "#" & count
 
 template shortLog*(x: Opt[BlockData]): string =
@@ -127,20 +137,22 @@ proc setTail*(clist: ChainListRef, bdata: BlockData) =
   handle.setTail(bdata)
   clist.handle = Opt.some(handle)
 
-proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]): Result[void, string] =
+proc store*(
+    clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars]
+): Result[void, string] =
   if clist.handle.isNone():
     let
       filename = clist.path.chainFilePath()
       flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
-      handle = ? ChainFileHandle.init(filename, flags)
+      handle = ?ChainFileHandle.init(filename, flags)
     clist.handle = Opt.some(handle)
     store(handle, signedBlock, blobs)
   else:
     store(clist.handle.get(), signedBlock, blobs)
 
-proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
-                blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
+proc checkBlobs(
+    signedBlock: ForkedSignedBeaconBlock, blobsOpt: Opt[BlobSidecars]
+): Result[void, VerifierError] =
   withBlck(signedBlock):
     when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       if blobsOpt.isSome():
@@ -152,25 +164,28 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
         if len(blobs) > 0:
           if len(blobs) != len(blob_kzg_commitments):
             return err(VerifierError.Invalid)
-          let res =
-            validate_blobs(blob_kzg_commitments,
-                           blobs.mapIt(KzgBlob(bytes: it.blob)),
-                           blobs.mapIt(it.kzg_proof))
+          let res = validate_blobs(
+            blob_kzg_commitments,
+            blobs.mapIt(KzgBlob(bytes: it.blob)),
+            blobs.mapIt(it.kzg_proof),
+          )
           if res.isErr():
             debug "Blob validation failed",
-                  block_root = shortLog(forkyBlck.root),
-                  blobs = shortLog(blobs),
-                  blck = shortLog(forkyBlck.message),
-                  kzg_commits = mapIt(blob_kzg_commitments, shortLog(it)),
-                  signature = shortLog(forkyBlck.signature),
-                  msg = res.error()
+              block_root = shortLog(forkyBlck.root),
+              blobs = shortLog(blobs),
+              blck = shortLog(forkyBlck.message),
+              kzg_commits = mapIt(blob_kzg_commitments, shortLog(it)),
+              signature = shortLog(forkyBlck.signature),
+              msg = res.error()
             return err(VerifierError.Invalid)
   ok()
 
 proc addLightForwardBlock*(
-    clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
-  doAssert(not(isNil(clist)))
+    clist: ChainListRef,
+    signedBlock: ForkedSignedBeaconBlock,
+    blobsOpt: Opt[BlobSidecars],
+): Result[void, VerifierError] =
+  doAssert(not (isNil(clist)))
 
   logScope:
     backfill_tail = shortLog(clist.tail)
@@ -181,13 +196,13 @@ proc addLightForwardBlock*(
   let verifyBlockTick = Moment.now()
 
   if clist.tail.isNone():
-    ? checkBlobs(signedBlock, blobsOpt)
+    ?checkBlobs(signedBlock, blobsOpt)
 
     let storeBlockTick = Moment.now()
 
     store(clist, signedBlock, blobsOpt).isOkOr:
       fatal "Unexpected failure while trying to store data",
-            filename = chainFilePath(clist.path), reason = error
+        filename = chainFilePath(clist.path), reason = error
       quit 1
 
     let bdata = BlockData(blck: signedBlock, blob: blobsOpt)
@@ -196,8 +211,8 @@ proc addLightForwardBlock*(
       clist.setHead(bdata)
 
     debug "Initial block backfilled",
-          verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
-          store_block_duration = shortLog(Moment.now() - storeBlockTick)
+      verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
+      store_block_duration = shortLog(Moment.now() - storeBlockTick)
 
     return ok()
 
@@ -218,18 +233,18 @@ proc addLightForwardBlock*(
     debug "Block does not match expected backfill root"
     return err(VerifierError.MissingParent)
 
-  ? checkBlobs(signedBlock, blobsOpt)
+  ?checkBlobs(signedBlock, blobsOpt)
 
   let storeBlockTick = Moment.now()
 
   store(clist, signedBlock, blobsOpt).isOkOr:
     fatal "Unexpected failure while trying to store data",
-           filename = chainFilePath(clist.path), reason = error
+      filename = chainFilePath(clist.path), reason = error
     quit 1
 
   debug "Block backfilled",
-        verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
-        store_block_duration = shortLog(Moment.now() - storeBlockTick)
+    verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
+    store_block_duration = shortLog(Moment.now() - storeBlockTick)
 
   clist.setTail(BlockData(blck: signedBlock, blob: blobsOpt))
 
@@ -239,9 +254,8 @@ proc untrustedBackfillVerifier*(
     clist: ChainListRef,
     signedBlock: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
-    maybeFinalized: bool
-): Future[Result[void, VerifierError]] {.
-  async: (raises: [CancelledError], raw: true).} =
+    maybeFinalized: bool,
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   let retFuture = newFuture[Result[void, VerifierError]]()
   retFuture.complete(clist.addLightForwardBlock(signedBlock, blobs))
   retFuture

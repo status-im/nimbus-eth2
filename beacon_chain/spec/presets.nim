@@ -10,7 +10,9 @@
 import
   std/[parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, eth/common/addresses as eth,
+  stew/[byteutils],
+  stint,
+  eth/common/addresses as eth,
   ./datatypes/constants
 
 from std/algorithm import sort
@@ -33,7 +35,7 @@ const
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
   MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
-  MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
+  MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9 # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
 type TimeParams* = object
@@ -56,27 +58,19 @@ const
 
 func isValid*(timeParams: TimeParams): bool =
   # /!\ Keep in sync with `readRuntimeConfig`
-  timeParams.SLOT_DURATION in
-    MIN_SLOT_DURATION .. MAX_SLOT_DURATION and
-  timeParams.PROPOSER_REORG_CUTOFF_BPS in
-    0'u16 ..< MAX_BPS and
-  timeParams.ATTESTATION_DUE_BPS in
+  timeParams.SLOT_DURATION in MIN_SLOT_DURATION .. MAX_SLOT_DURATION and
+    timeParams.PROPOSER_REORG_CUTOFF_BPS in 0'u16 ..< MAX_BPS and
+    timeParams.ATTESTATION_DUE_BPS in timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
+    timeParams.AGGREGATE_DUE_BPS in timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS and
+    timeParams.SYNC_MESSAGE_DUE_BPS == timeParams.ATTESTATION_DUE_BPS and
+    timeParams.CONTRIBUTION_DUE_BPS == timeParams.AGGREGATE_DUE_BPS and
+    timeParams.ATTESTATION_DUE_BPS_GLOAS in
     timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
-  timeParams.AGGREGATE_DUE_BPS in
-    timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS and
-  timeParams.SYNC_MESSAGE_DUE_BPS ==
-    timeParams.ATTESTATION_DUE_BPS and
-  timeParams.CONTRIBUTION_DUE_BPS ==
-    timeParams.AGGREGATE_DUE_BPS and
-  timeParams.ATTESTATION_DUE_BPS_GLOAS in
-    timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS and
-  timeParams.AGGREGATE_DUE_BPS_GLOAS in
+    timeParams.AGGREGATE_DUE_BPS_GLOAS in
     timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS and
-  timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS ==
-    timeParams.ATTESTATION_DUE_BPS_GLOAS and
-  timeParams.CONTRIBUTION_DUE_BPS_GLOAS ==
-    timeParams.AGGREGATE_DUE_BPS_GLOAS and
-  timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
+    timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS == timeParams.ATTESTATION_DUE_BPS_GLOAS and
+    timeParams.CONTRIBUTION_DUE_BPS_GLOAS == timeParams.AGGREGATE_DUE_BPS_GLOAS and
+    timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
     timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
 type
   Version* = distinct array[4, byte]
@@ -96,7 +90,8 @@ type
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: Hash32
-    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch  # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
+      # Not actively used, but part of the spec
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -198,10 +193,10 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
-    "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
-    "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
-    "    MAX_BLOBS_PER_BLOCK",         # parsed separately
-    "  - EPOCH",                       # parsed separately
+    "TTFB_TIMEOUT", # https://github.com/ethereum/consensus-specs/pull/4532
+    "RESP_TIMEOUT", # https://github.com/ethereum/consensus-specs/pull/4532
+    "    MAX_BLOBS_PER_BLOCK", # parsed separately
+    "  - EPOCH", # parsed separately
   ]
 
 when const_preset == "mainnet":
@@ -306,7 +301,8 @@ when const_preset == "mainnet":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+    ),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -402,7 +398,6 @@ when const_preset == "mainnet":
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
-
 elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
@@ -500,7 +495,8 @@ elif const_preset == "gnosis":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+    ),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
@@ -510,7 +506,6 @@ elif const_preset == "gnosis":
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -595,9 +590,8 @@ elif const_preset == "gnosis":
     CUSTODY_REQUIREMENT: 4,
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
-
 elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
@@ -624,7 +618,6 @@ elif const_preset == "minimal":
     TERMINAL_BLOCK_HASH:
       hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
-
     # Genesis
     # ---------------------------------------------------------------
     # [customized]
@@ -635,7 +628,6 @@ elif const_preset == "minimal":
     GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x01],
     # [customized] Faster to spin up testnets, but does not give validator reasonable warning time for genesis
     GENESIS_DELAY: 300,
-
 
     # Forking
     # ---------------------------------------------------------------
@@ -693,7 +685,8 @@ elif const_preset == "minimal":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+    ),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -790,15 +783,12 @@ elif const_preset == "minimal":
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
   )
-
 else:
   {.error: "Only mainnet, gnosis, and minimal presets supported".}
 
-const IsMainnetSupported*: bool =
-  const_preset == "mainnet"
+const IsMainnetSupported*: bool = const_preset == "mainnet"
 
-const IsGnosisSupported*: bool =
-  const_preset == "gnosis"
+const IsGnosisSupported*: bool = const_preset == "gnosis"
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -808,16 +798,17 @@ func safeMinEpochsForBlockRequests*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 
 func parse[T: uint16 | uint64](
-    _: typedesc[T], input: string): T {.raises: [ValueError].} =
+    _: typedesc[T], input: string
+): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if parseHex(input, res) != input.len:
-      raise newException(
-        ValueError, "The constant value should be a valid hex integer")
+      raise newException(ValueError, "The constant value should be a valid hex integer")
   else:
     if parseBiggestUInt(input, res) != input.len:
       raise newException(
-        ValueError, "The constant value should be a valid unsigned integer")
+        ValueError, "The constant value should be a valid unsigned integer"
+      )
   when T.high < BiggestUInt.high:
     if res > T.high.BiggestUInt:
       raise newException(ValueError, "The constant value is too large")
@@ -826,12 +817,10 @@ func parse[T: uint16 | uint64](
 template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
 
-func parse(T: type array[4, byte], input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type array[4, byte], input: string): T {.raises: [ValueError].} =
   hexToByteArray(input, 4)
 
-func parse(T: type Version, input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type Version, input: string): T {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
 template parse(T: type Slot, input: string): T =
@@ -852,8 +841,7 @@ template parse(T: type Hash32, input: string): T =
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
 
-func parse(T: type DomainType, input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type DomainType, input: string): T {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
 func parse(T: typedesc[TimeParams], input: string): T {.raises: [ValueError].} =
@@ -864,15 +852,17 @@ func cmpBlobParameters*(x, y: BlobParameters): int =
   cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
 
 proc readRuntimeConfig*(
-    fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [PresetFileError, PresetIncompatibleError].} =
+    fileContent: string, path: string
+): (RuntimeConfig, seq[string]) {.raises: [PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
 
-  template lineinfo: string =
-    try: "$1($2) " % [path, $lineNum]
-    except ValueError: path
+  template lineinfo(): string =
+    try:
+      "$1($2) " % [path, $lineNum]
+    except ValueError:
+      path
 
   template fail(msg) =
     raise newException(PresetFileError, lineinfo() & msg)
@@ -884,14 +874,16 @@ proc readRuntimeConfig*(
   var values: Table[string, string]
   for line in splitLines(fileContent):
     inc lineNum
-    if line.len == 0 or line[0] == '#': continue
+    if line.len == 0 or line[0] == '#':
+      continue
     # remove any trailing comments
     let line = line.split("#")[0]
     let lineParts = line.split(":")
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
 
-    if lineParts[0] in ignoredValues: continue
+    if lineParts[0] in ignoredValues:
+      continue
 
     values[lineParts[0]] = lineParts[1].strip
 
@@ -919,7 +911,7 @@ proc readRuntimeConfig*(
       continue
 
     if inBlobSchedule:
-      let entry = strip(noComment, leading=true, trailing=false)
+      let entry = strip(noComment, leading = true, trailing = false)
       if entry.startsWith("- EPOCH:"):
         if hasCurrentEntry:
           blobScheduleEntries.add(currentBPO)
@@ -966,30 +958,32 @@ proc readRuntimeConfig*(
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(
-      constValue: untyped, name: string, operator: untyped = `==`): untyped =
+      constValue: untyped, name: string, operator: untyped = `==`
+  ): untyped =
     if values.hasKey(name):
       const opDesc = astToStr(operator)
       try:
         let value = parse(typeof(constValue), values[name])
         when constValue is distinct:
           if not operator(distinctBase(value), distinctBase(constValue)):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & " " &
-              opDesc & " " & $distinctBase(constValue) &
-              " - config: " & name & "=" & values[name] & ")")
+            raise (ref PresetFileError)(
+              msg:
+                "Cannot override config" & " (required: " & name & " " & opDesc & " " &
+                $distinctBase(constValue) & " - config: " & name & "=" & values[name] &
+                ")"
+            )
         else:
           if not operator(value, constValue):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & " " & opDesc & " " & $constValue &
-              " - config: " & name & "=" & values[name] & ")")
+            raise (ref PresetFileError)(
+              msg:
+                "Cannot override config" & " (required: " & name & " " & opDesc & " " &
+                $constValue & " - config: " & name & "=" & values[name] & ")"
+            )
         values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-  template checkCompatibility(
-      constValue: untyped, operator: untyped = `==`): untyped =
+  template checkCompatibility(constValue: untyped, operator: untyped = `==`): untyped =
     block:
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
@@ -1050,7 +1044,7 @@ proc readRuntimeConfig*(
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
-                     "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
+    "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
   checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
   checkCompatibility MESSAGE_DOMAIN_VALID_SNAPPY
   checkCompatibility SUBNETS_PER_NODE
@@ -1062,11 +1056,11 @@ proc readRuntimeConfig*(
 
   for suffix in ["", "_ELECTRA"]:
     checkCompatibility MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT,
-                       "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
+      "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_BLOBS_PER_BLOCK,
-                       "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
+      "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
-                       "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
+      "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
@@ -1096,7 +1090,7 @@ proc readRuntimeConfig*(
         field = seconds(rawValue.int64)
         values.del("SECONDS_PER_SLOT")
       else:
-        discard  # Stay on default value
+        discard # Stay on default value
     else:
       if values.hasKey(name):
         when field is seq[BlobParameters]:
@@ -1118,79 +1112,106 @@ proc readRuntimeConfig*(
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
-      msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
+      msg:
+        "Config not compatible with binary, compile with -d:const_preset=" &
+        cfg.PRESET_BASE
+    )
 
   template checkParsedValue(
-      name: string, value: auto,
-      constValue: untyped, operator: untyped = `==`): untyped =
+      name: string, value: auto, constValue: untyped, operator: untyped = `==`
+  ): untyped =
     const opDesc = astToStr(operator)
     try:
       when constValue is distinct:
         if not operator(distinctBase(value), distinctBase(constValue)):
-          raise (ref PresetFileError)(msg:
-            "Cannot override config" &
-            " (required: " & name & " " &
-            opDesc & " " & $distinctBase(constValue) &
-            " - config: " & name & "=" & $value & ")")
+          raise (ref PresetFileError)(
+            msg:
+              "Cannot override config" & " (required: " & name & " " & opDesc & " " &
+              $distinctBase(constValue) & " - config: " & name & "=" & $value & ")"
+          )
       else:
         if not operator(value, constValue):
-          raise (ref PresetFileError)(msg:
-            "Cannot override config" &
-            " (required: " & name & " " & opDesc & " " & $constValue &
-            " - config: " & name & "=" & $value & ")")
+          raise (ref PresetFileError)(
+            msg:
+              "Cannot override config" & " (required: " & name & " " & opDesc & " " &
+              $constValue & " - config: " & name & "=" & $value & ")"
+          )
     except ValueError:
       raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-  block:  # /!\ Keep in sync with `isValid`
+  block: # /!\ Keep in sync with `isValid`
     checkParsedValue(
-      "SLOT_DURATION_MS", cfg.timeParams.SLOT_DURATION.milliseconds,
-      MIN_SLOT_DURATION.milliseconds .. MAX_SLOT_DURATION.milliseconds, `in`)
+      "SLOT_DURATION_MS",
+      cfg.timeParams.SLOT_DURATION.milliseconds,
+      MIN_SLOT_DURATION.milliseconds .. MAX_SLOT_DURATION.milliseconds,
+      `in`,
+    )
 
     checkParsedValue(
-      "PROPOSER_REORG_CUTOFF_BPS", cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS,
-      0'u16 ..< MAX_BPS, `in`)
+      "PROPOSER_REORG_CUTOFF_BPS",
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS,
+      0'u16 ..< MAX_BPS,
+      `in`,
+    )
     checkParsedValue(
-      "ATTESTATION_DUE_BPS", cfg.timeParams.ATTESTATION_DUE_BPS,
-      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS, `in`)
+      "ATTESTATION_DUE_BPS",
+      cfg.timeParams.ATTESTATION_DUE_BPS,
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS,
+      `in`,
+    )
     checkParsedValue(
-      "AGGREGATE_DUE_BPS", cfg.timeParams.AGGREGATE_DUE_BPS,
-      cfg.timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS, `in`)
+      "AGGREGATE_DUE_BPS",
+      cfg.timeParams.AGGREGATE_DUE_BPS,
+      cfg.timeParams.ATTESTATION_DUE_BPS ..< MAX_BPS,
+      `in`,
+    )
 
     checkParsedValue(
       "SYNC_MESSAGE_DUE_BPS", cfg.timeParams.SYNC_MESSAGE_DUE_BPS,
-      cfg.timeParams.ATTESTATION_DUE_BPS)
+      cfg.timeParams.ATTESTATION_DUE_BPS,
+    )
     checkParsedValue(
       "CONTRIBUTION_DUE_BPS", cfg.timeParams.CONTRIBUTION_DUE_BPS,
-      cfg.timeParams.AGGREGATE_DUE_BPS)
+      cfg.timeParams.AGGREGATE_DUE_BPS,
+    )
 
     checkParsedValue(
-      "ATTESTATION_DUE_BPS_GLOAS", cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS,
-      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS, `in`)
+      "ATTESTATION_DUE_BPS_GLOAS",
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS,
+      cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS ..< MAX_BPS,
+      `in`,
+    )
     checkParsedValue(
-      "AGGREGATE_DUE_BPS_GLOAS", cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS,
-      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+      "AGGREGATE_DUE_BPS_GLOAS",
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS,
+      `in`,
+    )
     checkParsedValue(
       "SYNC_MESSAGE_DUE_BPS_GLOAS", cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS,
-      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS)
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS,
+    )
     checkParsedValue(
       "CONTRIBUTION_DUE_BPS_GLOAS", cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS,
-      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS,
+    )
     checkParsedValue(
-      "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
-      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+      "PAYLOAD_ATTESTATION_DUE_BPS",
+      cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS,
+      `in`,
+    )
   doAssert cfg.timeParams.isValid
 
   # Requires initialized `cfg`
-  checkCompatibility cfg.timeParams.SLOT_DURATION.seconds.uint64,
-                     "SECONDS_PER_SLOT"
+  checkCompatibility cfg.timeParams.SLOT_DURATION.seconds.uint64, "SECONDS_PER_SLOT"
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
-                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
+    "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
-                     "MAX_REQUEST_BLOB_SIDECARS"
-  checkCompatibility cfg.MAX_BLOBS_PER_BLOCK,
-                     "MAX_BLOBS_PER_BLOCK_ELECTRA", `>=`
+    "MAX_REQUEST_BLOB_SIDECARS"
+  checkCompatibility cfg.MAX_BLOBS_PER_BLOCK, "MAX_BLOBS_PER_BLOCK_ELECTRA", `>=`
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-                     "MAX_REQUEST_BLOB_SIDECARS_ELECTRA"
+    "MAX_REQUEST_BLOB_SIDECARS_ELECTRA"
 
   var unknowns: seq[string]
   for name in values.keys:
@@ -1199,15 +1220,14 @@ proc readRuntimeConfig*(
   (cfg, unknowns)
 
 proc readRuntimeConfig*(
-    path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
+    path: string
+): (RuntimeConfig, seq[string]) {.
+    raises: [IOError, PresetFileError, PresetIncompatibleError]
+.} =
   readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =
-  if cfg.CONFIG_NAME.len() > 0:
-    cfg.CONFIG_NAME
-  else:
-    const_preset
+  if cfg.CONFIG_NAME.len() > 0: cfg.CONFIG_NAME else: const_preset
 
 func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD

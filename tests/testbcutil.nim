@@ -11,27 +11,33 @@ import results
 
 from ../beacon_chain/consensus_object_pools/block_clearance import
   addHeadBlockWithParent
-from ../beacon_chain/consensus_object_pools/block_dag import
-  BlockRef, OptimisticStatus
+from ../beacon_chain/consensus_object_pools/block_dag import BlockRef, OptimisticStatus
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef, OnBlockAdded, VerifierError
 from ../beacon_chain/spec/forks import ForkySignedBeaconBlock
 from ../beacon_chain/spec/signatures_batch import BatchVerifier
 
 proc addHeadBlockImpl(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
+    dag: ChainDAGRef,
+    verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnBlockAdded
-    ): Result[BlockRef, VerifierError] =
+    onBlockAdded: OnBlockAdded,
+): Result[BlockRef, VerifierError] =
   addHeadBlockWithParent(
-    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    OptimisticStatus.valid, onBlockAdded)
+    dag,
+    verifier,
+    signedBlock,
+    ?dag.checkHeadBlock(signedBlock),
+    OptimisticStatus.valid,
+    onBlockAdded,
+  )
 
 template addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
+    dag: ChainDAGRef,
+    verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAddedParam: untyped
-    ): Result[BlockRef, VerifierError] =
+    onBlockAddedParam: untyped,
+): Result[BlockRef, VerifierError] =
   let onBlockAdded: OnBlockAdded[typeof(signedBlock).kind] = onBlockAddedParam
 
   addHeadBlockImpl(dag, verifier, signedBlock, onBlockAdded)

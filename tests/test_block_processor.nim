@@ -143,9 +143,17 @@ suite "Block processor" & preset():
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
-        false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        getTimeFn, invalidBlockRoots = @[b2.root])
+        false,
+        "",
+        "",
+        batchVerifier,
+        consensusManager,
+        validatorMonitor,
+        blobQuarantine,
+        dataColumnQuarantine,
+        getTimeFn,
+        invalidBlockRoots = @[b2.root],
+      )
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -192,7 +200,7 @@ suite "Block processor" & preset():
         info,
         {},
       )
-      .expect("OK")
+        .expect("OK")
 
       withState(state[]):
         let b0 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)

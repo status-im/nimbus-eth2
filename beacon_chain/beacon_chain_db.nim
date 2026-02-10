@@ -11,27 +11,23 @@ import
   std/[typetraits, tables],
   results,
   stew/[arrayops, assign2, byteutils, endians2, io2, objects],
-  serialization, chronicles, snappy,
+  serialization,
+  chronicles,
+  snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[eth2_ssz_serialization,
-          eth2_merkleization,
-          forks,
-          presets,
-          state_transition],
-  "."/[beacon_chain_db_light_client,
-       beacon_chain_db_quarantine,
-       db_utils,
-       filepath]
+  ./networking/network_metadata,
+  ./beacon_chain_db_immutable,
+  ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, presets, state_transition],
+  "."/[beacon_chain_db_light_client, beacon_chain_db_quarantine, db_utils, filepath]
 
 from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
-  phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3
+  phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore, kvstore_sqlite3
 
-logScope: topics = "bc_db"
+logScope:
+  topics = "bc_db"
 
 type
   DbSeq*[T] = object
@@ -112,7 +108,8 @@ type
 
     checkpoint*: proc() {.gcsafe, raises: [].}
 
-    keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
+    keyValues: KvStoreRef
+      # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
     blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
@@ -123,9 +120,11 @@ type
 
     envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
 
-    statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
+    statesNoVal: array[ConsensusFork, KvStoreRef]
+      # StateRoot -> ForkBeaconStateNoImmutableValidators
 
-    stateDiffs: KvStoreRef ##\
+    stateDiffs: KvStoreRef
+      ##\
       ## StateRoot -> BeaconStateDiff
       ## Instead of storing full BeaconStates, one can store only the diff from
       ## a different state. As 75% of a typical BeaconState's serialized form's
@@ -169,8 +168,7 @@ type
     #         Only new items should be added to its end.
     kHashToState
     kHashToBlock
-    kHeadBlock
-      ## Pointer to the most recent block selected by the fork choice
+    kHeadBlock ## Pointer to the most recent block selected by the fork choice
     kTailBlock
       ## Pointer to the earliest finalized block - this is the genesis
       ## block when the chain starts, but might advance as the database
@@ -178,8 +176,7 @@ type
       ## TODO: determine how aggressively the database should be pruned.
       ##       For a healthy network sync, we probably need to store blocks
       ##       at least past the weak subjectivity period.
-    kBlockSlotStateRoot
-      ## BlockSlot -> state_root mapping
+    kBlockSlotStateRoot ## BlockSlot -> state_root mapping
     kGenesisBlock
       ## Immutable reference to the network genesis state
       ## (needed for satisfying requests to the beacon node API).
@@ -227,16 +224,14 @@ func shortLog*(v: BeaconBlockSummary): auto =
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
 
-func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
-    array[N + 1, byte] =
+func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]): array[N + 1, byte] =
   result[0] = byte ord(kind)
   result[1 .. ^1] = key
 
 func subkey(kind: type phase0.BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
-func subkey(
-    kind: type Phase0BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
+func subkey(kind: type Phase0BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
   subkey(kHashToStateOnlyMutableValidators, key.data)
 
 func subkey(kind: type phase0.SignedBeaconBlock, key: Eth2Digest): auto =
@@ -248,27 +243,27 @@ func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
   # big endian to get a naturally ascending order on slots in sorted indices
-  ret[0..<8] = toBytesBE(slot.uint64)
+  ret[0 ..< 8] = toBytesBE(slot.uint64)
   # .. but 7 bytes should be enough for slots - in return, we get a nicely
   # rounded key length
   ret[0] = byte ord(kBlockSlotStateRoot)
-  ret[8..<40] = root.data
+  ret[8 ..< 40] = root.data
 
   ret
 
-func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
+func blobkey(root: Eth2Digest, index: BlobIndex): array[40, byte] =
   # Note that this was botched. Data corresponding to the same block should be
   # located close together, but instead, the logic groups data by `index`, i.e.,
   # all the index 0 blobs from all blocks come first, then all index 1 blobs etc
   var ret: array[40, byte]
-  ret[0..<8] = toBytes(index)  # Also botched, endian-dependent and should be BE
-  ret[8..<40] = root.data
+  ret[0 ..< 8] = toBytes(index) # Also botched, endian-dependent and should be BE
+  ret[8 ..< 40] = root.data
   ret
 
-func columnkey(root: Eth2Digest, index: ColumnIndex) : array[40, byte] =
+func columnkey(root: Eth2Digest, index: ColumnIndex): array[40, byte] =
   var ret: array[40, byte]
-  ret[0..<32] = root.data          # 1. Group by block `root`
-  ret[32..<40] = toBytesBE(index)  # 2. Order by `index`
+  ret[0 ..< 32] = root.data # 1. Group by block `root`
+  ret[32 ..< 40] = toBytesBE(index) # 2. Order by `index`
   ret
 
 template expectDb(x: auto): untyped =
@@ -277,44 +272,57 @@ template expectDb(x: auto): untyped =
   x.expect("working database (disk broken/full?)")
 
 proc init*[T](
-    Seq: type DbSeq[T], db: SqStoreRef, name: string,
-    readOnly = false): KvResult[Seq] =
-  let hasTable = if db.readOnly or readOnly:
-    ? db.hasTable(name)
-  else:
-    ? db.exec("""
+    Seq: type DbSeq[T], db: SqStoreRef, name: string, readOnly = false
+): KvResult[Seq] =
+  let hasTable =
+    if db.readOnly or readOnly:
+      ?db.hasTable(name)
+    else:
+      ?db.exec(
+        """
       CREATE TABLE IF NOT EXISTS '""" & name & """'(
         id INTEGER PRIMARY KEY,
         value BLOB
       );
-    """)
-    true
+    """
+      )
+      true
   if hasTable:
     let
-      insertStmt = db.prepareStmt(
-        "INSERT INTO '" & name & "'(value) VALUES (?);",
-        openArray[byte], void, managed = false).expect("this is a valid statement")
+      insertStmt = db
+        .prepareStmt(
+          "INSERT INTO '" & name & "'(value) VALUES (?);",
+          openArray[byte],
+          void,
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
-      selectStmt = db.prepareStmt(
-        "SELECT value FROM '" & name & "' WHERE id = ?;",
-        int64, openArray[byte], managed = false).expect("this is a valid statement")
+      selectStmt = db
+        .prepareStmt(
+          "SELECT value FROM '" & name & "' WHERE id = ?;",
+          int64,
+          openArray[byte],
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
-      countStmt = db.prepareStmt(
-        "SELECT COUNT(1) FROM '" & name & "';",
-        NoParams, int64, managed = false).expect("this is a valid statement")
+      countStmt = db
+        .prepareStmt(
+          "SELECT COUNT(1) FROM '" & name & "';", NoParams, int64, managed = false
+        )
+        .expect("this is a valid statement")
 
     var recordCount = int64 0
-    let countQueryRes = countStmt.exec do (res: int64):
+    let countQueryRes = countStmt.exec do(res: int64):
       recordCount = res
 
-    let found = ? countQueryRes
+    let found = ?countQueryRes
     if not found:
       return err("Cannot count existing items")
     countStmt.dispose()
 
-    ok(Seq(insertStmt: insertStmt,
-          selectStmt: selectStmt,
-          recordCount: recordCount))
+    ok(Seq(insertStmt: insertStmt, selectStmt: selectStmt, recordCount: recordCount))
   else:
     ok(Seq())
 
@@ -335,11 +343,13 @@ template len*[T](s: DbSeq[T]): int64 =
 
 proc get*[T](s: DbSeq[T], idx: int64): T =
   # This is used only locally
-  doAssert(distinctBase(s.selectStmt) != nil, $T & " table not present for read at " & $(idx))
+  doAssert(
+    distinctBase(s.selectStmt) != nil, $T & " table not present for read at " & $(idx)
+  )
 
   let resultAddr = addr result
 
-  let queryRes = s.selectStmt.exec(idx + 1) do (recordBytes: openArray[byte]):
+  let queryRes = s.selectStmt.exec(idx + 1) do(recordBytes: openArray[byte]):
     try:
       resultAddr[] = decode(SSZ, recordBytes, T)
     except SerializationError as exc:
@@ -349,38 +359,67 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   if not found:
     raiseAssert $T & " not found at index " & $(idx)
 
-proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string,
-           readOnly = false): KvResult[T] =
-  let hasTable = if db.readOnly or readOnly:
-    ? db.hasTable(name)
-  else:
-    ? db.exec("""
+proc init*(
+    T: type FinalizedBlocks, db: SqStoreRef, name: string, readOnly = false
+): KvResult[T] =
+  let hasTable =
+    if db.readOnly or readOnly:
+      ?db.hasTable(name)
+    else:
+      ?db.exec(
+        """
       CREATE TABLE IF NOT EXISTS '""" & name & """'(
         id INTEGER PRIMARY KEY,
         value BLOB NOT NULL
-      );""")
-    true
+      );"""
+      )
+      true
 
   if hasTable:
     let
-      insertStmt = db.prepareStmt(
-        "REPLACE INTO '" & name & "'(id, value) VALUES (?, ?);",
-        (int64, array[32, byte]), void, managed = false).expect("this is a valid statement")
+      insertStmt = db
+        .prepareStmt(
+          "REPLACE INTO '" & name & "'(id, value) VALUES (?, ?);",
+          (int64, array[32, byte]),
+          void,
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
-      selectStmt = db.prepareStmt(
-        "SELECT value FROM '" & name & "' WHERE id = ?;",
-        int64, array[32, byte], managed = false).expect("this is a valid statement")
-      selectAllStmt = db.prepareStmt(
-        "SELECT id, value FROM '" & name & "' ORDER BY id;",
-        NoParams, (int64, array[32, byte]), managed = false).expect("this is a valid statement")
+      selectStmt = db
+        .prepareStmt(
+          "SELECT value FROM '" & name & "' WHERE id = ?;",
+          int64,
+          array[32, byte],
+          managed = false,
+        )
+        .expect("this is a valid statement")
+      selectAllStmt = db
+        .prepareStmt(
+          "SELECT id, value FROM '" & name & "' ORDER BY id;",
+          NoParams,
+          (int64, array[32, byte]),
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
-      maxIdStmt = db.prepareStmt(
-        "SELECT MAX(id) FROM '" & name & "';",
-        NoParams, Option[int64], managed = false).expect("this is a valid statement")
+      maxIdStmt = db
+        .prepareStmt(
+          "SELECT MAX(id) FROM '" & name & "';",
+          NoParams,
+          Option[int64],
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
-      minIdStmt = db.prepareStmt(
-        "SELECT MIN(id) FROM '" & name & "';",
-        NoParams, Option[int64], managed = false).expect("this is a valid statement")
+      minIdStmt = db
+        .prepareStmt(
+          "SELECT MIN(id) FROM '" & name & "';",
+          NoParams,
+          Option[int64],
+          managed = false,
+        )
+        .expect("this is a valid statement")
 
     var
       low, high: Opt[Slot]
@@ -399,11 +438,15 @@ proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string,
     maxIdStmt.dispose()
     minIdStmt.dispose()
 
-    ok(T(insertStmt: insertStmt,
-          selectStmt: selectStmt,
-          selectAllStmt: selectAllStmt,
-          low: low,
-          high: high))
+    ok(
+      T(
+        insertStmt: insertStmt,
+        selectStmt: selectStmt,
+        selectAllStmt: selectAllStmt,
+        low: low,
+        high: high,
+      )
+    )
   else:
     ok(T())
 
@@ -422,7 +465,8 @@ proc insert*(s: var FinalizedBlocks, slot: Slot, val: Eth2Digest) =
   s.high.ok(max(slot, s.high.get(slot)))
 
 proc get*(s: FinalizedBlocks, idx: Slot): Opt[Eth2Digest] =
-  if distinctBase(s.selectStmt) == nil: return Opt.none(Eth2Digest)
+  if distinctBase(s.selectStmt) == nil:
+    return Opt.none(Eth2Digest)
   var row: s.selectStmt.Result
   for rowRes in s.selectStmt.exec(int64(idx), row):
     expectDb rowRes
@@ -437,13 +481,15 @@ iterator pairs*(s: FinalizedBlocks): (Slot, Eth2Digest) =
       expectDb rowRes
       yield (Slot(row[0]), Eth2Digest(data: row[1]))
 
-proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[ImmutableValidatorData2] =
+proc loadImmutableValidators(
+    vals: DbSeq[ImmutableValidatorDataDb2]
+): seq[ImmutableValidatorData2] =
   result = newSeqOfCap[ImmutableValidatorData2](vals.len())
   for i in 0 ..< vals.len:
     let tmp = vals.get(i)
     result.add ImmutableValidatorData2(
-      pubkey: tmp.pubkey.loadValid(),
-      withdrawal_credentials: tmp.withdrawal_credentials)
+      pubkey: tmp.pubkey.loadValid(), withdrawal_credentials: tmp.withdrawal_credentials
+    )
 
 template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
   let
@@ -459,8 +505,8 @@ template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
     expectDb db.db.exec("BEGIN TRANSACTION;")
   var commit = false
   try:
-      body
-      commit = true
+    body
+    commit = true
   finally:
     if not nested:
       if commit:
@@ -484,29 +530,20 @@ template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
         if isInsideTransaction(db.db): # calls `sqlite3_get_autocommit`
           expectDb db.db.exec("ROLLBACK TRANSACTION;")
 
-proc new*(T: type BeaconChainDBV0,
-          db: SqStoreRef,
-          readOnly = false
-    ): BeaconChainDBV0 =
+proc new*(T: type BeaconChainDBV0, db: SqStoreRef, readOnly = false): BeaconChainDBV0 =
   var
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
     # for large blobs
-    backendV0 = kvStore db.openKvStore(
-      readOnly = db.readOnly or readOnly).expectDb()
+    backendV0 = kvStore db.openKvStore(readOnly = db.readOnly or readOnly).expectDb()
     # state_no_validators is similar to state_no_validators2 but uses a
     # different key encoding and was created WITHOUT ROWID
-    stateStoreV0 = kvStore db.openKvStore(
-      "state_no_validators", readOnly = db.readOnly or readOnly).expectDb()
+    stateStoreV0 = kvStore db
+      .openKvStore("state_no_validators", readOnly = db.readOnly or readOnly)
+      .expectDb()
 
-  BeaconChainDBV0(
-      backend: backendV0,
-      stateStore: stateStoreV0,
-  )
+  BeaconChainDBV0(backend: backendV0, stateStore: stateStoreV0)
 
-proc new*(T: type BeaconChainDB,
-          db: SqStoreRef,
-          cfg: RuntimeConfig
-    ): BeaconChainDB =
+proc new*(T: type BeaconChainDB, db: SqStoreRef, cfg: RuntimeConfig): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
     # to storing only deposit contract checkpoints
@@ -524,8 +561,7 @@ proc new*(T: type BeaconChainDB,
   debugGloasComment "use actual names when closer"
 
   var
-    genesisDepositsSeq =
-      DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
+    genesisDepositsSeq = DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
     immutableValidatorsDb =
       DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
 
@@ -545,7 +581,7 @@ proc new*(T: type BeaconChainDB,
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("foobar_not_real_name").expectDb()
       else:
-        nil
+        nil,
     ]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
@@ -564,41 +600,38 @@ proc new*(T: type BeaconChainDB,
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("more_intentional_gibberish___").expectDb()
       else:
-        nil
+        nil,
     ]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
-    lcData = db.initLightClientDataDB(LightClientDataDBNames(
-      altairHeaders: "lc_altair_headers",
-      capellaHeaders:
-        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_capella_headers"
-        else:
-          "",
-      denebHeaders:
-        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_deneb_headers"
-        else:
-          "",
-      electraHeaders:
-        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_electra_headers"
-        else:
-          "",
-      altairCurrentBranches: "lc_altair_current_branches",
-      electraCurrentBranches:
-        if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_electra_current_branches"
-        else:
-          "",
-      altairSyncCommittees: "lc_altair_sync_committees",
-      legacyAltairBestUpdates: "lc_altair_best_updates",
-      bestUpdates: "lc_best_updates",
-      sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
+    lcData = db
+      .initLightClientDataDB(
+        LightClientDataDBNames(
+          altairHeaders: "lc_altair_headers",
+          capellaHeaders:
+            if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH: "lc_capella_headers" else: "",
+          denebHeaders:
+            if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH: "lc_deneb_headers" else: "",
+          electraHeaders:
+            if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH: "lc_electra_headers" else: "",
+          altairCurrentBranches: "lc_altair_current_branches",
+          electraCurrentBranches:
+            if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+              "lc_electra_current_branches"
+            else:
+              "",
+          altairSyncCommittees: "lc_altair_sync_committees",
+          legacyAltairBestUpdates: "lc_altair_best_updates",
+          bestUpdates: "lc_best_updates",
+          sealedPeriods: "lc_sealed_periods",
+        )
+      )
+      .expectDb()
+  static:
+    doAssert LightClientDataFork.high == LightClientDataFork.Electra
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
@@ -619,18 +652,21 @@ proc new*(T: type BeaconChainDB,
   # old format, but don't need to support downgrading, and therefore safely can
   # remove the keys
   block:
-    var immutableValidatorsDb1 = DbSeq[ImmutableValidatorData].init(
-      db, "immutable_validators", readOnly = true).expectDb()
+    var immutableValidatorsDb1 = DbSeq[ImmutableValidatorData]
+      .init(db, "immutable_validators", readOnly = true)
+      .expectDb()
 
     if immutableValidatorsDb.len() < immutableValidatorsDb1.len():
       notice "Migrating validator keys, this may take a minute",
         len = immutableValidatorsDb1.len()
       while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
         let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
-        immutableValidatorsDb.add(ImmutableValidatorDataDb2(
-          pubkey: val.pubkey.loadValid().toUncompressed(),
-          withdrawal_credentials: val.withdrawal_credentials
-        ))
+        immutableValidatorsDb.add(
+          ImmutableValidatorDataDb2(
+            pubkey: val.pubkey.loadValid().toUncompressed(),
+            withdrawal_credentials: val.withdrawal_credentials,
+          )
+        )
     immutableValidatorsDb1.close()
 
     if not db.readOnly:
@@ -643,7 +679,8 @@ proc new*(T: type BeaconChainDB,
     genesisDeposits: genesisDepositsSeq,
     immutableValidatorsDb: immutableValidatorsDb,
     immutableValidators: loadImmutableValidators(immutableValidatorsDb),
-    checkpoint: proc() = db.checkpoint(),
+    checkpoint: proc() =
+      db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
     blobs: blobs,
@@ -655,27 +692,28 @@ proc new*(T: type BeaconChainDB,
     summaries: summaries,
     finalizedBlocks: finalizedBlocks,
     quarantine: quarantine,
-    lcData: lcData
+    lcData: lcData,
   )
 
-proc new*(T: type BeaconChainDB,
-          dir: string,
-          cfg: RuntimeConfig,
-          inMemory = false,
-          readOnly = false
-    ): BeaconChainDB =
+proc new*(
+    T: type BeaconChainDB,
+    dir: string,
+    cfg: RuntimeConfig,
+    inMemory = false,
+    readOnly = false,
+): BeaconChainDB =
   let db =
     if inMemory:
       SqStoreRef.init("", "test", readOnly = readOnly, inMemory = true).expect(
-        "working database (out of memory?)")
+        "working database (out of memory?)"
+      )
     else:
       if (let res = secureCreatePath(dir); res.isErr):
         fatal "Failed to create create database directory",
           path = dir, err = ioErrorMsg(res.error)
         quit 1
 
-      SqStoreRef.init(
-        dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
+      SqStoreRef.init(dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
   BeaconChainDB.new(db, cfg)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
@@ -729,7 +767,7 @@ proc getRaw(db: KvStoreRef, key: openArray[byte], T: type Eth2Digest): Opt[T] =
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
       warn "Unable to deserialize data, old database?",
-       typ = name(T), dataLen = data.len
+        typ = name(T), dataLen = data.len
       discard
 
   discard db.get(key, decode).expectDb()
@@ -749,9 +787,7 @@ proc getSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
 
   let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
-    status =
-      if decodeSSZ(data, outputPtr[]): GetResult.found
-      else: GetResult.corrupted
+    status = if decodeSSZ(data, outputPtr[]): GetResult.found else: GetResult.corrupted
 
   discard db.get(key, decode).expectDb()
 
@@ -766,8 +802,7 @@ proc getSnappySSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetRe
   let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
-      if decodeSnappySSZ(data, outputPtr[]): GetResult.found
-      else: GetResult.corrupted
+      if decodeSnappySSZ(data, outputPtr[]): GetResult.found else: GetResult.corrupted
 
   discard db.get(key, decode).expectDb()
 
@@ -782,8 +817,7 @@ proc getSZSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult
   let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
-      if decodeSZSSZ(data, outputPtr[]): GetResult.found
-      else: GetResult.corrupted
+      if decodeSZSSZ(data, outputPtr[]): GetResult.found else: GetResult.corrupted
 
   discard db.get(key, decode).expectDb()
 
@@ -797,7 +831,8 @@ proc close*(db: BeaconChainDBV0) =
   discard db.backend.close()
 
 proc close*(db: BeaconChainDB) =
-  if db.db == nil: return
+  if db.db == nil:
+    return
 
   # Close things roughly in reverse order
   db.quarantine.close()
@@ -826,13 +861,11 @@ proc close*(db: BeaconChainDB) =
   db.db = nil
 
 func toBeaconBlockSummary*(v: SomeForkyBeaconBlock): BeaconBlockSummary =
-  BeaconBlockSummary(
-    slot: v.slot,
-    parent_root: v.parent_root,
-  )
+  BeaconBlockSummary(slot: v.slot, parent_root: v.parent_root)
 
 proc putBeaconBlockSummary*(
-    db: BeaconChainDB, root: Eth2Digest, value: BeaconBlockSummary) =
+    db: BeaconChainDB, root: Eth2Digest, value: BeaconBlockSummary
+) =
   # Summaries are too simple / small to compress, store them as plain SSZ
   db.summaries.putSSZ(root.data, value)
 
@@ -846,43 +879,37 @@ proc putBlock*(db: BeaconChainDB, value: ForkyTrustedSignedBeaconBlock) =
       db.blocks[consensusFork].putSnappySSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
-proc putBlobSidecar*(
-    db: BeaconChainDB,
-    value: BlobSidecar) =
+proc putBlobSidecar*(db: BeaconChainDB, value: BlobSidecar) =
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.blobs.putSZSSZ(blobkey(block_root, value.index), value)
 
-proc delBlobSidecar*(
-    db: BeaconChainDB,
-    root: Eth2Digest, index: BlobIndex): bool =
+proc delBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
-proc putDataColumnSidecar*(
-    db: BeaconChainDB,
-    value: fulu.DataColumnSidecar) =
+proc putDataColumnSidecar*(db: BeaconChainDB, value: fulu.DataColumnSidecar) =
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.columns.putSZSSZ(columnkey(block_root, value.index), value)
 
-proc putDataColumnSidecar*(
-    db: BeaconChainDB,
-    value: gloas.DataColumnSidecar) =
+proc putDataColumnSidecar*(db: BeaconChainDB, value: gloas.DataColumnSidecar) =
   db.columns.putSZSSZ(columnkey(value.beacon_block_root, value.index), value)
 
 proc delDataColumnSidecar*(
-    db: BeaconChainDB,
-    root: Eth2Digest, index: ColumnIndex): bool =
+    db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex
+): bool =
   db.columns.del(columnkey(root, index)).expectDb()
 
 proc putExecutionPayloadEnvelope*(
-    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
-  template key: untyped = value.message.beacon_block_root
+    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope
+) =
+  template key(): untyped =
+    value.message.beacon_block_root
+
   db.envelopes.putSZSSZ(key.data, value)
 
 proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
   db.envelopes.del(root.data).expectDb()
 
-proc updateImmutableValidators*(
-    db: BeaconChainDB, validators: openArray[Validator]) =
+proc updateImmutableValidators*(db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
   let numValidators = validators.len
 
@@ -892,7 +919,8 @@ proc updateImmutableValidators*(
     if not db.db.readOnly:
       db.immutableValidatorsDb.add ImmutableValidatorDataDb2(
         pubkey: immutableValidator.pubkey.toUncompressed(),
-        withdrawal_credentials: immutableValidator.withdrawal_credentials)
+        withdrawal_credentials: immutableValidator.withdrawal_credentials,
+      )
     db.immutableValidators.add immutableValidator
 
 template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
@@ -924,10 +952,12 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   when consensusFork >= ConsensusFork.Bellatrix:
     db.statesNoVal[consensusFork].putSZSSZ(
-      key.data, toBeaconStateNoImmutableValidators(value))
+      key.data, toBeaconStateNoImmutableValidators(value)
+    )
   else:
     db.statesNoVal[consensusFork].putSnappySSZ(
-      key.data, toBeaconStateNoImmutableValidators(value))
+      key.data, toBeaconStateNoImmutableValidators(value)
+    )
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
   db.withManyWrites:
@@ -935,21 +965,19 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
     db.putState(state.root, state.data)
 
 # For testing rollback
-proc putCorruptState*(
-    db: BeaconChainDB, fork: static ConsensusFork, key: Eth2Digest) =
+proc putCorruptState*(db: BeaconChainDB, fork: static ConsensusFork, key: Eth2Digest) =
   doAssert db.statesNoVal[fork] != nil
   db.statesNoVal[fork].putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
   # big endian to get a naturally ascending order on slots in sorted indices
-  ret[0..<8] = toBytesBE(slot.uint64)
-  ret[8..<40] = root.data
+  ret[0 ..< 8] = toBytesBE(slot.uint64)
+  ret[8 ..< 40] = root.data
 
   ret
 
-proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
-    value: Eth2Digest) =
+proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot, value: Eth2Digest) =
   db.stateRoots.putRaw(stateRootKey(root, slot), value)
 
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
@@ -991,18 +1019,20 @@ proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
 proc getPhase0Block(
-    db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
+    db: BeaconChainDBV0, key: Eth2Digest
+): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(default(phase0.TrustedSignedBeaconBlock))
-  if db.backend.getSnappySSZ(
-      subkey(phase0.SignedBeaconBlock, key), result.get) != GetResult.found:
+  if db.backend.getSnappySSZ(subkey(phase0.SignedBeaconBlock, key), result.get) !=
+      GetResult.found:
     result.err()
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
 proc getBlock*[X: ForkyTrustedSignedBeaconBlock](
-    db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]): Opt[T] =
+    db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]
+): Opt[T] =
   # We only store blocks that we trust in the database
   const consensusFork = T.kind
   if db.blocks[consensusFork] != nil:
@@ -1023,28 +1053,26 @@ proc getBlock*[X: ForkyTrustedSignedBeaconBlock](
       result.unsafeGet.root = key
 
 proc getPhase0BlockSSZ(
-    db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
+    db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]
+): bool =
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
     dataPtr[] = snappy.decode(data)
     success = dataPtr[].len > 0
-  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
-    success
+  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and success
 
-proc getPhase0BlockSZ(
-    db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
+proc getPhase0BlockSZ(db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
     dataPtr[] = snappy.encodeFramed(snappy.decode(data))
     success = dataPtr[].len > 0
-  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
-    success
+  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and success
 
 proc getBlockSSZ*[X: ForkyTrustedSignedBeaconBlock](
-    db: BeaconChainDB, key: Eth2Digest,
-    data: var seq[byte], T: typedesc[X]): bool =
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: typedesc[X]
+): bool =
   const consensusFork = T.kind
   if db.blocks[consensusFork] == nil:
     return false
@@ -1056,53 +1084,61 @@ proc getBlockSSZ*[X: ForkyTrustedSignedBeaconBlock](
     else:
       dataPtr[] = snappy.decode(data)
     success = dataPtr[].len > 0
-  var res =
-    db.blocks[consensusFork].get(key.data, decode).expectDb() and success
+  var res = db.blocks[consensusFork].get(key.data, decode).expectDb() and success
   when consensusFork < ConsensusFork.Altair:
     # During initial releases phase0, we stored blocks in a different table
     res = res or db.v0.getPhase0BlockSSZ(key, data)
   res
 
 proc getBlockSSZ*(
-    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    fork: ConsensusFork): bool =
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], fork: ConsensusFork
+): bool =
   withConsensusFork(fork):
     getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
-proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]): bool =
+proc getBlobSidecarSZ*(
+    db: BeaconChainDB, root: Eth2Digest, index: BlobIndex, data: var seq[byte]
+): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.blobs.get(blobkey(root, index), decode).expectDb()
 
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                     value: var BlobSidecar): bool =
+proc getBlobSidecar*(
+    db: BeaconChainDB, root: Eth2Digest, index: BlobIndex, value: var BlobSidecar
+): bool =
   db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
 
-proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
-                             index: ColumnIndex, data: var seq[byte]): bool =
+proc getDataColumnSidecarSZ*(
+    db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex, data: var seq[byte]
+): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.columns.get(columnkey(root, index), decode).expectDb()
 
-proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
-                           value: var fulu.DataColumnSidecar): bool =
-  if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
+proc getDataColumnSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest,
+    index: ColumnIndex,
+    value: var fulu.DataColumnSidecar,
+): bool =
+  if db.columns == nil: # Fulu has not been scheduled; DB table does not exist
     return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
 
 proc getExecutionPayloadEnvelope*(
-    db: BeaconChainDB, root: Eth2Digest,
-    value: var TrustedSignedExecutionPayloadEnvelope): bool =
+    db: BeaconChainDB,
+    root: Eth2Digest,
+    value: var TrustedSignedExecutionPayloadEnvelope,
+): bool =
   if db.envelopes == nil:
     return false
   db.envelopes.getSZSSZ(root.data, value) == GetResult.found
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
-    db: BeaconChainDB, key: Eth2Digest,
-    data: var seq[byte], T: typedesc[X]): bool =
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: typedesc[X]
+): bool =
   const consensusFork = T.kind
   if db.blocks[consensusFork] == nil:
     return false
@@ -1114,24 +1150,25 @@ proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     else:
       dataPtr[] = snappy.encodeFramed(snappy.decode(data))
     success = dataPtr[].len > 0
-  var res =
-    db.blocks[consensusFork].get(key.data, decode).expectDb() and success
+  var res = db.blocks[consensusFork].get(key.data, decode).expectDb() and success
   when consensusFork < ConsensusFork.Altair:
     # During initial releases phase0, we stored blocks in a different table
     res = res or db.v0.getPhase0BlockSZ(key, data)
   res
 
 proc getBlockSZ*(
-    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    fork: ConsensusFork): bool =
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], fork: ConsensusFork
+): bool =
   withConsensusFork(fork):
     getBlockSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte],
+    store: KvStoreRef,
+    key: openArray[byte],
     output: var ForkyBeaconState,
-    rollback: RollbackProc): bool =
+    rollback: RollbackProc,
+): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -1157,11 +1194,13 @@ proc getStateOnlyMutableValidators(
     for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
-      dstValidator.pubkeyData.assign(HashedValidatorPubKey.init(
-        immutableValidators[i].pubkey.toPubKey()))
+      dstValidator.pubkeyData.assign(
+        HashedValidatorPubKey.init(immutableValidators[i].pubkey.toPubKey())
+      )
       when consensusFork < ConsensusFork.Capella:
         dstValidator.withdrawal_credentials.assign(
-          immutableValidators[i].withdrawal_credentials)
+          immutableValidators[i].withdrawal_credentials
+        )
       output.validators.clearCaches(i)
 
     true
@@ -1174,8 +1213,10 @@ proc getStateOnlyMutableValidators(
 proc getState(
     db: BeaconChainDBV0,
     immutableValidators: openArray[ImmutableValidatorData2],
-    key: Eth2Digest, output: var phase0.BeaconState,
-    rollback: RollbackProc): bool =
+    key: Eth2Digest,
+    output: var phase0.BeaconState,
+    rollback: RollbackProc,
+): bool =
   # Nimbus 1.0 reads and writes writes genesis BeaconState to `backend`
   # Nimbus 1.1 writes a genesis BeaconStateNoImmutableValidators to `backend` and
   # reads both BeaconState and BeaconStateNoImmutableValidators from `backend`
@@ -1183,12 +1224,20 @@ proc getState(
   # and reads BeaconState from `backend` and BeaconStateNoImmutableValidators
   # from `stateStore`. We will try to read the state from all these locations.
   if getStateOnlyMutableValidators(
-      immutableValidators, db.stateStore,
-      subkey(Phase0BeaconStateNoImmutableValidators, key), output, rollback):
+    immutableValidators,
+    db.stateStore,
+    subkey(Phase0BeaconStateNoImmutableValidators, key),
+    output,
+    rollback,
+  ):
     return true
   if getStateOnlyMutableValidators(
-      immutableValidators, db.backend,
-      subkey(Phase0BeaconStateNoImmutableValidators, key), output, rollback):
+    immutableValidators,
+    db.backend,
+    subkey(Phase0BeaconStateNoImmutableValidators, key),
+    output,
+    rollback,
+  ):
     return true
 
   case db.backend.getSnappySSZ(subkey(phase0.BeaconState, key), output)
@@ -1201,8 +1250,11 @@ proc getState(
     false
 
 proc getState*(
-    db: BeaconChainDB, key: Eth2Digest,
-    output: var ForkyBeaconState, rollback: RollbackProc): bool =
+    db: BeaconChainDB,
+    key: Eth2Digest,
+    output: var ForkyBeaconState,
+    rollback: RollbackProc,
+): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -1215,15 +1267,20 @@ proc getState*(
   var res =
     db.statesNoVal[consensusFork] != nil and
     db.immutableValidators.getStateOnlyMutableValidators(
-      db.statesNoVal[consensusFork], key.data, output, rollback)
+      db.statesNoVal[consensusFork], key.data, output, rollback
+    )
   when consensusFork < ConsensusFork.Altair:
     # During initial releases phase0, we stored states in a different table
     res = res or db.v0.getState(db.immutableValidators, key, output, rollback)
   res
 
 proc getState*(
-    db: BeaconChainDB, fork: ConsensusFork, state_root: Eth2Digest,
-    state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
+    db: BeaconChainDB,
+    fork: ConsensusFork,
+    state_root: Eth2Digest,
+    state: var ForkedHashedBeaconState,
+    rollback: RollbackProc,
+): bool =
   if state.kind != fork:
     # Avoid temporary (!)
     state = (ref ForkedHashedBeaconState)(kind: fork)[]
@@ -1236,19 +1293,14 @@ proc getState*(
 
   true
 
-proc getStateRoot(db: BeaconChainDBV0,
-                   root: Eth2Digest,
-                   slot: Slot): Opt[Eth2Digest] =
+proc getStateRoot(db: BeaconChainDBV0, root: Eth2Digest, slot: Slot): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(root, slot), Eth2Digest)
 
-proc getStateRoot*(db: BeaconChainDB,
-                   root: Eth2Digest,
-                   slot: Slot): Opt[Eth2Digest] =
+proc getStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot): Opt[Eth2Digest] =
   db.stateRoots.getRaw(stateRootKey(root, slot), Eth2Digest) or
     db.v0.getStateRoot(root, slot)
 
-proc getStateDiff*(db: BeaconChainDB,
-                   root: Eth2Digest): Opt[BeaconStateDiff] =
+proc getStateDiff*(db: BeaconChainDB, root: Eth2Digest): Opt[BeaconStateDiff] =
   result.ok(BeaconStateDiff())
   if db.stateDiffs.getSnappySSZ(root.data, result.get) != GetResult.found:
     result.err
@@ -1257,28 +1309,26 @@ proc getHeadBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kHeadBlock), Eth2Digest)
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or
-    db.v0.getHeadBlock()
+  db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or db.v0.getHeadBlock()
 
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
 
 proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.keyValues.getRaw(subkey(kTailBlock), Eth2Digest) or
-    db.v0.getTailBlock()
+  db.keyValues.getRaw(subkey(kTailBlock), Eth2Digest) or db.v0.getTailBlock()
 
 proc getGenesisBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kGenesisBlock), Eth2Digest)
 
 proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
-    db.v0.getGenesisBlock()
+  db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or db.v0.getGenesisBlock()
 
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()
 
 proc containsBlock*[X: ForkyTrustedSignedBeaconBlock](
-    db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]): bool =
+    db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]
+): bool =
   const consensusFork = T.kind
   var res =
     db.blocks[consensusFork] != nil and
@@ -1293,37 +1343,40 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: ConsensusFork): bo
   of ConsensusFork.Phase0:
     containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
   else:
-    db.blocks[fork] != nil and
-    db.blocks[fork].contains(key.data).expectDb()
+    db.blocks[fork] != nil and db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   for fork in countdown(ConsensusFork.high, ConsensusFork.low):
-    if db.containsBlock(key, fork): return true
+    if db.containsBlock(key, fork):
+      return true
 
   false
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(Phase0BeaconStateNoImmutableValidators, key)
-  db.stateStore.contains(sk).expectDb() or
-    db.backend.contains(sk).expectDb() or
+  db.stateStore.contains(sk).expectDb() or db.backend.contains(sk).expectDb() or
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
-proc containsState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest,
-    legacy: bool = true): bool =
-  if db.statesNoVal[fork] == nil: return false
-  if db.statesNoVal[fork].contains(key.data).expectDb(): return true
+proc containsState*(
+    db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest, legacy: bool = true
+): bool =
+  if db.statesNoVal[fork] == nil:
+    return false
+  if db.statesNoVal[fork].contains(key.data).expectDb():
+    return true
 
   (legacy and fork == ConsensusFork.Phase0 and db.v0.containsState(key))
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
   for fork in countdown(ConsensusFork.high, ConsensusFork.low):
-    if db.statesNoVal[fork] != nil and
-        db.statesNoVal[fork].contains(key.data).expectDb(): return true
+    if db.statesNoVal[fork] != nil and db.statesNoVal[fork].contains(key.data).expectDb():
+      return true
 
   (legacy and db.v0.containsState(key))
 
-proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
-    Opt[BeaconBlockSummary] =
+proc getBeaconBlockSummary*(
+    db: BeaconChainDB, root: Eth2Digest
+): Opt[BeaconBlockSummary] =
   var summary: BeaconBlockSummary
   if db.summaries.getSSZ(root.data, summary) == GetResult.found:
     ok(summary)
@@ -1335,18 +1388,24 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
   ## mean we also have a state (and vice versa)!
   var state_roots = initTable[(Slot, Eth2Digest), Eth2Digest](1024)
 
-  discard db.stateRoots.find([], proc(k, v: openArray[byte]) =
-    if k.len() == 40 and v.len() == 32:
-      # For legacy reasons, the first byte of the slot is not part of the slot
-      # but rather a subkey identifier - see subkey
-      var tmp = toArray(8, k.toOpenArray(0, 7))
-      tmp[0] = 0
-      state_roots[
-        (Slot(uint64.fromBytesBE(tmp)),
-        Eth2Digest(data: toArray(sizeof(Eth2Digest), k.toOpenArray(8, 39))))] =
-        Eth2Digest(data: toArray(sizeof(Eth2Digest), v))
-    else:
-      warn "Invalid state root in database", klen = k.len(), vlen = v.len()
+  discard db.stateRoots.find(
+    [],
+    proc(k, v: openArray[byte]) =
+      if k.len() == 40 and v.len() == 32:
+        # For legacy reasons, the first byte of the slot is not part of the slot
+        # but rather a subkey identifier - see subkey
+        var tmp = toArray(8, k.toOpenArray(0, 7))
+        tmp[0] = 0
+
+        state_roots[
+          (
+            Slot(uint64.fromBytesBE(tmp)),
+            Eth2Digest(data: toArray(sizeof(Eth2Digest), k.toOpenArray(8, 39))),
+          )
+        ] = Eth2Digest(data: toArray(sizeof(Eth2Digest), v))
+      else:
+        warn "Invalid state root in database", klen = k.len(), vlen = v.len()
+    ,
   )
 
   state_roots
@@ -1354,22 +1413,24 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
 proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   # Load summaries into table - there's no telling what order they're in so we
   # load them all - bugs in nim prevent this code from living in the iterator.
-  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)
+  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024 * 1024)
 
-  discard db.summaries.find([], proc(k, v: openArray[byte]) =
-    var output: BeaconBlockSummary
+  discard db.summaries.find(
+    [],
+    proc(k, v: openArray[byte]) =
+      var output: BeaconBlockSummary
 
-    if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
-      summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
-    else:
-      warn "Invalid summary in database", klen = k.len(), vlen = v.len()
+      if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
+        summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
+      else:
+        warn "Invalid summary in database", klen = k.len(), vlen = v.len()
+    ,
   )
 
   summaries
 
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
-iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
-    RootedSummary =
+iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest): RootedSummary =
   ## Load a chain of ancestors for blck - iterates over the block starting from
   ## root and moving parent by parent
   ##
@@ -1397,12 +1458,14 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   )
   SELECT v FROM next;
   """
-  static: doAssert BeaconBlockSummary.isFixedSize
-  let
-    stmt = expectDb db.db.prepareStmt(
-      summariesQuery, array[32, byte],
-      array[BeaconBlockSummary.fixedPortionSize, byte],
-      managed = false)
+  static:
+    doAssert BeaconBlockSummary.isFixedSize
+  let stmt = expectDb db.db.prepareStmt(
+    summariesQuery,
+    array[32, byte],
+    array[BeaconBlockSummary.fixedPortionSize, byte],
+    managed = false,
+  )
 
   defer: # in case iteration is stopped along the way
     # Write the newly found summaries in a single transaction - on first migration
@@ -1418,9 +1481,12 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       if db.db.hasTable("kvstore").expectDb():
         # Clean up pre-altair summaries - by now, we will have moved them to the
         # new table
-        db.db.exec(
-          "DELETE FROM kvstore WHERE key >= ? and key < ?",
-          ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
+        db.db
+          .exec(
+            "DELETE FROM kvstore WHERE key >= ? and key < ?",
+            ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1]),
+          )
+          .expectDb()
 
   var row: stmt.Result
   for rowRes in exec(stmt, root.data, row):
@@ -1439,8 +1505,10 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
         if blck.isSome:
           res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
           found = true
-    found = found or db.v0.backend.getSnappySSZ(
-      subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found
+    found =
+      found or
+      db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) ==
+      GetResult.found
     if not found:
       break
 

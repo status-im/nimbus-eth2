@@ -11,10 +11,11 @@ import ./rest_utils
 
 export rest_utils
 
-logScope: topics = "rest_builderapi"
+logScope:
+  topics = "rest_builderapi"
 
 proc installBuilderApiHandlers*(router: var RestRouter) =
-  router.api2(MethodGet,
-              "/eth/v1/builder/states/{state_id}/expected_withdrawals") do (
-    state_id: StateIdent) -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/builder/states/{state_id}/expected_withdrawals") do(
+    state_id: StateIdent
+  ) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)

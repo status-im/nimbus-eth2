@@ -7,9 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  stew/bitops2,
-  ../spec/datatypes/fulu
+import stew/bitops2, ../spec/datatypes/fulu
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
@@ -17,9 +15,8 @@ from std/strutils import join
 static:
   doAssert(NUMBER_OF_COLUMNS == 2 * 64, "ColumnMap should be updated")
 
-type
-  ColumnMap* = object
-    data: array[2, uint64]
+type ColumnMap* = object
+  data: array[2, uint64]
 
 template getPos(column: ColumnIndex): tuple[index: int, offset: int] =
   (int(uint64(column) shr 6), int(uint64(column) and 0x3F'u64))
@@ -63,7 +60,7 @@ func `xor`*(a, b: ColumnMap): ColumnMap =
   ColumnMap(data: [a.data[0] xor b.data[0], a.data[1] xor b.data[1]])
 
 func `not`*(a: ColumnMap): ColumnMap =
-  ColumnMap(data: [not(a.data[0]), not(a.data[1])])
+  ColumnMap(data: [not (a.data[0]), not (a.data[1])])
 
 func `==`*(a, b: ColumnMap): bool =
   (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
@@ -79,7 +76,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data0 != 0'u64:
     let
       # t = data0 and -data0
-      t = data0 and (not(data0) + 1'u64)
+      t = data0 and (not (data0) + 1'u64)
       res = firstOne(data0)
     yield ColumnIndex(res - 1)
     data0 = data0 xor t
@@ -87,7 +84,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data1 != 0'u64:
     let
       # t = data0 and -data0
-      t = data1 and (not(data1) + 1'u64)
+      t = data1 and (not (data1) + 1'u64)
       res = firstOne(data1)
     yield ColumnIndex(64 + res - 1)
     data1 = data1 xor t

@@ -26,46 +26,41 @@ logScope:
   topics = "overseer"
 
 const
-  PARALLEL_REQUESTS = 3
-    ## Number of peers used to obtain the initial block.
-  BLOCKS_PROCESS_CHUNK_SIZE = 2
-    ## Number of blocks sent to processing (CPU heavy task).
+  PARALLEL_REQUESTS = 3 ## Number of peers used to obtain the initial block.
+  BLOCKS_PROCESS_CHUNK_SIZE = 2 ## Number of blocks sent to processing (CPU heavy task).
 
-type
-  BlockDataRes = Result[BlockData, string]
+type BlockDataRes = Result[BlockData, string]
 
-proc init*(t: typedesc[BlockDataChunk],
-           stateCallback: OnStateUpdated,
-           data: openArray[BlockData]): BlockDataChunk =
+proc init*(
+    t: typedesc[BlockDataChunk],
+    stateCallback: OnStateUpdated,
+    data: openArray[BlockData],
+): BlockDataChunk =
   BlockDataChunk(
     blocks: @data,
     onStateUpdatedCb: stateCallback,
     resfut:
-      Future[Result[void, string]].Raising([CancelledError]).init(
-        "blockdata.chunk")
+      Future[Result[void, string]].Raising([CancelledError]).init("blockdata.chunk"),
   )
 
 proc shortLog*(c: BlockDataChunk): string =
   let
-    map =
-      (c.blocks.mapIt(shortLog(it.blck.root) & ":" & $it.blck.slot)).
-        join(", ")
+    map = (c.blocks.mapIt(shortLog(it.blck.root) & ":" & $it.blck.slot)).join(", ")
     futureState = if c.resfut.finished(): "pending" else: "completed"
   "[" & map & "]:" & futureState
 
-iterator chunks*(data: openArray[BlockData],
-                 stateCallback: OnStateUpdated,
-                 maxCount: Positive): BlockDataChunk =
+iterator chunks*(
+    data: openArray[BlockData], stateCallback: OnStateUpdated, maxCount: Positive
+): BlockDataChunk =
   for i in countup(0, len(data) - 1, maxCount):
-    yield BlockDataChunk.init(stateCallback,
-      data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
+    yield BlockDataChunk.init(
+      stateCallback, data.toOpenArray(i, min(i + maxCount, len(data)) - 1)
+    )
 
 proc getWallSlot(overseer: SyncOverseerRef): Slot =
   overseer.beaconClock.currentSlot
 
-proc syncDistance*(
-    overseer: SyncOverseerRef
-): uint64 =
+proc syncDistance*(overseer: SyncOverseerRef): uint64 =
   let
     dag = overseer.consensusManager.dag
     wallSlot = overseer.getWallSlot()
@@ -95,8 +90,7 @@ proc getLatestBeaconHeader(
       raiseAssert "Should not happen"
 
 proc getPeerBlock(
-    overseer: SyncOverseerRef,
-    slot: Slot,
+    overseer: SyncOverseerRef, slot: Slot
 ): Future[BlockDataRes] {.async: (raises: [CancelledError]).} =
   let peer = await overseer.pool.acquire()
   try:
@@ -114,12 +108,9 @@ proc getPeerBlock(
     overseer.pool.release(peer)
 
 proc getBlock(
-    overseer: SyncOverseerRef,
-    slot: Slot,
-    blockHeader: BeaconBlockHeader
+    overseer: SyncOverseerRef, slot: Slot, blockHeader: BeaconBlockHeader
 ): Future[BlockData] {.async: (raises: [CancelledError]).} =
-  var workers:
-    array[PARALLEL_REQUESTS, Future[BlockDataRes].Raising([CancelledError])]
+  var workers: array[PARALLEL_REQUESTS, Future[BlockDataRes].Raising([CancelledError])]
 
   while true:
     for i in 0 ..< PARALLEL_REQUESTS:
@@ -128,8 +119,7 @@ proc getBlock(
     try:
       await allFutures(workers)
     except CancelledError as exc:
-      let pending =
-        workers.filterIt(not(it.finished())).mapIt(cancelAndWait(it))
+      let pending = workers.filterIt(not (it.finished())).mapIt(cancelAndWait(it))
       await noCancel allFutures(pending)
       raise exc
 
@@ -147,19 +137,16 @@ proc getBlock(
     # Wait for 2 seconds before trying one more time.
     await sleepAsync(2.seconds)
 
-proc isWithinWeakSubjectivityPeriod(
-    overseer: SyncOverseerRef, slot: Slot): bool =
+proc isWithinWeakSubjectivityPeriod(overseer: SyncOverseerRef, slot: Slot): bool =
   let
     dag = overseer.consensusManager.dag
     currentSlot = overseer.getWallSlot()
     checkpoint = Checkpoint(
-      epoch:
-        getStateField(dag.headState, slot).epoch(),
-      root:
-        getStateField(dag.headState, latest_block_header).state_root)
+      epoch: getStateField(dag.headState, slot).epoch(),
+      root: getStateField(dag.headState, latest_block_header).state_root,
+    )
 
-  is_within_weak_subjectivity_period(
-    dag.cfg, currentSlot, dag.headState, checkpoint)
+  is_within_weak_subjectivity_period(dag.cfg, currentSlot, dag.headState, checkpoint)
 
 proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
   let
@@ -171,10 +158,7 @@ proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
   else:
     currentSlot - slotsCount
 
-proc isWithinBlockRetentionPeriod(
-    overseer: SyncOverseerRef,
-    slot: Slot
-): bool =
+proc isWithinBlockRetentionPeriod(overseer: SyncOverseerRef, slot: Slot): bool =
   slot >= overseer.getLastBlockRetentionPeriodSlot()
 
 proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
@@ -186,8 +170,7 @@ func speed(start, finish: Moment, entities: int): float =
   else:
     float(entities) / toFloatSeconds(finish - start)
 
-proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
-                       entities: int) =
+proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment, entities: int) =
   let dag = overseer.consensusManager.dag
   doAssert(overseer.clist.head.isSome() and overseer.clist.tail.isSome())
   let
@@ -197,7 +180,8 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
   let slotsPerSec = speed(startTick, Moment.now(), entities)
 
   inc(overseer.avgSpeedCounter)
-  overseer.avgSpeed = overseer.avgSpeed +
+  overseer.avgSpeed =
+    overseer.avgSpeed +
     (slotsPerSec - overseer.avgSpeed) / float(overseer.avgSpeedCounter)
 
   let
@@ -213,13 +197,14 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   # Update status string
   overseer.statusMsg = Opt.some(
-    timeleft.toTimeLeftString() & " (" &
-    (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
-    overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
-    "slots/s (" & $dag.head.slot & ")")
+    timeleft.toTimeLeftString() & " (" & (done * 100).formatBiggestFloat(ffDecimal, 2) &
+      "%) " & overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) & "slots/s (" &
+      $dag.head.slot & ")"
+  )
 
-proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
-     async: (raises: [CancelledError]).} =
+proc blockProcessingLoop(
+    overseer: SyncOverseerRef
+): Future[void] {.async: (raises: [CancelledError]).} =
   let
     consensusManager = overseer.consensusManager
     dag = consensusManager.dag
@@ -261,34 +246,36 @@ proc verifyBlockSignature(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
     immutableValidators: openArray[ImmutableValidatorData2],
-    signedBlock: ForkedSignedBeaconBlock
+    signedBlock: ForkedSignedBeaconBlock,
 ): Result[void, cstring] =
   withBlck(signedBlock):
-    let proposerKey =
-      immutableValidators.load(forkyBlck.message.proposer_index).valueOr:
-        return err("Unable to find proposer key")
+    let proposerKey = immutableValidators.load(forkyBlck.message.proposer_index).valueOr:
+      return err("Unable to find proposer key")
 
-    if not(verify_block_signature(fork, genesis_validators_root,
-                                  forkyBlck.message.slot, forkyBlck.message,
-                                  proposerKey, forkyBlck.signature)):
+    if not (
+      verify_block_signature(
+        fork, genesis_validators_root, forkyBlck.message.slot, forkyBlck.message,
+        proposerKey, forkyBlck.signature,
+      )
+    ):
       return err("Signature verification failed")
 
     ok()
 
-proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
-     async: (raises: [CancelledError]).} =
+proc rebuildState(
+    overseer: SyncOverseerRef
+): Future[void] {.async: (raises: [CancelledError]).} =
   overseer.statusMsg = Opt.some("rebuilding state")
   let
     consensusManager = overseer.consensusManager
     dag = consensusManager.dag
     batchVerifier = overseer.batchVerifier
-    clist =
-      block:
-        overseer.clist.seekForSlot(dag.head.slot).isOkOr:
-          fatal "Unable to find slot in light forward sync data", reason = error,
-                path = overseer.clist.path
-          quit 1
-        overseer.clist
+    clist = block:
+      overseer.clist.seekForSlot(dag.head.slot).isOkOr:
+        fatal "Unable to find slot in light forward sync data",
+          reason = error, path = overseer.clist.path
+        quit 1
+      overseer.clist
 
   var
     blocks: seq[BlockData]
@@ -322,9 +309,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
             startTick = Moment.now()
             blocksOnly = blocks.mapIt(it.blck)
 
-          proc onStateUpdate(slot: Slot): Result[void, VerifierError] {.
-               gcsafe, raises: [].} =
-
+          proc onStateUpdate(
+              slot: Slot
+          ): Result[void, VerifierError] {.gcsafe, raises: [].} =
             if slot != blocksOnly[0].slot:
               # We verify signatures only at the beginning of chunk/epoch, in
               # such way we could verify whole epoch's proposer signatures in
@@ -332,19 +319,20 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               return ok()
 
             let
-              fork =
-                getStateField(dag.clearanceState, fork)
+              fork = getStateField(dag.clearanceState, fork)
               genesis_validators_root =
                 getStateField(dag.clearanceState, genesis_validators_root)
 
-            verifyBlockSignatures(batchVerifier[], fork, genesis_validators_root,
-                                  dag.db.immutableValidators, blocksOnly).isOkOr:
+            verifyBlockSignatures(
+              batchVerifier[], fork, genesis_validators_root,
+              dag.db.immutableValidators, blocksOnly,
+            ).isOkOr:
               for signedBlock in blocksOnly:
-                verifyBlockSignature(fork, genesis_validators_root,
-                                     dag.db.immutableValidators,
-                                     signedBlock).isOkOr:
+                verifyBlockSignature(
+                  fork, genesis_validators_root, dag.db.immutableValidators, signedBlock
+                ).isOkOr:
                   fatal "Unable to verify block proposer",
-                        blck = shortLog(signedBlock), reason = error
+                    blck = shortLog(signedBlock), reason = error
               return err(VerifierError.Invalid)
             ok()
 
@@ -360,11 +348,10 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
           let updateTick = Moment.now()
           debug "Number of blocks injected",
-                blocks_count = len(blocks),
-                head = shortLog(dag.head),
-                finalized = shortLog(getStateField(
-                  dag.headState, finalized_checkpoint)),
-                store_update_time = updateTick - startTick
+            blocks_count = len(blocks),
+            head = shortLog(dag.head),
+            finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
+            store_update_time = updateTick - startTick
 
           overseer.updatePerformance(startTick, len(blocks))
           blocks.setLen(0)
@@ -374,25 +361,27 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
       if data.blck.slot != GENESIS_SLOT:
         blocks.add(data)
 
-proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
-     async: (raises: [CancelledError]).} =
-
+proc initUntrustedSync(
+    overseer: SyncOverseerRef
+): Future[void] {.async: (raises: [CancelledError]).} =
   overseer.statusMsg = Opt.some("awaiting light client")
 
   let blockHeader = await overseer.getLatestBeaconHeader()
 
   notice "Received light client block header",
-         beacon_header = shortLog(blockHeader),
-         current_slot = overseer.getWallSlot()
+    beacon_header = shortLog(blockHeader), current_slot = overseer.getWallSlot()
 
   overseer.statusMsg = Opt.some("retrieving block")
 
   let
     blck = await overseer.getBlock(blockHeader.slot, blockHeader)
-    blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
+    blobsCount =
+      if blck.blob.isNone():
+        0
+      else:
+        len(blck.blob.get())
 
-  notice "Received beacon block", blck = shortLog(blck.blck),
-                                  blobs_count = blobsCount
+  notice "Received beacon block", blck = shortLog(blck.blck), blobs_count = blobsCount
 
   overseer.statusMsg = Opt.some("storing block")
 
@@ -404,19 +393,20 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
   overseer.statusMsg = Opt.none(string)
 
   notice "Initial block being stored",
-         blck = shortLog(blck.blck), blobs_count = blobsCount
+    blck = shortLog(blck.blck), blobs_count = blobsCount
 
-proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
-     async: (raises: []).} =
+proc startBackfillTask(
+    overseer: SyncOverseerRef
+): Future[void] {.async: (raises: []).} =
   # This procedure performs delayed start of backfilling process.
   while overseer.consensusManager.dag.needsBackfill:
     debug "Sync overseer backfill monitor status",
-          need_backfill = overseer.consensusManager.dag.needsBackfill,
-          sync_distance = overseer.syncDistance,
-          backward_status = overseer.backwardSync.getStatus(),
-          backward_queue = overseer.backwardSync.queueLen(),
-          forward_status = overseer.forwardSync.getStatus(),
-          forward_queue = overseer.forwardSync.queueLen()
+      need_backfill = overseer.consensusManager.dag.needsBackfill,
+      sync_distance = overseer.syncDistance,
+      backward_status = overseer.backwardSync.getStatus(),
+      backward_queue = overseer.backwardSync.queueLen(),
+      forward_status = overseer.forwardSync.getStatus(),
+      forward_queue = overseer.forwardSync.queueLen()
 
     if overseer.syncDistance() <= 1'u64:
       # Only allow backfiller to work if it's needed _and_ head sync has
@@ -424,14 +414,14 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
       # backfilller.
       #
       # 1 slots distance here is experimental number.
-      if not(overseer.backwardSync.isStarted()):
+      if not (overseer.backwardSync.isStarted()):
         overseer.backwardSync.start()
       else:
         if overseer.backwardSync.isPaused():
           overseer.backwardSync.resume()
     else:
       if overseer.backwardSync.isStarted():
-        if not(overseer.backwardSync.isPaused()):
+        if not (overseer.backwardSync.isPaused()):
           overseer.backwardSync.pause()
     try:
       await sleepAsync(chronos.seconds(2))
@@ -439,30 +429,28 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
       return
 
   debug "Backfill process finished",
-        need_backfill = overseer.consensusManager.dag.needsBackfill,
-        sync_distance = overseer.syncDistance,
-        backward_status = overseer.backwardSync.getStatus(),
-        backward_queue = overseer.backwardSync.queueLen(),
-        forward_status = overseer.forwardSync.getStatus(),
-        forward_queue = overseer.forwardSync.queueLen()
+    need_backfill = overseer.consensusManager.dag.needsBackfill,
+    sync_distance = overseer.syncDistance,
+    backward_status = overseer.backwardSync.getStatus(),
+    backward_queue = overseer.backwardSync.queueLen(),
+    forward_status = overseer.forwardSync.getStatus(),
+    forward_queue = overseer.forwardSync.queueLen()
   overseer.syncKind = SyncKind.ForwardSync
 
-proc mainLoop*(
-    overseer: SyncOverseerRef
-): Future[void] {.async: (raises: []).} =
+proc mainLoop*(overseer: SyncOverseerRef): Future[void] {.async: (raises: []).} =
   let
     dag = overseer.consensusManager.dag
     clist = overseer.clist
     currentSlot = overseer.getWallSlot()
 
   info "Sync overseer starting",
-       wall_slot = currentSlot,
-       dag_head_slot = dag.head.slot,
-       dag_finalized_head_slot = dag.finalizedHead.slot,
-       dag_horizon = dag.horizon(),
-       dag_backfill_slot = dag.backfill.slot,
-       untrusted_tail = shortLog(clist.tail),
-       untrusted_head = shortLog(clist.head)
+    wall_slot = currentSlot,
+    dag_head_slot = dag.head.slot,
+    dag_finalized_head_slot = dag.finalizedHead.slot,
+    dag_horizon = dag.horizon(),
+    dag_backfill_slot = dag.backfill.slot,
+    untrusted_tail = shortLog(clist.tail),
+    untrusted_head = shortLog(clist.head)
 
   if overseer.isWithinWeakSubjectivityPeriod(currentSlot):
     # Starting forward sync manager/monitor.
@@ -479,14 +467,14 @@ proc mainLoop*(
       error "Trusted node sync started too long time ago"
       quit 1
 
-    if not(isUntrustedBackfillEmpty(clist)):
+    if not (isUntrustedBackfillEmpty(clist)):
       let headSlot = clist.head.get().slot
-      if not(overseer.isWithinBlockRetentionPeriod(headSlot)):
+      if not (overseer.isWithinBlockRetentionPeriod(headSlot)):
         # Light forward sync file is too old.
         warn "Light forward sync was started too long time ago",
-             current_slot = currentSlot,
-             backfill_data_slot = headSlot,
-             retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
+          current_slot = currentSlot,
+          backfill_data_slot = headSlot,
+          retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
 
     if overseer.config.longRangeSync == LongRangeSyncMode.Lenient:
       # Starting forward sync manager/monitor only.
@@ -498,15 +486,15 @@ proc mainLoop*(
       let dagHead = dag.finalizedHead
       if dagHead.slot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
         fatal "Light forward syncing requires a post-Altair state",
-              head_slot = dagHead.slot,
-              altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
+          head_slot = dagHead.slot,
+          altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
         quit 1
 
       if overseer.isWithinBlockRetentionPeriod(dagHead.slot):
         fatal "Current database head slot is not in the block retention " &
-              "period range",
-              head_slot = dagHead.slot,
-              retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
+          "period range",
+          head_slot = dagHead.slot,
+          retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
         quit 1
 
       if isUntrustedBackfillEmpty(clist):
@@ -544,7 +532,7 @@ proc mainLoop*(
 
       clist.clear().isOkOr:
         warn "Unable to remove light forward sync data file",
-             path = clist.path.chainFilePath(), reason = error
+          path = clist.path.chainFilePath(), reason = error
         quit 1
 
       overseer.untrustedInProgress = false
@@ -558,23 +546,16 @@ proc start*(overseer: SyncOverseerRef) =
   overseer.loopFuture = overseer.mainLoop()
 
 proc stop*(overseer: SyncOverseerRef) {.async: (raises: []).} =
-  doAssert(not(isNil(overseer.loopFuture)),
-           "SyncOverseer was not started yet")
-  if not(overseer.loopFuture.finished()):
+  doAssert(not (isNil(overseer.loopFuture)), "SyncOverseer was not started yet")
+  if not (overseer.loopFuture.finished()):
     await cancelAndWait(overseer.loopFuture)
 
-proc syncStatusMessage*(
-    overseer: SyncOverseerRef,
-): string =
+proc syncStatusMessage*(overseer: SyncOverseerRef): string =
   let
     dag = overseer.consensusManager.dag
     wallSlot = overseer.getWallSlot()
-    optimistic = not(dag.head.executionValid)
-    optSuffix =
-      if not(dag.head.executionValid):
-        "/opt"
-      else:
-        ""
+    optimistic = not (dag.head.executionValid)
+    optSuffix = if not (dag.head.executionValid): "/opt" else: ""
     lcSuffix =
       if overseer.consensusManager[].shouldSyncOptimistically(wallSlot):
         " - lc: " & $shortLog(overseer.consensusManager[].optimisticHead)
@@ -610,14 +591,8 @@ proc syncStatusMessage*(
 
   if len(res) == 0:
     if overseer.syncDistance() <= 1:
-      if optimistic:
-        "synced/opt"
-      else:
-        "synced"
+      if optimistic: "synced/opt" else: "synced"
     else:
-      if optimistic:
-        "almost synced/opt"
-      else:
-        "almost synced"
+      if optimistic: "almost synced/opt" else: "almost synced"
   else:
     res

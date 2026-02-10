@@ -17,7 +17,8 @@ import
   spec/[eth2_ssz_serialization, helpers],
   ./db_utils
 
-logScope: topics = "lcdata"
+logScope:
+  topics = "lcdata"
 
 # `lc_xxxxx_headers` contains a copy of historic `LightClientHeader`.
 # Data is only kept for blocks that are used in `LightClientBootstrap` objects.
@@ -107,8 +108,8 @@ type
     keepFromStmt: SqliteStmt[int64, void]
 
   BranchFork {.pure.} = enum
-    None = 0,
-    Altair,
+    None = 0
+    Altair
     Electra
 
   CurrentSyncCommitteeBranchStore = object
@@ -141,8 +142,7 @@ type
     keepFromStmt: SqliteStmt[int64, void]
 
   LightClientDataDB* = ref object
-    backend: SqStoreRef
-      ## SQLite backend
+    backend: SqStoreRef ## SQLite backend
 
     headers: array[LightClientDataFork, LightClientHeaderStore]
       ## Eth2Digest -> (Slot, LightClientHeader)
@@ -173,42 +173,64 @@ type
       ## has been imported (from `dag.tail.slot`).
 
 proc initHeadersStore(
-    backend: SqStoreRef,
-    name, typeName: string): KvResult[LightClientHeaderStore] =
+    backend: SqStoreRef, name, typeName: string
+): KvResult[LightClientHeaderStore] =
   if name == "":
     return ok LightClientHeaderStore()
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `block_root` BLOB PRIMARY KEY,  -- `Eth2Digest`
         `slot` INTEGER,                 -- `Slot`
-        `header` BLOB                   -- `""" & typeName & """` (SSZ)
+        `header` BLOB                   -- `""" &
+        typeName & """` (SSZ)
       );
-    """)
-  if not ? backend.hasTable(name):
+    """
+    )
+  if not ?backend.hasTable(name):
     return ok LightClientHeaderStore()
 
   let
-    getStmt = backend.prepareStmt("""
+    getStmt = backend
+      .prepareStmt(
+        """
       SELECT `header`
       FROM `""" & name & """`
       WHERE `block_root` = ?;
-    """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    """,
+        array[32, byte],
+        seq[byte],
+        managed = false,
+      )
+      .expect("SQL query OK")
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `block_root`, `slot`, `header`
       ) VALUES (?, ?, ?);
-    """, (array[32, byte], int64, seq[byte]), void, managed = false)
+    """,
+        (array[32, byte], int64, seq[byte]),
+        void,
+        managed = false,
+      )
       .expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `slot` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok LightClientHeaderStore(
-    getStmt: getStmt,
-    putStmt: putStmt,
-    keepFromStmt: keepFromStmt)
+    getStmt: getStmt, putStmt: putStmt, keepFromStmt: keepFromStmt
+  )
 
 func close(store: var LightClientHeaderStore) =
   store.getStmt.disposeSafe()
@@ -216,7 +238,8 @@ func close(store: var LightClientHeaderStore) =
   store.keepFromStmt.disposeSafe()
 
 proc getHeader*[T: ForkyLightClientHeader](
-    db: LightClientDataDB, blockRoot: Eth2Digest): Opt[T] =
+    db: LightClientDataDB, blockRoot: Eth2Digest
+): Opt[T] =
   if distinctBase(db.headers[T.kind].getStmt) == nil:
     return Opt.none(T)
   var header: seq[byte]
@@ -225,62 +248,92 @@ proc getHeader*[T: ForkyLightClientHeader](
     try:
       return ok SSZ.decode(header, T)
     except SerializationError as exc:
-      error "LC data store corrupted", store = "headers", kind = T.kind,
-        blockRoot, exc = exc.msg
+      error "LC data store corrupted",
+        store = "headers", kind = T.kind, blockRoot, exc = exc.msg
       return Opt.none(T)
 
-func putHeader*[T: ForkyLightClientHeader](
-    db: LightClientDataDB, header: T) =
-  doAssert not db.backend.readOnly and
-    distinctBase(db.headers[T.kind].putStmt) != nil
+func putHeader*[T: ForkyLightClientHeader](db: LightClientDataDB, header: T) =
+  doAssert not db.backend.readOnly and distinctBase(db.headers[T.kind].putStmt) != nil
   let
     blockRoot = hash_tree_root(header.beacon)
     slot = header.beacon.slot
-    res = db.headers[T.kind].putStmt.exec(
-      (blockRoot.data, slot.int64, SSZ.encode(header)))
+    res =
+      db.headers[T.kind].putStmt.exec((blockRoot.data, slot.int64, SSZ.encode(header)))
   res.expect("SQL query OK")
 
 proc initCurrentBranchesStore(
-    backend: SqStoreRef,
-    name, typeName: string): KvResult[CurrentSyncCommitteeBranchStore] =
+    backend: SqStoreRef, name, typeName: string
+): KvResult[CurrentSyncCommitteeBranchStore] =
   if name == "":
     return ok CurrentSyncCommitteeBranchStore()
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
-        `branch` BLOB                -- `""" & typeName & """` (SSZ)
+        `branch` BLOB                -- `""" &
+        typeName & """` (SSZ)
       );
-    """)
-  if not ? backend.hasTable(name):
+    """
+    )
+  if not ?backend.hasTable(name):
     return ok CurrentSyncCommitteeBranchStore()
 
   let
-    containsStmt = backend.prepareStmt("""
+    containsStmt = backend
+      .prepareStmt(
+        """
       SELECT 1 AS `exists`
       FROM `""" & name & """`
       WHERE `slot` = ?;
-    """, int64, int64, managed = false).expect("SQL query OK")
-    getStmt = backend.prepareStmt("""
+    """,
+        int64,
+        int64,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    getStmt = backend
+      .prepareStmt(
+        """
       SELECT `branch`
       FROM `""" & name & """`
       WHERE `slot` = ?;
-    """, int64, seq[byte], managed = false).expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    """,
+        int64,
+        seq[byte],
+        managed = false,
+      )
+      .expect("SQL query OK")
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `slot`, `branch`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    """,
+        (int64, seq[byte]),
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `slot` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok CurrentSyncCommitteeBranchStore(
     containsStmt: containsStmt,
     getStmt: getStmt,
     putStmt: putStmt,
-    keepFromStmt: keepFromStmt)
+    keepFromStmt: keepFromStmt,
+  )
 
 func close(store: var CurrentSyncCommitteeBranchStore) =
   store.containsStmt.disposeSafe()
@@ -295,7 +348,8 @@ template kind(x: typedesc[electra.CurrentSyncCommitteeBranch]): BranchFork =
   BranchFork.Electra
 
 func hasCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
-    db: LightClientDataDB, slot: Slot): bool =
+    db: LightClientDataDB, slot: Slot
+): bool =
   if not slot.isSupportedBySQLite or
       distinctBase(db.currentBranches[T.kind].containsStmt) == nil:
     return false
@@ -307,7 +361,8 @@ func hasCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
   false
 
 proc getCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
-    db: LightClientDataDB, slot: Slot): Opt[T] =
+    db: LightClientDataDB, slot: Slot
+): Opt[T] =
   if not slot.isSupportedBySQLite or
       distinctBase(db.currentBranches[T.kind].getStmt) == nil:
     return Opt.none(T)
@@ -317,58 +372,89 @@ proc getCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
     try:
       return ok SSZ.decode(branch, T)
     except SerializationError as exc:
-      error "LC data store corrupted", store = "currentBranches", kind = T.kind,
-        slot, exc = exc.msg
+      error "LC data store corrupted",
+        store = "currentBranches", kind = T.kind, slot, exc = exc.msg
       return Opt.none(T)
 
 func putCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
-    db: LightClientDataDB, slot: Slot, branch: T) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+    db: LightClientDataDB, slot: Slot, branch: T
+) =
+  doAssert not db.backend.readOnly # All `stmt` are non-nil
   if not slot.isSupportedBySQLite:
     return
-  let res = db.currentBranches[T.kind].putStmt.exec(
-    (slot.int64, SSZ.encode(branch)))
+  let res = db.currentBranches[T.kind].putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
 
 proc initSyncCommitteesStore(
-    backend: SqStoreRef,
-    name: string): KvResult[SyncCommitteeStore] =
+    backend: SqStoreRef, name: string
+): KvResult[SyncCommitteeStore] =
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
         `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
       );
-    """)
-  if not ? backend.hasTable(name):
+    """
+    )
+  if not ?backend.hasTable(name):
     return ok SyncCommitteeStore()
 
   let
-    containsStmt = backend.prepareStmt("""
+    containsStmt = backend
+      .prepareStmt(
+        """
       SELECT 1 AS `exists`
       FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, int64, managed = false).expect("SQL query OK")
-    getStmt = backend.prepareStmt("""
+    """,
+        int64,
+        int64,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    getStmt = backend
+      .prepareStmt(
+        """
       SELECT `sync_committee`
       FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, seq[byte], managed = false).expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    """,
+        int64,
+        seq[byte],
+        managed = false,
+      )
+      .expect("SQL query OK")
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `period`, `sync_committee`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    """,
+        (int64, seq[byte]),
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok SyncCommitteeStore(
     containsStmt: containsStmt,
     getStmt: getStmt,
     putStmt: putStmt,
-    keepFromStmt: keepFromStmt)
+    keepFromStmt: keepFromStmt,
+  )
 
 func close(store: var SyncCommitteeStore) =
   store.containsStmt.disposeSafe()
@@ -376,8 +462,7 @@ func close(store: var SyncCommitteeStore) =
   store.putStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
-func hasSyncCommittee*(
-    db: LightClientDataDB, period: SyncCommitteePeriod): bool =
+func hasSyncCommittee*(db: LightClientDataDB, period: SyncCommitteePeriod): bool =
   doAssert period.isSupportedBySQLite
   if distinctBase(db.syncCommittees.containsStmt) == nil:
     return false
@@ -400,59 +485,87 @@ proc getSyncCommittee*(
     try:
       return ok SSZ.decode(branch, altair.SyncCommittee)
     except SerializationError as exc:
-      error "LC data store corrupted", store = "syncCommittees",
-        period, exc = exc.msg
+      error "LC data store corrupted", store = "syncCommittees", period, exc = exc.msg
       return Opt.none(altair.SyncCommittee)
 
 func putSyncCommittee*(
-    db: LightClientDataDB, period: SyncCommitteePeriod,
-    syncCommittee: altair.SyncCommittee) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+    db: LightClientDataDB,
+    period: SyncCommitteePeriod,
+    syncCommittee: altair.SyncCommittee,
+) =
+  doAssert not db.backend.readOnly # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
-  let res = db.syncCommittees.putStmt.exec(
-    (period.int64, SSZ.encode(syncCommittee)))
+  let res = db.syncCommittees.putStmt.exec((period.int64, SSZ.encode(syncCommittee)))
   res.expect("SQL query OK")
 
 proc initLegacyBestUpdatesStore(
-    backend: SqStoreRef,
-    name: string,
+    backend: SqStoreRef, name: string
 ): KvResult[LegacyBestLightClientUpdateStore] =
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
         `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
       );
-    """)
-  if not ? backend.hasTable(name):
+    """
+    )
+  if not ?backend.hasTable(name):
     return ok LegacyBestLightClientUpdateStore()
 
   const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
-    getStmt = backend.prepareStmt("""
+    getStmt = backend
+      .prepareStmt(
+        """
       SELECT """ & legacyKind & """ AS `kind`, `update`
-      FROM `""" & name & """`
+      FROM `""" &
+          name & """`
       WHERE `period` = ?;
-    """, int64, (int64, seq[byte]), managed = false).expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    """,
+        int64,
+        (int64, seq[byte]),
+        managed = false,
+      )
+      .expect("SQL query OK")
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `period`, `update`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
-    delStmt = backend.prepareStmt("""
+    """,
+        (int64, seq[byte]),
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    delStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok LegacyBestLightClientUpdateStore(
-    getStmt: getStmt,
-    putStmt: putStmt,
-    delStmt: delStmt,
-    keepFromStmt: keepFromStmt)
+    getStmt: getStmt, putStmt: putStmt, delStmt: delStmt, keepFromStmt: keepFromStmt
+  )
 
 func close(store: var LegacyBestLightClientUpdateStore) =
   store.getStmt.disposeSafe()
@@ -461,57 +574,86 @@ func close(store: var LegacyBestLightClientUpdateStore) =
   store.keepFromStmt.disposeSafe()
 
 proc initBestUpdatesStore(
-    backend: SqStoreRef,
-    name, legacyAltairName: string,
+    backend: SqStoreRef, name, legacyAltairName: string
 ): KvResult[BestLightClientUpdateStore] =
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
         `kind` INTEGER,                -- `LightClientDataFork`
         `update` BLOB                  -- `LightClientUpdate` (SSZ)
       );
-    """)
-    if ? backend.hasTable(legacyAltairName):
+    """
+    )
+    if ?backend.hasTable(legacyAltairName):
       # SyncCommitteePeriod -> altair.LightClientUpdate
       const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
-      ? backend.exec("""
+      ?backend.exec(
+        """
         INSERT OR IGNORE INTO `""" & name & """` (
           `period`, `kind`, `update`
         )
-        SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
-        FROM `""" & legacyAltairName & """`;
-      """)
-  if not ? backend.hasTable(name):
+        SELECT `period`, """ &
+          legacyKind & """ AS `kind`, `update`
+        FROM `""" & legacyAltairName &
+          """`;
+      """
+      )
+  if not ?backend.hasTable(name):
     return ok BestLightClientUpdateStore()
 
   let
-    getStmt = backend.prepareStmt("""
+    getStmt = backend
+      .prepareStmt(
+        """
       SELECT `kind`, `update`
       FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, (int64, seq[byte]), managed = false)
+    """,
+        int64,
+        (int64, seq[byte]),
+        managed = false,
+      )
       .expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `period`, `kind`, `update`
       ) VALUES (?, ?, ?);
-    """, (int64, int64, seq[byte]), void, managed = false)
+    """,
+        (int64, int64, seq[byte]),
+        void,
+        managed = false,
+      )
       .expect("SQL query OK")
-    delStmt = backend.prepareStmt("""
+    delStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok BestLightClientUpdateStore(
-    getStmt: getStmt,
-    putStmt: putStmt,
-    delStmt: delStmt,
-    keepFromStmt: keepFromStmt)
+    getStmt: getStmt, putStmt: putStmt, delStmt: delStmt, keepFromStmt: keepFromStmt
+  )
 
 func close(store: var BestLightClientUpdateStore) =
   store.getStmt.disposeSafe()
@@ -530,14 +672,15 @@ proc getBestUpdate*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if update[0] == ord(lcDataFork).int64:
-            return ForkedLightClientUpdate.init(SSZ.decode(
-              update[1], lcDataFork.LightClientUpdate))
-      warn "Unsupported LC data store kind", store = "bestUpdates",
-        period, kind = update[0]
+            return ForkedLightClientUpdate.init(
+              SSZ.decode(update[1], lcDataFork.LightClientUpdate)
+            )
+      warn "Unsupported LC data store kind",
+        store = "bestUpdates", period, kind = update[0]
       return default(ForkedLightClientUpdate)
     except SerializationError as exc:
-      error "LC data store corrupted", store = "bestUpdates",
-        period, kind = update[0], exc = exc.msg
+      error "LC data store corrupted",
+        store = "bestUpdates", period, kind = update[0], exc = exc.msg
       return default(ForkedLightClientUpdate)
 
   if distinctBase(db.bestUpdates.getStmt) != nil:
@@ -551,9 +694,9 @@ proc getBestUpdate*(
   default(ForkedLightClientUpdate)
 
 func putBestUpdate*(
-    db: LightClientDataDB, period: SyncCommitteePeriod,
-    update: ForkedLightClientUpdate) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+    db: LightClientDataDB, period: SyncCommitteePeriod, update: ForkedLightClientUpdate
+) =
+  doAssert not db.backend.readOnly # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
   withForkyUpdate(update):
     when lcDataFork > LightClientDataFork.None:
@@ -568,11 +711,12 @@ func putBestUpdate*(
       else:
         block:
           let res = db.bestUpdates.putStmt.exec(
-            (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
+            (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate))
+          )
           res.expect("SQL query OK")
         when lcDataFork == LightClientDataFork.Altair:
-          let res = db.legacyBestUpdates.putStmt.exec(
-            (period.int64, SSZ.encode(forkyUpdate)))
+          let res =
+            db.legacyBestUpdates.putStmt.exec((period.int64, SSZ.encode(forkyUpdate)))
           res.expect("SQL query OK")
         else:
           # Keep legacy table at best Altair update.
@@ -586,45 +730,66 @@ func putBestUpdate*(
         res.expect("SQL query OK")
 
 proc initSealedPeriodsStore(
-    backend: SqStoreRef,
-    name: string): KvResult[SealedSyncCommitteePeriodStore] =
+    backend: SqStoreRef, name: string
+): KvResult[SealedSyncCommitteePeriodStore] =
   if not backend.readOnly:
-    ? backend.exec("""
+    ?backend.exec(
+      """
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
       );
-    """)
-  if not ? backend.hasTable(name):
+    """
+    )
+  if not ?backend.hasTable(name):
     return ok SealedSyncCommitteePeriodStore()
 
   let
-    containsStmt = backend.prepareStmt("""
+    containsStmt = backend
+      .prepareStmt(
+        """
       SELECT 1 AS `exists`
       FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, int64, managed = false).expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
+    """,
+        int64,
+        int64,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    putStmt = backend
+      .prepareStmt(
+        """
       REPLACE INTO `""" & name & """` (
         `period`
       ) VALUES (?);
-    """, int64, void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
+    keepFromStmt = backend
+      .prepareStmt(
+        """
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
+    """,
+        int64,
+        void,
+        managed = false,
+      )
+      .expect("SQL query OK")
 
   ok SealedSyncCommitteePeriodStore(
-    containsStmt: containsStmt,
-    putStmt: putStmt,
-    keepFromStmt: keepFromStmt)
+    containsStmt: containsStmt, putStmt: putStmt, keepFromStmt: keepFromStmt
+  )
 
 func close(store: var SealedSyncCommitteePeriodStore) =
   store.containsStmt.disposeSafe()
   store.putStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
-func isPeriodSealed*(
-    db: LightClientDataDB, period: SyncCommitteePeriod): bool =
+func isPeriodSealed*(db: LightClientDataDB, period: SyncCommitteePeriod): bool =
   doAssert period.isSupportedBySQLite
   if distinctBase(db.sealedPeriods.containsStmt) == nil:
     return false
@@ -635,16 +800,14 @@ func isPeriodSealed*(
     return true
   false
 
-func sealPeriod*(
-    db: LightClientDataDB, period: SyncCommitteePeriod) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+func sealPeriod*(db: LightClientDataDB, period: SyncCommitteePeriod) =
+  doAssert not db.backend.readOnly # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
   let res = db.sealedPeriods.putStmt.exec(period.int64)
   res.expect("SQL query OK")
 
-func keepPeriodsFrom*(
-    db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+func keepPeriodsFrom*(db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
+  doAssert not db.backend.readOnly # All `stmt` are non-nil
   doAssert minPeriod.isSupportedBySQLite
   block:
     let res = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
@@ -660,13 +823,11 @@ func keepPeriodsFrom*(
     res.expect("SQL query OK")
   let minSlot = min(minPeriod.start_slot, int64.high.Slot)
   for branchFork, store in db.currentBranches:
-    if branchFork > BranchFork.None and
-        distinctBase(store.keepFromStmt) != nil:
+    if branchFork > BranchFork.None and distinctBase(store.keepFromStmt) != nil:
       let res = store.keepFromStmt.exec(minSlot.int64)
       res.expect("SQL query OK")
   for lcDataFork, store in db.headers:
-    if lcDataFork > LightClientDataFork.None and
-        distinctBase(store.keepFromStmt) != nil:
+    if lcDataFork > LightClientDataFork.None and distinctBase(store.keepFromStmt) != nil:
       let res = store.keepFromStmt.exec(minSlot.int64)
       res.expect("SQL query OK")
 
@@ -683,45 +844,41 @@ type LightClientDataDBNames* = object
   sealedPeriods*: string
 
 proc initLightClientDataDB*(
-    backend: SqStoreRef,
-    names: LightClientDataDBNames): KvResult[LightClientDataDB] =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
+    backend: SqStoreRef, names: LightClientDataDBNames
+): KvResult[LightClientDataDB] =
+  static:
+    doAssert LightClientDataFork.high == LightClientDataFork.Electra
   let
     headers = [
       # LightClientDataFork.None
       LightClientHeaderStore(),
       # LightClientDataFork.Altair
-      ? backend.initHeadersStore(
-        names.altairHeaders, "altair.LightClientHeader"),
+      ?backend.initHeadersStore(names.altairHeaders, "altair.LightClientHeader"),
       # LightClientDataFork.Capella
-      ? backend.initHeadersStore(
-        names.capellaHeaders, "capella.LightClientHeader"),
+      ?backend.initHeadersStore(names.capellaHeaders, "capella.LightClientHeader"),
       # LightClientDataFork.Deneb
-      ? backend.initHeadersStore(
-        names.denebHeaders, "deneb.LightClientHeader"),
+      ?backend.initHeadersStore(names.denebHeaders, "deneb.LightClientHeader"),
       # LightClientDataFork.Electra
-      ? backend.initHeadersStore(
-        names.electraHeaders, "electra.LightClientHeader"),
+      ?backend.initHeadersStore(names.electraHeaders, "electra.LightClientHeader"),
     ]
     currentBranches = [
       # BranchFork.None
       CurrentSyncCommitteeBranchStore(),
       # BranchFork.Altair
-      ? backend.initCurrentBranchesStore(
-        names.altairCurrentBranches, "altair.CurrentSyncCommitteeBranch"),
+      ?backend.initCurrentBranchesStore(
+        names.altairCurrentBranches, "altair.CurrentSyncCommitteeBranch"
+      ),
       # BranchFork.Electra
-      ? backend.initCurrentBranchesStore(
-        names.electraCurrentBranches, "electra.CurrentSyncCommitteeBranch"),
+      ?backend.initCurrentBranchesStore(
+        names.electraCurrentBranches, "electra.CurrentSyncCommitteeBranch"
+      ),
     ]
-    syncCommittees =
-      ? backend.initSyncCommitteesStore(names.altairSyncCommittees)
+    syncCommittees = ?backend.initSyncCommitteesStore(names.altairSyncCommittees)
     legacyBestUpdates =
-      ? backend.initLegacyBestUpdatesStore(names.legacyAltairBestUpdates)
+      ?backend.initLegacyBestUpdatesStore(names.legacyAltairBestUpdates)
     bestUpdates =
-      ? backend.initBestUpdatesStore(
-        names.bestUpdates, names.legacyAltairBestUpdates)
-    sealedPeriods =
-      ? backend.initSealedPeriodsStore(names.sealedPeriods)
+      ?backend.initBestUpdatesStore(names.bestUpdates, names.legacyAltairBestUpdates)
+    sealedPeriods = ?backend.initSealedPeriodsStore(names.sealedPeriods)
 
   ok LightClientDataDB(
     headers: headers,
@@ -730,7 +887,8 @@ proc initLightClientDataDB*(
     syncCommittees: syncCommittees,
     legacyBestUpdates: legacyBestUpdates,
     bestUpdates: bestUpdates,
-    sealedPeriods: sealedPeriods)
+    sealedPeriods: sealedPeriods,
+  )
 
 proc close*(db: LightClientDataDB) =
   if db.backend != nil:

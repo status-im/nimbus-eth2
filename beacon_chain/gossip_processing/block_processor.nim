@@ -8,7 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, metrics,
+  chronicles,
+  chronos,
+  metrics,
   ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
@@ -25,20 +27,21 @@ from ../consensus_object_pools/block_dag import
 from ../consensus_object_pools/block_pools_types import
   ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
-  remove, startProcessing, clearProcessing, UnviableKind
+  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop, remove,
+  startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar
+from ../beacon_chain_db import
+  getBlobSidecar, putBlobSidecar, getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
-logScope: topics = "gossip_blocks"
+logScope:
+  topics = "gossip_blocks"
 
 # Block Processor
 # ------------------------------------------------------------------------------
@@ -113,16 +116,18 @@ const noSidecars* = default(NoSidecars)
 # Initialization
 # ------------------------------------------------------------------------------
 
-proc new*(T: type BlockProcessor,
-          dumpEnabled: bool,
-          dumpDirInvalid, dumpDirIncoming: string,
-          batchVerifier: ref BatchVerifier,
-          consensusManager: ref ConsensusManager,
-          validatorMonitor: ref ValidatorMonitor,
-          blobQuarantine: ref BlobQuarantine,
-          dataColumnQuarantine: ref ColumnQuarantine,
-          getBeaconTime: GetBeaconTimeFn,
-          invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
+proc new*(
+    T: type BlockProcessor,
+    dumpEnabled: bool,
+    dumpDirInvalid, dumpDirIncoming: string,
+    batchVerifier: ref BatchVerifier,
+    consensusManager: ref ConsensusManager,
+    validatorMonitor: ref ValidatorMonitor,
+    blobQuarantine: ref BlobQuarantine,
+    dataColumnQuarantine: ref ColumnQuarantine,
+    getBeaconTime: GetBeaconTimeFn,
+    invalidBlockRoots: seq[Eth2Digest] = @[],
+): ref BlockProcessor =
   if invalidBlockRoots.len > 0:
     warn "Config requests blocks to be treated as invalid",
       debugInvalidateBlockRoot = invalidBlockRoots
@@ -138,7 +143,7 @@ proc new*(T: type BlockProcessor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: batchVerifier[]
+    verifier: batchVerifier[],
   )
 
 # Sync callbacks
@@ -155,15 +160,15 @@ func toVerifierError(v: UnviableKind): VerifierError =
 # Storage
 # ------------------------------------------------------------------------------
 
-proc dumpInvalidBlock*(
-    self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
+proc dumpInvalidBlock*(self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, signedBlock)
 
 proc dumpBlock(
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[BlockRef, VerifierError]) =
+    res: Result[BlockRef, VerifierError],
+) =
   if self.dumpEnabled and res.isErr:
     case res.error
     of VerifierError.Invalid:
@@ -177,8 +182,7 @@ from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
-    signedBlock: ForkySignedBeaconBlock,
-    sidecarsOpt: SomeOptSidecars,
+    signedBlock: ForkySignedBeaconBlock, sidecarsOpt: SomeOptSidecars
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
@@ -219,7 +223,8 @@ proc verifySidecars(
             msg = r.error()
           return err(VerifierError.Invalid)
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
+    static:
+      doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -232,7 +237,7 @@ proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
 
 proc storeSidecars(
     self: BlockProcessor,
-    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
+    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars],
 ) =
   if sidecarsOpt.isSome():
     for c in sidecarsOpt[]:
@@ -268,11 +273,11 @@ proc storeBackfillBlock(
       res
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
-        err(
-          quarantine[]
+      err(
+        quarantine[]
           .addUnviable(signedBlock.root, UnviableKind.UnviableFork)
           .toVerifierError()
-        )
+      )
     of VerifierError.Invalid:
       # TODO track invalid blocks once we can differentiate between invalid
       #      proposer signature and other errors
@@ -296,7 +301,8 @@ proc newExecutionPayload*(
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  template executionPayload: untyped = blck.body.execution_payload
+  template executionPayload(): untyped =
+    blck.body.execution_payload
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
@@ -312,18 +318,15 @@ proc newExecutionPayload*(
   Opt.some payloadStatus
 
 proc newExecutionPayload*(
-    elManager: ELManager,
-    blck: SomeForkyBeaconBlock
-): Future[Opt[PayloadExecutionStatus]] {.
-  async: (raises: [CancelledError], raw: true).} =
-  newExecutionPayload(
-    elManager, blck, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
+    elManager: ELManager, blck: SomeForkyBeaconBlock
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError], raw: true).} =
+  newExecutionPayload(elManager, blck, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc getExecutionValidity(
     elManager: ELManager,
-    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-          deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock,
+    blck:
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock |
+      electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[OptimisticStatus]] {.async: (raises: [CancelledError]).} =
@@ -567,20 +570,18 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+    deadlineTime = block:
+      let slotTime =
+        (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+      if slotTime <= wallTime:
+        chronos.seconds(0)
+      else:
+        chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
-      blck = shortLog(signedBlock.message),
-      blockRoot = shortLog(signedBlock.root)
+      blck = shortLog(signedBlock.message), blockRoot = shortLog(signedBlock.root)
     return err(VerifierError.Invalid)
 
   # We have to be careful that there exists only one in-flight entry point
@@ -590,30 +591,30 @@ proc storeBlock(
   let parent = ?dag.checkHeadBlock(signedBlock)
 
   const consensusFork = typeof(signedBlock).kind
-  let
-    optimisticStatusRes =
-      if maybeFinalized and
-          (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
-          signedBlock.message.is_execution_block:
-        # Skip payload validation when message source (reasonably) claims block
-        # has been finalized - this speeds up forward sync - in the worst case
-        # that the claim is false, we will correct every time we process a block
-        # from an honest source (or when we're close to head).
-        # Occasionally we also send a payload to the EL so that it can
-        # progress in its own sync.
-        Opt.none(OptimisticStatus)
+  let optimisticStatusRes =
+    if maybeFinalized and
+        (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
+        (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+        signedBlock.message.is_execution_block:
+      # Skip payload validation when message source (reasonably) claims block
+      # has been finalized - this speeds up forward sync - in the worst case
+      # that the claim is false, we will correct every time we process a block
+      # from an honest source (or when we're close to head).
+      # Occasionally we also send a payload to the EL so that it can
+      # progress in its own sync.
+      Opt.none(OptimisticStatus)
+    else:
+      when consensusFork == ConsensusFork.Gloas:
+        debugGloasComment "need getExecutionValidity on gloas blocks"
+        Opt.some OptimisticStatus.valid
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        func shouldRetry(): bool =
+          not dag.is_optimistic(dag.head.bid)
+        await self.consensusManager.elManager.getExecutionValidity(
+          signedBlock, deadline, shouldRetry()
+        )
       else:
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment "need getExecutionValidity on gloas blocks"
-          Opt.some OptimisticStatus.valid
-        elif consensusFork >= ConsensusFork.Bellatrix:
-          func shouldRetry(): bool =
-            not dag.is_optimistic(dag.head.bid)
-          await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, deadline, shouldRetry())
-        else:
-          Opt.some(OptimisticStatus.valid) # vacuously
+        Opt.some(OptimisticStatus.valid) # vacuously
 
   let optimisticStatus = ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
@@ -624,14 +625,13 @@ proc storeBlock(
 
   ?verifySidecars(signedBlock, sidecarsOpt)
 
-  let blck =
-    ?dag.addHeadBlockWithParent(
-      self.verifier,
-      signedBlock,
-      parent,
-      optimisticStatus,
-      onBlockAdded(dag, consensusFork, src, wallTime, ap, vm),
-    )
+  let blck = ?dag.addHeadBlockWithParent(
+    self.verifier,
+    signedBlock,
+    parent,
+    optimisticStatus,
+    onBlockAdded(dag, consensusFork, src, wallTime, ap, vm),
+  )
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -670,7 +670,8 @@ proc storeBlock(
     # retry fcU until the deadline expires, in case the previous payload was
     # valid to increase chances of leaving this function with a still-valid head
     await self.consensusManager.updateExecutionHead(
-      deadline, retry = previousExecutionValid, self.getBeaconTime)
+      deadline, retry = previousExecutionValid, self.getBeaconTime
+    )
 
   let
     updateHeadTick = Moment.now()
@@ -688,7 +689,11 @@ proc storeBlock(
   debug "Block processed",
     head = shortLog(dag.head),
     blck = shortLog(blck),
-    validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
+    validationDur,
+    queueDur,
+    newPayloadDur,
+    addHeadBlockDur,
+    updateHeadDur
 
   ok(blck)
 
@@ -822,8 +827,8 @@ proc addBlock*(
       # Track unviables so that descendants can be discarded promptly
       err(
         self.consensusManager.quarantine[]
-        .addUnviable(blockRoot, UnviableKind.UnviableFork)
-        .toVerifierError()
+          .addUnviable(blockRoot, UnviableKind.UnviableFork)
+          .toVerifierError()
       )
     of VerifierError.Invalid:
       # TODO track invalid blocks once we can differentiate between invalid

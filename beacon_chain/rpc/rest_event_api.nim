@@ -8,27 +8,25 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
-  chronicles,
-  chronos/apps/http/httpserver,
-  ./rest_utils,
-  ../beacon_node
+  std/sequtils, chronicles, chronos/apps/http/httpserver, ./rest_utils, ../beacon_node
 
 export rest_utils
 
-logScope: topics = "rest_eventapi"
+logScope:
+  topics = "rest_eventapi"
 
-proc validateEventTopics(events: seq[EventTopic],
-                         withLightClient: bool): Result[EventTopics, cstring] =
+proc validateEventTopics(
+    events: seq[EventTopic], withLightClient: bool
+): Result[EventTopics, cstring] =
   const NonUniqueError = cstring("Event topics must be unique")
   const UnsupportedError = cstring("Unsupported event topic value")
   var res: set[EventTopic]
   for item in events:
     if item in res:
       return err(NonUniqueError)
-    if not withLightClient and item in [
-        EventTopic.LightClientFinalityUpdate,
-        EventTopic.LightClientOptimisticUpdate]:
+    if not withLightClient and
+        item in
+        [EventTopic.LightClientFinalityUpdate, EventTopic.LightClientOptimisticUpdate]:
       return err(UnsupportedError)
     res.incl(item)
 
@@ -37,9 +35,9 @@ proc validateEventTopics(events: seq[EventTopic],
   else:
     ok(res)
 
-proc eventHandler*[T](response: HttpResponseRef,
-                      eventQueue: AsyncEventQueue[T],
-                      serverEvent: string) {.async.} =
+proc eventHandler*[T](
+    response: HttpResponseRef, eventQueue: AsyncEventQueue[T], serverEvent: string
+) {.async.} =
   var empty: seq[T]
   let key = eventQueue.register()
 
@@ -54,7 +52,7 @@ proc eventHandler*[T](response: HttpResponseRef,
         empty
 
     for event in events:
-      let jsonRes =  RestApiResponse.prepareJsonStringResponse(event)
+      let jsonRes = RestApiResponse.prepareJsonStringResponse(event)
 
       exitLoop =
         if response.state != HttpResponseState.Sending:
@@ -67,11 +65,11 @@ proc eventHandler*[T](response: HttpResponseRef,
             true
           except HttpError as exc:
             debug "Unable to deliver event to remote peer",
-                  error_name = $exc.name, error_msg = $exc.msg
+              error_name = $exc.name, error_msg = $exc.msg
             true
           except CatchableError as exc:
             debug "Unexpected error encountered, while trying to deliver event",
-                  error_name = $exc.name, error_msg = $exc.msg
+              error_name = $exc.name, error_msg = $exc.msg
             true
 
       if exitLoop:
@@ -84,19 +82,17 @@ proc eventHandler*[T](response: HttpResponseRef,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  router.api2(MethodGet, "/eth/v1/events") do (
-    topics: seq[EventTopic]) -> RestApiResponse:
-    let eventTopics =
-      block:
-        if topics.isErr():
-          return RestApiResponse.jsonError(Http400, "Invalid topics value",
-                                           $topics.error())
-        let res = validateEventTopics(topics.get(),
-                                      node.dag.lcDataStore.serve)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400, "Invalid topics value",
-                                           $res.error())
-        res.get()
+  router.api2(MethodGet, "/eth/v1/events") do(
+    topics: seq[EventTopic]
+  ) -> RestApiResponse:
+    let eventTopics = block:
+      if topics.isErr():
+        return
+          RestApiResponse.jsonError(Http400, "Invalid topics value", $topics.error())
+      let res = validateEventTopics(topics.get(), node.dag.lcDataStore.serve)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, "Invalid topics value", $res.error())
+      res.get()
 
     let res = preferredContentType(textEventStreamMediaType)
 
@@ -114,82 +110,81 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # so there no need to respond with HTTP error response.
       return
 
-    let handlers =
-      block:
-        var res: seq[Future[void]]
-        if EventTopic.Head in eventTopics:
-          let handler = response.eventHandler(node.eventBus.headQueue,
-                                              "head")
+    let handlers = block:
+      var res: seq[Future[void]]
+      if EventTopic.Head in eventTopics:
+        let handler = response.eventHandler(node.eventBus.headQueue, "head")
+        res.add(handler)
+      if EventTopic.Block in eventTopics:
+        let handler = response.eventHandler(node.eventBus.blocksQueue, "block")
+        res.add(handler)
+      if EventTopic.BlockGossip in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.blockGossipQueue, "block_gossip")
+        res.add(handler)
+      if EventTopic.Attestation in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.phase0AttestQueue, "attestation")
+        res.add(handler)
+      if EventTopic.SingleAttestation in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.singleAttestQueue, "single_attestation")
+        res.add(handler)
+      if EventTopic.VoluntaryExit in eventTopics:
+        let handler = response.eventHandler(node.eventBus.exitQueue, "voluntary_exit")
+        res.add(handler)
+      if EventTopic.BLSToExecutionChange in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.blsToExecQueue, "bls_to_execution_change")
+        res.add(handler)
+      if EventTopic.ProposerSlashing in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.propSlashQueue, "proposer_slashing")
+        res.add(handler)
+      if EventTopic.AttesterSlashing in eventTopics:
+        block:
+          let handler = response.eventHandler(
+            node.eventBus.phase0AttSlashQueue, "attester_slashing"
+          )
           res.add(handler)
-        if EventTopic.Block in eventTopics:
-          let handler = response.eventHandler(node.eventBus.blocksQueue,
-                                              "block")
-          res.add(handler)
-        if EventTopic.BlockGossip in eventTopics:
-          let handler = response.eventHandler(node.eventBus.blockGossipQueue,
-                                              "block_gossip")
-          res.add(handler)
-        if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.phase0AttestQueue,
-                                              "attestation")
-          res.add(handler)
-        if EventTopic.SingleAttestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.singleAttestQueue,
-                                              "single_attestation")
-          res.add(handler)
-        if EventTopic.VoluntaryExit in eventTopics:
-          let handler = response.eventHandler(node.eventBus.exitQueue,
-                                              "voluntary_exit")
-          res.add(handler)
-        if EventTopic.BLSToExecutionChange in eventTopics:
-          let handler = response.eventHandler(node.eventBus.blsToExecQueue,
-                                              "bls_to_execution_change")
-          res.add(handler)
-        if EventTopic.ProposerSlashing in eventTopics:
-          let handler = response.eventHandler(node.eventBus.propSlashQueue,
-                                              "proposer_slashing")
-          res.add(handler)
-        if EventTopic.AttesterSlashing in eventTopics:
-          block:
-            let handler = response.eventHandler(node.eventBus.phase0AttSlashQueue,
-                                                "attester_slashing")
-            res.add(handler)
 
-          block:
-            let handler = response.eventHandler(node.eventBus.electraAttSlashQueue,
-                                                "attester_slashing")
-            res.add(handler)
-        if EventTopic.BlobSidecar in eventTopics:
-          let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
-                                              "blob_sidecar")
+        block:
+          let handler = response.eventHandler(
+            node.eventBus.electraAttSlashQueue, "attester_slashing"
+          )
           res.add(handler)
-        if EventTopic.DataColumnSidecar in eventTopics:
-          let handler = response.eventHandler(node.eventBus.columnSidecarQueue,
-                                              "data_column_sidecar")
-          res.add(handler)
-        if EventTopic.FinalizedCheckpoint in eventTopics:
-          let handler = response.eventHandler(node.eventBus.finalQueue,
-                                              "finalized_checkpoint")
-          res.add(handler)
-        if EventTopic.ChainReorg in eventTopics:
-          let handler = response.eventHandler(node.eventBus.reorgQueue,
-                                              "chain_reorg")
-          res.add(handler)
-        if EventTopic.ContributionAndProof in eventTopics:
-          let handler = response.eventHandler(node.eventBus.contribQueue,
-                                              "contribution_and_proof")
-          res.add(handler)
-        if EventTopic.LightClientFinalityUpdate in eventTopics:
-          doAssert node.dag.lcDataStore.serve
-          let handler = response.eventHandler(node.eventBus.finUpdateQueue,
-                                              "light_client_finality_update")
-          res.add(handler)
-        if EventTopic.LightClientOptimisticUpdate in eventTopics:
-          doAssert node.dag.lcDataStore.serve
-          let handler = response.eventHandler(node.eventBus.optUpdateQueue,
-                                              "light_client_optimistic_update")
-          res.add(handler)
-        res
+      if EventTopic.BlobSidecar in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.blobSidecarQueue, "blob_sidecar")
+        res.add(handler)
+      if EventTopic.DataColumnSidecar in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.columnSidecarQueue, "data_column_sidecar")
+        res.add(handler)
+      if EventTopic.FinalizedCheckpoint in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.finalQueue, "finalized_checkpoint")
+        res.add(handler)
+      if EventTopic.ChainReorg in eventTopics:
+        let handler = response.eventHandler(node.eventBus.reorgQueue, "chain_reorg")
+        res.add(handler)
+      if EventTopic.ContributionAndProof in eventTopics:
+        let handler =
+          response.eventHandler(node.eventBus.contribQueue, "contribution_and_proof")
+        res.add(handler)
+      if EventTopic.LightClientFinalityUpdate in eventTopics:
+        doAssert node.dag.lcDataStore.serve
+        let handler = response.eventHandler(
+          node.eventBus.finUpdateQueue, "light_client_finality_update"
+        )
+        res.add(handler)
+      if EventTopic.LightClientOptimisticUpdate in eventTopics:
+        doAssert node.dag.lcDataStore.serve
+        let handler = response.eventHandler(
+          node.eventBus.optUpdateQueue, "light_client_optimistic_update"
+        )
+        res.add(handler)
+      res
 
     try:
       discard await race(handlers)
@@ -197,7 +192,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       raiseAssert "There should be more than one event handler at this point!"
     # One of the handlers finished, it means that connection has been dropped, so
     # we are cancelling all other handlers.
-    let pending =
-      handlers.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    let pending = handlers.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
     return

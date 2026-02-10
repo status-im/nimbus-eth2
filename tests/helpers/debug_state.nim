@@ -11,7 +11,7 @@ import
   std/macros,
   ssz_serialization/types,
   ../../beacon_chain/spec/datatypes/base
-  # digest is necessary for them to be printed as hex
+    # digest is necessary for them to be printed as hex
 
 export base.`==`
 
@@ -21,11 +21,22 @@ export base.`==`
 # highlighting the differences
 
 const builtinTypes = [
-  "int", "int8", "int16", "int32", "int64",
-  "uint", "uint8", "uint16", "uint32", "uint64",
-  "byte", "float32", "float64",
+  "int",
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "byte",
+  "float32",
+  "float64",
   # "array", "seq", # wrapped in nnkBracketExpr
-  "char", "string"
+  "char",
+  "string",
 ]
 
 proc compareStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
@@ -36,8 +47,8 @@ proc compareStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   stmts.add quote do:
     doAssert(
       `isEqual`(`xSubField`, `ySubField`),
-      "\nDiff: " & `xStr` & " = " & $`xSubField` & "\n" &
-      "and   " & `yStr` & " = " & $`ySubField` & "\n"
+      "\nDiff: " & `xStr` & " = " & $`xSubField` & "\n" & "and   " & `yStr` & " = " &
+        $`ySubField` & "\n",
     )
 
 proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
@@ -48,14 +59,15 @@ proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   stmts.add quote do:
     doAssert(
       `isEqual`(distinctBase(`xSubField`).len, distinctBase(`ySubField`).len),
-        "\nDiff: " & `xStr` & ".len = " & $distinctBase(`xSubField`).len & "\n" &
-        "and   " & `yStr` & ".len = " & $distinctBase(`ySubField`).len & "\n"
+      "\nDiff: " & `xStr` & ".len = " & $distinctBase(`xSubField`).len & "\n" & "and   " &
+        `yStr` & ".len = " & $distinctBase(`ySubField`).len & "\n",
     )
     for idx in distinctBase(`xSubField`).low .. distinctBase(`xSubField`).high:
       doAssert(
         `isEqual`(distinctBase(`xSubField`)[idx], distinctBase(`ySubField`)[idx]),
-        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $distinctBase(`xSubField`)[idx] & "\n" &
-        "and   " & `yStr` & "[" & $idx & "] = " & $distinctBase(`ySubField`)[idx] & "\n"
+        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $distinctBase(`xSubField`)[idx] &
+          "\n" & "and   " & `yStr` & "[" & $idx & "] = " &
+          $distinctBase(`ySubField`)[idx] & "\n",
       )
 
 func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
@@ -71,7 +83,7 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
         decl[1], # field type
         nnkDotExpr.newTree(xSubField, decl[0]), # Accessor
         nnkDotExpr.newTree(ySubField, decl[0]),
-        stmts
+        stmts,
       )
   of {nnkRefTy, nnkDistinctTy}:
     inspectType(tImpl[0], xSubField, ySubField, stmts)
@@ -84,7 +96,7 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
         # TODO it doesn't have `low` or `high`, even as distinctBase
         discard
       else:
-      # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
+        # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
         compareContainerStmt(xSubField, ySubField, stmts)
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
@@ -98,8 +110,7 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     else:
       inspectType(tImpl.getTypeImpl(), xSubField, ySubField, stmts)
   else:
-    error "Unsupported kind: " & $tImpl.kind &
-      " for field \"" & $xSubField.toStrLit &
+    error "Unsupported kind: " & $tImpl.kind & " for field \"" & $xSubField.toStrLit &
       "\" of type \"" & tImpl.repr
 
 macro reportDiff*(x, y: typed): untyped =

@@ -7,13 +7,11 @@
 
 {.push raises: [].}
 
-import
-  std/typetraits,
-  eth/common/eth_types_rlp,
-  "."/[helpers, state_transition_block]
+import std/typetraits, eth/common/eth_types_rlp, "."/[helpers, state_transition_block]
 
 func readExecutionTransaction(
-    txBytes: bellatrix.Transaction): Result[EthTransaction, string] =
+    txBytes: bellatrix.Transaction
+): Result[EthTransaction, string] =
   try:
     ok rlp.decode(distinctBase(txBytes), EthTransaction)
   except RlpError as exc:
@@ -21,15 +19,19 @@ func readExecutionTransaction(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
-  static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
-  template transactions: untyped = blck.body.execution_payload.transactions
-  template commitments: untyped = blck.body.blob_kzg_commitments
+  static:
+    doAssert typeof(blck).kind >= ConsensusFork.Deneb
+  template transactions(): untyped =
+    blck.body.execution_payload.transactions
+
+  template commitments(): untyped =
+    blck.body.blob_kzg_commitments
 
   var i = 0
   for txBytes in transactions:
     if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
-      continue  # Only blob transactions may have blobs
-    let tx = ? txBytes.readExecutionTransaction()
+      continue # Only blob transactions may have blobs
+    let tx = ?txBytes.readExecutionTransaction()
     for vHash in tx.versionedHashes:
       if commitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")

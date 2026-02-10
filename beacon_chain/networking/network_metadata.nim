@@ -9,7 +9,8 @@
 
 import
   std/os,
-  stew/byteutils, stew/shims/macros,
+  stew/byteutils,
+  stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
@@ -109,7 +110,7 @@ proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
       if line.startsWith("- enr:"):
         res.add line[2 .. ^1]
       elif line.startsWith("- \"enr:") and line.endsWith("\""):
-        res.add line[3 .. ^2]  # Gnosis Chiado `boot_enr.yaml`
+        res.add line[3 .. ^2] # Gnosis Chiado `boot_enr.yaml`
       elif line.len == 0 or line.startsWith("#"):
         discard
       else:
@@ -124,7 +125,7 @@ proc loadEth2NetworkMetadata*(
     eth1Network = Opt.none(Eth1Network),
     isCompileTime = false,
     downloadGenesisFrom = Opt.none(DownloadInfo),
-    useBakedInGenesis = Opt.none(string)
+    useBakedInGenesis = Opt.none(string),
 ): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
   # Load data in mainnet format
   # https://github.com/eth-clients/mainnet
@@ -133,25 +134,26 @@ proc loadEth2NetworkMetadata*(
     let
       genesisPath = path & "/genesis.ssz"
       configPath = path & "/config.yaml"
-      bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt"  # <= Dec 2024
+      bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt" # <= Dec 2024
       bootstrapNodesPath = path & "/bootstrap_nodes.yaml"
       bootEnrPath = path & "/boot_enr.yaml"
-      runtimeConfig = if fileExists(configPath):
-        let (cfg, unknowns) = readRuntimeConfig(configPath)
-        if unknowns.len > 0:
-          when nimvm:
-            # TODO better printing
-            echo "Unknown constants in file: " & unknowns
-          else:
-            warn "Unknown constants in config file", unknowns
-        cfg
-      else:
-        defaultRuntimeConfig
+      runtimeConfig =
+        if fileExists(configPath):
+          let (cfg, unknowns) = readRuntimeConfig(configPath)
+          if unknowns.len > 0:
+            when nimvm:
+              # TODO better printing
+              echo "Unknown constants in file: " & unknowns
+            else:
+              warn "Unknown constants in config file", unknowns
+          cfg
+        else:
+          defaultRuntimeConfig
 
       bootstrapNodes = deduplicate(
-        readBootstrapNodes(bootstrapNodesLegacyPath) &
-        readBootEnr(bootstrapNodesPath) &
-        readBootEnr(bootEnrPath))
+        readBootstrapNodes(bootstrapNodesLegacyPath) & readBootEnr(bootstrapNodesPath) &
+          readBootEnr(bootEnrPath)
+      )
 
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
@@ -159,19 +161,20 @@ proc loadEth2NetworkMetadata*(
       bootstrapNodes: bootstrapNodes,
       genesis:
         if downloadGenesisFrom.isSome:
-          GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
-                          digest: downloadGenesisFrom.get.digest)
+          GenesisMetadata(
+            kind: BakedInUrl,
+            url: downloadGenesisFrom.get.url,
+            digest: downloadGenesisFrom.get.digest,
+          )
         elif useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
         else:
-          GenesisMetadata(kind: NoGenesis))
-
+          GenesisMetadata(kind: NoGenesis),
+    )
   except PresetIncompatibleError as err:
     err err.msg
-
   except ValueError as err:
     raise (ref PresetFileError)(msg: err.msg)
 
@@ -179,24 +182,27 @@ proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = Opt.none(Eth1Network),
     useBakedInGenesis = Opt.none(string),
-    downloadGenesisFrom = Opt.none(DownloadInfo)): Eth2NetworkMetadata =
+    downloadGenesisFrom = Opt.none(DownloadInfo),
+): Eth2NetworkMetadata =
   if fileExists(path & "/config.yaml"):
     try:
       let res = loadEth2NetworkMetadata(
-        path, eth1Network, isCompileTime = true,
+        path,
+        eth1Network,
+        isCompileTime = true,
         downloadGenesisFrom = downloadGenesisFrom,
-        useBakedInGenesis = useBakedInGenesis)
+        useBakedInGenesis = useBakedInGenesis,
+      )
       if res.isErr:
         macros.error "The current build is misconfigured. " &
-                     "Attempt to load an incompatible network metadata: " &
-                     res.error
+          "Attempt to load an incompatible network metadata: " & res.error
       return res.get
     except IOError as err:
-      macros.error "Failed to load network metadata at '" & path & "': " &
-                   "IOError - " & err.msg
+      macros.error "Failed to load network metadata at '" & path & "': " & "IOError - " &
+        err.msg
     except PresetFileError as err:
       macros.error "Failed to load network metadata at '" & path & "': " &
-                   "PresetFileError - " & err.msg
+        "PresetFileError - " & err.msg
   else:
     macros.error "config.yaml not found for network '" & path
 
@@ -209,34 +215,43 @@ when IsGnosisSupported:
       chiadoGenesisVar {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
       chiadoGenesisSizeVar {.importc: "gnosis_chiado_genesis_size".}: int
 
-    template gnosisGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: gnosisGenesisVar
-    template gnosisGenesisSize*(): int = {.noSideEffect.}: gnosisGenesisSizeVar
+    template gnosisGenesis*(): ptr UncheckedArray[byte] =
+      {.noSideEffect.}:
+        gnosisGenesisVar
 
-    template chiadoGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: chiadoGenesisVar
-    template chiadoGenesisSize*(): int = {.noSideEffect.}: chiadoGenesisSizeVar
+    template gnosisGenesisSize*(): int =
+      {.noSideEffect.}:
+        gnosisGenesisSizeVar
+
+    template chiadoGenesis*(): ptr UncheckedArray[byte] =
+      {.noSideEffect.}:
+        chiadoGenesisVar
+
+    template chiadoGenesisSize*(): int =
+      {.noSideEffect.}:
+        chiadoGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_gnosis.S".}
-
   else:
     const
-      gnosisGenesis* = slurp(
-        vendorDir & "/gnosis-chain-configs/mainnet/genesis.ssz")
+      gnosisGenesis* = slurp(vendorDir & "/gnosis-chain-configs/mainnet/genesis.ssz")
 
-      chiadoGenesis* = slurp(
-        vendorDir & "/gnosis-chain-configs/chiado/genesis.ssz")
+      chiadoGenesis* = slurp(vendorDir & "/gnosis-chain-configs/chiado/genesis.ssz")
 
   const
     gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet",
       Opt.none(Eth1Network),
-      useBakedInGenesis = Opt.some "gnosis")
+      useBakedInGenesis = Opt.some "gnosis",
+    )
 
     chiadoMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/chiado",
       Opt.none(Eth1Network),
-      useBakedInGenesis = Opt.some "chiado")
+      useBakedInGenesis = Opt.some "chiado",
+    )
 
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
@@ -245,12 +260,11 @@ when IsGnosisSupported:
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
-
 elif IsMainnetSupported:
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
-    {.push hint[GlobalVar]:off.}
+    {.push hint[GlobalVar]: off.}
     let
       mainnetGenesisVar {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
       mainnetGenesisSizeVar {.importc: "eth2_mainnet_genesis_size".}: int
@@ -259,34 +273,43 @@ elif IsMainnetSupported:
       sepoliaGenesisSizeVar {.importc: "eth2_sepolia_genesis_size".}: int
     {.pop.}
 
-    template mainnetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: mainnetGenesisVar
-    template mainnetGenesisSize*: int = {.noSideEffect.}: mainnetGenesisSizeVar
+    template mainnetGenesis*(): ptr UncheckedArray[byte] =
+      {.noSideEffect.}:
+        mainnetGenesisVar
 
-    template sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
-    template sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
+    template mainnetGenesisSize*(): int =
+      {.noSideEffect.}:
+        mainnetGenesisSizeVar
+
+    template sepoliaGenesis*(): ptr UncheckedArray[byte] =
+      {.noSideEffect.}:
+        sepoliaGenesisVar
+
+    template sepoliaGenesisSize*(): int =
+      {.noSideEffect.}:
+        sepoliaGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_mainnet.S".}
-
   else:
     const
-      mainnetGenesis* = slurp(
-        vendorDir & "/mainnet/metadata/genesis.ssz")
+      mainnetGenesis* = slurp(vendorDir & "/mainnet/metadata/genesis.ssz")
 
-      sepoliaGenesis* = slurp(
-        vendorDir & "/sepolia/metadata/genesis.ssz")
+      sepoliaGenesis* = slurp(vendorDir & "/sepolia/metadata/genesis.ssz")
 
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/mainnet/metadata",
       Opt.some mainnet,
-      useBakedInGenesis = Opt.some "mainnet")
+      useBakedInGenesis = Opt.some "mainnet",
+    )
 
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/sepolia/metadata",
       Opt.some sepolia,
-      useBakedInGenesis = Opt.some "sepolia")
+      useBakedInGenesis = Opt.some "sepolia",
+    )
 
     # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
     # `git lfs pull`, and then from repo root:
@@ -312,8 +335,11 @@ elif IsMainnetSupported:
       vendorDir & "/hoodi/metadata",
       Opt.some hoodi,
       downloadGenesisFrom = Opt.some DownloadInfo(
-        url: "https://github.com/eth-clients/hoodi/releases/download/genesis/hoodi-genesis.ssz.sz",
-        digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
+        url:
+          "https://github.com/eth-clients/hoodi/releases/download/genesis/hoodi-genesis.ssz.sz",
+        digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0",
+      ),
+    )
 
   static:
     doAssert ConsensusFork.high == ConsensusFork.Gloas
@@ -358,7 +384,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         chiadoMetadata
       else:
         loadRuntimeMetadata()
-
     elif IsMainnetSupported:
       case toLowerAscii(networkName)
       of "mainnet":
@@ -369,7 +394,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         sepoliaMetadata
       else:
         loadRuntimeMetadata()
-
     else:
       loadRuntimeMetadata()
 
@@ -447,7 +471,8 @@ when IsMainnetSupported or IsGnosisSupported:
       try:
         let header = SSZ.decode(
           toOpenArray(metadata.genesis.bakedBytes, 0, sizeof(BeaconStateHeader) - 1),
-          BeaconStateHeader)
+          BeaconStateHeader,
+        )
         Opt.some header.genesis_validators_root
       except SerializationError:
         raiseAssert "Invalid baken-in genesis state"

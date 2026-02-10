@@ -13,8 +13,8 @@ import
   eth/common/headers_rlp,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/el/engine_api_conversions,
-  ../beacon_chain/spec/[
-    beaconstate, helpers, keystore, forks, signatures, state_transition, validator]
+  ../beacon_chain/spec/
+    [beaconstate, helpers, keystore, forks, signatures, state_transition, validator]
 
 from kzg4844 import KzgCommitment, KzgProof
 
@@ -42,14 +42,15 @@ type
     blobsBundle*: BlobsBundle
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/core/pyspec/eth2spec/test/helpers/keys.py
-func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
-  var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
-  static: doAssert sizeof(bytes) <= sizeof(result)
+func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex | uint64): ValidatorPrivKey =
+  var bytes = (index.uint64 + 1'u64).toBytesLE() # Consistent with EF tests
+  static:
+    doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
 proc `[]`*(pk: MockPubKeysT, index: uint64): ValidatorPubKey =
   var cache {.threadvar.}: Table[uint64, ValidatorPubKey]
-  cache.withValue(index, key) do:
+  cache.withValue(index, key):
     return key[]
   do:
     let key = MockPrivKeys[index].toPubKey().toPubKey()
@@ -90,7 +91,8 @@ proc makeDepositData*(
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
-  static: doAssert sizeof(bytes) <= sizeof(result.data)
+  static:
+    doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
 proc makeInitialDeposits*(
@@ -114,10 +116,12 @@ func signBlock(
     signature =
       if skipBlsValidation notin flags:
         get_block_signature(fork, genesis_validators_root, slot, root, privKey)
-        .toValidatorSig()
+          .toValidatorSig()
       else:
         ValidatorSig()
-  ForkyBeaconBlock.kind.SignedBeaconBlock(message: blck, signature: signature, root: root)
+  ForkyBeaconBlock.kind.SignedBeaconBlock(
+    message: blck, signature: signature, root: root
+  )
 
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
@@ -165,9 +169,7 @@ func makeExecutionPayloadForSigning*(
         consensusFork, payload, parent_root, Opt.some default(Hash32)
       )
     else:
-      compute_execution_block_hash(
-        consensusFork, payload, parent_root, Opt.none Hash32
-      )
+      compute_execution_block_hash(consensusFork, payload, parent_root, Opt.none Hash32)
 
   when consensusFork >= ConsensusFork.Capella:
     payload.withdrawals =
@@ -177,7 +179,7 @@ func makeExecutionPayloadForSigning*(
 
   when consensusFork == ConsensusFork.Fulu:
     eps.blobsBundle = fulu.BlobsBundle()
-  elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
     eps.blobsBundle = deneb.BlobsBundle()
 
   eps
@@ -210,7 +212,7 @@ proc addTestEngineBlock*(
           state.data.fork, state.data.genesis_validators_root, state.data.slot.epoch,
           privKey,
         )
-        .toValidatorSig()
+          .toValidatorSig()
       else:
         ValidatorSig()
 
@@ -228,8 +230,7 @@ proc addTestEngineBlock*(
         default(gloas.ExecutionPayloadForSigning)
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
-          makeExecutionPayloadForSigning(
-            cfg, consensusFork, state.data, BlobsBundle())
+          makeExecutionPayloadForSigning(cfg, consensusFork, state.data, BlobsBundle())
         else:
           default(consensusFork.ExecutionPayloadForSigning)
       else:
@@ -284,13 +285,14 @@ proc addTestBlock*(
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
     nextSlot: bool = true,
-    cfg: RuntimeConfig = defaultRuntimeConfig): ForkedSignedBeaconBlock =
+    cfg: RuntimeConfig = defaultRuntimeConfig,
+): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var info = ForkedEpochInfo()
-    process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
-        "can advance 1")
+    process_slots(cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
+      "can advance 1"
+    )
 
   withState(state):
     ForkedSignedBeaconBlock.init(
@@ -309,30 +311,43 @@ proc makeTestBlock*(
     deposits = newSeq[Deposit](),
     sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
-    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
+    cfg = defaultRuntimeConfig,
+): ForkedSignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
   let tmpState = assignClone(state)
   addTestBlock(
-    tmpState[], cache, eth1_data,
-    attestations, electraAttestations, deposits, sync_aggregate, graffiti,
-    cfg = cfg)
+    tmpState[],
+    cache,
+    eth1_data,
+    attestations,
+    electraAttestations,
+    deposits,
+    sync_aggregate,
+    graffiti,
+    cfg = cfg,
+  )
 
 func makeAttestationData*(
-    state: ForkyBeaconState, slot: Slot, committee_index: CommitteeIndex,
-    beacon_block_root: Eth2Digest): AttestationData =
+    state: ForkyBeaconState,
+    slot: Slot,
+    committee_index: CommitteeIndex,
+    beacon_block_root: Eth2Digest,
+): AttestationData =
   let
     current_epoch = get_current_epoch(state)
     start_slot = start_slot(current_epoch)
     epoch_boundary_block_root =
-      if start_slot == state.slot: beacon_block_root
-      else: get_block_root_at_slot(state, start_slot)
+      if start_slot == state.slot:
+        beacon_block_root
+      else:
+        get_block_root_at_slot(state, start_slot)
 
   doAssert slot.epoch == current_epoch,
-    "Computed epoch was " & $slot.epoch &
-    "  while the state current_epoch was " & $current_epoch
+    "Computed epoch was " & $slot.epoch & "  while the state current_epoch was " &
+      $current_epoch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestation-data
   AttestationData(
@@ -340,25 +355,26 @@ func makeAttestationData*(
     index: committee_index.uint64,
     beacon_block_root: beacon_block_root,
     source: state.current_justified_checkpoint,
-    target: Checkpoint(
-      epoch: current_epoch,
-      root: epoch_boundary_block_root
-    )
+    target: Checkpoint(epoch: current_epoch, root: epoch_boundary_block_root),
   )
 
 func makeAttestationSig(
-    fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: AttestationData,
     committee: openArray[ValidatorIndex],
-    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits): ValidatorSig =
-  let signing_root = compute_attestation_signing_root(
-    fork, genesis_validators_root, data)
+    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits,
+): ValidatorSig =
+  let signing_root =
+    compute_attestation_signing_root(fork, genesis_validators_root, data)
 
   var
     agg {.noinit.}: AggregateSignature
     first = true
 
-  for i in 0..<bits.len():
-    if not bits[i]: continue
+  for i in 0 ..< bits.len():
+    if not bits[i]:
+      continue
     let sig = blsSign(MockPrivKeys[committee[i]], signing_root.data)
 
     if first:
@@ -373,21 +389,28 @@ func makeAttestationSig(
     agg.finish().toValidatorSig()
 
 func makeAttestationData*(
-    state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
-    beacon_block_root: Eth2Digest): AttestationData =
+    state: ForkedHashedBeaconState,
+    slot: Slot,
+    committee_index: CommitteeIndex,
+    beacon_block_root: Eth2Digest,
+): AttestationData =
   ## Create an attestation / vote for the block `beacon_block_root` using the
   ## data in `state` to fill in the rest of the fields.
   ## `state` is the state corresponding to the `beacon_block_root` advanced to
   ## the slot we're attesting to.
   withState(state):
-    makeAttestationData(
-      forkyState.data, slot, committee_index, beacon_block_root)
+    makeAttestationData(forkyState.data, slot, committee_index, beacon_block_root)
 
 func makeAttestation(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
-    validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): phase0.Attestation =
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    committee: seq[ValidatorIndex],
+    slot: Slot,
+    committee_index: CommitteeIndex,
+    validator_index: ValidatorIndex,
+    cache: var StateCache,
+    flags: UpdateFlags = {},
+): phase0.Attestation =
   let
     index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)
@@ -397,29 +420,31 @@ func makeAttestation(
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
   aggregation_bits.setBit index_in_committee
 
-  let sig = if skipBlsValidation in flags:
-    ValidatorSig()
-  else:
-    makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
-      data, committee, aggregation_bits)
+  let sig =
+    if skipBlsValidation in flags:
+      ValidatorSig()
+    else:
+      makeAttestationSig(
+        getStateField(state, fork),
+        getStateField(state, genesis_validators_root),
+        data,
+        committee,
+        aggregation_bits,
+      )
 
-  phase0.Attestation(
-    data: data,
-    aggregation_bits: aggregation_bits,
-    signature: sig
-  )
+  phase0.Attestation(data: data, aggregation_bits: aggregation_bits, signature: sig)
 
 func find_beacon_committee(
-    state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
-    cache: var StateCache): auto =
+    state: ForkedHashedBeaconState,
+    validator_index: ValidatorIndex,
+    cache: var StateCache,
+): auto =
   let epoch = epoch(getStateField(state, slot))
-  for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
-      state, epoch, cache) * SLOTS_PER_EPOCH:
+  for epoch_committee_index in 0'u64 ..<
+      get_committee_count_per_slot(state, epoch, cache) * SLOTS_PER_EPOCH:
     let
-      slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
-        epoch.start_slot.uint64).Slot
+      slot =
+        ((epoch_committee_index mod SLOTS_PER_EPOCH) + epoch.start_slot.uint64).Slot
       index = CommitteeIndex(epoch_committee_index div SLOTS_PER_EPOCH)
       committee = get_beacon_committee(state, slot, index, cache)
     if validator_index in committee:
@@ -427,21 +452,26 @@ func find_beacon_committee(
   doAssert false
 
 func makeAttestation*(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache): phase0.Attestation =
-  let (committee, slot, index) =
-    find_beacon_committee(state, validator_index, cache)
-  makeAttestation(state, beacon_block_root, committee, slot, index,
-    validator_index, cache)
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    validator_index: ValidatorIndex,
+    cache: var StateCache,
+): phase0.Attestation =
+  let (committee, slot, index) = find_beacon_committee(state, validator_index, cache)
+  makeAttestation(
+    state, beacon_block_root, committee, slot, index, validator_index, cache
+  )
 
 func makeFullAttestations*(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    slot: Slot,
     cache: var StateCache,
-    flags: UpdateFlags = {}): seq[phase0.Attestation] =
+    flags: UpdateFlags = {},
+): seq[phase0.Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  let committees_per_slot = get_committee_count_per_slot(
-    state, slot.epoch, cache)
+  let committees_per_slot = get_committee_count_per_slot(state, slot.epoch, cache)
   for committee_index in get_committee_indices(committees_per_slot):
     let
       committee = get_beacon_committee(state, slot, committee_index, cache)
@@ -449,23 +479,31 @@ func makeFullAttestations*(
 
     doAssert committee.len() >= 1
     var attestation = phase0.Attestation(
-      aggregation_bits: CommitteeValidatorsBits.init(committee.len),
-      data: data)
-    for i in 0..<committee.len:
+      aggregation_bits: CommitteeValidatorsBits.init(committee.len), data: data
+    )
+    for i in 0 ..< committee.len:
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
-        attestation.aggregation_bits)
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root),
+      data,
+      committee,
+      attestation.aggregation_bits,
+    )
 
     result.add attestation
 
 func makeElectraAttestation(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
-    validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): electra.Attestation =
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    committee: seq[ValidatorIndex],
+    slot: Slot,
+    committee_index: CommitteeIndex,
+    validator_index: ValidatorIndex,
+    cache: var StateCache,
+    flags: UpdateFlags = {},
+): electra.Attestation =
   let
     index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, CommitteeIndex(0), beacon_block_root)
@@ -475,13 +513,17 @@ func makeElectraAttestation(
   var aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
   aggregation_bits.setBit index_in_committee
 
-  let sig = if skipBlsValidation in flags:
-    ValidatorSig()
-  else:
-    makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
-      data, committee, aggregation_bits)
+  let sig =
+    if skipBlsValidation in flags:
+      ValidatorSig()
+    else:
+      makeAttestationSig(
+        getStateField(state, fork),
+        getStateField(state, genesis_validators_root),
+        data,
+        committee,
+        aggregation_bits,
+      )
 
   var committee_bits: AttestationCommitteeBits
   committee_bits[int committee_index] = true
@@ -490,31 +532,35 @@ func makeElectraAttestation(
     data: data,
     committee_bits: committee_bits,
     aggregation_bits: aggregation_bits,
-    signature: sig
+    signature: sig,
   )
 
 func makeElectraAttestation*(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache): electra.Attestation =
-  let (committee, slot, index) =
-    find_beacon_committee(state, validator_index, cache)
-  makeElectraAttestation(state, beacon_block_root, committee, slot, index,
-    validator_index, cache)
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    validator_index: ValidatorIndex,
+    cache: var StateCache,
+): electra.Attestation =
+  let (committee, slot, index) = find_beacon_committee(state, validator_index, cache)
+  makeElectraAttestation(
+    state, beacon_block_root, committee, slot, index, validator_index, cache
+  )
 
 func makeFullElectraAttestations*(
-    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    state: ForkedHashedBeaconState,
+    beacon_block_root: Eth2Digest,
+    slot: Slot,
     cache: var StateCache,
-    flags: UpdateFlags = {}): seq[electra.Attestation] =
+    flags: UpdateFlags = {},
+): seq[electra.Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  let committees_per_slot = get_committee_count_per_slot(
-    state, slot.epoch, cache)
+  let committees_per_slot = get_committee_count_per_slot(state, slot.epoch, cache)
   for committee_index in get_committee_indices(committees_per_slot):
     let
       committee = get_beacon_committee(state, slot, committee_index, cache)
       data = makeAttestationData(state, slot, CommitteeIndex(0), beacon_block_root)
-    var
-      committee_bits: AttestationCommitteeBits
+    var committee_bits: AttestationCommitteeBits
 
     committee_bits[int committee_index] = true
 
@@ -522,50 +568,48 @@ func makeFullElectraAttestations*(
     var attestation = electra.Attestation(
       aggregation_bits: ElectraCommitteeValidatorsBits.init(committee.len),
       committee_bits: committee_bits,
-      data: data)
-    for i in 0..<committee.len:
+      data: data,
+    )
+    for i in 0 ..< committee.len:
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
-        attestation.aggregation_bits)
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root),
+      data,
+      committee,
+      attestation.aggregation_bits,
+    )
 
     result.add attestation
 
 proc makeSyncAggregate(
-    state: ForkedHashedBeaconState,
-    syncCommitteeRatio: float,
-    cfg: RuntimeConfig): SyncAggregate =
+    state: ForkedHashedBeaconState, syncCommitteeRatio: float, cfg: RuntimeConfig
+): SyncAggregate =
   if syncCommitteeRatio <= 0.0:
     return SyncAggregate.init()
 
   let
-    syncCommittee =
-      withState(state):
-        when consensusFork >= ConsensusFork.Altair:
-          if (forkyState.data.slot + 1).is_sync_committee_period():
-            forkyState.data.next_sync_committee
-          else:
-            forkyState.data.current_sync_committee
+    syncCommittee = withState(state):
+      when consensusFork >= ConsensusFork.Altair:
+        if (forkyState.data.slot + 1).is_sync_committee_period():
+          forkyState.data.next_sync_committee
         else:
-          return SyncAggregate.init()
-    fork =
-      getStateField(state, fork)
-    genesis_validators_root =
-      getStateField(state, genesis_validators_root)
-    slot =
-      getStateField(state, slot)
-    latest_block_id =
-      withState(state): forkyState.latest_block_id
+          forkyState.data.current_sync_committee
+      else:
+        return SyncAggregate.init()
+    fork = getStateField(state, fork)
+    genesis_validators_root = getStateField(state, genesis_validators_root)
+    slot = getStateField(state, slot)
+    latest_block_id = withState(state):
+      forkyState.latest_block_id
     rng = HmacDrbgContext.new()
     syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
 
-  type
-    Aggregator = object
-      subcommitteeIdx: SyncSubcommitteeIndex
-      validatorIdx: ValidatorIndex
-      selectionProof: ValidatorSig
+  type Aggregator = object
+    subcommitteeIdx: SyncSubcommitteeIndex
+    validatorIdx: ValidatorIndex
+    selectionProof: ValidatorSig
 
   let
     minActiveParticipants =
@@ -587,23 +631,26 @@ proc makeSyncAggregate(
         continue
       processedKeys.incl validatorKey
       let
-        validatorIdx =
-          block:
-            var res = 0
-            for i, validator in getStateField(state, validators):
-              if validator.pubkey == validatorKey:
-                res = i
-                break
-            res.ValidatorIndex
+        validatorIdx = block:
+          var res = 0
+          for i, validator in getStateField(state, validators):
+            if validator.pubkey == validatorKey:
+              res = i
+              break
+          res.ValidatorIndex
         selectionProofSig = get_sync_committee_selection_proof(
-          fork, genesis_validators_root,
-          slot, subcommitteeIdx,
-          MockPrivKeys[validatorIdx])
+          fork,
+          genesis_validators_root,
+          slot,
+          subcommitteeIdx,
+          MockPrivKeys[validatorIdx],
+        )
       if is_sync_committee_aggregator(selectionProofSig.toValidatorSig):
         aggregators.add Aggregator(
           subcommitteeIdx: subcommitteeIdx,
           validatorIdx: validatorIdx,
-          selectionProof: selectionProofSig.toValidatorSig)
+          selectionProof: selectionProofSig.toValidatorSig,
+        )
 
       if numActiveParticipants >= minActiveParticipants and
           rand(1.0) > syncCommitteeRatio:
@@ -619,63 +666,75 @@ proc makeSyncAggregate(
         continue
 
       let signature = get_sync_committee_message_signature(
-        fork, genesis_validators_root,
-        slot, latest_block_id.root,
-        MockPrivKeys[validatorIdx])
+        fork,
+        genesis_validators_root,
+        slot,
+        latest_block_id.root,
+        MockPrivKeys[validatorIdx],
+      )
       syncCommitteePool[].addSyncCommitteeMessage(
         slot,
         latest_block_id,
         uint64 validatorIdx,
         signature,
         subcommitteeIdx,
-        positions)
+        positions,
+      )
 
   for aggregator in aggregators:
     var contribution: SyncCommitteeContribution
     if syncCommitteePool[].produceContribution(
-        slot, latest_block_id, aggregator.subcommitteeIdx, contribution):
+      slot, latest_block_id, aggregator.subcommitteeIdx, contribution
+    ):
       let
         contributionAndProof = ContributionAndProof(
           aggregator_index: uint64 aggregator.validatorIdx,
           contribution: contribution,
-          selection_proof: aggregator.selectionProof)
+          selection_proof: aggregator.selectionProof,
+        )
         contributionSig = get_contribution_and_proof_signature(
-          fork, genesis_validators_root,
+          fork,
+          genesis_validators_root,
           contributionAndProof,
-          MockPrivKeys[aggregator.validatorIdx])
+          MockPrivKeys[aggregator.validatorIdx],
+        )
         signedContributionAndProof = SignedContributionAndProof(
-          message: contributionAndProof,
-          signature: contributionSig.toValidatorSig)
+          message: contributionAndProof, signature: contributionSig.toValidatorSig
+        )
       syncCommitteePool[].addContribution(
-        signedContributionAndProof,
-        latest_block_id, contribution.signature.load.get)
+        signedContributionAndProof, latest_block_id, contribution.signature.load.get
+      )
 
   syncCommitteePool[].produceSyncAggregate(latest_block_id, slot + 1)
 
 iterator makeTestBlocks*(
-  state: ForkedHashedBeaconState,
-  cache: var StateCache,
-  blocks: int,
-  eth1_data = Eth1Data(),
-  attested = false,
-  allDeposits = newSeq[Deposit](),
-  syncCommitteeRatio = 0.0,
-  graffiti = default(GraffitiBytes),
-  cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
+    state: ForkedHashedBeaconState,
+    cache: var StateCache,
+    blocks: int,
+    eth1_data = Eth1Data(),
+    attested = false,
+    allDeposits = newSeq[Deposit](),
+    syncCommitteeRatio = 0.0,
+    graffiti = default(GraffitiBytes),
+    cfg = defaultRuntimeConfig,
+): ForkedSignedBeaconBlock =
   var state = assignClone(state)
-  for _ in 0..<blocks:
+  for _ in 0 ..< blocks:
     let
-      parent_root = withState(state[]): forkyState.latest_block_root
+      parent_root = withState(state[]):
+        forkyState.latest_block_root
       attestations =
         if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, getStateField(state[], slot), cache
+          )
         else:
           @[]
       electraAttestations =
         if attested and state.kind >= ConsensusFork.Electra:
           makeFullElectraAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, getStateField(state[], slot), cache
+          )
         else:
           @[]
       stateEth1 = getStateField(state[], eth1_data)
@@ -692,11 +751,13 @@ iterator makeTestBlocks*(
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
     yield addTestBlock(
-      state[], cache,
+      state[],
+      cache,
       eth1_data = eth1_data,
       attestations = attestations,
       electraAttestations = electraAttestations,
       deposits = deposits,
       sync_aggregate = sync_aggregate,
       graffiti = graffiti,
-      cfg = cfg)
+      cfg = cfg,
+    )

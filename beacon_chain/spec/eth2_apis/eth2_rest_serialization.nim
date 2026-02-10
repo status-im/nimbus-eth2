@@ -17,15 +17,13 @@ import
 
 export peerid, presto_common, eth2_ssz_serialization, eth2_rest_json_serialization
 
-func decodeMediaType*(
-    contentType: Opt[ContentTypeData]): Result[MediaType, string] =
+func decodeMediaType*(contentType: Opt[ContentTypeData]): Result[MediaType, string] =
   if contentType.isNone or isWildCard(contentType.get.mediaType):
     return err("Missing or incorrect Content-Type")
   ok contentType.get.mediaType
 
 const
-  DecimalSet = {'0' .. '9'}
-    # Base10 (decimal) set of chars
+  DecimalSet = {'0' .. '9'} # Base10 (decimal) set of chars
   ValidatorKeySize = RawPubKeySize * 2
     # Size of `ValidatorPubKey` hexadecimal value (without 0x)
   ValidatorSigSize = RawSigSize * 2
@@ -44,94 +42,47 @@ const
 
 type
   EncodeTypes* =
-    BlobSidecarInfoObject |
-    DataColumnSidecarInfoObject |
-    DeleteKeystoresBody |
-    EmptyBody |
-    ImportDistributedKeystoresBody |
-    ImportRemoteKeystoresBody |
-    KeystoresAndSlashingProtection |
-    PrepareBeaconProposer |
-    ProposerSlashing |
-    SetFeeRecipientRequest |
-    SetGasLimitRequest |
-    bellatrix_mev.SignedBlindedBeaconBlock |
-    capella_mev.SignedBlindedBeaconBlock |
-    phase0.AttesterSlashing |
-    SignedValidatorRegistrationV1 |
-    SignedVoluntaryExit |
-    Web3SignerRequest |
-    RestNimbusTimestamp1 |
-    SetGraffitiRequest
+    BlobSidecarInfoObject | DataColumnSidecarInfoObject | DeleteKeystoresBody | EmptyBody |
+    ImportDistributedKeystoresBody | ImportRemoteKeystoresBody |
+    KeystoresAndSlashingProtection | PrepareBeaconProposer | ProposerSlashing |
+    SetFeeRecipientRequest | SetGasLimitRequest | bellatrix_mev.SignedBlindedBeaconBlock |
+    capella_mev.SignedBlindedBeaconBlock | phase0.AttesterSlashing |
+    SignedValidatorRegistrationV1 | SignedVoluntaryExit | Web3SignerRequest |
+    RestNimbusTimestamp1 | SetGraffitiRequest
 
   EncodeOctetTypes* =
-    altair.SignedBeaconBlock |
-    bellatrix.SignedBeaconBlock |
-    capella.SignedBeaconBlock |
-    phase0.SignedBeaconBlock |
-    DenebSignedBlockContents |
-    ElectraSignedBlockContents |
-    FuluSignedBlockContents |
-    GloasSignedBlockContents |
-    ForkedMaybeBlindedBeaconBlock |
-    deneb_mev.SignedBlindedBeaconBlock |
-    electra_mev.SignedBlindedBeaconBlock |
+    altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+    phase0.SignedBeaconBlock | DenebSignedBlockContents | ElectraSignedBlockContents |
+    FuluSignedBlockContents | GloasSignedBlockContents | ForkedMaybeBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlock | electra_mev.SignedBlindedBeaconBlock |
     fulu_mev.SignedBlindedBeaconBlock
 
   EncodeArrays* =
-    seq[phase0.Attestation] |
-    seq[electra.SingleAttestation] |
-    seq[PrepareBeaconProposer] |
-    seq[RemoteKeystoreInfo] |
-    seq[RestCommitteeSubscription] |
-    seq[RestSignedContributionAndProof] |
-    seq[RestSyncCommitteeMessage] |
-    seq[RestSyncCommitteeSubscription] |
-    seq[phase0.SignedAggregateAndProof] |
-    seq[electra.SignedAggregateAndProof] |
-    seq[SignedValidatorRegistrationV1] |
-    seq[ValidatorIndex] |
-    seq[RestBeaconCommitteeSelection] |
+    seq[phase0.Attestation] | seq[electra.SingleAttestation] | seq[
+      PrepareBeaconProposer
+    ] | seq[RemoteKeystoreInfo] | seq[RestCommitteeSubscription] |
+    seq[RestSignedContributionAndProof] | seq[RestSyncCommitteeMessage] |
+    seq[RestSyncCommitteeSubscription] | seq[phase0.SignedAggregateAndProof] |
+    seq[electra.SignedAggregateAndProof] | seq[SignedValidatorRegistrationV1] |
+    seq[ValidatorIndex] | seq[RestBeaconCommitteeSelection] |
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseElectra |
-    GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseElectra
+    GetHeaderResponseElectra | GetHeaderResponseFulu | SubmitBlindedBlockResponseElectra
 
   DecodeTypes* =
-    DataEnclosedObject |
-    DataMetaEnclosedObject |
-    DataRootEnclosedObject |
-    DataOptimisticObject |
-    DataVersionEnclosedObject |
-    DataOptimisticAndFinalizedObject |
-    GetBlockV2Response |
-    GetDistributedKeystoresResponse |
-    GetHistoricalSummariesV1Response |
-    GetHistoricalSummariesV1ResponseElectra |
-    GetKeystoresResponse |
-    GetRemoteKeystoresResponse |
-    GetStateForkResponse |
-    GetStateV2Response |
-    KeymanagerGenericError |
-    KeystoresAndSlashingProtection |
-    ListFeeRecipientResponse |
-    PrepareBeaconProposer |
-    RestIndexedErrorMessage |
-    RestErrorMessage |
-    RestValidator |
-    Web3SignerErrorResponse |
-    Web3SignerKeysResponse |
-    Web3SignerSignatureResponse |
-    Web3SignerStatusResponse |
-    GetStateRootResponse |
-    GetBlockRootResponse |
-    SomeForkedLightClientObject |
-    seq[SomeForkedLightClientObject] |
-    RestNimbusTimestamp1 |
-    RestNimbusTimestamp2 |
-    GetGraffitiResponse |
+    DataEnclosedObject | DataMetaEnclosedObject | DataRootEnclosedObject |
+    DataOptimisticObject | DataVersionEnclosedObject | DataOptimisticAndFinalizedObject |
+    GetBlockV2Response | GetDistributedKeystoresResponse |
+    GetHistoricalSummariesV1Response | GetHistoricalSummariesV1ResponseElectra |
+    GetKeystoresResponse | GetRemoteKeystoresResponse | GetStateForkResponse |
+    GetStateV2Response | KeymanagerGenericError | KeystoresAndSlashingProtection |
+    ListFeeRecipientResponse | PrepareBeaconProposer | RestIndexedErrorMessage |
+    RestErrorMessage | RestValidator | Web3SignerErrorResponse | Web3SignerKeysResponse |
+    Web3SignerSignatureResponse | Web3SignerStatusResponse | GetStateRootResponse |
+    GetBlockRootResponse | SomeForkedLightClientObject | seq[
+      SomeForkedLightClientObject
+    ] | RestNimbusTimestamp1 | RestNimbusTimestamp2 | GetGraffitiResponse |
     GetAggregatedAttestationV2Response
 
   RestVersioned*[T] = object
@@ -139,17 +90,13 @@ type
     jsonVersion*: ConsensusFork
     sszContext*: ForkDigest
 
-  RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
-                    bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BlockContents | electra.BlockContents |
-                    fulu.BlockContents | electra_mev.BlindedBeaconBlock |
-                    fulu_mev.BlindedBeaconBlock
+  RestBlockTypes* =
+    phase0.BeaconBlock | altair.BeaconBlock | bellatrix.BeaconBlock | capella.BeaconBlock |
+    deneb.BlockContents | electra.BlockContents | fulu.BlockContents |
+    electra_mev.BlindedBeaconBlock | fulu_mev.BlindedBeaconBlock
 
-func ethHeaders(
-    consensusFork: ConsensusFork,
-    hasRestAllowedOrigin: bool): HttpTable =
-  var headers = HttpTable.init [
-    ("eth-consensus-version", consensusFork.toString())]
+func ethHeaders(consensusFork: ConsensusFork, hasRestAllowedOrigin: bool): HttpTable =
+  var headers = HttpTable.init [("eth-consensus-version", consensusFork.toString())]
   if hasRestAllowedOrigin:
     headers.add("access-control-expose-headers", "eth-consensus-version")
   headers
@@ -159,16 +106,22 @@ func ethHeaders(
     isBlinded: bool,
     executionValue: UInt256,
     consensusValue: UInt256,
-    hasRestAllowedOrigin: bool): HttpTable =
+    hasRestAllowedOrigin: bool,
+): HttpTable =
   var headers = HttpTable.init [
     ("eth-consensus-version", consensusFork.toString()),
     ("eth-execution-payload-blinded", if isBlinded: "true" else: "false"),
     ("eth-execution-payload-value", toString(executionValue, 10)),
-    ("eth-consensus-block-value", toString(consensusValue, 10))]
+    ("eth-consensus-block-value", toString(consensusValue, 10)),
+  ]
   if hasRestAllowedOrigin:
-    headers.add("access-control-expose-headers", static(
-      "eth-consensus-version, eth-execution-payload-blinded, " &
-      "eth-execution-payload-value, eth-consensus-block-value"))
+    headers.add(
+      "access-control-expose-headers",
+      static(
+        "eth-consensus-version, eth-execution-payload-blinded, " &
+          "eth-execution-payload-value, eth-consensus-block-value"
+      ),
+    )
   headers
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
@@ -177,19 +130,24 @@ func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
     lowerLastChar = chr(ord('a') + radix - 11'u8)
     capitalLastChar = chr(ord('A') + radix - 11'u8)
   case c
-  of '0' .. '9': ok(int8 ord(c) - ord('0'))
-  of 'a' .. lowerLastChar: ok(int8 ord(c) - ord('a') + 10)
-  of 'A' .. capitalLastChar: ok(int8 ord(c) - ord('A') + 10)
-  else: err("Invalid hexadecimal character encountered!")
+  of '0' .. '9':
+    ok(int8 ord(c) - ord('0'))
+  of 'a' .. lowerLastChar:
+    ok(int8 ord(c) - ord('a') + 10)
+  of 'A' .. capitalLastChar:
+    ok(int8 ord(c) - ord('A') + 10)
+  else:
+    err("Invalid hexadecimal character encountered!")
 
 func readStrictDecChar(c: char, radix: static[uint8]): Result[int8, cstring] =
   const lastChar = char(ord('0') + radix - 1'u8)
   case c
-  of '0' .. lastChar: ok(int8 ord(c) - ord('0'))
-  else: err("Invalid decimal character encountered!")
+  of '0' .. lastChar:
+    ok(int8 ord(c) - ord('0'))
+  else:
+    err("Invalid decimal character encountered!")
 
-func skipPrefixes(str: string,
-                  radix: range[2..16]): Result[int, cstring] =
+func skipPrefixes(str: string, radix: range[2 .. 16]): Result[int, cstring] =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
   ## "0x" prefix
   if len(str) < 2:
@@ -199,13 +157,16 @@ func skipPrefixes(str: string,
     if str[0] == '0':
       if str[1] in {'x', 'X'}:
         if radix != 16:
-          return err("Parsing mismatch, 0x prefix is only valid for a " &
-                     "hexadecimal number (base 16)")
+          return err(
+            "Parsing mismatch, 0x prefix is only valid for a " &
+              "hexadecimal number (base 16)"
+          )
         ok(2)
       elif str[1] in {'o', 'O'}:
         if radix != 8:
-          return err("Parsing mismatch, 0o prefix is only valid for an " &
-                     "octal number (base 8)")
+          return err(
+            "Parsing mismatch, 0o prefix is only valid for an " & "octal number (base 8)"
+          )
         ok(2)
       elif str[1] in {'b', 'B'}:
         if radix == 2:
@@ -214,38 +175,38 @@ func skipPrefixes(str: string,
           # allow something like "0bcdef12345" which is a valid hex
           ok(0)
         else:
-          err("Parsing mismatch, 0b prefix is only valid for a binary number " &
-              "(base 2), or hex number")
+          err(
+            "Parsing mismatch, 0b prefix is only valid for a binary number " &
+              "(base 2), or hex number"
+          )
       else:
         ok(0)
     else:
       ok(0)
 
-func strictParse*[bits: static[int]](input: string,
-                                     T: typedesc[StUint[bits]],
-                                     radix: static[uint8] = 10
-                                    ): Result[T, cstring] {.raises: [].} =
+func strictParse*[bits: static[int]](
+    input: string, T: typedesc[StUint[bits]], radix: static[uint8] = 10
+): Result[T, cstring] {.raises: [].} =
   var res: T
-  static: doAssert (radix >= 2) and (radix <= 16),
-            "Only base from 2..16 are supported"
+  static:
+    doAssert (radix >= 2) and (radix <= 16), "Only base from 2..16 are supported"
 
   const
     base = radix.uint8.stuint(bits)
     zero = 0.uint8.stuint(256)
 
-  var currentIndex =
-    block:
-      let res = skipPrefixes(input, radix)
-      if res.isErr():
-        return err(res.error)
-      res.get()
+  var currentIndex = block:
+    let res = skipPrefixes(input, radix)
+    if res.isErr():
+      return err(res.error)
+    res.get()
 
   while currentIndex < len(input):
     let value =
       when radix <= 10:
-        ? readStrictDecChar(input[currentIndex], radix)
+        ?readStrictDecChar(input[currentIndex], radix)
       else:
-        ? readStrictHexChar(input[currentIndex], radix)
+        ?readStrictHexChar(input[currentIndex], radix)
     let mres = res * base
     if (res != zero) and (mres div base != res):
       return err("Overflow error")
@@ -271,7 +232,8 @@ proc prepareJsonResponse*(_: typedesc[RestApiResponse], d: auto): seq[byte] =
       w.writeField("data", d)
 
 proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
-    _: typedesc[RestApiResponse], d: RestVersioned[T]): string =
+    _: typedesc[RestApiResponse], d: RestVersioned[T]
+): string =
   withForkyObject(d.data):
     when lcDataFork > LightClientDataFork.None:
       withRestJsonWriter(w, string):
@@ -284,9 +246,12 @@ proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
 proc prepareJsonStringResponse*(_: typedesc[RestApiResponse], d: auto): string =
   RestJson.encode(d)
 
-proc jsonResponseWRoot*(_: typedesc[RestApiResponse], data: auto,
-                        dependent_root: Eth2Digest,
-                        execOpt: Opt[bool]): RestApiResponse =
+proc jsonResponseWRoot*(
+    _: typedesc[RestApiResponse],
+    data: auto,
+    dependent_root: Eth2Digest,
+    execOpt: Opt[bool],
+): RestApiResponse =
   let res = withRestJsonWriter(w, seq[byte]):
     w.writeObject:
       w.writeField("dependent_root", dependent_root)
@@ -308,7 +273,8 @@ proc jsonResponseBlock*(
     execOpt: Opt[bool],
     finalized: bool,
     consensusFork: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
@@ -325,7 +291,8 @@ proc jsonResponseBlock*(
     data: ForkedSignedBeaconBlock,
     execOpt: Opt[bool],
     finalized: bool,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     headers = data.kind.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
@@ -343,7 +310,8 @@ proc jsonResponseState*(
     data: ForkedHashedBeaconState,
     execOpt: Opt[bool],
     finalized: bool,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     headers = data.kind.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
@@ -356,8 +324,9 @@ proc jsonResponseState*(
 
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseWOpt*(_: typedesc[RestApiResponse], data: auto,
-                       execOpt: Opt[bool]): RestApiResponse =
+proc jsonResponseWOpt*(
+    _: typedesc[RestApiResponse], data: auto, execOpt: Opt[bool]
+): RestApiResponse =
   let res = withRestJsonWriter(w, seq[byte]):
     w.writeObject:
       w.writeField("execution_optimistic", execOpt)
@@ -366,8 +335,7 @@ proc jsonResponseWOpt*(_: typedesc[RestApiResponse], data: auto,
   RestApiResponse.response(res, Http200, "application/json")
 
 proc prepareJsonResponseFinalized*(
-    _: typedesc[RestApiResponse], data: auto, exec: Opt[bool],
-    finalized: bool
+    _: typedesc[RestApiResponse], data: auto, exec: Opt[bool], finalized: bool
 ): seq[byte] =
   withRestJsonWriter(w, seq[byte]):
     w.writeObject:
@@ -375,9 +343,9 @@ proc prepareJsonResponseFinalized*(
       w.writeField("finalized", finalized)
       w.writeField("data", data)
 
-proc jsonResponseFinalized*(_: typedesc[RestApiResponse], data: auto,
-                            exec: Opt[bool],
-                            finalized: bool): RestApiResponse =
+proc jsonResponseFinalized*(
+    _: typedesc[RestApiResponse], data: auto, exec: Opt[bool], finalized: bool
+): RestApiResponse =
   let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
@@ -387,7 +355,8 @@ proc jsonResponseFinalizedWVersion*(
     exec: Opt[bool],
     finalized: bool,
     version: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     headers = version.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
@@ -403,7 +372,8 @@ proc jsonResponseWVersion*(
     _: typedesc[RestApiResponse],
     data: auto,
     version: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     headers = version.ethHeaders(hasRestAllowedOrigin)
     res = withRestJsonWriter(w, seq[byte]):
@@ -414,15 +384,15 @@ proc jsonResponseWVersion*(
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
-    _: typedesc[RestApiResponse],
-    entries: openArray[RestVersioned[T]]): RestApiResponse =
+    _: typedesc[RestApiResponse], entries: openArray[RestVersioned[T]]
+): RestApiResponse =
   let res = withRestJsonWriter(w, seq[byte]):
-      for e in w.stepwiseArrayCreation(entries):
-        withForkyObject(e.data):
-          when lcDataFork > LightClientDataFork.None:
-            w.writeObject:
-              w.writeField("version", e.jsonVersion.toString())
-              w.writeField("data", forkyObject)
+    for e in w.stepwiseArrayCreation(entries):
+      withForkyObject(e.data):
+        when lcDataFork > LightClientDataFork.None:
+          w.writeObject:
+            w.writeField("version", e.jsonVersion.toString())
+            w.writeField("data", forkyObject)
 
   RestApiResponse.response(res, Http200, "application/json")
 
@@ -430,8 +400,7 @@ proc jsonPlainEncoded(data: auto): seq[byte] =
   withRestJsonWriter(w, seq[byte]):
     w.writeValue(data)
 
-proc jsonResponsePlain*(_: typedesc[RestApiResponse],
-                        data: auto): RestApiResponse =
+proc jsonResponsePlain*(_: typedesc[RestApiResponse], data: auto): RestApiResponse =
   let res = data.jsonPlainEncoded()
   RestApiResponse.response(res, Http200, "application/json")
 
@@ -439,7 +408,8 @@ proc jsonResponsePlain*(
     _: typedesc[RestApiResponse],
     data: auto,
     consensusFork: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     res = data.jsonPlainEncoded()
     headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
@@ -452,15 +422,18 @@ proc jsonResponsePlain*(
     isBlinded: bool,
     executionValue: UInt256,
     consensusValue: UInt256,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     res = data.jsonPlainEncoded()
     headers = consensusFork.ethHeaders(
-      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin)
+      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin
+    )
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseWMeta*(_: typedesc[RestApiResponse],
-                        data: auto, meta: auto): RestApiResponse =
+proc jsonResponseWMeta*(
+    _: typedesc[RestApiResponse], data: auto, meta: auto
+): RestApiResponse =
   let res = withRestJsonWriter(w, seq[byte]):
     w.writeObject:
       w.writeField("data", data)
@@ -468,8 +441,7 @@ proc jsonResponseWMeta*(_: typedesc[RestApiResponse],
 
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonMsgResponse*(_: typedesc[RestApiResponse],
-                      msg: string = ""): RestApiResponse =
+proc jsonMsgResponse*(_: typedesc[RestApiResponse], msg: string = ""): RestApiResponse =
   let data = withRestJsonWriter(w, seq[byte]):
     w.writeObject:
       w.writeField("code", 200)
@@ -477,8 +449,9 @@ proc jsonMsgResponse*(_: typedesc[RestApiResponse],
 
   RestApiResponse.response(data, Http200, "application/json")
 
-proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = ""): RestApiResponse =
+proc jsonError*(
+    _: typedesc[RestApiResponse], status: HttpCode = Http200, msg: string = ""
+): RestApiResponse =
   let data = withRestJsonWriter(w, string):
     w.writeObject:
       w.writeField("code", int(status.toInt()))
@@ -486,8 +459,12 @@ proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
 
   RestApiResponse.error(status, data, "application/json")
 
-proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = "", stacktrace: string): RestApiResponse =
+proc jsonError*(
+    _: typedesc[RestApiResponse],
+    status: HttpCode = Http200,
+    msg: string = "",
+    stacktrace: string,
+): RestApiResponse =
   let data = withRestJsonWriter(w, string):
     w.writeObject:
       w.writeField("code", int(status.toInt()))
@@ -497,9 +474,12 @@ proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
 
   RestApiResponse.error(status, data, "application/json")
 
-proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = "",
-                stacktraces: openArray[string]): RestApiResponse =
+proc jsonError*(
+    _: typedesc[RestApiResponse],
+    status: HttpCode = Http200,
+    msg: string = "",
+    stacktraces: openArray[string],
+): RestApiResponse =
   let data = withRestJsonWriter(w, string):
     w.writeObject:
       w.writeField("code", int(status.toInt()))
@@ -508,8 +488,7 @@ proc jsonError*(_: typedesc[RestApiResponse], status: HttpCode = Http200,
 
   RestApiResponse.error(status, data, "application/json")
 
-proc jsonError*(_: typedesc[RestApiResponse],
-                rmsg: RestErrorMessage): RestApiResponse =
+proc jsonError*(_: typedesc[RestApiResponse], rmsg: RestErrorMessage): RestApiResponse =
   let data = withRestJsonWriter(w, string):
     w.writeObject:
       w.writeField("code", rmsg.code)
@@ -518,9 +497,12 @@ proc jsonError*(_: typedesc[RestApiResponse],
 
   RestApiResponse.error(rmsg.code.toHttpCode().get(), data, "application/json")
 
-proc jsonErrorList*(_: typedesc[RestApiResponse],
-                    status: HttpCode = Http200,
-                    msg: string = "", failures: auto): RestApiResponse =
+proc jsonErrorList*(
+    _: typedesc[RestApiResponse],
+    status: HttpCode = Http200,
+    msg: string = "",
+    failures: auto,
+): RestApiResponse =
   let data = withRestJsonWriter(w, string):
     w.writeObject:
       w.writeField("code", int(status.toInt()))
@@ -530,8 +512,8 @@ proc jsonErrorList*(_: typedesc[RestApiResponse],
   RestApiResponse.error(status, data, "application/json")
 
 proc sszResponseVersioned*[T: SomeForkedLightClientObject](
-    _: typedesc[RestApiResponse],
-    entries: openArray[RestVersioned[T]]): RestApiResponse =
+    _: typedesc[RestApiResponse], entries: openArray[RestVersioned[T]]
+): RestApiResponse =
   let res =
     try:
       var stream = memoryOutput()
@@ -553,21 +535,21 @@ proc sszResponsePlain*(
     _: typedesc[RestApiResponse],
     res: seq[byte],
     consensusFork: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
-  RestApiResponse.response(
-    res, Http200, "application/octet-stream", headers = headers)
+  RestApiResponse.response(res, Http200, "application/octet-stream", headers = headers)
 
 proc sszResponse*(
     _: typedesc[RestApiResponse],
     data: auto,
     consensusFork: ConsensusFork,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     res = SSZ.encode(data)
     headers = consensusFork.ethHeaders(hasRestAllowedOrigin)
-  RestApiResponse.response(
-    res, Http200, "application/octet-stream", headers = headers)
+  RestApiResponse.response(res, Http200, "application/octet-stream", headers = headers)
 
 proc sszResponse*(
     _: typedesc[RestApiResponse],
@@ -576,13 +558,14 @@ proc sszResponse*(
     isBlinded: bool,
     executionValue: UInt256,
     consensusValue: UInt256,
-    hasRestAllowedOrigin: bool): RestApiResponse =
+    hasRestAllowedOrigin: bool,
+): RestApiResponse =
   let
     res = SSZ.encode(data)
     headers = consensusFork.ethHeaders(
-      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin)
-  RestApiResponse.response(
-    res, Http200, "application/octet-stream", headers = headers)
+      isBlinded, executionValue, consensusValue, hasRestAllowedOrigin
+    )
+  RestApiResponse.response(res, Http200, "application/octet-stream", headers = headers)
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
@@ -591,14 +574,12 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     err("Unable to decode root value")
 
 proc decodeBody*(
-       _: typedesc[RestPublishedSignedBeaconBlock],
-       body: ContentBody,
-       version: string
-     ): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
+    _: typedesc[RestPublishedSignedBeaconBlock], body: ContentBody, version: string
+): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
+      return
+        err(RestErrorMessage.init(Http400, UnableDecodeVersionError, [version, $error]))
 
     try:
       var res = ForkedSignedBeaconBlock(kind: consensusFork)
@@ -614,8 +595,8 @@ proc decodeBody*(
       )
   elif body.contentType == OctetStreamMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
+      return
+        err(RestErrorMessage.init(Http400, UnableDecodeVersionError, [version, $error]))
     try:
       var res = ForkedSignedBeaconBlock(kind: consensusFork)
       withBlck(res):
@@ -627,18 +608,19 @@ proc decodeBody*(
         Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
       )
   else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [version, $body.contentType]))
+    err(
+      RestErrorMessage.init(
+        Http415, InvalidContentTypeError, [version, $body.contentType]
+      )
+    )
 
 proc decodeBody*(
-       _: typedesc[RestPublishedSignedBlockContents],
-       body: ContentBody,
-       version: string
-     ): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
+    _: typedesc[RestPublishedSignedBlockContents], body: ContentBody, version: string
+): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
+      return
+        err(RestErrorMessage.init(Http400, UnableDecodeVersionError, [version, $error]))
 
     try:
       var res = RestPublishedSignedBlockContents(kind: consensusFork)
@@ -653,8 +635,8 @@ proc decodeBody*(
       )
   elif body.contentType == OctetStreamMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
+      return
+        err(RestErrorMessage.init(Http400, UnableDecodeVersionError, [version, $error]))
     try:
       var res = RestPublishedSignedBlockContents(kind: consensusFork)
       withForkyBlck(res):
@@ -665,48 +647,45 @@ proc decodeBody*(
         Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
       )
   else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [version, $body.contentType]))
+    err(
+      RestErrorMessage.init(
+        Http415, InvalidContentTypeError, [version, $body.contentType]
+      )
+    )
 
 proc decodeBodyJsonOrSsz*(
-    t: typedesc[seq[SignedValidatorRegistrationV1]],
-    body: ContentBody
+    t: typedesc[seq[SignedValidatorRegistrationV1]], body: ContentBody
 ): Result[seq[SignedValidatorRegistrationV1], RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
-        RestJson.decode(
-          body.data,
-          seq[SignedValidatorRegistrationV1])
+        RestJson.decode(body.data, seq[SignedValidatorRegistrationV1])
       except SerializationError as exc:
-        debug "Failed to deserialize REST JSON data",
-              err = exc.formatMsg("<data>")
+        debug "Failed to deserialize REST JSON data", err = exc.formatMsg("<data>")
         return err(
-          RestErrorMessage.init(Http400, UnableDecodeError,
-                                [exc.formatMsg("<data>")]))
+          RestErrorMessage.init(Http400, UnableDecodeError, [exc.formatMsg("<data>")])
+        )
     ok(data)
   elif body.contentType == OctetStreamMediaType:
     let data =
       try:
         SSZ.decode(
-          body.data,
-          List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT])
+          body.data, List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT]
+        )
       except SerializationError as exc:
-        debug "Failed to deserialize REST SSZ data",
-              err = exc.formatMsg("<data>")
+        debug "Failed to deserialize REST SSZ data", err = exc.formatMsg("<data>")
         return err(
-          RestErrorMessage.init(Http400, UnableDecodeError,
-                                [exc.formatMsg("<data>")]))
+          RestErrorMessage.init(Http400, UnableDecodeError, [exc.formatMsg("<data>")])
+        )
     ok(data.asSeq)
   else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [$body.contentType]))
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError, [$body.contentType]))
 
 proc decodeBytesJsonOrSsz*(
     T: typedesc[MevDecodeTypes],
     data: openArray[byte],
     contentType: Opt[ContentTypeData],
-    version: string
+    version: string,
 ): Result[T, RestErrorMessage] =
   var res: T
   const typeFork = kind(typeof(res.data))
@@ -716,44 +695,54 @@ proc decodeBytesJsonOrSsz*(
       try:
         RestJson.decode(data, T)
       except SerializationError as exc:
-        debug "Failed to deserialize REST JSON data",
-              err = exc.formatMsg("<data>")
+        debug "Failed to deserialize REST JSON data", err = exc.formatMsg("<data>")
         return err(
-          RestErrorMessage.init(Http400, UnableDecodeError,
-                                [exc.formatMsg("<data>")]))
+          RestErrorMessage.init(Http400, UnableDecodeError, [exc.formatMsg("<data>")])
+        )
     let jsonFork = ConsensusFork.decodeString(res.version.getStr()).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [res.version.getStr(), $error]))
+      return err(
+        RestErrorMessage.init(
+          Http400, UnableDecodeVersionError, [res.version.getStr(), $error]
+        )
+      )
     if typeFork != jsonFork:
       return err(
-        RestErrorMessage.init(Http400, UnexpectedForkVersionError,
-                              ["json-version", res.version.getStr(),
-                               typeFork.toString()]))
+        RestErrorMessage.init(
+          Http400,
+          UnexpectedForkVersionError,
+          ["json-version", res.version.getStr(), typeFork.toString()],
+        )
+      )
     ok(res)
   elif contentType == OctetStreamMediaType:
-    let consensusFork =
-      ConsensusFork.decodeString(version).valueOr:
-        return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                         [version, $error]))
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return
+        err(RestErrorMessage.init(Http400, UnableDecodeVersionError, [version, $error]))
     if typeFork != consensusFork:
       return err(
         RestErrorMessage.init(
-          Http400, UnexpectedForkVersionError,
-          ["eth-consensus-version", consensusFork.toString(),
-           typeFork.toString()]))
+          Http400,
+          UnexpectedForkVersionError,
+          ["eth-consensus-version", consensusFork.toString(), typeFork.toString()],
+        )
+      )
 
-    ok(T(
-      version: newJString(typeFork.toString()),
-      data:
-        try:
-          SSZ.decode(data, typeof(res.data))
-        except SerializationError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [exc.formatMsg("<data>")]))))
+    ok(
+      T(
+        version: newJString(typeFork.toString()),
+        data:
+          try:
+            SSZ.decode(data, typeof(res.data))
+          except SerializationError as exc:
+            return err(
+              RestErrorMessage.init(
+                Http400, UnableDecodeError, [exc.formatMsg("<data>")]
+              )
+            ),
+      )
+    )
   else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [$contentType]))
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError, [$contentType]))
 
 proc decodeBody*(T: typedesc, body: ContentBody): Result[T, cstring] =
   if body.contentType != ApplicationJsonMediaType:
@@ -763,48 +752,45 @@ proc decodeBody*(T: typedesc, body: ContentBody): Result[T, cstring] =
     ok RestJson.decode(body.data, T)
   except SerializationError as exc:
     debug "Failed to deserialize REST JSON data",
-          err = exc.formatMsg("<data>"),
-          data = string.fromBytes(body.data)
+      err = exc.formatMsg("<data>"), data = string.fromBytes(body.data)
     err("Unable to deserialize data")
 
-proc decodeBodyJsonOrSsz*(T: typedesc,
-                          body: ContentBody): Result[T, RestErrorMessage] =
+proc decodeBodyJsonOrSsz*(T: typedesc, body: ContentBody): Result[T, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     try:
       ok RestJson.decode(body.data, T)
     except SerializationError as exc:
       debug "Failed to decode JSON data",
-            err = exc.formatMsg("<data>"),
-            data = string.fromBytes(body.data)
-      err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                [exc.formatMsg("<data>")]))
+        err = exc.formatMsg("<data>"), data = string.fromBytes(body.data)
+      err(RestErrorMessage.init(Http400, UnableDecodeError, [exc.formatMsg("<data>")]))
   elif body.contentType == OctetStreamMediaType:
     try:
       ok SSZ.decode(body.data, T)
     except SerializationError as exc:
-      err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                [exc.formatMsg("<data>")]))
+      err(RestErrorMessage.init(Http400, UnableDecodeError, [exc.formatMsg("<data>")]))
   else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [$body.contentType]))
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError, [$body.contentType]))
 
-proc encodeBytes*(value: seq[SignedValidatorRegistrationV1],
-                  contentType: string): RestResult[seq[byte]] =
+proc encodeBytes*(
+    value: seq[SignedValidatorRegistrationV1], contentType: string
+): RestResult[seq[byte]] =
   case contentType
   of "application/json":
     ok block:
       withRestJsonWriter(w, seq[byte]):
         w.writeArray(value)
   of "application/octet-stream":
-    ok(SSZ.encode(
-      init(
-        List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT],
-        value)))
+    ok(
+      SSZ.encode(
+        init(List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT], value)
+      )
+    )
   else:
     err("Content-Type not supported")
 
-proc encodeBytes*[T: EncodeTypes](value: T,
-                                  contentType: string): RestResult[seq[byte]] =
+proc encodeBytes*[T: EncodeTypes](
+    value: T, contentType: string
+): RestResult[seq[byte]] =
   case contentType
   of "application/json":
     ok block:
@@ -813,8 +799,9 @@ proc encodeBytes*[T: EncodeTypes](value: T,
   else:
     err("Content-Type not supported")
 
-proc encodeBytes*[T: EncodeArrays](value: T,
-                                   contentType: string): RestResult[seq[byte]] =
+proc encodeBytes*[T: EncodeArrays](
+    value: T, contentType: string
+): RestResult[seq[byte]] =
   case contentType
   of "application/json":
     ok block:
@@ -824,8 +811,7 @@ proc encodeBytes*[T: EncodeArrays](value: T,
     err("Content-Type not supported")
 
 proc encodeBytes*[T: EncodeOctetTypes](
-    value: T,
-    contentType: string
+    value: T, contentType: string
 ): RestResult[seq[byte]] =
   case contentType
   of "application/json":
@@ -837,8 +823,9 @@ proc encodeBytes*[T: EncodeOctetTypes](
   else:
     err("Content-Type not supported")
 
-func readSszResBytes(T: typedesc[RestBlockTypes],
-                     data: openArray[byte]): RestResult[T] =
+func readSszResBytes(
+    T: typedesc[RestBlockTypes], data: openArray[byte]
+): RestResult[T] =
   var res: T
   try:
     readSszBytes(data, res)
@@ -855,37 +842,35 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
     headerConsensusVersion: string,
     headerBlinded: string,
     headerPayloadValue: string,
-    headerConsensusValue: string): RestResult[T] =
-  let
-    mediaType =
-      if contentType.isNone():
-        ApplicationJsonMediaType
-      else:
-        if isWildCard(contentType.get().mediaType):
-          return err("Incorrect Content-Type")
-        contentType.get().mediaType
+    headerConsensusValue: string,
+): RestResult[T] =
+  let mediaType =
+    if contentType.isNone():
+      ApplicationJsonMediaType
+    else:
+      if isWildCard(contentType.get().mediaType):
+        return err("Incorrect Content-Type")
+      contentType.get().mediaType
 
   if mediaType == ApplicationJsonMediaType:
     try:
       ok(RestJson.decode(value, T))
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>"),
-            data = string.fromBytes(value)
+        err = exc.formatMsg("<data>"), data = string.fromBytes(value)
       return err("Serialization error")
   elif mediaType == OctetStreamMediaType:
     let
       fork = ConsensusFork.decodeString(headerConsensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
-      blinded =
-        block:
-          var toCheck = headerBlinded.toLowerAscii()
-          if toCheck == "true":
-            true
-          elif toCheck == "false":
-            false
-          else:
-            return err("Incorrect `Eth-Execution-Payload-Blinded` header value")
+      blinded = block:
+        var toCheck = headerBlinded.toLowerAscii()
+        if toCheck == "true":
+          true
+        elif toCheck == "false":
+          false
+        else:
+          return err("Incorrect `Eth-Execution-Payload-Blinded` header value")
       executionValue =
         try:
           Opt.some parse(headerPayloadValue, UInt256, 10)
@@ -906,39 +891,37 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
         return err("gloas produceblockv3 not available yet")
       elif consensusFork >= ConsensusFork.Electra:
         if blinded:
-          let contents =
-            ? readSszResBytes(consensusFork.BlindedBlockContents, value)
+          let contents = ?readSszResBytes(consensusFork.BlindedBlockContents, value)
           ok(
-            ForkedMaybeBlindedBeaconBlock.init(
-              contents, executionValue, consensusValue))
+            ForkedMaybeBlindedBeaconBlock.init(contents, executionValue, consensusValue)
+          )
         else:
-          let contents = ? readSszResBytes(consensusFork.BlockContents, value)
+          let contents = ?readSszResBytes(consensusFork.BlockContents, value)
           ok(
-            ForkedMaybeBlindedBeaconBlock.init(
-              contents, executionValue, consensusValue))
+            ForkedMaybeBlindedBeaconBlock.init(contents, executionValue, consensusValue)
+          )
       elif consensusFork >= ConsensusFork.Bellatrix:
         if blinded:
-          return err("`Eth-Execution-Payload-Blinded` unsupported for " &
-                     "`Eth-Consensus-Version`")
-        let contents = ? readSszResBytes(consensusFork.BlockContents, value)
-        ok(
-          ForkedMaybeBlindedBeaconBlock.init(
-            contents, executionValue, consensusValue))
+          return err(
+            "`Eth-Execution-Payload-Blinded` unsupported for " &
+              "`Eth-Consensus-Version`"
+          )
+        let contents = ?readSszResBytes(consensusFork.BlockContents, value)
+        ok(ForkedMaybeBlindedBeaconBlock.init(contents, executionValue, consensusValue))
       else:
         if blinded:
-          return err("`Eth-Execution-Payload-Blinded` unsupported for " &
-                     "`Eth-Consensus-Version`")
-        let contents = ? readSszResBytes(consensusFork.BlockContents, value)
+          return err(
+            "`Eth-Execution-Payload-Blinded` unsupported for " &
+              "`Eth-Consensus-Version`"
+          )
+        let contents = ?readSszResBytes(consensusFork.BlockContents, value)
         ok(ForkedMaybeBlindedBeaconBlock.init(contents))
   else:
     err("Unsupported Content-Type")
 
 proc decodeBytes*[T: DecodeTypes](
-       t: typedesc[T],
-       value: openArray[byte],
-       contentType: Opt[ContentTypeData]
-     ): RestResult[T] =
-
+    t: typedesc[T], value: openArray[byte], contentType: Opt[ContentTypeData]
+): RestResult[T] =
   let mediaType =
     if contentType.isNone():
       ApplicationJsonMediaType
@@ -952,8 +935,7 @@ proc decodeBytes*[T: DecodeTypes](
       ok RestJson.decode(value, T)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>"),
-            data = string.fromBytes(value)
+        err = exc.formatMsg("<data>"), data = string.fromBytes(value)
       err("Serialization error")
   else:
     err("Content-Type not supported")
@@ -963,12 +945,9 @@ func encodeString*(value: string): RestResult[string] =
 
 func encodeString*(
     value:
-      uint64 |
-      SyncCommitteePeriod |
-      Epoch |
-      Slot |
-      CommitteeIndex |
-      SyncSubcommitteeIndex): RestResult[string] =
+      uint64 | SyncCommitteePeriod | Epoch | Slot | CommitteeIndex |
+      SyncSubcommitteeIndex
+): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
 func encodeString*(value: ValidatorSig): RestResult[string] =
@@ -1031,8 +1010,9 @@ func encodeString*(value: BlockIdent): RestResult[string] =
     of BlockIdentType.Finalized:
       ok("finalized")
 
-func decodeString*(t: typedesc[PeerStateKind],
-                   value: string): Result[PeerStateKind, cstring] =
+func decodeString*(
+    t: typedesc[PeerStateKind], value: string
+): Result[PeerStateKind, cstring] =
   case value
   of "disconnected":
     ok(PeerStateKind.Disconnected)
@@ -1056,8 +1036,9 @@ func encodeString*(value: PeerStateKind): Result[string, cstring] =
   of PeerStateKind.Disconnecting:
     ok("disconnecting")
 
-func decodeString*(t: typedesc[PeerDirectKind],
-                   value: string): Result[PeerDirectKind, cstring] =
+func decodeString*(
+    t: typedesc[PeerDirectKind], value: string
+): Result[PeerDirectKind, cstring] =
   case value
   of "inbound":
     ok(PeerDirectKind.Inbound)
@@ -1076,8 +1057,9 @@ func encodeString*(value: PeerDirectKind): Result[string, cstring] =
 func encodeString*(peerid: PeerId): Result[string, cstring] =
   ok($peerid)
 
-func decodeString*(t: typedesc[EventTopic],
-                   value: string): Result[EventTopic, cstring] =
+func decodeString*(
+    t: typedesc[EventTopic], value: string
+): Result[EventTopic, cstring] =
   case value
   of "head":
     ok(EventTopic.Head)
@@ -1153,16 +1135,18 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
   res.setLen(len(res) - 1)
   ok(res)
 
-func decodeString*(t: typedesc[ValidatorSig],
-                   value: string): Result[ValidatorSig, cstring] =
+func decodeString*(
+    t: typedesc[ValidatorSig], value: string
+): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
     return err("Incorrect validator signature value length")
   if value[0] != '0' and value[1] != 'x':
     return err("Incorrect validator signature encoding")
   ValidatorSig.fromHex(value)
 
-func decodeString*(t: typedesc[ValidatorPubKey],
-                   value: string): Result[ValidatorPubKey, cstring] =
+func decodeString*(
+    t: typedesc[ValidatorPubKey], value: string
+): Result[ValidatorPubKey, cstring] =
   if len(value) != ValidatorKeySize + 2:
     return err("Incorrect validator's key value length")
   if value[0] != '0' and value[1] != 'x':
@@ -1170,97 +1154,93 @@ func decodeString*(t: typedesc[ValidatorPubKey],
   else:
     ValidatorPubKey.fromHex(value)
 
-func decodeString*(t: typedesc[GraffitiBytes],
-                   value: string): Result[GraffitiBytes, cstring] =
+func decodeString*(
+    t: typedesc[GraffitiBytes], value: string
+): Result[GraffitiBytes, cstring] =
   try:
     ok(GraffitiBytes.init(value))
   except ValueError:
     err("Unable to decode graffiti value")
 
-func decodeString*(t: typedesc[string],
-                   value: string): Result[string, cstring] =
+func decodeString*(t: typedesc[string], value: string): Result[string, cstring] =
   ok(value)
 
 func decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
-  let res = ? Base10.decode(uint64, value)
+  let res = ?Base10.decode(uint64, value)
   ok(Slot(res))
 
 func decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
-  let res = ? Base10.decode(uint64, value)
+  let res = ?Base10.decode(uint64, value)
   ok(Epoch(res))
 
-func decodeString*(t: typedesc[SyncCommitteePeriod],
-                   value: string): Result[SyncCommitteePeriod, cstring] =
-  let res = ? Base10.decode(uint64, value)
+func decodeString*(
+    t: typedesc[SyncCommitteePeriod], value: string
+): Result[SyncCommitteePeriod, cstring] =
+  let res = ?Base10.decode(uint64, value)
   ok(SyncCommitteePeriod(res))
 
-func decodeString*(t: typedesc[uint64],
-                   value: string): Result[uint64, cstring] =
+func decodeString*(t: typedesc[uint64], value: string): Result[uint64, cstring] =
   Base10.decode(uint64, value)
 
-func decodeString*(t: typedesc[StateIdent],
-                   value: string): Result[StateIdent, cstring] =
+func decodeString*(
+    t: typedesc[StateIdent], value: string
+): Result[StateIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != RootHashSize + 2:
         err("Incorrect state root value length")
       else:
-        let res = ? parseRoot(value)
+        let res = ?parseRoot(value)
         ok(StateIdent(kind: StateQueryKind.Root, root: res))
     elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint64, value)
+      let res = ?Base10.decode(uint64, value)
       ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
     else:
       case value
       of "head":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Head))
+        ok(StateIdent(kind: StateQueryKind.Named, value: StateIdentType.Head))
       of "genesis":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Genesis))
+        ok(StateIdent(kind: StateQueryKind.Named, value: StateIdentType.Genesis))
       of "finalized":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Finalized))
+        ok(StateIdent(kind: StateQueryKind.Named, value: StateIdentType.Finalized))
       of "justified":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Justified))
+        ok(StateIdent(kind: StateQueryKind.Named, value: StateIdentType.Justified))
       else:
         err("Incorrect state identifier value")
   else:
-    let res = ? Base10.decode(uint64, value)
+    let res = ?Base10.decode(uint64, value)
     ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
 
-func decodeString*(t: typedesc[BlockIdent],
-                   value: string): Result[BlockIdent, cstring] =
+func decodeString*(
+    t: typedesc[BlockIdent], value: string
+): Result[BlockIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != RootHashSize + 2:
         err("Incorrect block root value length")
       else:
-        let res = ? parseRoot(value)
+        let res = ?parseRoot(value)
         ok(BlockIdent(kind: BlockQueryKind.Root, root: res))
     elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint64, value)
+      let res = ?Base10.decode(uint64, value)
       ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
     else:
       case value
-        of "head":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Head))
-        of "genesis":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Genesis))
-        of "finalized":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Finalized))
-        else:
-          err("Incorrect block identifier value")
+      of "head":
+        ok(BlockIdent(kind: BlockQueryKind.Named, value: BlockIdentType.Head))
+      of "genesis":
+        ok(BlockIdent(kind: BlockQueryKind.Named, value: BlockIdentType.Genesis))
+      of "finalized":
+        ok(BlockIdent(kind: BlockQueryKind.Named, value: BlockIdentType.Finalized))
+      else:
+        err("Incorrect block identifier value")
   else:
-    let res = ? Base10.decode(uint64, value)
+    let res = ?Base10.decode(uint64, value)
     ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
 
-func decodeString*(t: typedesc[BroadcastValidationType],
-                   value: string): Result[BroadcastValidationType, cstring] =
+func decodeString*(
+    t: typedesc[BroadcastValidationType], value: string
+): Result[BroadcastValidationType, cstring] =
   case value
   of "gossip":
     ok(BroadcastValidationType.Gossip)
@@ -1271,42 +1251,48 @@ func decodeString*(t: typedesc[BroadcastValidationType],
   else:
     err("Incorrect broadcast validation type value")
 
-func decodeString*(t: typedesc[ValidatorIdent],
-                   value: string): Result[ValidatorIdent, cstring] =
+func decodeString*(
+    t: typedesc[ValidatorIdent], value: string
+): Result[ValidatorIdent, cstring] =
   ValidatorIdent.parse(value)
 
-func decodeString*(t: typedesc[PeerId],
-                   value: string): Result[PeerId, cstring] =
+func decodeString*(t: typedesc[PeerId], value: string): Result[PeerId, cstring] =
   PeerId.init(value)
 
-func decodeString*(t: typedesc[CommitteeIndex],
-                   value: string): Result[CommitteeIndex, cstring] =
-  let res = ? Base10.decode(uint64, value)
+func decodeString*(
+    t: typedesc[CommitteeIndex], value: string
+): Result[CommitteeIndex, cstring] =
+  let res = ?Base10.decode(uint64, value)
   CommitteeIndex.init(res)
 
-func decodeString*(t: typedesc[SyncSubcommitteeIndex],
-                   value: string): Result[SyncSubcommitteeIndex, cstring] =
-  let res = ? Base10.decode(uint64, value)
+func decodeString*(
+    t: typedesc[SyncSubcommitteeIndex], value: string
+): Result[SyncSubcommitteeIndex, cstring] =
+  let res = ?Base10.decode(uint64, value)
   SyncSubcommitteeIndex.init(res)
 
-func decodeString*(t: typedesc[Eth2Digest],
-                   value: string): Result[Eth2Digest, cstring] =
+func decodeString*(
+    t: typedesc[Eth2Digest], value: string
+): Result[Eth2Digest, cstring] =
   if len(value) != RootHashSize + 2:
     return err("Incorrect root value length")
   if value[0] != '0' and value[1] != 'x':
     return err("Incorrect root value encoding")
   parseRoot(value)
 
-func decodeString*(t: typedesc[ValidatorFilter],
-                   value: string): Result[ValidatorFilter, cstring] =
+func decodeString*(
+    t: typedesc[ValidatorFilter], value: string
+): Result[ValidatorFilter, cstring] =
   ValidatorFilter.parse(value)
-func decodeString*(t: typedesc[ConsensusFork],
-                   value: string): Result[ConsensusFork, cstring] =
+func decodeString*(
+    t: typedesc[ConsensusFork], value: string
+): Result[ConsensusFork, cstring] =
   ConsensusFork.init(toLowerAscii(value)) or
     err("Unsupported or invalid beacon block fork version")
 
-proc decodeString*(t: typedesc[EventBeaconBlockObject],
-                   value: string): Result[EventBeaconBlockObject, string] =
+proc decodeString*(
+    t: typedesc[EventBeaconBlockObject], value: string
+): Result[EventBeaconBlockObject, string] =
   try:
     ok(RestJson.decode(value, t))
   except SerializationError as exc:

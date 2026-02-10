@@ -15,8 +15,7 @@ from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import
-  PendingConsolidation, PendingDeposit,
-  PendingPartialWithdrawal
+  PendingConsolidation, PendingDeposit, PendingPartialWithdrawal
 from ./spec/datatypes/gloas import
   BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
   BUILDER_PENDING_WITHDRAWALS_LIMIT
@@ -25,8 +24,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ
   # reading and writing
-  Phase0BeaconStateNoImmutableValidators* = object
-    # Versioning
+  Phase0BeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -66,11 +64,9 @@ type
       HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -78,8 +74,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
-  AltairBeaconStateNoImmutableValidators* = object
-    # Versioning
+  AltairBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -113,31 +108,28 @@ type
       ## Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*: EpochParticipationFlags
-      ## [Modified in Altair]
-    current_epoch_participation*: EpochParticipationFlags
-      ## [Modified in Altair]
+    previous_epoch_participation*: EpochParticipationFlags ## [Modified in Altair]
+    current_epoch_participation*: EpochParticipationFlags ## [Modified in Altair]
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+      # [New in Altair]
 
     # Light client sync committees
-    current_sync_committee*: SyncCommittee     # [New in Altair]
-    next_sync_committee*: SyncCommittee        # [New in Altair]
+    current_sync_committee*: SyncCommittee # [New in Altair]
+    next_sync_committee*: SyncCommittee # [New in Altair]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Bellatrix BeaconState for in-place SSZ
   # reading and writing
-  BellatrixBeaconStateNoImmutableValidators* = object
-    # Versioning
+  BellatrixBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -175,8 +167,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -190,14 +181,14 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
+    latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader
+      # [New in Bellatrix]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayload
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
   # reading and writing
-  CapellaBeaconStateNoImmutableValidators* = object
-    # Versioning
+  CapellaBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -221,8 +212,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -237,8 +227,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -256,20 +245,18 @@ type
       ## [Modified in Capella]
 
     # Withdrawals
-    next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
-    next_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
+    next_withdrawal_validator_index*: uint64 # [New in Capella]
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary,
-        Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+      # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayloadHeader
   # Memory-representation-equivalent to a Deneb BeaconState for in-place SSZ
   # reading and writing
-  DenebBeaconStateNoImmutableValidators* = object
-    # Versioning
+  DenebBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -293,8 +280,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -309,8 +295,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -331,15 +316,13 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayloadHeader
   # Memory-representation-equivalent to a Deneb BeaconState for in-place SSZ
   # reading and writing
-  ElectraBeaconStateNoImmutableValidators* = object
-    # Versioning
+  ElectraBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -363,8 +346,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -379,8 +361,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -401,15 +382,14 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
-    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
-    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    deposit_requests_start_index*: uint64 # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch # [New in Electra:EIP7251]
     pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
@@ -422,8 +402,7 @@ type
 
   # Memory-representation-equivalent to a Fulu BeaconState for in-place SSZ
   # reading and writing
-  FuluBeaconStateNoImmutableValidators* = object
-    # Versioning
+  FuluBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -447,8 +426,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -463,8 +441,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -485,15 +462,14 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
-    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
-    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    deposit_requests_start_index*: uint64 # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch # [New in Electra:EIP7251]
     pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
@@ -506,12 +482,11 @@ type
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
-        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+      HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
   # Memory-representation-equivalent to a Gloas BeaconState for in-place SSZ
   # reading and writing
-  GloasBeaconStateNoImmutableValidators* = object
-    # Versioning
+  GloasBeaconStateNoImmutableValidators* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -535,8 +510,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*:
-      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
@@ -551,8 +525,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -574,15 +547,14 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
-    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
-    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    deposit_requests_start_index*: uint64 # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch # [New in Electra:EIP7251]
     pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
@@ -594,15 +566,15 @@ type
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
-        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+      HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     # [New in Gloas:EIP7732]
-    builder_pending_payments*: 
+    builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*: 
+    builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
     # [New in Gloas:EIP7732]
     latest_block_hash*: Eth2Digest

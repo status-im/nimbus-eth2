@@ -12,14 +12,11 @@
 # Merkle tree helpers
 # ---------------------------------------------------------------
 
-import
-  ../spec/[eth2_merkleization, digest],
-  ../spec/datatypes/base
+import ../spec/[eth2_merkleization, digest], ../spec/datatypes/base
 
 from std/sequtils import mapIt
 
-template getProof(
-    proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =
+template getProof(proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =
   let
     idx = idxParam
     ## TODO: It's surprising that we have to do +1 here.
@@ -36,7 +33,7 @@ func attachMerkleProofs*(deposits: var openArray[Deposit]): Eth2Digest =
   for i in 0 ..< depositsRoots.len:
     deposits[i].proof[0 ..< DEPOSIT_CONTRACT_TREE_DEPTH] = getProof(proofs, i)
     deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH] = default(Eth2Digest)
-    deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH].data[0..7] =
+    deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH].data[0 .. 7] =
       toBytesLE deposits.lenu64
 
   mixInLength(merkleizer.getFinalHash(), deposits.len)

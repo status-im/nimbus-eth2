@@ -8,35 +8,40 @@
 {.push raises: [].}
 
 import
-  chronicles, chronicles/[topics_registry, timings],
-  confutils, confutils/std/net,
+  chronicles,
+  chronicles/[topics_registry, timings],
+  confutils,
+  confutils/std/net,
   ../beacon_chain/spec/eth2_apis/rest_beacon_client
 
-type
-  Config = object
-    serverIpAddress {.
-      defaultValue: static(parseIpAddress("127.0.0.1"))
-      defaultValueDesc: "127.0.0.1"
-      desc: "IP address of the beacon node's REST server"
-      abbr: "a"
-      name: "address" }: IpAddress
+type Config = object
+  serverIpAddress {.
+    defaultValue: static(parseIpAddress("127.0.0.1")),
+    defaultValueDesc: "127.0.0.1",
+    desc: "IP address of the beacon node's REST server",
+    abbr: "a",
+    name: "address"
+  .}: IpAddress
 
-    serverPort {.
-      defaultValue: 5052
-      desc: "Listening port of the beacon node's REST server"
-      abbr: "p"
-      name: "port" }: Port
+  serverPort {.
+    defaultValue: 5052,
+    desc: "Listening port of the beacon node's REST server",
+    abbr: "p",
+    name: "port"
+  .}: Port
 
-    startSlot {.
-      defaultValue: 0
-      desc: "The starting slot from which to start history traversal"
-      abbr: "s"
-      name: "start-slot" }: uint
+  startSlot {.
+    defaultValue: 0,
+    desc: "The starting slot from which to start history traversal",
+    abbr: "s",
+    name: "start-slot"
+  .}: uint
 
-    requestsCount {.
-      desc: "Number of requests to send to the beacon node's REST server"
-      abbr: "n"
-      name: "count" }: uint
+  requestsCount {.
+    desc: "Number of requests to send to the beacon node's REST server",
+    abbr: "n",
+    name: "count"
+  .}: uint
 
 proc main() {.raises: [ConfigurationError, HttpError, OSError].} =
   let config = Config.load

@@ -9,7 +9,8 @@
 
 import
   std/[algorithm, sequtils],
-  chronos, chronicles,
+  chronos,
+  chronicles,
   eth/p2p/discoveryv5/[protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
   ../spec/eth2_ssz_serialization,
@@ -24,8 +25,7 @@ type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
 
-func parseBootstrapAddress*(address: string):
-    Result[enr.Record, string] =
+func parseBootstrapAddress*(address: string): Result[enr.Record, string] =
   let lowerCaseAddress = toLowerAscii(address)
   if lowerCaseAddress.startsWith("enr:"):
     let res = enr.Record.fromURI(address)
@@ -46,8 +46,7 @@ iterator strippedLines(filename: string): string {.raises: [ref IOError].} =
     if stripped.len > 0:
       yield stripped
 
-proc addBootstrapNode*(bootstrapAddr: string,
-                       bootstrapEnrs: var seq[enr.Record]) =
+proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]) =
   # Ignore empty lines or lines starting with #
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
@@ -58,14 +57,13 @@ proc addBootstrapNode*(bootstrapAddr: string,
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
   else:
-    warn "Ignoring invalid bootstrap address",
-          bootstrapAddr, reason = enrRes.error
+    warn "Ignoring invalid bootstrap address", bootstrapAddr, reason = enrRes.error
 
-proc loadBootstrapFile*(bootstrapFile: string,
-                        bootstrapEnrs: var seq[enr.Record]) =
-  if bootstrapFile.len == 0: return
+proc loadBootstrapFile*(bootstrapFile: string, bootstrapEnrs: var seq[enr.Record]) =
+  if bootstrapFile.len == 0:
+    return
   let ext = splitFile(bootstrapFile).ext
-  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
+  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0:
     try:
       for ln in strippedLines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs)
@@ -76,12 +74,15 @@ proc loadBootstrapFile*(bootstrapFile: string,
     error "Unknown bootstrap file format", ext
     quit 1
 
-proc new*(T: type Eth2DiscoveryProtocol,
-          config: BeaconNodeConf | LightClientConf,
-          enrIp: Opt[IpAddress], enrTcpPort, enrUdpPort: Opt[Port],
-          pk: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
-          T =
+proc new*(
+    T: type Eth2DiscoveryProtocol,
+    config: BeaconNodeConf | LightClientConf,
+    enrIp: Opt[IpAddress],
+    enrTcpPort, enrUdpPort: Opt[Port],
+    pk: PrivateKey,
+    enrFields: openArray[(string, seq[byte])],
+    rng: ref HmacDrbgContext,
+): T =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
@@ -102,9 +103,18 @@ proc new*(T: type Eth2DiscoveryProtocol,
     else:
       Opt.none(IpAddress)
 
-  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-    bindPort = config.udpPort, bindIp = listenAddress,
-    enrAutoUpdate = config.enrAutoUpdate, rng = rng)
+  newProtocol(
+    pk,
+    enrIp,
+    enrTcpPort,
+    enrUdpPort,
+    enrFields,
+    bootstrapEnrs,
+    bindPort = config.udpPort,
+    bindIp = listenAddress,
+    enrAutoUpdate = config.enrAutoUpdate,
+    rng = rng,
+  )
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
   if discoveryForkId.fork_digest == peerForkId.fork_digest:
@@ -114,7 +124,6 @@ func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): boo
     elif discoveryForkId.next_fork_version == peerForkId.next_fork_version:
       # We should have the same next_fork_epoch
       discoveryForkId.next_fork_epoch == peerForkId.next_fork_epoch
-
     else:
       # Our next fork version is bigger than the peer's one
       false
@@ -128,7 +137,8 @@ proc queryRandom*(
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
     wantedCgcnets: CgcBits,
-    minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
+    minScore: int,
+): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -175,7 +185,7 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      for i in 0..<ATTESTATION_SUBNET_COUNT:
+      for i in 0 ..< ATTESTATION_SUBNET_COUNT:
         if wantedAttnets[i] and attnetsNode[i]:
           score += 1
 

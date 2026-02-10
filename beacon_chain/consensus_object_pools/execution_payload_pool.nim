@@ -16,7 +16,8 @@ import
 
 from std/sequtils import filterIt
 
-logScope: topics = "bidpool"
+logScope:
+  topics = "bidpool"
 
 type
   SlotBids* = object
@@ -30,19 +31,20 @@ type
     slotBids*: Table[Slot, SlotBids]
     blockRootIndex*: Table[Eth2Digest, seq[(Slot, Eth2Digest)]]
 
-func init*(
-    T: type ExecutionPayloadBidPool,
-    dag: ChainDAGRef): ExecutionPayloadBidPool =
+func init*(T: type ExecutionPayloadBidPool, dag: ChainDAGRef): ExecutionPayloadBidPool =
   ExecutionPayloadBidPool(
     dag: dag,
     slotBids: initTable[Slot, SlotBids](),
-    blockRootIndex: initTable[Eth2Digest, seq[(Slot, Eth2Digest)]]())
+    blockRootIndex: initTable[Eth2Digest, seq[(Slot, Eth2Digest)]](),
+  )
 
 proc addBid*(
     pool: var ExecutionPayloadBidPool,
     signedBid: SignedExecutionPayloadBid,
-    wallTime: BeaconTime) =
-  template bid: untyped = signedBid.message
+    wallTime: BeaconTime,
+) =
+  template bid(): untyped =
+    signedBid.message
 
   logScope:
     bid_slot = bid.slot
@@ -71,12 +73,13 @@ proc addBid*(
 
   slotData.highestBids[bid.parent_block_hash] = signedBid
 
-  pool.blockRootIndex.mgetOrPut(
-    bid.parent_block_root, @[]).add((bid.slot, bid.parent_block_hash))
+  pool.blockRootIndex.mgetOrPut(bid.parent_block_root, @[]).add(
+    (bid.slot, bid.parent_block_hash)
+  )
 
 func getBidForSlotAndBuilder*(
-    pool: ExecutionPayloadBidPool, slot: Slot,
-    builderIndex: uint64): Opt[SignedExecutionPayloadBid] =
+    pool: ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64
+): Opt[SignedExecutionPayloadBid] =
   let slotData = pool.slotBids.getOrDefault(slot)
 
   for bid in slotData.highestBids.values:
@@ -85,8 +88,8 @@ func getBidForSlotAndBuilder*(
   Opt.none(SignedExecutionPayloadBid)
 
 func getHighestBidForSlotAndParent*(
-    pool: ExecutionPayloadBidPool, slot: Slot,
-    parentBlockHash: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+    pool: ExecutionPayloadBidPool, slot: Slot, parentBlockHash: Eth2Digest
+): Opt[SignedExecutionPayloadBid] =
   let
     slotData = pool.slotBids.getOrDefault(slot)
     bid = slotData.highestBids.getOrDefault(parentBlockHash)
@@ -96,21 +99,20 @@ func getHighestBidForSlotAndParent*(
     Opt.none(SignedExecutionPayloadBid)
 
 func getBidForBlockRoot*(
-    pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+    pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest
+): Opt[SignedExecutionPayloadBid] =
   let references = pool.blockRootIndex.getOrDefault(blockRoot, @[])
   if references.len > 0:
     let (slot, parentHash) = references[0]
     return pool.getHighestBidForSlotAndParent(slot, parentHash)
   Opt.none(SignedExecutionPayloadBid)
 
-func hasBidForBlockRoot*(
-    pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest): bool =
+func hasBidForBlockRoot*(pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest): bool =
   pool.blockRootIndex.getOrDefault(blockRoot, @[]).len > 0
 
 func hasSeenBidFromBuilder*(
-    pool: ExecutionPayloadBidPool, slot: Slot,
-    builderIndex: uint64): bool =
+    pool: ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64
+): bool =
   let slotData = pool.slotBids.getOrDefault(slot)
   builderIndex in slotData.seenBuilders
 
@@ -127,12 +129,10 @@ proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
           let blockRoot = bid.message.parent_block_root
           if blockRoot in pool.blockRootIndex:
             pool.blockRootIndex[blockRoot] =
-              pool.blockRootIndex[blockRoot].filterIt(
-                it != (slot, parentHash))
+              pool.blockRootIndex[blockRoot].filterIt(it != (slot, parentHash))
             if pool.blockRootIndex[blockRoot].len == 0:
               pool.blockRootIndex.del(blockRoot)
 
       pool.slotBids.del(slot)
-
   except KeyError:
     error "KeyError during bid pruning"

@@ -26,14 +26,14 @@ when defined(windows):
 
     SERVICE_STATUS_HANDLE* = DWORD
     LPSERVICE_STATUS* = ptr SERVICE_STATUS
-    LPSERVICE_MAIN_FUNCTIONW* = proc (para1: DWORD, para2: LPWSTR) {.stdcall.}
+    LPSERVICE_MAIN_FUNCTIONW* = proc(para1: DWORD, para2: LPWSTR) {.stdcall.}
 
     SERVICE_TABLE_ENTRYW* {.final, pure.} = object
       lpServiceName*: LPWSTR
       lpServiceProc*: LPSERVICE_MAIN_FUNCTIONW
 
     LPSERVICE_TABLE_ENTRYW* = ptr SERVICE_TABLE_ENTRYW
-    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL {.stdcall.}
+    LPHANDLER_FUNCTION* = proc(para1: DWORD): WINBOOL {.stdcall.}
 
   const
     SERVICE_WIN32_OWN_PROCESS = 16
@@ -56,24 +56,20 @@ when defined(windows):
     gSvcStatus: SERVICE_STATUS
 
   proc startServiceCtrlDispatcher(
-         lpServiceStartTable: LPSERVICE_TABLE_ENTRYW
-       ): WINBOOL {.
-       stdcall, dynlib: "advapi32", importc: "StartServiceCtrlDispatcherW".}
+    lpServiceStartTable: LPSERVICE_TABLE_ENTRYW
+  ): WINBOOL {.stdcall, dynlib: "advapi32", importc: "StartServiceCtrlDispatcherW".}
 
   proc setServiceStatus(
-         hServiceStatus: SERVICE_STATUS_HANDLE,
-         lpServiceStatus: LPSERVICE_STATUS
-       ): WINBOOL {.
-       stdcall, dynlib: "advapi32", importc: "SetServiceStatus".}
+    hServiceStatus: SERVICE_STATUS_HANDLE, lpServiceStatus: LPSERVICE_STATUS
+  ): WINBOOL {.stdcall, dynlib: "advapi32", importc: "SetServiceStatus".}
 
   proc registerServiceCtrlHandler(
-         lpServiceName: LPWSTR,
-         lpHandlerProc: LPHANDLER_FUNCTION
-       ): SERVICE_STATUS_HANDLE {.
-       stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerW".}
+    lpServiceName: LPWSTR, lpHandlerProc: LPHANDLER_FUNCTION
+  ): SERVICE_STATUS_HANDLE {.
+    stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerW"
+  .}
 
-  proc getCommandLine(dwArgc: DWORD,
-                      lpszArgv: LPWSTR): Result[seq[string], string] =
+  proc getCommandLine(dwArgc: DWORD, lpszArgv: LPWSTR): Result[seq[string], string] =
     var res: seq[string]
     let arguments = cast[ptr UncheckedArray[LPWSTR]](lpszArgv)
     if uint64(dwArgc) > uint64(high(int)):
@@ -84,8 +80,9 @@ when defined(windows):
       res.add(str)
     ok(res)
 
-  proc reportServiceStatus(dwCurrentState, dwWin32ExitCode,
-                           dwWaitHint: DWORD) {.gcsafe.} =
+  proc reportServiceStatus(
+      dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD
+  ) {.gcsafe.} =
     gSvcStatus.dwCurrentState = dwCurrentState
     gSvcStatus.dwWin32ExitCode = dwWin32ExitCode
     gSvcStatus.dwWaitHint = dwWaitHint
@@ -106,13 +103,14 @@ when defined(windows):
   proc reportServiceStatusSuccess*() =
     reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
 
-  template establishWindowsService*(argHelpBanner, argCopyright: string,
-                                    argVersions: openArray[string],
-                                    argServiceName: string,
-                                    argConfigType: untyped,
-                                    argEntryPoint: untyped,
-                                    argExitPoint: untyped): untyped =
-
+  template establishWindowsService*(
+      argHelpBanner, argCopyright: string,
+      argVersions: openArray[string],
+      argServiceName: string,
+      argConfigType: untyped,
+      argEntryPoint: untyped,
+      argExitPoint: untyped,
+  ): untyped =
     proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
       case dwCtrl
       of SERVICE_CONTROL_STOP:
@@ -127,7 +125,7 @@ when defined(windows):
         discard
       else:
         debug "Service received an unexpected user-defined control message",
-              msg = dwCtrl
+          msg = dwCtrl
 
     proc serviceMainFunction(dwArgc: DWORD, lpszArgv: LPWSTR) {.stdcall.} =
       # The service is launched in a fresh thread created by Windows, so
@@ -136,9 +134,8 @@ when defined(windows):
 
       setupForeignThreadGc()
 
-      gSvcStatusHandle = registerServiceCtrlHandler(
-        cast[LPWSTR](serviceName),
-        serviceControlHandler)
+      gSvcStatusHandle =
+        registerServiceCtrlHandler(cast[LPWSTR](serviceName), serviceControlHandler)
 
       gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS
       gSvcStatus.dwServiceSpecificExitCode = 0
@@ -148,8 +145,9 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
         quit QuitFailure
 
-      var config = loadWithBanners(argConfigType, argHelpBanner, argCopyright,
-                                   argVersions, false, environment).valueOr:
+      var config = loadWithBanners(
+        argConfigType, argHelpBanner, argCopyright, argVersions, false, environment
+      ).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
 
@@ -168,16 +166,16 @@ when defined(windows):
     let serviceName = newWideCString(argServiceName)
 
     var dispatchTable = [
-      SERVICE_TABLE_ENTRYW(lpServiceName: cast[LPWSTR](serviceName),
-                           lpServiceProc: serviceMainFunction),
-      SERVICE_TABLE_ENTRYW(lpServiceName: nil,
-                           lpServiceProc: nil)
+      SERVICE_TABLE_ENTRYW(
+        lpServiceName: cast[LPWSTR](serviceName), lpServiceProc: serviceMainFunction
+      ),
+      SERVICE_TABLE_ENTRYW(lpServiceName: nil, lpServiceProc: nil),
     ]
 
     let status =
       startServiceCtrlDispatcher(LPSERVICE_TABLE_ENTRYW(addr dispatchTable[0]))
     if status == 0:
       let errorCode = osLastError()
-      fatal "Failed to start Windows service", error_code = uint32(errorCode),
-            reason = osErrorMsg(errorCode)
+      fatal "Failed to start Windows service",
+        error_code = uint32(errorCode), reason = osErrorMsg(errorCode)
       quit QuitFailure
