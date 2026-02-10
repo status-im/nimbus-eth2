@@ -98,6 +98,7 @@ type
     blobLoader: BlobLoaderFn
     dataColumnLoader: DataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
+    envelopeLoopFuture: Future[void].Raising([CancelledError])
     blobLoopFuture: Future[void].Raising([CancelledError])
     dataColumnLoopFuture: Future[void].Raising([CancelledError])
 
@@ -320,9 +321,9 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           # proceed to the next slot. So in theory we should only be able to
           # notice at most one missing envelope per slot.
           #
-          # If we manage to find mutliple missing envelopes over slots, the
-          # response, which should contains 2 or more envelopes, may cause
-          # verifier error as the order matters.
+          # If there is a good way to find missing envelopes other than the
+          # head, the response, which may contains 2 or more envelopes, may
+          # cause verifier error as the order matters.
           #
           # TODO improve/investigate way of figuring out missing envelope
           #      efficiently (across different slots).
@@ -603,6 +604,61 @@ proc requestManagerBlockLoop(
     debug "Request manager block tick", blocks = shortLog(blockRoots),
                                         sync_speed = speed(start, finish)
 
+proc requestManagerEnvelopeLoop(self: RequestManager)
+    {.async: (raises: [CancelledError]).} =
+  while true:
+    # TODO This polling could be replaced with an AsyncEvent that is fired
+    #      from the quarantine when there's work to do
+    await sleepAsync(POLL_INTERVAL)
+
+    if self.inhibit():
+      continue
+
+    let missingBlockRoots = self.envelopeQuarantine[].peekMissing().toSeq()
+    if missingBlockRoots.len() == 0:
+      continue
+
+    var blockRoots: seq[Eth2Digest]
+    if self.envelopeLoader == nil:
+      blockRoots = missingBlockRoots
+    else:
+      var verifiers:
+        seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
+      for blockRoot in missingBlockRoots:
+        let envelope = self.envelopeLoader(blockRoot).valueOr:
+          blockRoots.add blockRoot
+          continue
+        debug "Loaded orphaned envelope from storage", blockRoot
+        verifiers.add self.envelopeVerifier(envelope.asSigned())
+      try:
+        await allFutures(verifiers)
+      except CancelledError as exc:
+        var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
+        for verifier in verifiers:
+          futs.add verifier.cancelAndWait()
+        await noCancel allFutures(futs)
+        raise exc
+
+    if blockRoots.len() == 0:
+      continue
+
+    debug "Requesting detected missing envelopes", envelopes = shortLog(blockRoots)
+    let start = SyncMoment.now(0)
+
+    var workers:
+      array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
+
+    for i in 0 ..< PARALLEL_REQUESTS:
+      workers[i] = self.fetchEnvelopesFromNetwork(blockRoots)
+
+    await allFutures(workers)
+
+    let finish = SyncMoment.now(uint64(len(blockRoots)))
+
+    debug "Request manager envelope tick",
+      envelopes = shortLog(blockRoots),
+      sync_speed = speed(start, finish)
+
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
     wallTime = rman.getBeaconTime()
@@ -837,6 +893,7 @@ proc requestManagerDataColumnLoop(
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
+  rman.envelopeLoopFuture = rman.requestManagerEnvelopeLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc switchToColumnLoop*(rman: var RequestManager) =
@@ -855,6 +912,8 @@ proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
   if not(isNil(rman.blockLoopFuture)):
     rman.blockLoopFuture.cancelSoon()
+  if not(isNil(rman.envelopeLoopFuture)):
+    rman.envelopeLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
   if not(isNil(rman.dataColumnLoopFuture)):
