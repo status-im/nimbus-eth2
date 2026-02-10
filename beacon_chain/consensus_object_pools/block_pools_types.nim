@@ -273,6 +273,8 @@ type
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
 
+  ForkChoiceBalance* = distinct Gwei
+
   EpochRef* = ref object
     key*: EpochKey
 
@@ -287,9 +289,7 @@ type
     shufflingRef*: ShufflingRef
 
     total_active_balance*: Gwei
-
-    # balances, as used in fork choice
-    effective_balances_bytes*: seq[byte]
+    fork_choice_balances_bytes*: seq[byte]
 
   BlockData* = object
     blck*: ForkedSignedBeaconBlock

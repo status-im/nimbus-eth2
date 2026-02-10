@@ -220,7 +220,23 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
-func makeSignedExecutionPayloadBid*(
+func makeExecutionPayloadEnvelope*(
+    eps: gloas.ExecutionPayloadForSigning,
+    execution_requests: ExecutionRequests,
+    beacon_block_root: Eth2Digest,
+    slot: Slot,
+    state_root: Eth2Digest,
+): gloas.ExecutionPayloadEnvelope =
+  gloas.ExecutionPayloadEnvelope(
+    payload: eps.executionPayload,
+    execution_requests: execution_requests,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    beacon_block_root: beacon_block_root,
+    slot: slot,
+    state_root: state_root
+  )
+
+func makeSignedExecutionPayloadBid(
     executionPayload: deneb.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
@@ -237,7 +253,7 @@ func makeSignedExecutionPayloadBid*(
     slot: slot,
     value: 0.Gwei,
     execution_payment: 0.Gwei,
-    blob_kzg_commitments_root: hash_tree_root(blob_kzg_commitments),
+    blob_kzg_commitments: blob_kzg_commitments,
   )
   SignedExecutionPayloadBid(
     message: bid,

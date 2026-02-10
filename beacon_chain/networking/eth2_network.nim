@@ -850,7 +850,8 @@ template gossipMaxSize(T: untyped): uint32 =
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
          T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
-         T is gloas.SignedExecutionPayloadEnvelope:
+         T is gloas.SignedExecutionPayloadEnvelope or
+         T is gloas.SignedExecutionPayloadBid:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2898,3 +2899,12 @@ proc broadcastPayloadAttestationMessage*(
     topic = getPayloadAttestationMessageTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadEnvelope*(
+    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = envelope.message.slot.epoch
+    topic = getExecutionPayloadTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, envelope)

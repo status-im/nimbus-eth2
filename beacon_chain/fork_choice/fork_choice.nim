@@ -16,8 +16,8 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ./fork_choice_types, ./proto_array,
-  ../consensus_object_pools/[spec_cache, blockchain_dag]
+  ../consensus_object_pools/[spec_cache, blockchain_dag],
+  "."/[fork_choice_types, proto_array]
 
 from std/sequtils import keepItIf
 export results, fork_choice_types
@@ -36,43 +36,49 @@ export proto_array.len
 type Index = fork_choice_types.Index
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void]
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[ForkChoiceBalance],
+    new_balances: openArray[ForkChoiceBalance]): FcResult[void]
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
 logScope: topics = "fork_choice"
 
+template to_balance_checkpoint(
+    epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
+  BalanceCheckpoint(
+    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
+    validators: ValidatorInfo(balances: epochRef.fork_choice_balances))
+
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
+    finalized: BalanceCheckpoint, currentSlot: Slot): T =
+  T(confirmation_byzantine_threshold: confirmation_byzantine_threshold,
+    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, confirmation_byzantine_threshold: uint64,
+    epochRef: EpochRef, blck: BlockRef, currentSlot = GENESIS_SLOT,
+    wallTime = default(BeaconTime)): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
   debug "Initializing fork choice",
     epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let checkpoint = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+  let finalized = to_balance_checkpoint(epochRef, blck)
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      FinalityCheckpoints(
-        justified: checkpoint,
-        finalized: checkpoint)),
+      confirmation_byzantine_threshold, finalized, currentSlot),
     checkpoints: Checkpoints(
-      justified: BalanceCheckpoint(
-        checkpoint: checkpoint,
-        total_active_balance: epochRef.total_active_balance,
-        balances: epochRef.effective_balances),
-      finalized: checkpoint,
-      best_justified: checkpoint))
+      time: wallTime,
+      justified: finalized,
+      finalized: finalized.checkpoint))
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -82,41 +88,38 @@ func extend[T](s: var seq[T], minLen: int) =
     s.setLen(minLen)
 
 proc update_justified(
-    self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
-  let
-    epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
-      # Shouldn't happen for justified data unless out of sync with ChainDAG
-      warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, error
-      return
-    justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+    self: var Checkpoints, dag: ChainDAGRef,
+    epoch: Epoch, blck: BlockRef, current_slot: Slot) =
+  let epochRef = dag.getEpochRef(blck, epoch, preFinalized = false).valueOr:
+    # Shouldn't happen for justified data unless out of sync with ChainDAG
+    warn "Skipping justified checkpoint update, no EpochRef - report bug",
+      blck, epoch, error
+    return
 
   trace "Updating justified",
-    store = self.justified.checkpoint, state = justified
-  self.justified = BalanceCheckpoint(
-    checkpoint: justified,
-    total_active_balance: epochRef.total_active_balance,
-    balances: epochRef.effective_balances)
+    store = self.justified.checkpoint,
+    state = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+  self.justified = to_balance_checkpoint(epochRef, blck)
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
-    justified: Checkpoint): FcResult[void] =
+    justified: Checkpoint, current_slot: Slot): FcResult[void] =
   let blck = dag.getBlockRef(justified.root).valueOr:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
 
-  self.update_justified(dag, blck, justified.epoch)
+  self.update_justified(dag, justified.epoch, blck, current_slot)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
-    checkpoints: FinalityCheckpoints): FcResult[void] =
+    checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
   ## Update checkpoints in store if necessary
   # Update justified checkpoint
   if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
-    ? self.update_justified(dag, checkpoints.justified)
+    ? self.update_justified(dag, checkpoints.justified, current_slot)
 
   # Update finalized checkpoint
   if checkpoints.finalized.epoch > self.finalized.epoch:
@@ -141,34 +144,31 @@ proc on_tick(
     current_slot = time.slotOrZero(dag.timeParams)
     previous_slot = previous_time.slotOrZero(dag.timeParams)
 
-  # If this is a new slot, reset store.proposer_boost_root
   if current_slot > previous_slot:
+    # Reset store.proposer_boost_root
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
-  # If a new epoch, pull-up justification and finalization from previous epoch
-  if current_slot > previous_slot and current_slot.is_epoch:
-    for realized in self.backend.proto_array.realizePendingCheckpoints():
-      ? self.checkpoints.update_checkpoints(dag, realized)
-
+    if current_slot.is_epoch:
+      # Pull-up unrealized justified / finalized checkpoints from previous epoch
+      for realized in self.backend.proto_array.realizePendingCheckpoints():
+        ? self.checkpoints.update_checkpoints(dag, realized, current_slot)
   ok()
 
 func process_attestation(
-       self: var ForkChoiceBackend,
-       validator_index: ValidatorIndex,
-       block_root: Eth2Digest,
-       target_epoch: Epoch
-     ) =
+    self: var ForkChoiceBackend,
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if target_epoch > vote.next_epoch or vote.next_root.isZero:
-    vote.next_root = block_root
-    vote.next_epoch = target_epoch
+  if vote.slot != FAR_FUTURE_SLOT:
+    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.slot = slot
 
-    trace "Integrating vote in fork choice",
-      validator_index = validator_index,
-      new_vote = shortLog(vote)
+      trace "Integrating vote in fork choice",
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
 
 proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
   # Spec:
@@ -179,7 +179,7 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot.epoch())
+          validator_index, it.block_root, it.slot)
       false
     else:
       true
@@ -216,13 +216,12 @@ proc update_time*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
-       self: var ForkChoice,
-       dag: ChainDAGRef,
-       attestation_slot: Slot,
-       beacon_block_root: Eth2Digest,
-       attesting_indices: openArray[ValidatorIndex],
-       wallTime: BeaconTime
-     ): FcResult[void] =
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    attestation_slot: Slot,
+    beacon_block_root: Eth2Digest,
+    attesting_indices: openArray[ValidatorIndex],
+    wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
 
@@ -230,49 +229,48 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot.epoch)
+        validator_index, beacon_block_root, attestation_slot)
   else:
     # Spec:
     # Attestations can only affect the fork choice of subsequent slots.
     # Delay consideration in the fork choice until their slot is in the past.
-    self.queuedAttestations.add(QueuedAttestation(
-      slot: attestation_slot,
+    self.queuedAttestations.add QueuedAttestation(
       attesting_indices: @attesting_indices,
-      block_root: beacon_block_root))
+      block_root: beacon_block_root,
+      slot: attestation_slot)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
-       self: var ForkChoice,
-       validator_index: ValidatorIndex
-     ) =
+    self: var ForkChoice, validator_index: ValidatorIndex) =
   self.backend.votes.extend(validator_index.int + 1)
 
   # Disallow future votes
   template vote: untyped = self.backend.votes[validator_index]
-  if vote.next_epoch != FAR_FUTURE_EPOCH or not vote.next_root.isZero:
-    vote.next_epoch = FAR_FUTURE_EPOCH
+  if vote.slot != FAR_FUTURE_SLOT or not vote.next_root.isZero:
+    vote.slot = FAR_FUTURE_SLOT
     vote.next_root.reset()
 
-    trace "Integrating equivocation in fork choice",
-      validator_index
+    trace "Integrating equivocation in fork choice", validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
-func process_block*(self: var ForkChoiceBackend,
-                    bid: BlockId,
-                    parent_root: Eth2Digest,
-                    checkpoints: FinalityCheckpoints,
-                    unrealized = none(FinalityCheckpoints)): FcResult[void] =
+func process_block*(
+    self: var ForkChoiceBackend,
+    bid: BlockId,
+    parent_root: Eth2Digest,
+    checkpoints: FinalityCheckpoints,
+    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-proc process_block*(self: var ForkChoice,
-                    dag: ChainDAGRef,
-                    epochRef: EpochRef,
-                    blckRef: BlockRef,
-                    unrealized: FinalityCheckpoints,
-                    blck: ForkyTrustedBeaconBlock,
-                    wallTime: BeaconTime): FcResult[void] =
-  ? update_time(self, dag,
+proc process_block*(
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    epochRef: EpochRef,
+    blckRef: BlockRef,
+    unrealized: FinalityCheckpoints,
+    blck: ForkyTrustedBeaconBlock,
+    wallTime: BeaconTime): FcResult[void] =
+  ? self.update_time(dag,
     max(wallTime, blckRef.slot.start_beacon_time(dag.timeParams)))
 
   for attester_slashing in blck.body.attester_slashings:
@@ -287,7 +285,7 @@ proc process_block*(self: var ForkChoice,
         self.backend.process_attestation(
           validator_index,
           attestation.data.beacon_block_root,
-          attestation.data.target.epoch)
+          attestation.data.slot)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
@@ -301,7 +299,7 @@ proc process_block*(self: var ForkChoice,
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary
-  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints)
+  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints, slot)
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
@@ -312,13 +310,13 @@ proc process_block*(self: var ForkChoice,
     if epochRef.epoch < slot.epoch:
       trace "Pulling up chain tip",
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
-      ? update_checkpoints(self.checkpoints, dag, unrealized)
+      ? update_checkpoints(self.checkpoints, dag, unrealized, slot)
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, Opt.some unrealized)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
@@ -326,64 +324,55 @@ proc process_block*(self: var ForkChoice,
   ok()
 
 func find_head(
-       self: var ForkChoiceBackend,
-       current_epoch: Epoch,
-       checkpoints: FinalityCheckpoints,
-       justified_total_active_balance: Gwei,
-       justified_state_balances: seq[Gwei],
-       proposer_boost_root: Eth2Digest
-     ): FcResult[Eth2Digest] =
+    self: var ForkChoiceBackend,
+    current_slot: Slot,
+    checkpoints: Checkpoints): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
-  # Compute deltas with previous call
-  #   we might want to reuse the `deltas` buffer across calls
+  # Apply score changes
   var deltas = newSeq[Delta](self.proto_array.indices.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
-    new_balances = justified_state_balances)
-
-  # Apply score changes
+    new_balances = checkpoints.justified.validators.balances)
   ? self.proto_array.applyScoreChanges(
-    deltas, current_epoch, checkpoints,
-    justified_total_active_balance, proposer_boost_root)
-
-  self.balances = justified_state_balances
+    deltas, current_slot,
+    FinalityCheckpoints(
+      justified: checkpoints.justified.checkpoint,
+      finalized: checkpoints.finalized),
+    checkpoints.justified.total_active_balance,
+    checkpoints.proposer_boost_root)
+  self.balances = checkpoints.justified.validators.balances
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head, checkpoints.justified.root)
+  ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
-    checkpoints, fork_choice_head = shortLog(new_head)
-
-  return ok(new_head)
+    current_slot, checkpoints = FinalityCheckpoints(
+      justified: checkpoints.justified.checkpoint,
+      finalized: checkpoints.finalized),
+    fork_choice_head = shortLog(new_head)
+  ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-proc get_head*(self: var ForkChoice,
-               dag: ChainDAGRef,
-               wallTime: BeaconTime): FcResult[Eth2Digest] =
+proc get_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-
   self.backend.find_head(
-    self.checkpoints.time.slotOrZero(dag.timeParams).epoch,
-    FinalityCheckpoints(
-      justified: self.checkpoints.justified.checkpoint,
-      finalized: self.checkpoints.finalized),
-    self.checkpoints.justified.total_active_balance,
-    self.checkpoints.justified.balances,
-    self.checkpoints.proposer_boost_root)
+    self.checkpoints.time.slotOrZero(dag.timeParams),
+    self.checkpoints)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  # Use most recent justified block as a stopgap
-  self.checkpoints.justified.checkpoint.root
+  self.backend.proto_array.get_latest_confirmed()
 
-func prune*(
-       self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints
-     ): FcResult[void] =
+func prune(
+    self: var ForkChoiceBackend,
+    checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   self.proto_array.prune(checkpoints)
 
@@ -406,13 +395,12 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
     discard
 
 func compute_deltas(
-       deltas: var openArray[Delta],
-       indices: Table[Eth2Digest, Index],
-       indices_offset: Index,
-       votes: var openArray[VoteTracker],
-       old_balances: openArray[Gwei],
-       new_balances: openArray[Gwei]
-     ): FcResult[void] =
+    deltas: var openArray[Delta],
+    indices: Table[Eth2Digest, Index],
+    indices_offset: Index,
+    votes: var openArray[VoteTracker],
+    old_balances: openArray[ForkChoiceBalance],
+    new_balances: openArray[ForkChoiceBalance]): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
@@ -432,8 +420,11 @@ func compute_deltas(
 
     # If the validator was not included in `old_balances` (i.e. did not exist)
     # its balance is zero
-    let old_balance = if val_index < old_balances.len: old_balances[val_index]
-                      else: 0.Gwei
+    let old_balance =
+      if val_index < old_balances.len:
+        old_balances[val_index].unslashed_balance
+      else:
+        0.Gwei
 
     # If the validator is not known in the `new_balances` then use balance of zero
     #
@@ -442,8 +433,11 @@ func compute_deltas(
     # because that fork may have on-boarded less validators than the previous fork.
     #
     # Note that attesters are not different as they are activated only under finality
-    let new_balance = if val_index < new_balances.len: new_balances[val_index]
-                      else: 0.Gwei
+    let new_balance =
+      if val_index < new_balances.len:
+        new_balances[val_index].unslashed_balance
+      else:
+        0.Gwei
 
     if vote.current_root != vote.next_root or old_balance != new_balance:
       # Ignore the current or next vote if it is not known in `indices`.
@@ -458,7 +452,7 @@ func compute_deltas(
           # Note that delta can be negative
           # TODO: is int64 big enough?
 
-      if vote.next_epoch != FAR_FUTURE_EPOCH or not vote.next_root.isZero:
+      if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
           let index = indices.unsafeGet(vote.next_root) - indices_offset
           if index >= deltas.len:
@@ -491,119 +485,121 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test zero votes"
 
     const validator_count = 16
-    var deltas = newSeqUninit[Delta](validator_count)
+    var
+      deltas = newSeqUninit[Delta](validator_count)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
-    var old_balances: seq[Gwei]
-    var new_balances: seq[Gwei]
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add default(VoteTracker)
-      old_balances.add 0.Gwei
-      new_balances.add 0.Gwei
+      old_balances.add 0.ForkChoiceBalance
+      new_balances.add 0.ForkChoiceBalance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     doAssert deltas == newSeq[Delta](validator_count), "deltas should be zeros"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tAll_voted_the_same() =
     echo "    fork_choice compute_deltas - test all same votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
-    var deltas = newSeqUninit[Delta](validator_count)
+    var
+      deltas = newSeqUninit[Delta](validator_count)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
-    var old_balances: seq[Gwei]
-    var new_balances: seq[Gwei]
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
         next_root: fakeHash(0), # Get a non-zero hash
-        next_epoch: Epoch(0)
-      )
+        slot: Slot(0))
       old_balances.add Balance
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas:
       if i == 0:
-        doAssert delta == Delta(Balance * validator_count), "The 0th root should have a delta"
+        doAssert delta == Delta(Balance.unslashed_balance * validator_count),
+          "The 0th root should have a delta"
       else:
-        doAssert delta == 0, "The non-0 indexes should have a zero delta"
+        doAssert delta == 0,
+          "The non-0 indexes should have a zero delta"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tDifferent_votes() =
     echo "    fork_choice compute_deltas - test all different votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
-    var deltas = newSeqUninit[Delta](validator_count)
+    var
+      deltas = newSeqUninit[Delta](validator_count)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
-    var old_balances: seq[Gwei]
-    var new_balances: seq[Gwei]
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
         next_root: fakeHash(i), # Each vote for a different root
-        next_epoch: Epoch(0)
-      )
+        slot: Slot(0))
       old_balances.add Balance
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas:
-      doAssert delta == Delta(Balance), "Each root should have a delta"
+      doAssert delta == Delta(Balance.unslashed_balance),
+        "Each root should have a delta"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tMoving_votes() =
     echo "    fork_choice compute_deltas - test moving votes"
 
     const
-      Balance = Gwei(42)
+      Balance = ForkChoiceBalance(42)
       validator_count = 16
-      TotalDeltas = Delta(Balance * validator_count)
-    var deltas = newSeqUninit[Delta](validator_count)
+      TotalDeltas = Delta(Balance.unslashed_balance * validator_count)
+    var
+      deltas = newSeqUninit[Delta](validator_count)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
-    var old_balances: seq[Gwei]
-    var new_balances: seq[Gwei]
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -611,14 +607,12 @@ when isMainModule:
         # Move vote from root 0 to root 1
         current_root: fakeHash(0),
         next_root: fakeHash(1),
-        next_epoch: Epoch(0)
-      )
+        slot: Slot(0))
       old_balances.add Balance
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -628,69 +622,72 @@ when isMainModule:
       elif i == 1:
         doAssert delta == TotalDeltas, "1st root should have a positive delta"
       else:
-        doAssert delta == 0, "The non-0 and non-1 indexes should have a zero delta"
+        doAssert delta == 0,
+          "The non-0 and non-1 indexes should have a zero delta"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tMove_out_of_tree() =
     echo "    fork_choice compute_deltas - test votes for unknown subtree"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
+    var
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
 
     # Add a block
     indices[fakeHash(1)] = 0
 
     # 2 validators
     var deltas = newSeqUninit[Delta](2)
-    let old_balances = @[Balance, Balance]
-    let new_balances = @[Balance, Balance]
+    let
+      old_balances = @[Balance, Balance]
+      new_balances = @[Balance, Balance]
 
     # One validator moves their vote from the block to the zero hash
     votes.add VoteTracker(
       current_root: fakeHash(1),
       next_root: default(Eth2Digest),
-      next_epoch: Epoch(0)
-    )
+      slot: Slot(0))
 
-    # One validator moves their vote from the block to something outside of the tree
+    # One validator moves their vote from the block to
+    # something outside of the tree
     votes.add VoteTracker(
       current_root: fakeHash(1),
       next_root: fakeHash(1337),
-      next_epoch: Epoch(0)
-    )
+      slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance)*2, "The 0th block should have lost both balances."
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance) * 2,
+      "The 0th block should have lost both balances."
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tChanging_balances() =
     echo "    fork_choice compute_deltas - test changing balances"
 
     const
-      OldBalance = Gwei(42)
-      NewBalance = OldBalance * 2
+      OldBalance = ForkChoiceBalance(42)
+      NewBalance = ForkChoiceBalance(OldBalance.unslashed_balance * 2)
       validator_count = 16
-      TotalOldDeltas = Delta(OldBalance * validator_count)
-      TotalNewDeltas = Delta(NewBalance * validator_count)
-    var deltas = newSeqUninit[Delta](validator_count)
+      TotalOldDeltas = Delta(OldBalance.unslashed_balance * validator_count)
+      TotalNewDeltas = Delta(NewBalance.unslashed_balance * validator_count)
+    var
+      deltas = newSeqUninit[Delta](validator_count)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
-    var old_balances: seq[Gwei]
-    var new_balances: seq[Gwei]
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
+      old_balances: seq[ForkChoiceBalance]
+      new_balances: seq[ForkChoiceBalance]
 
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
@@ -698,36 +695,38 @@ when isMainModule:
         # Move vote from root 0 to root 1
         current_root: fakeHash(0),
         next_root: fakeHash(1),
-        next_epoch: Epoch(0)
-      )
+        slot: Slot(0))
       old_balances.add OldBalance
       new_balances.add NewBalance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas:
       if i == 0:
-        doAssert delta == -TotalOldDeltas, "0th root should have a negative delta"
+        doAssert delta == -TotalOldDeltas,
+          "0th root should have a negative delta"
       elif i == 1:
-        doAssert delta == TotalNewDeltas, "1st root should have a positive delta"
+        doAssert delta == TotalNewDeltas,
+          "1st root should have a positive delta"
       else:
-        doAssert delta == 0, "The non-0 and non-1 indexes should have a zero delta"
+        doAssert delta == 0,
+          "The non-0 and non-1 indexes should have a zero delta"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tValidator_appears() =
     echo "    fork_choice compute_deltas - test validator appears"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
+    var
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
 
     # Add 2 blocks
     indices[fakeHash(1)] = 0
@@ -735,38 +734,39 @@ when isMainModule:
 
     # 1 validator at the start, 2 at the end
     var deltas = newSeqUninit[Delta](2)
-    let old_balances = @[Balance]
-    let new_balances = @[Balance, Balance]
+    let
+      old_balances = @[Balance]
+      new_balances = @[Balance, Balance]
 
     # Both moves vote from Block 1 to 2
     for _ in 0 ..< 2:
       votes.add VoteTracker(
         current_root: fakeHash(1),
         next_root: fakeHash(2),
-        next_epoch: Epoch(0)
-      )
-
+        slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance), "Block 1 should have lost only 1 balance"
-    doAssert deltas[1] == Delta(Balance)*2, "Block 2 should have gained 2 balances"
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance),
+      "Block 1 should have lost only 1 balance"
+    doAssert deltas[1] == Delta(Balance.unslashed_balance) * 2,
+      "Block 2 should have gained 2 balances"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   proc tValidator_disappears() =
     echo "    fork_choice compute_deltas - test validator disappears"
 
-    const Balance = Gwei(42)
+    const Balance = ForkChoiceBalance(42)
 
-    var indices: Table[Eth2Digest, Index]
-    var votes: seq[VoteTracker]
+    var
+      indices: Table[Eth2Digest, Index]
+      votes: seq[VoteTracker]
 
     # Add 2 blocks
     indices[fakeHash(1)] = 0
@@ -774,30 +774,30 @@ when isMainModule:
 
     # 2 validator at the start, 1 at the end
     var deltas = newSeqUninit[Delta](2)
-    let old_balances = @[Balance, Balance]
-    let new_balances = @[Balance]
+    let
+      old_balances = @[Balance, Balance]
+      new_balances = @[Balance]
 
     # Both moves vote from Block 1 to 2
     for _ in 0 ..< 2:
       votes.add VoteTracker(
         current_root: fakeHash(1),
         next_root: fakeHash(2),
-        next_epoch: Epoch(0)
-      )
-
+        slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances
-    )
+      indices, indices_offset = 0, votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    doAssert deltas[0] == -Delta(Balance)*2, "Block 1 should have lost 2 balances"
-    doAssert deltas[1] == Delta(Balance), "Block 2 should have gained 1 balance"
+    doAssert deltas[0] == -Delta(Balance.unslashed_balance) * 2,
+      "Block 1 should have lost 2 balances"
+    doAssert deltas[1] == Delta(Balance.unslashed_balance),
+      "Block 2 should have gained 1 balance"
 
     for vote in votes:
-      doAssert vote.current_root == vote.next_root, "The vote should have been updated"
-
+      doAssert vote.current_root == vote.next_root,
+        "The vote should have been updated"
 
   # ----------------------------------------------------------------------
 
