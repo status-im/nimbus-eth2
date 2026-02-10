@@ -14,7 +14,7 @@ import
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
   "."/[block_pools_types, block_dag, blockchain_dag,
-       blockchain_dag_light_client]
+       blockchain_dag_light_client, block_quarantine]
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -68,7 +68,7 @@ proc verifyBlockProposer*(
     proposer_index: uint64,
     blockRoot: Eth2Digest,
     signature: ValidatorSig,
-    latestValidSig: ValidatorSig
+    recentSignatures: RecentSidecarSignatureLru
 ): Result[void, tuple[msg: cstring, invalid: bool]] =
   ## Verify block proposer and signature, making sure to check that the proposer
   ## was indeed elected for the given slot and that the signature checks out.
@@ -85,8 +85,8 @@ proc verifyBlockProposer*(
   if uint64(proposer) != proposer_index:
     return err(("verifyBlockProposer: unexpected proposer", true))
 
-  # If signature matches the latest valid signature, skip verification
-  if signature == latestValidSig:
+  # Fast path: If this (block_root, signature) pair was recently verified, skip verification
+  if (blockRoot, signature) in recentSignatures:
     return ok()
 
   let
