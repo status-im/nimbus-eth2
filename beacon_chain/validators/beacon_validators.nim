@@ -580,7 +580,6 @@ proc proposeBlockAux(
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        engineBid[].eps.blobsBundle.commitments,
         @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
       ))
   elif consensusFork == ConsensusFork.Fulu:

@@ -409,72 +409,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
-func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
-  # TODO probably this cannot make it into production as-is; check for
-  # performance issues. It will depend on amount of builders
-  for index, builder in state.builders:
-    if  builder.withdrawable_epoch <= get_current_epoch(state) and
-        builder.balance == 0.Gwei:
-      return BuilderIndex(index)
-  BuilderIndex(len(state.builders))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_builder_from_deposit
-func get_builder_from_deposit(
-    state: gloas.BeaconState, pubkey: ValidatorPubKey,
-    withdrawal_credentials: Eth2Digest, amount: Gwei): Builder =
-  var execution_address {.noinit.}: ExecutionAddress
-  distinctBase(execution_address)[0 .. 19] =
-    withdrawal_credentials.data.toOpenArray(12, 31)
-  Builder(
-    pubkey: pubkey,
-    version: uint8(withdrawal_credentials.data[0]),
-    execution_address: execution_address,
-    balance: amount,
-    deposit_epoch: get_current_epoch(state),
-    withdrawable_epoch: FAR_FUTURE_EPOCH)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-add_builder_to_registry
-func add_builder_to_registry(
-    state: var gloas.BeaconState,
-    bucket_sorted_builders: var BucketSortedValidators,
-    pubkey: ValidatorPubKey,
-    withdrawal_credentials: Eth2Digest, amount: Gwei) =
-  let
-    index = get_index_for_new_builder(state)
-    builder =
-      get_builder_from_deposit(state, pubkey, withdrawal_credentials, amount)
-  if state.builders.lenu64 == index:
-    # TODO handle this potential failure (?) differently
-    discard state.builders.add builder
-    # TODO this isn't really safe
-    bucket_sorted_builders.add index.ValidatorIndex
-  else:
-    state.builders.mitem(index) = builder
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-apply_deposit_for_builder
-func apply_deposit_for_builder(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
-    bucket_sorted_builders: var BucketSortedValidators,
-    pubkey: ValidatorPubKey, withdrawal_credentials: Eth2Digest,
-    amount: Gwei, signature: ValidatorSig) =
-  let opt_validator_index =
-      findValidatorIndex(state.builders.asSeq, bucket_sorted_builders, pubkey)
-  if opt_validator_index.isErr():
-    # Verify the deposit signature (proof of possession) which is not checked by
-    # the deposit contract
-    if verify_deposit_signature(
-        cfg.GENESIS_FORK_VERSION, DepositData(
-          pubkey: pubkey, withdrawal_credentials: withdrawal_credentials,
-          amount: amount, signature: signature)):
-      add_builder_to_registry(
-        state, bucket_sorted_builders, pubkey, withdrawal_credentials, amount)
-
-  else:
-    # Increase balance by deposit amount
-    state.builders.mitem(opt_validator_index.get).balance += amount
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_validators: BucketSortedValidators,
@@ -498,7 +433,7 @@ func process_deposit_request*(
     apply_deposit_for_builder(
       cfg, state, bucket_sorted_builders, deposit_request.pubkey,
       deposit_request.withdrawal_credentials, deposit_request.amount,
-      deposit_request.signature)
+      deposit_request.signature, state.slot)
     return ok()
 
   # Add validator deposits to the queue
@@ -1225,7 +1160,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
     signed_envelope: SignedExecutionPayloadEnvelope |
@@ -1237,7 +1172,7 @@ proc process_execution_payload*(
 
   # Verify signature
   if verify:
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
     let
       builder_index = envelope.builder_index
       pubkey =
@@ -1268,9 +1203,6 @@ proc process_execution_payload*(
   template committed_bid: untyped = state.data.latest_execution_payload_bid
   if envelope.builder_index != committed_bid.builder_index:
     return err("process_execution_payload: builder index mismatch")
-  if committed_bid.blob_kzg_commitments_root !=
-      hash_tree_root(envelope.blob_kzg_commitments):
-    return err("process_execution_payload: blob KZG commitments root mismatch")
   if not(committed_bid.prev_randao == payload.prev_randao):
     return err("process_execution_payload: prev_randao mismatch")
 
@@ -1295,11 +1227,6 @@ proc process_execution_payload*(
   if payload.timestamp != cfg.timeParams
       .compute_timestamp_at_slot(state.data, state.data.slot):
     return err("process_execution_payload: timestamp mismatch")
-
-  # Verify commitments are under limit
-  let blob_params = cfg.get_blob_parameters(get_current_epoch(state.data))
-  if lenu64(envelope.blob_kzg_commitments) > blob_params.MAX_BLOBS_PER_BLOCK:
-    return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
@@ -1355,7 +1282,7 @@ proc process_execution_payload*(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     blck: SomeGloasBeaconBlock): Result[void, cstring] =
@@ -1384,6 +1311,11 @@ proc process_execution_payload_bid*(
         state.fork, state.genesis_validators_root, epoch, signed_bid.message,
         state.builders.item(builder_index).pubkey, signed_bid.signature):
       return err("payload_bid: invalid bid signature")
+
+  # Verify commitments are under limit
+  let blob_params = cfg.get_blob_parameters(epoch)
+  if lenu64(bid.blob_kzg_commitments) > blob_params.MAX_BLOBS_PER_BLOCK:
+    return err("process_execution_payload_bid: too many blob KZG commitments")
 
   # Verify that the bid is for the current slot
   if bid.slot != blck.slot:

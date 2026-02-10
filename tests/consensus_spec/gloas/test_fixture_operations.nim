@@ -314,12 +314,35 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  func applyWithdrawals(
-      preState: var gloas.BeaconState,
-      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
-    process_withdrawals(preState)
-
   for path in walkTests(OpWithdrawalsDir):
-    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
-      OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
-      applyWithdrawals, path)
+    # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494
+    if path in ["invalid_validator_index_pending_partial", 
+                "invalid_builder_index_sweep", 
+                "invalid_validator_index_sweep",
+                "invalid_builder_index_pending"]:
+      continue
+    let prefix =
+      if fileExists(OpWithdrawalsDir / "pyspec_tests" / path / "post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
+    
+    test prefix & baseDescription & "Withdrawals - " & path:
+      let
+        testDir = OpWithdrawalsDir / "pyspec_tests" / path
+        preState = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
+        done = process_withdrawals(preState[])
+
+      if fileExists(testDir/"post.ssz_snappy"):
+        let 
+          postState = newClone(parseTest(
+            testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+          pass = preState[].hash_tree_root() == postState[].hash_tree_root()
+        if not pass:
+          reportDiff(preState, postState)
+        check:
+          done.isOk()
+          pass
+      else:
+        check: done.isErr()
