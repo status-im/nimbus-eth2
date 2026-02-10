@@ -45,7 +45,7 @@ func tiebreak(a, b: Eth2Digest): bool =
     elif a.data[i] > b.data[i]:
       return true
     # else we have equality so far
-  return true
+  true
 
 template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   ## Get a value from a Nim Table, turning KeyError into
@@ -56,20 +56,31 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
-func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
+func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
   ## Retrieve a ProtoNode at "Index"
   if idx < nodes.offset:
-    return none(ProtoNode)
+    return Opt.none(ProtoNode)
   let i = idx - nodes.offset
   if i >= nodes.buf.len:
-    return none(ProtoNode)
-  some(nodes.buf[i])
+    return Opt.none(ProtoNode)
+  Opt.some(nodes.buf[i])
 
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
+
+func update_latest_confirmed(
+    self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
+  # Use most recent justified block as a stopgap
+  self.confirmed = BlockId(
+    slot: self.checkpoints.justified.epoch.start_slot,
+    root: self.checkpoints.justified.root)
+  ok()
+
+func get_latest_confirmed*(self: ProtoArray): Eth2Digest =
+  self.confirmed.root
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -86,20 +97,19 @@ func nodeLeadsToViableHead(
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
   let node = ProtoNode(
     bid: BlockId(
-      slot: checkpoints.finalized.epoch.start_slot,
-      root: checkpoints.finalized.root),
-    parent: none(int),
-    checkpoints: checkpoints,
-    weight: 0,
-    invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int))
+      slot: finalized.epoch.start_slot,
+      root: finalized.root),
+    parent: Opt.none(int),
+    checkpoints: FinalityCheckpoints(
+      justified: finalized,
+      finalized: finalized))
 
-  T(checkpoints: checkpoints,
+  T(currentSlot: currentSlot,
+    confirmed: node.bid,
+    checkpoints: node.checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
@@ -125,12 +135,13 @@ func calculateProposerBoost*(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
-func applyScoreChanges*(self: var ProtoArray,
-                        deltas: var openArray[Delta],
-                        currentEpoch: Epoch,
-                        checkpoints: FinalityCheckpoints,
-                        justifiedTotalActiveBalance: Gwei,
-                        proposerBoostRoot: Eth2Digest): FcResult[void] =
+func applyScoreChanges*(
+    self: var ProtoArray,
+    deltas: var openArray[Delta],
+    currentSlot: Slot,
+    checkpoints: FinalityCheckpoints,
+    justifiedTotalActiveBalance: Gwei,
+    proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   #
@@ -152,7 +163,8 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.currentEpoch = currentEpoch
+  doAssert currentSlot >= self.currentSlot
+  self.currentSlot = currentSlot
 
   doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
   doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
@@ -263,26 +275,27 @@ func applyScoreChanges*(self: var ProtoArray,
 
   ok()
 
-func onBlock*(self: var ProtoArray,
-              bid: BlockId,
-              parent: Eth2Digest,
-              checkpoints: FinalityCheckpoints,
-              unrealized = none(FinalityCheckpoints),
-              parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
+func onBlock*(
+    self: var ProtoArray,
+    bid: BlockId,
+    parent: Eth2Digest,
+    checkpoints: FinalityCheckpoints,
+    unrealized = Opt.none(FinalityCheckpoints),
+    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
   ## - either from Genesis
   ## - or from a finalized state loaded from database
 
-  # Note: if parent is an "Option" type, we can run out of stack space.
+  # Note: if parent is an "Opt" type, we can run out of stack space.
 
   # If the block is already known, ignore it
   if bid.root in self.indices:
     return ok()
 
   var parentIdx: Index
-  self.indices.withValue(parent, index) do:
+  self.indices.withValue(parent, index):
     parentIdx = index[]
   do:
     return err ForkChoiceError(
@@ -300,7 +313,7 @@ func onBlock*(self: var ProtoArray,
     invalid: false,
     bestChild: none(int),
     bestDescendant: none(int),
-    parent_payload_status = parent_payload_status)
+    parentPayloadStatus: parent_payload_status)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
@@ -313,46 +326,43 @@ func onBlock*(self: var ProtoArray,
 
   ok()
 
-func findHead*(self: var ProtoArray,
-               head: var Eth2Digest,
-               justifiedRoot: Eth2Digest): FcResult[void] =
+func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ️ Warning
   ## The result may not be accurate if `onBlock` is not followed by
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
-
+  template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
   var justifiedIdx: Index
-  self.indices.withValue(justifiedRoot, value) do:
+  self.indices.withValue(justifiedRoot, value):
     justifiedIdx = value[]
   do:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
 
-  let justifiedNode = self.nodes[justifiedIdx]
-  if justifiedNode.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidJustifiedIndex,
-      index: justifiedIdx)
-
-  let bestDescendantIdx = justifiedNode.get().bestDescendant.get(justifiedIdx)
-  let bestNode = self.nodes[bestDescendantIdx]
-  if bestNode.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidBestDescendant,
-      index: bestDescendantIdx)
+  let
+    justifiedNode = self.nodes[justifiedIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidJustifiedIndex,
+        index: justifiedIdx)
+    bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
+    bestNode = self.nodes[bestDescendantIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidBestDescendant,
+        index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
-  if not self.nodeIsViableForHead(bestNode.get(), bestDescendantIdx):
+  if not self.nodeIsViableForHead(bestNode, bestDescendantIdx):
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       startRoot: justifiedRoot,
       fkChoiceCheckpoints: self.checkpoints,
-      headRoot: justifiedNode.get().bid.root,
-      headCheckpoints: justifiedNode.get().checkpoints)
+      headRoot: justifiedNode.bid.root,
+      headCheckpoints: justifiedNode.checkpoints)
 
-  head = bestNode.get().bid.root
+  head = bestNode.bid.root
+  ? self.update_latest_confirmed(bestNode)
   ok()
 
 func prune*(
@@ -370,8 +380,8 @@ func prune*(
   ## - Internal error due to invalid indices in `self`
 
   var finalizedIdx: int
-  self.indices.withValue(checkpoints.finalized.root, value) do:
-    finalizedIdx = value[]
+  self.indices.withValue(checkpoints.finalized.root, index):
+    finalizedIdx = index[]
   do:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
@@ -407,9 +417,8 @@ func prune*(
 
   ok()
 
-func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
-                                       parentIdx: Index,
-                                       childIdx: Index): FcResult[void] =
+func maybeUpdateBestChildAndDescendant(
+    self: var ProtoArray, parentIdx: Index, childIdx: Index): FcResult[void] =
   ## Observe the parent at `parentIdx` with respect to the child at `childIdx` and
   ## potentially modify the `parent.bestChild` and `parent.bestDescendant` values
   ##
@@ -422,83 +431,80 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
 
-  let child = self.nodes[childIdx]
-  if child.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidNodeIndex,
-      index: childIdx)
+  let
+    child = self.nodes[childIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidNodeIndex,
+        index: childIdx)
+    parent = self.nodes[parentIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidNodeIndex,
+        index: parentIdx)
+    childLeadsToViableHead =
+      ? self.nodeLeadsToViableHead(child, childIdx)
 
-  let parent = self.nodes[parentIdx]
-  if parent.isNone():
-    return err ForkChoiceError(
-      kind: fcInvalidNodeIndex,
-      index: parentIdx)
-
-  let childLeadsToViableHead =
-    ? self.nodeLeadsToViableHead(child.get(), childIdx)
-
-  let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
-    changeToNone = (none(Index), none(Index))
+    # Aliases to the 3 possible (bestChild, bestDescendant) tuples
+    changeToNone = (Opt.none(Index), Opt.none(Index))
     changeToChild = (
-        some(childIdx),
+        Opt.some(childIdx),
         # Nim `options` module doesn't implement option `or`
-        if child.get().bestDescendant.isSome(): child.get().bestDescendant
-        else: some(childIdx)
+        if child.bestDescendant.isSome(): child.bestDescendant
+        else: Opt.some(childIdx)
       )
-    noChange = (parent.get().bestChild, parent.get().bestDescendant)
+    noChange = (parent.bestChild, parent.bestDescendant)
 
-  # TODO: state-machine? The control-flow is messy
-  let (newBestChild, newBestDescendant) = block:
-    if parent.get().bestChild.isSome:
-      let bestChildIdx = parent.get().bestChild.unsafeGet()
-      if bestChildIdx == childIdx and not childLeadsToViableHead:
-        # The child is already the best-child of the parent
-        # but it's not viable to be the head block => remove it
-        changeToNone
-      elif bestChildIdx == childIdx:
-        # If the child is the best-child already, set it again to ensure
-        # that the best-descendant of the parent is up-to-date.
-        changeToChild
-      else:
-        let bestChild = self.nodes[bestChildIdx]
-        if bestChild.isNone():
-          return err ForkChoiceError(
-            kind: fcInvalidBestDescendant,
-            index: bestChildIdx)
-
-        let bestChildLeadsToViableHead =
-          ? self.nodeLeadsToViableHead(bestChild.get(), bestChildIdx)
-
-        if childLeadsToViableHead and not bestChildLeadsToViableHead:
-          # The child leads to a viable head, but the current best-child doesn't
+    # TODO: state-machine? The control-flow is messy
+    (newBestChild, newBestDescendant) = block:
+      if parent.bestChild.isSome:
+        let bestChildIdx = parent.bestChild.unsafeGet()
+        if bestChildIdx == childIdx and not childLeadsToViableHead:
+          # The child is already the best-child of the parent
+          # but it's not viable to be the head block => remove it
+          changeToNone
+        elif bestChildIdx == childIdx:
+          # If the child is the best-child already, set it again to ensure
+          # that the best-descendant of the parent is up-to-date.
           changeToChild
-        elif not childLeadsToViableHead and bestChildLeadsToViableHead:
-          # The best child leads to a viable head, but the child doesn't
-          noChange
-        elif child.get().weight == bestChild.get().weight:
-          # Tie-breaker of equal weights by root
-          if child.get().bid.root.tiebreak(bestChild.get().bid.root):
+        else:
+          let
+            bestChild = self.nodes[bestChildIdx].valueOr:
+              return err ForkChoiceError(
+                kind: fcInvalidBestDescendant,
+                index: bestChildIdx)
+            bestChildLeadsToViableHead =
+              ? self.nodeLeadsToViableHead(bestChild, bestChildIdx)
+          if childLeadsToViableHead and not bestChildLeadsToViableHead:
+            # The child leads to a viable head, but the current best-child doesn't
             changeToChild
-          else:
+          elif not childLeadsToViableHead and bestChildLeadsToViableHead:
+            # The best child leads to a viable head, but the child doesn't
             noChange
-        else: # Choose winner by weight
-          let cw = child.get().weight
-          let bw = bestChild.get().weight
-          if cw >= bw:
-            changeToChild
-          else:
-            noChange
-    else:
-      if childLeadsToViableHead:
-        # There is no current best-child and the child is viable
-        changeToChild
+          elif child.weight == bestChild.weight:
+            # Tie-breaker of equal weights by root
+            if child.bid.root.tiebreak(bestChild.bid.root):
+              changeToChild
+            else:
+              noChange
+          else: # Choose winner by weight
+            let
+              cw = child.weight
+              bw = bestChild.weight
+            if cw >= bw:
+              changeToChild
+            else:
+              noChange
       else:
-        # There is no current best-child but the child is not viable
-        noChange
+        if childLeadsToViableHead:
+          # There is no current best-child and the child is viable
+          changeToChild
+        else:
+          # There is no current best-child but the child is not viable
+          noChange
 
-  self.nodes.buf[parentIdx - self.nodes.offset].bestChild = newBestChild
-  self.nodes.buf[parentIdx - self.nodes.offset].bestDescendant = newBestDescendant
-
+  self.nodes.buf[parentIdx - self.nodes.offset]
+    .bestChild = newBestChild
+  self.nodes.buf[parentIdx - self.nodes.offset]
+    .bestDescendant = newBestDescendant
   ok()
 
 func nodeLeadsToViableHead(
@@ -507,13 +513,13 @@ func nodeLeadsToViableHead(
   ## for blockchain head
   let bestDescendantIsViableForHead = block:
     if node.bestDescendant.isSome():
-      let bestDescendantIdx = node.bestDescendant.unsafeGet()
-      let bestDescendant = self.nodes[bestDescendantIdx]
-      if bestDescendant.isNone:
-        return err ForkChoiceError(
-          kind: fcInvalidBestDescendant,
-          index: bestDescendantIdx)
-      self.nodeIsViableForHead(bestDescendant.get(), bestDescendantIdx)
+      let
+        bestDescendantIdx = node.bestDescendant.unsafeGet()
+        bestDescendant = self.nodes[bestDescendantIdx].valueOr:
+          return err ForkChoiceError(
+            kind: fcInvalidBestDescendant,
+            index: bestDescendantIdx)
+      self.nodeIsViableForHead(bestDescendant, bestDescendantIdx)
     else:
       false
 
@@ -537,45 +543,44 @@ func nodeIsViableForHead(
     # The voting source should be either at the same height as the store's
     # justified checkpoint or not more than two epochs ago
     correctJustified =
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+      node.checkpoints.justified.epoch + 2 >= self.currentSlot.epoch
 
-  return
-    if not correctJustified:
-      false
-    elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
-      true
-    elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
-      # Already checked to share history with `self.checkpoints.finalized`.
-      # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
-      true
-    else:
-      # Check that this node is not going to be pruned
-      let
-        finalizedEpoch = self.checkpoints.finalized.epoch
-        finalizedSlot = finalizedEpoch.start_slot
-      var ancestor = some node
-      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
-          ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
-        if ancestor.unsafeGet.parent.isSome:
-          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-        else:
-          ancestor.reset()
-      if ancestor.isNone:
-        false
-      elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
-          ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
-        false
+  if not correctJustified:
+    false
+  elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+    true
+  elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
+    # Already checked to share history with `self.checkpoints.finalized`.
+    # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
+    true
+  else:
+    # Check that this node is not going to be pruned
+    let
+      finalizedEpoch = self.checkpoints.finalized.epoch
+      finalizedSlot = finalizedEpoch.start_slot
+    var ancestor = Opt.some node
+    while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
+        ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
+      if ancestor.unsafeGet.parent.isSome:
+        ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
       else:
-        # An ancestor was already checked to share canonical history,
-        # or we reached the `finalizedSlot` and the root matches expectations
-        let ancestorSlot = ancestor.unsafeGet.bid.slot
-        var idx = nodeIdx
-        template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
-        while mutableNode.bid.slot > ancestorSlot:
-          mutableNode.sharedFinalizedEpoch = finalizedEpoch
-          idx = mutableNode.parent.unsafeGet
+        ancestor.reset()
+    if ancestor.isNone:
+      false
+    elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
+        ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
+      false
+    else:
+      # An ancestor was already checked to share canonical history,
+      # or we reached the `finalizedSlot` and the root matches expectations
+      let ancestorSlot = ancestor.unsafeGet.bid.slot
+      var idx = nodeIdx
+      template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
+      while mutableNode.bid.slot > ancestorSlot:
         mutableNode.sharedFinalizedEpoch = finalizedEpoch
-        true
+        idx = mutableNode.parent.unsafeGet
+      mutableNode.sharedFinalizedEpoch = finalizedEpoch
+      true
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =
@@ -607,13 +612,13 @@ type ProtoArrayItem* = object
   bid*: BlockId
   parent*: Eth2Digest
   checkpoints*: FinalityCheckpoints
-  unrealized*: Option[FinalityCheckpoints]
+  unrealized*: Opt[FinalityCheckpoints]
   weight*: int64
   invalid*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
 
-func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
+func root(self: ProtoNodes, logicalIdx: Opt[Index]): Eth2Digest =
   if logicalIdx.isNone:
     return ZERO_HASH
   let node = self[logicalIdx.unsafeGet]
@@ -631,9 +636,9 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
       else:
-        none(FinalityCheckpoints)
+        Opt.none(FinalityCheckpoints)
 
     yield ProtoArrayItem(
       bid: node.bid,

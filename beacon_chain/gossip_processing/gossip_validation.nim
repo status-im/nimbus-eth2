@@ -912,10 +912,8 @@ proc validateBeaconBlock*(
       slotBlock.get().bid.slot == signed_beacon_block.message.slot:
     let curBlock = dag.getForkedBlock(slotBlock.get().bid)
     if curBlock.isOk():
-      let data = curBlock.get()
-      if getForkedBlockField(data, proposer_index) ==
-            signed_beacon_block.message.proposer_index and
-          data.signature.toRaw() != signed_beacon_block.signature.toRaw():
+      if curBlock[].proposer_index == signed_beacon_block.message.proposer_index and
+          curBlock[].signature.toRaw() != signed_beacon_block.signature.toRaw():
         return errIgnore("BeaconBlock: already proposed in the same slot")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen

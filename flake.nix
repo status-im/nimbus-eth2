@@ -1,7 +1,7 @@
 {
   description = "nimbus-eth2";
 
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/master;
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs?rev=2a777ace4b722f2714cc06d596f2476ee628c04a";
 
   outputs = { self, nixpkgs }:
     let
@@ -27,6 +27,9 @@
         validator_client = build ["nimbus_validator_client"];
         ncli             = build ["ncli"];
         ncli_db          = build ["ncli_db"];
+
+        # Useful for tests
+        inherit (pkgsFor.${system}) go-ethereum;
 
         default = beacon_node;
       });

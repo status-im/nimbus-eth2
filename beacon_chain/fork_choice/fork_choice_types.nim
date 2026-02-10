@@ -17,6 +17,10 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
+from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+
+export results, base
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -88,7 +92,8 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    currentEpoch*: Epoch
+    currentSlot*: Slot
+    confirmed*: BlockId
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
@@ -98,25 +103,27 @@ type
 
   ProtoNode* = object
     bid*: BlockId
-    parent*: Option[Index]
+    parent*: Opt[Index]
     checkpoints*: FinalityCheckpoints
     sharedFinalizedEpoch*: Epoch
     weight*: int64
     invalid*: bool
-    bestChild*: Option[Index]
-    bestDescendant*: Option[Index]
-    parent_payload_status*: PayloadStatus
+    bestChild*: Opt[Index]
+    bestDescendant*: Opt[Index]
+    parentPayloadStatus*: PayloadStatus
+
+  ValidatorInfo* = object
+    balances*: seq[ForkChoiceBalance]
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    balances*: seq[Gwei]
+    validators*: ValidatorInfo
 
   Checkpoints* = object
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
-    best_justified*: Checkpoint
     proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types
@@ -126,6 +133,7 @@ type
   VoteTracker* = object
     current_root*: Eth2Digest
     next_root*: Eth2Digest
+    slot*: Slot
     next_epoch*: Epoch
     next_slot*: Slot
     payload_present*: bool
@@ -133,20 +141,21 @@ type
   PtcVotes* = BitArray[int(PTC_SIZE)]
 
   ForkChoiceBackend* = object
+    confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
-    balances*: seq[Gwei]
+    balances*: seq[ForkChoiceBalance]
     # Additional state tracking for Gloas
     execution_payload_states*: Table[Eth2Digest, Eth2Digest] # root -> state_root
     ptc_vote*: Table[Eth2Digest, PtcVotes]
 
   QueuedAttestation* = object
-    slot*: Slot
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     target_epoch*: Epoch
     # Gloas - track committee index for payload preference
     committee_index*: CommitteeIndex
+    slot*: Slot
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -173,6 +182,7 @@ const
 
 func shortLog*(vote: VoteTracker): auto =
   (
+    slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
     next_epoch: vote.next_epoch,
