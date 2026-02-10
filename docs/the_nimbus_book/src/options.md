@@ -140,6 +140,7 @@ The following options are available:
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=10].
      --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
+     --reindex                 Reindex historical states for archive access.
 
 ...
 ```

@@ -138,6 +138,10 @@ AllTests-mainnet
 ## Block processor [Preset: mainnet]
 ```diff
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
++ Process Deneb block without blob sidecars [Preset: mainnet]                                OK
++ Process Fulu block with data column sidecars [Preset: mainnet]                             OK
++ Process Fulu block without data column sidecars [Preset: mainnet]                          OK
 + Process a block from each fork (without blobs) [Preset: mainnet]                           OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
@@ -234,12 +238,13 @@ AllTests-mainnet
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
-## EF - Fulu - BPO forkdigests
+## EF - BPO forkdigests
 ```diff
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
 + Fusaka devnet-2                                                                            OK
++ Glamsterdam bal-devnet-2                                                                   OK
 ```
 ## EF - KZG
 ```diff
@@ -608,6 +613,7 @@ AllTests-mainnet
 ```
 ## Engine API conversions
 ```diff
++ ExecutionPayloadV4 to deneb.ExecutionPayload conversion                                    OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK

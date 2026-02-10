@@ -54,14 +54,13 @@ func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =
   ## Clients may choose to validate the input state against the input Weak Subjectivity Checkpoint
-  doAssert getStateField(ws_state, latest_block_header).state_root ==
-    ws_checkpoint.root
-  doAssert epoch(getStateField(ws_state, slot)) == ws_checkpoint.epoch
+  doAssert ws_state.latest_block_header.state_root == ws_checkpoint.root
+  doAssert epoch(ws_state.slot) == ws_checkpoint.epoch
 
   let
     ws_period = withState(ws_state):
       cfg.compute_weak_subjectivity_period(forkyState.data)
-    ws_state_epoch = epoch(getStateField(ws_state, slot))
+    ws_state_epoch = epoch(ws_state.slot)
     current_epoch = epoch(current_slot)
 
   current_epoch <= ws_state_epoch + ws_period

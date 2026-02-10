@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -138,7 +138,7 @@ cli do(validatorsDir: string, secretsDir: string,
             break
 
   var
-    genesisTime = getStateField(state[], genesis_time)
+    genesisTime = state[].genesis_time
     beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state",
         genesis_time = genesisTime,
@@ -151,7 +151,7 @@ cli do(validatorsDir: string, secretsDir: string,
                                     {KeystoreKind.Local}, nil):
     let
       pubkey = item.privateKey.toPubKey().toPubKey()
-      idx = findValidator(getStateField(state[], validators).toSeq, pubkey)
+      idx = findValidator(state[].validators.toSeq, pubkey)
     if idx.isSome():
       notice "Loaded validator", pubkey
       validators[idx.get()] = item.privateKey
@@ -167,7 +167,7 @@ cli do(validatorsDir: string, secretsDir: string,
     syncAggregate = SyncAggregate.init()
 
   let
-    genesis_validators_root = getStateField(state[], genesis_validators_root)
+    genesis_validators_root = state[].genesis_validators_root
 
   block:
     let
@@ -182,7 +182,7 @@ cli do(validatorsDir: string, secretsDir: string,
   while true:
     # Move to slot
     let
-      slot = getStateField(state[], slot) + 1
+      slot = state[].slot + 1
     process_slots(cfg, state[], slot, cache, info, {}).expect("works")
 
     if slot.start_beacon_time(cfg.timeParams) > beaconClock.now():
@@ -192,12 +192,12 @@ cli do(validatorsDir: string, secretsDir: string,
 
     var exited: seq[ValidatorIndex]
     for k, v in validators:
-      if getStateField(state[], validators).asSeq[k].exit_epoch != FAR_FUTURE_EPOCH:
+      if state[].validators.asSeq[k].exit_epoch != FAR_FUTURE_EPOCH:
         exited.add k
     for k in exited:
       warn "Validator exited", k
 
-      validatorKeys.del(getStateField(state[], validators).asSeq[k].pubkey)
+      validatorKeys.del(state[].validators.asSeq[k].pubkey)
       validators.del(k)
 
     if slot.epoch != (slot - 1).epoch:
@@ -207,13 +207,13 @@ cli do(validatorsDir: string, secretsDir: string,
         balance = block:
           var b: Gwei
           for k, _ in validators:
-            if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
-              b += getStateField(state[], balances).asSeq[k]
+            if is_active_validator(state[].validators.asSeq[k], slot.epoch):
+              b += state[].balances.asSeq[k]
           b
         validators = block:
           var b: int
           for k, _ in validators:
-            if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
+            if is_active_validator(state[].validators.asSeq[k], slot.epoch):
               b += 1
           b
         avgBalance = balance.int64 div validators.int64
@@ -222,7 +222,7 @@ cli do(validatorsDir: string, secretsDir: string,
         epoch = slot.epoch,
         active,
         epochsSinceFinality =
-          slot.epoch - getStateField(state[], finalized_checkpoint).epoch,
+          slot.epoch - state[].finalized_checkpoint.epoch,
         balance,
         validators,
         avgBalance
@@ -231,7 +231,7 @@ cli do(validatorsDir: string, secretsDir: string,
         withState(state[]): dump(".", forkyState)
 
     let
-      fork = getStateField(state[], fork)
+      fork = state[].fork
       proposer = get_beacon_proposer_index(state[], cache, slot).get()
 
     if proposer in validators:
@@ -296,7 +296,10 @@ cli do(validatorsDir: string, secretsDir: string,
               BeaconBlockValidatorChanges(),
               syncAggregate,
               payload,
-              {}).expect("block")
+              {},
+              default(ExecutionRequests),
+              default(SignedExecutionPayloadBid),
+              newSeq[PayloadAttestation]() ).expect("block")
 
           blockRoot = message.hash_tree_root()
           let

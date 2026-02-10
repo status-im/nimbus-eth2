@@ -99,12 +99,13 @@ func genFuluSignedBeaconBlock(
 
 func genGloasSignedExecutionPayloadEnvelope(
     blockRoot: Eth2Digest,
-    commitments: openArray[KzgCommitment]
+    _: openArray[KzgCommitment]
 ): gloas.SignedExecutionPayloadEnvelope =
-  var res = @commitments
+  # GloasColumnQuarantine shouldn't care about kzg commitments so functions and
+  # tests should be refactored.
+  debugGloasComment("remove kzg commitments")
   gloas.SignedExecutionPayloadEnvelope(
     message: gloas.ExecutionPayloadEnvelope(
-      blob_kzg_commitments: KzgCommitments(res),
       beacon_block_root: blockRoot))
 
 func compareSidecars(

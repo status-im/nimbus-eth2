@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,12 +9,22 @@
 
 import
   chronicles,
+  ssz_serialization,
+  std/sequtils,
   stew/endians2,
-  eth/common/headers_rlp,
+  eth/rlp,
+  eth/common/[headers_rlp, eth_types],
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/el/engine_api_conversions,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, forks, signatures, state_transition, validator]
+
+from ../beacon_chain/spec/state_transition_block import kzg_commitment_to_versioned_hash
+from ../beacon_chain/spec/datatypes/electra import ExecutionRequests
+
+from ../beacon_chain/spec/datatypes/deneb import
+  BlobsBundle, Blobs, KzgCommitments, KzgProofs
+from ../beacon_chain/spec/datatypes/fulu import BlobsBundle
 
 from kzg4844 import KzgCommitment, KzgProof
 
@@ -30,14 +40,14 @@ const
   MockPubKeys* = MockPubKeysT()
 
 type
-  BlobsBundle = object
+  BlobsBundle* = object
     # TODO the fulu BlobsBundle uses an ugly hack to get deneb compatibility
     #      which defeats the purpose of using distinct types to begin with..
     commitments*: seq[kzg4844.KzgCommitment]
     proofs*: seq[kzg4844.KzgProof]
-    blobs*: seq[Blob]
+    blobs*: seq[deneb.Blob]
 
-  EngineBlock[BB: ForkySignedBeaconBlock] = object
+  EngineBlock*[BB: ForkySignedBeaconBlock] = object
     blck*: BB
     blobsBundle*: BlobsBundle
 
@@ -120,13 +130,12 @@ func signBlock(
   ForkyBeaconBlock.kind.SignedBeaconBlock(message: blck, signature: signature, root: root)
 
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
-from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
 
 func makeExecutionPayloadForSigning*(
     cfg: RuntimeConfig,
     consensusFork: static ConsensusFork,
     state: ForkyBeaconState,
-    blobsBundle: BlobsBundle,
+    blobsBundle: testblockutil.BlobsBundle,
 ): consensusFork.ExecutionPayloadForSigning =
   ## Construct an execution payload that is sufficiently valid to pass consensus
   ## validations (without necessarily making sense on the execution side, which
@@ -157,21 +166,22 @@ func makeExecutionPayloadForSigning*(
     base_fee_per_gas: base_fee,
   )
 
+  # Add withdrawals before computing hash (hash needs to include them)
+  when consensusFork >= ConsensusFork.Capella:
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
+
   let parent_root = state.latest_block_root(default(Eth2Digest))
   payload.block_hash =
     when consensusFork >= ConsensusFork.Electra:
-      # TODO execution request hash
+      let emptyRequestsHash = computeRequestsHash(default(electra.ExecutionRequests))
       compute_execution_block_hash(
-        consensusFork, payload, parent_root, Opt.some default(Hash32)
+        consensusFork, payload, parent_root, requestsHash = Opt.some emptyRequestsHash
       )
     else:
       compute_execution_block_hash(
-        consensusFork, payload, parent_root, Opt.none Hash32
+        consensusFork, payload, parent_root
       )
-
-  when consensusFork >= ConsensusFork.Capella:
-    payload.withdrawals =
-      List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
   eps.executionPayload = payload
 
@@ -179,6 +189,99 @@ func makeExecutionPayloadForSigning*(
     eps.blobsBundle = fulu.BlobsBundle()
   elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
     eps.blobsBundle = deneb.BlobsBundle()
+
+  eps
+
+func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
+    cfg: RuntimeConfig,
+    consensusFork: static ConsensusFork,
+    state: ForkyBeaconState,
+    blobsBundle: testblockutil.BlobsBundle,
+): consensusFork.ExecutionPayloadForSigning =
+  ## Construct an execution payload that is sufficiently valid to pass consensus
+  ## validations (without necessarily making sense on the execution side, which
+  ## requires execution state) - in Bellatrix, it _should_ be EL-valid as well!
+
+  let
+    merged = is_merge_transition_complete(state)
+    latest = state.latest_execution_payload_header
+    timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee =
+      if merged:
+        calcEip1599BaseFee(latest.gas_limit, latest.gas_used, latest.base_fee_per_gas)
+      else:
+        EIP1559_INITIAL_BASE_FEE
+
+  var eps: consensusFork.ExecutionPayloadForSigning
+  var payload = typeof(eps.executionPayload)(
+    parent_hash: latest.block_hash,
+    fee_recipient: default(Eth1Address),
+    state_root: latest.state_root,
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
+    block_number: latest.block_number + 1,
+    prev_randao: randao_mix,
+    gas_limit: if merged: latest.gas_limit else: 30000000,
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+    base_fee_per_gas: base_fee,
+  )
+
+  # Add EIP-4844 transactions with versioned hashes for blob commitments
+  when consensusFork >= ConsensusFork.Deneb:
+    if blobsBundle.commitments.len > 0:
+      # Create versioned hashes from commitments
+      let versionedHashes = blobsBundle.commitments.mapIt(
+        kzg_commitment_to_versioned_hash(it))
+
+      # Create a simple EIP-4844 transaction
+      let tx = eth_types.Transaction(
+        txType: TxEip4844,
+        chainId: chainId(1),
+        nonce: 0.AccountNonce,
+        gasLimit: 21000.GasInt,
+        maxPriorityFeePerGas: 1.GasInt,
+        maxFeePerGas: base_fee.truncate(uint64).GasInt,
+        to: Opt.some(default(eth_types.Address)),
+        versionedHashes: versionedHashes,
+        maxFeePerBlobGas: 1.u256
+      )
+
+      # Encode and add to payload
+      doAssert payload.transactions.add(bellatrix.Transaction.init(rlp.encode(tx)))
+      # Update gas used (simple estimate: 21000 per transaction)
+      payload.gas_used = 21000
+  else:
+    # For pre-Deneb forks, commitments should be empty
+    doAssert blobsBundle.commitments.len == 0
+
+  # Add withdrawals before computing hash (hash needs to include them)
+  when consensusFork >= ConsensusFork.Capella:
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
+
+  let parent_root = state.latest_block_root(default(Eth2Digest))
+  payload.block_hash =
+    when consensusFork >= ConsensusFork.Electra:
+      # Use correct empty requests hash
+      let emptyRequestsHash = computeRequestsHash(default(electra.ExecutionRequests))
+      compute_execution_block_hash(
+        consensusFork, payload, parent_root, requestsHash = Opt.some emptyRequestsHash
+      )
+    else:
+      compute_execution_block_hash(
+        consensusFork, payload, parent_root
+      )
+
+  eps.executionPayload = payload
+
+  when consensusFork >= ConsensusFork.Deneb:
+    eps.blobsBundle.commitments =
+      typeof(eps.blobsBundle.commitments).init(blobsBundle.commitments)
+    eps.blobsBundle.proofs =
+      typeof(eps.blobsBundle.proofs).init(blobsBundle.proofs)
+    eps.blobsBundle.blobs =
+      typeof(eps.blobsBundle.blobs).init(blobsBundle.blobs)
 
   eps
 
@@ -234,6 +337,7 @@ proc addTestEngineBlock*(
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
+
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
     message = makeBeaconBlock(
@@ -251,6 +355,9 @@ proc addTestEngineBlock*(
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
+        execution_requests = default(ExecutionRequests),
+        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        payload_attestations = @[]
       )
       .expect("block")
 
@@ -258,6 +365,85 @@ proc addTestEngineBlock*(
     blck: signBlock(
       state.data.fork, state.data.genesis_validators_root, message, privKey, flags
     )
+  )
+
+proc addTestEngineBlockWithBlobs*(
+    cfg: RuntimeConfig,
+    consensusFork: static ConsensusFork,
+    state: var ForkyHashedBeaconState,
+    blobsBundle: testblockutil.BlobsBundle,
+    eth1_data: Eth1Data = Eth1Data(),
+    attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
+    electraAttestations: seq[electra.Attestation] = newSeq[electra.Attestation](),
+    deposits: seq[Deposit] = newSeq[Deposit](),
+    sync_aggregate: SyncAggregate = SyncAggregate.init(),
+    graffiti: GraffitiBytes = default(GraffitiBytes),
+    flags: set[UpdateFlag] = {},
+    cache: var StateCache,
+): EngineBlock[consensusFork.SignedBeaconBlock] =
+  # Create and add a block to state with blobs - state will advance by one slot!
+  let
+    proposer_index = get_beacon_proposer_index(state.data, cache, state.data.slot)
+      .expect("valid proposer index")
+    privKey = MockPrivKeys[proposer_index]
+    randao_reveal =
+      if skipBlsValidation notin flags:
+        get_epoch_signature(
+          state.data.fork, state.data.genesis_validators_root, state.data.slot.epoch,
+          privKey,
+        )
+        .toValidatorSig()
+      else:
+        ValidatorSig()
+
+    eth1_data =
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
+        block_hash: eth1_data.block_hash,
+      )
+
+    eps =
+      when consensusFork >= ConsensusFork.Gloas:
+        debugGloasComment ""
+        default(gloas.ExecutionPayloadForSigning)
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        if state.data.slot > cfg.lastPremergeSlotInTestCfg:
+          makeExecutionPayloadWithNonEmptyBlobsForSigning(
+            cfg, consensusFork, state.data, blobsBundle)
+        else:
+          default(consensusFork.ExecutionPayloadForSigning)
+      else:
+        default(bellatrix.ExecutionPayloadForSigning)
+    attestations =
+      when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
+    message = makeBeaconBlock(
+        cfg,
+        consensusFork,
+        state,
+        cache,
+        proposer_index,
+        randao_reveal,
+        eth1_data,
+        graffiti,
+        attestations,
+        deposits,
+        BeaconBlockValidatorChanges(),
+        sync_aggregate,
+        eps,
+        verificationFlags = {skipBlsValidation},
+        execution_requests = default(ExecutionRequests),
+        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        payload_attestations = @[]
+      )
+      .expect("block")
+
+  EngineBlock[consensusFork.SignedBeaconBlock](
+    blck: signBlock(
+      state.data.fork, state.data.genesis_validators_root, message, privKey, flags
+    ),
+    blobsBundle: blobsBundle
   )
 
 template toSidecarsOpt*(
@@ -289,7 +475,7 @@ proc addTestBlock*(
   if nextSlot:
     var info = ForkedEpochInfo()
     process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
+      cfg, state, state.slot + 1, cache, info, flags).expect(
         "can advance 1")
 
   withState(state):
@@ -401,8 +587,8 @@ func makeAttestation(
     ValidatorSig()
   else:
     makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
+      state.fork,
+      state.genesis_validators_root,
       data, committee, aggregation_bits)
 
   phase0.Attestation(
@@ -414,7 +600,7 @@ func makeAttestation(
 func find_beacon_committee(
     state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
-  let epoch = epoch(getStateField(state, slot))
+  let epoch = epoch(state.slot)
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
       state, epoch, cache) * SLOTS_PER_EPOCH:
     let
@@ -455,8 +641,8 @@ func makeFullAttestations*(
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
+        state.fork,
+        state.genesis_validators_root, data, committee,
         attestation.aggregation_bits)
 
     result.add attestation
@@ -479,8 +665,8 @@ func makeElectraAttestation(
     ValidatorSig()
   else:
     makeAttestationSig(
-      getStateField(state, fork),
-      getStateField(state, genesis_validators_root),
+      state.fork,
+      state.genesis_validators_root,
       data, committee, aggregation_bits)
 
   var committee_bits: AttestationCommitteeBits
@@ -527,8 +713,8 @@ func makeFullElectraAttestations*(
       attestation.aggregation_bits.setBit(i)
 
     attestation.signature = makeAttestationSig(
-        getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data, committee,
+        state.fork,
+        state.genesis_validators_root, data, committee,
         attestation.aggregation_bits)
 
     result.add attestation
@@ -551,11 +737,11 @@ proc makeSyncAggregate(
         else:
           return SyncAggregate.init()
     fork =
-      getStateField(state, fork)
+      state.fork
     genesis_validators_root =
-      getStateField(state, genesis_validators_root)
+      state.genesis_validators_root
     slot =
-      getStateField(state, slot)
+      state.slot
     latest_block_id =
       withState(state): forkyState.latest_block_id
     rng = HmacDrbgContext.new()
@@ -590,7 +776,7 @@ proc makeSyncAggregate(
         validatorIdx =
           block:
             var res = 0
-            for i, validator in getStateField(state, validators):
+            for i, validator in state.validators:
               if validator.pubkey == validatorKey:
                 res = i
                 break
@@ -669,17 +855,17 @@ iterator makeTestBlocks*(
       attestations =
         if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, state[].slot, cache)
         else:
           @[]
       electraAttestations =
         if attested and state.kind >= ConsensusFork.Electra:
           makeFullElectraAttestations(
-            state[], parent_root, getStateField(state[], slot), cache)
+            state[], parent_root, state[].slot, cache)
         else:
           @[]
-      stateEth1 = getStateField(state[], eth1_data)
-      stateDepositIndex = getStateField(state[], eth1_deposit_index)
+      stateEth1 = state[].eth1_data
+      stateDepositIndex = state[].eth1_deposit_index
       deposits =
         if stateDepositIndex < stateEth1.deposit_count:
           let

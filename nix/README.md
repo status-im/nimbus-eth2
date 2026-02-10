@@ -11,20 +11,20 @@ nix develop
 
 To build a beacon node you can use:
 ```sh
-nix build '.?submodules=1#beacon_node'
+nix build .
 ```
-The `?submodules=1` part should eventually not be necessary.
-For more details see:
-https://github.com/NixOS/nix/issues/4423
-
 It can be also done without even cloning the repo:
+```sh
+nix build 'git+https://github.com/status-im/nimbus-eth2'
+```
+When using `github:` schema the `?submodules=1#` argument is required:
 ```sh
 nix build 'github:status-im/nimbus-eth2?submodules=1#'
 ```
-The trailing `#` is required due to [URI parsing bug in Nix](https://github.com/NixOS/nix/issues/6633).
+This is [a known issue with `github:` schema](https://github.com/NixOS/nix/issues/14982) as well [as a URI parsing bug in Nix](https://github.com/NixOS/nix/issues/6633).
 
 ## Running
 
 ```sh
-nix run 'github:status-im/nimbus-eth2?submodules=1#'
+nix run 'git+https://github.com/status-im/nimbus-eth2'
 ```

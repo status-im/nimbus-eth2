@@ -47,7 +47,8 @@ type
     GetPayloadV2Response |
     GetPayloadV3Response |
     GetPayloadV4Response |
-    GetPayloadV5Response
+    GetPayloadV5Response |
+    GetPayloadV6Response
 
 const
   noTimeout = WithoutTimeout(0)
@@ -401,7 +402,8 @@ proc getPayloadFromSingleEL(
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
             GetPayloadResponseType is engine_api.GetPayloadV4Response or
-            GetPayloadResponseType is engine_api.GetPayloadV5Response:
+            GetPayloadResponseType is engine_api.GetPayloadV5Response or
+            GetPayloadResponseType is engine_api.GetPayloadV6Response:
         # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
@@ -456,6 +458,9 @@ template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
+
+template EngineApiResponseType*(T: type gloas.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV6Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -830,7 +835,7 @@ proc sendGetBlobsV2*(
     err()
 
 proc sendGetBlobsV3*(
-    m: ElManager,
+    m: ELManager,
     blck: fulu.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
@@ -898,27 +903,49 @@ proc sendGetBlobsV3*(
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(blck).kind
+
+  template executionPayload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
+
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(blck.body.execution_payload)
+      executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
-
-  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
-    payload = blck.body.execution_payload.asEngineExecutionPayload
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
-      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      versioned_hashes =
+        block:
+          let kzgCommitments =
+            when consensusFork >= ConsensusFork.Gloas:
+              template bid(): auto = blck.body.signed_execution_payload_bid
+              bid.message.blob_kzg_commitments
+            elif consensusFork >= ConsensusFork.Deneb:
+              blck.body.blob_kzg_commitments
+          kzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
-    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+    let execution_requests =
+      block:
+        let executionRequests =
+          when consensusFork >= ConsensusFork.Gloas:
+            envelope.execution_requests
+          else:
+            blck.body.execution_requests
+        executionRequests.asEngineExecutionRequests()
 
   var
     responseProcessor = ELConsensusViolationDetector.init()

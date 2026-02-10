@@ -286,7 +286,6 @@ proc updateValidator*(pool: var ValidatorPool,
   ## Update activation information for a validator
   if validator.index != Opt.some data.index:
     pool.setValidatorIndex(validator, data.index)
-    validator.index = Opt.some data.index
     validator.validator = Opt.some data.validator
 
   if validator.activationEpoch != data.validator.activation_epoch:
@@ -814,3 +813,18 @@ proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     return SignatureResult.err("Remote signer lacks payload attestation support")
+
+proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              slot: Slot,
+                              envelope: ExecutionPayloadEnvelope,
+                             ): Future[SignatureResult]
+                             {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_execution_payload_envelope_signature(
+        fork, genesis_validators_root, slot.epoch, envelope,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("Remote signer lacks envelope support")

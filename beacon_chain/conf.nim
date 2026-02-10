@@ -638,6 +638,10 @@ type
         defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
+      reindexBN* {.
+        desc: "Reindex historical states for archive access"
+        name: "reindex".}: bool
+
       trustedSetupFile* {.
         hidden
         desc: "Alternative EIP-4844 trusted setup file"
@@ -1053,6 +1057,11 @@ type
       desc: "Enable block monitoring which are seen by beacon node (BETA)"
       defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
+
+    batchAttestations* {.
+      desc: "Wait until every attestation is signed and send all of them in one call (DVT, BETA)"
+      defaultValue: false
+      name: "batch-attestations".}: bool
 
     logFile* {.
       obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"

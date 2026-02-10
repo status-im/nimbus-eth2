@@ -849,7 +849,9 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar:
+         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
+         T is gloas.SignedExecutionPayloadEnvelope or
+         T is gloas.SignedExecutionPayloadBid:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2847,6 +2849,15 @@ proc broadcastDataColumnSidecar*(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column)
 
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = data_column.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, data_column)
+
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):
@@ -2888,3 +2899,12 @@ proc broadcastPayloadAttestationMessage*(
     topic = getPayloadAttestationMessageTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadEnvelope*(
+    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = envelope.message.slot.epoch
+    topic = getExecutionPayloadTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, envelope)

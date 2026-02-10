@@ -199,7 +199,7 @@ proc obsoleteCmdOpt*(ConfType: type object, opt, msg: string) =
     warn "Ignoring deprecated configuration option", opt, msg
 
 template loggerSetup(ConfType: type): untyped =
-  proc (config: ConfType) {.raises: [], gcsafe.} =
+  proc (config: var ConfType) {.raises: [], gcsafe.} =
     when compiles(config.logFile):
       setupLogging(config.logLevel, config.logFormat, config.logFile)
     else:
@@ -241,7 +241,7 @@ proc loadWithBanners*(
           if config.configFile.isSome:
             sources.addConfigFile(Toml, config.configFile.get)
         ,
-        loggerSetup = if setupLogger: loggerSetup(ConfType) else: nil
+        onLoaded = if setupLogger: loggerSetup(ConfType) else: nil
       )
     except CatchableError as exc:
       # Logging not configured yet!

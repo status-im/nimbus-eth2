@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/[io2, byteutils], chronicles, confutils, snappy,
@@ -13,33 +13,6 @@ import
   ./ncli_common
 
 type
-  AggregatorConf = object
-    startEpoch {.
-      name: "start-epoch"
-      abbr: "s"
-      desc: "The first epoch which to be aggregated. " &
-            "By default use the first epoch for which has a file" .}: Option[uint64]
-    endEpoch {.
-      name: "end-epoch"
-      abbr: "e"
-      desc: "The last epoch which to be aggregated. " &
-            "By default use the last epoch for which has a file" .}: Option[uint64]
-    resolution {.
-      defaultValue: 225,
-      name: "resolution"
-      abbr: "r"
-      desc: "How many epochs to be aggregated in a single file" .}: uint
-    inputDir {.
-      name: "input-dir"
-      abbr: "i"
-      desc: "The directory with the epoch info files" .}: InputDir
-    outputDir {.
-      defaultValue: ""
-      name: "output-dir"
-      abbr: "o"
-      desc: "The directory where aggregated file to be written. " &
-            "By default use the same directory as the input one"}: InputDir
-
   ValidatorDbAggregator* {.requiresInit.} = object
     outputDir: string
     resolution: uint
@@ -163,6 +136,34 @@ when isMainModule:
 
   when defined(posix):
     import system/ansi_c
+
+  type
+    AggregatorConf = object
+      startEpoch {.
+        name: "start-epoch"
+        abbr: "s"
+        desc: "The first epoch which to be aggregated. " &
+              "By default use the first epoch for which has a file" .}: Option[uint64]
+      endEpoch {.
+        name: "end-epoch"
+        abbr: "e"
+        desc: "The last epoch which to be aggregated. " &
+              "By default use the last epoch for which has a file" .}: Option[uint64]
+      resolution {.
+        defaultValue: 225,
+        name: "resolution"
+        abbr: "r"
+        desc: "How many epochs to be aggregated in a single file" .}: uint
+      inputDir {.
+        name: "input-dir"
+        abbr: "i"
+        desc: "The directory with the epoch info files" .}: InputDir
+      outputDir {.
+        defaultValue: ""
+        name: "output-dir"
+        abbr: "o"
+        desc: "The directory where aggregated file to be written. " &
+              "By default use the same directory as the input one"}: InputDir
 
   var shouldShutDown = false
 

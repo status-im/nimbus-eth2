@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,6 +16,10 @@ import
   # Internal
   ../spec/datatypes/base,
   ../spec/helpers
+
+from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+
+export results, base
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -88,7 +92,8 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    currentEpoch*: Epoch
+    currentSlot*: Slot
+    confirmed*: BlockId
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
@@ -98,24 +103,26 @@ type
 
   ProtoNode* = object
     bid*: BlockId
-    parent*: Option[Index]
+    parent*: Opt[Index]
     checkpoints*: FinalityCheckpoints
     sharedFinalizedEpoch*: Epoch
     weight*: int64
     invalid*: bool
-    bestChild*: Option[Index]
-    bestDescendant*: Option[Index]
+    bestChild*: Opt[Index]
+    bestDescendant*: Opt[Index]
+
+  ValidatorInfo* = object
+    balances*: seq[ForkChoiceBalance]
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    balances*: seq[Gwei]
+    validators*: ValidatorInfo
 
   Checkpoints* = object
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
-    best_justified*: Checkpoint
     proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types
@@ -125,18 +132,18 @@ type
   VoteTracker* = object
     current_root*: Eth2Digest
     next_root*: Eth2Digest
-    next_epoch*: Epoch
+    slot*: Slot
 
   ForkChoiceBackend* = object
+    confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
-    balances*: seq[Gwei]
+    balances*: seq[ForkChoiceBalance]
 
   QueuedAttestation* = object
-    slot*: Slot
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
-    target_epoch*: Epoch
+    slot*: Slot
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -145,9 +152,9 @@ type
 
 func shortLog*(vote: VoteTracker): auto =
   (
+    slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
-    next_epoch: vote.next_epoch
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

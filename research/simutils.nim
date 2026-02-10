@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -38,8 +38,8 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
 
 func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: float) =
   if attesterRatio < 0.63:
-    doAssert getStateField(state, current_justified_checkpoint).epoch == 0
-    doAssert getStateField(state, finalized_checkpoint).epoch == 0
+    doAssert state.current_justified_checkpoint.epoch == 0
+    doAssert state.finalized_checkpoint.epoch == 0
 
   # Quorum is 2/3 of validators, and at low numbers, quantization effects
   # can dominate, so allow for play above/below attesterRatio of 2/3.
@@ -48,11 +48,9 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: float) =
 
   let current_epoch = get_current_epoch(state)
   if current_epoch >= 3:
-    doAssert getStateField(
-      state, current_justified_checkpoint).epoch + 1 >= current_epoch
+    doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
   if current_epoch >= 4:
-    doAssert getStateField(
-      state, finalized_checkpoint).epoch + 2 >= current_epoch
+    doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   var cfg = defaultRuntimeConfig
@@ -62,6 +60,7 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.DENEB_FORK_EPOCH = 0.Epoch
   cfg.ELECTRA_FORK_EPOCH = 0.Epoch
   cfg.FULU_FORK_EPOCH = 3.Epoch
+  cfg.GLOAS_FORK_EPOCH = 5.Epoch
   cfg
 
 proc loadGenesis*(
@@ -161,7 +160,7 @@ proc printTimers*[Timers: enum](
 proc printTimers*[Timers: enum](
     state: ForkedHashedBeaconState, attesters: RunningStat, validate: bool,
     timers: array[Timers, RunningStat]) =
-  echo "Validators: ", getStateField(state, validators).len,
+  echo "Validators: ", state.validators.len,
     ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean
   printTimers(validate, timers)

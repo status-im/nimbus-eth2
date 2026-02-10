@@ -9,6 +9,7 @@
 
 import
   chronicles, chronos, metrics,
+  kzg4844/kzg,
   ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
   ../sszdump
 
@@ -28,7 +29,9 @@ from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
   remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, ColumnQuarantine, popSidecars, put
+  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
+from ../consensus_object_pools/envelope_quarantine import
+  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -95,8 +98,13 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    # Quarantines
+    # ----------------------------------------------------------------
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
+    envelopeQuarantine*: ref EnvelopeQuarantine
+
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -121,6 +129,8 @@ proc new*(T: type BlockProcessor,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
+          envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
           invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
   if invalidBlockRoots.len > 0:
@@ -137,6 +147,8 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
+    envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: batchVerifier[]
   )
@@ -182,7 +194,9 @@ proc verifySidecars(
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork == ConsensusFork.Gloas:
+  when consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    static: doAssert sidecarsOpt is NoSidecars
+  elif consensusFork == ConsensusFork.Gloas:
     # For Gloas, we still need to store the columns if they're provided
     # but skip validation since we don't have kzg_commitments in the block
     debugGloasComment "potentially validate against payload envelope"
@@ -207,7 +221,7 @@ proc verifySidecars(
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
         let r = validate_blobs(
-          kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
+          kzgCommits, blobs.mapIt(kzg.KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
         )
         if r.isErr():
           debug "blob validation failed",
@@ -218,8 +232,6 @@ proc verifySidecars(
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err(VerifierError.Invalid)
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
   else:
     {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -293,15 +305,21 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 proc newExecutionPayload*(
     elManager: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  template executionPayload: untyped = blck.body.execution_payload
+  template executionPayload: untyped =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  let payloadStatus = ?await elManager.sendNewPayload(blck, deadline, retry)
+  let payloadStatus = ?await elManager.sendNewPayload(
+    blck, envelope, deadline, retry)
 
   debug "newPayload: succeeded",
     parentHash = executionPayload.parent_hash,
@@ -317,20 +335,29 @@ proc newExecutionPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.
   async: (raises: [CancelledError], raw: true).} =
   newExecutionPayload(
-    elManager, blck, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
+    elManager, blck, noEnvelope, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock,
+          fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[OptimisticStatus]] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return Opt.some(OptimisticStatus.valid) # vacuously
 
-  let status = (await elManager.newExecutionPayload(blck.message, deadline, retry)).valueOr:
+  const consensusFork = typeof(blck).kind
+  template someEnvelope(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.message
+    else:
+      envelope
+
+  let status = (await elManager.newExecutionPayload(
+      blck.message, someEnvelope, deadline, retry)).valueOr:
     return Opt.none(OptimisticStatus)
 
   let optimisticStatus = status.to(OptimisticStatus)
@@ -340,9 +367,14 @@ proc getExecutionValidity(
     # former case, they've passed libp2p gossip validation which implies
     # correct signature for correct proposer,which makes spam expensive,
     # while for the latter, spam is limited by the request manager.
+    template executionPayload(): auto =
+      when consensusFork >= ConsensusFork.Gloas:
+        envelope.message.payload
+      else:
+        blck.message.body.execution_payload
     info "execution payload invalid from EL client newPayload",
       executionPayloadStatus = status,
-      executionPayload = shortLog(blck.message.body.execution_payload),
+      executionPayload = shortLog(executionPayload),
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
@@ -391,8 +423,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
+      when consensusFork >= ConsensusFork.Gloas:
         const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
@@ -520,8 +551,9 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
     var sidecarsOk = true
 
     let sidecarsOpt =
-      when consensusFork >= ConsensusFork.Fulu:
-        debugGloasComment ""
+      when consensusFork >= ConsensusFork.Gloas:
+        noSidecars
+      elif consensusFork == ConsensusFork.Fulu:
         var data_column_sidecars: fulu.DataColumnSidecars
         for i in self.dataColumnQuarantine[].custodyColumns:
           let data_column = fulu.DataColumnSidecar.new()
@@ -611,7 +643,7 @@ proc storeBlock(
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
           await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, deadline, shouldRetry())
+            signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
@@ -807,8 +839,9 @@ proc addBlock*(
         if sidecarsOpt.isSome:
           self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
-        if sidecarsOpt.isSome:
-          debugGloasComment ""
+        # In Gloas, block is enqueued with NoSidecar so we need not to care
+        # about quarantine.
+        discard
       elif sidecarsOpt is NoSidecars:
         discard
       else:
@@ -839,3 +872,98 @@ proc addBlock*(
       err(res.error())
     of VerifierError.Duplicate:
       err(res.error())
+
+proc storePayload(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  let
+    dag = self.consensusManager.dag
+    wallTime = self.getBeaconTime()
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineTime =
+      block:
+        let slotTime =
+          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+        if slotTime <= wallTime:
+          chronos.seconds(0)
+        else:
+          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+    deadline = sleepAsync(deadlineTime)
+
+  debugGloasComment("optimisticStatusRes")
+  debugGloasComment("verifySidecars")
+  debugGloasComment("clearance state")
+  debugGloasComment("head state")
+
+  self[].storeSidecars(sidecarsOpt)
+  self.envelopeQuarantine[].delOrphan(signedBlock)
+
+  ok()
+
+proc enqueuePayload*(
+    self: ref BlockProcessor,
+    blck: gloas.SignedBeaconBlock,
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+) =
+  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    debugGloasComment("backfilling")
+
+  discard self.storePayload(blck, envelope, sidecarsOpt)
+
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
+  ## Enqueue payload processing by block that is a valid block.
+
+  template bid(): auto = blck.message.body.signed_execution_payload_bid
+
+  let
+    envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
+      # We have not received the envelope yet so mark it as missing.
+      self.envelopeQuarantine[].addMissing(blck.root)
+      return
+    sidecarsOpt =
+      block:
+        let sidecarsOpt =
+          if bid.message.blob_kzg_commitments.len() == 0:
+            Opt.some(default(gloas.DataColumnSidecars))
+          else:
+            self.gloasColumnQuarantine[].popSidecars(blck.root)
+        if sidecarsOpt.isNone():
+          # As sidecars are missing, put envelope back to quarantine.
+          self.consensusManager.quarantine[].addSidecarless(blck)
+          self.envelopeQuarantine[].addOrphan(envelope)
+          return
+        sidecarsOpt
+
+  self.enqueuePayload(blck, envelope, sidecarsOpt)
+
+proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
+  ## Enqueue payload processing by block root. If it is not a valid block, the
+  ## enqueue request will be discarded silently.
+
+  let
+    dag = self.consensusManager.dag
+    blockRef = dag.getBlockRef(blockRoot).valueOr:
+      return
+    blck =
+      block:
+        let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
+          # We have checked that the block exists in the chain. There might be
+          # issues in reading the database or data in the memory is broken.
+          # Since no result is returned, we log for investigation.
+          debug "Enqueue payload from envelope. Block is missing in DB",
+            bid = shortLog(blockRef.bid)
+          return
+        withBlck(forkedBlock):
+          when consensusFork >= ConsensusFork.Gloas:
+            forkyBlck.asSigned()
+          else:
+            # Incorrect fork which shouldn't be happening.
+            debug "Enqueue payload from envelope. Block is in incorrect fork",
+              bid = shortLog(blockRef.bid)
+            return
+
+  self.enqueuePayload(blck)

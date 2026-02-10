@@ -391,12 +391,9 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-is_merge_transition_complete
+debugGloasComment ""
 func is_merge_transition_complete*(state: gloas.BeaconState): bool =
-  var bid = default(gloas.ExecutionPayloadBid)
-  const kzgs = default(KzgCommitments)
-  bid.blob_kzg_commitments_root = kzgs.hash_tree_root()
-  state.latest_execution_payload_bid != bid
+  state.latest_block_hash != ZERO_HASH
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
@@ -457,7 +454,7 @@ func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-func computeRequestsHash(
+func computeRequestsHash*(
     requests: electra.ExecutionRequests): EthHash32 =
 
   template individualHash(requestType, requestList): Digest =
@@ -568,6 +565,17 @@ func compute_execution_block_hash*(
 
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
+
+func compute_execution_block_hash*(
+    blck: gloas.BeaconBlock,
+    envelope: gloas.ExecutionPayloadEnvelope): Eth2Digest =
+  const consensusFork = typeof(blck).kind
+  compute_execution_block_hash(
+    consensusFork,
+    envelope.payload,
+    blck.parent_root,
+    Opt.some envelope.execution_requests.computeRequestsHash(),
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
 func is_builder_payment_withdrawable*(

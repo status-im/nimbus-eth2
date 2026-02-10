@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -76,9 +76,6 @@ if defined(windows):
   switch("passL", "-Wl,--stack,8388608")
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
-  if defined(i386):
-    # set the IMAGE_FILE_LARGE_ADDRESS_AWARE flag so we can use PAE, if enabled, and access more than 2 GiB of RAM
-    switch("passL", "-Wl,--large-address-aware")
 
   # The dynamic Chronicles output currently prevents us from using colors on Windows
   # because these require direct manipulations of the stdout File object.
@@ -102,16 +99,13 @@ if defined(disableMarchNative):
     else:
       switch("passC", "-mssse3")
       switch("passL", "-mssse3")
-elif defined(macosx) and defined(arm64):
-  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
-  switch("passC", "-mcpu=apple-m1")
-  switch("passL", "-mcpu=apple-m1")
 elif defined(riscv64):
   # riscv64 needs specification of ISA with extensions. 'gc' is widely supported
   # and seems to be the minimum extensions needed to build.
   switch("passC", "-march=rv64gc")
   switch("passL", "-march=rv64gc")
-else:
+elif not(defined(macosx) and defined(arm64)):
+  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-march=native")
   switch("passL", "-march=native")
   if defined(i386) or defined(amd64):
@@ -227,3 +221,21 @@ put("sysrng.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
+
+# ############################################################
+#
+#                QUIC does variable stack allocations
+#
+# ############################################################
+
+put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
+put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
+
+# ############################################################
+#
+#  Required for BoringSSL warning about frees on offset pointers
+#
+# ############################################################
+
+put("mem.always", "-Wno-free-nonheap-object")
