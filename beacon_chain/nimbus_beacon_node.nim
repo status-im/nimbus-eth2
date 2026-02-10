@@ -809,8 +809,10 @@ proc initFullNode(
     requestManager = RequestManager.init(
       node.network, supernode, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+      quarantine, envelopeQuarantine, blobQuarantine,
+      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
+      rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
       dataColumnQuarantine)
 

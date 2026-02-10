@@ -12,8 +12,8 @@ import ssz_serialization/types
 import
   ../spec/[forks, network, peerdas_helpers],
   ../networking/eth2_network,
-  ../consensus_object_pools/block_quarantine,
-  ../consensus_object_pools/blob_quarantine,
+  ../consensus_object_pools/[
+    blob_quarantine, block_quarantine, envelope_quarantine],
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
@@ -52,9 +52,17 @@ type
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
+  EnvelopeVerifierFn = proc(
+      signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+  ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+
   BlockLoaderFn = proc(
       blockRoot: Eth2Digest
   ): Opt[ForkedTrustedSignedBeaconBlock] {.gcsafe, raises: [].}
+
+  EnvelopeLoaderFn = proc(
+      blockRoot: Eth2Digest,
+  ): Opt[gloas.TrustedSignedExecutionPayloadEnvelope] {.gcsafe, raises: [].}
 
   BlobLoaderFn = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
@@ -80,10 +88,13 @@ type
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
+    envelopeQuarantine: ref EnvelopeQuarantine
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine: ref ColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
+    envelopeVerifier: EnvelopeVerifierFn
+    envelopeLoader: EnvelopeLoaderFn
     blobLoader: BlobLoaderFn
     dataColumnLoader: DataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
@@ -103,10 +114,13 @@ func init*(T: type RequestManager, network: Eth2Node,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
+              envelopeQuarantine: ref EnvelopeQuarantine,
               blobQuarantine: ref BlobQuarantine,
               dataColumnQuarantine: ref ColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
+              envelopeVerifier: EnvelopeVerifierFn,
+              envelopeLoader: EnvelopeLoaderFn,
               blobLoader: BlobLoaderFn = nil,
               dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
@@ -116,10 +130,13 @@ func init*(T: type RequestManager, network: Eth2Node,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
+    envelopeQuarantine: envelopeQuarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
+    envelopeVerifier: envelopeVerifier,
+    envelopeLoader: envelopeLoader,
     blobLoader: blobLoader,
     dataColumnLoader: dataColumnLoader)
 
