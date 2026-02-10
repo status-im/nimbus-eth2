@@ -460,7 +460,7 @@ template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template EngineApiResponseType*(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV6Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
