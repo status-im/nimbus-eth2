@@ -534,6 +534,16 @@ proc runGenesisWaitingLoop(
 
   vc.genesisEvent.fire()
 
+proc runForkScheduleWaitingLoop(
+    vc: ValidatorClientRef
+) {.async: (raises: [CancelledError]).} =
+  notice "Waiting for fork schedule information"
+  try:
+    await vc.forksAvailable.wait()
+  except CancelledError as exc:
+    debug "Fork schedule waiting loop was interrupted"
+    raise exc
+
 proc asyncRun*(
     vc: ValidatorClientRef
 ) {.async: (raises: [ValidatorClientError]).} =
@@ -556,6 +566,8 @@ proc asyncRun*(
     await vc.runPreGenesisWaitingLoop()
     # Waiting for `GENESIS` loop.
     await vc.runGenesisWaitingLoop()
+    # Waiting for fork schedule information from nodes.
+    await vc.runForkScheduleWaitingLoop()
     # Main processing loop.
     vc.runSlotLoopFut = vc.runVCSlotLoop()
     vc.runKeystoreCachePruningLoopFut =
