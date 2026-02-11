@@ -311,31 +311,28 @@ proc checkPeerCustody(rman: RequestManager,
   ## Returns the intersection of custody columns
   ## with the peer. Also applies peer scoring.
   var intersection: DataColumnIndices
+  let remoteCustodyGroupCount = peer.lookupCgcFromPeer()
+
   if rman.supernode:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
   else:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
     else:
       let
-        remoteCustodyGroupCount = peer.lookupCgcFromPeer()
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
