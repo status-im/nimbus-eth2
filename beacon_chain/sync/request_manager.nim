@@ -312,26 +312,24 @@ proc checkPeerCustody(rman: RequestManager,
   ## with the peer. Also applies peer scoring.
   var intersection: DataColumnIndices
   if rman.supernode:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    let remoteCustodyGroupCount = peer.lookupCgcFromPeer()
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
   else:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    let remoteCustodyGroupCount = peer.lookupCgcFromPeer()
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
     else:
       let
