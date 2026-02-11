@@ -160,15 +160,14 @@ func checkResponse(
     envelopes: openArray[ref SignedExecutionPayloadEnvelope],
 ): bool =
   ## Ensure there is the requested envelope as per each root.
-  var checks = @roots
   if len(envelopes) > len(roots):
     return false
+  var checks = roots.toHashSet()
   for envelope in envelopes:
-    let res = checks.find(envelope[].message.beacon_block_root)
-    if res == -1:
-      return false
+    if envelope[].message.beacon_block_root in checks:
+      checks.excl(envelope[].message.beacon_block_root)
     else:
-      checks.del(res)
+      return false
   true
 
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
@@ -890,7 +889,6 @@ proc requestManagerDataColumnLoop(
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
-  rman.envelopeLoopFuture = rman.requestManagerEnvelopeLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc switchToColumnLoop*(rman: var RequestManager) =
@@ -904,6 +902,14 @@ proc switchToColumnLoop*(rman: var RequestManager) =
 
     rman.dataColumnLoopFuture =
       rman.requestManagerDataColumnLoop()
+
+proc switchToEnvelopeLoop*(self: var RequestManager) =
+  let currentEpoch =
+    self.getBeaconTime().slotOrZero(self.network.cfg.timeParams).epoch()
+
+  if currentEpoch >= self.network.cfg.GLOAS_FORK_EPOCH and
+     isNil(self.envelopeLoopFuture):
+    self.envelopeLoopFuture = self.requestManagerEnvelopeLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
