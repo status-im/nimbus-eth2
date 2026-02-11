@@ -277,9 +277,7 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 
-func makeAttestationData*(
-    epochRef: EpochRef, bs: BlockSlot,
-    committee_index: CommitteeIndex): AttestationData =
+func makeAttestationData*(epochRef: EpochRef, bs: BlockSlot): AttestationData =
   ## Create an attestation / vote for the block `bs` using the
   ## data in `epochRef` to fill in the rest of the fields.
   ## `epochRef` is the epoch information corresponding to the `bs` advanced to
@@ -296,7 +294,7 @@ func makeAttestationData*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
-    index: committee_index.asUInt64,
+    index: 0,
     beacon_block_root: bs.blck.root,
     source: epochRef.checkpoints.justified,
     target: Checkpoint(

@@ -312,6 +312,13 @@ proc createAndSendAttestation(node: BeaconNode,
                               registered: RegisteredAttestation,
                               subnet_id: SubnetId)
                               {.async: (raises: [CancelledError]).} =
+  let epoch = registered.data.slot.epoch
+
+  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Electra:
+    warn "Routing of pre-electra attestations not supported",
+      attestationData = shortLog(registered.data)
+    return
+
   let
     signature = block:
       let res = await registered.validator.getAttestationSignature(
@@ -323,19 +330,13 @@ proc createAndSendAttestation(node: BeaconNode,
               error_msg = res.error()
         return
       res.get()
-    epoch = registered.data.slot.epoch
 
   registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  if node.dag.cfg.consensusForkAtEpoch(epoch) >= ConsensusFork.Electra:
-    discard await node.router.routeAttestation(
-      registered.toSingleAttestation(signature), subnet_id,
-      checkSignature = false, checkValidator = false)
-  else:
-    discard await node.router.routeAttestation(
-      registered.toAttestation(signature), subnet_id,
-      checkSignature = false, checkValidator = false)
+  discard await node.router.routeAttestation(
+    registered.toSingleAttestation(signature), subnet_id,
+    checkSignature = false, checkValidator = false)
 
 proc registerBlock(
     node: BeaconNode,
@@ -411,7 +412,7 @@ proc proposeBlockAux(
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
         )
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork in ConsensusFork.Electra..ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -540,9 +541,7 @@ proc proposeBlockAux(
 
         bids.engineBid
       else:
-        await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey
-        )
+        static: raiseAssert "Unsupported fork " & $consensusFork
 
   if engineBid.isNone():
     beacon_block_production_errors.inc()
@@ -576,7 +575,7 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork >= ConsensusFork.Gloas:
+  when consensusFork == ConsensusFork.Gloas:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -587,15 +586,14 @@ proc proposeBlockAux(
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
         @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
-  elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+  elif consensusFork == ConsensusFork.Electra:
     let sidecarsOpt =
       Opt.some(
         signedBlock.create_blob_sidecars(
           engineBlock.blobsBundle.proofs,
           engineBlock.blobsBundle.blobs))
   else:
-    # using noSidecars for Phase0 -> Capella blocks for now
-    const sidecarsOpt = noSidecarsAtFork
+    static: raiseAssert "Unsupported fork " & $consensusFork
 
   let
     newBlockRef = await(
@@ -668,7 +666,7 @@ proc proposeBlock(
       return head
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Electra:
       await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork
@@ -740,11 +738,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let
             validator = node.getValidatorForDuties(validator_index, slot).valueOr:
               continue
-            data =
-              if consensusFork >= ConsensusFork.Electra:
-                makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
-              else:
-                makeAttestationData(epochRef, attestationHead, committee_index)
+            data = makeAttestationData(epochRef, attestationHead)
             # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
             signingRoot = compute_attestation_signing_root(
               fork, genesis_validators_root, data)

@@ -314,7 +314,7 @@ proc routeSignedBeaconBlock*(
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | SingleAttestation,
+    attestation: SingleAttestation,
     subnet_id: SubnetId, checkSignature, checkValidator: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
@@ -325,9 +325,8 @@ proc routeAttestation*(
       wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
       currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
       res = await router[].processor.processAttestation(
-        MsgSource.api, attestation, subnet_id,
-        checkSignature = checkSignature, checkValidator = checkValidator,
-        currentFork)
+        MsgSource.api, attestation, subnet_id, checkSignature, checkValidator
+      )
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -354,8 +353,7 @@ proc routeAttestation*(
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | SingleAttestation,
-    on_chain: static bool = false):
+    attestation: SingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
@@ -367,12 +365,12 @@ proc routeAttestation*(
 
     shufflingRef = router[].dag.getShufflingRef(
         target, attestation.data.target.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for attestation, skipping send - report bug",
+      warn "Cannot construct shuffling for attestation, skipping send - report bug",
         target = shortLog(target),
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.committee_index(on_chain)).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index(false)).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")
@@ -385,7 +383,7 @@ proc routeAttestation*(
 
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter,
-    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    proof: electra.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
@@ -396,10 +394,9 @@ proc routeSignedAggregateAndProof*(
     let
       wallTime = router[].processor.getCurrentBeaconTime()
       wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
-      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
       res = await router[].processor.processSignedAggregateAndProof(
         MsgSource.api, proof, checkSignature = checkSignature,
-        checkCover = false, currentFork)
+        checkCover = false)
     if not res.isGoodForSending:
       warn "Aggregated attestation failed validation",
         attestation = shortLog(proof.message.aggregate),

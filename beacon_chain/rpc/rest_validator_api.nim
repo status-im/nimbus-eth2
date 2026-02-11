@@ -453,98 +453,65 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        let
-          message = (await node.makeBeaconBlockForHeadAndSlot(
-              consensusFork, proposer, qrandao, qgraffiti, qhead, qslot)).valueOr:
-            return RestApiResponse.jsonError(Http500, error)
-
-        if contentType == sszMediaType:
-          RestApiResponse.sszResponse(
-            message.blck, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        elif contentType == jsonMediaType:
-          let forked = ForkedMaybeBlindedBeaconBlock.init(
-            message.blck,
-            Opt.some message.executionValue,
-            Opt.some message.consensusValue)
-
-          RestApiResponse.jsonResponsePlain(
-            forked, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        else:
-          raiseAssert "preferredContentType() returns invalid content type"
       else:
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-  router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
-    slot: Option[Slot],
-    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
-    let adata =
-      block:
-        let qslot =
-          block:
-            if slot.isNone():
-              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-            let res = slot.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                               $res.error())
-            res.get()
-        if qslot <= node.dag.finalizedHead.slot:
-          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           "Slot already finalized")
-        let
-          wallTime = node.beaconClock.now()
-          maxTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-        if qslot > maxTime.slotOrZero(node.dag.timeParams):
-          return RestApiResponse.jsonError(
-            Http400, InvalidSlotValueError, "Slot cannot be in the future")
-        if qslot + SLOTS_PER_EPOCH < (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY)
-            .slotOrZero(node.dag.timeParams):
-          return RestApiResponse.jsonError(
-            Http400, InvalidSlotValueError,
-            "Slot cannot be more than an epoch in the past")
+  router.api2(MethodGet, "/eth/v1/validator/attestation_data") do(
+    slot: Option[Slot], committee_index: Option[CommitteeIndex]
+  ) -> RestApiResponse:
+    let qslot = block:
+      if slot.isNone():
+        return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+      slot.get().valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError, $error)
 
-        let qindex =
-          block:
-            if committee_index.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                               MissingCommitteeIndexValueError)
-            let res = committee_index.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidCommitteeIndexValueError,
-                                               $res.error())
-            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
-              0.CommitteeIndex
-            else:
-              res.get()
-        let qhead =
-          block:
-            let res = node.getSyncedHead(qslot)
-            if res.isErr():
-              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                               $res.error())
-            let tres = res.get()
-            if tres.executionValid:
-              tres
-            else:
-              let qbs = node.lastValidAttestedBlock.valueOr:
-                return RestApiResponse.jsonError(
-                  Http503, BeaconNodeInSyncError)
-              if qbs.blck.slot > qslot:
-                return RestApiResponse.jsonError(
-                  Http503, BeaconNodeInSyncError)
-              qbs.blck
+    if qslot <= node.dag.finalizedHead.slot:
+      return RestApiResponse.jsonError(
+        Http400, InvalidSlotValueError, "Slot already finalized"
+      )
+    if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) < ConsensusFork.Electra:
+      return RestApiResponse.jsonError(
+        Http400, InvalidSlotValueError, "Pre-electra slots unsupported"
+      )
 
-        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
-          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
+    let
+      wallTime = node.beaconClock.now()
+      maxTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    if qslot > maxTime.slotOrZero(node.dag.timeParams):
+      return RestApiResponse.jsonError(
+        Http400, InvalidSlotValueError, "Slot cannot be in the future"
+      )
+    if qslot + SLOTS_PER_EPOCH <
+        (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(node.dag.timeParams):
+      return RestApiResponse.jsonError(
+        Http400, InvalidSlotValueError, "Slot cannot be more than an epoch in the past"
+      )
+
+    if committee_index.isNone():
+      return RestApiResponse.jsonError(Http400, MissingCommitteeIndexValueError)
+    if committee_index.get().isErr():
+      return RestApiResponse.jsonError(
+        Http400, InvalidCommitteeIndexValueError, $committee_index.get().error()
+      )
+
+    let
+      qhead = block:
+        let head = node.getSyncedHead(qslot).valueOr:
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError, $error)
+        if head.executionValid:
+          head
+        else:
+          let qbs = node.lastValidAttestedBlock.valueOr:
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          if qbs.blck.slot > qslot:
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          qbs.blck
+
+      epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+        return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+      adata = makeAttestationData(epochRef, qhead.atSlot(qslot))
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
@@ -600,12 +567,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 UnableToGetAggregatedAttestationError)
           ForkedAttestation.init(electra_attestation, qfork)
         else:
-          let phase0_attestation =
-            node.attestationPool[].getPhase0AggregatedAttestation(
-              qslot, root).valueOr:
-              return RestApiResponse.jsonError(Http404,
-                UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(phase0_attestation, qfork)
+          return RestApiResponse.jsonError(Http404,
+            UnableToGetAggregatedAttestationError)
 
     RestApiResponse.jsonResponsePlain(forked, qfork, node.hasRestAllowedOrigin)
 
@@ -628,28 +591,28 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var proofs: seq[Future[SendResult]]
     template addDecodedProofs(ProofType: untyped) =
-      let dres = decodeBody(seq[ProofType], contentBody.get())
-      if dres.isErr():
+      let dres = decodeBody(seq[ProofType], contentBody.get()).valueOr:
         return RestApiResponse.jsonError(Http400,
                                          InvalidAggregateAndProofObjectError,
-                                         $dres.error())
-      for proof in dres.get():
+                                         $error)
+      for proof in dres:
         proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        addDecodedProofs(phase0.SignedAggregateAndProof)
+        return RestApiResponse.jsonError(Http400,
+                                         UnsupportedForkError,
+                                         $UnsupportedForkError)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
       if future.completed():
-        let res = future.value()
-        if res.isErr():
+        future.value().isOkOr:
           return RestApiResponse.jsonError(Http400,
                                            AggregateAndProofValidationError,
-                                           $res.error())
+                                           $error)
       else:
         return RestApiResponse.jsonError(Http500,
                "Unexpected server failure, while sending aggregate and proof")
