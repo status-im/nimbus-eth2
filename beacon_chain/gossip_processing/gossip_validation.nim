@@ -1282,7 +1282,7 @@ proc validateAggregate*(
     checkCover = true,
 ): Future[
     Result[
-      tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig], ValidationError
+      tuple[attesting_indices: seq[ValidatorIndex], sig: CookedSig], ValidationError
     ]
 ] {.async: (raises: [CancelledError]).} =
   # Some of the checks below have been reordered compared to the spec, to

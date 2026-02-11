@@ -2041,7 +2041,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # update custody columns
       node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
       # update custody columns into request manager
-      node.request_manager.custody_columns_set =
+      node.requestManager.custody_columns_set =
         node.validatorCustody.newer_column_set
 
       # Update CGC and metadata with respect to the new detected validator custody
@@ -2301,10 +2301,10 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     let afterSleep = chronos.now(chronos.Moment)
     let sleepTime = afterSleep - start
     node.onSecond(start)
-    let finished = chronos.now(chronos.Moment)
-    let processingTime = finished - afterSleep
+
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
-    trace "onSecond task completed", sleepTime, processingTime
+    trace "onSecond task completed",
+      sleepTime, processingTime = chronos.now(chronos.Moment) - afterSleep
 
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
