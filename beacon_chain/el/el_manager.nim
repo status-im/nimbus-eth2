@@ -460,7 +460,7 @@ template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template EngineApiResponseType*(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV6Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -586,7 +586,11 @@ proc getPayload*(
     await noCancel allFutures(pending)
 
     if bestPayloadIdx.isSome():
-      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+      debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
+      when PayloadType.kind == ConsensusFork.Gloas:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
+      else:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
