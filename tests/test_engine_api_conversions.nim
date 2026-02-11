@@ -2194,8 +2194,6 @@ suite "Engine API conversions":
           transactions: mapIt(execution_payload.transactions, TypedTransaction(it.distinctBase)),
           withdrawals: mapIt(execution_payload.withdrawals, it.asEngineWithdrawal),
           blobGasUsed: Quantity(execution_payload.blob_gas_used),
-          excessBlobGas: Quantity(execution_payload.excess_blob_gas),
-          blockAccessList: @[1'u8, 2'u8, 3'u8, 4'u8]) # Dummy value
-
+          excessBlobGas: Quantity(execution_payload.excess_blob_gas))
       check:
         execution_payload == asConsensusType(v4_payload)

@@ -387,23 +387,21 @@ proc sszCheck(dir, sszType, sszSubType: string)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_progressive_list":
-    skip()
-    # checkProgressiveList(sszSubType, dir, expectedHash)
+    checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
   of "compatible_unions":
-    skip()
-    # var name: string
-    # let wasMatched = scanf(sszSubType, "$+_", name)
-    # doAssert wasMatched
-    # case name
-    # of "CompatibleUnionA": checkBasic(CompatibleUnionA, dir, expectedHash)
-    # of "CompatibleUnionBC": checkBasic(CompatibleUnionBC, dir, expectedHash)
-    # of "CompatibleUnionABCA": checkBasic(CompatibleUnionABCA, dir, expectedHash)
-    # else:
-    #   raise newException(ValueError,
-    #     "unknown compatible union in test: " & sszSubType)
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "CompatibleUnionA": checkBasic(CompatibleUnionA, dir, expectedHash)
+    of "CompatibleUnionBC": checkBasic(CompatibleUnionBC, dir, expectedHash)
+    of "CompatibleUnionABCA": checkBasic(CompatibleUnionABCA, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown compatible union in test: " & sszSubType)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
@@ -417,34 +415,30 @@ proc sszCheck(dir, sszType, sszSubType: string)
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
     of "ProgressiveTestStruct":
-      skip()
-      # checkBasic(ProgressiveTestStruct, dir, expectedHash)
+      checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     of "ProgressiveBitsStruct":
-      skip()
-      # checkBasic(ProgressiveBitsStruct, dir, expectedHash)
+      checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   of "progressive_bitlist":
-    skip()
-    # checkBasic(BitSeq, dir, expectedHash)
+    checkBasic(BitSeq, dir, expectedHash)
   of "progressive_containers":
-    skip()
-    # var name: string
-    # let wasMatched = scanf(sszSubType, "$+_", name)
-    # doAssert wasMatched
-    # case name
-    # of "ProgressiveSingleFieldContainerTestStruct":
-    #   checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
-    # of "ProgressiveSingleListContainerTestStruct":
-    #   checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
-    # of "ProgressiveVarTestStruct":
-    #   checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
-    # of "ProgressiveComplexTestStruct":
-    #   checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
-    # else:
-    #   raise newException(ValueError,
-    #     "unknown progressive container in test: " & sszSubType)
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "ProgressiveSingleFieldContainerTestStruct":
+      checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
+    of "ProgressiveSingleListContainerTestStruct":
+      checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
+    of "ProgressiveVarTestStruct":
+      checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
+    of "ProgressiveComplexTestStruct":
+      checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown progressive container in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
