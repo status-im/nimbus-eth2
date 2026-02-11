@@ -31,6 +31,13 @@ type
     committee_len*: int
     data*: AttestationData
 
+func toAttestation*(
+    registered: RegisteredAttestation, signature: ValidatorSig):
+    phase0.Attestation =
+  phase0.Attestation.init(
+    [registered.index_in_committee], registered.committee_len,
+    registered.data, signature).expect("valid data")
+
 func toElectraAttestation*(
     registered: RegisteredAttestation, signature: ValidatorSig):
     electra.Attestation =
