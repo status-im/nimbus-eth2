@@ -537,9 +537,16 @@ proc runGenesisWaitingLoop(
 proc runForkScheduleWaitingLoop(
     vc: ValidatorClientRef
 ) {.async: (raises: [CancelledError]).} =
-  notice "Waiting for fork schedule information"
+  debug "Waiting for fork schedule information"
   try:
     await vc.forksAvailable.wait()
+    let
+      slot = vc.beaconClock.now().slotOrZero(vc.timeParams)
+      config = vc.getConsensusForkConfig(vc.forkAtEpoch(slot.epoch())).get()
+    notice "Current fork schedule information",
+      fork = config.key.toString(),
+      version = toHex(distinctBase config.value.version),
+      current_fork_epoch = config.value.epoch
   except CancelledError as exc:
     debug "Fork schedule waiting loop was interrupted"
     raise exc
