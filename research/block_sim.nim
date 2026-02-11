@@ -67,9 +67,7 @@ cli do(
   replay = true
 ):
   let genesisState = loadGenesis(validators, false)
-  const
-    cfg = getSimulationConfig()
-    BUILDER_TOP_UP = 10_000_000_000.Gwei
+  const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
 
