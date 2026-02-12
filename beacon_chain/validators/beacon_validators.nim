@@ -722,6 +722,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     registeredRes = node.attachedValidators.slashingProtection.withContext:
       var tmp: seq[(RegisteredAttestation, SubnetId)]
@@ -737,7 +738,11 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let
             validator = node.getValidatorForDuties(validator_index, slot).valueOr:
               continue
-            data = makeAttestationData(epochRef, attestationHead)
+            data =
+              if consensusFork >= ConsensusFork.Electra:
+                makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+              else:
+                makeAttestationData(epochRef, attestationHead, committee_index)
             # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
             signingRoot = compute_attestation_signing_root(
               fork, genesis_validators_root, data)

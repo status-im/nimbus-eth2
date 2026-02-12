@@ -458,60 +458,71 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-  router.api2(MethodGet, "/eth/v1/validator/attestation_data") do(
-    slot: Option[Slot], committee_index: Option[CommitteeIndex]
-  ) -> RestApiResponse:
-    let qslot = block:
-      if slot.isNone():
-        return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-      slot.get().valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidSlotValueError, $error)
+  # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+  router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
+    slot: Option[Slot],
+    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    let adata =
+      block:
+        let qslot =
+          block:
+            if slot.isNone():
+              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+            let res = slot.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                               $res.error())
+            res.get()
+        if qslot <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           "Slot already finalized")
+        let
+          wallTime = node.beaconClock.now()
+          maxTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        if qslot > maxTime.slotOrZero(node.dag.timeParams):
+          return RestApiResponse.jsonError(
+            Http400, InvalidSlotValueError, "Slot cannot be in the future")
+        if qslot + SLOTS_PER_EPOCH < (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY)
+            .slotOrZero(node.dag.timeParams):
+          return RestApiResponse.jsonError(
+            Http400, InvalidSlotValueError,
+            "Slot cannot be more than an epoch in the past")
 
-    if qslot <= node.dag.finalizedHead.slot:
-      return RestApiResponse.jsonError(
-        Http400, InvalidSlotValueError, "Slot already finalized"
-      )
-    if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) < ConsensusFork.Electra:
-      return RestApiResponse.jsonError(
-        Http400, InvalidSlotValueError, "Pre-electra slots unsupported"
-      )
+        let qindex =
+          block:
+            if committee_index.isNone():
+              return RestApiResponse.jsonError(Http400,
+                                               MissingCommitteeIndexValueError)
+            let res = committee_index.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                                               InvalidCommitteeIndexValueError,
+                                               $res.error())
+            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
+              0.CommitteeIndex
+            else:
+              res.get()
+        let qhead =
+          block:
+            let res = node.getSyncedHead(qslot)
+            if res.isErr():
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                               $res.error())
+            let tres = res.get()
+            if tres.executionValid:
+              tres
+            else:
+              let qbs = node.lastValidAttestedBlock.valueOr:
+                return RestApiResponse.jsonError(
+                  Http503, BeaconNodeInSyncError)
+              if qbs.blck.slot > qslot:
+                return RestApiResponse.jsonError(
+                  Http503, BeaconNodeInSyncError)
+              qbs.blck
 
-    let
-      wallTime = node.beaconClock.now()
-      maxTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-    if qslot > maxTime.slotOrZero(node.dag.timeParams):
-      return RestApiResponse.jsonError(
-        Http400, InvalidSlotValueError, "Slot cannot be in the future"
-      )
-    if qslot + SLOTS_PER_EPOCH <
-        (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(node.dag.timeParams):
-      return RestApiResponse.jsonError(
-        Http400, InvalidSlotValueError, "Slot cannot be more than an epoch in the past"
-      )
-
-    if committee_index.isNone():
-      return RestApiResponse.jsonError(Http400, MissingCommitteeIndexValueError)
-    if committee_index.get().isErr():
-      return RestApiResponse.jsonError(
-        Http400, InvalidCommitteeIndexValueError, $committee_index.get().error()
-      )
-
-    let
-      qhead = block:
-        let head = node.getSyncedHead(qslot).valueOr:
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError, $error)
-        if head.executionValid:
-          head
-        else:
-          let qbs = node.lastValidAttestedBlock.valueOr:
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          if qbs.blck.slot > qslot:
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          qbs.blck
-
-      epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
-        return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-      adata = makeAttestationData(epochRef, qhead.atSlot(qslot))
+        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
