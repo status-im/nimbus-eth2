@@ -252,9 +252,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_not_activated OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_slashed       OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_withdrawn     OK
++ [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_withdrawable_cur OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_slots_of_different_epochs OK
++ [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_slots_same_epoch_differen OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - basic                             OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_future          OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_past            OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - header_slot_at_epoch_end          OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - header_slot_at_epoch_start        OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_multiple_roots     OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_only_body_root     OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_only_state_root    OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_activated_current_epoch  OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_index_last               OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_index_zero               OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_withdrawable_next_epoch  OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - self_slashing_future_slot         OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - slashed_and_proposer_index_the_sa OK
 ```
 ## EF - Altair - Operations - Sync Aggregate  [Preset: mainnet]
@@ -699,9 +712,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_not_activa OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_slashed    OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_withdrawn  OK
++ [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_withdrawable_ OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_slots_of_different_epo OK
++ [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_slots_same_epoch_diffe OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - basic                          OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_future       OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_past         OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - header_slot_at_epoch_end       OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - header_slot_at_epoch_start     OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_multiple_roots  OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_only_body_root  OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_only_state_root OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_activated_current_epo OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_index_last            OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_index_zero            OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_withdrawable_next_epo OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - self_slashing_future_slot      OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - slashed_and_proposer_index_the OK
 ```
 ## EF - Bellatrix - Operations - Sync Aggregate  [Preset: mainnet]
@@ -1167,9 +1193,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_not_activate OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_slashed      OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_withdrawn    OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_withdrawable_cu OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_slots_of_different_epoch OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_slots_same_epoch_differe OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - basic                            OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_future         OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_past           OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - header_slot_at_epoch_end         OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - header_slot_at_epoch_start       OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_multiple_roots    OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_only_body_root    OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_only_state_root   OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_activated_current_epoch OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_index_last              OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_index_zero              OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_withdrawable_next_epoch OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - self_slashing_future_slot        OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
 ## EF - Capella - Operations - Sync Aggregate  [Preset: mainnet]
@@ -1670,7 +1709,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_correct_input__execution_i OK
-+ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
@@ -1715,9 +1753,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_withdrawable_curr OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_slots_same_epoch_different OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - basic                              OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_past             OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - header_slot_at_epoch_end           OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - header_slot_at_epoch_start         OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_multiple_roots      OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_only_body_root      OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_only_state_root     OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_activated_current_epoch   OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_index_last                OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_index_zero                OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_withdrawable_next_epoch   OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - self_slashing_future_slot          OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
 ## EF - Deneb - Operations - Sync Aggregate  [Preset: mainnet]
@@ -2329,7 +2380,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_pre_randao_regular_p OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_prev_randao_first_pa OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_correct_input__execution OK
-+ [Invalid] EF - Electra - Operations - Execution Payload - invalid_exceed_max_blobs_per_blo OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_first_p OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_regular OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_past_timestamp_first_pay OK
@@ -2374,9 +2424,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_not_activate OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_slashed      OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_withdrawn    OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_withdrawable_cu OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_slots_of_different_epoch OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_slots_same_epoch_differe OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - basic                            OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_future         OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_past           OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - header_slot_at_epoch_end         OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - header_slot_at_epoch_start       OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_multiple_roots    OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_only_body_root    OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_only_state_root   OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_activated_current_epoch OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_index_last              OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_index_zero              OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_withdrawable_next_epoch OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - self_slashing_future_slot        OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
 ## EF - Electra - Operations - Sync Aggregate  [Preset: mainnet]
@@ -3066,7 +3129,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_prev_randao_first_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_correct_input__execution_in OK
-+ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_exceed_max_blobs_per_block  OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_first_payl OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
@@ -3111,9 +3173,22 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_not_activated   OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_slashed         OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_withdrawn       OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_withdrawable_curre OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_slots_of_different_epochs   OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_slots_same_epoch_different_ OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - basic                               OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_future            OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_past              OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - header_slot_at_epoch_end            OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - header_slot_at_epoch_start          OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_multiple_roots       OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_only_body_root       OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_only_state_root      OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_activated_current_epoch    OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_index_last                 OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_index_zero                 OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_withdrawable_next_epoch    OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - self_slashing_future_slot           OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - slashed_and_proposer_index_the_same OK
 ```
 ## EF - Fulu - Operations - Sync Aggregate  [Preset: mainnet]
@@ -3625,6 +3700,32 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Fork - after_fork_deactivate_validators_from_fulu_to_gloas [Preset: mainnet]  OK
 + EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
 + EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: mainnet]   OK
++ EF - Gloas - Fork - fork_base_state [Preset: mainnet]                                      OK
++ EF - Gloas - Fork - fork_builder_deposit_followed_by_non_builder_credentials [Preset: main OK
++ EF - Gloas - Fork - fork_builder_deposit_uses_deposit_slot_epoch [Preset: mainnet]         OK
++ EF - Gloas - Fork - fork_builder_deposit_with_existing_validator_pubkey_builder_creds [Pre OK
++ EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
++ EF - Gloas - Fork - fork_many_next_epoch [Preset: mainnet]                                 OK
++ EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: mainnet]                          OK
++ EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: mainnet]                       OK
++ EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: mainnet]                  OK
++ EF - Gloas - Fork - fork_next_epoch [Preset: mainnet]                                      OK
++ EF - Gloas - Fork - fork_next_epoch_with_block [Preset: mainnet]                           OK
++ EF - Gloas - Fork - fork_no_pending_deposits [Preset: mainnet]                             OK
++ EF - Gloas - Fork - fork_pending_deposit_for_existing_validator [Preset: mainnet]          OK
++ EF - Gloas - Fork - fork_pending_deposit_validator_credentials [Preset: mainnet]           OK
++ EF - Gloas - Fork - fork_random_low_balances [Preset: mainnet]                             OK
++ EF - Gloas - Fork - fork_random_misc_balances [Preset: mainnet]                            OK
++ EF - Gloas - Fork - fork_single_builder_deposit [Preset: mainnet]                          OK
++ EF - Gloas - Fork - fork_valid_builder_deposit_followed_by_invalid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_validator_deposit_followed_by_builder_credentials [Preset: mainne OK
++ EF - Gloas - Fork - gloas_fork_random_0 [Preset: mainnet]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_1 [Preset: mainnet]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_2 [Preset: mainnet]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_3 [Preset: mainnet]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_low_balances [Preset: mainnet]                       OK
++ EF - Gloas - Fork - gloas_fork_random_misc_balances [Preset: mainnet]                      OK
 ```
 ## EF - Gloas - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3817,7 +3918,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
@@ -3825,8 +3925,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_bid_prev OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_missing_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bu OK
 + [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ga OK
@@ -3846,7 +3946,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Execution Payload - no_commitments_for_transactions    OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - no_transactions_with_commitments   OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_max_blob OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
 + [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
@@ -3866,6 +3965,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -3873,6 +3974,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_cros OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_futu OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
@@ -3895,12 +3997,32 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_withdrawable_curr OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_same_epoch_different OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - basic                              OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_past             OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_too_late  OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_current_epoc OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_old_epoch    OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_previous_epo OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_end           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_start         OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_multiple_roots      OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_only_body_root      OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_only_state_root     OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_activated_current_epoch   OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_index_last                OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_index_zero                OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_withdrawable_next_epoch   OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - self_slashing_future_slot          OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
 ## EF - Gloas - Operations - Sync Aggregate  [Preset: mainnet]
@@ -3984,9 +4106,30 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Withdrawals  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Gloas - Operations - Withdrawals - all_builder_withdrawals_zero_balance     OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_max_minus_one_plus_one_regular   OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_payments_exceed_limit_blocks_oth OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_index_wrap_around          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped   OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_zero_balance_skipped       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_uses_fee_recipient_address       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawal_insufficient_balance  OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawal_insufficient_balance_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawals_processed_order      OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_zero_withdrawal_amount           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - compounding_validator_partial_withdrawal OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - duplicate_builder_index_in_pending_withd OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - early_return_empty_parent_block          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_builder_payload_reserves_sweep_slot OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - maximum_withdrawals_per_payload_limit    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - multiple_builder_sweep_withdrawals       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - multiple_builder_withdrawals             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - no_builders_max_pending_with_sweep_spill OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - no_builders_no_pending_max_sweep_withdra OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
@@ -4004,6 +4147,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_next_epoch           OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_no_excess_balance    OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_processing           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_processing_exceeds_l OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_effective_sweep OK
@@ -4016,20 +4161,28 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_3             OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_4             OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_5             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - single_builder_sweep_withdrawal          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - single_builder_withdrawal                OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_max_partial_withdrawable         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance                OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance_compounding    OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_full_withdrawal              OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_active_ OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited  OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited_ OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_in_exit OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_not_yet OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawal           OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_two_partial_withdrawable         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_zero_expected_withdrawals        OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
 ## EF - Gloas - Rewards  [Preset: mainnet]
 ```diff
@@ -4434,6 +4587,19 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK

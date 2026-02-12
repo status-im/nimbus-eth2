@@ -34,7 +34,8 @@ func is_valid_versioned_hashes*(
       blck.body.execution_payload.transactions
   template commitments: untyped =
     when consensusFork >= ConsensusFork.Gloas:
-      envelope.blob_kzg_commitments
+      template bid(): auto = blck.body.signed_execution_payload_bid
+      bid.message.blob_kzg_commitments
     else:
       blck.body.blob_kzg_commitments
 

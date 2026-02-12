@@ -67,9 +67,7 @@ cli do(
   replay = true
 ):
   let genesisState = loadGenesis(validators, false)
-  const
-    cfg = getSimulationConfig()
-    BUILDER_TOP_UP = 10_000_000_000.Gwei
+  const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
 
@@ -360,7 +358,7 @@ cli do(
                 slot: slot,
                 value: 0.Gwei,
                 execution_payment: 0.Gwei,
-                blob_kzg_commitments_root: default(Eth2Digest))
+                blob_kzg_commitments: default(KzgCommitments))
           SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:

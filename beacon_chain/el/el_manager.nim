@@ -444,23 +444,23 @@ proc getPayloadFromSingleEL(
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
 
-template EngineApiResponseType*(T: type bellatrix.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
   BellatrixExecutionPayloadWithValue
 
-template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV2Response
 
-template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
 
-template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response
 
-template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
-template EngineApiResponseType*(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV6Response
+template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -586,7 +586,11 @@ proc getPayload*(
     await noCancel allFutures(pending)
 
     if bestPayloadIdx.isSome():
-      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+      debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
+      when PayloadType.kind == ConsensusFork.Gloas:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
+      else:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
@@ -930,7 +934,8 @@ proc sendNewPayload*(
         block:
           let kzgCommitments =
             when consensusFork >= ConsensusFork.Gloas:
-              envelope.blob_kzg_commitments
+              template bid(): auto = blck.body.signed_execution_payload_bid
+              bid.message.blob_kzg_commitments
             elif consensusFork >= ConsensusFork.Deneb:
               blck.body.blob_kzg_commitments
           kzgCommitments.asEngineVersionedHashes()
