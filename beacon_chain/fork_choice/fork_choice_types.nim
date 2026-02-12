@@ -54,6 +54,9 @@ type
   Index* = int
   Delta* = int64
     ## Delta balances
+  
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#custom-types
+  PayloadStatus* = uint8
 
   ForkChoiceError* = object
     case kind*: fcKind
@@ -167,8 +170,6 @@ type
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#custom-types
-  PayloadStatus* = uint8
- 
   ForkChoiceNode* = object
     root*: Eth2Digest
     payloadStatus*: PayloadStatus

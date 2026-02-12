@@ -158,31 +158,26 @@ proc on_tick(
         ? self.checkpoints.update_checkpoints(dag, realized, current_slot)
   ok()
 
-func process_attestation*(
-       self: var ForkChoiceBackend,
-       validator_index: ValidatorIndex,
-       block_root: Eth2Digest,
-       target_epoch: Epoch,
-       attestation_slot: Slot,
-       payload_present: bool,
-       cfg: RuntimeConfig
-     ) =
+func process_attestation(
+    self: var ForkChoiceBackend,
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot,
+    payload_present: bool, cfg: RuntimeConfig) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
 
-  if attestation_slot.epoch >= cfg.GLOAS_FORK_EPOCH:
+  if slot.epoch >= cfg.GLOAS_FORK_EPOCH:
     # slot based tracking with payload preference
-    if attestation_slot > vote.next_slot or vote.next_root.isZero:
+    if slot > vote.next_slot or vote.next_root.isZero:
       vote.next_root = block_root
-      vote.next_slot = attestation_slot
-      vote.next_epoch = target_epoch
+      vote.next_slot = slot
+      vote.next_epoch = slot.epoch
       vote.payload_present = payload_present
 
       trace "Integrating Gloas vote in fork choice",
         validator_index = validator_index,
-        slot = attestation_slot,
+        slot = slot,
         payload_present = payload_present,
         new_vote = shortLog(vote)
   else:
@@ -205,7 +200,7 @@ proc process_attestation_queue(
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot.epoch(), it.slot,
+          validator_index, it.block_root, it.slot,
           it.committee_index == 1, dag.cfg)
       false
     else:
@@ -257,7 +252,7 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot.epoch, attestation_slot,
+        validator_index, beacon_block_root, attestation_slot,
         attestation_committee_index == 1, dag.cfg)
   else:
     # Spec:
@@ -503,7 +498,7 @@ func get_node_children(
 
 func get_ancestor_at_slot(
     self: var ForkChoice, root: Eth2Digest,
-    target_slot: Slot): Option[(Eth2Digest, Slot)] =
+    target_slot: Slot): Option[(Eth2Digest, PayloadStatus)] =
   var
     current_root = root
     child_root = root
@@ -530,7 +525,7 @@ func get_ancestor_at_slot(
       let child_node = self.getPhysicalNode(child_idx)
       if child_node == nil: return none((Eth2Digest, PayloadStatus))
 
-      return some((current_root, child.parentPayloadStatus))
+      return some((current_root, child_node.parentPayloadStatus))
     
     if node.parent.isNone: return none((Eth2Digest, PayloadStatus))
     
@@ -564,7 +559,7 @@ func is_supporting_vote(
     return false
 
   # Pre Gloas, conventional root matching
-  if not isGloasEnabled(dag.head.slot):
+  if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return node.root == vote.next_root
 
   # Direct vote for this block
@@ -586,10 +581,10 @@ func is_supporting_vote(
   let (ancestor_root, ancestor_payload_status) = ancestor.get()
   if ancestor_root != node.root: return false
 
-  if node.PayloadStatus == PAYLOAD_STATUS_PENDING:
+  if node.payloadStatus == PAYLOAD_STATUS_PENDING:
     return true
 
-  node.PayloadStatus == ancestor_payload_status
+  node.payloadStatus == ancestor_payload_status
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
 func get_weight(
@@ -614,8 +609,9 @@ func get_weight(
     return 0.Gwei
 
   var attestation_score = 0.Gwei
+  let justified_balances = self.checkpoints.justified.validators.balances
   for i in 0..<self.backend.votes.len:
-    if i >= self.checkpoints.justified.balances.len:
+    if i >= justified_balances.len:
       break
 
     let vote = self.backend.votes[i]
@@ -624,7 +620,7 @@ func get_weight(
 
     # Check if this vote supports our node
     if self.is_supporting_vote(node, vote, dag):
-      attestation_score += self.checkpoints.justified.balances[i]
+      attestation_score += justified_balances[i].unslashed_balance
 
   var proposer_score = 0.Gwei
   if not self.checkpoints.proposer_boost_root.isZero:

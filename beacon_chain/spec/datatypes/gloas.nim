@@ -37,9 +37,6 @@ from ./deneb import
 export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#custom-types
-  PayloadStatus* = uint8
-
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#custom-types
   BuilderIndex* = uint64
 

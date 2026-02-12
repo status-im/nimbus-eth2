@@ -307,12 +307,12 @@ func onBlock*(
 
   let node = ProtoNode(
     bid: bid,
-    parent: some(parentIdx),
+    parent: Opt.some(parentIdx),
     checkpoints: checkpoints,
     weight: 0,
     invalid: false,
-    bestChild: none(int),
-    bestDescendant: none(int),
+    bestChild: Opt.none(int),
+    bestDescendant: Opt.none(int),
     parentPayloadStatus: parent_payload_status)
 
   self.indices[node.bid.root] = nodeLogicalIdx
