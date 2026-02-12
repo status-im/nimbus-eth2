@@ -546,7 +546,7 @@ proc runForkScheduleWaitingLoop(
     notice "Current fork schedule information",
       fork = config.key.toString(),
       version = toHex(distinctBase config.value.version),
-      current_fork_epoch = config.value.epoch
+      epoch = config.value.epoch
   except CancelledError as exc:
     debug "Fork schedule waiting loop was interrupted"
     raise exc
