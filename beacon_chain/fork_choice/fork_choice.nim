@@ -266,7 +266,7 @@ proc on_attestation*(
     self.queuedAttestations.add QueuedAttestation(
       attesting_indices: @attesting_indices,
       block_root: beacon_block_root,
-      committee_index: attestation_committee_index))
+      committee_index: attestation_committee_index)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_payload_attestation_message
@@ -316,19 +316,7 @@ proc on_payload_attestation_message*(
         else:
           votes.clearBit(ptc_index)
 
-        trace "Recorded PTC vote",
-          validator_index = validator_index,
-          beacon_block_root = shortLog(beacon_block_root),
-          slot = slot,
-          payload_present = payload_present,
-          ptc_index = ptc_index,
-          is_from_block = is_from_block
-      else:
-        debug "PTC vote from unknown validator index",
-          validator_index = validator_index,
-          slot = slot
-    else:
-      debug "Attempted to record PTC vote before gloas fork"
+        trace "Recorded PTC vote", validator_index = validator_index
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
@@ -513,14 +501,59 @@ func get_node_children(
   
   children
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_supporting_vote
-func is_supporting_vote*(
+func get_ancestor_at_slot(
+    self: var ForkChoice, root: Eth2Digest,
+    target_slot: Slot): Option[(Eth2Digest, Slot)] =
+  var
+    current_root = root
+    child_root = root
+    iterations = 0
+
+  while iterations < 1000:
+    inc iterations
+    let idx = self.backend.proto_array.indices.getOrDefault(current_root, -1)
+    if idx < 0: return none((Eth2Digest, PayloadStatus))
+
+    let node = self.getPhysicalNode(idx)
+    if node == nil: return none((Eth2Digest, PayloadStatus))
+
+    if node.bid.slot < target_slot:
+      return none((Eth2Digest, PayloadStatus))
+
+    if node.bid.slot == target_slot:
+      # We already know `child_rooot` is the child of the `current_root`
+      # but we also know the payload status of `child_root`
+      let child_idx =
+        self.backend.proto_array.indices.getOrDefault(child_root, -1)
+      if child_idx < 0: return none((Eth2Digest, PayloadStatus))
+
+      let child_node = self.getPhysicalNode(child_idx)
+      if child_node == nil: return none((Eth2Digest, PayloadStatus))
+
+      return some((current_root, child.parentPayloadStatus))
+    
+    if node.parent.isNone: return none((Eth2Digest, PayloadStatus))
+    
+    let
+      parent_idx = node.parent.get()
+      parent_node = self.getPhysicalNode(parent_idx)
+    if parent_node == nil: return none((Eth2Digest, PayloadStatus))
+
+    child_root = current_root
+    current_root = parent_node.bid.root
+  
+  none((Eth2Digest, PayloadStatus))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#new-is_supporting_vote
+func is_supporting_vote(
     self: var ForkChoice, node: ForkChoiceNode,
     vote: VoteTracker, dag: ChainDAGRef): bool =
   ## Returns whether a vote for ``message.root`` supports the chain 
   ## containing the beacon block ``node.root`` with the payload
   ## contents indicated by ``node.payload_status`` as head during
   ## slot ``node.slot`
+  
+  if vote.next_root.isZero: return false
 
   let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
   if node_idx < 0:
@@ -530,81 +563,33 @@ func is_supporting_vote*(
   if proto_node == nil:
     return false
 
-  # Pre gloas, conventional root matching
-  if proto_node.bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+  # Pre Gloas, conventional root matching
+  if not isGloasEnabled(dag.head.slot):
     return node.root == vote.next_root
 
+  # Direct vote for this block
   if node.root == vote.next_root:
-    # case 1: Vote is for this exact block
-    # then check for payload status comapatibility
-
-    # Rule 1: Pending always gets support
     if node.payloadStatus == PAYLOAD_STATUS_PENDING:
       return true
-
-    # Rule 2: Same-slot votes don't support empty or full
     if vote.next_slot <= proto_node.bid.slot:
       return false
-
-    # Rule 3: Next slot votes distinguish empty from full
-    if vote.payload_present:
-      return node.payloadStatus == PAYLOAD_STATUS_FULL
+    return if vote.payload_present:
+      node.payloadStatus == PAYLOAD_STATUS_FULL
     else:
-      return node.payloadStatus == PAYLOAD_STATUS_EMPTY
-  else:
-    # Case 2: Vote is for a descendant block
-    trace "Vote is for descendant",
-      vote_root = shortLog(vote.next_root)
+      node.payloadStatus == PAYLOAD_STATUS_EMPTY
     
-    # Rule 4: Ancestor matching with the payload status
-    var
-      current_root = vote.next_root
-      iterations = 0
-    const MAX_ITERATIONS = 1000
+  # Vote for a descendant
+  let ancestor =
+    self.get_ancestor_at_slot(vote.next_root, proto_node.bid.slot)
+  if ancestor.isNone: return false
 
-    while iterations < MAX_ITERATIONS:
-      inc iterations
+  let (ancestor_root, ancestor_payload_status) = ancestor.get()
+  if ancestor_root != node.root: return false
 
-      if current_root == node.root:
-        if node.payloadStatus == PAYLOAD_STATUS_PENDING:
-          trace "Ancestor match, Pending accepts all"
-          return true
+  if node.PayloadStatus == PAYLOAD_STATUS_PENDING:
+    return true
 
-        # For empty/full, we should check if the descendant chain
-        # is building on the correct payload status.
-        # 
-        # TODO: This requires tracking parent_payload_status through
-        # the chain
-
-        # JUst accept if ancestor was found
-        trace "Ancestor match",
-          iterations = iterations
-        return true
-
-      let current_idx =
-        self.backend.proto_array.indices.getOrDefault(current_root, -1)
-      if current_idx < 0: break
-
-      let current_node = getPhysicalNode(self, current_idx)
-      if current_node == nil:
-        break
-
-      # Check if we have already gone past the target slot
-      if current_node.bid.slot < proto_node.bid.slot:
-        break
-
-      if current_node.parent.isNone:
-        break
-
-      let 
-        parent_idx = current_node.parent.get()
-        parent_node = getPhysicalNode(self, parent_idx)
-      if parent_node == nil:
-        break
-
-      current_root = parent_node.bid.root
-
-    return false
+  node.PayloadStatus == ancestor_payload_status
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
 func get_weight(
