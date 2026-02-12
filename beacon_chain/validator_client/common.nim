@@ -950,6 +950,16 @@ proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
       return key
   raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
 
+proc getConsensusForkConfig*(
+    vc: ValidatorClientRef,
+    fork: Fork
+): Opt[tuple[key: ConsensusFork, value: ForkConfigItem]] =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return Opt.some((key, value))
+  Opt.none(tuple[key: ConsensusFork, value: ForkConfigItem])
+
 proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
   # If schedule is present, it MUST not be empty.
   doAssert(len(vc.forks) > 0)

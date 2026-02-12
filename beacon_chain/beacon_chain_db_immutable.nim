@@ -506,7 +506,7 @@ type
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
-        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+      HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
   # Memory-representation-equivalent to a Gloas BeaconState for in-place SSZ
   # reading and writing
@@ -594,7 +594,7 @@ type
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
-        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+      HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
     builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
