@@ -889,7 +889,7 @@ proc start*(rman: var RequestManager) =
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
-proc switchToColumnLoop*(rman: var RequestManager) =
+proc upgradeLoops*(rman: var RequestManager) =
   let currentEpoch =
     rman.getBeaconTime().slotOrZero(rman.network.cfg.timeParams).epoch()
 
@@ -901,13 +901,9 @@ proc switchToColumnLoop*(rman: var RequestManager) =
     rman.dataColumnLoopFuture =
       rman.requestManagerDataColumnLoop()
 
-proc upgradeToEnvelopeLoop*(self: var RequestManager) =
-  let currentEpoch =
-    self.getBeaconTime().slotOrZero(self.network.cfg.timeParams).epoch()
-
-  if currentEpoch >= self.network.cfg.GLOAS_FORK_EPOCH and
-     isNil(self.envelopeLoopFuture):
-    self.envelopeLoopFuture = self.requestManagerEnvelopeLoop()
+  if currentEpoch >= rman.network.cfg.GLOAS_FORK_EPOCH and
+     isNil(rman.envelopeLoopFuture):
+    rman.envelopeLoopFuture = rman.requestManagerEnvelopeLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
