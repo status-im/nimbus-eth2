@@ -629,9 +629,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
       try:
         await allFutures(verifiers)
       except CancelledError as exc:
-        var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
-        for verifier in verifiers:
-          futs.add verifier.cancelAndWait()
+        let futs = verifiers.mapIt(it.cancelAndWait())
         await noCancel allFutures(futs)
         raise exc
 
@@ -649,7 +647,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
 
     await allFutures(workers)
 
-    let finish = SyncMoment.now(uint64(len(blockRoots)))
+    let finish = SyncMoment.now(lenu64(blockRoots))
 
     debug "Request manager envelope tick",
       envelopes = shortLog(blockRoots),
@@ -903,7 +901,7 @@ proc switchToColumnLoop*(rman: var RequestManager) =
     rman.dataColumnLoopFuture =
       rman.requestManagerDataColumnLoop()
 
-proc switchToEnvelopeLoop*(self: var RequestManager) =
+proc upgradeToEnvelopeLoop*(self: var RequestManager) =
   let currentEpoch =
     self.getBeaconTime().slotOrZero(self.network.cfg.timeParams).epoch()
 
