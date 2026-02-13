@@ -366,6 +366,12 @@ proc get_head*(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
 
+proc will_select_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
+  ? self.update_time(dag, wallTime)
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   self.backend.proto_array.get_latest_confirmed()
