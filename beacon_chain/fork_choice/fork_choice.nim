@@ -661,65 +661,36 @@ func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
     return true
   false
 
-#https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-should_extend_payload
+#https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
-    self: var ForkChoice, root: Eth2Digest): bool =
-  # Slot N:   Block B (PENDING) produced
-  #         Payload commitment in block
-  #         Builder should reveal payload
-
-  # Slot N+1: Fork choice deciding:
-  #         Should we extend EMPTY or FULL branch of Block B?
-
-  # Case 1: if payload is timely
+    self: var ForkChoice, root: Eth2Digest, dag: ChainDAGRef): bool =
   if self.backend.is_payload_timely(root):
-    trace "Extending payload: timely according to PTC",
-      root = shortLog(root)
     return true
 
-  # Case 2: No proposer boost for block
-  # Optimistic, default to full and assume payload will arrive
   let proposer_root = self.checkpoints.proposer_boost_root
   if proposer_root.isZero:
-    trace "Extending payload: no proposer boost",
-      root = shortLog(root)
     return true
 
-  # Does proposer boost conflict with this block?
   let proposer_idx = self.backend.proto_array.indices.getOrDefault(
     proposer_root, -1)
   if proposer_idx < 0:
-    trace "Extending payload: proposer boost block not found",
-      root = shortLog(root)
     return true
-
-  # Use the proto_array's node accessor
-  let proposer_node = self.backend.proto_array.nodes.buf[proposer_idx]
-
-  # Check if parent exists
-  if proposer_node.parent.isNone:
-    trace "Extending payload: proposer boost at genesis",
-      root = shortLog(root)
+  
+  let proposer_node = self.getPhysicalNode(proposer_idx)
+  if proposer_node == nil or proposer_node.parent.isNone:
     return true
 
   let
     parent_idx = proposer_node.parent.get()
-    parent_node = self.backend.proto_array.nodes.buf[parent_idx]
+    parent_node = self.getPhysicalNode(parent_idx)
 
-    parent_root = parent_node.bid.root
-
-  # Case 3: proposer boost is on a different chain than `root`
-  if parent_root != root:
-    trace "Extending payload: proposer boost on different chain",
-      root = shortLog(root),
-      proposer_boost_parent = shortLog(parent_root)
+  if parent_node == nil:
     return true
 
-  # Case 4: Proposer boost on our chain (conservative approach)
-  trace "Not extending payload: proposer boost on our chain",
-    root = shortLog(root),
-    proposer_boost_root = shortLog(proposer_root)
-  false
+  if parent_node.bid.root != root:
+    return true
+
+  proposer_node.parentPayloadStatus == PARENT_PAYLOAD_STATUS_FULL
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
 func get_payload_status_tiebreaker(
