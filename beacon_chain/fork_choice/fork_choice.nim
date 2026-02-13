@@ -789,7 +789,7 @@ func find_head(
   ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -797,13 +797,8 @@ proc get_head*(
 
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return self.backend.find_head(
-      self.checkpoints.time.slotOrZero(dag.timeParams).epoch,
-      FinalityCheckpoints(
-        justified: self.checkpoints.justified.checkpoint,
-        finalized: self.checkpoints.finalized),
-      self.checkpoints.justified.total_active_balance,
-      self.checkpoints.justified.balances,
-      self.checkpoints.proposer_boost_root)
+      self.checkpoints.time.slotOrZero(dag.timeParams),
+      self.checkpoints)
   
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   var head = ForkChoiceNode(
