@@ -586,7 +586,7 @@ func is_supporting_vote(
 
   node.payloadStatus == ancestor_payload_status
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#modified-get_weight
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#modified-get_weight
 func get_weight(
     self: var ForkChoice, node: ForkChoiceNode,
     current_slot: Slot, dag: ChainDAGRef): Gwei =
@@ -598,14 +598,12 @@ func get_weight(
   if proto_node == nil:
     return 0.Gwei
 
-  # Weight calculation is handled by proto_array pre-Gloas
+  # Pre Gloas, we use proto_array weight
   if proto_node[].bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return proto_node[].weight.Gwei
 
-  let is_deciding_previous = (node.payloadStatus != PAYLOAD_STATUS_PENDING and
-                              proto_node[].bid.slot + 1 == current_slot)
-  
-  if is_deciding_previous:
+  if node.payloadStatus != PAYLOAD_STATUS_PENDING and
+      proto_node[].bid.slot + 1 == current_slot:
     return 0.Gwei
 
   var attestation_score = 0.Gwei
@@ -618,21 +616,20 @@ func get_weight(
     if vote.next_root.isZero:
       continue
 
-    # Check if this vote supports our node
     if self.is_supporting_vote(node, vote, dag):
       attestation_score += justified_balances[i].unslashed_balance
 
   var proposer_score = 0.Gwei
   if not self.checkpoints.proposer_boost_root.isZero:
-    var boost_vote = VoteTracker(
+    let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
       next_slot: current_slot,
       next_epoch: current_slot.epoch,
       payload_present: false)
 
     if self.is_supporting_vote(node, boost_vote, dag):
-      proposer_score =
-        calculateProposerBoost(self.checkpoints.justified.total_active_balance)
+      proposer_score = calculateProposerBoost(
+        self.checkpoints.justified.total_active_balance)
 
       trace "Applied proposer boost",
         boost = proposer_score
