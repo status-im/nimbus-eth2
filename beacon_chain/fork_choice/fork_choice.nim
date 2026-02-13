@@ -59,7 +59,10 @@ func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
     finalized: BalanceCheckpoint, currentSlot: Slot): T =
   T(confirmation_byzantine_threshold: confirmation_byzantine_threshold,
-    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot))
+    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot),
+    confirmed: BlockId(
+      slot: finalized.checkpoint.epoch.start_slot,
+      root: finalized.checkpoint.root))
 
 proc init*(
     T: type ForkChoice, confirmation_byzantine_threshold: uint64,
@@ -128,6 +131,12 @@ proc update_checkpoints(
     self.finalized = checkpoints.finalized
 
   ok()
+
+proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
+  if confirmed.slot < self.confirmed.slot:
+    warn "Confirmed block was unconfirmed",
+      old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
+  self.confirmed = confirmed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
@@ -362,13 +371,16 @@ proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-  self.backend.find_head(
+  result = self.backend.find_head(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
+  self.backend.update_confirmed BlockId(
+    slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
+    root: self.checkpoints.justified.checkpoint.root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  self.backend.proto_array.get_latest_confirmed()
+  self.backend.confirmed.root
 
 func prune(
     self: var ForkChoiceBackend,

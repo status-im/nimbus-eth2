@@ -97,8 +97,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
-  router.api2(MethodGet,
-              "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
     template forkChoice: auto = node.attestationPool[].forkChoice
 
     var response = GetForkChoiceResponse(
@@ -126,7 +125,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         parent_root: item.parent,
         justified_epoch: item.checkpoints.justified.epoch,
         finalized_epoch: item.checkpoints.finalized.epoch,
-        weight: cast[uint64](item.weight),
+        weight: item.weight,
         validity:
           if item.invalid:
             RestNodeValidity.invalid
