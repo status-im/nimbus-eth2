@@ -623,9 +623,7 @@ template TrustedSignedBeaconBlock*(kind: static ConsensusFork): typedesc =
     {.error: "TrustedSignedBeaconBlock unsupported in " & $kind.}
 
 template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
-  when kind in [
-      ConsensusFork.Gloas, ConsensusFork.Fulu, ConsensusFork.Electra,
-      ConsensusFork.Deneb]:
+  when kind in ConsensusFork.Deneb .. ConsensusFork.Gloas:
     deneb.ExecutionPayloadHeader
   elif kind == ConsensusFork.Capella:
     capella.ExecutionPayloadHeader
@@ -689,6 +687,14 @@ template SignedBuilderBid*(kind: static ConsensusFork): typedesc =
     electra_mev.SignedBuilderBid
   else:
     {.error: "SignedBuilderBid unsupported in " & $kind.}
+
+template BlobsBundle*(kind: static ConsensusFork): typedesc =
+  when kind in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    fulu.BlobsBundle
+  elif kind in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    deneb.BlobsBundle
+  else:
+    {.error: "BlobsBundle unsupported in " & $kind.}
 
 template Forky*(
     x: typedesc[ForkedSignedBeaconBlock],
