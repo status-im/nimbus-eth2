@@ -361,11 +361,10 @@ proc process_block*(
         self.backend.process_attestation(
           validator_index,
           attestation.data.beacon_block_root,
-          attestation.data.target.epoch,
           attestation.data.slot,
           attestation.data.index == 1,
           dag.cfg)
-  
+ 
   # Process payload attestations
   when typeof(blck).kind >= ConsensusFork.Gloas:
     if dag.isGloasEnabled(blckRef.slot):
@@ -430,8 +429,7 @@ template getPhysicalNode(
   if physicalIdx >= 0 and
       physicalIdx < self.backend.proto_array.nodes.buf.len:
     addr self.backend.proto_array.nodes.buf[physicalIdx]
-  else:
-    nil
+  else: nil
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children(
@@ -660,7 +658,7 @@ func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
 
 #https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
-    self: var ForkChoice, root: Eth2Digest, dag: ChainDAGRef): bool =
+    self: var ForkChoice, root: Eth2Digest): bool =
   if self.backend.is_payload_timely(root):
     return true
 
@@ -687,7 +685,7 @@ func should_extend_payload*(
   if parent_node.bid.root != root:
     return true
 
-  proposer_node.parentPayloadStatus == PARENT_PAYLOAD_STATUS_FULL
+  proposer_node.parentPayloadStatus == PAYLOAD_STATUS_FULL
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
 func get_payload_status_tiebreaker(
@@ -704,14 +702,10 @@ func get_payload_status_tiebreaker(
   if proto_node == nil:
     return node.payloadStatus
 
-  # Are we deciding on previous slot's payload
-  let is_deciding_on_previous = (proto_node.bid.slot + 1 == current_slot)
-
   if node.payloadStatus == PAYLOAD_STATUS_PENDING or
-      not is_deciding_on_previous:
+      not (proto_node.bid.slot + 1 == current_slot):
     return node.payloadStatus
 
-  # Deciding on previous slot's payload
   if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
     1'u8
   elif node.payloadStatus == PAYLOAD_STATUS_FULL:
@@ -774,21 +768,14 @@ proc get_head*(
     payloadStatus: PAYLOAD_STATUS_PENDING)
   
   var iterations = 0
-  const MAX_ITERATIONS = 1000
 
-  while iterations < MAX_ITERATIONS:
+  while iterations < 1000:
     inc iterations
+  
     let children = self.get_node_children(head, dag)
-
     if children.len == 0:
       return ok(head.root)
 
-    # Log all children with their weights
-    for i, child in children:
-      let
-        child_weight = self.get_weight(child, current_slot, dag)
-        child_tiebreaker =
-          self.get_payload_status_tiebreaker(child, current_slot, dag)
     var
       best = children[0]
       best_weight = self.get_weight(best, current_slot, dag)
@@ -802,9 +789,10 @@ proc get_head*(
         child_tiebreaker =
           self.get_payload_status_tiebreaker(child, current_slot, dag)
 
-      var should_update = false
       if child_weight > best_weight:
-        should_update = true
+        best = child
+        best_weight = child_weight
+        best_tiebreaker = child_tiebreaker
       elif child_weight == best_weight:
         var root_cmp = 0
         for j in 0..<32:
@@ -815,20 +803,15 @@ proc get_head*(
             root_cmp = -1
             break
         
-        if root_cmp > 0:
-          should_update = true
-        elif root_cmp == 0:
-          if child_tiebreaker > best_tiebreaker:
-            should_update = true
-
-      if should_update:
-        best = child
-        best_weight = child_weight
-        best_tiebreaker = child_tiebreaker
+        if root_cmp > 0 or
+            (root_cmp == 0 and child_tiebreaker > best_tiebreaker):
+          best = child
+          best_weight = child_weight
+          best_tiebreaker = child_tiebreaker
 
     head = best
-  
-  ok(head.root)
+
+  err ForkChoiceError(kind: fcInvalidBestNode)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
