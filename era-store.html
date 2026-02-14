@@ -1933,6 +1933,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Importing era files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recreate-historical-state-access-indices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recreate historical state access indices
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2297,6 +2312,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Importing era files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recreate-historical-state-access-indices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recreate historical state access indices
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2345,11 +2375,6 @@
 
 
 <h1 id="era-store">Era store</h1>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This feature is currently in BETA!
-Nodes using era files may need to be resynced as the data format is not yet considered stable.</p>
-</div>
 <p>Era files are a long-term archival format for Ethereum data.
 They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past states.</p>
 <div class="admonition tip">
@@ -2371,24 +2396,32 @@ Since the history no longer is subject to change, the files are suitable to be a
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Download era store from era provider</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>wget<span class="w"> </span>--no-parent<span class="w">  </span>-A<span class="w"> </span><span class="s1">&#39;*.era&#39;</span><span class="w"> </span>-q<span class="w"> </span>--show-progress<span class="w"> </span>-nd<span class="w"> </span>-r<span class="w"> </span>-c<span class="w"> </span>https://provider/era
 </code></pre></div>
-<p>With the era files present, perform a <a href="trusted-node-sync.html">trusted node sync</a> to complete the import, possibly with <code>--reindex</code> in order to create an <a href="history.html">archive node</a>.</p>
+<p>The beacon node will automatically serve data from the Era files.</p>
+<h3 id="recreate-historical-state-access-indices">Recreate historical state access indices</h3>
+<p>To create an archive node that can access historical state, start the node with <code>--reindex --history:archive</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--network<span class="o">=</span>mainnet<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_mainnet_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--reindex<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--history:archive
+</code></pre></div>
 <h2 id="generating-era-files">Generating era files</h2>
 <p>To generate era files, you need to first <a href="build.html">build</a> Nimbus from source and <a href="start-syncing.html">sync</a> the node using full sync.
 A checkpoint-synced node can be used to generate era files from the checkpoint onwards.</p>
 <p>After that, build the additional <code>ncli_db</code> tool:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>ncli_db
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>ncli_db
 </code></pre></div>
 <p>The era export tool works by reading an existing Nimbus database and creating an era store.
 Every time the tool is run, it will check the existing store and export any new data to it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Go to the data directory of nimbus (the directory passed to --data-dir)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>build/data/shared_mainnet_0/
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Create a directory for the era store</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>era
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">cd</span><span class="w"> </span>era
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Launch the era export</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>../../../ncli_db<span class="w"> </span>exportEra<span class="w"> </span>--db<span class="o">=</span>../db
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Go to the data directory of nimbus (the directory passed to --data-dir)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">cd</span><span class="w"> </span>build/data/shared_mainnet_0/
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Create a directory for the era store</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>era
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">cd</span><span class="w"> </span>era
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Launch the era export</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>../../../ncli_db<span class="w"> </span>exportEra<span class="w"> </span>--db<span class="o">=</span>../db
 </code></pre></div>
 <p>The first time the export is run, full history is exported which may take some time.
 Subsequent runs will top up the era store with new blocks.</p>
@@ -2402,7 +2435,7 @@ It is however not recommended to run era file generation on a node that is also 
 <p>Era files can be shared directly from the <code>era</code> folder using a web server, or simply by copying them to a new location.</p>
 <h2 id="options">Options</h2>
 <p>You can pass a custom era store location to Nimbus using <code>--era-dir</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus_beacon_node<span class="w"> </span>--era-dir<span class="o">=</span>/path/to/era
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>nimbus_beacon_node<span class="w"> </span>--era-dir<span class="o">=</span>/path/to/era
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

@@ -2449,8 +2449,8 @@
 
 
 <h1 id="sync-from-a-trusted-node">Sync from a trusted node</h1>
-<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take <strong>several hours or even days</strong>.</p>
-<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in <strong>minutes</strong> instead of hours or days.</p>
+<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take <strong>several days</strong>.</p>
+<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in <strong>minutes</strong> instead.</p>
 <p>To use trusted node sync, you must have access to a node that you trust and that exposes the <a href="rest-api.html">Beacon API</a> (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
 <p>It is possible to use trusted node sync with a third-party API provider.
@@ -2491,8 +2491,8 @@ Which means you would run the commands below with <code>--trusted-node-url=http:
 </div>
 </div>
 <p>If the command was executed successfully, following log lines will be visible:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Writing checkpoint state
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Writing checkpoint block
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Database initialized from genesis
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Checkpoint written to database
 </code></pre></div>
 And eventually:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Done, your beacon node is ready to serve you! Don&#39;t forget to check that you&#39;re on the canonical chain by comparing the checkpoint root with other online sources.
@@ -2572,7 +2572,7 @@ To recreate the indices and caches necessary for historical state access, run tr
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node<span class="w"> </span>trustedNodeSync<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--network<span class="o">=</span>mainnet<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_mainnet_0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--reindex<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--reindex
 </code></pre></div>
 
 
