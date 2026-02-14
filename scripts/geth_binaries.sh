@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,7 +19,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.15.6-19d2b4c8"  # https://geth.ethereum.org/downloads
+    GETH_VERSION="1.16.8-abeb78c6"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -30,7 +30,20 @@ download_geth_stable() {
         GETH_TARBALL="geth-linux-arm64-${GETH_VERSION}.tar.gz"
         ;;
       macos-arm64|macos-aarch64)
-        GETH_TARBALL="geth-darwin-arm64-${GETH_VERSION}.tar.gz"
+        if command -v geth >/dev/null 2>&1; then
+          mkdir -p "$(dirname "${STABLE_GETH_BINARY}")"
+          cp -v "$(command -v geth)" "${STABLE_GETH_BINARY}"
+          return 0
+        elif command -v nix >/dev/null 2>&1; then
+          GETH=$(nix build 'nixpkgs#go-ethereum' --no-link --print-out-paths)
+          mkdir -p "$(dirname "${STABLE_GETH_BINARY}")"
+          cp -v "${GETH}"/bin/geth "${STABLE_GETH_BINARY}"
+          "${STABLE_GETH_BINARY}" --version
+          return 0
+        else
+          echo "Geth unavailable either in path or via Nix; install e.g., via https://geth.ethereum.org/docs/getting-started/installing-geth#macos-via-homebrew"
+          exit 1
+        fi
         ;;
       windows-amd64|windows-x86_64)
         GETH_TARBALL="geth-windows-amd64-${GETH_VERSION}.zip"
@@ -43,7 +56,7 @@ download_geth_stable() {
 
     log "Downloading Geth binary"
 
-    "$CURL_BINARY" -sSLO "$GETH_URL/$GETH_TARBALL"
+    "${CURL_BINARY}" -sSLO --retry 3 --retry-all-errors "$GETH_URL/$GETH_TARBALL"
     local tmp_extract_dir
     tmp_extract_dir=$(mktemp -d geth-stable-tarball-XXX)
     CLEANUP_DIRS+=("$tmp_extract_dir")
@@ -52,49 +65,6 @@ download_geth_stable() {
     mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$STABLE_GETH_BINARY"
     chmod +x "$STABLE_GETH_BINARY"
     patchelf_when_on_nixos "$STABLE_GETH_BINARY"
-  fi
-}
-
-download_status_geth_binary() {
-  BINARY_NAME="$1"
-  BINARY_FS_PATH="$2"
-
-  if [[ ! -e "${BINARY_FS_PATH}" ]]; then
-    case "${OS}-${ARCH}" in
-      linux-amd64|linux-x86_64)
-        GETH_PLATFORM=linux-amd64
-        ;;
-      linux-arm64|linux-aarch64)
-        GETH_PLATFORM=linux-arm64
-        ;;
-      macos-arm64|macos-aarch64)
-        GETH_PLATFORM=macos-arm64
-        ;;
-      windows-amd64|windows-x86_64)
-        GETH_PLATFORM=windows-amd64
-        ;;
-      *)
-        echo "No Status Geth binaries available for platform: ${OS}-${ARCH}"
-        exit 1
-        ;;
-    esac
-
-    log "Downloading Status geth binary ($1)"
-
-    GETH_TARBALL_NAME="geth-binaries-${GETH_PLATFORM}.tar.gz"
-    GETH_TARBALL_URL="https://github.com/status-im/nimbus-simulation-binaries/releases/download/latest/${GETH_TARBALL_NAME}"
-    GETH_BINARY_IN_TARBALL="geth/${BINARY_NAME}/geth$EXE_EXTENSION"
-
-    "$CURL_BINARY" -o "$GETH_TARBALL_NAME" -sSL "$GETH_TARBALL_URL"
-    local tmp_extract_dir
-    tmp_extract_dir=$(mktemp -d geth-status-tarball-XXX)
-    CLEANUP_DIRS+=("$tmp_extract_dir")
-    tar -xzf "$GETH_TARBALL_NAME" -C "$tmp_extract_dir" --strip-components 2 \
-      "$GETH_BINARY_IN_TARBALL"
-    mkdir -p "$(dirname "$BINARY_FS_PATH")"
-    mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$BINARY_FS_PATH"
-    chmod +x "$BINARY_FS_PATH"
-    patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
 }
 

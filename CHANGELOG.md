@@ -1,3 +1,25 @@
+2025-02-13 v26.2.0
+==================
+
+The Nimbus consensus client `v26.2.0` is a `medium-urgency` release with improved network stability. In particular, it addresses a scenario during which Nimbus clients falsely rejected as invalid a mainnet block and forked off. Cache corruption in Nimbus's implementation Merkle tree hashing causing this arose from certain size changes of SSZ `List` objects which appeared on mainnet which bypassed correct cache invalidation; https://github.com/status-im/nim-ssz-serialization/pull/150#issuecomment-3895939018 provides additional detail. Because descendants of block inaccurately determined to be invalid could not be processed without violating protocol, Nimbus could not continue to follow mainnet's canonical chain until the node was restarted. This release fills in the previously missing cases of Merkle tree root cache invalidation to prevent recurrence of such an event.
+
+### Improvements
+
+- Simplify era file-based node startup:
+  https://github.com/status-im/nimbus-eth2/pull/7888
+
+### Fixes
+
+- Fix `hash_tree_root` cache invalidation for SSZ `List`s:
+  https://github.com/status-im/nimbus-eth2/pull/7951
+  https://github.com/status-im/nimbus-eth2/pull/7967
+
+- Fix a validator client crash on startup with offline or unavailable beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/7962
+
+- Fix handling of validator custody changes in requesting missing columns:
+  https://github.com/status-im/nimbus-eth2/pull/7927
+
 2025-01-29 v26.1.0
 ===================
 

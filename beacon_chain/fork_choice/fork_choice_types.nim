@@ -93,7 +93,6 @@ type
 
   ProtoArray* = object
     currentSlot*: Slot
-    confirmed*: BlockId
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
@@ -137,6 +136,7 @@ type
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
+    confirmed*: BlockId
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
 
