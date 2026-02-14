@@ -92,7 +92,8 @@ template toSszType*(v: ForkChoiceBalance): auto = uint64(v)
 const
   NumInfoBits = 1
   ForkChoiceInfoOffset* = bitsof(distinctBase(Gwei)) - NumInfoBits
-  ForkChoiceInfoMask = ((1'u64 shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
+  ForkChoiceInfoMask =
+    ((distinctBase(1.Gwei) shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
   EffectiveBalanceMask = not ForkChoiceInfoMask
   SlashedBit = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
 static: doAssert(
