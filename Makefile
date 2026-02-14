@@ -783,7 +783,7 @@ publish-book: | book auditors-book
 			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
 		fi
 	CURRENT_COMMIT="$$(git rev-parse --short HEAD)" && \
-	git branch -D gh-pages && \
+	{ git branch -D gh-pages || true; } && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
