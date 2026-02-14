@@ -269,7 +269,7 @@ iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =
       let era = Era.fromEraFile(cfg, io2.splitPath(f).tail).valueOr:
         continue
       yield (era, f)
-  except OsError: # On windows only ...
+  except OSError: # On windows only ...
     discard
 
 proc genesis*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =

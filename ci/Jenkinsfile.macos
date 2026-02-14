@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 /* beacon_chain
- * Copyright (c) 2019-2025 Status Research & Development GmbH
+ * Copyright (c) 2019-2026 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -55,6 +55,7 @@ pipeline {
     NPROC = Runtime.getRuntime().availableProcessors()
     MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
     XDG_CACHE_HOME = "${env.WORKSPACE_TMP}/.cache"
+    PATH = "/nix/var/nix/profiles/default/bin:${env.PATH}"
   }
 
   stages {

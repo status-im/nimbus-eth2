@@ -29,7 +29,7 @@ from ../beacon_chain/spec/beaconstate import
   latest_block_root
 from ../beacon_chain/spec/validator import
   get_beacon_committee, get_committee_count_per_slot, get_committee_indices
-from ./testbcutil import addHeadBlock
+from ./testbcutil import addHeadBlock, willSelectNewHead
 
 func combine(tgt: var electra.Attestation, src: electra.Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
@@ -739,6 +739,7 @@ suite "Attestation pool electra processing" & preset():
         let head = pool[].selectOptimisticHead(
           blockRef[].slot.start_beacon_time(cfg.timeParams)).get().blck
         doAssert: head == blockRef[]
+        discard pool[].willSelectNewHead(head)
         dag.updateHead(head, quarantine[], [])
         pruneAtFinalization(dag, pool[])
 
