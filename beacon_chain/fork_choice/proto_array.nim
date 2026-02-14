@@ -71,16 +71,6 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
-func update_latest_confirmed(
-    self: var ProtoArray, headNode: ProtoNode): FcResult[void] =
-  # Use most recent justified block as a stopgap
-  self.confirmed = BlockId(
-    slot: self.checkpoints.justified.epoch.start_slot,
-    root: self.checkpoints.justified.root)
-  ok()
-
-func get_latest_confirmed*(self: ProtoArray): Eth2Digest =
-  self.confirmed.root
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -108,7 +98,6 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
       finalized: finalized))
 
   T(currentSlot: currentSlot,
-    confirmed: node.bid,
     checkpoints: node.checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
@@ -116,7 +105,7 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
 iterator realizePendingCheckpoints*(
     self: var ProtoArray): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch
-  for idx, unrealized in self.currentEpochTips.pairs():
+  for idx, unrealized in self.currentEpochTips:
     let physicalIdx = idx - self.nodes.offset
     if unrealized != self.nodes.buf[physicalIdx].checkpoints:
       trace "Pulling up chain tip",
@@ -223,8 +212,9 @@ func applyScoreChanges*(
 
     # If the node has a parent, try to update its best-child and best-descendent
     if node.parent.isSome():
-      let parentLogicalIdx = node.parent.unsafeGet()
-      let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+      let
+        parentLogicalIdx = node.parent.unsafeGet()
+        parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
       if parentPhysicalIdx < 0:
         # Orphan, for example
         #          0
@@ -356,7 +346,6 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       headCheckpoints: justifiedNode.checkpoints)
 
   head = bestNode.bid.root
-  ? self.update_latest_confirmed(bestNode)
   ok()
 
 func prune*(
@@ -607,7 +596,7 @@ type ProtoArrayItem* = object
   parent*: Eth2Digest
   checkpoints*: FinalityCheckpoints
   unrealized*: Opt[FinalityCheckpoints]
-  weight*: int64
+  weight*: uint64
   invalid*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
@@ -639,7 +628,7 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
       parent: self.nodes.root(node.parent),
       checkpoints: node.checkpoints,
       unrealized: unrealized,
-      weight: node.weight,
+      weight: cast[uint64](node.weight),
       invalid: node.invalid,
       bestChild: self.nodes.root(node.bestChild),
       bestDescendant: self.nodes.root(node.bestDescendant))

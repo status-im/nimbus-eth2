@@ -949,6 +949,16 @@ proc getBeaconHead*(
     safeExecutionBlockHash: safeExecutionBlockHash,
     finalizedExecutionBlockHash: finalizedExecutionBlockHash)
 
+proc willSelectNewHead*(
+    pool: var AttestationPool,
+    headBlock: BlockRef, wallTime: BeaconTime): Opt[void] =
+  ## Informs fork choice that a new head will be selected.
+  ## This may affect `get_safe_beacon_block_root` so must be called before that.
+  pool.forkChoice.will_select_head(pool.dag, headBlock, wallTime).isOkOr:
+    error "Couldn't store head to fork choice", err = error
+    return err()
+  ok()
+
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
@@ -964,12 +974,14 @@ proc selectOptimisticHead*(
     pool.quarantine[].addMissing(newHeadRoot).isOkOr:
       # The newly selected head is unviable for some reason - the only way out
       # here is that fork choice gets information about some other head
-      warn "Fork choice selected unviable head - cannot sync", newHeadRoot, err = error
+      warn "Fork choice selected unviable head - cannot sync",
+        newHeadRoot, err = error
       return Opt.none(BeaconHead)
 
     warn "Fork choice selected unknown head, trying to sync", newHeadRoot
     return Opt.none(BeaconHead)
 
+  ? pool.willSelectNewHead(headBlock, wallTime)
   ok pool.getBeaconHead(headBlock)
 
 proc prune*(pool: var AttestationPool) =

@@ -39,7 +39,7 @@ from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
   get_committee_indices, get_ptc
 from ../beacon_chain/spec/state_transition_block import process_block
-from ../tests/testbcutil import addHeadBlock
+from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
 type Timers = enum
@@ -422,7 +422,7 @@ cli do(
       )
 
     let added = dag.addHeadBlock(verifier, newBlock, onAdded)
-
+    discard attPool.willSelectNewHead(added[])
     dag.updateHead(added[], quarantine[], [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()

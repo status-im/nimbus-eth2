@@ -26,8 +26,8 @@
         "baseFeeUpdateFraction": 5007716
       },
       "osaka": {
-        "target": 9,
-        "max": 12,
+        "target": 6,
+        "max": 9,
         "baseFeeUpdateFraction": 5007716
       }
     },
