@@ -190,6 +190,7 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
+    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
@@ -262,7 +263,10 @@ proc storeBackfillBlock(
   # In case the block was added to any part of the quarantine..
   quarantine[].remove(signedBlock)
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  const consensusFork = typeof(signedBlock).kind
+
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -490,7 +494,9 @@ proc onBlockAdded*(
         )
 
 proc verifyPayload(
-    self: ref BlockProcessor, signedBlock: ForkySignedBeaconBlock
+    self: ref BlockProcessor,
+    signedBlock: ForkySignedBeaconBlock,
+    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
@@ -647,14 +653,25 @@ proc storeBlock(
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
-  let optimisticStatus = ?(optimisticStatusRes or verifyPayload(self, signedBlock))
+  let optimisticStatus =
+    when consensusFork >= ConsensusFork.Gloas:
+      # The execution payload validity is not known yet at block time as an
+      # envelope will be processed after its valid block. So always return
+      # `notValidated` and skip verifying payload.
+      #
+      # TODO may need a new value of `OptimisticStatus` to distinguish between
+      #      not validated and pending?
+      OptimisticStatus.notValidated
+    else:
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, noEnvelope))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
   let newPayloadTick = Moment.now()
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
+  when consensusFork <= ConsensusFork.Fulu:
+    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let blck =
     ?dag.addHeadBlockWithParent(
