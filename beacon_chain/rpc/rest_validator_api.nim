@@ -458,7 +458,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-  # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
