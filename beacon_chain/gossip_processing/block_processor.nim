@@ -889,7 +889,7 @@ proc addBlock*(
       err(res.error())
 
 proc storeBackfillPayload(
-    self: ref BlockProcessor,
+    self: var BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
@@ -901,7 +901,7 @@ proc storeBackfillPayload(
   self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope).isOkOr:
     return err(error)
 
-  self[].storeSidecars(sidecarsOpt)
+  self.storeSidecars(sidecarsOpt)
   ok()
 
 proc storePayload(
@@ -940,6 +940,9 @@ proc addPayload*(
     envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(blck, envelope, sidecarsOpt)
+
   await self.storePayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(
@@ -948,9 +951,6 @@ proc enqueuePayload*(
     envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ) =
-  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    debugGloasComment("backfilling")
-
   discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
