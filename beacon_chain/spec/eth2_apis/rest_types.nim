@@ -592,7 +592,7 @@ type
   RestExtraData* = object
     confirmed_root*: Eth2Digest
     current_epoch_observed_justified_checkpoint*: Checkpoint
-    previous_slot_head, current_slot_head*: Eth2Digest
+    previous_slot_head*, current_slot_head*: Eth2Digest
 
   GetForkChoiceResponse* = object
     justified_checkpoint*: Checkpoint
