@@ -381,7 +381,7 @@ proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-  result = self.backend.find_head(
+  self.backend.find_head(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
 
