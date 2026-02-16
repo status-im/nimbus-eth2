@@ -314,11 +314,7 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    when consensusFork >= ConsensusFork.Gloas:
-      # Columns are in quarantine as they didn't pop from `rmanBlockVerifier`,
-      # we simply enqueue with the valid block.
-      self.enqueuePayload(signedBlock)
-    else:
+    when consensusFork <= ConsensusFork.Fulu:
       # Only store side cars after successfully establishing block viability.
       self[].storeSidecars(sidecarsOpt)
 
