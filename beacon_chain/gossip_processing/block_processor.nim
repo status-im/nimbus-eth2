@@ -685,9 +685,6 @@ proc storeBlock(
       # The execution payload validity is not known yet at block time as an
       # envelope will be processed after its valid block. So always return
       # `notValidated` and skip verifying payload.
-      #
-      # TODO may need a new value of `OptimisticStatus` to distinguish between
-      #      not validated and pending?
       OptimisticStatus.notValidated
     else:
       ?(optimisticStatusRes or verifyPayload(self, signedBlock, noEnvelope))
