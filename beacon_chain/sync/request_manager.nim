@@ -307,7 +307,7 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
       peer, BlockRootsList roots)
 
     if envelopes.isOk:
-      var uenvelopes = envelopes.get().asSeq()
+      let uenvelopes = envelopes.get().asSeq()
       if checkResponse(roots, uenvelopes):
         var gotGoodEnvelope = false
 
