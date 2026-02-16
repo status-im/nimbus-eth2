@@ -161,7 +161,7 @@ proc on_tick(
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
     # Update prev slot head
-    self.backend.previous_slot_head = dag.head.bid.root
+    self.backend.previous_slot_head = self.backend.current_slot_head
 
     if current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
