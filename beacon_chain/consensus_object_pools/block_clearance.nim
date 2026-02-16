@@ -532,6 +532,60 @@ proc addHeadExecutionPayload*(
 
   ok(blck)
 
+proc addBackfillExecutionPayload*(
+    dag: ChainDAGRef,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+                    # gloas.TrustedSignedExecutionPayloadEnvelope,
+): Result[void, VerifierError] =
+  template blockRoot(): auto = signedEnvelope.message.beacon_block_root
+  template envelope(): auto = signedEnvelope.message
+
+  logScope:
+    blockRoot = shortLog(blockRoot)
+    slot = envelope.slot
+    signature = shortLog(signedEnvelope.signature)
+    backfill = shortLog(dag.backfill)
+
+  let startTick = Moment.now()
+
+  # When a valid block is backfilled, dag.backfill has already moved to next
+  # parent. So we need to check with finalizedHead and database.
+  if envelope.slot > dag.finalizedHead.slot:
+    return err(VerifierError.Invalid)
+  let bsi = dag.getBlockIdAtSlot(envelope.slot).valueOr:
+    # This should not be happening as we backfill envelope after the block is
+    # backfilled successfully.
+    return err(VerifierError.Invalid)
+  if blockRoot != bsi.bid.root:
+    return err(VerifierError.Invalid)
+  if dag.db.containsExecutionPayloadEnvelope(blockRoot):
+    return err(VerifierError.Duplicate)
+
+  # Verify signature
+  when signedEnvelope.signature isnot TrustedSig:
+    let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
+      fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
+        head = shortLog(dag.head), tail = shortLog(dag.tail)
+      quit 1
+    if not verify_execution_payload_envelope_signature(
+        dag.forkAtEpoch(envelope.slot.epoch),
+        dag.genesis_validators_root,
+        envelope.slot.epoch,
+        envelope,
+        builderKey,
+        signedEnvelope.signature):
+      return err(VerifierError.Invalid)
+  let sigVerifyTick = Moment.now
+
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  let putBlockTick = Moment.now
+
+  debug "Envelope backfilled",
+    sigVerifyDur = sigVerifyTick - startTick,
+    putBlockDur = putBlockTick - sigVerifyTick
+
+  ok()
+
 proc verifyBlockSignatures*(
     verifier: var BatchVerifier,
     fork: Fork,

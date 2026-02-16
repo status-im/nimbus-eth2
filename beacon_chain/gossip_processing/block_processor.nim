@@ -186,7 +186,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addBackfillExecutionPayload,
+  addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: ForkySignedBeaconBlock,
@@ -886,6 +887,22 @@ proc addBlock*(
       err(res.error())
     of VerifierError.Duplicate:
       err(res.error())
+
+proc storeBackfillPayload(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Result[void, VerifierError] =
+  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+
+  self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope).isOkOr:
+    return err(error)
+
+  self[].storeSidecars(sidecarsOpt)
+  ok()
 
 proc storePayload(
     self: ref BlockProcessor,
