@@ -287,7 +287,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
 
 func lastPremergeSlotInTestCfg*(cfg: RuntimeConfig): Slot =
   # Merge shortly after Bellatrix
-  cfg.BELLATRIX_FORK_EPOCH.start_slot + 10
+  cfg.BELLATRIX_FORK_EPOCH.start_slot + 6
 
 proc addTestEngineBlock*(
     cfg: RuntimeConfig,

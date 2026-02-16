@@ -13,10 +13,13 @@ import
   taskpools,
   ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
-  ../beacon_chain/[beacon_chain_db],
+  ../beacon_chain/spec/[
+    beaconstate, forks, helpers, signatures, state_transition],
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    spec_cache],
+  ../beacon_chain/fork_choice/fast_confirmation,
   ./[testblockutil, testdbutil, teststateutil, testutil]
 
 from std/random import rand, randomize, sample
@@ -1861,8 +1864,8 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
 
     # The epoch for the first block can range from at least 4 to 10
     for (blockIdx, epoch) in [
-        (findKeyedBlck(64.Slot), 10.Epoch),
-        (findKeyedBlck(255.Slot), 8.Epoch)]:
+        (findKeyedBlck(2.Epoch.start_slot), 10.Epoch),
+        (findKeyedBlck(8.Epoch.start_slot - 1), 8.Epoch)]:
       let
         blck = forkBlocks[blockIdx].data
         epochRef = dag.getEpochRef(blck, epoch, true)
@@ -1882,3 +1885,192 @@ suite "Shufflings (merged)":
     cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     cfg
   runShufflingTests(cfg, numRandomTests = 50)
+
+suite "Fast confirmation" & preset():
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = defaultRuntimeConfig
+    var
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      quarantine = Quarantine.init(dag.cfg)
+      tmpState = newClone(dag.headState)
+      cache = StateCache()
+
+    for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+      let
+        blck = addTestBlock(tmpState[], cache).phase0Data
+        added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+  test "Update shufflings for current and previous epoch" & preset():
+    let
+      headEpoch = dag.head.slot.epoch
+      epochRef = dag.getEpochRef(dag.head, headEpoch, false).get
+    var validators = epochRef.validators
+    validators.update_latest_shufflings(dag, dag.head.slot)
+    check:
+      validators.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
+      validators.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
+      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+
+  test "Shuffling dependent roots" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var validators = epochRef.validators
+    validators.update_latest_shufflings(dag, dag.head.slot)
+    for i in 0 .. 1:
+      let shufflingRef =
+        dag.getShufflingRef(dag.head, validators.shuffling_epochs[i], false).get
+      check validators.shuffling_roots[i] ==
+        shufflingRef.attester_dependent_root
+
+  test "Assigned slots cross-check" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var validators = epochRef.validators
+    validators.update_latest_shufflings(dag, dag.head.slot)
+
+    let
+      headEpoch = dag.head.slot.epoch
+      prevShuffling =
+        dag.getShufflingRef(dag.head, headEpoch - 1, false).get
+      curShuffling =
+        dag.getShufflingRef(dag.head, headEpoch, false).get
+
+    for valIdx in 0 ..< validators.balances.len:
+      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      check:
+        slots.len == 2
+        slots[0].epoch != slots[1].epoch
+      for slot in slots:
+        let shuffling =
+          if slot.epoch == prevShuffling.epoch:
+            prevShuffling
+          else:
+            curShuffling
+        var found = false
+        for committee_index in get_committee_indices(shuffling):
+          for _, val in shuffling.get_beacon_committee(slot, committee_index):
+            if val == valIdx.ValidatorIndex:
+              found = true
+        check found
+
+  test "Shuffling update idempotency" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var
+      validators1 = epochRef.validators
+      validators2 = epochRef.validators
+    validators1.update_latest_shufflings(dag, dag.head.slot)
+    validators2.update_latest_shufflings(dag, dag.head.slot)
+    validators1.update_latest_shufflings(dag, dag.head.slot)
+    let numValidators = validators1.balances.len
+    check numValidators == validators2.balances.len
+    for valIdx in 0 ..< numValidators:
+      check:
+        toSeq(validators1.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(validators2.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Shuffling epoch transition" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var validators = epochRef.validators
+
+    # First update to epoch 3 (populates epochs 2 and 3)
+    let epoch3Slot = (SLOTS_PER_EPOCH * 3).Slot
+    validators.update_latest_shufflings(dag, epoch3Slot)
+    check:
+      validators.shuffling_epochs[0] in [Epoch(2), Epoch(3)]
+      validators.shuffling_epochs[1] in [Epoch(2), Epoch(3)]
+      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+
+    # Now update to latest (epoch 4), populates epochs 3 and 4
+    validators.update_latest_shufflings(dag, dag.head.slot)
+    check:
+      # Epoch 2 gone
+      validators.shuffling_epochs[0] != Epoch(2)
+      validators.shuffling_epochs[1] != Epoch(2)
+      # Epochs 3 and 4 present
+      validators.shuffling_epochs[0] in [Epoch(3), Epoch(4)]
+      validators.shuffling_epochs[1] in [Epoch(3), Epoch(4)]
+      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+
+    # Verify assigned_slots yields slots for epochs 3 and 4 only
+    for valIdx in 0 ..< validators.balances.len:
+      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      check slots.len == 2
+      for slot in slots:
+        check slot.epoch in [Epoch(3), Epoch(4)]
+
+  test "Assign shufflings" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var
+      src = epochRef.validators
+      dst: ValidatorInfo
+    src.update_latest_shufflings(dag, dag.head.slot)
+    dst.assign_shufflings(src)
+    for valIdx in 0 ..< src.balances.len:
+      check:
+        toSeq(src.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(dst.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Shuffling preserves effective balance" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var validators = epochRef.validators
+    let knownBalance = validators.balances[0].effective_balance
+    validators.update_latest_shufflings(dag, dag.head.slot)
+    check validators.balances[0].effective_balance == knownBalance
+
+  test "Older epochRef with current shufflings" & preset():
+    let
+      headEpoch = dag.head.slot.epoch
+      epochRef = dag.getEpochRef(dag.head, headEpoch, false).get
+      oldEpochRef = dag.getEpochRef(
+        dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).get
+    var
+      validators = epochRef.validators
+      oldValidators = oldEpochRef.validators
+    validators.update_latest_shufflings(dag, dag.head.slot)
+    oldValidators.update_latest_shufflings(dag, dag.head.slot)
+
+    check:
+      validators.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
+      validators.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
+      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+      validators.shuffling_epochs == oldValidators.shuffling_epochs
+      validators.shuffling_roots == oldValidators.shuffling_roots
+
+    let numValidators = min(validators.balances.len, oldValidators.balances.len)
+    for valIdx in 0 ..< numValidators:
+      check:
+        toSeq(validators.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(oldValidators.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Genesis epoch" & preset():
+    let epochRef = dag.getEpochRef(dag.head, GENESIS_EPOCH, false).get
+    var validators = epochRef.validators
+    validators.update_latest_shufflings(dag, GENESIS_SLOT)
+    check:
+      validators.shuffling_epochs[0] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+      validators.shuffling_epochs[1] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+    for valIdx in 0 ..< validators.balances.len:
+      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      check:
+        slots.len == 1
+        slots[0].epoch == GENESIS_EPOCH
+
+  test "Epoch 1 shares dependent root for both epochs" & preset():
+    let epochRef = dag.getEpochRef(dag.head, Epoch(1), false).get
+    var validators = epochRef.validators
+    validators.update_latest_shufflings(dag, SLOTS_PER_EPOCH.Slot)
+    check:
+      validators.shuffling_epochs[0] in [GENESIS_EPOCH, Epoch(1)]
+      validators.shuffling_epochs[1] in [GENESIS_EPOCH, Epoch(1)]
+      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+      validators.shuffling_roots[0] == validators.shuffling_roots[1]
+    for valIdx in 0 ..< validators.balances.len:
+      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      check slots.len == 2

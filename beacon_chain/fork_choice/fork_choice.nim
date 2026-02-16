@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array]
+  "."/[fork_choice_types, proto_array, fast_confirmation]
 
 from std/sequtils import keepItIf
 export results, fork_choice_types
@@ -53,7 +53,7 @@ template to_balance_checkpoint(
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
     total_active_balance: epochRef.total_active_balance,
-    validators: ValidatorInfo(balances: epochRef.fork_choice_balances))
+    validators: epochRef.validators)
 
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
@@ -85,13 +85,6 @@ proc init*(
       time: wallTime,
       justified: finalized,
       finalized: finalized.checkpoint))
-
-func extend[T](s: var seq[T], minLen: int) =
-  ## Extend a sequence so that it can contains at least `minLen` elements.
-  ## If it's already bigger, the sequence is unmodified.
-  ## The extension is zero-initialized
-  if s.len < minLen:
-    s.setLen(minLen)
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
@@ -170,6 +163,9 @@ proc on_tick(
 
       # Update observed justified checkpoint before any attestations from the
       # last slot of the previous epoch become processable
+      assign_shufflings(
+        self.checkpoints.justified.validators,
+        self.backend.current_epoch_observed_justified.validators)
       self.backend.current_epoch_observed_justified = self.checkpoints.justified
   ok()
 

@@ -111,7 +111,9 @@ type
     bestDescendant*: Opt[Index]
 
   ValidatorInfo* = object
-    balances*: seq[ForkChoiceBalance]
+    balances*: seq[ForkChoiceBalance]  # Based on the historical checkpoint
+    shuffling_epochs*: array[2, Epoch]  # current_epoch / current_epoch - 1
+    shuffling_roots*: array[2, Eth2Digest]  # Always based on dag.head
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
@@ -161,3 +163,10 @@ func shortLog*(vote: VoteTracker): auto =
 
 chronicles.formatIt VoteTracker: it.shortLog
 chronicles.formatIt ForkChoiceError: $it
+
+func extend*[T](s: var seq[T], minLen: int) =
+  ## Extend a sequence so that it can contains at least `minLen` elements.
+  ## If it's already bigger, the sequence is unmodified.
+  ## The extension is zero-initialized
+  if s.len < minLen:
+    s.setLen(minLen)
