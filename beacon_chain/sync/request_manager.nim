@@ -159,16 +159,8 @@ func checkResponse(
     roots: openArray[Eth2Digest],
     envelopes: openArray[ref SignedExecutionPayloadEnvelope],
 ): bool =
-  ## Ensure there is the requested envelope as per each root.
-  if len(envelopes) > len(roots):
-    return false
-  var checks = roots.toHashSet()
-  for envelope in envelopes:
-    if envelope[].message.beacon_block_root in checks:
-      checks.excl(envelope[].message.beacon_block_root)
-    else:
-      return false
-  true
+  ## Ensure the response contains only the requested envelopes.
+  envelopes.allIt(it[].message.beacon_block_root in roots)
 
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
@@ -314,25 +306,9 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
         for envelope in uenvelopes:
           self.envelopeQuarantine[].addOrphan(envelope[])
           let res = await self.envelopeVerifier(envelope[])
-
-          # Envelope is marked as missing when we got a valid block. As in
-          # Gloas, both valid block and envelope are required in order to
-          # proceed to the next slot. So in theory we should only be able to
-          # notice at most one missing envelope per slot.
-          #
-          # If there is a good way to find missing envelopes other than the
-          # head, the response, which may contains 2 or more envelopes, may
-          # cause verifier error as the order matters.
-          #
-          # TODO improve/investigate way of figuring out missing envelope
-          #      efficiently (across different slots).
-          #
-          # TODO verify multiple envelopes in the chain's order.
-          debugGloasComment("as comment above")
           if res.isErr():
             debug "Received invalid envelope",
               peer = peer, envelopes = shortLog(roots)
-            debugGloasComment("update score when processing in order")
             return
           else:
             gotGoodEnvelope = true
