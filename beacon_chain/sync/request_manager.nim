@@ -307,9 +307,26 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           self.envelopeQuarantine[].addOrphan(envelope[])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
-            debug "Received invalid envelope",
-              peer = peer, envelopes = shortLog(roots)
-            return
+            case res.error():
+            of VerifierError.MissingParent:
+              # Ignoring due to it should have checked in processing the valid
+              # block.
+              discard
+            of VerifierError.Duplicate:
+              # Ignoring as it could occur when making parallel requests.
+              discard
+            of VerifierError.UnviableFork:
+              debugGloasComment("log level to notice")
+              debug "Received envelope from an unviable fork",
+                peer = peer, envelopes = shortLog(roots)
+              peer.updateScore(PeerScoreUnviableFork)
+              return
+            of VerifierError.Invalid:
+              debugGloasComment("log level to notice")
+              debug "Received invalid envelope",
+                peer = peer, envelopes = shortLog(roots)
+              peer.updateScore(PeerScoreBadValues)
+              return
           else:
             gotGoodEnvelope = true
 
