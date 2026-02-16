@@ -610,7 +610,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
     if self.inhibit():
       continue
 
-    let missingBlockRoots = self.envelopeQuarantine[].peekMissing().toSeq()
+    let missingBlockRoots = self.envelopeQuarantine[].getMissing()
     if missingBlockRoots.len() == 0:
       continue
 
