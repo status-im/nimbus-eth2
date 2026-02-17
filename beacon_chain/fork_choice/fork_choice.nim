@@ -62,7 +62,10 @@ func init*(
     proto_array: ProtoArray.init(finalized.checkpoint, currentSlot),
     confirmed: BlockId(
       slot: finalized.checkpoint.epoch.start_slot,
-      root: finalized.checkpoint.root))
+      root: finalized.checkpoint.root),
+    current_epoch_observed_justified: finalized,
+    previous_slot_head: finalized.checkpoint.root,
+    current_slot_head: finalized.checkpoint.root)
 
 proc init*(
     T: type ForkChoice, confirmation_byzantine_threshold: uint64,
@@ -157,10 +160,17 @@ proc on_tick(
     # Reset store.proposer_boost_root
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
+    # Update prev slot head
+    self.backend.previous_slot_head = self.backend.current_slot_head
+
     if current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
       for realized in self.backend.proto_array.realizePendingCheckpoints():
         ? self.checkpoints.update_checkpoints(dag, realized, current_slot)
+
+      # Update observed justified checkpoint before any attestations from the
+      # last slot of the previous epoch become processable
+      self.backend.current_epoch_observed_justified = self.checkpoints.justified
   ok()
 
 func process_attestation(
@@ -371,17 +381,18 @@ proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-  result = self.backend.find_head(
+  self.backend.find_head(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
-  self.backend.update_confirmed BlockId(
-    slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
-    root: self.checkpoints.justified.checkpoint.root)
 
 proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
+  self.backend.current_slot_head = dag.head.root
+  self.backend.update_confirmed BlockId(
+    slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
+    root: self.checkpoints.justified.checkpoint.root)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
