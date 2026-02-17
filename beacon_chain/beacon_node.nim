@@ -65,6 +65,9 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    executionPayloadAvailableQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
+    executionPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
+    payloadAttestationMessageQueue*: AsyncEventQueue[gloas.PayloadAttestationmessage]
 
   BeaconNode* = ref object
     nickname*: string
