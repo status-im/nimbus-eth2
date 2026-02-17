@@ -453,29 +453,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        let
-          message = (await node.makeBeaconBlockForHeadAndSlot(
-              consensusFork, proposer, qrandao, qgraffiti, qhead, qslot)).valueOr:
-            return RestApiResponse.jsonError(Http500, error)
-
-        if contentType == sszMediaType:
-          RestApiResponse.sszResponse(
-            message.blck, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        elif contentType == jsonMediaType:
-          let forked = ForkedMaybeBlindedBeaconBlock.init(
-            message.blck,
-            Opt.some message.executionValue,
-            Opt.some message.consensusValue)
-
-          RestApiResponse.jsonResponsePlain(
-            forked, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        else:
-          raiseAssert "preferredContentType() returns invalid content type"
       else:
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
@@ -600,12 +577,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 UnableToGetAggregatedAttestationError)
           ForkedAttestation.init(electra_attestation, qfork)
         else:
-          let phase0_attestation =
-            node.attestationPool[].getPhase0AggregatedAttestation(
-              qslot, root).valueOr:
-              return RestApiResponse.jsonError(Http404,
-                UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(phase0_attestation, qfork)
+          return RestApiResponse.jsonError(Http404,
+            UnableToGetAggregatedAttestationError)
 
     RestApiResponse.jsonResponsePlain(forked, qfork, node.hasRestAllowedOrigin)
 
@@ -628,28 +601,28 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var proofs: seq[Future[SendResult]]
     template addDecodedProofs(ProofType: untyped) =
-      let dres = decodeBody(seq[ProofType], contentBody.get())
-      if dres.isErr():
+      let dres = decodeBody(seq[ProofType], contentBody.get()).valueOr:
         return RestApiResponse.jsonError(Http400,
                                          InvalidAggregateAndProofObjectError,
-                                         $dres.error())
-      for proof in dres.get():
+                                         $error)
+      for proof in dres:
         proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        addDecodedProofs(phase0.SignedAggregateAndProof)
+        return RestApiResponse.jsonError(Http400,
+                                         UnsupportedForkError,
+                                         $UnsupportedForkError)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
       if future.completed():
-        let res = future.value()
-        if res.isErr():
+        future.value().isOkOr:
           return RestApiResponse.jsonError(Http400,
                                            AggregateAndProofValidationError,
-                                           $res.error())
+                                           $error)
       else:
         return RestApiResponse.jsonError(Http500,
                "Unexpected server failure, while sending aggregate and proof")

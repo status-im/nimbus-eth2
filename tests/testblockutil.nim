@@ -569,14 +569,14 @@ func makeAttestationData*(
     makeAttestationData(
       forkyState.data, slot, committee_index, beacon_block_root)
 
-func makeAttestation(
+func makeSingleAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): phase0.Attestation =
+    flags: UpdateFlags = {}): electra.SingleAttestation =
   let
     index_in_committee = committee.find(validator_index)
-    data = makeAttestationData(state, slot, committee_index, beacon_block_root)
+    data = makeAttestationData(state, slot, CommitteeIndex(0), beacon_block_root)
 
   doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
 
@@ -591,9 +591,10 @@ func makeAttestation(
       state.genesis_validators_root,
       data, committee, aggregation_bits)
 
-  phase0.Attestation(
+  electra.SingleAttestation(
+    committee_index: uint64 committee_index,
+    attester_index: uint64 validator_index,
     data: data,
-    aggregation_bits: aggregation_bits,
     signature: sig
   )
 
@@ -612,12 +613,12 @@ func find_beacon_committee(
       return (committee, slot, index)
   doAssert false
 
-func makeAttestation*(
+func makeSingleAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache): phase0.Attestation =
+    validator_index: ValidatorIndex, cache: var StateCache): electra.SingleAttestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
-  makeAttestation(state, beacon_block_root, committee, slot, index,
+  makeSingleAttestation(state, beacon_block_root, committee, slot, index,
     validator_index, cache)
 
 func makeFullAttestations*(

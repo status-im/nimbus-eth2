@@ -2683,9 +2683,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2695,9 +2695,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2707,9 +2707,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2976,7 +2976,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -2991,7 +2991,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3006,7 +3006,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3021,7 +3021,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3331,7 +3331,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3346,7 +3346,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3361,7 +3361,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3376,7 +3376,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3544,7 +3544,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": [],"value": [{"version":"","data":{"attested_header":{"beacon":{"slot":"6","proposer_index":"28","parent_root":"0xc3640959c639e6fd3e3404842f09e211c0b74e71bb44fc32939a013bf385fe77","state_root":"0x3c61bd0b9bdb706d42b4b2a093fc3bfc50444b60d67e66f0f90ac5a1bdf0fdd2","body_root":"0x41d46fd59c2b75b47f1b2a9904f1af14a0b21b2d00108e9c2c7db63355b4c14d"}},"next_sync_committee":{"pubkeys":["0x9799063b332cfbdd6c5913fdcf47d83b6277be3f174d2acd8059dcadb84dab131a9c8ec4ddb4e1e42c0acd543deebfa9"],"aggregate_pubkey":"0x8675cdecf7cb5aa6c14de5ad24f638d6c384b65737d9f60618e0a9c1411bc11659a080617d1e07d46789739ceb929d02"},"next_sync_committee_branch":["0x40cfc59c70b042b86576ff570f8c4f84ca397e436c9a13a16fc713723a53f983"],"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"}},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xa9e05329da094eebe7874f1664c2dfccd0430420c720e8243c25e4031a678f8d99a69270f7b72ba09d6672a7e61e155612f1e0ccf260ede2344322ea53a27acfefe6cd09bd3a543dab1f9678e474f3ac01da94af28373031c2f09e3aeeba2de8"},"signature_slot":"7"}}]}]
+      "body": [{"operator": "jstructcmps", "start": [],"value": [{"version":"electra","data":{"attested_header":{"beacon":{"slot":"6","proposer_index":"5","parent_root":"0x2cd31e5bc8894d3f3feb37c6a5fb286b393ad2b9e09d9f1e648f50df9c552f37","state_root":"0xc97e396e9b3efb67ef333de376792d0ee7cd40521e9fa57829362ffa8260b4c1","body_root":"0x246d5177145155fd28ac1ea823b7f9acd7f705318720614850fad1788e24a485"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x50dbcb1fd7c53f50bb3bd1a30640f38eec60300722977902a47779cae66d448c","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0x8ef0851b75f19d0f1e4db84b022aaf630474ad2ac9a724acd60154a43a942ec7"]},"next_sync_committee":{"pubkeys":["0xa06c5dca3adfbe25d37208466ce4d2cc7c474d5663fe36177f41991e04e98c5bbd7e43b1060b3999111c2394dad41d8e"],"aggregate_pubkey":"0x912e8c003f176c4d4b9029b88d2eed153551f1de8660816520734b5cb7293ab8f3f8a5d44292ac9e91fd5127b5fdba57"},"next_sync_committee_branch":["0xda47c4bc926e06f68d5702cc17bbed6dbe4f0699bc4ff718b89cacb55ef80271","0x37564d93cedec9887f5ba2233696ddf6dbc4c2a1f8a101ff215b6bd71d0b51ca","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x4e39475a32e3efade87904c2885bd891da4ed47b2b7a36b1e36631fc6bbbe418","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x0000000000000000000000000000000000000000000000000000000000000000","withdrawals_root":"0x0000000000000000000000000000000000000000000000000000000000000000","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000"]},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0xfddcc00356aacf0defab108ae8938b624220c89daab3f48ebab1248c46facee3","0x8f28ea0db9a8f027898a496a8dcfd173e6ab297a21bd0aa15eae1d68e0e84b9c","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x4e39475a32e3efade87904c2885bd891da4ed47b2b7a36b1e36631fc6bbbe418","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0x8f1abd33ef9b411b38d519d8048b1a1e622873540c80ddb515f842f8fcf18cbd737c2664a2f46abc01b8acf4a83a20d7013833c899adea2fdca3f7dcfa1f4a5a4f0eb22ff073a8ddc5959e50129228955e524e93323efaca635a7004b853c962"},"signature_slot":"7"}}]}]
     }
   },
   {
@@ -3588,7 +3588,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"2","proposer_index":"18","parent_root":"0x87cc18e17479f1af290f078dee05f78fb61a493866874d4c7319737f8470d8c3","state_root":"0x9b33428ca370d41a89e94239d7bb4f117bd6f3d828f84307523660481613f036","body_root":"0x2546d749931de6be38ea6aa16f0633d46aef84543f3b25804f0e14a41774ca0f"}},"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"}},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xb73ccf4a5ed492a75e6d569de7caf3595203b5b0687c6ea02531a9ae2fbbc7f34b9fe86e8b8f0e0ae976f199641a296b0e29a757114dc5c3cb2516d6affead47df71078f2216ec0196bfd11d6ff1881722e95317c7e6f3446ff5aacbdc94f300"},"signature_slot":"3"}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"6","proposer_index":"5","parent_root":"0xb7180d185973ec6d83342c3fde505693df909384eb89f328695a58ffb97fd04c","state_root":"0x08cb3202022eda94cf73591a61175552b278b0ba77499a73b3039ece589cd89d","body_root":"0x246d5177145155fd28ac1ea823b7f9acd7f705318720614850fad1788e24a485"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x50dbcb1fd7c53f50bb3bd1a30640f38eec60300722977902a47779cae66d448c","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0x8ef0851b75f19d0f1e4db84b022aaf630474ad2ac9a724acd60154a43a942ec7"]},"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x0000000000000000000000000000000000000000000000000000000000000000","withdrawals_root":"0x0000000000000000000000000000000000000000000000000000000000000000","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000"]},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0xfddcc00356aacf0defab108ae8938b624220c89daab3f48ebab1248c46facee3","0x8f28ea0db9a8f027898a496a8dcfd173e6ab297a21bd0aa15eae1d68e0e84b9c","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x98db389ef91199f6fe8a504612d2bd45ad099c51a86571ed5e2ca1fe0469c17f","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0x8017447d385419f6715dea736ac780ddbd592da4261d80033cd7cb7ca8ed78b30b38b6c7d340d5d87d5faca1b0243cd209671f6b3b319a211047651f4d1cc0f40e337c626cca9c0e2e32fd0b6007774f2d9e9d805dc78107836ef796b4e00b5d"},"signature_slot":"7"}}]
     }
   },
   {
@@ -3600,18 +3600,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"2","proposer_index":"18","parent_root":"0x87cc18e17479f1af290f078dee05f78fb61a493866874d4c7319737f8470d8c3","state_root":"0x9b33428ca370d41a89e94239d7bb4f117bd6f3d828f84307523660481613f036","body_root":"0x2546d749931de6be38ea6aa16f0633d46aef84543f3b25804f0e14a41774ca0f"}},"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xb73ccf4a5ed492a75e6d569de7caf3595203b5b0687c6ea02531a9ae2fbbc7f34b9fe86e8b8f0e0ae976f199641a296b0e29a757114dc5c3cb2516d6affead47df71078f2216ec0196bfd11d6ff1881722e95317c7e6f3446ff5aacbdc94f300"},"signature_slot":"3"}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "410"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"10","proposer_index":"18","parent_root":"0x8816a94b25232aef1e48a4ae75c6616f0e309978aea7d481acaea81eb4f25901","state_root":"0x3ab2ee44823796b1be6ae090f05390b4c6d299fa487d95becc212f88e55f779e","body_root":"0xe2332f312a4655f6ccdf02593681d8ea3e03856a9accaa7bacc6d5e686c7e8c6"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x4c2357282d7a60cd85fdaa5f99ed86a2f17b96a78dc96319f50294d126bc6b25","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0xf1e7a2005a0aed4a11c742d11be1495304cb4a295813db2574d6c49392875741"]},"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xabbc9eb7d17622110d3e5cd95512a1098c87865e8d1461850c72074b5b27c194fcd0b675df142057ebaba35510352ad802daddafe328256224fd294733c332287cddbffdf2b0d31f9fccd9ea6b845b4f270700ebf7aa25659b485d806ee1d5cf"},"signature_slot":"11"}}]
     }
   },
   {
@@ -3623,7 +3612,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -3635,7 +3624,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -3683,7 +3672,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -3789,7 +3778,7 @@
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}],
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["electra"], "operator": "oneof"}],
       "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
     }
   },
@@ -4209,7 +4198,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot": "", "sync_distance": "", "is_syncing": false, "is_optimistic": false}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot":"","sync_distance":"","is_syncing":false,"is_optimistic":false,"el_offline":true}}]
     }
   },
   {
