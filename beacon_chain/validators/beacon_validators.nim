@@ -646,11 +646,11 @@ proc proposeBlockAux(
       discard await node.router.routeExecutionPayloadEnvelope(
         signedEnvelope, checkValidator = false)
 
-    notice "Payload Envelope proposed",
-      blockRoot = shortLog(blockRoot),
-      blck = shortLog(signedBlock.message),
-      signature = shortLog(signature),
-      validator = shortLog(validator)
+      notice "Payload Envelope proposed",
+        blockRoot = shortLog(blockRoot),
+        blck = shortLog(signedBlock.message),
+        signature = shortLog(signature),
+        validator = shortLog(validator)
 
   newBlockRef.get()
 
