@@ -945,14 +945,6 @@ proc addPayload*(
 
   await self.storePayload(blck, envelope, sidecarsOpt)
 
-proc enqueuePayload*(
-    self: ref BlockProcessor,
-    blck: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-) =
-  discard self.addPayload(blck, envelope, sidecarsOpt)
-
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
 
@@ -977,7 +969,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           return
         sidecarsOpt
 
-  self.enqueuePayload(blck, envelope, sidecarsOpt)
+  discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the
