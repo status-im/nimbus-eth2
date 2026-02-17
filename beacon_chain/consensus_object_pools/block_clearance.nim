@@ -534,8 +534,8 @@ proc addHeadExecutionPayload*(
 
 proc addBackfillExecutionPayload*(
     dag: ChainDAGRef,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-                    # gloas.TrustedSignedExecutionPayloadEnvelope,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope |
+                    gloas.TrustedSignedExecutionPayloadEnvelope,
 ): Result[void, VerifierError] =
   template blockRoot(): auto = signedEnvelope.message.beacon_block_root
   template envelope(): auto = signedEnvelope.message
@@ -552,6 +552,8 @@ proc addBackfillExecutionPayload*(
   # parent. So we need to check with finalizedHead and database.
   if envelope.slot > dag.finalizedHead.slot:
     return err(VerifierError.Invalid)
+
+  # Check root and slot of the block
   let bsi = dag.getBlockIdAtSlot(envelope.slot).valueOr:
     # This should not be happening as we backfill envelope after the block is
     # backfilled successfully.
@@ -560,6 +562,22 @@ proc addBackfillExecutionPayload*(
     return err(VerifierError.Invalid)
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
+
+  # Check builder index is matched with the block
+  block:
+    let blck = dag.getForkedBlock(bsi.bid).valueOr:
+      # The block should exist as we have checked above. Database may be
+      # corrupted.
+      debug "Backfill envelope cannot find forked block, database corrupt?"
+      return err(VerifierError.Invalid)
+    withBlck(blck):
+      when consensusFork >= ConsensusFork.Gloas:
+        template bid(): auto =
+          forkyBlck.message.body.signed_execution_payload_bid
+        if bid.message.builder_index != envelope.builder_index:
+          return err(VerifierError.Invalid)
+      else:
+        return err(VerifierError.UnviableFork)
 
   # Verify signature
   when signedEnvelope.signature isnot TrustedSig:
