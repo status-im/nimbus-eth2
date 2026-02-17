@@ -94,11 +94,14 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
+  EnvelopesRes =
+    NetRes[List[ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes =
     NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
+    envelopes*: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]]
     blobs*: Opt[seq[BlobSidecars]]
 
   SyncBlockDataRes* = Result[SyncBlockData, string]
@@ -217,6 +220,20 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
         topics = "syncman"
 
   beaconBlocksByRange_v2(peer, req.data.slot, req.data.count, 1'u64)
+
+proc getEnvelopes[A, B](man: SyncManager[A, B], peer: A,
+                        req: SyncRequest[A]): Future[EnvelopesRes] {.
+                        async: (raises: [CancelledError], raw: true).} =
+  mixin getScore, `==`
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting envelopes from peer",
+        request = req,
+        peer_score = req.item.getScore(),
+        peer_speed = req.item.netKbps(),
+        sync_ident = man.ident,
+        topics = "syncman"
+
+  executionPayloadEnvelopesByRange(peer, req.data.slot, req.data.count)
 
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
   let
@@ -348,16 +365,43 @@ proc getSyncBlockData*[T](
     peer.updateScore(PeerScoreBadResponse)
     return err("The received block is not in the requested range")
 
-  let (shouldGetBlob, blobsCount) =
+  let (shouldGetEnvelope, shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+      when consensusFork == ConsensusFork.Gloas:
+        (true, false, 0)
+      elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let res = len(forkyBlck.message.body.blob_kzg_commitments)
         if res > 0:
-          (true, res)
+          (false, true, res)
         else:
-          (false, 0)
+          (false, false, 0)
       else:
-        (false, 0)
+        (false, false, 0)
+
+  let envelopeRange =
+    if shouldGetEnvelope:
+      let envelopeRange =
+        block:
+          let res = await executionPayloadEnvelopesByRange(peer, slot, 1'u64)
+          if res.isErr():
+            peer.updateScore(PeerScoreNoValues)
+            return err(
+              "Failed to receive envelopes on request, reason: " & $res.error)
+          res.get().asSeq()
+
+      if len(envelopeRange) == 0:
+        peer.updateScore(PeerScoreNoValues)
+        return err("An empty range of envelopes was returned by peer")
+
+      if len(envelopeRange) != 1:
+        peer.updateScore(PeerScoreBadResponse)
+        return err(
+          "Incorrect number of envelopes was returned by peer, " &
+          $len(envelopeRange))
+
+      Opt.some(envelopeRange)
+    else:
+      Opt.none(seq[ref gloas.SignedExecutionPayloadEnvelope])
 
   let blobsRange =
     if shouldGetBlob:
@@ -405,7 +449,9 @@ proc getSyncBlockData*[T](
     else:
       Opt.none(seq[BlobSidecars])
 
-  ok(SyncBlockData(blocks: blocksRange, blobs: blobsRange))
+  ok(SyncBlockData(
+    blocks: blocksRange, envelopes: envelopeRange, blobs: blobsRange,
+  ))
 
 proc getSyncBlockData[A, B](
     man: SyncManager[A, B],
@@ -482,8 +528,22 @@ proc getSyncBlockData[A, B](
         Opt.some(groupedBlobs)
       else:
         Opt.none(seq[BlobSidecars])
+    shouldGetEnvelope = sr.data.slot.epoch() >= man.GLOAS_FORK_EPOCH
+    envelopes =
+      if shouldGetEnvelope:
+        let envelopes = (await man.getEnvelopes(peer, sr)).valueOr:
+          peer.updateScore(PeerScoreNoValues)
+          return err(
+            "Failed to receive envelopes on request, reason: " & $error)
 
-  ok(SyncBlockData(blocks: blocks.asSeq(), blobs: blobs))
+        debugGloasComment("verify response")
+        Opt.some(envelopes.asSeq())
+      else:
+        Opt.none(seq[ref gloas.SignedExecutionPayloadEnvelope])
+
+  ok(SyncBlockData(
+    blocks: blocks.asSeq(), envelopes: envelopes, blobs: blobs,
+  ))
 
 proc getOrUpdatePeerStatus[A, B](
     man: SyncManager[A, B], index: int, peer: A
