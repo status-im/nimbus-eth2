@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -342,6 +342,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
+
+          CONFIRMATION_BYZANTINE_THRESHOLD:
+            Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
@@ -426,7 +430,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MIN_ACTIVATION_BALANCE:
             Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
           MAX_EFFECTIVE_BALANCE_ELECTRA:
-            Base10.toString(uint64(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+            Base10.toString(MAX_EFFECTIVE_BALANCE_ELECTRA),
           MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA:
             Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA),
           WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA:

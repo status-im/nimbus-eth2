@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -185,10 +185,10 @@ proc doSlots(conf: NcliConf) =
     cache = StateCache()
     info = ForkedEpochInfo()
   for i in 0'u64..<conf.slot:
-    let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
+    let isEpoch = (stateY[].slot + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       process_slots(
-        cfg, stateY[], getStateField(stateY[], slot) + 1,
+        cfg, stateY[], stateY[].slot + 1,
         cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):

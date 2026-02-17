@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,14 +18,13 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/objects,
   # Local modules:
-  ../spec/forks,
+  ../spec/[engine_authentication, forks],
   ../networking/network_metadata,
   "."/[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
-from std/times import getTime, inSeconds, initTime, `-`
+from std/times import getTime, toUnix
 from std/typetraits import distinctBase
-from ../spec/engine_authentication import getSignedIatToken
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -48,7 +47,8 @@ type
     GetPayloadV2Response |
     GetPayloadV3Response |
     GetPayloadV4Response |
-    GetPayloadV5Response
+    GetPayloadV5Response |
+    GetPayloadV6Response
 
 const
   noTimeout = WithoutTimeout(0)
@@ -278,16 +278,15 @@ func hasJwtSecret(m: ELManager): bool =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
-    auto =
+func getJsonRpcRequestHeaders(jwtSecret: Opt[JwtSharedKey]): auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
-    (proc(): seq[(string, string)] =
+    proc(): seq[(string, string)] =
       # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
-      @[("Authorization", "Bearer " & getSignedIatToken(
-        secret, (getTime() - initTime(0, 0)).inSeconds))])
+      @[("Authorization", "Bearer " & getSignedIatToken(secret, getTime().toUnix()))]
   else:
-    (proc(): seq[(string, string)] = @[])
+    proc(): seq[(string, string)] =
+      @[]
 
 proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
   newWeb3(engineUrl.url,
@@ -403,7 +402,8 @@ proc getPayloadFromSingleEL(
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
             GetPayloadResponseType is engine_api.GetPayloadV4Response or
-            GetPayloadResponseType is engine_api.GetPayloadV5Response:
+            GetPayloadResponseType is engine_api.GetPayloadV5Response or
+            GetPayloadResponseType is engine_api.GetPayloadV6Response:
         # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
@@ -444,19 +444,22 @@ proc getPayloadFromSingleEL(
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
 
-template EngineApiResponseType*(T: type bellatrix.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
   BellatrixExecutionPayloadWithValue
 
-template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV2Response
 
-template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
 
-template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response
 
-template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV5Response
+
+template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
@@ -583,7 +586,11 @@ proc getPayload*(
     await noCancel allFutures(pending)
 
     if bestPayloadIdx.isSome():
-      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+      debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
+      when PayloadType.kind == ConsensusFork.Gloas:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
+      else:
+        return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
 
     if timeoutExceeded:
       break
@@ -626,12 +633,31 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: Hash32,
+    executionRequests: seq[seq[byte]]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_newPayloadV5(
+    payload, versioned_hashes, parent_beacon_block_root,
+    executionRequests)
+
 proc sendGetBlobsV2toSingleEl(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
 ): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV2(versioned_hashes)
+
+proc sendGetBlobsV3toSingleEl(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV3(versioned_hashes)
 
 type
   StatusRelation = enum
@@ -824,30 +850,121 @@ proc sendGetBlobsV2*(
 
     err()
 
+proc sendGetBlobsV3*(
+    m: ELManager,
+    blck: fulu.SignedBeaconBlock
+): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    return err()
+
+  when blck is gloas.SignedBeaconBlock:
+    debugGloasComment "handle correctly for Gloas?"
+    return err()
+  else:
+    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+    var bestIdx: Opt[int]
+
+    while true:
+      let requests = m.elConnections.mapIt(
+        sendGetBlobsV3toSingleEl(it,
+          mapIt(blck.message.body.blob_kzg_commitments,
+                kzg_commitment_to_versioned_hash(it))
+        )
+      )
+
+      let timeoutExceeded =
+        try:
+          await allFutures(requests).wait(deadline)
+          false
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          # cancel anything still running, then re-raise
+          await noCancel allFutures(
+            requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+          )
+          raise exc
+
+      for idx, req in requests:
+        if req.finished():
+          # choose the first successful (not failed) response
+          if req.error.isNil and bestIdx.isNone:
+            bestIdx = Opt.some(idx)
+        else:
+          # finished == false
+          let errmsg =
+            if req.error.isNil: "request still pending"
+            else: req.error.msg
+          warn "Timeout while getting blobs & proofs",
+              url = m.elConnections[idx].engineUrl.url,
+              reason = errmsg
+
+      await noCancel allFutures(
+        requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+      )
+
+      if bestIdx.isSome():
+        let chosen = requests[bestIdx.get()]
+        # chosen is finished; but could still be an error, so guard again
+        if chosen.error.isNil:
+          return ok(chosen.value())
+        else:
+          warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
+      if timeoutExceeded:
+        break
+
+    err()
+
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(blck).kind
+
+  template executionPayload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      envelope.payload
+    else:
+      blck.body.execution_payload
+
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(blck.body.execution_payload)
+      executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
-
-  const consensusFork = typeof(blck).kind
 
   let
     startTime = Moment.now()
-    payload = blck.body.execution_payload.asEngineExecutionPayload
+    payload =
+      when consensusFork >= ConsensusFork.Gloas:
+        executionPayload.asEngineExecutionPayloadV4()
+      else: executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
-      versioned_hashes = blck.body.blob_kzg_commitments.asEngineVersionedHashes()
+      versioned_hashes =
+        block:
+          let kzgCommitments =
+            when consensusFork >= ConsensusFork.Gloas:
+              template bid(): auto = blck.body.signed_execution_payload_bid
+              bid.message.blob_kzg_commitments
+            elif consensusFork >= ConsensusFork.Deneb:
+              blck.body.blob_kzg_commitments
+          kzgCommitments.asEngineVersionedHashes()
       parent_root = blck.parent_root.to(Hash32)
 
   when consensusFork >= ConsensusFork.Electra:
-    let execution_requests = blck.body.execution_requests.asEngineExecutionRequests()
+    let execution_requests =
+      block:
+        let executionRequests =
+          when consensusFork >= ConsensusFork.Gloas:
+            envelope.execution_requests
+          else:
+            blck.body.execution_requests
+        executionRequests.asEngineExecutionRequests()
 
   var
     responseProcessor = ELConsensusViolationDetector.init()
@@ -1239,7 +1356,7 @@ func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
 proc testWeb3Provider*(
-    web3Url: Uri, jwtSecret: Opt[seq[byte]]
+    web3Url: Uri, jwtSecret: Opt[JwtSharedKey]
 ) {.async: (raises: [CatchableError]).} =
 
   stdout.write "Establishing web3 connection..."

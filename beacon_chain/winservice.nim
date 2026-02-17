@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -148,12 +148,12 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
         quit QuitFailure
 
-      var config = loadWithBanners(argConfigType, argHelpBanner, argCopyright,
-                                   argVersions, false, environment).valueOr:
+      var config = loadWithBanners(
+        argConfigType, argHelpBanner, argCopyright,
+        argVersions, false, environment, setupLogger = true
+      ).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
-
-      setupLogging(config.logLevel, config.logStdout, config.logFile)
 
       try:
         argEntryPoint(config)

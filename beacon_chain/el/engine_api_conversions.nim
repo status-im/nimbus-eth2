@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   kzg4844/[kzg_abi, kzg],
-  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
+  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu, gloas],
   ../spec/[eth2_ssz_serialization, state_transition_block],
   web3/[engine_api, engine_api_types]
 
@@ -33,7 +33,7 @@ func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
     address: w.address,
     amount: Gwei w.amount)
 
-func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
+func asEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
@@ -101,7 +101,8 @@ func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
     blockValue: payloadWithValue.blockValue)
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
     deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -170,6 +171,26 @@ func asConsensusType*(
 func asConsensusType*(
     payload: GetPayloadV5Response): fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
+    executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: fulu.BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.data))),
+      proofs: fulu.KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.data))),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.data))),
+    executionRequests: payload.executionRequests)
+
+func asConsensusTypeGloas*(
+    payload: GetPayloadV5Response): gloas.ExecutionPayloadForSigning =
+  gloas.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
     # TODO
@@ -262,6 +283,33 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: executionPayload.fee_recipient,
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    blockAccessList: @[],  # TODO: stub
+    slotNumber: Quantity(0)) # TODO: stub
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments

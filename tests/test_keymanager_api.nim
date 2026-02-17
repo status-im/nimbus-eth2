@@ -1,12 +1,12 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 # TODO (cheatfate): This test is going to be rewritten from scratch.
 {.pop.}
 
@@ -55,7 +55,6 @@ const
   depositsFile = dataDir / "deposits.json"
   runtimeConfigFile = dataDir / "config.yaml"
   genesisFile = dataDir / "genesis.ssz"
-  depositTreeSnapshotFile = dataDir / "deposit_tree_snapshot.ssz"
   bootstrapEnrFile = dataDir / "bootstrap_node.enr"
   tokenFilePath = dataDir / "keymanager-token.txt"
   defaultBasePort = 49000

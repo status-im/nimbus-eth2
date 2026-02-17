@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -104,6 +104,7 @@ proc initialLoad(
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
+      cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
@@ -280,8 +281,11 @@ proc stepOnBlock(
 
     # 5. Update DAG with new head
     var quarantine = Quarantine.init(dag.cfg)
-    let newHead = fkChoice[].get_head(dag, time).get()
-    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
+    let
+      newHeadRoot = fkChoice[].get_head(dag, time).get()
+      newHead = dag.getBlockRef(newHeadRoot).get()
+    discard fkChoice[].will_select_head(dag, newHead, time)
+    dag.updateHead(newHead, quarantine, [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
       let pruneRes = fkChoice[].prune()
@@ -310,17 +314,9 @@ proc stepChecks(
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "justified_checkpoint_root": # undocumented check
-      let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
-      doAssert checkpointRoot == Eth2Digest.fromHex(val.getStr())
     elif check == "finalized_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.finalized.root
       let checkpointEpoch = fkChoice.checkpoints.finalized.epoch
-      doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
-      doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "best_justified_checkpoint":
-      let checkpointRoot = fkChoice.checkpoints.best_justified.root
-      let checkpointEpoch = fkChoice.checkpoints.best_justified.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "proposer_boost_root":
@@ -454,6 +450,12 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
+          # proposer boost mechanics to depend on the canonical chain
+          if  path.contains("voting_source_beyond_two_epoch") or
+              path.contains("justified_update_not_realized_finality") or
+              path.contains("justified_update_always_if_better"):
+            continue
           runTest(suiteName, basePath/path, fork)
 
 fcSuite("ForkChoice", "fork_choice")

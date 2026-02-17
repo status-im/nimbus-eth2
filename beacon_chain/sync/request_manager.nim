@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -76,7 +76,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
-    custody_columns_set: HashSet[ColumnIndex]
+    custody_columns_set*: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
@@ -311,31 +311,28 @@ proc checkPeerCustody(rman: RequestManager,
   ## Returns the intersection of custody columns
   ## with the peer. Also applies peer scoring.
   var intersection: DataColumnIndices
+  let remoteCustodyGroupCount = peer.lookupCgcFromPeer()
+
   if rman.supernode:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
   else:
-    if peer.lookupCgcFromPeer() ==
-        rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
-      # full custody → return all columns
+    if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
       peer.updateScore(PeerScoreSupernode)
       debug "Peer is supernode",
         peer = peer, score = peer.getScore(),
-        remote_custody = peer.lookupCgcFromPeer()
+        remote_custody = remoteCustodyGroupCount
       return intersection
     else:
       let
-        remoteCustodyGroupCount = peer.lookupCgcFromPeer()
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
@@ -644,7 +641,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
         let
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
-            columnless.root, forkyBlck)
+            columnless.root)
 
         if len(ident.indices) > 0 and ident notin fetches:
           fetches.add(ident)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -154,7 +154,7 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 
   shouldSyncOptimistically(
     optimisticSlot = self.optimisticHead.bid.slot,
-    dagSlot = getStateField(self.dag.headState, slot),
+    dagSlot = self.dag.headState.slot,
     wallSlot = wallSlot)
 
 func optimisticHead*(self: ConsensusManager): BlockId =
@@ -192,17 +192,17 @@ func getKnownValidatorsForBlsChangeTracking(
       break
   res
 
-proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
+proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
 
   # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
+  # justified and finalized.
+  # `willSelectNewHead` (part of `selectOptimisticHead`) required before this
   self.dag.updateHead(
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
-
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
@@ -212,8 +212,8 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   # Grab the new head according to our latest attestation data
   let
-    newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time(self.dag.timeParams)).valueOr:
+    wallTime = wallSlot.start_beacon_time(self.dag.timeParams)
+    newHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
@@ -549,11 +549,7 @@ proc updateExecutionHead*(
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
-    self.dag.updateHead(
-      head.blck,
-      self.quarantine[],
-      self[].getKnownValidatorsForBlsChangeTracking(head.blck),
-    )
+    self[].updateHead(head.blck)
 
     attempts += 1
 

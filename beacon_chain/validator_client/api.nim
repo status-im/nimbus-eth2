@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1659,6 +1659,74 @@ proc submitPoolAttestationsV2*(
                               ViableNodeStatus,
                               {BeaconNodeRole.AttestationPublish},
                               submitPoolAttestationsV2(it, fork, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          return true
+        of 400:
+          handle400Indexed()
+          false
+        of 500:
+          handle500()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit attestations", data: failures)
+
+proc submitPoolAttestations2Ssz*(
+    vc: ValidatorClientRef,
+    data: seq[ForkyAttestation],
+    fork: ConsensusFork,
+    strategy: ApiStrategyKind
+): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
+  const
+    RequestName = "submitPoolAttestations2Ssz"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestPlainResponse,
+                                      bool,
+                                      vc.SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.AttestationPublish},
+                                      submitPoolAttestations2Ssz(it, fork, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[bool].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          ApiResponse[bool].ok(true)
+        of 400:
+          handle400Indexed()
+          ApiResponse[bool].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[bool].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[bool].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              vc.SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.AttestationPublish},
+                              submitPoolAttestations2Ssz(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false

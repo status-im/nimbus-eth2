@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,7 +43,7 @@ type
   BlobIndex* = uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/polynomial-commitments.md#custom-types
-  Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
+  Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB.int, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object

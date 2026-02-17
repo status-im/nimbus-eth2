@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -97,14 +97,18 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
-  router.api2(MethodGet,
-              "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
     template forkChoice: auto = node.attestationPool[].forkChoice
 
     var response = GetForkChoiceResponse(
       justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
       finalized_checkpoint: forkChoice.checkpoints.finalized,
-      extra_data: RestExtraData())
+      extra_data: RestExtraData(
+        confirmed_root: forkChoice.get_safe_beacon_block_root,
+        current_epoch_observed_justified_checkpoint:
+          forkChoice.backend.current_epoch_observed_justified.checkpoint,
+        previous_slot_head: forkChoice.backend.previous_slot_head,
+        current_slot_head: forkChoice.backend.current_slot_head))
 
     for item in forkChoice.backend.proto_array:
       let
@@ -126,7 +130,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         parent_root: item.parent,
         justified_epoch: item.checkpoints.justified.epoch,
         finalized_epoch: item.checkpoints.finalized.epoch,
-        weight: cast[uint64](item.weight),
+        weight: item.weight,
         validity:
           if item.invalid:
             RestNodeValidity.invalid

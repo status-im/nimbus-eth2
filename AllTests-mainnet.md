@@ -138,6 +138,10 @@ AllTests-mainnet
 ## Block processor [Preset: mainnet]
 ```diff
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
++ Process Deneb block without blob sidecars [Preset: mainnet]                                OK
++ Process Fulu block with data column sidecars [Preset: mainnet]                             OK
++ Process Fulu block without data column sidecars [Preset: mainnet]                          OK
 + Process a block from each fork (without blobs) [Preset: mainnet]                           OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
@@ -234,12 +238,13 @@ AllTests-mainnet
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
-## EF - Fulu - BPO forkdigests
+## EF - BPO forkdigests
 ```diff
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
 + Fusaka devnet-2                                                                            OK
++ Glamsterdam bal-devnet-2                                                                   OK
 ```
 ## EF - KZG
 ```diff
@@ -611,6 +616,7 @@ AllTests-mainnet
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and deneb ExecutionPayload representations                         OK
 ```
 ## Envelope Quarantine
 ```diff
@@ -686,6 +692,37 @@ AllTests-mainnet
 + Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
+```
+## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
+```diff
++ Empty in-memory scenario test [node]                                                       OK
++ Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
++ GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
++ GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
++ GloasColumnQuarantine: update(empty:shrink) [supernode->node] test                         OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->node] test                          OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->supernode] test                     OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [node->node] test                        OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [supernode->node] test                   OK
++ GloasColumnQuarantine: update(memory:grow) [node->node] test                               OK
++ GloasColumnQuarantine: update(memory:grow) [node->supernode] test                          OK
++ GloasColumnQuarantine: update(memory:shrink) [node->node] test                             OK
++ GloasColumnQuarantine: update(memory:shrink) [supernode->node] test                        OK
++ Mixed entries scenario test [node]                                                         OK
++ Mixed entries scenario test [supernode]                                                    OK
++ database and memory overfill protection and pruning test [node]                            OK
++ database unload/load test [node]                                                           OK
++ overfill protection test [node]                                                            OK
++ overfill test [node]                                                                       OK
++ overfill test [supernode]                                                                  OK
++ pruneAfterFinalization() test [node]                                                       OK
++ put() duplicate items should not affect counters [node]                                    OK
++ put()/fetchMissingSidecars/remove test [node]                                              OK
++ put()/fetchMissingSidecars/remove test [supernode]                                         OK
++ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
 ```
 ## Gossip fork transition
 ```diff

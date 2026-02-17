@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/os,
+  std/[os, uri],
   stew/byteutils, stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
@@ -64,7 +64,7 @@ type
     of BakedIn:
       networkName*: string
     of BakedInUrl:
-      url*: string
+      url*: Uri
       digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
@@ -153,6 +153,8 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
+    runtimeConfig.checkForkConsistency()
+
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -160,7 +162,7 @@ proc loadEth2NetworkMetadata*(
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
+                          url: parseUri downloadGenesisFrom.get.url,
                           digest: downloadGenesisFrom.get.digest)
         elif useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)

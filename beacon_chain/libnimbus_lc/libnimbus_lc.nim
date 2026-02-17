@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -183,7 +183,7 @@ proc ETHBeaconStateCopyGenesisValidatorsRoot(
   ## Returns:
   ## * Pointer to a copy of the given beacon state's genesis validators root.
   let genesisValRoot = Eth2Digest.new()
-  genesisValRoot[] = getStateField(state[], genesis_validators_root)
+  genesisValRoot[] = state[].genesis_validators_root
   genesisValRoot.toUnmanagedPtr()
 
 proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
@@ -216,8 +216,7 @@ proc ETHForkDigestsCreateFromState(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
   let forkDigests = ForkDigests.new()
-  forkDigests[] = ForkDigests.init(
-    cfg[], getStateField(state[], genesis_validators_root))
+  forkDigests[] = ForkDigests.init(cfg[], state[].genesis_validators_root)
   forkDigests.toUnmanagedPtr()
 
 proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
@@ -245,7 +244,7 @@ proc ETHBeaconClockCreateFromState(
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
   let
-    genesisTime = getStateField(state[], genesis_time)
+    genesisTime = state[].genesis_time
     beaconClock = BeaconClock.new()
   beaconClock[] = BeaconClock.init(cfg[].timeParams, genesisTime).valueOr:
     return nil
@@ -2305,7 +2304,7 @@ proc ETHReceiptsCreateFromJson(
     # Check fork consistency
     static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
-    static: doAssert totalSerializedFields(LogObject) == 9,
+    static: doAssert totalSerializedFields(LogObject) == 10,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):

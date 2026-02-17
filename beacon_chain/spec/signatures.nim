@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -457,8 +457,8 @@ proc verify_execution_payload_bid_signature*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
 func compute_execution_payload_envelope_signing_root(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: ExecutionPayloadEnvelope): Eth2Digest =
+    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    msg: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope): Eth2Digest =
   let
     domain = get_domain(
       fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
@@ -473,8 +473,8 @@ func get_execution_payload_envelope_signature*(
   blsSign(privkey, signing_root.data)
 
 proc verify_execution_payload_envelope_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: ExecutionPayloadEnvelope,
+    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    msg: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_execution_payload_envelope_signing_root(
     fork, genesis_validators_root, epoch, msg)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -31,7 +31,7 @@ proc loadExampleConfig(
       sources.addConfigFileContent(Toml, content))
 
 const
-  validJwtToken = parseJwtTokenValue(
+  validJwtToken = parseJwtSharedKey(
     "aa95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098cc").get
 
 suite "EL Configuration":
@@ -45,7 +45,7 @@ suite "EL Configuration":
 
     let
       url1Final1 = url1.toFinalUrl(Opt.some validJwtToken)
-      url1Final2 = url1.toFinalUrl(Opt.none seq[byte])
+      url1Final2 = url1.toFinalUrl(Opt.none JwtSharedKey)
 
     check:
       url1Final1.isOk

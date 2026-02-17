@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -153,10 +153,8 @@ proc isWithinWeakSubjectivityPeriod(
     dag = overseer.consensusManager.dag
     currentSlot = overseer.getWallSlot()
     checkpoint = Checkpoint(
-      epoch:
-        getStateField(dag.headState, slot).epoch(),
-      root:
-        getStateField(dag.headState, latest_block_header).state_root)
+      epoch: dag.headState.slot.epoch(),
+      root: dag.headState.latest_block_header.state_root)
 
   is_within_weak_subjectivity_period(
     dag.cfg, currentSlot, dag.headState, checkpoint)
@@ -332,10 +330,8 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               return ok()
 
             let
-              fork =
-                getStateField(dag.clearanceState, fork)
-              genesis_validators_root =
-                getStateField(dag.clearanceState, genesis_validators_root)
+              fork = dag.clearanceState.fork
+              genesis_validators_root = dag.clearanceState.genesis_validators_root
 
             verifyBlockSignatures(batchVerifier[], fork, genesis_validators_root,
                                   dag.db.immutableValidators, blocksOnly).isOkOr:
@@ -362,8 +358,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
           debug "Number of blocks injected",
                 blocks_count = len(blocks),
                 head = shortLog(dag.head),
-                finalized = shortLog(getStateField(
-                  dag.headState, finalized_checkpoint)),
+                finalized = shortLog(dag.headState.finalized_checkpoint),
                 store_update_time = updateTick - startTick
 
           overseer.updatePerformance(startTick, len(blocks))

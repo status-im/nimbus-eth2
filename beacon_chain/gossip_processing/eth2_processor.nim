@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -169,11 +169,9 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-
     blobQuarantine*: ref BlobQuarantine
-
     dataColumnQuarantine*: ref ColumnQuarantine
-
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
@@ -202,6 +200,8 @@ proc new*(T: type Eth2Processor,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          gloasColumnQuarantine: ref GloasColumnQuarantine,
+          envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -223,6 +223,8 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
+    envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng, dag.cfg.timeParams,
@@ -284,10 +286,9 @@ proc processSignedBeaconBlock*(
   if not (isNil(self.dag.onBlockGossipAdded)):
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
-  when consensusFork == ConsensusFork.Gloas:
-    debugGloasComment ""
-    # gloas needs proper data column handling
-    let sidecarsOpt = Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+  when consensusFork >= ConsensusFork.Gloas:
+    # Disable processing sidecars at block time.
+    const sidecarsOpt = noSidecars
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
@@ -342,7 +343,8 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
-  debugGloasComment("process execution payload")
+  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
@@ -472,7 +474,7 @@ proc processDataColumnSidecar*(
   debug "Data column received (Gloas - quarantine not implemented)"
 
   let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.dataColumnQuarantine, self.executionPayloadBidPool,
+    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
@@ -480,10 +482,10 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debugGloasComment ""
-  # TODO: Implement quarantine logic for Gloas
-  # For now, just validate and drop
-  debug "Data column validated (not stored - quarantine TODO)"
+  debug "Data column validated"
+  self.gloasColumnQuarantine[].put(
+    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
+  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
   v
@@ -532,11 +534,12 @@ proc checkForPotentialDoppelganger(
       quitDoppelganger()
 
 proc processAttestation*(
-    self: ref Eth2Processor, src: MsgSource,
-    attestation: phase0.Attestation | SingleAttestation,
-    subnet_id: SubnetId, checkSignature, checkValidator: bool,
-    fork: ConsensusFork):
-    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+    self: ref Eth2Processor,
+    src: MsgSource,
+    attestation: SingleAttestation,
+    subnet_id: SubnetId,
+    checkSignature, checkValidator: bool,
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
@@ -550,65 +553,63 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let 
+  let
     consensusFork =
       self.dag.cfg.consensusForkAtEpoch(attestation.data.slot.epoch)
     delay = wallTime - attestation.data.slot.attestation_deadline(
       self.dag.timeParams, consensusFork)
-  debug "Attestation received", delay
+  debug "SingleAttestation received", delay
 
-  let v = when attestation is phase0.Attestation:
+  let v = (
     await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
-  else:
-    await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature, fork)
+      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature
+    )
+  ).valueOr:
+    debug "Dropping attestation", reason = $error
+    beacon_attestations_dropped.inc(1, [$error[0]])
+    return err(error)
 
-  return if v.isOk():
-    # Due to async validation the wallTime here might have changed
-    wallTime = self.getCurrentBeaconTime()
+  # Due to async validation the wallTime here might have changed
+  wallTime = self.getCurrentBeaconTime()
 
-    let (attester_index, beacon_committee_len, index_in_committee, sig) =
-      v.get()
+  if checkValidator and (v.attester_index in self.validatorPool[]):
+    warn "A validator client has attempted to send an attestation from " &
+      "validator that is also managed by the beacon node",
+      validator_index = v.attester_index
+    return errReject(
+      "An attestation could not be sent from a validator that is " &
+        "also managed by the beacon node"
+    )
 
-    if checkValidator and (attester_index in self.validatorPool[]):
-      warn "A validator client has attempted to send an attestation from " &
-           "validator that is also managed by the beacon node",
-           validator_index = attester_index
-      errReject("An attestation could not be sent from a validator that is " &
-                "also managed by the beacon node")
-    else:
-      self[].checkForPotentialDoppelganger(attestation, [attester_index])
+  self[].checkForPotentialDoppelganger(attestation, [v.attester_index])
 
-      trace "Attestation validated"
-      self.attestationPool[].addAttestation(
-        attestation, [attester_index], beacon_committee_len,
-        index_in_committee, sig, wallTime)
+  trace "SingleAttestation validated"
+  let attesting_indices = [v.attester_index]
+  self.attestationPool[].addAttestation(
+    attestation, attesting_indices, v.beacon_committee_len, v.index_in_committee, v.sig,
+    wallTime,
+  )
 
-      self.validatorMonitor[].registerAttestation(
-        src, wallTime, attestation, attester_index)
+  self.validatorMonitor[].registerAttestation(
+    src, wallTime, attestation, v.attester_index
+  )
 
-      beacon_attestations_received.inc()
-      beacon_attestation_delay.observe(delay.toFloatSeconds())
+  beacon_attestations_received.inc()
+  beacon_attestation_delay.observe(delay.toFloatSeconds())
 
-      ok()
-  else:
-    debug "Dropping attestation", reason = $v.error
-    beacon_attestations_dropped.inc(1, [$v.error[0]])
-    err(v.error())
+  ok()
 
 proc processSignedAggregateAndProof*(
-    self: ref Eth2Processor, src: MsgSource,
-    signedAggregateAndProof:
-      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-    checkSignature = true, checkCover = true,
-    fork: ConsensusFork): Future[ValidationRes]
-    {.async: (raises: [CancelledError]).} =
+    self: ref Eth2Processor,
+    src: MsgSource,
+    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    checkSignature = true,
+    checkCover = true,
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     aggregator_index = signedAggregateAndProof.message.aggregator_index
     selection_proof = shortLog(signedAggregateAndProof.message.selection_proof)
     signature = shortLog(signedAggregateAndProof.signature)
@@ -618,46 +619,53 @@ proc processSignedAggregateAndProof*(
     notice "Aggregate before genesis"
     return errIgnore("Aggregate before genesis")
 
+  template aggregate(): untyped =
+    signedAggregateAndProof.message.aggregate
+
   # Potential under/overflows are fine; would just create odd logs
   let
-    slot = signedAggregateAndProof.message.aggregate.data.slot
-    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams, fork)
-  debug "Aggregate received", delay
+    slot = aggregate.data.slot
+    consensusFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = wallTime - slot.aggregate_deadline(self.dag.timeParams, consensusFork)
 
-  let v = await self.attestationPool.validateAggregate(
-    self.batchCrypto, signedAggregateAndProof, wallTime,
-    checkSignature = checkSignature, checkCover = checkCover, fork)
+  debug "Aggregate received",
+    delay, aggregate = shortLog(signedAggregateAndProof.message.aggregate)
 
-  return if v.isOk():
-    # Due to async validation the wallTime here might have changed
-    wallTime = self.getCurrentBeaconTime()
+  let v = (
+    await self.attestationPool.validateAggregate(
+      self.batchCrypto,
+      signedAggregateAndProof,
+      wallTime,
+      checkSignature = checkSignature,
+      checkCover = checkCover,
+    )
+  ).valueOr:
+    debug "Dropping aggregate", reason = $error
+    beacon_aggregates_dropped.inc(1, [$error[0]])
 
-    let (attesting_indices, sig) = v.get()
+    return err(error)
 
-    self[].checkForPotentialDoppelganger(
-      signedAggregateAndProof.message.aggregate, attesting_indices)
+  # Due to async validation the wallTime here might have changed
+  wallTime = self.getCurrentBeaconTime()
 
-    trace "Aggregate validated"
+  self[].checkForPotentialDoppelganger(aggregate, v.attesting_indices)
 
-    # -1 here is the notional index in committee for which the attestation pool
-    # only requires external input regarding SingleAttestation messages.
-    self.attestationPool[].addAttestation(
-      signedAggregateAndProof.message.aggregate, attesting_indices,
-      signedAggregateAndProof.message.aggregate.aggregation_bits.len, -1, sig,
-      wallTime)
+  trace "Aggregate validated"
 
-    self.validatorMonitor[].registerAggregate(
-      src, wallTime, signedAggregateAndProof.message, attesting_indices)
+  # -1 here is the notional index in committee for which the attestation pool
+  # only requires external input regarding SingleAttestation messages.
+  self.attestationPool[].addAttestation(
+    aggregate, v.attesting_indices, aggregate.aggregation_bits.len, -1, v.sig, wallTime
+  )
 
-    beacon_aggregates_received.inc()
-    beacon_aggregate_delay.observe(delay.toFloatSeconds())
+  self.validatorMonitor[].registerAggregate(
+    src, wallTime, signedAggregateAndProof.message, v.attesting_indices
+  )
 
-    ok()
-  else:
-    debug "Dropping aggregate", reason = $v.error
-    beacon_aggregates_dropped.inc(1, [$v.error[0]])
+  beacon_aggregates_received.inc()
+  beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
-    err(v.error())
+  ok()
 
 proc processBlsToExecutionChange*(
     self: ref Eth2Processor, src: MsgSource,
@@ -829,7 +837,6 @@ proc processSignedContributionAndProof*(
     wallSlot = wallTime.slotOrZero(self.dag.timeParams)
 
   logScope:
-    contribution = shortLog(contributionAndProof.message.contribution)
     signature = shortLog(contributionAndProof.signature)
     aggregator_index = contributionAndProof.message.aggregator_index
     selection_proof = contributionAndProof.message.selection_proof
@@ -839,7 +846,8 @@ proc processSignedContributionAndProof*(
   let
     slot = contributionAndProof.message.contribution.slot
     delay = wallTime - slot.sync_contribution_deadline(self.dag.timeParams)
-  debug "Contribution received", delay
+  debug "Contribution received",
+    delay, contribution = shortLog(contributionAndProof.message.contribution)
 
   # Now proceed to validation
   let v = await validateContribution(

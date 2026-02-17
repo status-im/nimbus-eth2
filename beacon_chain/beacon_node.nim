@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
+  ./[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
   ./el/el_manager,
@@ -49,7 +49,6 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
-    phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
@@ -180,3 +179,25 @@ proc getPayloadBuilderClient*(
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
+
+func init*(T: type EventBus): T =
+  T(
+    headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+    blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+    blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
+    exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+    blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+    propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
+    phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+    electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
+    blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+    columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
+    reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+    contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
+    finUpdateQueue: newAsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]](),
+    optUpdateQueue:
+      newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
+    optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
+  )

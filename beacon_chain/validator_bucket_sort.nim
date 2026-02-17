@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,10 @@
 {.push raises: [], gcsafe.}
 
 import std/typetraits
-import "."/spec/crypto
+import ./spec/crypto
 from stew/staticfor import staticFor
-from "."/spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
+from ./spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
+from ./spec/datatypes/gloas import Builder
 
 const
   BUCKET_BITS = 9    # >= 13 gets slow to construct
@@ -34,7 +35,8 @@ template getBucketNumber(h: ValidatorPubKey): uint =
   const BUCKET_MASK = (NUM_BUCKETS - 1)
   ((h.blob[0] * 256 + h.blob[1]) and BUCKET_MASK)
 
-func sortValidatorBuckets*(validators: openArray[Validator]):
+func sortValidatorBuckets*(
+    validators: seq[Builder] | seq[Validator]):
     ref BucketSortedValidators {.noinline.} =
   var bucketSizes: array[NUM_BUCKETS, uint]
   for validator in validators:
@@ -69,7 +71,7 @@ func add*(
   bucketSortedValidators.extraItems.add validatorIndex
 
 func findValidatorIndex*(
-    validators: openArray[Validator], bsv: BucketSortedValidators,
+    validators: seq[Builder] | seq[Validator], bsv: BucketSortedValidators,
     pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
   for validatorIndex in bsv.extraItems:
     if validators[validatorIndex.distinctBase].pubkey == pubkey:

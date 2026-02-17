@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,14 +14,14 @@ import
 
 {.used.}
 
-template checkRoot(name, root) =
+template checkRoot(name, eroot) =
   let
     metadata = getMetadataForNetwork(name)
     state = newClone(readSszForkedHashedBeaconState(
       metadata.cfg, metadata.genesis.bakedBytes))
 
   check:
-    $getStateRoot(state[]) == root
+    $state[].root == eroot
 
 suite "Network metadata":
   test "mainnet":
