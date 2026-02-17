@@ -1111,6 +1111,9 @@ func fork*(state: ForkedHashedBeaconState): Fork =
 func latest_block_header*(state: ForkedHashedBeaconState): lent BeaconBlockHeader =
   (block: withState(state): addr forkyState.data.latest_block_header)[]
 
+func block_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
+  (block: withState(state): addr forkyState.data.block_roots)[]
+
 func state_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
   (block: withState(state): addr forkyState.data.state_roots)[]
 
