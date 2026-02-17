@@ -514,6 +514,9 @@ proc addHeadExecutionPayload*(
   # Load state cache for state transition function.
   loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
 
+  let isSelfBuild = signedEnvelope.message.builder_index ==
+    BUILDER_INDEX_SELF_BUILD
+
   # Verify with state transition function.
   process_execution_payload(
     dag.cfg,
@@ -521,6 +524,7 @@ proc addHeadExecutionPayload*(
     signedEnvelope,
     func(_: deneb.ExecutionPayload): bool = true,
     cache,
+    verify = not isSelfBuild
   ).isOkOr:
     assign(dag.clearanceState, dag.headState)
     info "Envelope transition failed", msg = error

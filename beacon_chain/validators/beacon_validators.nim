@@ -611,46 +611,84 @@ proc proposeBlockAux(
     beacon_block_production_errors.inc()
     return head # Validation errors logged in router
 
+  when consensusFork >= ConsensusFork.Gloas:
+    let
+      envelope = makeExecutionPayloadEnvelope(
+        eps = engineBid[].eps,
+        execution_requests = engineBid[].execution_requests,
+        beacon_block_root = blockRoot,
+        slot = slot,
+        state_root = signedBlock.message.state_root)
+
+      signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
+        node.dag.forkAtEpoch(slot.epoch),
+        node.dag.genesis_validators_root,
+        slot,
+        envelope)
+
+    if signatureRes.isErr:
+      error "Failed to sign execution payload envelope",
+        slot, validator = shortLog(validator), err = signatureRes.error
+      beacon_block_production_errors.inc()
+      return head
+
+    let
+      signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
+        message: envelope,
+        signature: signatureRes.get()
+      )
+
+      # Send payload to local EL before broadcasting
+      payloadStatus = await node.elManager.newExecutionPayload(
+        signedBlock.message,
+        envelope,
+        sleepAsync(NEWPAYLOAD_TIMEOUT),
+        retry = false)
+    
+    if payloadStatus.isNone:
+      warn "Failed to send self-built execution payload to local EL",
+        blockRoot = shortLog(blockRoot)
+      return head
+    elif payloadStatus.get != PayloadExecutionStatus.valid:
+      warn "Local EL rejected self-built execution payload",
+        blockRoot = shortLog(blockRoot), status = payloadStatus.get
+      return head
+
+    # Broadcast envelope to gossip network
+    let envelopeRouteRes = await node.router.routeExecutionPayloadEnvelope(
+      signedEnvelope, checkValidator = false)
+    if envelopeRouteRes.isErr:
+      warn "Execution payload envelope not sent",
+        envelope = shortLog(signedEnvelope.message),
+        error = envelopeRouteRes.error
+    else:
+      notice "Payload Envelope proposed",
+        blockRoot = shortLog(blockRoot),
+        blck = shortLog(signedBlock.message),
+        signature = shortLog(signature),
+        validator = shortLog(validator)
+
+    # Process envelope locally - skip atate root verification
+    # for self-builds since the envelope's state_root is 
+    # computed before `process_execution_payload` runs,
+    # so it wouldn't match the post-envelope state root
+    discard node[].dag.addHeadExecutionPayload(
+      signedBlock,
+      signedEnvelope
+    ).valueOr:
+      error "Failed to process self-built execution payload envelope",
+        error = error,
+        blockRoot = shortLog(blockRoot)
+      beacon_block_production_errors.inc()
+      return head
+  
   notice "Block proposed",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(signedBlock.message),
     signature = shortLog(signature),
     validator = shortLog(validator)
 
-  beacon_blocks_proposed.inc()
-
-  when consensusFork >= ConsensusFork.Gloas:
-    let envelope = makeExecutionPayloadEnvelope(
-      eps = engineBid[].eps,
-      execution_requests = engineBid[].execution_requests,
-      beacon_block_root = blockRoot,
-      slot = slot,
-      state_root = signedBlock.message.state_root)
-
-    let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
-      node.dag.forkAtEpoch(slot.epoch),
-      node.dag.genesis_validators_root,
-      slot,
-      envelope
-    )
-
-    if signatureRes.isErr:
-      error "Failed to sign sign execution payload envelope",
-        slot, validator = shortLog(validator), err = signatureRes.error
-    else:
-      let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
-        message: envelope,
-        signature: signatureRes.get()
-      )
-
-      discard await node.router.routeExecutionPayloadEnvelope(
-        signedEnvelope, checkValidator = false)
-
-      notice "Payload Envelope proposed",
-        blockRoot = shortLog(blockRoot),
-        blck = shortLog(signedBlock.message),
-        signature = shortLog(signature),
-        validator = shortLog(validator)
+  beacon_block_proposed.inc()
 
   newBlockRef.get()
 
