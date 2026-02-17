@@ -744,18 +744,29 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   else:
     Opt.none(BlobSidecars)
 
+func getOpt(
+    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]], i: int
+): Opt[ref gloas.SignedExecutionPayloadEnvelope] =
+  if envelopes.isSome:
+    Opt.some(envelopes.get()[i])
+  else:
+    Opt.none(ref gloas.SignedExecutionPayloadEnvelope)
+
 iterator blocks(
     kind: SyncQueueKind,
     blcks: seq[ref ForkedSignedBeaconBlock],
+    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]],
     blobs: Opt[seq[BlobSidecars]]
-): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
+): (ref ForkedSignedBeaconBlock,
+    Opt[ref gloas.SignedExecutionPayloadEnvelope],
+    Opt[BlobSidecars]) =
   case kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(blcks) - 1):
-      yield (blcks[i], blobs.getOpt(i))
+      yield (blcks[i], envelopes.getOpt(i), blobs.getOpt(i))
   of SyncQueueKind.Backward:
     for i in countdown(len(blcks) - 1, 0):
-      yield (blcks[i], blobs.getOpt(i))
+      yield (blcks[i], envelopes.getOpt(i), blobs.getOpt(i))
 
 proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
   ## Push multiple failed requests back to queue.
@@ -773,6 +784,7 @@ proc process[T](
     sq: SyncQueue[T],
     sr: SyncRequest[T],
     blcks: seq[ref ForkedSignedBeaconBlock],
+    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]],
     blobs: Opt[seq[BlobSidecars]],
     maybeFinalized: bool
 ): Future[SyncProcessingResult] {.
@@ -785,8 +797,12 @@ proc process[T](
   if len(blcks) == 0:
     return SyncProcessingResult.init(SyncProcessError.Empty)
 
-  for blk, blb in blocks(sq.kind, blcks, blobs):
-    let res = await sq.blockVerifier(blk[], blb, maybeFinalized)
+  for blk, evl, blb in blocks(sq.kind, blcks, envelopes, blobs):
+    let evlval = evl.map(
+      func(x: ref gloas.SignedExecutionPayloadEnvelope):
+           gloas.SignedExecutionPayloadEnvelope =
+        x[])
+    let res = await sq.blockVerifier(blk[], evlval, blb, maybeFinalized)
     if res.isOk():
       slot = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
     else:
@@ -832,6 +848,7 @@ proc push*[T](
     sq: SyncQueue[T],
     sr: SyncRequest[T],
     data: seq[ref ForkedSignedBeaconBlock],
+    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]],
     blobs: Opt[seq[BlobSidecars]],
     maybeFinalized: bool = false,
     processingCb: ProcessingCallback = nil
@@ -886,7 +903,7 @@ proc push*[T](
     if not(isNil(processingCb)):
       processingCb()
 
-    let pres = await sq.process(sr, data, blobs, maybeFinalized)
+    let pres = await sq.process(sr, data, envelopes, blobs, maybeFinalized)
 
     # We need to update position, because while we waiting for `process()` to
     # complete - clearAndWakeup() could be invoked which could clean whole the

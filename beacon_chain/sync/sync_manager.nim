@@ -768,8 +768,8 @@ proc syncStep[A, B](
         # TODO descore peers that lie
         maybeFinalized = lastSlot < peerFinalized
 
-      jobs.add(man.queue.push(request, data.blocks, data.blobs, maybeFinalized,
-                              processCallback))
+      jobs.add(man.queue.push(request, data.blocks, data.envelopes, data.blobs,
+                              maybeFinalized, processCallback))
 
     if len(jobs) > 0:
       await allFutures(jobs)

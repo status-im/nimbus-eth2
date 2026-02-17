@@ -101,6 +101,7 @@ func createBlobs(
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
       signedBlock: ForkedSignedBeaconBlock,
+      signedEnvelope: Opt[gloas.SignedExecutionPayloadEnvelope],
       blobs: Opt[BlobSidecars],
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.
