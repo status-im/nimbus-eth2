@@ -688,7 +688,7 @@ proc proposeBlockAux(
     signature = shortLog(signature),
     validator = shortLog(validator)
 
-  beacon_block_proposed.inc()
+  beacon_blocks_proposed.inc()
 
   newBlockRef.get()
 
