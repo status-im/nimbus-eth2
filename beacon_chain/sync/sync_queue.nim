@@ -22,8 +22,11 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
-  BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+  BlockVerifier* =
+    proc(
+      signedBlock: ForkedSignedBeaconBlock,
+      singedEnvelope: Opt[gloas.SignedExecutionPayloadEnvelope],
+      blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =
     proc(epoch: Epoch): ConsensusFork {.gcsafe, raises: [].}

@@ -56,6 +56,7 @@ type
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
     FULU_FORK_EPOCH: Epoch
+    GLOAS_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
@@ -145,6 +146,7 @@ proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
     denebEpoch: Epoch,
     fuluEpoch: Epoch,
+    gloasEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
     maxBlobsPerBlockElectra: uint64,
     direction: SyncQueueKind,
@@ -176,6 +178,7 @@ proc newSyncManager*[A, B](
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
     FULU_FORK_EPOCH: fuluEpoch,
+    GLOAS_FORK_EPOCH: gloasEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
