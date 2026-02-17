@@ -36,6 +36,8 @@ const
     "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
+  UnsupportedForkError* =
+    "Slot is from an unsupported fork"
   InvalidAttestationObjectError* =
     "Unable to decode attestation object(s)"
   AttestationValidationError* =

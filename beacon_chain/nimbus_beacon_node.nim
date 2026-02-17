@@ -445,8 +445,6 @@ proc initFullNode(
 ) {.async: (raises: [CancelledError]).} =
   template config(): auto = node.config
 
-  proc onPhase0AttestationReceived(data: phase0.Attestation) =
-    node.eventBus.phase0AttestQueue.emit(data)
   proc onSingleAttestationReceived(data: SingleAttestation) =
     node.eventBus.singleAttestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
@@ -557,8 +555,7 @@ proc initFullNode(
       Quarantine.init(dag.cfg))
     envelopeQuarantine = newClone(EnvelopeQuarantine.init())
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, getBeaconTime(),
-      onPhase0AttestationReceived, onSingleAttestationReceived))
+      dag, quarantine, getBeaconTime(), onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -2044,7 +2041,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # update custody columns
       node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
       # update custody columns into request manager
-      node.request_manager.custody_columns_set =
+      node.requestManager.custody_columns_set =
         node.validatorCustody.newer_column_set
 
       # Update CGC and metadata with respect to the new detected validator custody
@@ -2304,10 +2301,10 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     let afterSleep = chronos.now(chronos.Moment)
     let sleepTime = afterSleep - start
     node.onSecond(start)
-    let finished = chronos.now(chronos.Moment)
-    let processingTime = finished - afterSleep
+
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
-    trace "onSecond task completed", sleepTime, processingTime
+    trace "onSecond task completed",
+      sleepTime, processingTime = chronos.now(chronos.Moment) - afterSleep
 
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
@@ -2408,22 +2405,7 @@ proc installMessageValidators(node: BeaconNode) =
                   return toValidationResult(
                     await node.processor.processAttestation(
                       MsgSource.gossip, attestation, subnet_id,
-                      checkSignature = true, checkValidator = false,
-                      consensusFork)))
-        else:
-          for it in SubnetId:
-            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-              let subnet_id = it
-              node.network.addAsyncValidator(
-                getAttestationTopic(digest, subnet_id), proc (
-                  attestation: phase0.Attestation, src: PeerId
-                ): Future[ValidationResult] {.
-                    async: (raises: [CancelledError]).} =
-                  return toValidationResult(
-                    await node.processor.processAttestation(
-                      MsgSource.gossip, attestation, subnet_id,
-                      checkSignature = true, checkValidator = false,
-                      consensusFork)))
+                      checkSignature = true, checkValidator = false)))
 
         # beacon_aggregate_and_proof
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
@@ -2436,18 +2418,7 @@ proc installMessageValidators(node: BeaconNode) =
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedAggregateAndProof(
-                  MsgSource.gossip, signedAggregateAndProof,
-                  fork = consensusFork)))
-        else:
-          node.network.addAsyncValidator(
-            getAggregateAndProofsTopic(digest), proc (
-              signedAggregateAndProof: phase0.SignedAggregateAndProof,
-              src: PeerId
-            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-              return toValidationResult(
-                await node.processor.processSignedAggregateAndProof(
-                  MsgSource.gossip, signedAggregateAndProof,
-                  fork = consensusFork)))
+                  MsgSource.gossip, signedAggregateAndProof)))
 
         # attester_slashing
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing

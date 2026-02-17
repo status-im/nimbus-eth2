@@ -129,10 +129,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.blockGossipQueue,
                                               "block_gossip")
           res.add(handler)
-        if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.phase0AttestQueue,
-                                              "attestation")
-          res.add(handler)
         if EventTopic.SingleAttestation in eventTopics:
           let handler = response.eventHandler(node.eventBus.singleAttestQueue,
                                               "single_attestation")

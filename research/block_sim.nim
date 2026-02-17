@@ -121,38 +121,15 @@ cli do(
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             if tmpState.kind < ConsensusFork.Electra:
-              let
-                data =
-                  makeAttestationData(updatedState, slot, committee_index, bid.root)
-                sig = get_attestation_signature(
-                  fork, genesis_validators_root, data, MockPrivKeys[validator_index]
-                )
-                attestation = phase0.Attestation
-                  .init(
-                    [uint64 index_in_committee],
-                    committee.len,
-                    data,
-                    sig.toValidatorSig(),
-                  )
-                  .expect("valid data")
-
-              attPool.addAttestation(
-                attestation,
-                [validator_index],
-                attestation.aggregation_bits.len,
-                -1,
-                sig,
-                data.slot.start_beacon_time(cfg.timeParams))
+              discard # no longer supported
             else:
-              var data =
-                makeAttestationData(updatedState, slot, committee_index, bid.root)
-              data.index = 0 # fix in makeAttestationData for Electra
               let
+                data = makeAttestationData(updatedState, slot, CommitteeIndex(0), bid.root)
                 sig = get_attestation_signature(
                   fork, genesis_validators_root, data, MockPrivKeys[validator_index]
                 )
                 attestation = SingleAttestation(
-                  committee_index: committee_index.distinctBase,
+                  committee_index: committee_index.uint64,
                   attester_index: validator_index.uint64,
                   data: data,
                   signature: sig.toValidatorSig(),
@@ -439,7 +416,7 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          when consensusFork >= ConsensusFork.Bellatrix:
+          when consensusFork >= ConsensusFork.Electra:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork
