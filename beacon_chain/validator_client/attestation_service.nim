@@ -173,7 +173,7 @@ proc serveAttestations(
   else:
     (len(registered), 0, len(registered))
 
-proc serveAggregateAndProofV2*(
+proc serveAggregateAndProofV2(
     service: AttestationServiceRef,
     proof: ForkyAggregateAndProof,
     validator: AttachedValidator
@@ -242,13 +242,14 @@ proc serveAggregateAndProofV2*(
     warn "Aggregated attestation was not accepted by beacon node"
   res
 
-proc produceAndPublishAttestationsV2*(
+proc produceAndPublishAttestationsV2(
     service: AttestationServiceRef,
     slot: Slot,
     duties: seq[DutyAndProof]
 ): Future[AttestationData] {.
    async: (raises: [CancelledError, ValidatorApiError]).} =
-  doAssert(MAX_VALIDATORS_PER_COMMITTEE <= uint64(high(int)))
+  static: doAssert(MAX_VALIDATORS_PER_COMMITTEE <= uint64(high(int)))
+
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
@@ -256,6 +257,12 @@ proc produceAndPublishAttestationsV2*(
       slot,
       CommitteeIndex(0),
       vc.getMode()[FnKind.produceAttestationData])
+    # TODO: signing_root is recomputed in getAttestationSignature just
+    # after, but not for locally attached validators.
+    signingRoot =
+      compute_attestation_signing_root(
+        fork, vc.beaconGenesis.genesis_validators_root, data)
+
     registeredRes =
       vc.attachedValidators[].slashingProtection.withContext:
         var tmp: seq[RegisteredAttestation]
@@ -268,32 +275,23 @@ proc produceAndPublishAttestationsV2*(
                   attestation_slot = data.slot
             continue
 
-          let validator =
-            vc.getValidatorForDuties(duty.data.pubkey, duty.data.slot).valueOr:
-              continue
+          let
+            validator =
+              vc.getValidatorForDuties(duty.data.pubkey, duty.data.slot).valueOr:
+                continue
 
-          doAssert(validator.index.isSome())
-          let validator_index = validator.index.get()
+            validator_index = validator.index.expect("duty validator should have index")
 
           logScope:
             validator = validatorLog(validator)
 
-          # TODO: signing_root is recomputed in getAttestationSignature just
-          # after, but not for locally attached validators.
-          let
-            signingRoot =
-              compute_attestation_signing_root(
-                fork, vc.beaconGenesis.genesis_validators_root, data)
-            registered =
-              registerAttestationInContext(
-                validator_index, validator.pubkey, data.source.epoch,
-                data.target.epoch, signingRoot)
-
-          if registered.isErr():
+          registerAttestationInContext(
+            validator_index, validator.pubkey, data.source.epoch,
+            data.target.epoch, signingRoot).isOkOr:
             warn "Slashing protection activated for attestation",
                 attestationData = shortLog(data),
                 signingRoot = shortLog(signingRoot),
-                badVoteDetails = $registered.error()
+                badVoteDetails = $error
             continue
 
           tmp.add(RegisteredAttestation(
@@ -470,10 +468,14 @@ proc publishAttestationsAndAggregatesV2(
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+
+  if consensusFork < ConsensusFork.Electra:
+    warn "Unsupported fork for attestations", consensusFork
+    return
 
   block:
     let
-      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
       delay = vc.getDelay(slot.attestation_deadline(
         vc.timeParams, consensusFork))
     debug "Producing attestations", delay = delay, slot = slot,
@@ -491,7 +493,6 @@ proc publishAttestationsAndAggregatesV2(
       raise exc
 
   let
-    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
     aggregateTime = vc.beaconClock.fromNow(
       slot.aggregate_deadline(vc.timeParams, consensusFork))
   if aggregateTime.inFuture:

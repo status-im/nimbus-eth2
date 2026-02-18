@@ -1611,7 +1611,7 @@ suite "Engine API conversions":
         blockBody.execution_payload == asConsensusType(
           asEngineExecutionPayload(blockBody.execution_payload))
 
-  test "ExecutionPayloadV4 to deneb.ExecutionPayload conversion":
+  test "Roundtrip engine RPC V4 and deneb ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
     # with boosted probabilities for 0, 1, and high(uint64). There can be 0,
     # 1, 2, or 3 transactions uniformly. Each transaction is 0, 8, 13, or 16
@@ -2177,23 +2177,6 @@ suite "Engine API conversions":
       )]
 
     for execution_payload in executionPayloads:
-      let v4_payload = ExecutionPayloadV4(
-          parentHash: execution_payload.parent_hash.asBlockHash,
-          feeRecipient: execution_payload.fee_recipient,
-          stateRoot: execution_payload.state_root.asBlockHash,
-          receiptsRoot: execution_payload.receipts_root.asBlockHash,
-          logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](execution_payload.logs_bloom.data),
-          prevRandao: Bytes32(execution_payload.prev_randao.data),
-          blockNumber: Quantity(execution_payload.block_number),
-          gasLimit: Quantity(execution_payload.gas_limit),
-          gasUsed: Quantity(execution_payload.gas_used),
-          timestamp: Quantity(execution_payload.timestamp),
-          extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](execution_payload.extra_data),
-          baseFeePerGas: execution_payload.base_fee_per_gas,
-          blockHash: execution_payload.block_hash.asBlockHash,
-          transactions: mapIt(execution_payload.transactions, TypedTransaction(it.distinctBase)),
-          withdrawals: mapIt(execution_payload.withdrawals, it.asEngineWithdrawal),
-          blobGasUsed: Quantity(execution_payload.blob_gas_used),
-          excessBlobGas: Quantity(execution_payload.excess_blob_gas))
       check:
-        execution_payload == asConsensusType(v4_payload)
+        execution_payload == asConsensusType(
+          asEngineExecutionPayloadV4(execution_payload))

@@ -633,6 +633,18 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: Hash32,
+    executionRequests: seq[seq[byte]]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_newPayloadV5(
+    payload, versioned_hashes, parent_beacon_block_root,
+    executionRequests)
+
 proc sendGetBlobsV2toSingleEl(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
@@ -926,7 +938,10 @@ proc sendNewPayload*(
 
   let
     startTime = Moment.now()
-    payload = executionPayload.asEngineExecutionPayload()
+    payload =
+      when consensusFork >= ConsensusFork.Gloas:
+        executionPayload.asEngineExecutionPayloadV4()
+      else: executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let

@@ -1313,21 +1313,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
     let vindex =
       if committee_index.isSome():
-        let rindex = committee_index.get()
-        if rindex.isErr():
+        let rindex = committee_index.get().valueOr:
           return RestApiResponse.jsonError(Http400,
                                            InvalidCommitteeIndexValueError,
-                                           $rindex.error)
-        Opt.some(rindex.get())
+                                           $error)
+        Opt.some(rindex)
       else:
         Opt.none(CommitteeIndex)
     let vslot =
       if slot.isSome():
-        let rslot = slot.get()
-        if rslot.isErr():
+        let rslot = slot.get().valueOr:
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           $rslot.error)
-        Opt.some(rslot.get())
+                                           $error)
+        Opt.some(rslot)
       else:
         Opt.none(Slot)
 
@@ -1337,14 +1335,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
 
-    if consensusFork < ConsensusFork.Electra:
-      return RestApiResponse.jsonResponseWVersion(
-        toSeq(node.attestationPool[].attestations(vslot, vindex)),
-        consensusFork, node.hasRestAllowedOrigin)
-    else:
-      return RestApiResponse.jsonResponseWVersion(
-        toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
-        consensusFork, node.hasRestAllowedOrigin)
+    return
+      if consensusFork < ConsensusFork.Electra:
+        RestApiResponse.jsonResponseWVersion(
+          newSeq[phase0.Attestation](), consensusFork, node.hasRestAllowedOrigin
+        )
+      else:
+        RestApiResponse.jsonResponseWVersion(
+          toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
+          consensusFork,
+          node.hasRestAllowedOrigin,
+        )
 
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -1377,7 +1378,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        decodeAttestations(phase0.Attestation)
+        return RestApiResponse.jsonError(Http400,
+                                         UnsupportedForkError,
+                                         $UnsupportedForkError)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttestations(electra.SingleAttestation)
 
