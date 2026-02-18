@@ -20,6 +20,7 @@ import
   # Internals
   ../consensus_object_pools/[blob_quarantine,
      block_pools_types, block_quarantine],
+  ../gossip_processing/block_processor,
   ../spec/[forks, helpers, peerdas_helpers],
   ./el_manager
 
@@ -28,6 +29,7 @@ type
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     dag*: ChainDAGRef
     elManager*: ELManager
+    blockProcessor*: ref BlockProcessor
     blockQuarantine*: ref Quarantine
     dataColumnQuarantine*: ref ColumnQuarantine
 
@@ -38,6 +40,7 @@ proc new*(
     dag: ChainDAGRef,
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     elM: ELManager,
+    blockProcessor: ref BlockProcessor,
     blockQuarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine
 ): GetBlobsServiceRef =
@@ -45,6 +48,7 @@ proc new*(
     blockGossipBus: blockGossipBus,
     dag: dag,
     elManager: elM,
+    blockProcessor: blockProcessor,
     blockQuarantine: blockQuarantine,
     dataColumnQuarantine: dataColumnQuarantine)
 
@@ -52,7 +56,7 @@ proc attemptGetBlobs*(
     self: GetBlobsServiceRef,
     root: Eth2Digest) {.async: (raises: [CancelledError]).}=
 
-  if (let o = self.blockQuarantine[].getColumnless(root); o.isSome):
+  if (let o = self.blockQuarantine[].popSidecarless(root); o.isSome):
     let columnlessBlock = o.get()
     withBlck(columnlessBlock):
       debugGloasComment ""
@@ -90,6 +94,15 @@ proc attemptGetBlobs*(
               debug "Added data columns from EL blobpool to quarantine",
                 root = forkyBlck.root
               self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+
+              let sidecarsOpt =
+                self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+
+              self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
+            else:
+              # Something went wrong while assembling columns, push the columnless block
+              # back into quarantine
+              self.blockQuarantine[].addSidecarless(forkyBlck)
 
 proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
   let ticket = self.blockGossipBus.register()

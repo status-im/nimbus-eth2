@@ -842,6 +842,7 @@ proc initFullNode(
   node.getBlobsService = GetBlobsServiceRef.new(node.dag,
                                                 node.eventBus.blockGossipPeerQueue,
                                                 node.elManager,
+                                                node.blockProcessor,
                                                 node.quarantine,
                                                 node.dataColumnQuarantine)
   node.router = router
