@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array]
+  "."/[fork_choice_types, proto_array, fast_confirmation]
 
 from std/sequtils import keepItIf
 export results, fork_choice_types
@@ -48,13 +48,6 @@ func compute_deltas(
 
 logScope: topics = "fork_choice"
 
-template to_balance_checkpoint(
-    epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
-  BalanceCheckpoint(
-    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
-    total_active_balance: epochRef.total_active_balance,
-    balances: epochRef.fork_choice_balances)
-
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
     finalized: BalanceCheckpoint, currentSlot: Slot): T =
@@ -63,8 +56,7 @@ func init*(
     confirmed: BlockId(
       slot: finalized.checkpoint.epoch.start_slot,
       root: finalized.checkpoint.root),
-    epoch_observed_justified: BalanceSource(
-      info: finalized),
+    current_epoch_observed_justified: finalized.balance_source,
     previous_slot_head: finalized.checkpoint.root,
     current_slot_head: finalized.checkpoint.root)
 
@@ -87,13 +79,6 @@ proc init*(
       justified: finalized,
       finalized: finalized.checkpoint))
 
-func extend[T](s: var seq[T], minLen: int) =
-  ## Extend a sequence so that it can contains at least `minLen` elements.
-  ## If it's already bigger, the sequence is unmodified.
-  ## The extension is zero-initialized
-  if s.len < minLen:
-    s.setLen(minLen)
-
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
     epoch: Epoch, blck: BlockRef, current_slot: Slot) =
@@ -111,11 +96,12 @@ proc update_justified(
 proc update_justified(
     self: var ForkChoice, dag: ChainDAGRef,
     justified: Checkpoint, current_slot: Slot): FcResult[void] =
-  if justified == self.backend.epoch_observed_justified.info.checkpoint:
+  if justified == self.backend.current_epoch_observed_justified.checkpoint:
     trace "Updating justified (cache hit)",
       store = self.checkpoints.justified.checkpoint,
-      state = self.backend.epoch_observed_justified.info.checkpoint
-    self.checkpoints.justified = self.backend.epoch_observed_justified.info
+      state = self.backend.current_epoch_observed_justified.checkpoint
+    self.checkpoints.justified =
+      self.backend.current_epoch_observed_justified.info
     return ok()
 
   let blck = dag.getBlockRef(justified.root).valueOr:
@@ -151,7 +137,7 @@ proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   template justified: Checkpoint = self.checkpoints.justified.checkpoint
   let unrealized = self.backend.proto_array.unrealized_justified(justified)
-  if unrealized == self.backend.epoch_observed_justified.info.checkpoint:
+  if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
     return
 
   let
@@ -163,8 +149,10 @@ proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
       warn "Skipping unrealized justified checkpoint update - no EpochRef",
         unrealized, blck, error
       return
-  self.backend.epoch_observed_justified.info =
+  let old_source = move(self.backend.current_epoch_observed_justified)
+  self.backend.current_epoch_observed_justified.info =
     epochRef.to_balance_checkpoint(blck)
+  self.backend.current_epoch_observed_justified.assign_shufflings(old_source)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
@@ -238,7 +226,8 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
   ## and `false` otherwise.
   ##
-  ## In particular, before adding a block, its parent must be known to the fork choice
+  ## In particular, before adding a block, its parent
+  ## must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
 proc update_time*(
@@ -484,13 +473,14 @@ func compute_deltas(
       else:
         0.Gwei
 
-    # If the validator is not known in the `new_balances` then use balance of zero
+    # If the validator is not known in the `new_balances` then
+    # use balance of zero
     #
-    # It is possible that there is a vote for an unknown validator if we change our
-    # justified state to a new state with a higher epoch on a different fork
-    # because that fork may have on-boarded less validators than the previous fork.
+    # It is possible that there is a vote for an unknown validator if we change
+    # our justified state to a new state with a higher epoch on a different fork
+    # as that fork may have on-boarded less validators than the previous fork.
     #
-    # Note that attesters are not different as they are activated only under finality
+    # Note that attesters are the same as they are activated only under finality
     let new_balance =
       if val_index < new_balances.len:
         new_balances[val_index].unslashed_balance
@@ -499,7 +489,8 @@ func compute_deltas(
 
     if vote.current_root != vote.next_root or old_balance != new_balance:
       # Ignore the current or next vote if it is not known in `indices`.
-      # We assume that it is outside of our tree (i.e., pre-finalization) and therefore not interesting.
+      # We assume that it is outside of our tree (i.e., pre-finalization)
+      # and therefore not interesting.
       if vote.current_root in indices:
         let index = indices.unsafeGet(vote.current_root) - indices_offset
         if index >= deltas.len:

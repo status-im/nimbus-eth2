@@ -17,7 +17,8 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
-from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+from ../consensus_object_pools/block_pools_types import
+  BlockRef, EpochRef, ForkChoiceBalance
 
 export results, base
 
@@ -131,13 +132,19 @@ type
     slot*: Slot
 
   BalanceSource* = object
+    # Effective balances / slashings in `info` based on historical checkpoint.
+    # The `assigned_slots` (`fast_confirmation.nim`) are based on `dag.head`
+    # and overlap the top bits of `info.balances`. `fork_choice.nim` transfers
+    # them from the old to the new `BalanceSource` when it changes.
     info*: BalanceCheckpoint
+    shuffling_epochs*: array[2, Epoch]
+    shuffling_roots*: array[2, Eth2Digest]
 
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
-    epoch_observed_justified*: BalanceSource
+    current_epoch_observed_justified*: BalanceSource
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
@@ -161,3 +168,26 @@ func shortLog*(vote: VoteTracker): auto =
 
 chronicles.formatIt VoteTracker: it.shortLog
 chronicles.formatIt ForkChoiceError: $it
+
+func extend*[T](s: var seq[T], minLen: int) =
+  ## Extend a sequence so that it can contains at least `minLen` elements.
+  ## If it's already bigger, the sequence is unmodified.
+  ## The extension is zero-initialized
+  if s.len < minLen:
+    s.setLen(minLen)
+
+template to_balance_checkpoint*(
+    epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
+  BalanceCheckpoint(
+    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
+    balances: epochRef.fork_choice_balances)
+
+template checkpoint*(balance_source: BalanceSource): Checkpoint =
+  balance_source.info.checkpoint
+
+template total_active_balance*(balance_source: BalanceSource): Gwei =
+  balance_source.info.total_active_balance
+
+template balances*(balance_source: BalanceSource): seq[ForkChoiceBalance] =
+  balance_source.info.balances
