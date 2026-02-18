@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[os, sequtils, times],
@@ -17,10 +17,10 @@ import
   "."/[conf, beacon_clock, filepath]
 
 type
-  ValidatorStorageKind* {.pure.} = enum
+  ValidatorStorageKind {.pure.} = enum
     Keystore, Identifier
 
-  ValidatorStorage* = object
+  ValidatorStorage = object
     case kind: ValidatorStorageKind
     of ValidatorStorageKind.Keystore:
       privateKey: ValidatorPrivKey
@@ -30,7 +30,7 @@ type
 static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Fulu, ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -456,11 +456,6 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     except CatchableError as err:
       fatal "Failed to create launchpad deposit data file", err = err.msg
       quit 1
-  #[
-  of DepositsCmd.status:
-    echo "The status command is not implemented yet"
-    quit 1
-  ]#
 
   of DepositsCmd.`import`:
     let validatorKeysDir = if config.importedDepositsDir.isSome:

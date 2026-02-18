@@ -1,7 +1,7 @@
 # This file should contain the origin run-time config for the minimal
 # network [1] without all properties overriden in the local network
 # simulation. We use to generate a full run-time config as required
-# by third-party binaries, such as Lighthouse and Web3Signer.
+# by third-party binaries, such as Web3Signer.
 #
 # [1]: https://raw.githubusercontent.com/ethereum/consensus-specs/dev/configs/minimal.yaml
 

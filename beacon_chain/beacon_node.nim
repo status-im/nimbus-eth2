@@ -49,7 +49,6 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
-    phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
@@ -186,7 +185,6 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
-    phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
     blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),

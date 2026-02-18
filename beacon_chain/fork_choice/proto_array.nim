@@ -102,6 +102,13 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
+func unrealized_justified*(
+    self: ProtoArray, justified: Checkpoint): Checkpoint =
+  result = justified
+  for unrealized in self.currentEpochTips.values:
+    if unrealized.justified.epoch > result.epoch:
+      result = unrealized.justified
+
 iterator realizePendingCheckpoints*(
     self: var ProtoArray): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch

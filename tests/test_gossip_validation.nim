@@ -25,7 +25,7 @@ import
     beaconstate, state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
-  ./testutil, ./testdbutil, ./testblockutil
+  ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import count, toSeq
 from ./testbcutil import addHeadBlock
@@ -40,7 +40,7 @@ suite "Gossip validation " & preset():
     # Genesis state that results in 3 members per committee
     let
       rng = HmacDrbgContext.new()
-      cfg = defaultRuntimeConfig
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
     var
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
@@ -81,9 +81,9 @@ suite "Gossip validation " & preset():
     var cache: StateCache
     for blck in makeTestBlocks(
         dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = false):
-      let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
-          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          state: phase0.BeaconState,
+      let added = dag.addHeadBlock(verifier, blck.electraData) do (
+          blckRef: BlockRef, signedBlock: electra.TrustedSignedBeaconBlock,
+          state: electra.BeaconState,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
@@ -98,9 +98,9 @@ suite "Gossip validation " & preset():
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
         dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
-      att_1_0 = makeAttestation(
+      att_1_0 = makeSingleAttestation(
         dag.headState, dag.head.root, beacon_committee[0], cache)
-      att_1_1 = makeAttestation(
+      att_1_1 = makeSingleAttestation(
         dag.headState, dag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
@@ -108,8 +108,7 @@ suite "Gossip validation " & preset():
           dag.headState, att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(
-        committees_per_slot,
-        att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
+        committees_per_slot, att_1_0.data.slot, 0.CommitteeIndex)
 
       beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 

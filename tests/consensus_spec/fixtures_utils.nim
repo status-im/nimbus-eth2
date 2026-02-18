@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,44 +46,22 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 
 func genesisTestRuntimeConfig*(consensusFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
-  case consensusFork
-  of ConsensusFork.Gloas:
+
+  if consensusFork >= ConsensusFork.Altair:
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Bellatrix:
+    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Capella:
+    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Deneb:
+    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Electra:
+    res.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Fulu:
+    res.FULU_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Gloas:
     res.GLOAS_FORK_EPOCH = GENESIS_EPOCH
-    res.FULU_FORK_EPOCH = GENESIS_EPOCH
-    res.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
-    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Fulu:
-    res.FULU_FORK_EPOCH = GENESIS_EPOCH
-    res.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
-    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Electra:
-    res.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
-    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Deneb:
-    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Capella:
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Bellatrix:
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Altair:
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of ConsensusFork.Phase0:
-    discard
+
   res
 
 # #######################

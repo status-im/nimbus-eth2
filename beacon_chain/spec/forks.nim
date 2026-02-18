@@ -623,9 +623,7 @@ template TrustedSignedBeaconBlock*(kind: static ConsensusFork): typedesc =
     {.error: "TrustedSignedBeaconBlock unsupported in " & $kind.}
 
 template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
-  when kind in [
-      ConsensusFork.Gloas, ConsensusFork.Fulu, ConsensusFork.Electra,
-      ConsensusFork.Deneb]:
+  when kind in ConsensusFork.Deneb .. ConsensusFork.Gloas:
     deneb.ExecutionPayloadHeader
   elif kind == ConsensusFork.Capella:
     capella.ExecutionPayloadHeader
@@ -689,6 +687,14 @@ template SignedBuilderBid*(kind: static ConsensusFork): typedesc =
     electra_mev.SignedBuilderBid
   else:
     {.error: "SignedBuilderBid unsupported in " & $kind.}
+
+template BlobsBundle*(kind: static ConsensusFork): typedesc =
+  when kind in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+    fulu.BlobsBundle
+  elif kind in ConsensusFork.Deneb .. ConsensusFork.Electra:
+    deneb.BlobsBundle
+  else:
+    {.error: "BlobsBundle unsupported in " & $kind.}
 
 template Forky*(
     x: typedesc[ForkedSignedBeaconBlock],
@@ -1110,6 +1116,9 @@ func fork*(state: ForkedHashedBeaconState): Fork =
 
 func latest_block_header*(state: ForkedHashedBeaconState): lent BeaconBlockHeader =
   (block: withState(state): addr forkyState.data.latest_block_header)[]
+
+func block_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
+  (block: withState(state): addr forkyState.data.block_roots)[]
 
 func state_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] =
   (block: withState(state): addr forkyState.data.state_roots)[]

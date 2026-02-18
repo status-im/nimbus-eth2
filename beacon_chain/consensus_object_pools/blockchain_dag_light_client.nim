@@ -116,12 +116,12 @@ func cacheRecentSyncAggregate(
 
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
-  const lcDataFork = max(
-    lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-  debugGloasComment "..."
   when kind(typeof(blck)) == ConsensusFork.Gloas:
+    debugGloasComment "..."
     default(ForkedLightClientHeader)
   else:
+    const lcDataFork = max(
+      lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
     ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 func sync_aggregate(

@@ -63,11 +63,11 @@ jobs:
           cd ../docker/dist/binaries
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.amd64 --platform linux/amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
           docker push statusim/nimbus-eth2:amd64-${TAG}
           docker push statusim/nimbus-eth2:amd64-latest
 
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.amd64 -t statusim/nimbus-validator-client:amd64-${TAG} -t statusim/nimbus-validator-client:amd64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.amd64 --platform linux/amd64 -t statusim/nimbus-validator-client:amd64-${TAG} -t statusim/nimbus-validator-client:amd64-latest .
           docker push statusim/nimbus-validator-client:amd64-${TAG}
           docker push statusim/nimbus-validator-client:amd64-latest
       - name: Setup ruby # Needed for fpm
@@ -146,11 +146,11 @@ jobs:
           TAG="${REFNAME#refs/tags/}"
           cp -a /usr/bin/qemu-aarch64-static .
 
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm64 --platform linux/arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
           docker push statusim/nimbus-eth2:arm64-${TAG}
           docker push statusim/nimbus-eth2:arm64-latest
 
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm64 -t statusim/nimbus-validator-client:arm64-${TAG} -t statusim/nimbus-validator-client:arm64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm64 --platform linux/arm64 -t statusim/nimbus-validator-client:arm64-${TAG} -t statusim/nimbus-validator-client:arm64-latest .
           docker push statusim/nimbus-validator-client:arm64-${TAG}
           docker push statusim/nimbus-validator-client:arm64-latest
       - name: Setup ruby # Needed for fpm
@@ -228,11 +228,11 @@ jobs:
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
           cp -a /usr/bin/qemu-arm-static .
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm --platform linux/arm/v7 -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
           docker push statusim/nimbus-eth2:arm-${TAG}
           docker push statusim/nimbus-eth2:arm-latest
 
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm -t statusim/nimbus-validator-client:arm-${TAG} -t statusim/nimbus-validator-client:arm-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm --platform linux/arm/v7 -t statusim/nimbus-validator-client:arm-${TAG} -t statusim/nimbus-validator-client:arm-latest .
           docker push statusim/nimbus-validator-client:arm-${TAG}
           docker push statusim/nimbus-validator-client:arm-latest
 
