@@ -1390,7 +1390,7 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.lenu64 != get_beacon_committee_len(
+  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
     shufflingRef, slot, committee_index
   ):
     return pool.checkedReject(
