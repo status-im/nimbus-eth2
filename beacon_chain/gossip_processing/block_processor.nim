@@ -190,68 +190,72 @@ from ../consensus_object_pools/block_clearance import
   checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
-    signedBlock: ForkySignedBeaconBlock,
-    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: SomeOptSidecars,
+    signedBlock: gloas.SignedBeaconBlock,
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, VerifierError] =
-  const consensusFork = typeof(signedBlock).kind
-
-  when consensusFork >= ConsensusFork.Gloas:
-    if sidecarsOpt.isSome:
-      let columns = sidecarsOpt.get()
-      template bid(): auto =
-        signedBlock.message.body.signed_execution_payload_bid
-      template kzgCommits(): auto =
-        bid.message.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0 ..< columns.len:
-          let r = verify_data_column_sidecar_kzg_proofs(
-            columns[i][], bid.message.blob_kzg_commitments)
-          if r.isErr():
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            return err(VerifierError.Invalid)
-  elif consensusFork == ConsensusFork.Fulu:
-    if sidecarsOpt.isSome:
-      let columns = sidecarsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0 ..< columns.len:
-          let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr():
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            return err(VerifierError.Invalid)
-  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-    if sidecarsOpt.isSome:
-      let blobs = sidecarsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(
-          kzgCommits, blobs.mapIt(kzg.KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
-        )
+  if sidecarsOpt.isSome:
+    let columns = sidecarsOpt.get()
+    template bid(): auto =
+      signedBlock.message.body.signed_execution_payload_bid
+    template kzgCommits(): auto =
+      bid.message.blob_kzg_commitments.asSeq
+    if columns.len > 0 and kzgCommits.len > 0:
+      for i in 0 ..< columns.len:
+        let r = verify_data_column_sidecar_kzg_proofs(
+          columns[i][], bid.message.blob_kzg_commitments)
         if r.isErr():
-          debug "blob validation failed",
+          debug "data column validation failed",
             blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
+            column_sidecar = shortLog(columns[i][]),
             blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err(VerifierError.Invalid)
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
-    static: doAssert sidecarsOpt is NoSidecars
-  else:
-    {.error: "Unknown consensus fork " & $consensusFork.}
+  ok()
 
+proc verifySidecars(
+    signedBlock: fulu.SignedBeaconBlock,
+    envelope: NoEnvelope,
+    sidecarsOpt: Opt[fulu.DataColumnSidecars],
+): Result[void, VerifierError] =
+  if sidecarsOpt.isSome:
+    let columns = sidecarsOpt.get()
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if columns.len > 0 and kzgCommits.len > 0:
+      for i in 0 ..< columns.len:
+        let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
+        if r.isErr():
+          debug "data column validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            column_sidecar = shortLog(columns[i][]),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+          return err(VerifierError.Invalid)
+  ok()
+
+proc verifySidecars(
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    envelope: NoEnvelope,
+    sidecarsOpt: Opt[BlobSidecars],
+): Result[void, VerifierError] =
+  if sidecarsOpt.isSome:
+    let blobs = sidecarsOpt.get()
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if blobs.len > 0 or kzgCommits.len > 0:
+      let r = validate_blobs(
+        kzgCommits, blobs.mapIt(kzg.KzgBlob(bytes: it.blob)), blobs.mapIt(it.kzg_proof)
+      )
+      if r.isErr():
+        debug "blob validation failed",
+          blockRoot = shortLog(signedBlock.root),
+          blobs = shortLog(blobs),
+          blck = shortLog(signedBlock.message),
+          kzgCommits = mapIt(kzgCommits, shortLog(it)),
+          signature = shortLog(signedBlock.signature),
+          msg = r.error()
+        return err(VerifierError.Invalid)
   ok()
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
