@@ -941,7 +941,8 @@ proc enqueuePayload*(
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ) =
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(blck, envelope, sidecarsOpt)
+    discard self[].storeBackfillPayload(blck, envelope, sidecarsOpt)
+    return
 
   discard self.storePayload(blck, envelope, sidecarsOpt)
 
