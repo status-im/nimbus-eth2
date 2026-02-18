@@ -50,8 +50,11 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
+<<<<<<< gb
     blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
+=======
+>>>>>>> unstable
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
@@ -68,6 +71,9 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
+    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
     nickname*: string
@@ -189,8 +195,11 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+<<<<<<< gb
     blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
     phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
+=======
+>>>>>>> unstable
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
     blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
@@ -206,4 +215,7 @@ func init*(T: type EventBus): T =
     optUpdateQueue:
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
+    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
+    payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
   )

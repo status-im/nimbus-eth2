@@ -39,7 +39,7 @@ from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
   get_committee_indices, get_ptc
 from ../beacon_chain/spec/state_transition_block import process_block
-from ../tests/testbcutil import addHeadBlock
+from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
 type Timers = enum
@@ -67,9 +67,7 @@ cli do(
   replay = true
 ):
   let genesisState = loadGenesis(validators, false)
-  const
-    cfg = getSimulationConfig()
-    BUILDER_TOP_UP = 10_000_000_000.Gwei
+  const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
 
@@ -123,38 +121,15 @@ cli do(
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             if tmpState.kind < ConsensusFork.Electra:
-              let
-                data =
-                  makeAttestationData(updatedState, slot, committee_index, bid.root)
-                sig = get_attestation_signature(
-                  fork, genesis_validators_root, data, MockPrivKeys[validator_index]
-                )
-                attestation = phase0.Attestation
-                  .init(
-                    [uint64 index_in_committee],
-                    committee.len,
-                    data,
-                    sig.toValidatorSig(),
-                  )
-                  .expect("valid data")
-
-              attPool.addAttestation(
-                attestation,
-                [validator_index],
-                attestation.aggregation_bits.len,
-                -1,
-                sig,
-                data.slot.start_beacon_time(cfg.timeParams))
+              discard # no longer supported
             else:
-              var data =
-                makeAttestationData(updatedState, slot, committee_index, bid.root)
-              data.index = 0 # fix in makeAttestationData for Electra
               let
+                data = makeAttestationData(updatedState, slot, CommitteeIndex(0), bid.root)
                 sig = get_attestation_signature(
                   fork, genesis_validators_root, data, MockPrivKeys[validator_index]
                 )
                 attestation = SingleAttestation(
-                  committee_index: committee_index.distinctBase,
+                  committee_index: committee_index.uint64,
                   attester_index: validator_index.uint64,
                   data: data,
                   signature: sig.toValidatorSig(),
@@ -424,7 +399,7 @@ cli do(
       )
 
     let added = dag.addHeadBlock(verifier, newBlock, onAdded)
-
+    discard attPool.willSelectNewHead(added[])
     dag.updateHead(added[], quarantine[], [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
@@ -441,7 +416,7 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          when consensusFork >= ConsensusFork.Bellatrix:
+          when consensusFork >= ConsensusFork.Electra:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork

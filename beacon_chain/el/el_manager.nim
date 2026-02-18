@@ -446,22 +446,22 @@ proc getPayloadFromSingleEL(
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
 
-template EngineApiResponseType*(T: type bellatrix.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
   BellatrixExecutionPayloadWithValue
 
-template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV2Response
 
-template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
 
-template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response
 
-template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
-template EngineApiResponseType*(T: type gloas.ExecutionPayloadForSigning): type =
+template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
@@ -632,6 +632,18 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
+    payload, versioned_hashes, parent_beacon_block_root,
+    executionRequests)
+
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: Hash32,
+    executionRequests: seq[seq[byte]]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_newPayloadV5(
     payload, versioned_hashes, parent_beacon_block_root,
     executionRequests)
 
@@ -928,7 +940,10 @@ proc sendNewPayload*(
 
   let
     startTime = Moment.now()
-    payload = executionPayload.asEngineExecutionPayload()
+    payload =
+      when consensusFork >= ConsensusFork.Gloas:
+        executionPayload.asEngineExecutionPayloadV4()
+      else: executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let

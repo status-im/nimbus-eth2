@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import stew/endians2, std/sequtils,
@@ -1519,14 +1519,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      fuluBlock1 = genFuluSignedBeaconBlock(broot1, commitments1)
-      fuluBlock2 = genFuluSignedBeaconBlock(broot2, commitments2)
 
     for i in 0 ..< len(sidecars1) + 1:
       let
@@ -1583,14 +1575,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      fuluBlock1 = genFuluSignedBeaconBlock(broot1, commitments1)
-      fuluBlock2 = genFuluSignedBeaconBlock(broot2, commitments2)
 
     func checkSupernodeExpected(
       root: Eth2Digest,
@@ -1795,8 +1779,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
     let
       broot1 = genBlockRoot(100)
       broot2 = genBlockRoot(200)
-      fuluBlock1 = genFuluSignedBeaconBlock(broot1, [genKzgCommitment(1)])
-      fuluBlock2 = genFuluSignedBeaconBlock(broot2, [genKzgCommitment(2)])
 
     check:
       len(bq) == 0
@@ -3235,14 +3217,6 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2)))
           res
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1, commitments1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2, commitments2)
 
     for i in 0 ..< len(sidecars1) + 1:
       let
@@ -3299,14 +3273,6 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2)))
           res
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1, commitments1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2, commitments2)
 
     func checkSupernodeExpected(
       root: Eth2Digest,
@@ -3507,8 +3473,6 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     let
       broot1 = genBlockRoot(100)
       broot2 = genBlockRoot(200)
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1, [genKzgCommitment(1)])
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2, [genKzgCommitment(2)])
 
     check:
       len(bq) == 0

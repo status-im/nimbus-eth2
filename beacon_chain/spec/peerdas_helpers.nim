@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import toSeq, repeat
+from std/sequtils import repeat, toSeq
 from stew/staticfor import staticFor
 
 type

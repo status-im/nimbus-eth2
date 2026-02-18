@@ -129,10 +129,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.blockGossipQueue,
                                               "block_gossip")
           res.add(handler)
-        if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.phase0AttestQueue,
-                                              "attestation")
-          res.add(handler)
         if EventTopic.SingleAttestation in eventTopics:
           let handler = response.eventHandler(node.eventBus.singleAttestQueue,
                                               "single_attestation")
@@ -188,6 +184,18 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.optUpdateQueue,
                                               "light_client_optimistic_update")
+          res.add(handler)
+        if EventTopic.ExecutionPayloadAvailable in eventTopics:
+          let handler = response.eventHandler(node.eventBus.execPayloadAvlQueue,
+                                              "execution_payload_available")
+          res.add(handler)
+        if EventTopic.ExecutionPayloadBid in eventTopics:
+          let handler = response.eventHandler(node.eventBus.execPayloadBidQueue,
+                                              "execution_payload_bid")
+          res.add(handler)
+        if EventTopic.PayloadAttestationMessage in eventTopics:
+          let handler = response.eventHandler(node.eventBus.payloadAttMsgQueue,
+                                              "payload_attestation_message")
           res.add(handler)
         res
 

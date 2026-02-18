@@ -613,10 +613,10 @@ AllTests-mainnet
 ```
 ## Engine API conversions
 ```diff
-+ ExecutionPayloadV4 to deneb.ExecutionPayload conversion                                    OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and deneb ExecutionPayload representations                         OK
 ```
 ## Envelope Quarantine
 ```diff
@@ -644,6 +644,19 @@ AllTests-mainnet
 + Multiple bids for different parents same slot                                              OK
 + Pruning removes old bids                                                                   OK
 + Track seen bids                                                                            OK
+```
+## Fast confirmation [Preset: mainnet]
+```diff
++ Assign shufflings [Preset: mainnet]                                                        OK
++ Assigned slots cross-check [Preset: mainnet]                                               OK
++ Epoch 1 shares dependent root for both epochs [Preset: mainnet]                            OK
++ Genesis epoch [Preset: mainnet]                                                            OK
++ Older epochRef with current shufflings [Preset: mainnet]                                   OK
++ Shuffling dependent roots [Preset: mainnet]                                                OK
++ Shuffling epoch transition [Preset: mainnet]                                               OK
++ Shuffling preserves effective balance [Preset: mainnet]                                    OK
++ Shuffling update idempotency [Preset: mainnet]                                             OK
++ Update shufflings for current and previous epoch [Preset: mainnet]                         OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff

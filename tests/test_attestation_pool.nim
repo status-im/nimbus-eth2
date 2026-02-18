@@ -28,8 +28,9 @@ from ../beacon_chain/spec/beaconstate import
   attester_dependent_root, check_attestation, get_attesting_indices,
   latest_block_root
 from ../beacon_chain/spec/validator import
-  get_beacon_committee, get_committee_count_per_slot, get_committee_indices
-from ./testbcutil import addHeadBlock
+  get_beacon_committee, get_committee_count_per_slot, get_committee_indices,
+  get_committee_index_one
+from ./testbcutil import addHeadBlock, willSelectNewHead
 
 func combine(tgt: var electra.Attestation, src: electra.Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
@@ -739,6 +740,7 @@ suite "Attestation pool electra processing" & preset():
         let head = pool[].selectOptimisticHead(
           blockRef[].slot.start_beacon_time(cfg.timeParams)).get().blck
         doAssert: head == blockRef[]
+        discard pool[].willSelectNewHead(head)
         dag.updateHead(head, quarantine[], [])
         pruneAtFinalization(dag, pool[])
 
@@ -833,9 +835,9 @@ suite "Attestation pool electra processing" & preset():
     check:
       verifyAttestationSignature(att0)
       verifyAttestationSignature(att1)
-      not pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
-      not pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
-      not pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
+      not pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits.get_committee_index_one()[])
+      not pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits.get_committee_index_one()[])
+      not pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits.get_committee_index_one()[])
 
     pool[].addAttestation(
       att0, @[bc0[0], bc0[2]], att0.aggregation_bits.len,
@@ -848,9 +850,9 @@ suite "Attestation pool electra processing" & preset():
       check: verifyAttestationSignature(att)
 
     check:
-      pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
-      pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
-      pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
+      pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits.get_committee_index_one()[])
+      pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits.get_committee_index_one()[])
+      pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits.get_committee_index_one()[])
 
       cfg.process_slots(
         state[], state[].slot + MIN_ATTESTATION_INCLUSION_DELAY,
