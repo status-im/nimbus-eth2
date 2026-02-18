@@ -64,7 +64,8 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
 
 func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.orphans.del(root)
-  self.missing.excl(root)
+  if (let idx = self.missing.find(root); idx > -1):
+    self.missing.del(idx)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
