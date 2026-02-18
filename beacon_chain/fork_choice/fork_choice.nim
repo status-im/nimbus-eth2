@@ -149,7 +149,7 @@ proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
       warn "Skipping unrealized justified checkpoint update - no EpochRef",
         unrealized, blck, error
       return
-  let old_source = self.backend.current_epoch_observed_justified
+  let old_source = move(self.backend.current_epoch_observed_justified)
   self.backend.current_epoch_observed_justified.info =
     epochRef.to_balance_checkpoint(blck)
   self.backend.current_epoch_observed_justified.assign_shufflings(old_source)
