@@ -66,8 +66,8 @@ type
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
     execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
-    execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
-    payloadAttMsgQueue*: AsyncEventQueue[gloas.PayloadAttestationmessage]
+    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
     nickname*: string
@@ -203,7 +203,7 @@ func init*(T: type EventBus): T =
     optUpdateQueue:
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
-    execPayloadAvlQueue*: newAsyncEventQueue[ExecutionPayloadInfoObject](),
-    execPayloadBidQueue*: newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
-    payloadAttMessageQueue*: newAsyncEventQueue[gloas.PayloadAttestationmessage]()
+    execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
+    execPayloadBidQueue: newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
+    payloadAttMessageQueue: newAsyncEventQueue[gloas.PayloadAttestationmessage]()
   )
