@@ -1913,27 +1913,27 @@ suite "Fast confirmation" & preset():
     let
       headEpoch = dag.head.slot.epoch
       epochRef = dag.getEpochRef(dag.head, headEpoch, false).get
-    var validators = epochRef.validators
-    validators.update_latest_shufflings(dag, dag.head.slot)
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
     check:
-      validators.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
-      validators.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
-      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+      balance_source.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
+      balance_source.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
+      balance_source.shuffling_epochs[0] != balance_source.shuffling_epochs[1]
 
   test "Shuffling dependent roots" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
-    var validators = epochRef.validators
-    validators.update_latest_shufflings(dag, dag.head.slot)
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
     for i in 0 .. 1:
       let shufflingRef =
-        dag.getShufflingRef(dag.head, validators.shuffling_epochs[i], false).get
-      check validators.shuffling_roots[i] ==
+        dag.getShufflingRef(dag.head, balance_source.shuffling_epochs[i], false).get
+      check balance_source.shuffling_roots[i] ==
         shufflingRef.attester_dependent_root
 
   test "Assigned slots cross-check" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
-    var validators = epochRef.validators
-    validators.update_latest_shufflings(dag, dag.head.slot)
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
 
     let
       headEpoch = dag.head.slot.epoch
@@ -1942,8 +1942,8 @@ suite "Fast confirmation" & preset():
       curShuffling =
         dag.getShufflingRef(dag.head, headEpoch, false).get
 
-    for valIdx in 0 ..< validators.balances.len:
-      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check:
         slots.len == 2
         slots[0].epoch != slots[1].epoch
@@ -1963,44 +1963,44 @@ suite "Fast confirmation" & preset():
   test "Shuffling update idempotency" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
     var
-      validators1 = epochRef.validators
-      validators2 = epochRef.validators
-    validators1.update_latest_shufflings(dag, dag.head.slot)
-    validators2.update_latest_shufflings(dag, dag.head.slot)
-    validators1.update_latest_shufflings(dag, dag.head.slot)
-    let numValidators = validators1.balances.len
-    check numValidators == validators2.balances.len
-    for valIdx in 0 ..< numValidators:
+      balance_source1 = epochRef.to_balance_checkpoint(dag.head).balance_source
+      balance_source2 = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source1.update_latest_shufflings(dag, dag.head.slot)
+    balance_source2.update_latest_shufflings(dag, dag.head.slot)
+    balance_source1.update_latest_shufflings(dag, dag.head.slot)
+    let numbalance_source = balance_source1.balances.len
+    check numbalance_source == balance_source2.balances.len
+    for valIdx in 0 ..< numbalance_source:
       check:
-        toSeq(validators1.assigned_slots(valIdx.ValidatorIndex)) ==
-        toSeq(validators2.assigned_slots(valIdx.ValidatorIndex))
+        toSeq(balance_source1.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(balance_source2.assigned_slots(valIdx.ValidatorIndex))
 
   test "Shuffling epoch transition" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
-    var validators = epochRef.validators
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
 
     # First update to epoch 3 (populates epochs 2 and 3)
     let epoch3Slot = (SLOTS_PER_EPOCH * 3).Slot
-    validators.update_latest_shufflings(dag, epoch3Slot)
+    balance_source.update_latest_shufflings(dag, epoch3Slot)
     check:
-      validators.shuffling_epochs[0] in [Epoch(2), Epoch(3)]
-      validators.shuffling_epochs[1] in [Epoch(2), Epoch(3)]
-      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+      balance_source.shuffling_epochs[0] in [Epoch(2), Epoch(3)]
+      balance_source.shuffling_epochs[1] in [Epoch(2), Epoch(3)]
+      balance_source.shuffling_epochs[0] != balance_source.shuffling_epochs[1]
 
     # Now update to latest (epoch 4), populates epochs 3 and 4
-    validators.update_latest_shufflings(dag, dag.head.slot)
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
     check:
       # Epoch 2 gone
-      validators.shuffling_epochs[0] != Epoch(2)
-      validators.shuffling_epochs[1] != Epoch(2)
+      balance_source.shuffling_epochs[0] != Epoch(2)
+      balance_source.shuffling_epochs[1] != Epoch(2)
       # Epochs 3 and 4 present
-      validators.shuffling_epochs[0] in [Epoch(3), Epoch(4)]
-      validators.shuffling_epochs[1] in [Epoch(3), Epoch(4)]
-      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
+      balance_source.shuffling_epochs[0] in [Epoch(3), Epoch(4)]
+      balance_source.shuffling_epochs[1] in [Epoch(3), Epoch(4)]
+      balance_source.shuffling_epochs[0] != balance_source.shuffling_epochs[1]
 
     # Verify assigned_slots yields slots for epochs 3 and 4 only
-    for valIdx in 0 ..< validators.balances.len:
-      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check slots.len == 2
       for slot in slots:
         check slot.epoch in [Epoch(3), Epoch(4)]
@@ -2008,8 +2008,8 @@ suite "Fast confirmation" & preset():
   test "Assign shufflings" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
     var
-      src = epochRef.validators
-      dst: ValidatorInfo
+      src = epochRef.to_balance_checkpoint(dag.head).balance_source
+      dst: BalanceSource
     src.update_latest_shufflings(dag, dag.head.slot)
     dst.assign_shufflings(src)
     for valIdx in 0 ..< src.balances.len:
@@ -2019,10 +2019,10 @@ suite "Fast confirmation" & preset():
 
   test "Shuffling preserves effective balance" & preset():
     let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
-    var validators = epochRef.validators
-    let knownBalance = validators.balances[0].effective_balance
-    validators.update_latest_shufflings(dag, dag.head.slot)
-    check validators.balances[0].effective_balance == knownBalance
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    let knownBalance = balance_source.balances[0].effective_balance
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
+    check balance_source.balances[0].effective_balance == knownBalance
 
   test "Older epochRef with current shufflings" & preset():
     let
@@ -2031,46 +2031,48 @@ suite "Fast confirmation" & preset():
       oldEpochRef = dag.getEpochRef(
         dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).get
     var
-      validators = epochRef.validators
-      oldValidators = oldEpochRef.validators
-    validators.update_latest_shufflings(dag, dag.head.slot)
-    oldValidators.update_latest_shufflings(dag, dag.head.slot)
+      balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+      old_balance_source =
+        oldEpochRef.to_balance_checkpoint(
+          dag.finalizedHead.blck).balance_source
+    balance_source.update_latest_shufflings(dag, dag.head.slot)
+    old_balance_source.update_latest_shufflings(dag, dag.head.slot)
 
     check:
-      validators.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
-      validators.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
-      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
-      validators.shuffling_epochs == oldValidators.shuffling_epochs
-      validators.shuffling_roots == oldValidators.shuffling_roots
+      balance_source.shuffling_epochs[0] in [headEpoch - 1, headEpoch]
+      balance_source.shuffling_epochs[1] in [headEpoch - 1, headEpoch]
+      balance_source.shuffling_epochs[0] != balance_source.shuffling_epochs[1]
+      balance_source.shuffling_epochs == old_balance_source.shuffling_epochs
+      balance_source.shuffling_roots == old_balance_source.shuffling_roots
 
-    let numValidators = min(validators.balances.len, oldValidators.balances.len)
-    for valIdx in 0 ..< numValidators:
+    let numbalance_source = min(balance_source.balances.len, old_balance_source.balances.len)
+    for valIdx in 0 ..< numbalance_source:
       check:
-        toSeq(validators.assigned_slots(valIdx.ValidatorIndex)) ==
-        toSeq(oldValidators.assigned_slots(valIdx.ValidatorIndex))
+        toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(old_balance_source.assigned_slots(valIdx.ValidatorIndex))
 
   test "Genesis epoch" & preset():
     let epochRef = dag.getEpochRef(dag.head, GENESIS_EPOCH, false).get
-    var validators = epochRef.validators
-    validators.update_latest_shufflings(dag, GENESIS_SLOT)
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source.update_latest_shufflings(dag, GENESIS_SLOT)
     check:
-      validators.shuffling_epochs[0] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
-      validators.shuffling_epochs[1] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
-    for valIdx in 0 ..< validators.balances.len:
-      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      balance_source.shuffling_epochs[0] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+      balance_source.shuffling_epochs[1] in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check:
         slots.len == 1
         slots[0].epoch == GENESIS_EPOCH
 
   test "Epoch 1 shares dependent root for both epochs" & preset():
     let epochRef = dag.getEpochRef(dag.head, Epoch(1), false).get
-    var validators = epochRef.validators
-    validators.update_latest_shufflings(dag, SLOTS_PER_EPOCH.Slot)
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    balance_source.update_latest_shufflings(dag, SLOTS_PER_EPOCH.Slot)
     check:
-      validators.shuffling_epochs[0] in [GENESIS_EPOCH, Epoch(1)]
-      validators.shuffling_epochs[1] in [GENESIS_EPOCH, Epoch(1)]
-      validators.shuffling_epochs[0] != validators.shuffling_epochs[1]
-      validators.shuffling_roots[0] == validators.shuffling_roots[1]
-    for valIdx in 0 ..< validators.balances.len:
-      let slots = toSeq(validators.assigned_slots(valIdx.ValidatorIndex))
+      balance_source.shuffling_epochs[0] in [GENESIS_EPOCH, Epoch(1)]
+      balance_source.shuffling_epochs[1] in [GENESIS_EPOCH, Epoch(1)]
+      balance_source.shuffling_epochs[0] != balance_source.shuffling_epochs[1]
+      balance_source.shuffling_roots[0] == balance_source.shuffling_roots[1]
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check slots.len == 2

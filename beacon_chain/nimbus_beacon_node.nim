@@ -427,7 +427,7 @@ proc checkWeakSubjectivityCheckpoint(
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
-proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
+func isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   let
     checkpoint = Checkpoint(
       epoch: dag.headState.slot.epoch(),
@@ -1018,7 +1018,7 @@ proc init*(
   info "Loading slashing protection database (v2)",
     path = config.validatorsDir()
 
-  proc getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+  func getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
     getValidator(dag.headState.validators.asSeq, pubkey)
 
   func getCapellaForkVersion(): Opt[presets.Version] =
@@ -1027,10 +1027,10 @@ proc init*(
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(metadata.cfg.DENEB_FORK_EPOCH)
 
-  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+  func getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
-  proc getGenesisRoot(): Eth2Digest =
+  func getGenesisRoot(): Eth2Digest =
     dag.headState.genesis_validators_root
 
   let
@@ -1869,21 +1869,20 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.pruneBlobs(slot)
       node.pruneDataColumns(slot)
 
-  when declared(GC_fullCollect):
-    # The slots in the beacon node work as frames in a game: we want to make
-    # sure that we're ready for the next one and don't get stuck in lengthy
-    # garbage collection tasks when time is of essence in the middle of a slot -
-    # while this does not guarantee that we'll never collect during a slot, it
-    # makes sure that all the scratch space we used during slot tasks (logging,
-    # temporary buffers etc) gets recycled for the next slot that is likely to
-    # need similar amounts of memory.
-    try:
-      GC_fullCollect()
-    except Defect as exc:
-      raise exc # Reraise to maintain call stack
-    except Exception:
-      # TODO upstream
-      raiseAssert "Unexpected exception during GC collection"
+  # The slots in the beacon node work as frames in a game: we want to make
+  # sure that we're ready for the next one and don't get stuck in lengthy
+  # garbage collection tasks when time is of essence in the middle of a slot -
+  # while this does not guarantee that we'll never collect during a slot, it
+  # makes sure that all the scratch space we used during slot tasks (logging,
+  # temporary buffers etc) gets recycled for the next slot that is likely to
+  # need similar amounts of memory.
+  try:
+    GC_fullCollect()
+  except Defect as exc:
+    raise exc # Reraise to maintain call stack
+  except Exception:
+    # TODO upstream
+    raiseAssert "Unexpected exception during GC collection"
   let gcCollectionTick = Moment.now()
 
   # Checkpoint the database to clear the WAL file and make sure changes in
@@ -1988,9 +1987,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
-  let advanceCutoff = node.beaconClock.fromNow(
-    slot.start_beacon_time(node.dag.timeParams) +
-    node.dag.timeParams.SLOT_DURATION - chronos.seconds(1))
+  let
+    advanceOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+      node.dag.timeParams.SLOT_DURATION.nanoseconds -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds) * 3 div 4)
+    advanceCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(node.dag.timeParams) + advanceOffset)
 
   let proposalFcu =
     if advanceCutoff.inFuture:

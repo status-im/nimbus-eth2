@@ -17,7 +17,8 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
-from ../consensus_object_pools/block_pools_types import ForkChoiceBalance
+from ../consensus_object_pools/block_pools_types import
+  BlockRef, EpochRef, ForkChoiceBalance
 
 export results, base
 
@@ -110,15 +111,10 @@ type
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
 
-  ValidatorInfo* = object
-    balances*: seq[ForkChoiceBalance]  # Based on the historical checkpoint
-    shuffling_epochs*: array[2, Epoch]  # current_epoch / current_epoch - 1
-    shuffling_roots*: array[2, Eth2Digest]  # Always based on dag.head
-
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    validators*: ValidatorInfo
+    balances*: seq[ForkChoiceBalance]
 
   Checkpoints* = object
     time*: BeaconTime
@@ -135,11 +131,16 @@ type
     next_root*: Eth2Digest
     slot*: Slot
 
+  BalanceSource* = object
+    info*: BalanceCheckpoint  # Based on the historical checkpoint
+    shuffling_epochs*: array[2, Epoch]  # current_epoch / current_epoch - 1
+    shuffling_roots*: array[2, Eth2Digest] # Based on dag.head
+
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
-    current_epoch_observed_justified*: BalanceCheckpoint
+    current_epoch_observed_justified*: BalanceSource
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
@@ -170,3 +171,19 @@ func extend*[T](s: var seq[T], minLen: int) =
   ## The extension is zero-initialized
   if s.len < minLen:
     s.setLen(minLen)
+
+template to_balance_checkpoint*(
+    epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
+  BalanceCheckpoint(
+    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
+    balances: epochRef.fork_choice_balances)
+
+template checkpoint*(balance_source: BalanceSource): Checkpoint =
+  balance_source.info.checkpoint
+
+template total_active_balance*(balance_source: BalanceSource): Gwei =
+  balance_source.info.total_active_balance
+
+template balances*(balance_source: BalanceSource): seq[ForkChoiceBalance] =
+  balance_source.info.balances
