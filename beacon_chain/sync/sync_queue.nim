@@ -25,7 +25,7 @@ type
   BlockVerifier* =
     proc(
       signedBlock: ForkedSignedBeaconBlock,
-      signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
+      signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
       blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =
@@ -798,11 +798,7 @@ proc process[T](
     return SyncProcessingResult.init(SyncProcessError.Empty)
 
   for blk, evl, blb in blocks(sq.kind, blcks, envelopes, blobs):
-    let evlval = evl.map(
-      func(x: ref gloas.SignedExecutionPayloadEnvelope):
-           gloas.SignedExecutionPayloadEnvelope =
-        x[])
-    let res = await sq.blockVerifier(blk[], evlval, blb, maybeFinalized)
+    let res = await sq.blockVerifier(blk[], evl, blb, maybeFinalized)
     if res.isOk():
       slot = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
     else:

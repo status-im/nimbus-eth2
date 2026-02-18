@@ -611,7 +611,7 @@ proc initFullNode(
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(
         signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
+        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
@@ -647,13 +647,13 @@ proc initFullNode(
 
             debugGloasComment("columns may not be guaranteed")
             await blockProcessor.addPayload(
-              forkyBlck, signedEnvelope.get(), columnsOpt)
+              forkyBlck, signedEnvelope.get()[], columnsOpt)
         else:
           bres
 
     untrustedBlockVerifier = proc(
         signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
+        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       debugGloasComment("")
