@@ -1,3 +1,8 @@
+2025-02-18 v26.2.1
+==================
+
+The Nimbus consensus client `v26.2.1` is a `low-urgency`, packaging-fix-only release for ARM and multiarch Docker images for anyone running `v26.2.0` and otherwise `medium-urgency` due to addressing the cause of the Nimbus outage on mainnet present in `v26.1.0` and earlier. Those still running `v26.1.0` or previous versions on mainnet should verify they're still on the canonical chain, restart Nimbus otherwise, and regardless update. There is no change to either the beacon node or validator client between `v26.2.0` and `v26.2.1`.
+
 2025-02-13 v26.2.0
 ==================
 

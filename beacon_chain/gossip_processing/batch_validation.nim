@@ -397,10 +397,12 @@ proc verifySoon(
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      attestationData: AttestationData, pubkey: CookedPubKey,
-      signature: ValidatorSig
-     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    attestationData: AttestationData,
+    pubkey: CookedPubKey,
+    sig: CookedSig,
+): FutureBatchResult =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -410,24 +412,19 @@ proc scheduleAttestationCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred attestation check otherwise.
   ##
-  let
-    sig = signature.load().valueOr:
-      return err("attestation: cannot load signature")
-    fut = batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
-      attestation_signature_set(
-        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
-        sig)
-
-  ok((fut, sig))
+  batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
+    attestation_signature_set(
+      fork, batchCrypto[].genesis_validators_root, attestationData, pubkey, sig
+    )
 
 proc scheduleAggregateChecks*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof:
-        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
-     ): Result[tuple[
-        aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
-        sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    aggregateSig: CookedSig,
+    dag: ChainDAGRef,
+    attesting_indices: openArray[ValidatorIndex],
+): Result[tuple[aggregatorFut, slotFut, aggregateFut: FutureBatchResult], cstring] =
   ## Schedule crypto verification of an aggregate
   ##
   ## This involves 3 checks:
@@ -455,8 +452,6 @@ proc scheduleAggregateChecks*(
     slotSig = aggregate_and_proof.selection_proof.load().valueOr:
       return err("aggregateAndProof: invalid selection signature")
     aggregateKey = ? aggregateAll(dag, attesting_indices)
-    aggregateSig = aggregate.signature.load().valueOr:
-      return err("aggregateAndProof: invalid aggregate signature")
 
   let
     aggregatorFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregator"):
@@ -472,7 +467,7 @@ proc scheduleAggregateChecks*(
         fork, batchCrypto[].genesis_validators_root, aggregate.data,
         aggregateKey, aggregateSig)
 
-  ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
+  ok((aggregatorFut, slotFut, aggregateFut))
 
 proc scheduleSyncCommitteeMessageCheck*(
       batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,

@@ -88,7 +88,6 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
 LC_NODES=1
-ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
 RUN_SPAMOOR="0"
@@ -720,11 +719,6 @@ cleanup() {
   # Avoid the trap enterring an infinite loop
   trap - SIGINT SIGTERM EXIT
 
-  PKILL_ECHO_FLAG='-e'
-  if [[ "${OS}" == "macos" ]]; then
-    PKILL_ECHO_FLAG='-l'
-  fi
-
   PIDS_TO_KILL=$(find "${DATA_DIR}/pids" -type f -exec cat {} \+ 2>/dev/null)
 
   echo Terminating processes...
@@ -791,7 +785,6 @@ NUM_JOBS=${NUM_NODES}
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
-CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
 
 CONTAINER_BOOTSTRAP_NETWORK_KEYFILE="bootstrap_network_key.json"
 DIRECTPEER_NETWORK_KEYFILE="directpeer_network_key.json"
@@ -1147,7 +1140,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     --light-client-data-serve=on \
     --light-client-data-import-mode=full \
     --light-client-data-max-periods=999999 \
-    ${STOP_AT_EPOCH_FLAG} \
+    "${STOP_AT_EPOCH_FLAG}" \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
