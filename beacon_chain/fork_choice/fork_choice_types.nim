@@ -132,9 +132,13 @@ type
     slot*: Slot
 
   BalanceSource* = object
-    info*: BalanceCheckpoint  # Based on the historical checkpoint
-    shuffling_epochs*: array[2, Epoch]  # current_epoch / current_epoch - 1
-    shuffling_roots*: array[2, Eth2Digest] # Based on dag.head
+    # Effective balances / slashings in `info` based on historical checkpoint.
+    # The `assigned_slots` (`fast_confirmation.nim`) are based on `dag.head`
+    # and overlap the top bits of `info.balances`. `fork_choice.nim` transfers
+    # them from the old to the new `BalanceSource` when it changes.
+    info*: BalanceCheckpoint
+    shuffling_epochs*: array[2, Epoch]
+    shuffling_roots*: array[2, Eth2Digest]
 
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
