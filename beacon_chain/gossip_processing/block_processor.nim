@@ -214,7 +214,7 @@ proc verifySidecars(
               signature = shortLog(signedBlock.signature),
               msg = r.error()
             return err(VerifierError.Invalid)
-  elif consensusFork >= ConsensusFork.Fulu:
+  elif consensusFork == ConsensusFork.Fulu:
     if sidecarsOpt.isSome:
       let columns = sidecarsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
