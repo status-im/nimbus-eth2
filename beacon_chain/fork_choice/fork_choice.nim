@@ -53,7 +53,7 @@ template to_balance_checkpoint(
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
     total_active_balance: epochRef.total_active_balance,
-    validators: ValidatorInfo(balances: epochRef.fork_choice_balances))
+    balances: epochRef.fork_choice_balances)
 
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
@@ -63,7 +63,8 @@ func init*(
     confirmed: BlockId(
       slot: finalized.checkpoint.epoch.start_slot,
       root: finalized.checkpoint.root),
-    current_epoch_observed_justified: finalized,
+    epoch_observed_justified: BalanceSource(
+      info: finalized),
     previous_slot_head: finalized.checkpoint.root,
     current_slot_head: finalized.checkpoint.root)
 
@@ -108,30 +109,36 @@ proc update_justified(
   self.justified = to_balance_checkpoint(epochRef, blck)
 
 proc update_justified(
-    self: var Checkpoints, dag: ChainDAGRef,
+    self: var ForkChoice, dag: ChainDAGRef,
     justified: Checkpoint, current_slot: Slot): FcResult[void] =
+  if justified == self.backend.epoch_observed_justified.info.checkpoint:
+    trace "Updating justified (cache hit)",
+      store = self.checkpoints.justified.checkpoint,
+      state = self.backend.epoch_observed_justified.info.checkpoint
+    self.checkpoints.justified = self.backend.epoch_observed_justified.info
+    return ok()
+
   let blck = dag.getBlockRef(justified.root).valueOr:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
-
-  self.update_justified(dag, justified.epoch, blck, current_slot)
+  self.checkpoints.update_justified(dag, justified.epoch, blck, current_slot)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
-    self: var Checkpoints, dag: ChainDAGRef,
+    self: var ForkChoice, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
   ## Update checkpoints in store if necessary
   # Update justified checkpoint
-  if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
+  if checkpoints.justified.epoch > self.checkpoints.justified.checkpoint.epoch:
     ? self.update_justified(dag, checkpoints.justified, current_slot)
 
   # Update finalized checkpoint
-  if checkpoints.finalized.epoch > self.finalized.epoch:
+  if checkpoints.finalized.epoch > self.checkpoints.finalized.epoch:
     trace "Updating finalized",
-      store = self.finalized, state = checkpoints.finalized
-    self.finalized = checkpoints.finalized
+      store = self.checkpoints.finalized, state = checkpoints.finalized
+    self.checkpoints.finalized = checkpoints.finalized
 
   ok()
 
@@ -140,6 +147,24 @@ proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
     warn "Confirmed block was unconfirmed",
       old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
   self.confirmed = confirmed
+
+proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
+  template justified: Checkpoint = self.checkpoints.justified.checkpoint
+  let unrealized = self.backend.proto_array.unrealized_justified(justified)
+  if unrealized == self.backend.epoch_observed_justified.info.checkpoint:
+    return
+
+  let
+    blck = dag.getBlockRef(unrealized.root).valueOr:
+      warn "Skipping unrealized justified checkpoint update - no BlockRef",
+        unrealized
+      return
+    epochRef = dag.getEpochRef(blck, unrealized.epoch, false).valueOr:
+      warn "Skipping unrealized justified checkpoint update - no EpochRef",
+        unrealized, blck, error
+      return
+  self.backend.epoch_observed_justified.info =
+    epochRef.to_balance_checkpoint(blck)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
@@ -163,14 +188,18 @@ proc on_tick(
     # Update prev slot head
     self.backend.previous_slot_head = self.backend.current_slot_head
 
-    if current_slot.is_epoch:
+    if (current_slot + 1).is_epoch:
+      # Update observed justified checkpoint at the beginning of the
+      # last slot of an epoch
+      self.update_unrealized_justified(dag)
+
+    elif current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
       for realized in self.backend.proto_array.realizePendingCheckpoints():
-        ? self.checkpoints.update_checkpoints(dag, realized, current_slot)
+        ? self.update_checkpoints(dag, realized, current_slot)
 
-      # Update observed justified checkpoint before any attestations from the
-      # last slot of the previous epoch become processable
-      self.backend.current_epoch_observed_justified = self.checkpoints.justified
+    else:
+      discard
   ok()
 
 func process_attestation(
@@ -318,7 +347,7 @@ proc process_block*(
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary
-  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints, slot)
+  ? self.update_checkpoints(dag, epochRef.checkpoints, slot)
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
@@ -329,7 +358,7 @@ proc process_block*(
     if epochRef.epoch < slot.epoch:
       trace "Pulling up chain tip",
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
-      ? update_checkpoints(self.checkpoints, dag, unrealized, slot)
+      ? self.update_checkpoints(dag, unrealized, slot)
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized)
     else:
@@ -355,7 +384,7 @@ func find_head(
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
-    new_balances = checkpoints.justified.validators.balances)
+    new_balances = checkpoints.justified.balances)
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
     FinalityCheckpoints(
@@ -363,7 +392,7 @@ func find_head(
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
     checkpoints.proposer_boost_root)
-  self.balances = checkpoints.justified.validators.balances
+  self.balances = checkpoints.justified.balances
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest

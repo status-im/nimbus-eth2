@@ -110,13 +110,10 @@ type
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
 
-  ValidatorInfo* = object
-    balances*: seq[ForkChoiceBalance]
-
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
     total_active_balance*: Gwei
-    validators*: ValidatorInfo
+    balances*: seq[ForkChoiceBalance]
 
   Checkpoints* = object
     time*: BeaconTime
@@ -133,11 +130,14 @@ type
     next_root*: Eth2Digest
     slot*: Slot
 
+  BalanceSource* = object
+    info*: BalanceCheckpoint
+
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
-    current_epoch_observed_justified*: BalanceCheckpoint
+    epoch_observed_justified*: BalanceSource
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
