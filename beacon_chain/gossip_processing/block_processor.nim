@@ -280,7 +280,7 @@ proc storeBackfillBlock(
 
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork <= ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -694,7 +694,7 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  when consensusFork <= ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let blck =
@@ -713,7 +713,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork <= ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
