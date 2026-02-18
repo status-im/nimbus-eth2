@@ -534,8 +534,7 @@ proc addHeadExecutionPayload*(
 
 proc addBackfillExecutionPayload*(
     dag: ChainDAGRef,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope |
-                    gloas.TrustedSignedExecutionPayloadEnvelope,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
 ): Result[void, VerifierError] =
   template blockRoot(): auto = signedEnvelope.message.beacon_block_root
   template envelope(): auto = signedEnvelope.message
@@ -580,19 +579,18 @@ proc addBackfillExecutionPayload*(
         return err(VerifierError.UnviableFork)
 
   # Verify signature
-  when signedEnvelope.signature isnot TrustedSig:
-    let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
-      fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
-        head = shortLog(dag.head), tail = shortLog(dag.tail)
-      quit 1
-    if not verify_execution_payload_envelope_signature(
-        dag.forkAtEpoch(envelope.slot.epoch),
-        dag.genesis_validators_root,
-        envelope.slot.epoch,
-        envelope,
-        builderKey,
-        signedEnvelope.signature):
-      return err(VerifierError.Invalid)
+  let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
+    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
+      head = shortLog(dag.head), tail = shortLog(dag.tail)
+    quit 1
+  if not verify_execution_payload_envelope_signature(
+      dag.forkAtEpoch(envelope.slot.epoch),
+      dag.genesis_validators_root,
+      envelope.slot.epoch,
+      envelope,
+      builderKey,
+      signedEnvelope.signature):
+    return err(VerifierError.Invalid)
   let sigVerifyTick = Moment.now
 
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
