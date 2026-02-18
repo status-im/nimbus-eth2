@@ -17,7 +17,7 @@ type
       ## ideal scenario, block should arrive before envelope but that is not
       ## guaranteed.
 
-    missing*: HashSet[Eth2Digest]
+    missing*: seq[Eth2Digest]
       ## List of block roots that we would like to have the envelopes but we
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
@@ -31,7 +31,8 @@ template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
-  self.missing.incl(root)
+  if root notin self.missing:
+    self.missing.add(root)
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
