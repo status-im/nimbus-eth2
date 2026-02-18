@@ -204,6 +204,6 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
     execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
-    execPayloadBidQueue: newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
-    payloadAttMessageQueue: newAsyncEventQueue[gloas.PayloadAttestationmessage]()
+    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
+    payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
   )
