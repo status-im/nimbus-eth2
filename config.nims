@@ -232,3 +232,11 @@ put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
 put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
 put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
 put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
+
+# ############################################################
+#
+#  Required for BoringSSL warning about frees on offset pointers
+#
+# ############################################################
+
+put("mem.always", "-Wno-free-nonheap-object")
