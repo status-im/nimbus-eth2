@@ -450,7 +450,7 @@ proc checkPeerCustody(rman: RequestManager,
           remote_custody = remoteCustodyGroupCount,
           overlap = intersection.len, local = rman.custody_columns_set.len
 
-  return intersection
+  intersection
 
 func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
   return proc(peer: Peer): bool =
@@ -462,8 +462,7 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
           remoteNodeId,
           max(rman.network.cfg.SAMPLES_PER_SLOT, remoteCustodyGroupCount))
       overlap = rman.custody_columns_set.countIt(it in remoteCustodyColumns)
-    return overlap > (rman.custody_columns_set.len div 2)
-
+    overlap > (rman.custody_columns_set.len div 2)
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
