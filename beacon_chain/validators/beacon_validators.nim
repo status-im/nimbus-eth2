@@ -635,14 +635,18 @@ proc proposeBlockAux(
         envelope,
         sleepAsync(NEWPAYLOAD_TIMEOUT),
         retry = false)
+      
+      optimisticStatus = payloadStatus.get.to(OptimisticStatus)
     
-    if payloadStatus.isNone:
-      warn "Failed to send self-built execution payload to local EL",
-        blockRoot = shortLog(blockRoot)
-      return head
-    elif payloadStatus.get != PayloadExecutionStatus.valid:
+    case optimisticStatus
+    of OptimisticStatus.valid:
+      discard
+    of OptimisticStatus.notValidated:
+      debug "Self-built execution payload not yet validated",
+        status = payloadStatus.get
+    of OptimisticStatus.invalidated:
       warn "Local EL rejected self-built execution payload",
-        blockRoot = shortLog(blockRoot), status = payloadStatus.get
+        status = payloadStatus.get
       return head
 
     # Broadcast envelope to gossip network
@@ -659,7 +663,7 @@ proc proposeBlockAux(
         signature = shortLog(signature),
         validator = shortLog(validator)
 
-    # Process envelope locally - skip atate root verification
+    # Process envelope locally - skip state root verification
     # for self-builds since the envelope's state_root is 
     # computed before `process_execution_payload` runs,
     # so it wouldn't match the post-envelope state root
