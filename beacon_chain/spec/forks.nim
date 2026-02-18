@@ -1710,16 +1710,15 @@ func lcDataForkAtConsensusFork*(
   else:
     LightClientDataFork.None
 
-func getForkSchedule*(cfg: RuntimeConfig): array[7, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
   static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-  debugGloasComment "deliberately don't expose this to REST yet"
   [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
-   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork()]
+   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork(), cfg.gloasFork()]
 
 type
   # The first few fields of a state, shared across all forks
