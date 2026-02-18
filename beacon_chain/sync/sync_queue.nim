@@ -25,7 +25,7 @@ type
   BlockVerifier* =
     proc(
       signedBlock: ForkedSignedBeaconBlock,
-      singedEnvelope: Opt[gloas.SignedExecutionPayloadEnvelope],
+      signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
       blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =

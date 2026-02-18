@@ -95,13 +95,13 @@ type
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   EnvelopesRes =
-    NetRes[List[ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS]]
+    NetRes[List[ref SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes =
     NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
-    envelopes*: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]]
+    envelopes*: Opt[seq[ref SignedExecutionPayloadEnvelope]]
     blobs*: Opt[seq[BlobSidecars]]
 
   SyncBlockDataRes* = Result[SyncBlockData, string]
@@ -401,7 +401,7 @@ proc getSyncBlockData*[T](
 
       Opt.some(envelopeRange)
     else:
-      Opt.none(seq[ref gloas.SignedExecutionPayloadEnvelope])
+      Opt.none(seq[ref SignedExecutionPayloadEnvelope])
 
   let blobsRange =
     if shouldGetBlob:
@@ -539,7 +539,7 @@ proc getSyncBlockData[A, B](
         debugGloasComment("verify response")
         Opt.some(envelopes.asSeq())
       else:
-        Opt.none(seq[ref gloas.SignedExecutionPayloadEnvelope])
+        Opt.none(seq[ref SignedExecutionPayloadEnvelope])
 
   ok(SyncBlockData(
     blocks: blocks.asSeq(), envelopes: envelopes, blobs: blobs,

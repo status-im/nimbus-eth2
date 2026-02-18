@@ -611,7 +611,7 @@ proc initFullNode(
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(
         signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[gloas.SignedExecutionPayloadEnvelope],
+        signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
@@ -653,7 +653,7 @@ proc initFullNode(
 
     untrustedBlockVerifier = proc(
         signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[gloas.SignedExecutionPayloadEnvelope],
+        signedEnvelope: Opt[SignedExecutionPayloadEnvelope],
         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       debugGloasComment("")
