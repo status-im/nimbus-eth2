@@ -1968,20 +1968,6 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
     consensusValue: cvalue,
     executionValue: evalue)
 
-func committee_index*(
-    v: phase0.Attestation, on_chain: static bool = false): uint64 =
-  v.data.index
-
-func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
-  when on_chain:
-    {.error: "cannot get single committee_index for on_chain attestation".}
-  else:
-    uint64 v.committee_bits.get_committee_index_one().expect("network attestation")
-
-func committee_index*(
-    v: SingleAttestation, on_chain: static bool = false): uint64 =
-  v.committee_index
-
 template init*(T: type ForkedAttestation,
                attestation: phase0.Attestation,
                fork: ConsensusFork): T =

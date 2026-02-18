@@ -176,26 +176,26 @@ suite "Attestation pool electra processing" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Electra:
         check:
-          check_attestation(forkyState.data, att1, {}, cache, true).isOk
-          check_attestation(forkyState.data, att2, {}, cache, true).isErr
+          check_attestation(forkyState.data, att1, {}, cache).isOk
+          check_attestation(forkyState.data, att2, {}, cache).isErr
     withState(state2[]):
       when consensusFork >= ConsensusFork.Electra:
         check:
-          check_attestation(forkyState.data, att1, {}, cache2, true).isErr
-          check_attestation(forkyState.data, att2, {}, cache2, true).isOk
+          check_attestation(forkyState.data, att1, {}, cache2).isErr
+          check_attestation(forkyState.data, att2, {}, cache2).isOk
 
     # If signature checks are skipped, state incompatibility is not detected
     const flags = {skipBlsValidation}
     withState(state[]):
       when consensusFork >= ConsensusFork.Electra:
         check:
-          check_attestation(forkyState.data, att1, flags, cache, true).isOk
-          check_attestation(forkyState.data, att2, flags, cache, true).isOk
+          check_attestation(forkyState.data, att1, flags, cache).isOk
+          check_attestation(forkyState.data, att2, flags, cache).isOk
     withState(state2[]):
       when consensusFork >= ConsensusFork.Electra:
         check:
-          check_attestation(forkyState.data, att1, flags, cache2, true).isOk
-          check_attestation(forkyState.data, att2, flags, cache2, true).isOk
+          check_attestation(forkyState.data, att1, flags, cache2).isOk
+          check_attestation(forkyState.data, att2, flags, cache2).isOk
 
     # An additional compatibility check catches that (used in block production)
     withState(state[]):
@@ -336,18 +336,14 @@ suite "Attestation pool electra processing" & preset():
   test "Aggregated attestations with disjoint comittee bits into a single on-chain aggregate" & preset():
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
-        when consensusFork == ConsensusFork.Electra:
-          let
-            fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-            attesting_indices = get_attesting_indices(
-              forkyState.data, attestation.data, attestation.aggregation_bits,
-              attestation.committee_bits, cache)
-          verify_attestation_signature(
-            fork, pool.dag.genesis_validators_root, attestation.data,
-            attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-            attestation.signature)
-        else:
-          raiseAssert "must be electra"
+        let
+          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+          attesting_indices =
+            forkyState.data.get_attesting_indices(attestation, cache)
+        verify_attestation_signature(
+          fork, pool.dag.genesis_validators_root, attestation.data,
+          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+          attestation.signature)
 
     let
       bc0 = get_beacon_committee(
@@ -395,7 +391,7 @@ suite "Attestation pool electra processing" & preset():
     check:
       verifyAttestationSignature(attestations[0])
       check_attestation(
-        state[].electraData.data, attestations[0], {}, cache, true).isOk
+        state[].electraData.data, attestations[0], {}, cache).isOk
 
       # A single final chain aggregated attestation should be created
       # with same data, 2 committee bits and 3 aggregation bits
@@ -808,18 +804,14 @@ suite "Attestation pool electra processing" & preset():
 
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
-        when consensusFork == ConsensusFork.Electra:
-          let
-            fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-            attesting_indices = get_attesting_indices(
-              forkyState.data, attestation.data, attestation.aggregation_bits,
-              attestation.committee_bits, cache)
-          verify_attestation_signature(
-            fork, pool.dag.genesis_validators_root, attestation.data,
-            attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-            attestation.signature)
-        else:
-          raiseAssert "must be electra"
+        let
+          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+          attesting_indices =
+            forkyState.data.get_attesting_indices(attestation, cache)
+        verify_attestation_signature(
+          fork, pool.dag.genesis_validators_root, attestation.data,
+          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+          attestation.signature)
 
     check:
       verifyAttestationSignature(att0)
@@ -877,7 +869,7 @@ suite "Attestation pool electra processing" & preset():
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 3
         check_attestation(
-          state[].electraData.data, attestations[0], {}, cache, true).isOk
+          state[].electraData.data, attestations[0], {}, cache).isOk
         verifyAttestationSignature(attestations[0])
         # Can get either aggregate here, random!
         verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
@@ -895,7 +887,7 @@ suite "Attestation pool electra processing" & preset():
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 4
         check_attestation(
-          state[].electraData.data, attestations[0], {}, cache, true).isOk
+          state[].electraData.data, attestations[0], {}, cache).isOk
         verifyAttestationSignature(attestations[0])
         verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
           1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).get)
@@ -917,18 +909,14 @@ suite "Attestation pool electra processing" & preset():
       cache: var StateCache,
       attestation: electra.Attestation): bool =
     withState(state[]):
-      when consensusFork == ConsensusFork.Electra:
-        let
-          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-          attesting_indices = get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            attestation.committee_bits, cache)
-        verify_attestation_signature(
-          fork, pool.dag.genesis_validators_root, attestation.data,
-          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-          attestation.signature)
-      else:
-        raiseAssert "must be electra"
+      let
+        fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+        attesting_indices =
+          forkyState.data.get_attesting_indices(attestation, cache)
+      verify_attestation_signature(
+        fork, pool.dag.genesis_validators_root, attestation.data,
+        attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+        attestation.signature)
 
   test "Aggregating across committees" & preset():
     # Add attestation from different committee
@@ -974,9 +962,9 @@ suite "Attestation pool electra processing" & preset():
       attestations[1].aggregation_bits.countOnes() == 4
       attestations[1].committee_bits.countOnes() == 2
       check_attestation(
-        state[].electraData.data, attestations[0], {}, cache, true).isOk
+        state[].electraData.data, attestations[0], {}, cache).isOk
       check_attestation(
-        state[].electraData.data, attestations[1], {}, cache, true).isOk
+        state[].electraData.data, attestations[1], {}, cache).isOk
       pool[].verifyAttestationSignature(state, cache, attestations[0])
       pool[].verifyAttestationSignature(state, cache, attestations[1])
 
@@ -1059,8 +1047,8 @@ suite "Attestation pool electra processing" & preset():
       attestations[1].data.slot == 2.Slot
 
       check_attestation(
-        state[].electraData.data, attestations[0], {}, cache, true).isOk
+        state[].electraData.data, attestations[0], {}, cache).isOk
       check_attestation(
-        state[].electraData.data, attestations[1], {}, cache, true).isOk
+        state[].electraData.data, attestations[1], {}, cache).isOk
       pool[].verifyAttestationSignature(state, cache, attestations[0])
       pool[].verifyAttestationSignature(state, cache, attestations[1])

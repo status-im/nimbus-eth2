@@ -478,7 +478,7 @@ proc onBlockAdded*(
     validatorMonitor[].registerBeaconBlock(src, wallTime, blck.message)
 
     for attestation in blck.message.body.attestations:
-      for vidx in dag.get_attesting_indices(attestation, true):
+      for vidx in dag.get_attesting_indices(attestation):
         validatorMonitor[].registerAttestationInBlock(
           attestation.data, vidx, blck.message.slot
         )

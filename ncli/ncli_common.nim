@@ -392,18 +392,9 @@ func collectFromAttestations(
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
-        when consensusFork >= ConsensusFork.Electra:
-          for index in get_attesting_indices(
-              forkyState.data, attestation.data, attestation.aggregation_bits,
-              attestation.committee_bits, cache):
-            rewardsAndPenalties[index].inclusion_delay =
-              Opt.some(inclusionDelay.uint64)
-        else:
-          for index in get_attesting_indices(
-              forkyState.data, attestation.data, attestation.aggregation_bits,
-              cache):
-            rewardsAndPenalties[index].inclusion_delay =
-              Opt.some(inclusionDelay.uint64)
+        for vidx in forkyState.data.get_attesting_indices(attestation, cache):
+          rewardsAndPenalties[vidx].inclusion_delay =
+            Opt.some(inclusionDelay.uint64)
 
 from ".."/beacon_chain/validator_bucket_sort import
   findValidatorIndex, sortValidatorBuckets
