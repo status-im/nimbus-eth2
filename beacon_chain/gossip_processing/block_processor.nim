@@ -443,6 +443,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
           dag.verifyBlockProposer(
             parent, forkyBlck.message.slot, forkyBlck.message.proposer_index,
             forkyBlck.root, forkyBlck.signature,
+            quarantine[].latest_sidecar_signatures
           ).isOkOr:
             warn "Failed to verify signature of unorphaned blobless block",
               blck = shortLog(forkyBlck), error = error.msg

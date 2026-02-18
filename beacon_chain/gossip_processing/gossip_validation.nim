@@ -604,10 +604,15 @@ proc validateBlobSidecar*(
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
     blob_sidecar.signed_block_header.signature,
+    quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.latest_sidecar_signatures.put(
+    (block_root, blob_sidecar.signed_block_header.signature), ())
 
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
@@ -1011,10 +1016,15 @@ proc validateBeaconBlock*(
     parent, signed_beacon_block.message.slot,
     signed_beacon_block.message.proposer_index, signed_beacon_block.root,
     signed_beacon_block.signature,
+    quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.latest_sidecar_signatures.put(
+    (signed_beacon_block.root, signed_beacon_block.signature), ())
 
   ok()
 
