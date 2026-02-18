@@ -266,7 +266,7 @@ proc storeBackfillBlock(
 
   const consensusFork = typeof(signedBlock).kind
 
-  when consensusFork <= ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -668,7 +668,7 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
-  when consensusFork <= ConsensusFork.Fulu:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
 
   let blck =
