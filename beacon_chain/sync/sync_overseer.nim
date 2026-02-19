@@ -18,8 +18,6 @@ import
   ../[beacon_clock, beacon_node],
   ./[sync_types, sync_manager, sync_queue]
 
-from ../consensus_object_pools/spec_cache import get_attesting_indices
-
 export sync_types
 
 logScope:

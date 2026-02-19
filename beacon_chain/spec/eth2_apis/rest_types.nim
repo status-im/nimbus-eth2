@@ -59,7 +59,9 @@ type
     Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate
+    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
+    ExecutionPayloadBid, PayloadAttestationMessage
+
 
   EventTopics* = set[EventTopic]
 
