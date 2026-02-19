@@ -920,7 +920,7 @@ proc addBlock*(
     of VerifierError.Duplicate:
       err(res.error())
 
-proc storePayload(
+proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
@@ -949,14 +949,6 @@ proc storePayload(
   self.envelopeQuarantine[].delOrphan(signedBlock)
 
   ok()
-
-proc addPayload*(
-    self: ref BlockProcessor,
-    blck: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  await self.storePayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(
     self: ref BlockProcessor,
