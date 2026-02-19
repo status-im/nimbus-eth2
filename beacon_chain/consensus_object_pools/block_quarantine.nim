@@ -22,6 +22,8 @@ const
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
+  MaxRecentSidecarSignatures = 128
+    ## Cache recent valid sidecar signatures to avoid re-verification
 
 type
   MissingBlock* = object
@@ -37,6 +39,9 @@ type
   OrphanLru = LruCache[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
   SidecarlessLru = LruCache[Eth2Digest, ForkedSignedBeaconBlock]
   UnviableLru = LruCache[Eth2Digest, UnviableKind]
+  RecentSidecarSignatureLru* = LruCache[(Eth2Digest, ValidatorSig), tuple[]]
+    ## Cache of (block_root, signature) pairs that have been verified
+    ## The value is an empty tuple since we only care about presence
 
   Quarantine* = object
     ## Keeps track of unvalidated blocks coming from the network
@@ -88,6 +93,11 @@ type
       ## This block is currently being processed and should therefore not be
       ## added to the quarantine
 
+    latest_sidecar_signatures*: RecentSidecarSignatureLru
+      ## This caches recently verified sidecar signatures (block_root, signature),
+      ## so as to skip expensive cryptographic verification if the same block root
+      ## and signature combination arrives multiple times over gossip
+
     cfg*: RuntimeConfig
 
 func init*(T: type Quarantine, cfg: RuntimeConfig): T =
@@ -96,6 +106,7 @@ func init*(T: type Quarantine, cfg: RuntimeConfig): T =
     orphans: OrphanLru.init(MaxOrphans),
     sidecarless: SidecarlessLru.init(MaxSidecarless),
     unviable: UnviableLru.init(MaxUnviables),
+    latest_sidecar_signatures: RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
   )
 
 func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
