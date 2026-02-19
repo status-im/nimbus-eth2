@@ -210,6 +210,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.FULU_FORK_VERSION,
           FULU_FORK_EPOCH:
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
+          GLOAS_FORK_VERSION:
+            "0x" & $cfg.GLOAS_FORK_VERSION,
+          GLOAS_FORK_EPOCH:
+            Base10.toString(uint64(cfg.GLOAS_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
             Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),

@@ -65,6 +65,9 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
+    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
     nickname*: string
@@ -200,4 +203,7 @@ func init*(T: type EventBus): T =
     optUpdateQueue:
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
+    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
+    payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
   )
