@@ -968,10 +968,12 @@ proc storePayload(
   ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
+  debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
+  debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
