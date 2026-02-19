@@ -59,7 +59,9 @@ type
     Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate
+    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
+    ExecutionPayloadBid, PayloadAttestationMessage
+
 
   EventTopics* = set[EventTopic]
 
@@ -591,7 +593,7 @@ type
 
   RestExtraData* = object
     confirmed_root*: Eth2Digest
-    epoch_observed_justified_checkpoint*: Checkpoint
+    current_epoch_observed_justified_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
 
   GetForkChoiceResponse* = object
