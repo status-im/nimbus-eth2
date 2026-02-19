@@ -36,7 +36,7 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar, putExecutionPayloadEnvelope
+  getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -959,6 +959,11 @@ proc storePayload(
           signedBlock, signedEnvelope, deadline, shouldRetry())
     optimisticStatus =
       ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
+
+  # optimisticStatus could be valid or notValidated at this point. We will
+  # validated it by the clearance state transition.
+  if OptimisticStatus.invalidated == optimisticStatus:
+    return err(VerifierError.Invalid)
 
   ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
 
