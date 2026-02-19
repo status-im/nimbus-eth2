@@ -470,6 +470,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
           dag.verifyBlockProposer(
             parent, forkyBlck.message.slot, forkyBlck.message.proposer_index,
             forkyBlck.root, forkyBlck.signature,
+            quarantine[].latest_sidecar_signatures
           ).isOkOr:
             warn "Failed to verify signature of unorphaned blobless block",
               blck = shortLog(forkyBlck), error = error.msg
@@ -505,7 +506,7 @@ proc onBlockAdded*(
     validatorMonitor[].registerBeaconBlock(src, wallTime, blck.message)
 
     for attestation in blck.message.body.attestations:
-      for vidx in dag.get_attesting_indices(attestation, true):
+      for vidx in dag.get_attesting_indices(attestation):
         validatorMonitor[].registerAttestationInBlock(
           attestation.data, vidx, blck.message.slot
         )

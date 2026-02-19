@@ -674,89 +674,133 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
-iterator get_attesting_indices_iter*(state: ForkyBeaconState,
-                                     data: AttestationData,
-                                     bits: CommitteeValidatorsBits,
-                                     cache: var StateCache): ValidatorIndex =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
-  ## or nothing if `data` is invalid
-  ## This iterator must not be called in functions using a
-  ## ForkedHashedBeaconState due to https://github.com/nim-lang/Nim/issues/18188
-  let committee_index = CommitteeIndex.init(data.index)
-  if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
-      state, data.slot, committee_index.get(), cache):
-    trace "get_attesting_indices: invalid attestation data"
-  else:
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    slot: Slot,
+    index: CommitteeIndex,
+    aggregation_bits: CommitteeValidatorsBits,
+    cache: var StateCache,
+): ValidatorIndex =
+  ## Return the set of attesting indices corresponding to ``data`` and
+  ## ``aggregation_bits`` or nothing if `data` is invalid
+  if aggregation_bits.lenu64 == get_beacon_committee_len(state, slot, index, cache):
     for index_in_committee, validator_index in get_beacon_committee(
-        state, data.slot, committee_index.get(), cache):
-      if bits[index_in_committee]:
+      state, slot, index, cache
+    ):
+      if aggregation_bits[index_in_committee]:
         yield validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_attesting_indices
-iterator get_attesting_indices_iter*(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
-    data: AttestationData,
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    slot: Slot,
+    committee_bits: AttestationCommitteeBits,
     aggregation_bits: ElectraCommitteeValidatorsBits,
-    committee_bits: auto,
     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
-  var pos = 0
-  for committee_index in get_committee_indices(committee_bits):
-    for _, validator_index in get_beacon_committee(
-        state, data.slot, committee_index, cache):
+  var committee_offset = 0
+  for index in get_committee_indices(committee_bits):
+    let committee_len = get_beacon_committee_len(state, slot, index, cache).int
+    if aggregation_bits.len < committee_offset + committee_len:
+      # Would overflow, invalid attestation caught in check_attestation()
+      break
 
-      if aggregation_bits[pos]:
-        yield validator_index
-      pos += 1
+    for i, attester_index in get_beacon_committee(state, slot, index, cache):
+      if aggregation_bits[committee_offset + i]:
+        yield attester_index
+
+    committee_offset += committee_len
+
+# Attestation validation
+# ------------------------------------------------------------------------------------------
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+
+func check_attestation_index*(
+    index, committees_per_slot: uint64
+): Result[CommitteeIndex, cstring] =
+  CommitteeIndex.init(index, committees_per_slot)
+
+func check_attestation_index*(
+    data: AttestationData, committees_per_slot: uint64
+): Result[CommitteeIndex, cstring] =
+  check_attestation_index(data.index, committees_per_slot)
+
+# Attestation validation
+# ------------------------------------------------------------------------------------------
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+
+func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
+  if not (data.target.epoch == epoch(data.slot)):
+    return err("Target epoch doesn't match attestation slot")
+
+  ok(data.slot)
+
+func check_attestation_target_epoch(
+    data: AttestationData, current_epoch: Epoch
+): Result[Epoch, cstring] =
+  if not (
+    data.target.epoch == get_previous_epoch(current_epoch) or
+    data.target.epoch == current_epoch
+  ):
+    return err("Target epoch not current or previous epoch")
+
+  ok(data.target.epoch)
+
+func check_attestation_slot_target*(
+    data: AttestationData, current_epoch: Epoch
+): Result[Slot, cstring] =
+  check_attestation_target_epoch(data, current_epoch) and
+    check_attestation_slot_target(data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    attestation: phase0.Attestation | phase0.TrustedAttestation,
+    cache: var StateCache,
+): ValidatorIndex =
+  block iter:
+    let
+      slot = check_attestation_slot_target(attestation.data, state.get_current_epoch()).valueOr:
+        break iter
+      committees_per_slot = get_committee_count_per_slot(state, slot.epoch, cache)
+      index = check_attestation_index(attestation.data, committees_per_slot).valueOr:
+        break iter
+    for vidx in state.get_attesting_indices(
+      slot, index, attestation.aggregation_bits, cache
+    ):
+      yield vidx
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    cache: var StateCache,
+): ValidatorIndex =
+  block iter:
+    let slot = check_attestation_slot_target(attestation.data, get_current_epoch(state)).valueOr:
+      break iter
+
+    for vidx in state.get_attesting_indices(
+      slot, attestation.committee_bits, attestation.aggregation_bits, cache
+    ):
+      yield vidx
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_attesting_indices
 func get_attesting_indices*(
-    state: ForkyBeaconState, data: AttestationData,
-    aggregation_bits: CommitteeValidatorsBits, cache: var StateCache):
-    seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
+    state: ForkyBeaconState,
+    attestation:
+      phase0.Attestation | phase0.TrustedAttestation | electra.Attestation |
+      electra.TrustedAttestation,
+    cache: var StateCache,
+): seq[ValidatorIndex] =
+  ## Return the set of attesting indices corresponding to ``attestation``
   ## or nothing if `data` is invalid
-
-  toSeq(get_attesting_indices_iter(state, data, aggregation_bits, cache))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(
-    state: ForkyBeaconState, data: AttestationData,
-    aggregation_bits: ElectraCommitteeValidatorsBits, committee_bits: auto,
-    cache: var StateCache): seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
-  ## or nothing if `data` is invalid
-
-  toSeq(get_attesting_indices_iter(state, data, aggregation_bits, committee_bits, cache))
-
-func get_attesting_indices*(state: ForkedHashedBeaconState;
-                            data: AttestationData;
-                            bits: CommitteeValidatorsBits;
-                            cache: var StateCache): seq[ValidatorIndex] =
-  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
-  # iterator
-
-  var idxBuf: seq[ValidatorIndex]
-  withState(state):
-    for vidx in forkyState.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  idxBuf
-
-func get_attesting_indices*(state: ForkedHashedBeaconState;
-                            data: AttestationData;
-                            aggregation_bits: ElectraCommitteeValidatorsBits;
-                            committee_bits: auto,
-                            cache: var StateCache): seq[ValidatorIndex] =
-  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
-  # iterator
-  var idxBuf: seq[ValidatorIndex]
-  withState(state):
-    when consensusFork >= ConsensusFork.Electra:
-      for vidx in forkyState.data.get_attesting_indices(
-          data, aggregation_bits, committee_bits, cache):
-        idxBuf.add vidx
-  idxBuf
+  for vidx in state.get_attesting_indices(attestation, cache):
+    result.add vidx
 
 proc is_valid_indexed_attestation(
     state: ForkyBeaconState,
@@ -776,9 +820,8 @@ proc is_valid_indexed_attestation(
   if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits, cache):
-      pubkeys.add(state.validators[index].pubkey)
+    for vidx in state.get_attesting_indices(attestation, cache):
+      pubkeys.add(state.validators[vidx].pubkey)
 
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, attestation.data,
@@ -805,9 +848,8 @@ proc is_valid_indexed_attestation(
   if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
-      pubkeys.add(state.validators[index].pubkey)
+    for vidx in state.get_attesting_indices(attestation, cache):
+      pubkeys.add(state.validators[vidx].pubkey)
 
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, attestation.data,
@@ -815,25 +857,6 @@ proc is_valid_indexed_attestation(
       return err("indexed attestation: signature verification failure")
 
   ok()
-
-# Attestation validation
-# ------------------------------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-
-func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
-  if not (data.target.epoch == epoch(data.slot)):
-    return err("Target epoch doesn't match attestation slot")
-
-  ok(data.slot)
-
-func check_attestation_target_epoch(
-    data: AttestationData, current_epoch: Epoch): Result[Epoch, cstring] =
-  if not (data.target.epoch == get_previous_epoch(current_epoch) or
-      data.target.epoch == current_epoch):
-    return err("Target epoch not current or previous epoch")
-
-  ok(data.target.epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-process_attestation
@@ -855,17 +878,6 @@ func check_attestation_inclusion(
       return err("Attestation too old")
 
   ok()
-
-func check_attestation_index*(
-    index, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  CommitteeIndex.init(index, committees_per_slot)
-
-func check_attestation_index(
-    data: AttestationData, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  check_attestation_index(data.index, committees_per_slot)
-
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_attestation_same_slot
 func is_attestation_same_slot(
@@ -1045,7 +1057,7 @@ func get_base_reward(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache, on_chain: static bool = true): Result[void, cstring] =
+    cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -1054,9 +1066,8 @@ proc check_attestation*(
     data = attestation.data
     epoch = ? check_attestation_target_epoch(data, state.get_current_epoch())
     slot = ? check_attestation_slot_target(data)
-    committee_index = ? check_attestation_index(
-      data,
-      get_committee_count_per_slot(state, epoch, cache))
+    committee_count_per_slot = get_committee_count_per_slot(state, epoch, cache)
+    committee_index = ? check_attestation_index(data, committee_count_per_slot)
 
   ? check_attestation_inclusion((typeof state).kind, slot, state.slot)
 
@@ -1082,7 +1093,7 @@ proc check_attestation*(
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
-    flags: UpdateFlags, cache: var StateCache, on_chain: static bool):
+    flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -1106,42 +1117,34 @@ proc check_attestation*(
     if not (data.index == 0):
       return err("Electra attestation data index not 0")
 
-  when on_chain:
-    var committee_offset = 0
-    for committee_index in attestation.committee_bits.oneIndices:
-      if not (committee_index.uint64 < get_committee_count_per_slot(
-          state, data.target.epoch, cache)):
-        return err("attestation wrong committee index len")
-      let committee = get_beacon_committee(
-        state, data.slot, committee_index.CommitteeIndex, cache)
+  var committee_offset = 0
+  for committee_index in attestation.committee_bits.oneIndices:
+    if not (committee_index.uint64 < get_committee_count_per_slot(
+        state, epoch, cache)):
+      return err("attestation wrong committee index len")
+    let committee_index = CommitteeIndex(committee_index)
+    let committee_len = get_beacon_committee_len(
+      state, slot, committee_index, cache)
 
-      if attestation.aggregation_bits.len < committee_offset + len(committee):
-        # This would overflow; see invalid_too_many_committee_bits test case
-        return err("Electra attestation has too many committee bits")
+    if attestation.aggregation_bits.len < committee_offset + committee_len.int:
+      # This would overflow; see invalid_too_many_committee_bits test case
+      return err("Electra attestation has too many committee bits")
 
-      # This construction modified slightly from spec version to early-exit and
-      # not create the actual set, but the result is it uses a flag variable to
-      # look similar.
-      var committee_attesters_nonzero = false
-      for i, attester_index in committee:
-        if attestation.aggregation_bits[committee_offset + i]:
-          committee_attesters_nonzero = true
-          break
-      if not committee_attesters_nonzero:
-        return err("Electra attestation committee not present in aggregated bits")
+    # This construction modified slightly from spec version to early-exit and
+    # not create the actual set, but the result is it uses a flag variable to
+    # look similar.
+    var committee_attesters_nonzero = false
+    for i, attester_index in get_beacon_committee(state, slot, committee_index, cache):
+      if attestation.aggregation_bits[committee_offset + i]:
+        committee_attesters_nonzero = true
+        break
+    if not committee_attesters_nonzero:
+      return err("Electra attestation committee not present in aggregated bits")
 
-      committee_offset += len(committee)
+    committee_offset += committee_len.int
 
-    if not (len(attestation.aggregation_bits) == committee_offset):
-      return err("attestation wrong aggregation bit length")
-  else:
-    let
-      committee_index = get_committee_index_one(attestation.committee_bits).valueOr:
-        return err("Network attestation without single committee index")
-
-    if not (lenu64(attestation.aggregation_bits) ==
-        get_beacon_committee_len(state, data.slot, committee_index, cache)):
-      return err("attestation wrong aggregation bit length")
+  if not (len(attestation.aggregation_bits) == committee_offset):
+    return err("attestation wrong aggregation bit length")
 
   if epoch == get_current_epoch(state):
     if not (data.source == state.current_justified_checkpoint):
@@ -1193,15 +1196,14 @@ func get_proposer_reward*(
     epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
-  for index in get_attesting_indices_iter(
-      state, attestation.data, attestation.aggregation_bits, cache):
+  for vidx in state.get_attesting_indices(attestation, cache):
     let
-      base_reward = get_base_reward(state, index, base_reward_per_increment)
+      base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(index), flag_index):
-        asList(epoch_participation)[index] =
-          add_flag(epoch_participation.item(index), flag_index)
+         not has_flag(epoch_participation.item(vidx), flag_index):
+        asList(epoch_participation)[vidx] =
+          add_flag(epoch_participation.item(vidx), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1219,15 +1221,14 @@ func get_proposer_reward*(
     epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
-  for index in get_attesting_indices_iter(
-      state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
+  for vidx in state.get_attesting_indices(attestation, cache):
     let
-      base_reward = get_base_reward(state, index, base_reward_per_increment)
+      base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(index), flag_index):
-        asList(epoch_participation)[index] =
-          add_flag(epoch_participation.item(index), flag_index)
+         not has_flag(epoch_participation.item(vidx), flag_index):
+        asList(epoch_participation)[vidx] =
+          add_flag(epoch_participation.item(vidx), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1295,7 +1296,7 @@ proc process_attestation*(
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
-  ? check_attestation(state, attestation, flags, cache, true)
+  ? check_attestation(state, attestation, flags, cache)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
@@ -1321,7 +1322,7 @@ proc process_attestation*(
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
-  ? check_attestation(state, attestation, flags, cache, true)
+  ? check_attestation(state, attestation, flags, cache)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
@@ -1342,21 +1343,19 @@ proc process_attestation*(
 
   template updateParticipationFlags(epoch_participation: untyped): Gwei =
     var proposer_reward_numerator = 0.Gwei
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits,
-        attestation.committee_bits, cache):
+    for vidx in state.get_attesting_indices(attestation, cache):
       # [New in Gloas:EIP7732]
       # For same-slot attestations, check if we're setting any new flags
       # If we are, this validator hasn't contributed to this slot's quorum yet
       var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
-           not has_flag(epoch_participation.item(index), flag_index):
-          asList(epoch_participation)[index] =
-            add_flag(epoch_participation.item(index), flag_index)
+           not has_flag(epoch_participation.item(vidx), flag_index):
+          asList(epoch_participation)[vidx] =
+            add_flag(epoch_participation.item(vidx), flag_index)
           proposer_reward_numerator +=
             get_base_reward(
-              state, index, base_reward_per_increment) * weight.uint64
+              state, vidx, base_reward_per_increment) * weight.uint64
           will_set_new_flag = true
 
       # [New in Gloas:EIP7732]
@@ -1365,7 +1364,7 @@ proc process_attestation*(
       if will_set_new_flag and
           is_attestation_same_slot(state, attestation.data) and
           payment.withdrawal.amount > 0.Gwei:
-        payment.weight += state.validators.item(index).effective_balance
+        payment.weight += state.validators.item(vidx).effective_balance
 
     let
       proposer_reward_denominator =
@@ -2140,17 +2139,19 @@ func translate_participation(
     let
       data = attestation.data
       inclusion_delay = attestation.inclusion_delay
-
+      slot = data.slot
+      index = CommitteeIndex.init(data.index).expect("valid index in state")
       # Translate attestation inclusion info to flag indices
       participation_flag_indices =
         get_attestation_participation_flag_indices(state, data, inclusion_delay)
 
     # Apply flags to all attesting validators
-    for index in get_attesting_indices_iter(
-        state, data, attestation.aggregation_bits, cache):
+    for vidx in state.get_attesting_indices(
+      slot, index, attestation.aggregation_bits, cache
+    ):
       for flag_index in participation_flag_indices:
-        state.previous_epoch_participation[index] =
-          add_flag(state.previous_epoch_participation.item(index), flag_index)
+        state.previous_epoch_participation[vidx] =
+          add_flag(state.previous_epoch_participation.item(vidx), flag_index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
 func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
