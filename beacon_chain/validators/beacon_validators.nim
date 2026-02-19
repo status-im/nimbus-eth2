@@ -602,6 +602,15 @@ proc proposeBlockAux(
     beacon_block_production_errors.inc()
     return head # Validation errors logged in router
 
+    
+  notice "Block proposed",
+    blockRoot = shortLog(blockRoot),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signature),
+    validator = shortLog(validator)
+
+  beacon_blocks_proposed.inc()
+
   when consensusFork >= ConsensusFork.Gloas:
     let
       envelope = makeExecutionPayloadEnvelope(
@@ -620,70 +629,26 @@ proc proposeBlockAux(
     if signatureRes.isErr:
       error "Failed to sign execution payload envelope",
         slot, validator = shortLog(validator), err = signatureRes.error
-      beacon_block_production_errors.inc()
-      return head
-
-    let
-      signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
-        message: envelope,
-        signature: signatureRes.get()
-      )
-
-      # Send payload to local EL before broadcasting
-      payloadStatus = await node.elManager.newExecutionPayload(
-        signedBlock.message,
-        envelope,
-        sleepAsync(NEWPAYLOAD_TIMEOUT),
-        retry = false)
-      
-      optimisticStatus = payloadStatus.get.to(OptimisticStatus)
-    
-    case optimisticStatus
-    of OptimisticStatus.valid:
-      discard
-    of OptimisticStatus.notValidated:
-      debug "Self-built execution payload not yet validated",
-        status = payloadStatus.get
-    of OptimisticStatus.invalidated:
-      warn "Local EL rejected self-built execution payload",
-        status = payloadStatus.get
-      return head
-
-    # Broadcast envelope to gossip network
-    let envelopeRouteRes = await node.router.routeExecutionPayloadEnvelope(
-      signedEnvelope, checkValidator = false)
-    if envelopeRouteRes.isErr:
-      warn "Execution payload envelope not sent",
-        envelope = shortLog(signedEnvelope.message),
-        error = envelopeRouteRes.error
     else:
-      notice "Payload Envelope proposed",
-        blockRoot = shortLog(blockRoot),
-        blck = shortLog(signedBlock.message),
-        signature = shortLog(signature),
-        validator = shortLog(validator)
+      let
+        signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
+          message: envelope,
+          signature: signatureRes.get())
 
-    # Process envelope locally - skip state root verification
-    # for self-builds since the envelope's state_root is 
-    # computed before `process_execution_payload` runs,
-    # so it wouldn't match the post-envelope state root
-    discard node[].dag.addHeadExecutionPayload(
-      signedBlock,
-      signedEnvelope
-    ).valueOr:
-      error "Failed to process self-built execution payload envelope",
-        error = error,
-        blockRoot = shortLog(blockRoot)
-      beacon_block_production_errors.inc()
-      return head
-  
-  notice "Block proposed",
-    blockRoot = shortLog(blockRoot),
-    blck = shortLog(signedBlock.message),
-    signature = shortLog(signature),
-    validator = shortLog(validator)
+        # Broadcast envelope to gossip network
+        envelopeRouteRes = await node.router.routeExecutionPayloadEnvelope(
+          signedEnvelope, checkValidator = false)
 
-  beacon_blocks_proposed.inc()
+      if envelopeRouteRes.isErr:
+        warn "Execution payload envelope not sent",
+          envelope = shortLog(signedEnvelope.message),
+          error = envelopeRouteRes.error
+      else:
+        notice "Payload Envelope proposed",
+          blockRoot = shortLog(blockRoot),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signature),
+          validator = shortLog(validator)
 
   newBlockRef.get()
 

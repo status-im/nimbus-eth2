@@ -186,7 +186,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addHeadBlockWithParent, addHeadExecutionPayload,
+  checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
@@ -941,12 +942,55 @@ proc storePayload(
     deadline = sleepAsync(deadlineTime)
 
   debugGloasComment("optimisticStatusRes")
+  let optimisticStatusRes =
+    await self.consensusManager.elManager.getExecutionValidity(
+      signedBlock, signedEnvelope, deadline, retry = true)
+
+  if optimisticStatusRes.isNone:
+    warn "Failed to get execution validity - no response",
+      blockRoot = shortLog(signedBlock.root),
+      envelpe = shortLog(signedEnvelope.message)
+    return err(VerifierError.Invalid)
+
+  let optimisticStatus = optimisticStatusRes.get
+
+  case optimisticStatus:
+  of OptimisticStatus.valid:
+    debug "Execution payload validated by EL",
+      blockRoot = shortLog(signedBlock.root),
+      payload = shortLog(signedEnvelope.message.payload)
+  of OptimisticStatus.notValidated:
+    debug "Execution payload not validated by EL",
+      blockRoot = shortLog(signedBlock.root),
+      payload = shortLog(signedEnvelope.message.payload)
+  of OptimisticStatus.invalidated:
+    debug "Execution payload invalidated by EL",
+      blockRoot = shortLog(signedBlock.root),
+      payload = shortLog(signedEnvelope.message.payload)
+  
+  let blckRef = dag.addHeadExecutionPayload(
+    signedBlock, signedEnvelope).valueOr:
+    warn "Failed to add execution payload to head block",
+      blockRoot = shortLog(signedBlock.root),
+      error = error
+    return err(error)
+
+  self.envelopeQuarantine[].delOrphan(signedBlock)
+
+  if optimisticStatus == OptimisticStatus.valid:
+    await self.consensusManager.updateExecutionHead(
+      deadline, retry = false, self.getBeaconTime)
+
+  debug "Payload stored successfully",
+    blockRoot = shortLog(signedBlock.root),
+    blck = shortLog(blckRef),
+    optimisticStatus = optimisticStatus
+
   debugGloasComment("verifySidecars")
   debugGloasComment("clearance state")
   debugGloasComment("head state")
 
   self[].storeSidecars(sidecarsOpt)
-  self.envelopeQuarantine[].delOrphan(signedBlock)
 
   ok()
 
