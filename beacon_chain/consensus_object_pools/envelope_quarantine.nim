@@ -9,6 +9,7 @@
 
 import std/tables
 import ../spec/[digest, forks]
+from std/sequtils import addUnique, keepItIf
 
 type
   EnvelopeQuarantine* = object
@@ -66,7 +67,7 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
 
 func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.orphans.del(root)
-  self.missing.excl(root)
+  self.missing.keepItIf(it != root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
