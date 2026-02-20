@@ -28,6 +28,7 @@ import
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../spec/datatypes/eip8025,
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
        libp2p_json_serialization, peer_pool, peer_scores]
@@ -76,7 +77,7 @@ type
     protocols: seq[ProtocolInfo]
       ## Protocols managed by the DSL and mounted on the switch
     protocolStates*: seq[RootRef]
-    metadata*: fulu.MetaData
+    metadata*: eip8025.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
@@ -861,7 +862,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
-         T is SomeForkyLightClientObject:
+         T is SomeForkyLightClientObject or T is SignedExecutionProof:
       MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
@@ -1850,7 +1851,7 @@ proc new(T: type Eth2Node,
     let
       connectTimeout = chronos.seconds(10)
       seenThreshold = chronos.seconds(10)
-  type MetaData = fulu.MetaData # Weird bug without this..
+  type MetaData = eip8025.MetaData # Weird bug without this..
 
   # Versions up to v22.3.0 would write an empty `MetaData` to
   #`data-dir/node-metadata.json` which would then be reloaded on startup - don't
@@ -1876,7 +1877,8 @@ proc new(T: type Eth2Node,
       config, ip, tcpPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrExecutionProofAwarenessField: SSZ.encode(1'u8)
       },
     rng),
     discoveryEnabled: discovery,
@@ -2147,6 +2149,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
+debugEIP8025Comment("Replace with V4 and V3ToV4 but we need a fork for it")
 func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
                           NetRes[fulu.MetaData] =
   if metadataRes.isOk:
@@ -2908,3 +2911,9 @@ proc broadcastExecutionPayloadEnvelope*(
     topic = getExecutionPayloadTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, envelope)
+
+proc broadcastExecutionProof*(
+    node: Eth2Node, proof: eip8025.SignedExecutionProof):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let topic = getExecutionProofTopic(node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(topic, proof)

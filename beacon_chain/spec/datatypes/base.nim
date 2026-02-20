@@ -987,3 +987,4 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
 
 template debugFuluComment*(s: string) = discard
 template debugGloasComment*(s: string) = discard
+template debugEIP8025Comment*(s: string) = discard

@@ -10,6 +10,7 @@
 import
   chronicles, stew/base10, metrics,
   ../spec/network,
+  ../spec/datatypes/eip8025,
   ".."/[beacon_clock],
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
@@ -271,6 +272,14 @@ p2pProtocol PeerSync(version = 1,
 
   proc getMetadata_v3(peer: Peer): fulu.MetaData
     {.libp2pProtocol("metadata", 3).} =
+    let fulu_metadata = fulu.MetaData(
+      seq_number: peer.network.metadata.seq_number,
+      attnets: peer.network.metadata.attnets,
+      syncnets: peer.network.metadata.syncnets)
+    fulu_metadata
+
+  proc getMetadata_v4(peer: Peer): eip8025.MetaData
+    {.libp2pProtocol("metadata", 4).} =
     peer.network.metadata
 
   proc goodbye(peer: Peer, reason: uint64) {.

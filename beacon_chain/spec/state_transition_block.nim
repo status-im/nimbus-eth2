@@ -28,6 +28,8 @@ import
   chronicles, metrics,
   ../extras,
   ./[beaconstate, eth2_merkleization, forks, helpers, validator, signatures],
+  ./datatypes/eip8025,
+  ./proof_engine,
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
@@ -890,6 +892,18 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+func kzg_commitment_to_versioned_hash*(
+    kzg_commitment: KzgCommitment): VersionedHash {.noinit.} =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
+  const VERSIONED_HASH_VERSION_KZG = 0x01'u8
+
+  var res {.noinit.}: VersionedHash
+  static: assert res.data.len == 32
+  res.data[0] = VERSIONED_HASH_VERSION_KZG
+  res.data[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
+  res
+
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
@@ -1105,10 +1119,54 @@ type SomeFuluBeaconBlockBody =
   fulu.TrustedBeaconBlockBody
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/beacon-chain.md#modified-process_execution_payload
-proc process_execution_payload*(
+# proc process_execution_payload*(
+#     cfg: RuntimeConfig, state: var fulu.BeaconState,
+#     body: SomeFuluBeaconBlockBody | fulu_mev.SigVerifiedBlindedBeaconBlockBody,
+#     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
+#   template payload: auto = body.payload()
+
+#   # Verify consistency of the parent hash with respect to the previous
+#   # execution payload header
+#   if not (payload.parent_hash ==
+#       state.latest_execution_payload_header.block_hash):
+#     return err("process_execution_payload: payload and state parent hash mismatch")
+
+#   # Verify prev_randao
+#   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+#     return err("process_execution_payload: payload and state randomness mismatch")
+
+#   # Verify timestamp
+#   if not (payload.timestamp == cfg.timeParams
+#       .compute_timestamp_at_slot(state, state.slot)):
+#     return err("process_execution_payload: invalid timestamp")
+
+#   # Verify commitments are under limit
+#   let blob_params =
+#     cfg.get_blob_parameters(get_current_epoch(state))
+#   if not (lenu64(body.blob_kzg_commitments) <= blob_params.MAX_BLOBS_PER_BLOCK):
+#     return err("process_execution_payload: too many KZG commitments")
+
+#   when payload is ForkyExecutionPayloadHeader:
+#     # Assume valid, when blinded
+#     state.latest_execution_payload_header = payload
+#   else:
+#     # Verify the execution payload is valid
+#     if not notify_new_payload(payload):
+#       return err("process_execution_payload: execution payload invalid")
+
+#     # Cache execution payload header
+#     state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
+
+#   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/2938e1ad74cea54f1a24508a85704d5bd87837ad/specs/_features/eip8025/beacon-chain.md#modified-process_execution_payload\
+debugEIP8025Comment("For now just replace fulu process_execution_payload, no fork yet")
+proc process_execution_payload(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody | fulu_mev.SigVerifiedBlindedBeaconBlockBody,
-    notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
+    notify_new_payload: deneb.ExecutePayload,
+    verify_new_payload_request_header: eip8025.VerifyPayload
+    ) : Result[void, cstring] =
   template payload: auto = body.payload()
 
   # Verify consistency of the parent hash with respect to the previous
@@ -1140,8 +1198,21 @@ proc process_execution_payload*(
     if not notify_new_payload(payload):
       return err("process_execution_payload: execution payload invalid")
 
+    let execution_payload_header = payload.toExecutionPayloadHeader()
+    # [New in EIP8025]
+    # Note: actual check happens in `storeBlock` in block processor,
+    # here we just do a mock check, just like for verify_and_notify_new_payload
+    let new_payload_request_header = NewPayloadRequestHeader(
+      execution_payload_header: execution_payload_header,
+      versioned_hashes: mapIt(body.blob_kzg_commitments, kzg_commitment_to_versioned_hash(it)),
+      parent_beacon_block_root: state.latest_block_header.parent_root,
+      execution_requests: body.execution_requests,
+    )
+    if not verify_new_payload_request_header(new_payload_request_header):
+      return err("process_execution_payload: invalid optional proof")
+
     # Cache execution payload header
-    state.latest_execution_payload_header = payload.toExecutionPayloadHeader()
+    state.latest_execution_payload_header = execution_payload_header
 
   ok()
 
@@ -1503,17 +1574,17 @@ func process_withdrawals*(state: var gloas.BeaconState):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
-func kzg_commitment_to_versioned_hash*(
-    kzg_commitment: KzgCommitment): VersionedHash {.noinit.} =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
-  const VERSIONED_HASH_VERSION_KZG = 0x01'u8
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# func kzg_commitment_to_versioned_hash*(
+#     kzg_commitment: KzgCommitment): VersionedHash {.noinit.} =
+#   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
+#   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
-  var res {.noinit.}: VersionedHash
-  static: assert res.data.len == 32
-  res.data[0] = VERSIONED_HASH_VERSION_KZG
-  res.data[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
-  res
+#   var res {.noinit.}: VersionedHash
+#   static: assert res.data.len == 32
+#   res.data[0] = VERSIONED_HASH_VERSION_KZG
+#   res.data[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
+#   res
 
 proc validate_blobs*(
     expected_kzg_commitments: seq[KzgCommitment], blobs: seq[KzgBlob],
@@ -1714,25 +1785,57 @@ proc process_block*(
 
 type SomeFuluBlock =
   fulu.BeaconBlock | fulu.SigVerifiedBeaconBlock | fulu.TrustedBeaconBlock
+
+# proc process_block*(
+#     cfg: RuntimeConfig,
+#     state: var fulu.BeaconState,
+#     blck: SomeFuluBlock | fulu_mev.SigVerifiedBlindedBeaconBlock,
+#     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
+#   ## When there's a new block, we need to verify that the block is sane and
+#   ## update the state accordingly - the state is left in an unknown state when
+#   ## block application fails (!)
+
+#   ? process_block_header(state, blck, flags, cache)
+
+#   # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+#   # true, but intentionally keep such a check.
+#   if is_execution_enabled(state, blck.body):
+#     ? process_withdrawals(state, blck.body.payload)
+
+#     ? process_execution_payload(
+#         cfg, state, blck.body,
+#         func(_: deneb.ExecutionPayload): bool = true)
+#   ? process_randao(state, blck.body, flags, cache)
+#   ? process_eth1_data(state, blck.body)
+
+#   let
+#     total_active_balance = get_total_active_balance(state, cache)
+#     base_reward_per_increment =
+#       get_base_reward_per_increment(total_active_balance)
+#   var operations_rewards = ? process_operations(
+#     cfg, state, blck.body, base_reward_per_increment, flags, cache)
+#   operations_rewards.sync_aggregate = ? process_sync_aggregate(
+#     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
+#   ok(operations_rewards)
+
+# https://github.com/ethereum/consensus-specs/blob/2938e1ad74cea54f1a24508a85704d5bd87837ad/specs/_features/eip8025/beacon-chain.md#modified-process_block
+debugEIP8025Comment("For now just replace fulu process_block, no fork yet")
 proc process_block*(
     cfg: RuntimeConfig,
     state: var fulu.BeaconState,
     blck: SomeFuluBlock | fulu_mev.SigVerifiedBlindedBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
-  ## When there's a new block, we need to verify that the block is sane and
-  ## update the state accordingly - the state is left in an unknown state when
-  ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
 
-  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
-  # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.payload)
-
     ? process_execution_payload(
         cfg, state, blck.body,
-        func(_: deneb.ExecutionPayload): bool = true)
+        func(_: deneb.ExecutionPayload): bool = true,
+        func(_: eip8025.NewPayloadRequestHeader): bool = true)
+
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
@@ -1776,3 +1879,29 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok(operations_rewards)
+
+# https://github.com/ethereum/consensus-specs/blob/f73487b93bfcf6a047766187578e513a69ee8c7f/specs/_features/eip8025/beacon-chain.md#new-process_execution_proof
+proc process_execution_proof*(
+    state: var fulu.BeaconState,
+    signed_proof: SignedExecutionProof,
+    proof_engine: ProofEngine,
+): Result[void, cstring] =
+  debugEIP8025Comment("Not sure where to let this proc live")
+  let proof_message = signed_proof.message
+
+  # Verify prover is an active validator
+  let validator = state.validators.item(signed_proof.validator_index)
+  if not is_active_validator(validator, get_current_epoch(state)):
+    return err("process_execution_proof: prover is not an active validator")
+
+  let
+    domain = get_domain(state, DOMAIN_EXECUTION_PROOF, epoch(state.slot))
+    signing_root = compute_signing_root(proof_message, domain)
+  if not blsVerify(validator.pubkey, signing_root.data, signed_proof.signature):
+    return err("process_execution_proof: invalid proof signature")
+
+  # Verify the execution proof
+  if proof_engine.verify_execution_proof(proof_message):
+    ok()
+  else:
+    err("process_execution_proof: invalid execution proof")
