@@ -274,8 +274,10 @@ proc storeSidecars(
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+
 proc storeBackfillBlock(
-    self: var BlockProcessor,
+    self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
@@ -316,8 +318,9 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    # Only store side cars after successfully establishing block viability.
-    self.storeSidecars(sidecarsOpt)
+    when consensusFork <= ConsensusFork.Fulu:
+      # Only store side cars after successfully establishing block viability.
+      self[].storeSidecars(sidecarsOpt)
 
     res
 
@@ -423,7 +426,7 @@ proc enqueueBlock*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    discard self[].storeBackfillBlock(blck, sidecarsOpt)
+    discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
   # `discard` here means that the `async` task will continue running even though
@@ -770,6 +773,11 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
+  when consensusFork >= ConsensusFork.Gloas:
+    # Enqueue payload here instead of `addBlock` for the consistency of payload
+    # processing with backfilling.
+    self.enqueuePayload(signedBlock)
+
   ok(blck)
 
 proc addBlock*(
@@ -802,7 +810,7 @@ proc addBlock*(
   if blck.message.slot <= dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    return self[].storeBackfillBlock(blck, sidecarsOpt)
+    return self.storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
 
@@ -958,54 +966,36 @@ proc addPayload(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  let optimisticStatusRes =
-    await self.consensusManager.elManager.getExecutionValidity(
-      signedBlock, signedEnvelope, deadline, retry = true)
+  let
+    optimisticStatusRes =
+      block:
+        debugGloasComment("handle (maybe)finalized slot")
+        func shouldRetry(): bool =
+          not dag.is_optimistic(dag.head.bid)
+        await self.consensusManager.elManager.getExecutionValidity(
+          signedBlock, signedEnvelope, deadline, shouldRetry())
+    optimisticStatus =
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
-  if optimisticStatusRes.isNone:
-    warn "Failed to get execution validity - no response",
-      blockRoot = shortLog(signedBlock.root),
-      envelpe = shortLog(signedEnvelope.message)
+  # optimisticStatus could be valid or notValidated at this point. We will
+  # validate it by the clearance state transition.
+  if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
-  let optimisticStatus = optimisticStatusRes.get
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
 
-  case optimisticStatus:
-  of OptimisticStatus.valid:
-    debug "Execution payload validated by EL",
-      blockRoot = shortLog(signedBlock.root),
-      payload = shortLog(signedEnvelope.message.payload)
-  of OptimisticStatus.notValidated:
-    debug "Execution payload not validated by EL",
-      blockRoot = shortLog(signedBlock.root),
-      payload = shortLog(signedEnvelope.message.payload)
-  of OptimisticStatus.invalidated:
-    debug "Execution payload invalidated by EL",
-      blockRoot = shortLog(signedBlock.root),
-      payload = shortLog(signedEnvelope.message.payload)
-  
-  let blckRef = dag.addHeadExecutionPayload(
-    signedBlock, signedEnvelope).valueOr:
-    warn "Failed to add execution payload to head block",
-      blockRoot = shortLog(signedBlock.root),
-      error = error
-    return err(error)
+  # Try adding the envelope to clearance state.
+  debugGloasComment("deadline")
+  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
-  self.envelopeQuarantine[].delOrphan(signedBlock)
+  # The execution payload has added to the clearance state successfully, so try
+  # adding to the current state.
+  debugGloasComment("deadline")
+  debugGloasComment("should be decided by Fork Choice")
+  # TODO To be removed - Temporary call without import.
+  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
-  if optimisticStatus == OptimisticStatus.valid:
-    await self.consensusManager.updateExecutionHead(
-      deadline, retry = false, self.getBeaconTime)
-
-  debug "Payload stored successfully",
-    blockRoot = shortLog(signedBlock.root),
-    blck = shortLog(blckRef),
-    optimisticStatus = optimisticStatus
-
-  debugGloasComment("verifySidecars")
-  debugGloasComment("clearance state")
-  debugGloasComment("head state")
-
+  # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
 
   ok()
