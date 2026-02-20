@@ -31,8 +31,7 @@ template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
-  if root notin self.missing:
-    self.missing.add(root)
+  self.missing.addUnique(root)
 
 func getMissing*(self: EnvelopeQuarantine): seq[Eth2Digest] =
   self.missing
