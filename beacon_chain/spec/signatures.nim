@@ -476,9 +476,10 @@ proc verify_execution_payload_envelope_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     msg: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
-  let signing_root = compute_execution_payload_envelope_signing_root(
-    fork, genesis_validators_root, epoch, msg)
-  blsVerify(pubkey, signing_root.data, signature)
+  withTrust(signature):
+    let signing_root = compute_execution_payload_envelope_signing_root(
+      fork, genesis_validators_root, epoch, msg)
+    blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/validator.md#constructing-a-payload-attestation
 func compute_payload_attestation_message_signing_root*(
