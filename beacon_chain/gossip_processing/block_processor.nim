@@ -31,7 +31,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
+  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -186,8 +186,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, addHeadExecutionPayload,
-  checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addBackfillExecutionPayload, addHeadBlockWithParent,
+  addHeadExecutionPayload, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
@@ -929,12 +929,29 @@ proc addBlock*(
     of VerifierError.Duplicate:
       err(res.error())
 
-proc storePayload(
+proc storeBackfillPayload(
+    self: var BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Result[void, VerifierError] =
+  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+
+  self.storeSidecars(sidecarsOpt)
+  ok()
+
+proc addPayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -984,17 +1001,6 @@ proc storePayload(
 
   ok()
 
-proc enqueuePayload*(
-    self: ref BlockProcessor,
-    blck: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-) =
-  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    debugGloasComment("backfilling")
-
-  discard self.storePayload(blck, envelope, sidecarsOpt)
-
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
 
@@ -1019,7 +1025,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           return
         sidecarsOpt
 
-  self.enqueuePayload(blck, envelope, sidecarsOpt)
+  discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the

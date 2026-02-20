@@ -61,6 +61,10 @@ func popOrphan*(
 func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
   self.orphans.del(blck.root)
 
+func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+  self.orphans.del(root)
+  self.missing.excl(root)
+
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
