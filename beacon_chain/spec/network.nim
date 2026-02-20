@@ -28,6 +28,7 @@ const
   topicExecutionPayloadBidSuffix = "execution_payload_bid/ssz_snappy"
   topicExecutionPayloadSuffix = "execution_payload/ssz_snappy"
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
+  topicExecutionProofSuffix = "execution_proof/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -40,6 +41,8 @@ const
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
 
+  MAX_EXECUTION_PROOFS_PER_PAYLOAD*: uint64 = 4
+
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
@@ -51,6 +54,7 @@ const
   enrSyncSubnetsField* = "syncnets"
   enrCustodySubnetCountField* = "cgc"
   enrNextForkDigestField* = "nfd"
+  enrExecutionProofAwarenessField* = "eproof"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
@@ -152,6 +156,10 @@ func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/323f4ae262ce83035ba4c99fe2437e40ecf9f09c/specs/_features/eip8025/p2p-interface.md#execution_proof
+func getExecutionProofTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicExecutionProofSuffix
 
 func getForkDigest(
     cfg: RuntimeConfig, genesis_validators_root: Eth2Digest,

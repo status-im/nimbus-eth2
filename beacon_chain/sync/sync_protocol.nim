@@ -10,6 +10,7 @@
 import
   chronicles, chronos, snappy, snappy/codec,
   ../spec/[helpers, forks, network],
+  ../spec/datatypes/eip8025,
   ".."/[beacon_clock],
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
@@ -126,6 +127,28 @@ proc readChunkPayload*(
   withConsensusFork(contextFork):
     when consensusFork >= ConsensusFork.Fulu:
       let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
+      if res.isOk:
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
+    else:
+      return neterr InvalidContextBytes
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer, MsgType: type (ref eip8025.SignedExecutionProof)):
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
+
+  withConsensusFork(contextFork):
+    when consensusFork >= ConsensusFork.Fulu:
+      let res = await readChunkPayload(conn, peer, eip8025.SignedExecutionProof)
       if res.isOk:
         return ok newClone(res.get)
       else:
@@ -636,6 +659,22 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
+
+  # https://github.com/ethereum/consensus-specs/blob/2938e1ad74cea54f1a24508a85704d5bd87837ad/specs/_features/eip8025/p2p-interface.md#executionproofsbyroot
+  proc executionProofsByRoot(
+      peer: Peer,
+      blockRoot: Eth2Digest,
+      response: MultipleChunksResponse[
+        ref eip8025.SignedExecutionProof, Limit(MAX_EXECUTION_PROOFS_PER_PAYLOAD)])
+      {.async, libp2pProtocol("execution_proofs_by_root", 1).} =
+    # [REJECT] The block_root is a 32-byte value.
+
+    # All available execution proofs for the requested block_root.
+    # The response MUST NOT contain more than MAX_EXECUTION_PROOFS_PER_PAYLOAD proofs.
+
+    # TODO: implement storage + returning of execution proofs
+
+    discard
 
 func init*(T: type BeaconSync.NetworkState, dag: ChainDAGRef): T =
   T(

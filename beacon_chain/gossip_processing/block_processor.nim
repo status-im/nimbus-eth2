@@ -39,6 +39,8 @@ from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
   getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
+from ../spec/proof_engine import ProofEngine, NewPayloadRequestHeader, verify_new_payload_request_header
+
 export sszdump, signatures_batch
 
 logScope: topics = "gossip_blocks"
@@ -361,7 +363,7 @@ proc newExecutionPayload*(
     elManager, blck, noEnvelope, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
 
 proc getExecutionValidity(
-    elManager: ELManager,
+    elManager: ELManager, proofEngine: ProofEngine,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
@@ -382,6 +384,12 @@ proc getExecutionValidity(
   let status = (await elManager.newExecutionPayload(
       blck.message, someEnvelope, deadline, retry)).valueOr:
     return Opt.none(OptimisticStatus)
+
+  debugEIP8025Comment("For now just log this result")
+  if proofEngine.verify_new_payload_request_header(NewPayloadRequestHeader()):
+    info "execution payload valid: valid optional proofs"
+  else:
+    info "execution payload invalid: invalid optional proofs"
 
   let optimisticStatus = status.to(OptimisticStatus)
 
@@ -681,6 +689,7 @@ proc storeBlock(
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
           await self.consensusManager.elManager.getExecutionValidity(
+            self.consensusManager.proofEngine,
             signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously

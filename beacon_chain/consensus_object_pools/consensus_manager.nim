@@ -19,6 +19,9 @@ import
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
+from ../spec/proof_engine import ProofEngine
+
+export ProofEngine
 
 logScope: topics = "cman"
 
@@ -39,6 +42,8 @@ type
     # Execution layer integration
     # ----------------------------------------------------------------
     elManager*: ELManager
+
+    proofEngine*: ProofEngine
 
     # Allow determination of whether there's an upcoming proposal
     # ----------------------------------------------------------------
@@ -68,6 +73,7 @@ func new*(T: type ConsensusManager,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
           elManager: ELManager,
+          proofEngine: ProofEngine,
           actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
@@ -79,6 +85,7 @@ func new*(T: type ConsensusManager,
     attestationPool: attestationPool,
     quarantine: quarantine,
     elManager: elManager,
+    proofEngine: proofEngine,
     actionTracker: actionTracker,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,

@@ -15,6 +15,7 @@ import
   ssz_serialization/types,
   ../el/el_manager,
   ../spec/[helpers, forks],
+  ../spec/datatypes/eip8025,
   ../consensus_object_pools/[
     attestation_pool, blob_quarantine, block_clearance, block_quarantine,
     blockchain_dag, envelope_quarantine, execution_payload_pool,
@@ -949,3 +950,17 @@ proc processPayloadAttestationMessage*(
 
   trace "Payload attestation validated"
   return ok()
+
+proc processExecutionProof*(
+    self: var Eth2Processor, src: MsgSource,
+    execution_proof: SignedExecutionProof
+): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+
+  let v = validateExecutionProof(self.dag, execution_proof, wallTime)
+  if v.isOk():
+    debug "Execution proof validated"
+    ok()
+  else:
+    debug "Dropping execution proof", reason = $v.error
+    err(v.error())

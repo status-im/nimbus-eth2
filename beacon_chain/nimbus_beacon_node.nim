@@ -22,7 +22,7 @@ import
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
-  ./spec/datatypes/[altair, bellatrix, phase0],
+  ./spec/datatypes/[altair, bellatrix, phase0, eip8025],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
@@ -599,7 +599,7 @@ proc initFullNode(
       dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine, node.elManager,
+      dag, attestationPool, quarantine, node.elManager, ProofEngine(),
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
@@ -1369,6 +1369,12 @@ proc addElectraMessageHandlers(
   node.doAddDenebMessageHandlers(
     forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
+proc addFuluMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  debugEIP8025Comment("CapellaMessageHandlers is used for Fulu, hence adding this with just EIP8025 subcription for now")
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  node.network.subscribe(getExecutionProofTopic(forkDigest), basicParams())
+
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
@@ -1422,6 +1428,8 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.unsubscribe(topic)
+
+  node.network.unsubscribe(getExecutionProofTopic(forkDigest))
 
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
@@ -1675,7 +1683,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addCapellaMessageHandlers,
     addDenebMessageHandlers,
     addElectraMessageHandlers,
-    addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
+    addFuluMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
     addGloasMessageHandlers
   ]
 
@@ -2550,6 +2558,18 @@ proc installMessageValidators(node: BeaconNode) =
                   toValidationResult(
                     node.processor[].processBlobSidecar(
                       MsgSource.gossip, blobSidecar, subnet_id)))
+
+        # execution_proof
+        # https://github.com/ethereum/consensus-specs/blob/2938e1ad74cea54f1a24508a85704d5bd87837ad/specs/_features/eip8025/p2p-interface.md#execution_proof
+        when consensusFork >= ConsensusFork.Fulu:
+          node.network.addAsyncValidator(
+            getExecutionProofTopic(digest), proc (
+              msg: SignedExecutionProof,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                node.processor[].processExecutionProof(
+                  MsgSource.gossip, msg)))
 
   node.installLightClientMessageValidators()
 

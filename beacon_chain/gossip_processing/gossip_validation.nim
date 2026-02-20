@@ -16,6 +16,7 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks,
     helpers, network, signatures, peerdas_helpers],
+  ../spec/datatypes/eip8025,
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
     block_quarantine, envelope_quarantine, execution_payload_pool,
@@ -2168,5 +2169,37 @@ proc validatePayloadAttestationMessage*(
         "PayloadAttestationMessage: timeout checking signature")
     of BatchResult.Valid:
       discard
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/f73487b93bfcf6a047766187578e513a69ee8c7f/specs/_features/eip8025/p2p-interface.md#execution_proof
+proc validateExecutionProof*(
+    dag: ChainDAGRef, executionProof: SignedExecutionProof, wallTime: BeaconTime
+): Result[void, ValidationError] =
+  debugEIP8025Comment("To implement")
+  # [IGNORE] The proof's corresponding new payload request (identified by
+  # proof.public_input.new_payload_request_root) has been seen (via gossip or
+  # non-gossip sources) (a client MAY queue proofs for processing once the new
+  # payload request is retrieved).
+  # [IGNORE] No valid proof has already been received for the tuple
+  # (proof.public_input.new_payload_request_root, proof.proof_type) -- i.e. no
+  # valid proof for proof.proof_type from any prover has been received.
+  # [IGNORE] The proof is the first proof received for the tuple
+  # (proof.public_input.new_payload_request_root, proof.proof_type,
+  # signed_execution_proof.validator_index) -- i.e. the first valid or invalid
+  # proof for proof.proof_type from signed_execution_proof.validator_index.
+  # [REJECT] The validator with index signed_execution_proof.validator_index is
+  # an active validator -- i.e. is_active_validator(state.validators[
+  # signed_execution_proof.validator_index], get_current_epoch(state)) returns
+  # True.
+  # [REJECT] signed_execution_proof.signature is valid with respect to the
+  # validator's public key.
+  # [REJECT] proof.proof_data is non-empty.
+  # [REJECT] proof.proof_data is not larger than MAX_PROOF_SIZE.
+  # [REJECT] All of the conditions within process_execution_proof pass
+  # validation.
+  # [IGNORE] No valid proof has already been received for the tuple
+  # (proof.public_input.new_payload_request_root, proof.proof_type) -- i.e. no
+  # valid proof for proof.proof_type from any prover has been received.
 
   ok()
