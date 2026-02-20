@@ -941,7 +941,6 @@ proc storePayload(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  debugGloasComment("optimisticStatusRes")
   let optimisticStatusRes =
     await self.consensusManager.elManager.getExecutionValidity(
       signedBlock, signedEnvelope, deadline, retry = true)
