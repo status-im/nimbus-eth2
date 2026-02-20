@@ -1405,7 +1405,7 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.compatible_with_shuffling(
+  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
     shufflingRef, slot, committee_index
   ):
     return pool.checkedReject(
@@ -1448,8 +1448,8 @@ proc validateAggregate*(
 
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
-    attesting_indices = get_attesting_indices(
-      shufflingRef, slot, committee_index, aggregate.aggregation_bits
+    attesting_indices = shufflingRef.get_attesting_indices(
+      slot, aggregate.committee_bits, aggregate.aggregation_bits
     )
     sig = aggregate.signature.load().valueOr:
       return pool.checkedReject("Aggregate: unable to load signature")

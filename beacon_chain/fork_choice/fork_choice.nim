@@ -318,11 +318,10 @@ proc process_block*(
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for validator_index in dag.get_attesting_indices(attestation, true):
+      for vidx in dag.get_attesting_indices(attestation):
         self.backend.process_attestation(
-          validator_index,
-          attestation.data.beacon_block_root,
-          attestation.data.slot)
+          vidx, attestation.data.beacon_block_root, attestation.data.slot
+        )
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)

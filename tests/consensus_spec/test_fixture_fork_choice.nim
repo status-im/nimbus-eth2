@@ -373,7 +373,7 @@ proc doRunTest(
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt, true)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt)), time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):

@@ -405,16 +405,7 @@ proc collectSignatureSets*(
   for attestation in signed_block.message.body.attestations:
     let
       attesting_indices =
-        when consensusFork < ConsensusFork.Electra:
-          get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits, cache
-          )
-        else:
-          get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            attestation.committee_bits, cache,
-          )
-
+        forkyState.data.get_attesting_indices(attestation, cache)
       key = ?aggregateAttesters(attesting_indices, validatorKeys)
       sig = attestation.signature.load().valueOr:
         return err("Invalid attestation signature")
