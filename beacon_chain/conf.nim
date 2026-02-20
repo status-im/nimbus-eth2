@@ -231,6 +231,11 @@ type
       desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
+    debugDisableReconstruction* {.
+      defaultValue: true,
+      desc: "Disables column reconstruction for the currently running beacon node"
+      name: "debug-disable-reconstruction" .}: bool
+
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
