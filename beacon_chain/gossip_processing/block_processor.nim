@@ -930,9 +930,7 @@ proc storeBackfillPayload(
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
   ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
-
-  self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope).isOkOr:
-    return err(error)
+  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
 
   self.storeSidecars(sidecarsOpt)
   ok()
