@@ -186,8 +186,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addBackfillExecutionPayload,
-  addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addBackfillExecutionPayload, addHeadBlockWithParent,
+  addHeadExecutionPayload, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
@@ -274,8 +274,10 @@ proc storeSidecars(
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+
 proc storeBackfillBlock(
-    self: var BlockProcessor,
+    self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
@@ -316,8 +318,9 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    # Only store side cars after successfully establishing block viability.
-    self.storeSidecars(sidecarsOpt)
+    when consensusFork <= ConsensusFork.Fulu:
+      # Only store side cars after successfully establishing block viability.
+      self[].storeSidecars(sidecarsOpt)
 
     res
 
@@ -423,7 +426,7 @@ proc enqueueBlock*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    discard self[].storeBackfillBlock(blck, sidecarsOpt)
+    discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
   # `discard` here means that the `async` task will continue running even though
@@ -770,6 +773,11 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
+  when consensusFork >= ConsensusFork.Gloas:
+    # Enqueue payload here instead of `addBlock` for the consistency of payload
+    # processing with backfilling.
+    self.enqueuePayload(signedBlock)
+
   ok(blck)
 
 proc addBlock*(
@@ -802,7 +810,7 @@ proc addBlock*(
   if blck.message.slot <= dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    return self[].storeBackfillBlock(blck, sidecarsOpt)
+    return self.storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
 
@@ -958,11 +966,36 @@ proc addPayload*(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  debugGloasComment("optimisticStatusRes")
-  debugGloasComment("verifySidecars")
-  debugGloasComment("clearance state")
-  debugGloasComment("head state")
+  let
+    optimisticStatusRes =
+      block:
+        debugGloasComment("handle (maybe)finalized slot")
+        func shouldRetry(): bool =
+          not dag.is_optimistic(dag.head.bid)
+        await self.consensusManager.elManager.getExecutionValidity(
+          signedBlock, signedEnvelope, deadline, shouldRetry())
+    optimisticStatus =
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
+  # optimisticStatus could be valid or notValidated at this point. We will
+  # validate it by the clearance state transition.
+  if OptimisticStatus.invalidated == optimisticStatus:
+    return err(VerifierError.Invalid)
+
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+
+  # Try adding the envelope to clearance state.
+  debugGloasComment("deadline")
+  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # The execution payload has added to the clearance state successfully, so try
+  # adding to the current state.
+  debugGloasComment("deadline")
+  debugGloasComment("should be decided by Fork Choice")
+  # TODO To be removed - Temporary call without import.
+  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+
+  # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].delOrphan(signedBlock)
 
