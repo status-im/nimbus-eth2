@@ -961,7 +961,7 @@ proc storePayload(
       ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
   # optimisticStatus could be valid or notValidated at this point. We will
-  # validated it by the clearance state transition.
+  # validate it by the clearance state transition.
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
