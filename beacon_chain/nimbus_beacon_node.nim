@@ -688,6 +688,7 @@ proc initFullNode(
 
       let
         blockRef = dag.getBlockRef(blockRoot).valueOr:
+          # Return ok() as we may not have the block yet.
           return ok()
         blck =
           block:
@@ -697,7 +698,7 @@ proc initFullNode(
               # Since no result is returned, we log for investigation.
               debug "Enqueue payload from envelope. Block is missing in DB",
                 bid = shortLog(blockRef.bid)
-              return ok()
+              return err(VerifierError.Invalid)
             withBlck(forkedBlock):
               when consensusFork >= ConsensusFork.Gloas:
                 forkyBlck.asSigned()
@@ -705,7 +706,7 @@ proc initFullNode(
                 # Incorrect fork which shouldn't be happening.
                 debug "Enqueue payload from envelope. Block is in incorrect fork",
                   bid = shortLog(blockRef.bid)
-                return ok()
+                return err(VerifierError.UnviableFork)
         envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
           # At this point, the signedEnvelope is from a different builder since
           # the block should be the source of truth. We should notify receiving
@@ -725,6 +726,7 @@ proc initFullNode(
               # As sidecars are missing, put envelope back to quarantine.
               consensusManager.quarantine[].addSidecarless(blck)
               envelopeQuarantine[].addOrphan(envelope)
+              # Return ok() as columns may arrive late.
               return ok()
             sidecarsOpt
       await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
