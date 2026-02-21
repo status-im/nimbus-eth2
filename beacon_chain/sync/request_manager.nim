@@ -287,14 +287,12 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
 
 proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
     {.async: (raises: [CancelledError]).} =
-  var peer: Peer
+  let peer = await self.network.peerPool.acquire()
+  debug "Requesting envelopes by root",
+    peer = peer, envelopes = shortLog(roots),
+    peer_score = peer.getScore()
 
   try:
-    peer = await self.network.peerPool.acquire()
-    debug "Requesting envelopes by root",
-      peer = peer, envelopes = shortLog(roots),
-      peer_score = peer.getScore()
-
     let envelopes = await executionPayloadEnvelopesByRoot(
       peer, BlockRootsList roots)
 
