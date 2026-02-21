@@ -1763,13 +1763,12 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
   withBlck(blck):
     when consensusFork >= ConsensusFork.Fulu:
-      let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
       var
         columns: seq[ref fulu.DataColumnSidecar]
         indices: HashSet[uint64]
 
       # Get columns from database
-      for i in 0 ..< maxColCount:
+      for i in 0 ..< NUMBER_OF_COLUMNS.uint64:
         var colData: fulu.DataColumnSidecar
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
@@ -1777,10 +1776,10 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       trace "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
-      if columns.lenu64 < (maxColCount div 2):
+      if columns.lenu64 < (NUMBER_OF_COLUMNS div 2):
         return
       # Ignore if the node has already obtained all the columns
-      elif columns.lenu64 == maxColCount:
+      elif columns.lenu64 == NUMBER_OF_COLUMNS:
         trace "The node has already obtained all the columns"
         return
 
@@ -1796,7 +1795,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let recoveredTime = Moment.now()
 
-      for i in 0 ..< maxColCount:
+      for i in 0 ..< NUMBER_OF_COLUMNS.uint64:
         if i in indices:
           continue
         var
@@ -2128,7 +2127,7 @@ proc attemptGetBlobs(node: BeaconNode,
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
-            let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
+            const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
 
             var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
 
