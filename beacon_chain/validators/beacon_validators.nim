@@ -649,14 +649,18 @@ proc proposeBlockAux(
     if signatureRes.isErr:
       error "Failed to sign sign execution payload envelope",
         slot, validator = shortLog(validator), err = signatureRes.error
+      return head
     else:
       let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
         message: envelope,
         signature: signatureRes.get()
       )
 
-      discard await node.router.routeExecutionPayloadEnvelope(
-        signedEnvelope, checkValidator = false)
+      let res = await node.router.routeExecutionPayloadEnvelope(
+          signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
+      if res.isErr():
+        error "Failed to propose envelope", reason = res.error(), slot = slot
+        return head
 
       notice "Payload Envelope proposed",
         blockRoot = shortLog(blockRoot),

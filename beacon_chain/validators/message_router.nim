@@ -709,28 +709,25 @@ proc routePayloadAttestationMessage*(
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
     checkValidator: bool
-): Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res = router[].processor[].processExecutionPayloadEnvelope(
-      MsgSource.api, signedEnvelope)
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  # Publish envelope
+  (await router[].network.broadcastExecutionPayloadEnvelope(
+      signedEnvelope)).isOkOr:
+    return err("Proposed envelope failed to broadcast")
 
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message),
-        error = res.error()
-      return err(res.error()[1])
+  info "Execution payload envelope sent",
+    envelope = shortLog(signedEnvelope.message)
 
-  let res =
-    await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  # Publish sidecars
+  let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
-  if res.isOk():
-    info "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message),
-      error = res.error()
+  # Add envelope and sidecars to DAG
+  (await router[].blockProcessor.addPayload(
+      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+    return err("Proposed envelope failed to add to the chain")
 
-  return ok()
+  ok()
