@@ -304,10 +304,14 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  when someSidecarsOpt is NoSidecarsAtFork:
+  const consensusFork = typeof(blck).kind
+  when consensusFork >= ConsensusFork.Gloas:
+    # Disable column processing at block time.
     const finalSidecars = noSidecars
-  else:
+  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  else:
+    const finalSidecars = noSidecars
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
