@@ -31,7 +31,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan
+  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -186,7 +186,8 @@ proc dumpBlock(
       discard
 
 from ../consensus_object_pools/block_clearance import
-  addBackfillBlock, addHeadBlockWithParent, checkHeadBlock, verifyBlockProposer
+  addBackfillBlock, addBackfillExecutionPayload, addHeadBlockWithParent,
+  addHeadExecutionPayload, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
@@ -273,8 +274,10 @@ proc storeSidecars(
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+
 proc storeBackfillBlock(
-    self: var BlockProcessor,
+    self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
 ): Result[void, VerifierError] =
@@ -315,8 +318,9 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    # Only store side cars after successfully establishing block viability.
-    self.storeSidecars(sidecarsOpt)
+    when consensusFork <= ConsensusFork.Fulu:
+      # Only store side cars after successfully establishing block viability.
+      self[].storeSidecars(sidecarsOpt)
 
     res
 
@@ -422,7 +426,7 @@ proc enqueueBlock*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    discard self[].storeBackfillBlock(blck, sidecarsOpt)
+    discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
   # `discard` here means that the `async` task will continue running even though
@@ -769,6 +773,11 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
+  when consensusFork >= ConsensusFork.Gloas:
+    # Enqueue payload here instead of `addBlock` for the consistency of payload
+    # processing with backfilling.
+    self.enqueuePayload(signedBlock)
+
   ok(blck)
 
 proc addBlock*(
@@ -801,7 +810,7 @@ proc addBlock*(
   if blck.message.slot <= dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with
-    return self[].storeBackfillBlock(blck, sidecarsOpt)
+    return self.storeBackfillBlock(blck, sidecarsOpt)
 
   let queueTick = Moment.now()
 
@@ -920,12 +929,29 @@ proc addBlock*(
     of VerifierError.Duplicate:
       err(res.error())
 
-proc storePayload(
+proc storeBackfillPayload(
+    self: var BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Result[void, VerifierError] =
+  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+
+  self.storeSidecars(sidecarsOpt)
+  ok()
+
+proc addPayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -940,26 +966,40 @@ proc storePayload(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  debugGloasComment("optimisticStatusRes")
-  debugGloasComment("verifySidecars")
-  debugGloasComment("clearance state")
-  debugGloasComment("head state")
+  let
+    optimisticStatusRes =
+      block:
+        debugGloasComment("handle (maybe)finalized slot")
+        func shouldRetry(): bool =
+          not dag.is_optimistic(dag.head.bid)
+        await self.consensusManager.elManager.getExecutionValidity(
+          signedBlock, signedEnvelope, deadline, shouldRetry())
+    optimisticStatus =
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
+  # optimisticStatus could be valid or notValidated at this point. We will
+  # validate it by the clearance state transition.
+  if OptimisticStatus.invalidated == optimisticStatus:
+    return err(VerifierError.Invalid)
+
+  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+
+  # Try adding the envelope to clearance state.
+  debugGloasComment("deadline")
+  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # The execution payload has added to the clearance state successfully, so try
+  # adding to the current state.
+  debugGloasComment("deadline")
+  debugGloasComment("should be decided by Fork Choice")
+  # TODO To be removed - Temporary call without import.
+  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+
+  # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].delOrphan(signedBlock)
 
   ok()
-
-proc enqueuePayload*(
-    self: ref BlockProcessor,
-    blck: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-) =
-  if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    debugGloasComment("backfilling")
-
-  discard self.storePayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
@@ -985,7 +1025,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           return
         sidecarsOpt
 
-  self.enqueuePayload(blck, envelope, sidecarsOpt)
+  discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the
