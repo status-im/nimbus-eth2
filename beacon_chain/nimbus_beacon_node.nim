@@ -2108,8 +2108,7 @@ proc attemptGetBlobs(node: BeaconNode,
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu and
            consensusFork < ConsensusFork.Gloas:
-        let blobsFromElOpt =
-          await elManager.sendGetBlobsV2(forkyBlck)
+        let blobsFromElOpt = await elManager.getBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
           # check lengths of array[BlobAndProofV2] with blobs

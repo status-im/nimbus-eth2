@@ -325,7 +325,7 @@ proc storeBackfillBlock(
     res
 
 from web3/engine_api_types import PayloadExecutionStatus
-from ../el/el_manager import ELManager, DeadlineFuture, sendNewPayload
+from ../el/el_manager import ELManager, DeadlineFuture, newPayload
 from ../consensus_object_pools/attestation_pool import AttestationPool, addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
@@ -345,8 +345,7 @@ proc newExecutionPayload*(
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  let payloadStatus = ?await elManager.sendNewPayload(
-    blck, envelope, deadline, retry)
+  let payloadStatus = ?await elManager.newPayload(blck, envelope, deadline, retry)
 
   debug "newPayload: succeeded",
     parentHash = executionPayload.parent_hash,
@@ -362,7 +361,7 @@ proc newExecutionPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.
   async: (raises: [CancelledError], raw: true).} =
   newExecutionPayload(
-    elManager, blck, noEnvelope, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true)
+    elManager, blck, noEnvelope, sleepAsync(NEWPAYLOAD_TIMEOUT), true)
 
 proc getExecutionValidity(
     elManager: ELManager,

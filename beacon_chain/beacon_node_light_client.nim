@@ -98,12 +98,14 @@ proc initLightClient*(
             let beaconHead = node.attestationPool[].getBeaconHead(nil)
             withConsensusFork(consensusFork):
               when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+                let state = ForkchoiceStateV1.init(
+                  blockHash, beaconHead.safeExecutionBlockHash,
+                  beaconHead.finalizedExecutionBlockHash,
+                )
                 node.optimisticFcuFut = node.elManager.forkchoiceUpdated(
-                  headBlockHash = blockHash,
-                  safeBlockHash = beaconHead.safeExecutionBlockHash,
-                  finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
-                  payloadAttributes = Opt.none consensusFork.PayloadAttributes)
-                node.optimisticFcuFut.addCallback do (future: pointer):
+                  state, payloadAttributes = Opt.none consensusFork.PayloadAttributes
+                )
+                node.optimisticFcuFut.addCallback do(future: pointer):
                   node.optimisticFcuFut = nil
           else:
             # The execution block hash is only available from Capella onward
