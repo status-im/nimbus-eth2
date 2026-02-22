@@ -61,12 +61,22 @@ const
 type
   DeadlineFuture* = Future[void].Raising([CancelledError])
 
+  SomeEnginePayloadWithValue =
+    BellatrixExecutionPayloadWithValue |
+    GetPayloadV2Response |
+    GetPayloadV3Response |
+    GetPayloadV4Response |
+    GetPayloadV5Response |
+    GetPayloadV6Response
+
   PayloadParams = object
     ## Parameters given to the latest payload-preparing forkChoiceParameters
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
     attributes: PayloadAttributesV3
+      # V3 is a superset of the earlier versions so we can use it for cache
+      # equivalence purposes
 
   PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponse]]
 
@@ -335,6 +345,9 @@ proc getPayload(
         if useLastPayload:
           payloadReq.resp
         else:
+          engine_api_last_minute_forkchoice_updates_sent.inc(
+            1, [connection.engineUrl.url]
+          )
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
@@ -353,7 +366,15 @@ proc getPayload(
       # Give the EL some time to build the block
       await sleepAsync(500.milliseconds)
 
-    payload = await rpcClient.getPayload(GetPayloadResponseType, payloadId)
+    payload =
+      when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
+        BellatrixExecutionPayloadWithValue(
+          executionPayload: await rpcClient.getPayload(ExecutionPayloadV1, payloadId),
+          blockValue: Wei.zero,
+        )
+      else:
+        await rpcClient.getPayload(GetPayloadResponseType, payloadId)
+
     break # retryUntilCancelled
 
   # Check that the execution payload matches the attributes we asked for, as
@@ -367,20 +388,39 @@ proc getPayload(
       limit = MAX_EXTRA_DATA_BYTES
     raise newException(CatchableError, "Execution payload extraData exceeds max size")
 
-  if params.attributes.withdrawals != payload.executionPayload.withdrawals:
-    warn "Execution client returned unexpected payload withdrawals",
-      url = connection.engineUrl.url,
-      payloadId,
-      withdrawals_from_cl_len = params.attributes.withdrawals.len,
-      withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeDeref.len,
-      withdrawals_from_cl =
-        mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
-      withdrawals_from_el =
-        mapIt(payload.executionPayload.withdrawals, it.asConsensusWithdrawal)
-    raise
-      newException(CatchableError, "Execution client returned mismatching withdrawals")
+  when compiles(payload.executionPayload.withdrawals):
+    when payload.executionPayload.withdrawals is Opt:
+      template maybeEmpty(v: Opt): untyped =
+        v.valueOr(@[])
+    else:
+      template maybeEmpty(v: auto): untyped =
+        v
+
+    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
+      warn "Execution client returned unexpected payload withdrawals",
+        url = connection.engineUrl.url,
+        payloadId,
+        withdrawals_from_cl_len = params.attributes.withdrawals.len,
+        withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
+        withdrawals_from_cl =
+          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
+        withdrawals_from_el = mapIt(
+          payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
+        )
+      raise newException(
+        CatchableError, "Execution client returned mismatching withdrawals"
+      )
 
   payload
+
+template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
+  BellatrixExecutionPayloadWithValue
+
+template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV2Response
+
+template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV3Response
 
 template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response
@@ -404,11 +444,37 @@ func init*(
   )
 
 func init*(
-    T: type PayloadAttributesV3,
+    T: type PayloadAttributesV1,
+    timestamp: uint64,
+    prevRandao: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+): T =
+  T(
+    timestamp: Quantity timestamp,
+    prevRandao: Bytes32 prevRandao.to(Hash32),
+    suggestedFeeRecipient: suggestedFeeRecipient,
+  )
+
+func init*(
+    T: type PayloadAttributesV2,
     timestamp: uint64,
     prevRandao: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[capella.Withdrawal],
+): T =
+  T(
+    timestamp: Quantity timestamp,
+    prevRandao: Bytes32 prevRandao.to(Hash32),
+    suggestedFeeRecipient: suggestedFeeRecipient,
+    withdrawals: withdrawals.toEngineWithdrawals(),
+  )
+
+func init*(
+    T: type PayloadAttributesV3,
+    timestamp: uint64,
+    prevRandao: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: sink seq[capella.Withdrawal],
     consensusHead: Eth2Digest,
 ): T =
   T(
@@ -419,20 +485,49 @@ func init*(
     parentBeaconBlockRoot: consensusHead.to(Hash32),
   )
 
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV3(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: @[],
+      parentBeaconBlockRoot: default(Hash32),
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV2
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV3(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: default(Hash32),
+    ),
+  )
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
+): T =
+  PayloadParams(state: state, attributes: attributes)
+
 proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV3,
+    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 | PayloadAttributesV3,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
     return Opt.none(PayloadType)
 
-  let params = PayloadParams(
-    state: state,
-    attributes: payloadAttributes,
-  )
+  let params = PayloadParams.init(state, payloadAttributes)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -449,7 +544,7 @@ proc getPayload*(
 
   # Of the payloads that arrived on time, select the one with the highest
   # block value
-  func betterThan(a, b: auto): bool =
+  func betterThan(a, b: SomeEnginePayloadWithValue): bool =
     a.blockValue > b.blockValue
 
   var bestPayloadIdx = Opt.none(int)
@@ -838,13 +933,12 @@ proc forkchoiceUpdated(
       rpcClient = await connection.connectedRpcClient()
       responseFut = rpcClient.forkchoiceUpdated(state, payloadAttributes)
 
-    when payloadAttributes is Opt[PayloadAttributesV3]:
-      if payloadAttributes.isSome:
-        # Saving the future here allows the getPayload request to latch on to
-        # an in-flight request and thus avoid concurrent payload requests with the
-        # same attributes
-        connection.lastPayloadReq =
-          (PayloadParams(state: state, attributes: payloadAttributes[]), responseFut)
+    if payloadAttributes.isSome:
+      # Saving the future here allows the getPayload request to latch on to
+      # an in-flight request and thus avoid concurrent payload requests with the
+      # same attributes
+      connection.lastPayloadReq =
+        (PayloadParams.init(state, payloadAttributes[]), responseFut)
 
     return (await responseFut).payloadStatus
 
