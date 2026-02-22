@@ -112,7 +112,7 @@ cli do(validatorsDir: string, secretsDir: string,
   # Sync EL to initial state. Note that to construct the new branch, the EL
   # should not have advanced to a later block via `engine_forkchoiceUpdated`.
   # The EL may otherwise refuse to produce new heads
-  elManager.start(syncChain = false)
+  elManager.start()
   withBlck(blck[]):
     debugGloasComment ""
     when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
