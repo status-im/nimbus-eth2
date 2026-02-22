@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -20,7 +21,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ./testutil
 
-proc allocatePort(): Port =
+proc allocatePort(): Port {.raises: [TransportError].} =
   ## Allocate a free port by using a counter starting from an unused port range
   ## Each allocation increments the counter
   let srv = createStreamServer(static(initTAddress("127.0.0.1:0")))
@@ -136,7 +137,9 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     return state.chainId
 
-proc newMockRpcServer*(state: MockEngineState, port: Port): RpcHttpServer =
+proc newMockRpcServer*(
+    state: MockEngineState, port: Port
+): RpcHttpServer {.raises: [CatchableError].} =
   ## Create and start a new mock RPC server on the given port
   let server = newRpcHttpServer()
   setupMockEngineAPI(server, state)
@@ -154,7 +157,7 @@ proc createEngineApiUrl*(
   let urlStr = "http://127.0.0.1:" & $port.uint16
   EngineApiUrl.init(urlStr, jwtSecret)
 
-proc mockSetup(): MockSetup =
+proc mockSetup(): MockSetup {.raises: [CatchableError].}  =
   let
     port = allocatePort()
     state = createMockEngineState()

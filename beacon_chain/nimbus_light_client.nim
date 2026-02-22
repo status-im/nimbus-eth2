@@ -111,7 +111,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   # Run `exchangeTransitionConfiguration` loop
   if elManager != nil:
-    elManager.start(syncChain = false)
+    elManager.start()
 
   info "Listening to incoming network requests"
   network.registerProtocol(
