@@ -734,7 +734,6 @@ proc initFullNode(
           # At this point, the signedEnvelope is from a different builder since
           # the block should be the source of truth. We should notify receiving
           # bad value from the peer.
-          envelopeQuarantine[].addMissing(blockRoot)
           return err(VerifierError.Invalid)
         sidecarsOpt =
           block:
