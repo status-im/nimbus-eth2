@@ -20,7 +20,7 @@ import
   ./[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
-  ./el/el_manager,
+  ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
@@ -49,6 +49,7 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
+    blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
@@ -86,6 +87,7 @@ type
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -188,6 +190,7 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
     blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
