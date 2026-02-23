@@ -20,6 +20,7 @@ import
 from std/algorithm import binarySearch, sort
 from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
+from stew/assign2 import assign
 export block_quarantine, sync_manager
 
 logScope:
