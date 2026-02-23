@@ -434,6 +434,15 @@ proc createQueues(
   func forkAtEpoch(epoch: Epoch): ConsensusFork =
     consensusForkAtEpoch(dag.cfg, epoch)
 
+  proc peerMap(peer: Peer): ColumnMap =
+    overseer.getPeerColumnMap(peer)
+
+  func missingMap(blockRoot: Eth2Digest): ColumnMap =
+    overseer.columnQuarantine[].getMissingColumnsMap(blockRoot)
+
+  func localMap(): ColumnMap =
+    overseer.columnQuarantine[].custodyMap
+
   template declareBlockVerifier(
       procName: untyped,
       direction: static SyncQueueKind
@@ -583,7 +592,7 @@ proc createQueues(
 
   overseer.fqueue =
     SyncQueue.init(
-      Peer, SyncQueueKind.Forward,
+      Peer, BlockCompleteness, SyncQueueKind.Forward,
       localHead, checkpoint.epoch.start_slot(),
       uint64(overseer.blocksChunkSize),
       ConcurrentRequestsCount,
@@ -592,18 +601,19 @@ proc createQueues(
       forwardBlockVerifier, forkAtEpoch, "fblock")
   overseer.fsqueue =
     SyncQueue.init(
-      Peer, SyncQueueKind.Forward,
+      Peer, ColumnCompleteness, SyncQueueKind.Forward,
       overseer.getForwardSidecarStartSlot(),
       checkpoint.epoch.start_slot(),
       uint64(overseer.blocksChunkSize),
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
       getFirstSlotAtFinalizedEpoch,
-      sidecarsVerifier, forkAtEpoch, "fsidecar")
+      sidecarsVerifier, forkAtEpoch,
+      localMap, peerMap, missingMap, "fsidecar")
   overseer.bqueue =
     if dag.needsBackfill():
       SyncQueue.init(
-        Peer, SyncQueueKind.Backward,
+        Peer, BlockCompleteness, SyncQueueKind.Backward,
         backfillSlot, frontfillSlot,
         uint64(overseer.blocksChunkSize),
         ConcurrentRequestsCount,
@@ -612,17 +622,19 @@ proc createQueues(
         backwardBlockVerifier, forkAtEpoch, "bblock")
     else:
       nil
+
   overseer.bsqueue =
     if dag.needsBackfill():
       SyncQueue.init(
-        Peer, SyncQueueKind.Backward,
+        Peer, ColumnCompleteness, SyncQueueKind.Backward,
         backfillSlot,
         overseer.getBackfillSidecarFinalSlot(),
         uint64(overseer.blocksChunkSize),
         ConcurrentRequestsCount,
         RepeatingFailuresCount,
         getLastAddedBackfillSlot,
-        sidecarsVerifier, forkAtEpoch, "bsidecar")
+        sidecarsVerifier, forkAtEpoch,
+        localMap, peerMap, missingMap, "bsidecar")
     else:
       nil
 

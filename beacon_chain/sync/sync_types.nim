@@ -82,10 +82,10 @@ type
     avgSpeed*: float
     blocksChunkSize*: int
     sidecarsChunkSize*: int
-    fqueue*: SyncQueue[Peer]
-    fsqueue*: SyncQueue[Peer]
-    bqueue*: SyncQueue[Peer]
-    bsqueue*: SyncQueue[Peer]
+    fqueue*: SyncQueue[Peer, BlockCompleteness]
+    fsqueue*: SyncQueue[Peer, ColumnCompleteness]
+    bqueue*: SyncQueue[Peer, BlockCompleteness]
+    bsqueue*: SyncQueue[Peer, ColumnCompleteness]
     localPeerId*: PeerId
     lastSeenCheckpoint*: Opt[Checkpoint]
     lastSeenHead*: Opt[BlockId]
