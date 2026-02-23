@@ -836,8 +836,7 @@ proc initFullNode(
                                           node.batchVerifier,
                                           syncManager, backfiller,
                                           untrustedManager)
-  node.getBlobsService = GetBlobsServiceRef.new(node.dag,
-                                                node.eventBus.blockGossipPeerQueue,
+  node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
                                                 node.elManager,
                                                 node.blockProcessor,
                                                 node.quarantine,

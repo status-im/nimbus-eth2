@@ -27,7 +27,6 @@ import
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    dag*: ChainDAGRef
     elManager*: ELManager
     blockProcessor*: ref BlockProcessor
     blockQuarantine*: ref Quarantine
@@ -37,7 +36,6 @@ type
 
 proc new*(
     t: typedesc[GetBlobsServiceRef],
-    dag: ChainDAGRef,
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     elM: ELManager,
     blockProcessor: ref BlockProcessor,
@@ -46,7 +44,6 @@ proc new*(
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
-    dag: dag,
     elManager: elM,
     blockProcessor: blockProcessor,
     blockQuarantine: blockQuarantine,
@@ -65,11 +62,11 @@ proc attemptGetBlobs*(
           await self.elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
-          # check lengths of blobs with kzg commitments of the signed block
+          # check lengths of blobs with KZG commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
-            var flat_proof: seq[kzg.KzgProof]
+            var flat_proof = newSeqOfCap[kzg.KzgProof](blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
             for item in blobsEl:
               for proof in item.proofs:
                 flat_proof.add kzg.KzgProof(bytes: proof.data)
@@ -79,7 +76,7 @@ proc attemptGetBlobs*(
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
-            let MaxColsPerPut = (self.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
+            const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
             var batch =
               newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
 
