@@ -93,7 +93,6 @@ type
     # Consumer
     # ----------------------------------------------------------------
     consensusManager*: ref ConsensusManager
-      ## Blockchain DAG, AttestationPool and Quarantine
       ## Blockchain DAG, AttestationPool, Quarantine, and ELManager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn

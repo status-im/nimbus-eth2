@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Everything needed to run a full Beacon Node
 
@@ -54,8 +54,7 @@ type
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
-    phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
-    electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
+    attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
@@ -195,8 +194,7 @@ func init*(T: type EventBus): T =
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
     blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
     propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-    phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
-    electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
+    attSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
     blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
     finalQueue: newAsyncEventQueue[FinalizationInfoObject](),

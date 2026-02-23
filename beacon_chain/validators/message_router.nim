@@ -598,8 +598,7 @@ proc routeSignedVoluntaryExit*(
   return ok()
 
 proc routeAttesterSlashing*(
-    router: ref MessageRouter,
-    slashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    router: ref MessageRouter, slashing: electra.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
