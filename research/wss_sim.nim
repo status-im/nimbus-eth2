@@ -112,7 +112,7 @@ cli do(validatorsDir: string, secretsDir: string,
   # Sync EL to initial state. Note that to construct the new branch, the EL
   # should not have advanced to a later block via `engine_forkchoiceUpdated`.
   # The EL may otherwise refuse to produce new heads
-  elManager.start(syncChain = false)
+  elManager.start()
   withBlck(blck[]):
     debugGloasComment ""
     when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
@@ -127,10 +127,9 @@ cli do(validatorsDir: string, secretsDir: string,
               continue
 
             let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
-              headBlockHash = payload.block_hash,
-              safeBlockHash = payload.block_hash,
-              finalizedBlockHash = ZERO_HASH,
-              payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+              ForkchoiceStateV1.init(payload.block_hash, payload.block_hash, ZERO_HASH),
+              Opt.none(consensusFork.PayloadAttributes),
+            )
             if status != PayloadExecutionStatus.valid:
               continue
 
@@ -253,26 +252,37 @@ cli do(validatorsDir: string, secretsDir: string,
                 let
                   executionHead =
                     forkyState.data.latest_execution_payload_header.block_hash
-                  withdrawals =
-                    when consensusFork >= ConsensusFork.Capella:
-                      get_expected_withdrawals(forkyState.data)
-                    else:
-                      newSeq[capella.Withdrawal]()
+                  timestamp = cfg.timeParams.compute_timestamp_at_slot(
+                    forkyState.data, forkyState.data.slot
+                  )
+                  prevRandao =
+                    get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
+
+                when consensusFork >= ConsensusFork.Capella:
+                  let withdrawals = get_expected_withdrawals(forkyState.data)
+
+                when consensusFork >= ConsensusFork.Deneb:
+                  let attributes = PayloadAttributesV3.init(
+                    timestamp, prevRandao, feeRecipient, withdrawals,
+                    forkyState.latest_block_root,
+                  )
+                elif consensusFork >= ConsensusFork.Capella:
+                  let attributes = PayloadAttributesV2.init(
+                    timestamp, prevRandao, feeRecipient, withdrawals
+                  )
+                else:
+                  let attributes =
+                    PayloadAttributesV1.init(timestamp, prevRandao, feeRecipient)
 
                 var pl: consensusFork.ExecutionPayloadForSigning
                 while true:
-                  pl = (waitFor noCancel elManager.getPayload(
+                  pl = (
+                    waitFor noCancel elManager.getPayload(
                       consensusFork.ExecutionPayloadForSigning,
-                      consensusHead = forkyState.latest_block_root,
-                      headBlock = executionHead,
-                      safeBlock = executionHead,
-                      finalizedBlock = ZERO_HASH,
-                      timestamp = cfg.timeParams.compute_timestamp_at_slot(
-                        forkyState.data, forkyState.data.slot),
-                      prevRandao = get_randao_mix(
-                        forkyState.data, get_current_epoch(forkyState.data)),
-                      suggestedFeeRecipient = feeRecipient,
-                      withdrawals = withdrawals)).valueOr:
+                      ForkchoiceStateV1.init(executionHead, executionHead, ZERO_HASH),
+                      attributes,
+                    )
+                  ).valueOr:
                     waitFor noCancel sleepAsync(chronos.seconds(2))
                     continue
                   break

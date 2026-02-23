@@ -153,8 +153,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-DEPOSITS_DELAY := 0
-
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
 #- https://github.com/status-im/nim-libp2p#use-identify-metrics

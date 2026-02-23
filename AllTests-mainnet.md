@@ -611,6 +611,46 @@ AllTests-mainnet
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
 ```
+## EL Manager - Async Operations
+```diff
++ ELManager can be started and stopped safely                                                OK
++ ELManager with custom chain network                                                        OK
+```
+## EL Manager - Helpers
+```diff
++ Rewrite URLs                                                                               OK
+```
+## EL Manager - Multiple Engines
+```diff
++ forkchoiceUpdated with multiple engines                                                    OK
++ getPayload with multiple engines                                                           OK
++ newPayload with multiple engines                                                           OK
++ two engines, one broken, retry                                                             OK
+```
+## EL Manager - Payload Request Caching
+```diff
++ concurrent forkchoiceUpdated calls                                                         OK
++ forkchoiceUpdated without payload attributes doesn't cache                                 OK
++ getPayload makes new forkchoiceUpdated when parameters change                              OK
++ getPayload reuses cached forkchoiceUpdated when parameters match                           OK
++ getPayload with different forkchoiceUpdated attributes                                     OK
++ multiple sequential forkchoiceUpdated calls with payload attributes                        OK
+```
+## EL Manager - forkchoiceUpdated
+```diff
++ forkchoiceUpdated basic call                                                               OK
++ forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated with payload attributes                                                  OK
++ forkchoiceUpdated with response delay                                                      OK
+```
+## EL Manager - getPayload
+```diff
++ success without retry                                                                      OK
+```
+## EL Manager - newPayload
+```diff
++ success without retry                                                                      OK
+```
 ## Engine API conversions
 ```diff
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
@@ -624,10 +664,6 @@ AllTests-mainnet
 + Add orphan                                                                                 OK
 + Clean up orphans                                                                           OK
 + Pop orphan                                                                                 OK
-```
-## Eth1 monitor
-```diff
-+ Rewrite URLs                                                                               OK
 ```
 ## Eth2 specific discovery tests
 ```diff
