@@ -519,6 +519,8 @@ proc addHeadExecutionPayload*(
   # Load state cache for state transition function.
   loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
 
+  debug "Envelope transitioning"
+
   # Verify with state transition function.
   process_execution_payload(
     dag.cfg,
@@ -530,6 +532,8 @@ proc addHeadExecutionPayload*(
     assign(dag.clearanceState, dag.headState)
     info "Envelope transition failed", msg = error
     return err(VerifierError.Invalid)
+
+  debug "Envelope transitioned"
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)

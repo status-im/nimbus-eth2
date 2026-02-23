@@ -999,6 +999,11 @@ proc addPayload(
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
+  debug "Envelope processed",
+    head = shortLog(dag.head),
+    blck = shortLog(blck),
+    slot = signedBlock.message.slot
+
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
