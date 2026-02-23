@@ -607,7 +607,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
 
     var blockRoots: seq[Eth2Digest]
     if self.envelopeLoader == nil:
-      blockRoots = missingBlockRoots
+      assign(blockRoots, missingBlockRoots)
     else:
       var verifiers:
         seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
