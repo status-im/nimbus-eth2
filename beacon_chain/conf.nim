@@ -232,7 +232,8 @@ type
       name: "light-supernode" .}: bool
 
     debugEnableReconstruction* {.
-      defaultValue: true,
+      hidden
+      defaultValue: false,
       desc: "Enables column reconstruction for the currently running beacon node"
       name: "debug-enable-reconstruction" .}: bool
 
