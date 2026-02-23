@@ -71,7 +71,7 @@ type
     shutdownEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
-    queue: SyncQueue[A]
+    queue: SyncQueue[A, BlockCompleteness]
     syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
     forkAtEpoch: ForkAtEpochCallback
@@ -113,7 +113,8 @@ proc speed*(start, finish: SyncMoment): float {.inline.} =
 proc initQueue[A, B](man: SyncManager[A, B]) =
   case man.direction
   of SyncQueueKind.Forward:
-    man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
+    man.queue = SyncQueue.init(A, BlockCompleteness, man.direction,
+                               man.getFirstSlot(),
                                man.getLastSlot(), man.chunkSize,
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
@@ -129,7 +130,8 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     firstSlot
                   else:
                     firstSlot - 1'u64
-    man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
+    man.queue = SyncQueue.init(A, BlockCompleteness, man.direction, startSlot,
+                               lastSlot,
                                man.chunkSize,
                                man.concurrentRequestsCount,
                                man.repeatingFailuresCount,
