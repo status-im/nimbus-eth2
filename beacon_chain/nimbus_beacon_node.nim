@@ -2329,6 +2329,7 @@ proc installMessageValidators(node: BeaconNode) =
               toValidationResult(
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
+            else:
               let res =
                 toValidationResult(
                   node.processor[].processSignedBeaconBlock(
