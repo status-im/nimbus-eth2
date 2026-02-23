@@ -113,3 +113,35 @@ iterator assigned_slots*(
       if balance_source.shuffling_epochs[i] != FAR_FUTURE_EPOCH:
         yield balance_source.shuffling_epochs[i].start_slot +
           balance_source.balances[val_index].assigned_slot_into_epoch(i)
+
+type SlotInfo* = object
+  blck*: BlockRef
+
+func get_ancestor_info*(
+    blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
+  ## Return a list of ancestors of ``blck`` inclusive back through the last
+  ## slot of ``current_slot.epoch - 2``, or ``terminal_bid``, whichever is
+  ## encountered first, iff ``terminal_bid`` is an ancestor of ``blck``.
+  ## Otherwise, return an empty list.
+  ## For slots within the previous and current epoch, an entry is emitted
+  ## per slot, even when there are slots without a block. A single extra entry
+  ## is emitted for the last block, if it was proposed during an earlier epoch.
+  let
+    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
+    low_slot = max(terminal_bid.slot, max(prev_epoch_start, 1.Slot) - 1)
+  result = newSeqOfCap[SlotInfo](current_slot  - low_slot + 1)
+
+  var bs = blck.atSlot(current_slot)
+  while bs.blck != nil and bs.slot > low_slot:
+    result.add SlotInfo(blck: bs.blck)
+    bs = bs.parent
+  while bs.blck != nil and not bs.isProposed and bs.slot >= prev_epoch_start:
+    result.add SlotInfo(blck: bs.blck)
+    bs = bs.parent
+  if bs.blck != nil:
+    result.add SlotInfo(blck: bs.blck)
+
+  while bs.blck != nil and bs.slot > terminal_bid.slot:
+    bs = bs.parent
+  if bs.blck == nil or bs.blck.root != terminal_bid.root:
+    result.reset()

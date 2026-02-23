@@ -1196,6 +1196,25 @@ AllTests-mainnet
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
+## get_ancestor_info
+```diff
++ All slots filled - end of epoch                                                            OK
++ All slots filled - mid epoch                                                               OK
++ All slots filled - start of epoch                                                          OK
++ Current_slot = 0                                                                           OK
++ Current_slot = 1                                                                           OK
++ Entire prev epoch empty                                                                    OK
++ Gap crossing epoch boundary                                                                OK
++ Gap in current epoch                                                                       OK
++ Mid epoch 0                                                                                OK
++ Only genesis                                                                               OK
++ Sparse chain with terminal mid-gap                                                         OK
++ Start of epoch 1                                                                           OK
++ Start of epoch 2                                                                           OK
++ Terminal in current epoch                                                                  OK
++ Terminal in prev epoch                                                                     OK
++ Terminal not an ancestor                                                                   OK
+```
 ## removeValidatorFiles()
 ```diff
 + Remove nonexistent validator                                                               OK
