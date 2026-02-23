@@ -952,10 +952,6 @@ proc addPayload(
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
-  # Check if there is any valid envelope so that we can save some resources.
-  if dag.containsExecutionPayloadEnvelope(signedBlock.root):
-    return err(VerifierError.Duplicate)
-
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
