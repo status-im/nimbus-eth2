@@ -299,7 +299,9 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
     if envelopes.isOk:
       let uenvelopes = envelopes.get().asSeq()
       if checkResponse(roots, uenvelopes):
-        var gotGoodEnvelope = false
+        var
+          gotGoodEnvelope = false
+          gotUnviableEnvelope = false
 
         for envelope in uenvelopes:
           self.envelopeQuarantine[].addOrphan(envelope[])
@@ -314,20 +316,19 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
               # Ignoring as it could occur when making parallel requests.
               discard
             of VerifierError.UnviableFork:
-              debugGloasComment("log level to notice")
-              debug "Received envelope from an unviable fork",
-                peer = peer, envelopes = shortLog(roots)
-              peer.updateScore(PeerScoreUnviableFork)
-              return
+              gotUnviableEnvelope = true
             of VerifierError.Invalid:
-              debugGloasComment("log level to notice")
-              debug "Received invalid envelope",
+              notice "Received invalid envelope",
                 peer = peer, envelopes = shortLog(roots)
               peer.updateScore(PeerScoreBadValues)
               return
           else:
             gotGoodEnvelope = true
 
+        if gotUnviableEnvelope:
+          notice "Received envelope from an unviable fork",
+            peer = peer, envelopes = shortLog(roots)
+          peer.updateScore(PeerScoreUnviableFork)
         if gotGoodEnvelope:
           debug "Request manager got good envelope",
             peer = peer, envelopes = shortLog(roots), uenvelopes = len(uenvelopes)
