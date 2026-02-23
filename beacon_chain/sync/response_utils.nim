@@ -201,7 +201,6 @@ func validateBlocks*(
     sidecars: openArray[DataColumnSidecarResponseRecord],
     map: ColumnMap
 ): Result[int, cstring] =
-  let mapCount = len(map)
   var sindex = 0
   for blck in blocks:
     withBlck(blck[]):
