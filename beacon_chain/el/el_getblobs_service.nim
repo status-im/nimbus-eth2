@@ -27,9 +27,7 @@ import
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    elManager*: ELManager
     blockProcessor*: ref BlockProcessor
-    blockQuarantine*: ref Quarantine
     dataColumnQuarantine*: ref ColumnQuarantine
 
   GetBlobsServiceRef* = ref GetBlobsService
@@ -37,29 +35,28 @@ type
 proc new*(
     t: typedesc[GetBlobsServiceRef],
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
-    elM: ELManager,
     blockProcessor: ref BlockProcessor,
-    blockQuarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
-    elManager: elM,
     blockProcessor: blockProcessor,
-    blockQuarantine: blockQuarantine,
     dataColumnQuarantine: dataColumnQuarantine)
 
 proc attemptGetBlobs*(
     self: GetBlobsServiceRef,
     root: Eth2Digest) {.async: (raises: [CancelledError]).}=
+  let
+    elManager = self.blockProcessor[].consensusManager.elManager
+    quarantine = self.blockProcessor[].consensusManager.quarantine
 
-  if (let o = self.blockQuarantine[].popSidecarless(root); o.isSome):
+  if (let o = quarantine[].popSidecarless(root); o.isSome):
     let columnlessBlock = o.get()
     withBlck(columnlessBlock):
       debugGloasComment ""
       when consensusFork == ConsensusFork.Fulu:
         let blobsFromElOpt =
-          await self.elManager.getBlobsV2(forkyBlck)
+          await elManager.getBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
           # check lengths of blobs with KZG commitments of the signed block
@@ -99,7 +96,7 @@ proc attemptGetBlobs*(
             else:
               # Something went wrong while assembling columns, push the columnless block
               # back into quarantine
-              self.blockQuarantine[].addSidecarless(forkyBlck)
+              quarantine[].addSidecarless(forkyBlck)
 
 proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
   let ticket = self.blockGossipBus.register()

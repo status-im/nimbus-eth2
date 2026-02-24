@@ -863,9 +863,7 @@ proc initFullNode(
                                           syncManager, backfiller,
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
-                                                node.elManager,
                                                 node.blockProcessor,
-                                                node.quarantine,
                                                 node.dataColumnQuarantine)
   node.router = router
 
