@@ -714,20 +714,24 @@ proc routeExecutionPayloadEnvelope*(
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
     checkValidator: bool
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
-  # Publish envelope
-  (await router[].network.broadcastExecutionPayloadEnvelope(
-      signedEnvelope)).isOkOr:
-    return err("Proposed envelope failed to broadcast")
-
-  info "Execution payload envelope sent",
-    envelope = shortLog(signedEnvelope.message)
-
-  # Publish sidecars
+  # Add envelope and sidecars to DAG first, so the head becomes
+  # execution-valid even if broadcast fails
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
-  # Add envelope and sidecars to DAG
   (await router[].blockProcessor.addPayload(
       signedBlock, signedEnvelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
+
+  # Broadcast envelope - failure here is not fatal, since the envelope is
+  # already processed locally
+  let broadcastRes = await router[].network.broadcastExecutionPayloadEnvelope(
+      signedEnvelope)
+  if broadcastRes.isOk():
+    info "Execution payload envelope sent",
+      envelope = shortLog(signedEnvelope.message)
+  else:
+    warn "Execution payload envelope broadcast failed, but processed locally",
+      envelope = shortLog(signedEnvelope.message),
+      error = broadcastRes.error()
 
   ok()

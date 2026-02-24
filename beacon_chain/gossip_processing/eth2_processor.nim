@@ -287,8 +287,19 @@ proc processSignedBeaconBlock*(
     self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
   when consensusFork >= ConsensusFork.Gloas:
-    # Disable processing sidecars at block time.
-    const sidecarsOpt = noSidecars
+      const sidecarsOpt = noSidecars
+      let parentRoot = signedBlock.message.parent_root
+      let parentRef = self.dag.getBlockRef(parentRoot)
+      if parentRef.isSome() and
+        self.dag.cfg.consensusForkAtEpoch(parentRef.get().bid.slot.epoch) >=
+          ConsensusFork.Gloas and
+        not self.dag.db.containsExecutionPayloadEnvelope(parentRoot):
+        debug "Block waiting for parent envelope",
+          blockRoot = shortLog(signedBlock.root),
+          parentRoot = shortLog(parentRoot)
+        discard self.quarantine[].addSidecarless(
+          self.dag.finalizedHead.slot, signedBlock)
+        return ok()
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:

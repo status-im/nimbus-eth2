@@ -640,8 +640,29 @@ proc initFullNode(
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Gloas:
-          # Disable sidecars processing at block time.
           const sidecarsOpt = noSidecars
+          let
+            parentRoot = forkyBlck.message.parent_root
+            parentRef = dag.getBlockRef(parentRoot)
+            parentInDag = parentRef.isSome()
+            parentIsGloas = parentInDag and
+              dag.cfg.consensusForkAtEpoch(parentRef.get().bid.slot.epoch) >=
+                ConsensusFork.Gloas
+            envelopeExists = if parentIsGloas:
+              dag.db.containsExecutionPayloadEnvelope(parentRoot)
+            else: true
+          debug "rman Gloas block check",
+            blockRoot = shortLog(forkyBlck.root),
+            parentRoot = shortLog(parentRoot),
+            parentInDag, parentIsGloas, envelopeExists
+          if parentIsGloas and not envelopeExists:
+            debug "Block waiting for parent envelope (rman)",
+              blockRoot = shortLog(forkyBlck.root),
+              parentRoot = shortLog(parentRoot)
+            discard quarantine[].addSidecarless(
+              dag.finalizedHead.slot, forkyBlck)
+            return err(VerifierError.MissingParent)
+
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:

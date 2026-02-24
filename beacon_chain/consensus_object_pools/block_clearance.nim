@@ -298,6 +298,30 @@ proc addHeadBlockWithParent*(
       clearanceBlock = shortLog(clearanceBlock)
     return err(VerifierError.MissingParent)
 
+  # For Gloas blocks, the clearance state loaded from a checkpoint won't have
+  # the parent's envelope applied (process_execution_payload only runs when
+  # the envelope arrives, after the block's state was checkpointed). We need
+  # to apply it here so that state.latest_block_hash is correct when
+  # process_execution_payload_bid runs during process_block.
+  const consensusFork = typeof(signedBlock).kind
+  when consensusFork >= ConsensusFork.Gloas:
+    let parentRoot = signedBlock.message.parent_root
+    if dag.cfg.consensusForkAtEpoch(parent.bid.slot.epoch) >= ConsensusFork.Gloas and
+      dag.db.containsExecutionPayloadEnvelope(parentRoot):
+      let envelope = dag.db.getExecutionPayloadEnvelope(parentRoot)
+      if envelope.isSome():
+        withState(dag.clearanceState):
+          when consensusFork >= ConsensusFork.Gloas:
+            debug "Applying parent envelope block_hash",
+              parentRoot = shortLog(parentRoot),
+              oldHash = shortLog(forkyState.data.latest_block_hash),
+              newHash = shortLog(envelope.get().message.payload.block_hash)
+            forkyState.data.latest_block_hash =
+              envelope.get().message.payload.block_hash
+      else:
+        debug "Parent envelope not found in DB despite contains check",
+          parentRoot = shortLog(parentRoot)
+
   let stateDataTick = Moment.now()
 
   # First, batch-verify all signatures in block
@@ -491,6 +515,13 @@ proc addHeadExecutionPayload*(
     builderIdx = signedEnvelope.message.builder_index
     slot = signedEnvelope.message.slot
     signature = shortLog(signedEnvelope.signature)
+  
+  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+    return err(VerifierError.Duplicate)
+
+  # Write immediately to prevent duplicate processing from concurrent calls.
+  # The envelope would have already passed gossip validation at this point.
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
   # Quick check between the received block and envelope.
   template bid(): auto =
@@ -531,9 +562,11 @@ proc addHeadExecutionPayload*(
     info "Envelope transition failed", msg = error
     return err(VerifierError.Invalid)
 
-  # Put the envelope into db and update optimistic status for the block.
-  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  # # Put the envelope into db and update optimistic status for the block.
+  # dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+
   blck.markExecutionValid(true)
+  assign(dag.headState, dag.clearanceState)
 
   ok(blck)
 

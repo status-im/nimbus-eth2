@@ -27,7 +27,7 @@ from ../consensus_object_pools/block_pools_types import
   ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
-  remove, startProcessing, clearProcessing, UnviableKind
+  remove, startProcessing, clearProcessing, peekSidecarless, popSidecarless, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
@@ -998,7 +998,23 @@ proc addPayload*(
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].delOrphan(signedBlock)
-
+    # After processing an envelope, retry any child blocks that were waiting
+  # for this envelope to update state.latest_block_hash
+  block:
+    let quarantine = self.consensusManager[].quarantine
+    var toRetry: seq[ForkedSignedBeaconBlock]
+    for blck in quarantine[].peekSidecarless():
+      if blck.parent_root == signedBlock.root:
+        toRetry.add(blck)
+    for blck in toRetry:
+      let popped = quarantine[].popSidecarless(blck.root)
+      if popped.isSome():
+        withBlck(popped.get()):
+          when consensusFork >= ConsensusFork.Gloas:
+            debug "Retrying block after parent envelope processed",
+              blockRoot = shortLog(forkyBlck.root),
+              parentRoot = shortLog(signedBlock.root)
+            self.enqueueBlock(MsgSource.gossip, forkyBlck, noSidecars)
   ok()
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
