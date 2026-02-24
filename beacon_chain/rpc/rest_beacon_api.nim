@@ -1629,7 +1629,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     var data_columns: seq[fulu.DataColumnSidecar]
-    for columnIndex in 0'u64 ..< node.dag.cfg.NUMBER_OF_COLUMNS:
+    for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
       var dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
         data_columns.add dataColumnSidecar[]

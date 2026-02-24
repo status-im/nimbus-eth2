@@ -327,7 +327,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(cfg.NUMBER_OF_COLUMNS),
+            Base10.toString(NUMBER_OF_COLUMNS.uint64),
           NUMBER_OF_CUSTODY_GROUPS:
             Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:

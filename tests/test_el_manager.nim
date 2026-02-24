@@ -1,19 +1,177 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
+  std/[typetraits, net],
   unittest2,
-  ../beacon_chain/el/el_conf,
+  chronos,
+  chronicles,
+  json_rpc/[rpcserver, errors],
+  web3/[primitives, conversions, engine_api_types],
+  eth/common/eth_types,
+  ../beacon_chain/el/[el_conf, el_manager],
+  ../beacon_chain/spec/[digest, engine_authentication, forks],
+  ../beacon_chain/networking/network_metadata,
   ./testutil
 
-suite "Eth1 monitor":
+proc allocatePort(): Port {.raises: [TransportError].} =
+  ## Allocate a free port by using a counter starting from an unused port range
+  ## Each allocation increments the counter
+  let srv = createStreamServer(static(initTAddress("127.0.0.1:0")))
+  let port = srv.localAddress().port
+  waitFor srv.closeWait()
+  port
+
+# Mock execution client state for testing
+type
+  MockEngineState* = ref object
+    ## Tracks the state of a mock execution client for testing scenarios, mainly
+    ## for the purpose of testing failure, timeout and error scenarios (rather
+    ## than specific payload properties)
+    chainId*: UInt256
+    shouldFailNewPayload*: bool
+    shouldFailForkchoice*: bool
+    shouldFailGetPayload*: bool
+    shouldFailChainId*: bool
+    newPayloadCallCount*: int
+    forkchoiceCallCount*: int
+    getPayloadCallCount*: int
+    chainIdCallCount*: int
+    responseDelay*: Duration
+    blockNumber*: uint64
+
+  MockSetup* = ref object
+    state: MockEngineState
+    server: RpcHttpServer
+    url: EngineApiUrl
+
+proc createMockEngineState*(
+    chainId: UInt256 = 1.u256, initialBlockNumber: uint64 = 1000
+): MockEngineState =
+  ## Create a new mock engine state with default or custom values
+  MockEngineState(
+    chainId: chainId,
+    shouldFailNewPayload: false,
+    shouldFailForkchoice: false,
+    shouldFailGetPayload: false,
+    shouldFailChainId: false,
+    newPayloadCallCount: 0,
+    getPayloadCallCount: 0,
+    forkchoiceCallCount: 0,
+    chainIdCallCount: 0,
+    responseDelay: 0.milliseconds,
+    blockNumber: initialBlockNumber,
+  )
+
+proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
+  ## Setup a mock execution engine API on the RPC server
+  server.rpc("engine_newPayloadV4") do(
+    payload: ExecutionPayloadV3,
+    expectedBlobVersionedHashes: Opt[seq[Hash32]],
+    parentBeaconBlockRoot: Opt[Hash32],
+    executionRequests: Opt[seq[seq[byte]]]
+  ) -> PayloadStatusV1:
+    inc state.newPayloadCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailNewPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: execution failed")
+
+    return PayloadStatusV1(
+      status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
+    )
+
+  server.rpc("engine_forkchoiceUpdatedV3") do(
+    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
+  ) -> ForkchoiceUpdatedResponse:
+    inc state.forkchoiceCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailForkchoice:
+      raise (ref ApplicationError)(
+        code: -32603, msg: "Internal error: forkchoice update failed"
+      )
+
+    return ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(
+        status: PayloadExecutionStatus.valid,
+        latestValidHash: Opt.some(fcState.headBlockHash),
+      ),
+      payloadId:
+        if payloadAttributes.isSome:
+          Opt.some(Bytes8([1'u8, 2, 3, 4, 5, 6, 7, 8]))
+        else:
+          Opt.none(Bytes8),
+    )
+
+  server.rpc("engine_getPayloadV4") do(payloadId: Bytes8) -> GetPayloadV4Response:
+    inc state.getPayloadCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailGetPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayload failed")
+
+    return GetPayloadV4Response()
+
+  server.rpc("eth_chainId") do() -> UInt256:
+    inc state.chainIdCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailChainId:
+      raise (ref ApplicationError)(
+        code: -32603, msg: "Internal error: chain id query failed"
+      )
+
+    return state.chainId
+
+proc newMockRpcServer*(
+    state: MockEngineState, port: Port
+): RpcHttpServer {.raises: [CatchableError].} =
+  ## Create and start a new mock RPC server on the given port
+  let server = newRpcHttpServer()
+  setupMockEngineAPI(server, state)
+
+  server.addHttpServer(
+    address = initTAddress("127.0.0.1", port), maxRequestBodySize = 16 * 1024 * 1024
+  )
+
+  server.start()
+  return server
+
+proc createEngineApiUrl*(
+    port: Port, jwtSecret: Opt[JwtSharedKey] = Opt.none(JwtSharedKey)
+): EngineApiUrl =
+  let urlStr = "http://127.0.0.1:" & $port.uint16
+  EngineApiUrl.init(urlStr, jwtSecret)
+
+proc mockSetup(): MockSetup {.raises: [CatchableError].}  =
+  let
+    port = allocatePort()
+    state = createMockEngineState()
+    server = newMockRpcServer(state, port)
+
+  server.start()
+
+  MockSetup(state: state, server: server, url: createEngineApiUrl(port))
+
+proc close(setup: MockSetup) =
+  waitFor setup.server.stop()
+  waitFor setup.server.closeWait()
+
+suite "EL Manager - Helpers":
   test "Rewrite URLs":
     var
       gethHttpUrl = "http://localhost:8545"
@@ -32,3 +190,452 @@ suite "Eth1 monitor":
       unspecifiedProtocolUrl == "ws://localhost:8545"
 
       gethWsUrl == "ws://localhost:8545"
+
+proc createELManager*(
+    engines: seq[EngineApiUrl], eth1Network: Opt[Eth1Network] = Opt.none(Eth1Network)
+): ELManager =
+  ELManager.new(engines, eth1Network)
+
+suite "EL Manager - Async Operations":
+  setup:
+    var mockState = createMockEngineState(chainId = 1.u256)
+    var mockPort = allocatePort()
+    var server = newMockRpcServer(mockState, mockPort)
+
+  teardown:
+    try:
+      waitFor server.stop()
+      waitFor server.closeWait()
+    except CatchableError:
+      discard
+
+  test "ELManager can be started and stopped safely":
+    let engineUrl = createEngineApiUrl(mockPort)
+    let manager = createELManager(@[engineUrl])
+    manager.start()
+    check manager.hasConnection()
+    # Start is async-spawned internally, just verify no crash
+
+  test "ELManager with custom chain network":
+    mockState.chainId = 11155111.u256
+    let engineUrl = createEngineApiUrl(mockPort)
+    let manager = createELManager(@[engineUrl], Opt.some(sepolia))
+    manager.start()
+
+    check manager.hasConnection()
+
+suite "EL Manager - forkchoiceUpdated":
+  setup:
+    let setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "forkchoiceUpdated basic call":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    check setup.state.forkchoiceCallCount == 0
+
+    let state =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, payload) = waitFor manager.forkchoiceUpdated(
+      state, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+    )
+
+    # Verify the call was made
+    check:
+      setup.state.forkchoiceCallCount == 1
+      status == PayloadExecutionStatus.valid
+
+  test "forkchoiceUpdated with payload attributes":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let attributes = Opt.some(
+      PayloadAttributesV3.init(
+        1234567890, Eth2Digest.default, EthAddress.default, @[], Eth2Digest.default
+      )
+    )
+
+    check setup.state.forkchoiceCallCount == 0
+
+    let state =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, payload) =
+      waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
+
+    check:
+      setup.state.forkchoiceCallCount == 1
+      status == PayloadExecutionStatus.valid
+      # When attributes are provided, a payload ID should be assigned
+      payload.isSome
+
+  test "forkchoiceUpdated with response delay":
+    setup.state.responseDelay = 100.milliseconds
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let deadline = sleepAsync(5.seconds)
+
+    let startTime = Moment.now()
+    let state2 =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status2, payload2) = waitFor manager.forkchoiceUpdated(
+      state2, Opt.none(PayloadAttributesV3), deadline, false
+    )
+    let duration = Moment.now() - startTime
+
+    # Should have taken at least as long as the response delay
+    check duration >= setup.state.responseDelay
+    check status2 == PayloadExecutionStatus.valid
+
+  test "forkchoiceUpdated multiple sequential calls":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let deadline = sleepAsync(5.seconds)
+
+    check setup.state.forkchoiceCallCount == 0
+
+    for i in 1 .. 3:
+      let state3 = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
+      )
+      let (status3, _) = waitFor manager.forkchoiceUpdated(
+        state3, Opt.none(PayloadAttributesV3), deadline, false
+      )
+      check:
+        status3 == PayloadExecutionStatus.valid
+        setup.state.forkchoiceCallCount == i
+
+suite "EL Manager - getPayload":
+  setup:
+    var setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "success without retry":
+    let
+      manager = createELManager(@[setup.url])
+      state = ForkchoiceStateV1.init(
+        default(Eth2Digest), default(Eth2Digest), default(Eth2Digest)
+      )
+      attrs = PayloadAttributesV3.init(
+        default(uint64),
+        default(Eth2Digest),
+        default(Eth1Address),
+        default(seq[capella.Withdrawal]),
+        default(Eth2Digest),
+      )
+
+      resp =
+        waitFor manager.getPayload(electra.ExecutionPayloadForSigning, state, attrs)
+
+    check:
+      setup.state.getPayloadCallCount == 1
+      resp.isOk()
+
+suite "EL Manager - newPayload":
+  setup:
+    var setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "success without retry":
+    let
+      manager = createELManager(@[setup.url])
+
+      resp = waitFor manager.newPayload(
+        default(electra.BeaconBlock), noEnvelope, sleepAsync(10.seconds), false
+      )
+
+    check:
+      setup.state.newPayloadCallCount == 1
+      resp.isOk()
+
+suite "EL Manager - Payload Request Caching":
+  setup:
+    let setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "getPayload reuses cached forkchoiceUpdated when parameters match":
+    ## This test verifies that when getPayload is called with the same parameters
+    ## as the previous forkchoiceUpdated call, it reuses that cached response
+    ## instead of making a new forkchoiceUpdated call
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let attrsPayload = PayloadAttributesV3.init(
+      1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    let attributes = Opt.some(attrsPayload)
+
+    # First, make a forkchoiceUpdated call with payload attributes
+    check setup.state.forkchoiceCallCount == 0
+    let state =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, payloadId) =
+      waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
+
+    check:
+      setup.state.forkchoiceCallCount == 1
+      status == PayloadExecutionStatus.valid
+      payloadId.isSome
+
+    # Now call getPayload - this should reuse the cached forkchoiceUpdated result
+    let stateForGet =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let payload = waitFor manager.getPayload(
+      electra.ExecutionPayloadForSigning, stateForGet, attrsPayload
+    )
+
+    check:
+      # forkchoiceUpdated should still have been called only once
+      setup.state.forkchoiceCallCount == 1
+      setup.state.getPayloadCallCount == 1
+      payload.isSome
+
+  test "getPayload makes new forkchoiceUpdated when parameters change":
+    ## This test verifies that when getPayload is called with different parameters
+    ## than the previous forkchoiceUpdated call, it makes a new forkchoiceUpdated request
+    let manager = createELManager(@[setup.url])
+    manager.start()
+    let
+      attrs1 = PayloadAttributesV3.init(
+        1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+      )
+      attributes1 = Opt.some(attrs1)
+
+    # First forkchoiceUpdated call
+    let state1 =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status1, _) = waitFor manager.forkchoiceUpdated(
+      state1, attributes1, sleepAsync(5.seconds), false
+    )
+    check:
+      setup.state.forkchoiceCallCount == 1
+      status1 == PayloadExecutionStatus.valid
+
+    # Now change a parameter (timestamp) and call getPayload
+    let stateForGet2 =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let attrsGet2 = PayloadAttributesV3.init(
+      1234567999, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    let payload = waitFor manager.getPayload(
+      electra.ExecutionPayloadForSigning, stateForGet2, attrsGet2
+    )
+
+    check:
+      # Should have made a new forkchoiceUpdated call due to parameter mismatch
+      setup.state.forkchoiceCallCount == 2
+      setup.state.getPayloadCallCount == 1
+      payload.isSome
+
+  test "multiple sequential forkchoiceUpdated calls with payload attributes":
+    ## This test verifies that successive forkchoiceUpdated calls each update
+    ## the cached payload request appropriately
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let attrsSeq = PayloadAttributesV3.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    let attributes = Opt.some(attrsSeq)
+
+    # Make multiple sequential forkchoiceUpdated calls
+    for i in 1 .. 3:
+      let stateSeq = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
+      )
+      let (status, payloadId) = waitFor manager.forkchoiceUpdated(
+        stateSeq, attributes, sleepAsync(5.seconds), false
+      )
+      check:
+        setup.state.forkchoiceCallCount == i
+        status == PayloadExecutionStatus.valid
+        payloadId.isSome
+
+  test "forkchoiceUpdated without payload attributes doesn't cache":
+    ## This test verifies that forkchoiceUpdated calls without payload attributes
+    ## don't cache a payload request (since they won't be used for payload preparation)
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    # Make a forkchoiceUpdated call WITHOUT payload attributes
+    let stateNoAttrs =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, _) = waitFor manager.forkchoiceUpdated(
+      stateNoAttrs, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+    )
+
+    check:
+      setup.state.forkchoiceCallCount == 1
+      status == PayloadExecutionStatus.valid
+
+  test "concurrent forkchoiceUpdated calls":
+    ## This test verifies that multiple concurrent forkchoiceUpdated calls
+    ## all complete successfully
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let attrsConcurrent = PayloadAttributesV3.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    let attributes = Opt.some(attrsConcurrent)
+
+    let
+      stateC = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
+      )
+      fut1 = manager.forkchoiceUpdated(stateC, attributes, sleepAsync(5.seconds), false)
+      fut2 = manager.forkchoiceUpdated(stateC, attributes, sleepAsync(5.seconds), false)
+      fut3 = manager.forkchoiceUpdated(stateC, attributes, sleepAsync(5.seconds), false)
+
+    let
+      res1 = waitFor fut1
+      res2 = waitFor fut2
+      res3 = waitFor fut3
+
+    # All should complete successfully
+    for (status, payloadId) in [res1, res2, res3]:
+      check:
+        status == PayloadExecutionStatus.valid
+        payloadId.isSome
+
+    # Should have made 3 calls since they ran concurrently
+    check setup.state.forkchoiceCallCount == 3
+
+  test "getPayload with different forkchoiceUpdated attributes":
+    ## This test creates different scenarios where getPayload is called with
+    ## varying attributes to test the caching logic under different conditions
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let withdrawals = seq[capella.Withdrawal] @[]
+
+    # Scenario 1: forkchoiceUpdated with attributes, then getPayload with same params
+    let attrsVar = PayloadAttributesV3.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    var attributes = Opt.some(attrsVar)
+
+    let stateA =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    discard waitFor manager.forkchoiceUpdated(
+      stateA, attributes, sleepAsync(5.seconds), false
+    )
+
+    check setup.state.forkchoiceCallCount == 1
+
+    let stateGet1 =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let attrsGet1 = PayloadAttributesV3.init(
+      1000, Eth2Digest.default, Eth1Address.default, withdrawals, Eth2Digest.default
+    )
+    discard waitFor manager.getPayload(
+      electra.ExecutionPayloadForSigning, stateGet1, attrsGet1
+    )
+
+    check setup.state.forkchoiceCallCount == 1 # Should still be 1
+
+    # Scenario 2: forkchoiceUpdated with different timestamp
+    let attrsVar2 = PayloadAttributesV3.init(
+      2000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    attributes = Opt.some(attrsVar2)
+
+    let stateB =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    discard waitFor manager.forkchoiceUpdated(
+      stateB, attributes, sleepAsync(5.seconds), false
+    )
+
+    check setup.state.forkchoiceCallCount == 2
+
+    let stateGet2 =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let attrsGet2b = PayloadAttributesV3.init(
+      2000, Eth2Digest.default, Eth1Address.default, withdrawals, Eth2Digest.default
+    )
+    discard waitFor manager.getPayload(
+      electra.ExecutionPayloadForSigning, stateGet2, attrsGet2b
+    )
+
+    check setup.state.forkchoiceCallCount == 2 # Should still be 2
+
+suite "EL Manager - Multiple Engines":
+  setup:
+    var
+      setup1 = mockSetup()
+      setup2 = mockSetup()
+
+  teardown:
+    setup2.close()
+    setup1.close()
+
+  test "forkchoiceUpdated with multiple engines":
+    ## This test verifies that forkchoiceUpdated is sent to all configured engines
+    let manager = createELManager(@[setup1.url, setup2.url])
+    manager.start()
+
+    let stateMulti =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, _) = waitFor manager.forkchoiceUpdated(
+      stateMulti, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+    )
+
+    check:
+      status == PayloadExecutionStatus.valid
+      setup1.state.forkchoiceCallCount == 1
+      setup2.state.forkchoiceCallCount == 1
+
+  test "newPayload with multiple engines":
+    ## This test verifies that newPayload sends the payload to all configured engines
+    let manager = createELManager(@[setup1.url, setup2.url])
+
+    let resp = waitFor manager.newPayload(
+      default(electra.BeaconBlock), noEnvelope, sleepAsync(10.seconds), false
+    )
+
+    check:
+      setup1.state.newPayloadCallCount == 1
+      setup2.state.newPayloadCallCount == 1
+      resp.isOk()
+
+  test "getPayload with multiple engines":
+    ## This test verifies that getPayload properly handles multiple engines
+    let manager = createELManager(@[setup1.url, setup2.url])
+    manager.start()
+
+    let stateMultiGet =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let attrsMulti = PayloadAttributesV3.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    )
+    let payload = waitFor manager.getPayload(
+      electra.ExecutionPayloadForSigning, stateMultiGet, attrsMulti
+    )
+
+    check:
+      # Should attempt to get payload from engines
+      setup1.state.getPayloadCallCount == 1
+      setup2.state.getPayloadCallCount == 1
+      payload.isSome
+
+  test "two engines, one broken, retry":
+    let manager = createELManager(@[setup1.url, setup2.url])
+    setup2.state.shouldFailNewPayload = true
+    let resp = waitFor manager.newPayload(
+      default(electra.BeaconBlock), noEnvelope, sleepAsync(10.seconds), true
+    )
+
+    check:
+      setup1.state.newPayloadCallCount == 1
+      setup2.state.newPayloadCallCount > 1
+      resp.isOk()
