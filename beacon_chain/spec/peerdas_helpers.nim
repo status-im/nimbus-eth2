@@ -143,8 +143,8 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-proc recoverCellsAndKzgProofsTask(cellIndices: seq[CellIndex],
-                                  cells: seq[Cell]): Result[CellsAndProofs, void] =
+proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
+                                  cells: openArray[Cell]): Result[CellsAndProofs, void] =
   recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
     proc (x: string) =
       discard)
@@ -153,57 +153,120 @@ proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
-  ## This helper recovers blobs from the data column sidecars parallelly
+  ## Recover blobs from data column sidecars in parallel.
+  ## - Uses Nim sequences with pointer passing for worker inputs
+  ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
+  ## - Checks timeout before every spawn operation.
+  ## - Ensures all spawned tasks are awaited (drained) before returning.
+
   if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
+  if dataColumns.len > NUMBER_OF_COLUMNS:
+    return err("DataColumnSidecar: Length exceeds NUMBER_OF_COLUMNS")
 
   let
     columnCount = dataColumns.len
     blobCount = dataColumns[0].column.len
 
   for column in dataColumns:
-    if not (blobCount == column.column.len):
+    if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
+  proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
+                    columnCount: int): Result[CellsAndProofs, void] =
+    let
+      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
+      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    # Use toOpenArray to create views without copying
+    recoverCellsAndKzgProofsTask(
+      idxArr.toOpenArray(0, columnCount - 1),
+      cellsArr.toOpenArray(0, columnCount - 1))
+
   var
-    pendingFuts: seq[Flowvar[Result[CellsAndProofs, void]]]
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]] (blobCount)
+    pendingIndices = newSeq[seq[CellIndex]](blobCount)
+    pendingCells = newSeq[seq[Cell]](blobCount)
     res = newSeq[CellsAndProofs](blobCount)
+
+  # track how many we've actually spawned
+  var spawned = 0
+
+  # Choose a sane limit for concurrent tasks to reduce peak memory pressure.
+  let maxInFlight = min(blobCount, 9)
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
-  # ---- Spawn phase with time limit ----
+  var
+    completed = 0
+    hadError = false
+
+  # ---- Spawn + bounded-await loop ----
   for blobIdx in 0 ..< blobCount:
-    let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out while preparing columns",
-        spawned = pendingFuts.len, total = blobCount
+    # Check timeout BEFORE spawning
+    if (Moment.now() - startTime) > reconstructionTimeout:
+      trace "PeerDAS reconstruction timed out before spawning task",
+        spawned = spawned, completed = completed, total = blobCount
+      hadError = true
       break  # Stop spawning new tasks
 
-    var
-      cellIndices = newSeq[CellIndex](columnCount)
-      cells = newSeq[Cell](columnCount)
-    for i in 0 ..< dataColumns.len:
-      cellIndices[i] = dataColumns[i][].index
-      cells[i] = dataColumns[i][].column[blobIdx]
-    pendingFuts.add(tp.spawn recoverCellsAndKzgProofsTask(cellIndices, cells))
+    # Allocate sequences and assign directly to avoid temporary copies
+    pendingIndices[spawned] = newSeq[CellIndex](columnCount)
+    pendingCells[spawned] = newSeq[Cell](columnCount)
 
-  # ---- Sync phase ----
-  for i in 0 ..< pendingFuts.len:
-    let now = Moment.now()
-    if (now - startTime) > reconstructionTimeout:
-      debug "PeerDAS reconstruction timed out",
-        completed = i, totalSpawned = pendingFuts.len
-      return err("Data column reconstruction timed out")
+    # Cache addresses to avoid repeated lookups and bounds checks
+    let
+      indicesPtr = addr pendingIndices[spawned]
+      cellsPtr = addr pendingCells[spawned]
 
+    for i in 0 ..< columnCount:
+      indicesPtr[][i] = dataColumns[i][].index
+      cellsPtr[][i] = dataColumns[i][].column[blobIdx]
+
+    # Store sequences and spawn worker with pointers to their data
+    pendingFuts[spawned] = tp.spawn workerRecover(
+      addr pendingIndices[spawned][0],
+      addr pendingCells[spawned][0],
+      columnCount)
+    inc spawned
+
+    # If too many in-flight tasks, await the oldest one
+    while spawned - completed >= maxInFlight:
+      # Check timeout BEFORE syncing
+      if (Moment.now() - startTime) > reconstructionTimeout:
+        trace "PeerDAS reconstruction timed out before syncing task",
+          completed = completed, totalSpawned = spawned
+        hadError = true
+        break
+
+      let futRes = sync pendingFuts[completed]
+
+      if futRes.isErr:
+        hadError = true
+      else:
+        res[completed] = futRes.get
+
+      inc completed
+
+    if hadError:
+      break
+
+  # ---- CRITICAL: Drain all spawned tasks before returning ----
+  # This ensures no task references memory that will be destroyed
+  for i in completed ..< spawned:
     let futRes = sync pendingFuts[i]
-    if futRes.isErr:
-      return err("KZG cells and proofs recovery failed")
+    # Store results only if we haven't had an error and the result is ok
+    if not hadError and futRes.isOk:
+      res[i] = futRes.get
+    elif futRes.isErr:
+      hadError = true
 
-    res[i] = futRes.get
-
-  if pendingFuts.len < blobCount:
-    return err("Data column reconstruction timed out")
+  if hadError:
+    if (Moment.now() - startTime) > reconstructionTimeout:
+      return err("Data column reconstruction timed out")
+    # Segregate errors from timeouts
+    else:
+      return err("Data column reconstruction failed")
 
   ok(res)
 

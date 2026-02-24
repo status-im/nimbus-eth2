@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2023 Status Research & Development GmbH.
+# Copyright (c) 2023-2026 Status Research & Development GmbH.
 # Licensed under either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -42,7 +42,7 @@ for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
 
   ${NIMBUS_ETH1_BINARY} \
     --data-dir="${NIMBUS_ETH1_DATA_DIR}" \
-    --custom-network="${EXECUTION_GENESIS_JSON}" \
+    --network="${EXECUTION_GENESIS_JSON}" \
     --discovery=None \
     --tcp-port="${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]}"  \
     --jwt-secret="${JWT_FILE}" \

@@ -366,7 +366,7 @@ proc routeAttestation*(
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.committee_index(false)).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")

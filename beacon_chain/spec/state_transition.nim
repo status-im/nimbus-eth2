@@ -179,27 +179,6 @@ proc advance_slot(
 
   ok()
 
-func noRollback*(state: var phase0.HashedBeaconState) =
-  trace "Skipping rollback of broken phase 0 state"
-
-func noRollback*(state: var altair.HashedBeaconState) =
-  trace "Skipping rollback of broken Altair state"
-
-func noRollback*(state: var bellatrix.HashedBeaconState) =
-  trace "Skipping rollback of broken Bellatrix state"
-
-func noRollback*(state: var capella.HashedBeaconState) =
-  trace "Skipping rollback of broken Capella state"
-
-func noRollback*(state: var deneb.HashedBeaconState) =
-  trace "Skipping rollback of broken Deneb state"
-
-func noRollback*(state: var electra.HashedBeaconState) =
-  trace "Skipping rollback of broken Electra state"
-
-func noRollback*(state: var fulu.HashedBeaconState) =
-  trace "Skipping rollback of broken Fulu state"
-
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, cache: var StateCache
 ) =

@@ -210,6 +210,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.FULU_FORK_VERSION,
           FULU_FORK_EPOCH:
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
+          GLOAS_FORK_VERSION:
+            "0x" & $cfg.GLOAS_FORK_VERSION,
+          GLOAS_FORK_EPOCH:
+            Base10.toString(uint64(cfg.GLOAS_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
             Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),
@@ -323,7 +327,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(cfg.NUMBER_OF_COLUMNS),
+            Base10.toString(NUMBER_OF_COLUMNS.uint64),
           NUMBER_OF_CUSTODY_GROUPS:
             Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:
