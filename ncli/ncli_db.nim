@@ -14,9 +14,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/[
-    beaconstate, state_transition, state_transition_epoch, validator,
-    ssz_codec],
+  ../beacon_chain/spec/[state_transition, ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
   ./era, ./ncli_common, ./validator_db_aggregator
@@ -24,6 +22,7 @@ import
 from std/os import createDir, dirExists, moveFile, `/`
 from std/stats import RunningStat
 from stew/staticfor import staticfor
+from ../beacon_chain/spec/state_transition_epoch import is_eligible_validator
 
 when defined(posix):
   import system/ansi_c
@@ -1193,15 +1192,15 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # finalized
   processSlots(endSlot, {})
 
-proc controlCHook {.noconv.} =
-  notice "Shutting down after having received SIGINT."
-  shouldShutDown = true
-
-proc exitOnSigterm(signal: cint) {.noconv.} =
-  notice "Shutting down after having received SIGTERM."
-  shouldShutDown = true
-
 when isMainModule:
+  proc controlCHook {.noconv.} =
+    notice "Shutting down after having received SIGINT."
+    shouldShutDown = true
+
+  proc exitOnSigterm(signal: cint) {.noconv.} =
+    notice "Shutting down after having received SIGTERM."
+    shouldShutDown = true
+
   setControlCHook(controlCHook)
   when defined(posix):
     c_signal(SIGTERM, exitOnSigterm)

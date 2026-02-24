@@ -111,7 +111,7 @@ proc main() {.noinline, raises: [CatchableError].} =
 
   # Run `exchangeTransitionConfiguration` loop
   if elManager != nil:
-    elManager.start(syncChain = false)
+    elManager.start()
 
   info "Listening to incoming network requests"
   network.registerProtocol(
@@ -187,11 +187,15 @@ proc main() {.noinline, raises: [CatchableError].} =
             when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
               debug "Sending forkchoiceUpdated",
                 finalizedBlockHash = finalizedBlockHash
+
+              let state = ForkchoiceStateV1.init(
+                blockHash,
+                finalizedBlockHash, # justified not available
+                finalizedBlockHash
+              )
               optimisticFcuFut = elManager.forkchoiceUpdated(
-                headBlockHash = blockHash,
-                safeBlockHash = finalizedBlockHash,  # justified not available
-                finalizedBlockHash = finalizedBlockHash,
-                payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+                state, payloadAttributes = Opt.none(consensusFork.PayloadAttributes)
+              )
               optimisticFcuFut.addCallback do (future: pointer):
                 optimisticFcuFut = nil
         else:
