@@ -1777,7 +1777,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     return
 
   # Currently, this logic is broken
-  if node.config.debugEnableReconstruction:
+  if not node.config.debugEnableReconstruction:
     return
 
   logScope:
