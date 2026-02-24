@@ -87,13 +87,6 @@ When using Nimbus for both execution client and beacon node, the nodes can share
         ./scripts/era_downloader.sh https://hoodi.era.nimbus.team/ ../build/era
         ```
 
-    === "Holesky"
-        ```sh
-        cd nimbus-eth1
-        chmod +x scripts/era_downloader.sh
-        ./scripts/era_downloader.sh https://holesky.era.nimbus.team/ ../build/era
-        ```
-
     === "Sepolia"
         ```sh
         cd nimbus-eth1

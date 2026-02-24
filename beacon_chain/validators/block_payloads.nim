@@ -343,12 +343,11 @@ proc getExecutionPayload*(
 
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
-    eps = await(
-      node.elManager.getPayload(
-        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, prevRandao, feeRecipient, withdrawals,
-      )
-    ).valueOr:
+    state = ForkchoiceStateV1.init(executionHead, latestSafe, latestFinalized)
+    attributes = PayloadAttributesV3.init(
+      timestamp, prevRandao, feeRecipient, withdrawals, beaconHead.blck.bid.root
+    )
+    eps = await(node.elManager.getPayload(PayloadType, state, attributes)).valueOr:
       if not proposalState[].is_merge_transition_complete():
         # Pre-merge, an all-zeroes execution payload is used and there are no
         # requests, so default is fine here
