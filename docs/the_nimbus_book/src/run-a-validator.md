@@ -67,10 +67,10 @@ The deposit tool generates a seed phrase, and uses this to create validator and 
     ./deposit new-mnemonic --chain mainnet
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     # Run the deposit tool and follow the instructions on screen
-    ./deposit new-mnemonic --chain holesky
+    ./deposit new-mnemonic --chain hoodi
     ```
 
 ### 3. Make the deposit
@@ -116,9 +116,9 @@ We'll import the signing key of each validator to the [data directory](./data-di
     build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_holesky_0
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_hoodi_0
     ```
 
 On success, a message will be printed that your keys have been imported:
@@ -143,10 +143,10 @@ If your `validator_keys` folder is stored elsewhere, you can pass its location t
       /path/to/keys
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     build/nimbus_beacon_node deposits import \
-      --data-dir=build/data/shared_holesky_0 \
+      --data-dir=build/data/shared_hoodi_0 \
       /path/to/keys
     ```
 
@@ -188,7 +188,7 @@ Press `Ctrl-c` to stop the beacon node if it's running, then use the same comman
         --suggested-fee-recipient=0x...
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     build/nimbus_beacon_node \
         --network=hoodi \
