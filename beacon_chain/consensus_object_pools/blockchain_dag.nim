@@ -95,7 +95,7 @@ const
   ForkChoiceInfoMask =
     ((distinctBase(1.Gwei) shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
   EffectiveBalanceMask = not ForkChoiceInfoMask
-  SlashedBit = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
+  SlashedBit* = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
 static: doAssert(
   max(MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA) < SlashedBit)
 

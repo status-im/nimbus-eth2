@@ -13,12 +13,13 @@ import
   "."/fork_choice_types
 
 from ../consensus_object_pools/blockchain_dag import
+  effective_balance, unslashed_balance,
   fork_choice_balances, getShufflingRef, ForkChoiceInfoOffset
 
 export fork_choice_types
 
 const
-  AttesterDutyOffsets = [
+  AttesterDutyOffsets* = [
     ForkChoiceInfoOffset + 1,
     ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth]
   AttesterDutyMask = (distinctBase(1.Gwei) shl SLOTS_PER_EPOCH.bitWidth) - 1
@@ -32,13 +33,12 @@ const
     not AttesterDutyMasks[1]]
   ClearAllAttesterDutiesMask =
     ClearAttesterDutyMasks[0] or ClearAttesterDutyMasks[1]
+  DefaultShufflingEpochs = [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH]
 
 func balance_source*(checkpoint: BalanceCheckpoint): BalanceSource =
-  BalanceSource(
-    info: checkpoint,
-    shuffling_epochs: [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH])
+  BalanceSource(info: checkpoint, shuffling_epochs: DefaultShufflingEpochs)
 
-func shuffling_index(epoch: Epoch): int =
+func shuffling_index*(epoch: Epoch): int =
   (distinctBase(epoch) and distinctBase(1.Epoch)).int
 
 func has_shuffling(
@@ -89,7 +89,7 @@ proc do_update_latest_shufflings(
 proc update_latest_shufflings*(
     balance_source: var BalanceSource, dag: ChainDAGRef, current_slot: Slot) =
   balance_source.do_update_latest_shufflings(dag, current_slot).isOkOr:
-    balance_source.shuffling_epochs = [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH]
+    balance_source.shuffling_epochs = DefaultShufflingEpochs
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
   if dst.balances.len > src.balances.len:
@@ -107,7 +107,7 @@ func assigned_slot_into_epoch(
   (distinctBase(balance) shr AttesterDutyOffsets[i]) and AttesterDutyMask
 
 iterator assigned_slots*(
-    balance_source: var BalanceSource, val_index: ValidatorIndex): Slot =
+    balance_source: BalanceSource, val_index: ValidatorIndex): Slot =
   if val_index < balance_source.balances.len.ValidatorIndex:
     for i in 0 .. 1:
       if balance_source.shuffling_epochs[i] != FAR_FUTURE_EPOCH:
@@ -116,6 +116,10 @@ iterator assigned_slots*(
 
 type SlotInfo* = object
   blck*: BlockRef
+  support*: Gwei
+  adversarial*: Gwei
+  total_support*: Gwei
+  total_adversarial*: Gwei
 
 func get_ancestor_info*(
     blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
@@ -145,3 +149,64 @@ func get_ancestor_info*(
     bs = bs.parent
   if bs.blck == nil or bs.blck.root != terminal_bid.root:
     result.reset()
+
+func get_ancestor_support_by_slot*(
+    self: ForkChoiceBackend, balance_source: BalanceSource,
+    blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
+  ## Return support of the ancestors of ``blck`` grouped by originating slot.
+  result = blck.get_ancestor_info(terminal_bid, current_slot)
+  if result.len == 0:
+    return result
+
+  let
+    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
+    last_slot = result[^1].blck.slot
+    low_slot =
+      if last_slot >= prev_epoch_start:
+        last_slot
+      else:
+        last_slot + 1
+  for val_index in 0 ..< min(self.votes.len, balance_source.balances.len):
+    template balance: ForkChoiceBalance = balance_source.balances[val_index]
+    template vote: VoteTracker = self.votes[val_index]
+    if vote.slot in low_slot .. current_slot:
+      # Collect support of the block per slot:
+      # - get_block_support_between_slots
+      # - get_current_target_score
+      let i = min(current_slot - vote.slot, result.high.uint64).int
+      if vote.current_root == result[i].blck.root:
+        result[i].support += balance.unslashed_balance
+    elif vote.slot == FAR_FUTURE_SLOT:
+      # Collect total weight of equivocating participants:
+      # - get_adversarial_weight (to current_slot)
+      # - compute_empty_slot_support_discount (per slot, between blocks)
+      var
+        i = -1
+        j = -1
+      for slot in balance_source.assigned_slots(val_index.ValidatorIndex):
+        if slot in low_slot ..< current_slot:
+          if i == -1:
+            i = min(current_slot - slot, result.high.uint64).int
+          else:
+            doAssert j == -1
+            j = min(current_slot - slot, result.high.uint64).int
+      if i != -1:
+        let eb = balance.effective_balance
+        if j == -1:
+          result[i].adversarial += eb
+          result[i].total_adversarial += eb
+        else:
+          let latest = min(i, j)
+          if result[i].blck == result[j].blck:
+            result[latest].adversarial += eb
+          else:
+            result[i].adversarial += eb
+            result[j].adversarial += eb
+          result[latest].total_adversarial += eb
+    else:
+      discard
+
+  result[0].total_support = result[0].support
+  for i in 1 ..< result.len:
+    result[i].total_support = result[i].support + result[i - 1].total_support
+    result[i].total_adversarial += result[i - 1].total_adversarial
