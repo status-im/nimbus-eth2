@@ -17,11 +17,9 @@ export TARGET_DIR="/opt/osxcross"
 UNATTENDED=1 ./build.sh
 # "tools/osxcross_conf.sh" ignores TARGET_DIR and uses "target" instead, so do a symlink
 ln -s ${TARGET_DIR} target
-./build_llvm_dsymutil.sh
 # ridiculous amount of uncompressed man pages
 rm -rf ${TARGET_DIR}/SDK/MacOSX${MACOS_SDK_VER}.sdk/usr/share
 
 # cleanup
 cd ..
 rm -rf osxcross
-
