@@ -185,21 +185,39 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
-func makeExecutionPayloadEnvelope*(
+proc makeExecutionPayloadEnvelope*(
+    cfg: RuntimeConfig,
+    state: var gloas.HashedBeaconState,
+    cache: var StateCache,
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
     slot: Slot,
-    state_root: Eth2Digest,
 ): gloas.ExecutionPayloadEnvelope =
-  gloas.ExecutionPayloadEnvelope(
+  var envelope = gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
     slot: slot,
-    state_root: state_root,
+    state_root: ZERO_HASH,
   )
+
+  process_execution_payload(
+    cfg,
+    state,
+    gloas.SignedExecutionPayloadEnvelope(message: envelope),
+    func(_: deneb.ExecutionPayload): bool = true,
+    cache,
+    verify = false,
+  ).isOkOr:
+    # Return the assigned envelope here due to some incorrect data. One
+    # should verify the state_root with zero value to confirm the envelope is
+    # successfully created.
+    return envelope
+
+  envelope.state_root = hash_tree_root(state.data)
+  envelope
 
 func makeSignedExecutionPayloadBid(
     executionPayload: deneb.ExecutionPayload,

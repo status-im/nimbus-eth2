@@ -299,7 +299,12 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  const consensusFork = typeof(blck).kind
+  when consensusFork >= ConsensusFork.Gloas:
+    # Disable column processing at block time.
+    const finalSidecars = noSidecars
+  else:
+    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
@@ -704,28 +709,26 @@ proc routePayloadAttestationMessage*(
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
     checkValidator: bool
-): Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res = router[].processor[].processExecutionPayloadEnvelope(
-      MsgSource.api, signedEnvelope)
-
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message),
-        error = res.error()
-      return err(res.error()[1])
-
-  let res =
-    await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-
-  if res.isOk():
-    info "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
+): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  # Publish envelope
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isErr():
+    notice "Envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
   else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message),
-      error = res.error()
+    notice "Envelope sent",
+      envelope = shortLog(signedEnvelope.message)
 
-  return ok()
+  # Publish sidecars
+  let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
+
+  # Add envelope and sidecars to DAG
+  (await router[].blockProcessor.addPayload(
+      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+    return err("Proposed envelope failed to add to the chain")
+
+  ok()
