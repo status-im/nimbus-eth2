@@ -941,7 +941,7 @@ proc storeBackfillPayload(
   self.storeSidecars(sidecarsOpt)
   ok()
 
-proc addPayload(
+proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
