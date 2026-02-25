@@ -22,6 +22,7 @@ import
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
+  ./el/el_getblobs_service,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
@@ -427,7 +428,7 @@ proc checkWeakSubjectivityCheckpoint(
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
-proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
+func isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   let
     checkpoint = Checkpoint(
       epoch: dag.headState.slot.epoch(),
@@ -455,10 +456,8 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
-    node.eventBus.phase0AttSlashQueue.emit(data)
-  proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
-    node.eventBus.electraAttSlashQueue.emit(data)
+  proc onAttesterSlashingAdded(data: electra.AttesterSlashing) =
+    node.eventBus.attSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
@@ -562,8 +561,7 @@ proc initFullNode(
       LightClientPool())
     validatorChangePool = newClone(ValidatorChangePool.init(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
-      onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
-      onElectraAttesterSlashingAdded))
+      onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
@@ -609,17 +607,18 @@ proc initFullNode(
       batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
-    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    blockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock,
+        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
+        blobs: Opt[BlobSidecars], maybeFinalized: bool):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Gloas:
+          # Disable sidecars processing at block time.
+          const sidecarsOpt = noSidecars
+        elif consensusFork == ConsensusFork.Fulu:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Gloas:
-            # Disable sidecars processing at block time.
-            const sidecarsOpt = noSidecars
-          else:
-            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -627,14 +626,36 @@ proc initFullNode(
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
-        blockProcessor.addBlock(
+        let bres = await blockProcessor.addBlock(
           MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
 
-    untrustedBlockVerifier =
-      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
-        async: (raises: [CancelledError], raw: true).} =
-        clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
+        when consensusFork >= ConsensusFork.Gloas:
+          template bid(): auto =
+            forkyBlck.message.body.signed_execution_payload_bid
+          if bres.isErr():
+            bres
+          elif signedEnvelope.isNone():
+            err(VerifierError.Invalid)
+          else:
+            let columnsOpt =
+              if len(bid.message.blob_kzg_commitments) > 0:
+                gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+              else:
+                Opt.some(default(gloas.DataColumnSidecars))
+
+            debugGloasComment("columns may not be guaranteed")
+            await blockProcessor.addPayload(
+              forkyBlck, signedEnvelope.get()[], columnsOpt)
+        else:
+          bres
+
+    untrustedBlockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock,
+        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
+        blobs: Opt[BlobSidecars], maybeFinalized: bool):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+      debugGloasComment("")
+      clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -709,6 +730,7 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
@@ -721,6 +743,7 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -739,6 +762,7 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -835,6 +859,9 @@ proc initFullNode(
                                           node.batchVerifier,
                                           syncManager, backfiller,
                                           untrustedManager)
+  node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
+                                                node.blockProcessor,
+                                                node.dataColumnQuarantine)
   node.router = router
 
   await node.addValidators()
@@ -1018,7 +1045,7 @@ proc init*(
   info "Loading slashing protection database (v2)",
     path = config.validatorsDir()
 
-  proc getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+  func getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
     getValidator(dag.headState.validators.asSeq, pubkey)
 
   func getCapellaForkVersion(): Opt[presets.Version] =
@@ -1027,10 +1054,10 @@ proc init*(
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(metadata.cfg.DENEB_FORK_EPOCH)
 
-  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+  func getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
-  proc getGenesisRoot(): Eth2Digest =
+  func getGenesisRoot(): Eth2Digest =
     dag.headState.genesis_validators_root
 
   let
@@ -1751,7 +1778,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     return
 
   # Currently, this logic is broken
-  if true:
+  if not node.config.debugEnableReconstruction:
     return
 
   logScope:
@@ -1763,13 +1790,12 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
   withBlck(blck):
     when consensusFork >= ConsensusFork.Fulu:
-      let maxColCount = node.dag.cfg.NUMBER_OF_COLUMNS
       var
         columns: seq[ref fulu.DataColumnSidecar]
         indices: HashSet[uint64]
 
       # Get columns from database
-      for i in 0 ..< maxColCount:
+      for i in 0 ..< NUMBER_OF_COLUMNS.uint64:
         var colData: fulu.DataColumnSidecar
         if node.dag.db.getDataColumnSidecar(forkyBlck.root, i, colData):
           columns.add(newClone(colData))
@@ -1777,10 +1803,10 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       trace "PeerDAS: Data columns before reconstruction", columns = indices.len
 
       # Make sure the node has obtained 50%+ of all the columns
-      if columns.lenu64 < (maxColCount div 2):
+      if columns.lenu64 < (NUMBER_OF_COLUMNS div 2):
         return
       # Ignore if the node has already obtained all the columns
-      elif columns.lenu64 == maxColCount:
+      elif columns.lenu64 == NUMBER_OF_COLUMNS:
         trace "The node has already obtained all the columns"
         return
 
@@ -1796,7 +1822,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let recoveredTime = Moment.now()
 
-      for i in 0 ..< maxColCount:
+      for i in 0 ..< NUMBER_OF_COLUMNS.uint64:
         if i in indices:
           continue
         var
@@ -1869,21 +1895,20 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.pruneBlobs(slot)
       node.pruneDataColumns(slot)
 
-  when declared(GC_fullCollect):
-    # The slots in the beacon node work as frames in a game: we want to make
-    # sure that we're ready for the next one and don't get stuck in lengthy
-    # garbage collection tasks when time is of essence in the middle of a slot -
-    # while this does not guarantee that we'll never collect during a slot, it
-    # makes sure that all the scratch space we used during slot tasks (logging,
-    # temporary buffers etc) gets recycled for the next slot that is likely to
-    # need similar amounts of memory.
-    try:
-      GC_fullCollect()
-    except Defect as exc:
-      raise exc # Reraise to maintain call stack
-    except Exception:
-      # TODO upstream
-      raiseAssert "Unexpected exception during GC collection"
+  # The slots in the beacon node work as frames in a game: we want to make
+  # sure that we're ready for the next one and don't get stuck in lengthy
+  # garbage collection tasks when time is of essence in the middle of a slot -
+  # while this does not guarantee that we'll never collect during a slot, it
+  # makes sure that all the scratch space we used during slot tasks (logging,
+  # temporary buffers etc) gets recycled for the next slot that is likely to
+  # need similar amounts of memory.
+  try:
+    GC_fullCollect()
+  except Defect as exc:
+    raise exc # Reraise to maintain call stack
+  except Exception:
+    # TODO upstream
+    raiseAssert "Unexpected exception during GC collection"
   let gcCollectionTick = Moment.now()
 
   # Checkpoint the database to clear the WAL file and make sure changes in
@@ -1988,9 +2013,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
-  let advanceCutoff = node.beaconClock.fromNow(
-    slot.start_beacon_time(node.dag.timeParams) +
-    node.dag.timeParams.SLOT_DURATION - chronos.seconds(1))
+  let
+    advanceOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+      node.dag.timeParams.SLOT_DURATION.nanoseconds -
+      node.dag.timeParams.aggregateSlotOffset.nanoseconds) * 3 div 4)
+    advanceCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(node.dag.timeParams) + advanceOffset)
 
   let proposalFcu =
     if advanceCutoff.inFuture:
@@ -2093,54 +2121,6 @@ proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
 
-proc attemptGetBlobs(node: BeaconNode,
-                     lastSlot: Slot) {.async.} =
-  let
-    block_id = node.quarantine[].last_block_slot.valueOr:
-      return
-  if block_id.slot != lastSlot + 1:
-    return
-  let
-    elManager = node.blockProcessor[].consensusManager.elManager
-  if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
-    let columnless = o.unsafeGet()
-    withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and
-           consensusFork < ConsensusFork.Gloas:
-        let blobsFromElOpt =
-          await elManager.sendGetBlobsV2(forkyBlck)
-        if blobsFromElOpt.isSome():
-          let blobsEl = blobsFromElOpt.get()
-          # check lengths of array[BlobAndProofV2] with blobs
-          # kzg commitments of the signed block
-          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            # we have received all columns from the EL
-            # hence we can safely remove the columnless block from quarantine
-            var flat_proof: seq[kzg.KzgProof]
-            for item in blobsEl:
-              for proof in item.proofs:
-                flat_proof.add(kzg.KzgProof(bytes: proof.data))
-            let recovered_columns = assemble_data_column_sidecars(
-              forkyBlck,
-              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-              flat_proof)
-            # Send notification to event stream
-            # and add these columns to column quarantine
-            let MaxColsPerPut = (node.dag.cfg.NUMBER_OF_COLUMNS.int div 2) + 1
-
-            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
-
-            for col in recovered_columns:
-              if col.index notin node.dataColumnQuarantine[].custodyColumns:
-                continue
-
-              batch.add(newClone(col))
-              if batch.len == MaxColsPerPut:
-                break
-
-            if batch.len > 0:
-              node.dataColumnQuarantine[].put(forkyBlck.root, batch)
-
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -2191,8 +2171,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
-
-  await node.attemptGetBlobs(lastSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
@@ -2347,9 +2325,14 @@ proc installMessageValidators(node: BeaconNode) =
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
-              toValidationResult(
-                node.processor[].processSignedBeaconBlock(
-                  MsgSource.gossip, signedBlock)))
+              let res =
+                toValidationResult(
+                  node.processor[].processSignedBeaconBlock(
+                    MsgSource.gossip, signedBlock))
+              if res == ValidationResult.Accept:
+                node.eventBus.blockGossipPeerQueue.emit(
+                  EventBeaconBlockGossipPeerObject.init(signedBlock, src))
+              res)
 
         # execution_payload_bid
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
@@ -2427,15 +2410,6 @@ proc installMessageValidators(node: BeaconNode) =
           node.network.addValidator(
             getAttesterSlashingsTopic(digest), proc (
               attesterSlashing: electra.AttesterSlashing,
-              src: PeerId
-            ): ValidationResult =
-              toValidationResult(
-                node.processor[].processAttesterSlashing(
-                  MsgSource.gossip, attesterSlashing)))
-        else:
-          node.network.addValidator(
-            getAttesterSlashingsTopic(digest), proc (
-              attesterSlashing: phase0.AttesterSlashing,
               src: PeerId
             ): ValidationResult =
               toValidationResult(
@@ -2627,6 +2601,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   node.syncOverseer.start()
+  asyncSpawn node.getBlobsService.run()
 
   waitFor node.updateGossipStatus(wallSlot)
 

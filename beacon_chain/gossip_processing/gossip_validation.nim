@@ -604,10 +604,15 @@ proc validateBlobSidecar*(
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
     blob_sidecar.signed_block_header.signature,
+    quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.latest_sidecar_signatures.put(
+    (block_root, blob_sidecar.signed_block_header.signature), ())
 
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
@@ -734,10 +739,15 @@ proc validateDataColumnSidecar*(
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
     data_column_sidecar.signed_block_header.signature,
+    quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.latest_sidecar_signatures.put(
+    (block_root, data_column_sidecar.signed_block_header.signature), ())
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
@@ -1006,10 +1016,15 @@ proc validateBeaconBlock*(
     parent, signed_beacon_block.message.slot,
     signed_beacon_block.message.proposer_index, signed_beacon_block.root,
     signed_beacon_block.signature,
+    quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
     return dag.checkedReject(error.msg)
+
+  # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.latest_sidecar_signatures.put(
+    (signed_beacon_block.root, signed_beacon_block.signature), ())
 
   ok()
 
@@ -1390,7 +1405,7 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.compatible_with_shuffling(
+  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
     shufflingRef, slot, committee_index
   ):
     return pool.checkedReject(
@@ -1433,8 +1448,8 @@ proc validateAggregate*(
 
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
-    attesting_indices = get_attesting_indices(
-      shufflingRef, slot, committee_index, aggregate.aggregation_bits
+    attesting_indices = shufflingRef.get_attesting_indices(
+      slot, aggregate.committee_bits, aggregate.aggregation_bits
     )
     sig = aggregate.signature.load().valueOr:
       return pool.checkedReject("Aggregate: unable to load signature")
@@ -1555,8 +1570,7 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool,
-    attester_slashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    pool: ValidatorChangePool, attester_slashing: electra.AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
@@ -1574,14 +1588,8 @@ proc validateAttesterSlashing*(
     return pool.checkedReject(attester_slashing_validity.error)
 
   # Send notification about new attester slashing via callback
-  when attester_slashing is phase0.AttesterSlashing:
-    if not(isNil(pool.onPhase0AttesterSlashingReceived)):
-      pool.onPhase0AttesterSlashingReceived(attester_slashing)
-  elif attester_slashing is electra.AttesterSlashing:
-    if not(isNil(pool.onElectraAttesterSlashingReceived)):
-      pool.onElectraAttesterSlashingReceived(attester_slashing)
-  else:
-    static: doAssert false
+  if not(isNil(pool.onAttesterSlashingReceived)):
+    pool.onAttesterSlashingReceived(attester_slashing)
 
   ok()
 

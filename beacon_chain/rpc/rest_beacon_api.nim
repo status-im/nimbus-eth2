@@ -1427,11 +1427,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     withConsensusFork(contextFork):
       when consensusFork < ConsensusFork.Electra:
         RestApiResponse.jsonResponseWVersion(
-          toSeq(node.validatorChangePool.phase0_attester_slashings),
+          default(seq[phase0.AttesterSlashing]),
           contextFork, node.hasRestAllowedOrigin)
       else:
         RestApiResponse.jsonResponseWVersion(
-          toSeq(node.validatorChangePool.electra_attester_slashings),
+          toSeq(node.validatorChangePool.attester_slashings),
           contextFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
@@ -1451,18 +1451,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let dres = decodeBody(AttesterSlashingType, contentBody.get())
       if dres.isErr():
         return RestApiResponse.jsonError(Http400,
-                                          InvalidAttesterSlashingObjectError,
-                                          $dres.error)
+                                         InvalidAttesterSlashingObjectError,
+                                         $dres.error)
       let res = await node.router.routeAttesterSlashing(dres.get())
       if res.isErr():
         return RestApiResponse.jsonError(Http400,
-                                       AttesterSlashingValidationError,
-                                       $res.error)
+                                         AttesterSlashingValidationError,
+                                         $res.error)
       return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        decodeAttesterSlashing(phase0.AttesterSlashing)
+        RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                  $error)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
@@ -1629,7 +1630,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     var data_columns: seq[fulu.DataColumnSidecar]
-    for columnIndex in 0'u64 ..< node.dag.cfg.NUMBER_OF_COLUMNS:
+    for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
       var dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
         data_columns.add dataColumnSidecar[]

@@ -543,7 +543,7 @@ proc new*(T: type BeaconChainDB,
       else:
         nil,
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("foobar_not_real_name").expectDb()
+        kvStore db.openKvStore("gloas_blocks").expectDb()
       else:
         nil
     ]
@@ -562,7 +562,7 @@ proc new*(T: type BeaconChainDB,
       else:
         nil,
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("more_intentional_gibberish___").expectDb()
+        kvStore db.openKvStore("gloas_state_no_validator_pubkeys").expectDb()
       else:
         nil
     ]

@@ -1710,16 +1710,15 @@ func lcDataForkAtConsensusFork*(
   else:
     LightClientDataFork.None
 
-func getForkSchedule*(cfg: RuntimeConfig): array[7, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
   static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-  debugGloasComment "deliberately don't expose this to REST yet"
   [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
-   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork()]
+   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork(), cfg.gloasFork()]
 
 type
   # The first few fields of a state, shared across all forks
@@ -1967,20 +1966,6 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
       blindedData: blck),
     consensusValue: cvalue,
     executionValue: evalue)
-
-func committee_index*(
-    v: phase0.Attestation, on_chain: static bool = false): uint64 =
-  v.data.index
-
-func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
-  when on_chain:
-    {.error: "cannot get single committee_index for on_chain attestation".}
-  else:
-    uint64 v.committee_bits.get_committee_index_one().expect("network attestation")
-
-func committee_index*(
-    v: SingleAttestation, on_chain: static bool = false): uint64 =
-  v.committee_index
 
 template init*(T: type ForkedAttestation,
                attestation: phase0.Attestation,

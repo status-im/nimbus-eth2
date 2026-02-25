@@ -2774,8 +2774,7 @@ func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId,
-    attestation: phase0.Attestation | SingleAttestation):
+    node: Eth2Node, subnet_id: SubnetId, attestation: SingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2795,8 +2794,7 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node,
-    slashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    node: Eth2Node, slashing: electra.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

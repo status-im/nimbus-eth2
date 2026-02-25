@@ -90,12 +90,12 @@ template withUpdatedState*(
 template toSszType*(v: ForkChoiceBalance): auto = uint64(v)
 
 const
-  NumInfoBits = 1
+  NumInfoBits = (2 * SLOTS_PER_EPOCH.bitWidth) + 1  # See fast_confirmation.nim
   ForkChoiceInfoOffset* = bitsof(distinctBase(Gwei)) - NumInfoBits
   ForkChoiceInfoMask =
     ((distinctBase(1.Gwei) shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
   EffectiveBalanceMask = not ForkChoiceInfoMask
-  SlashedBit = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
+  SlashedBit* = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
 static: doAssert(
   max(MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA) < SlashedBit)
 

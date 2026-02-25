@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?rev=2a777ace4b722f2714cc06d596f2476ee628c04a";
+    nimbusBuildSystem = {
+      url = "git+file:./vendor/nimbus-build-system?submodules=1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     self = {
       # WARNING: Does not work with 'github:' schema URLs.
       # https://github.com/NixOS/nix/issues/14982
@@ -12,7 +16,7 @@
     };
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, nimbusBuildSystem }:
     assert (builtins.compareVersions builtins.nixVersion "2.27") <= 0
       -> throw "Nix 2.27 or newer needed for proper submodules support!";
 
@@ -32,7 +36,8 @@
         buildTarget = pkgsFor.${system}.callPackage ./nix/default.nix {
           inherit stableSystems; src = self;
         };
-        build = targets: buildTarget.override { inherit targets; };
+        nim = nimbusBuildSystem.packages.${system}.nim;
+        build = targets: buildTarget.override { inherit targets nim; };
       in rec {
         beacon_node      = build ["nimbus_beacon_node"];
         signing_node     = build ["nimbus_signing_node"];
