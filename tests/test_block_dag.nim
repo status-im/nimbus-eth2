@@ -677,7 +677,8 @@ suite "get_current_target_score":
       exit_epoch: if active: FAR_FUTURE_EPOCH else: 0.Epoch)
 
   func makeState(
-      slot: Slot, validators: openArray[Validator]): phase0.BeaconState =
+      slot: Slot, validators: openArray[Validator]): ref phase0.BeaconState =
+    result = (ref phase0.BeaconState)()
     result.slot = slot
     for v in validators:
       doAssert result.validators.add(v)
@@ -691,7 +692,7 @@ suite "get_current_target_score":
       heads = @[chain[^1]]
       state = makeState(current_slot, @[validator])
       backend = makeBackend(@[chain.makeVote(vote_slot)])
-    backend.get_current_target_score(state, target, heads)
+    backend.get_current_target_score(state[], target, heads)
 
   test "Basic support":
     check singleVoterScore(
@@ -722,7 +723,7 @@ suite "get_current_target_score":
       heads = @[chain[^1]]
       state = makeState(current_slot, @[makeValidator(10.Gwei)])
       backend = makeBackend(@[makeEquivocation()])
-    check backend.get_current_target_score(state, target, heads) == 0.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
 
   test "Vote for unknown block":
     let
@@ -733,7 +734,7 @@ suite "get_current_target_score":
       heads = @[chain[^1]]
       state = makeState(current_slot, @[makeValidator(10.Gwei)])
       backend = makeBackend(@[makeVote(makeRoot(255), target_slot + 1)])
-    check backend.get_current_target_score(state, target, heads) == 0.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
 
   test "Multiple voters":
     let
@@ -750,7 +751,7 @@ suite "get_current_target_score":
         chain.makeVote(target_slot + 1),
         chain.makeVote(target_slot + 2),
         chain.makeVote(target_slot + 3)])
-    check backend.get_current_target_score(state, target, heads) == 60.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 60.Gwei
 
   test "Multiple heads":
     let
@@ -767,7 +768,7 @@ suite "get_current_target_score":
       backend = makeBackend(@[
         makeVote(head1.root, target_slot + 1),
         makeVote(head2.root, target_slot + 2)])
-    check backend.get_current_target_score(state, target, heads) == 30.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 30.Gwei
 
   test "Empty votes":
     let
@@ -778,7 +779,7 @@ suite "get_current_target_score":
       heads = @[chain[^1]]
       state = makeState(current_slot, newSeq[Validator]())
       backend = makeBackend(newSeq[VoteTracker]())
-    check backend.get_current_target_score(state, target, heads) == 0.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
 
   test "Gap at epoch start":
     let
@@ -797,7 +798,7 @@ suite "get_current_target_score":
         makeVote(chain[^1].bid.root, current_slot - 1)])
     check:
       target.slot == target_slot - 1
-      backend.get_current_target_score(state, target, heads) == 30.Gwei
+      backend.get_current_target_score(state[], target, heads) == 30.Gwei
 
   test "Mixed":
     let
@@ -823,4 +824,4 @@ suite "get_current_target_score":
         #[4]# chain.makeVote(2.Epoch.start_slot + 4),
         #[5]# makeVote(makeRoot(255), target_slot + 1),
         #[6]# makeVote(head2.root, target_slot + 1)])
-    check backend.get_current_target_score(state, target, heads) == 80.Gwei
+    check backend.get_current_target_score(state[], target, heads) == 80.Gwei
