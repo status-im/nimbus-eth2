@@ -607,18 +607,17 @@ proc initFullNode(
       batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
-    blockVerifier = proc(
-        signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
-        blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
+                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Gloas:
-          # Disable sidecars processing at block time.
-          const sidecarsOpt = noSidecars
-        elif consensusFork == ConsensusFork.Fulu:
+        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           # TODO document why there are no columns here
-          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+          when consensusFork == ConsensusFork.Gloas:
+            # Disable sidecars processing at block time.
+            const sidecarsOpt = noSidecars
+          else:
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
           template sidecarsOpt: untyped = blobs
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
@@ -626,36 +625,14 @@ proc initFullNode(
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
-        let bres = await blockProcessor.addBlock(
+        blockProcessor.addBlock(
           MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
 
-        when consensusFork >= ConsensusFork.Gloas:
-          template bid(): auto =
-            forkyBlck.message.body.signed_execution_payload_bid
-          if bres.isErr():
-            bres
-          elif signedEnvelope.isNone():
-            err(VerifierError.Invalid)
-          else:
-            let columnsOpt =
-              if len(bid.message.blob_kzg_commitments) > 0:
-                gloasColumnQuarantine[].popSidecars(forkyBlck.root)
-              else:
-                Opt.some(default(gloas.DataColumnSidecars))
-
-            debugGloasComment("columns may not be guaranteed")
-            await blockProcessor.addPayload(
-              forkyBlck, signedEnvelope.get()[], columnsOpt)
-        else:
-          bres
-
-    untrustedBlockVerifier = proc(
-        signedBlock: ForkedSignedBeaconBlock,
-        signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
-        blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-      debugGloasComment("")
-      clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
+    untrustedBlockVerifier =
+      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
+           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError], raw: true).} =
+        clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -730,7 +707,6 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
@@ -743,7 +719,6 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -762,7 +737,6 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.GLOAS_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
