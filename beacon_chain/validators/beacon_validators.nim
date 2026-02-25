@@ -610,12 +610,24 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when consensusFork >= ConsensusFork.Gloas:
+    # State here is for computing the state_root, so can be discarded afterward.
+    # It requires the proposed block applied in order to get the correct
+    # state_root.
     let envelope = makeExecutionPayloadEnvelope(
+      node.dag.cfg,
+      node.dag.clearanceState.forky(consensusFork),
+      cache[],
       eps = engineBid[].eps,
       execution_requests = engineBid[].execution_requests,
       beacon_block_root = blockRoot,
-      slot = slot,
-      state_root = signedBlock.message.state_root)
+      slot = slot)
+
+    # Rollback clearanceState as it is modified.
+    assign(node.dag.clearanceState, node.dag.headState)
+
+    if envelope.state_root.isZero():
+      debug "Proposed envelope failed to verify with transition"
+      return head
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),
@@ -627,14 +639,18 @@ proc proposeBlockAux(
     if signatureRes.isErr:
       error "Failed to sign sign execution payload envelope",
         slot, validator = shortLog(validator), err = signatureRes.error
+      return head
     else:
       let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
         message: envelope,
         signature: signatureRes.get()
       )
 
-      discard await node.router.routeExecutionPayloadEnvelope(
-        signedEnvelope, checkValidator = false)
+      let res = await node.router.routeExecutionPayloadEnvelope(
+          signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
+      if res.isErr():
+        error "Failed to propose envelope", reason = res.error(), slot = slot
+        return head
 
       notice "Payload Envelope proposed",
         blockRoot = shortLog(blockRoot),
