@@ -37,7 +37,6 @@ make clean
 make update -j$(nproc)
 
 NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
-NIMFLAGS_CPP="--backend:cpp"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
   export PATH="/opt/mxe/usr/bin:${PATH}"
@@ -73,7 +72,7 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} ${NIMFLAGS_CPP} --os:windows --gcc.exe=${CXX} --gcc.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CXX} --gcc.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
@@ -93,7 +92,7 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} ${NIMFLAGS_CPP} --cpu:arm --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
@@ -114,7 +113,7 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} ${NIMFLAGS_CPP} --cpu:arm64 --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
@@ -151,7 +150,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CXX} --clang.cpp.exe=${CXX} --clang.cpp.linkerexe=${CXX}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
   CC="gcc"
@@ -164,7 +163,7 @@ elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} ${NIMFLAGS_CPP} -d:marchOptimized --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
@@ -180,7 +179,7 @@ else
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} ${NIMFLAGS_CPP} --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
