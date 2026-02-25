@@ -1266,6 +1266,21 @@ AllTests-mainnet
 + Slashed validator                                                                          OK
 + Votes outside range                                                                        OK
 ```
+## get_current_target_score
+```diff
++ Basic support                                                                              OK
++ Empty votes                                                                                OK
++ Equivocating excluded                                                                      OK
++ Gap at epoch start                                                                         OK
++ Inactive excluded                                                                          OK
++ Mixed                                                                                      OK
++ Multiple heads                                                                             OK
++ Multiple voters                                                                            OK
++ Slashed excluded                                                                           OK
++ Vote for target at epoch start                                                             OK
++ Vote for unknown block                                                                     OK
++ Vote in previous epoch                                                                     OK
+```
 ## removeValidatorFiles()
 ```diff
 + Remove nonexistent validator                                                               OK
