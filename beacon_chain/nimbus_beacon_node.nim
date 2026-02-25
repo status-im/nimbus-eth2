@@ -22,6 +22,7 @@ import
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
+  ./el/el_getblobs_service,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
@@ -455,10 +456,8 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
-    node.eventBus.phase0AttSlashQueue.emit(data)
-  proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
-    node.eventBus.electraAttSlashQueue.emit(data)
+  proc onAttesterSlashingAdded(data: electra.AttesterSlashing) =
+    node.eventBus.attSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
@@ -562,8 +561,7 @@ proc initFullNode(
       LightClientPool())
     validatorChangePool = newClone(ValidatorChangePool.init(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
-      onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
-      onElectraAttesterSlashingAdded))
+      onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
@@ -861,6 +859,9 @@ proc initFullNode(
                                           node.batchVerifier,
                                           syncManager, backfiller,
                                           untrustedManager)
+  node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
+                                                node.blockProcessor,
+                                                node.dataColumnQuarantine)
   node.router = router
 
   await node.addValidators()
@@ -1777,7 +1778,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
     return
 
   # Currently, this logic is broken
-  if true:
+  if not node.config.debugEnableReconstruction:
     return
 
   logScope:
@@ -2120,53 +2121,6 @@ proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
 
-proc attemptGetBlobs(node: BeaconNode,
-                     lastSlot: Slot) {.async.} =
-  let
-    block_id = node.quarantine[].last_block_slot.valueOr:
-      return
-  if block_id.slot != lastSlot + 1:
-    return
-  let
-    elManager = node.blockProcessor[].consensusManager.elManager
-  if (let o = node.quarantine[].getColumnless(block_id.root); o.isSome):
-    let columnless = o.unsafeGet()
-    withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and
-           consensusFork < ConsensusFork.Gloas:
-        let blobsFromElOpt = await elManager.getBlobsV2(forkyBlck)
-        if blobsFromElOpt.isSome():
-          let blobsEl = blobsFromElOpt.get()
-          # check lengths of array[BlobAndProofV2] with blobs
-          # kzg commitments of the signed block
-          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            # we have received all columns from the EL
-            # hence we can safely remove the columnless block from quarantine
-            var flat_proof: seq[kzg.KzgProof]
-            for item in blobsEl:
-              for proof in item.proofs:
-                flat_proof.add(kzg.KzgProof(bytes: proof.data))
-            let recovered_columns = assemble_data_column_sidecars(
-              forkyBlck,
-              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-              flat_proof)
-            # Send notification to event stream
-            # and add these columns to column quarantine
-            const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
-
-            var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
-
-            for col in recovered_columns:
-              if col.index notin node.dataColumnQuarantine[].custodyColumns:
-                continue
-
-              batch.add(newClone(col))
-              if batch.len == MaxColsPerPut:
-                break
-
-            if batch.len > 0:
-              node.dataColumnQuarantine[].put(forkyBlck.root, batch)
-
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -2217,8 +2171,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
-
-  await node.attemptGetBlobs(lastSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
@@ -2373,9 +2325,14 @@ proc installMessageValidators(node: BeaconNode) =
                 node.optimisticProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
-              toValidationResult(
-                node.processor[].processSignedBeaconBlock(
-                  MsgSource.gossip, signedBlock)))
+              let res =
+                toValidationResult(
+                  node.processor[].processSignedBeaconBlock(
+                    MsgSource.gossip, signedBlock))
+              if res == ValidationResult.Accept:
+                node.eventBus.blockGossipPeerQueue.emit(
+                  EventBeaconBlockGossipPeerObject.init(signedBlock, src))
+              res)
 
         # execution_payload_bid
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
@@ -2453,15 +2410,6 @@ proc installMessageValidators(node: BeaconNode) =
           node.network.addValidator(
             getAttesterSlashingsTopic(digest), proc (
               attesterSlashing: electra.AttesterSlashing,
-              src: PeerId
-            ): ValidationResult =
-              toValidationResult(
-                node.processor[].processAttesterSlashing(
-                  MsgSource.gossip, attesterSlashing)))
-        else:
-          node.network.addValidator(
-            getAttesterSlashingsTopic(digest), proc (
-              attesterSlashing: phase0.AttesterSlashing,
               src: PeerId
             ): ValidationResult =
               toValidationResult(
@@ -2653,6 +2601,7 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   node.syncOverseer.start()
+  asyncSpawn node.getBlobsService.run()
 
   waitFor node.updateGossipStatus(wallSlot)
 

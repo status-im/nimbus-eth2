@@ -1178,9 +1178,7 @@ AllTests-mainnet
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
-+ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
++ addValidatorChangeMessage/getBlsToExecutionChange                                          OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK

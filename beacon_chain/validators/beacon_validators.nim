@@ -715,7 +715,6 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
-    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after

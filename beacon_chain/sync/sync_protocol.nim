@@ -524,6 +524,13 @@ p2pProtocol BeaconSync(version = 1,
     let
       dag = peer.networkState.dag
       count = colIds.len
+      epochBoundary =
+        if dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS >=
+            dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch -
+            dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     var
       found = 0
@@ -544,6 +551,10 @@ p2pProtocol BeaconSync(version = 1,
         let bsid = dag.getBlockIdAtSlot(requiredBid.slot).valueOr:
           continue
         requiredBid = bsid.bid
+
+      if requiredBid.slot.epoch < epochBoundary:
+        continue
+
       let indices =
         colIds[i].indices
       for id in indices:

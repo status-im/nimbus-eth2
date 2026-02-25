@@ -710,7 +710,7 @@ proc checkKnownValidatorSlashing(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    attesterSlashing: electra.AttesterSlashing):
     ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)

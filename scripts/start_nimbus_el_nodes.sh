@@ -47,7 +47,7 @@ for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
     --tcp-port="${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]}"  \
     --jwt-secret="${JWT_FILE}" \
     --engine-api --engine-api-port="${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
-    --rpc --rpc-port="${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
+    --rpc --http-port="${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
       &> "${DATA_DIR}/logs/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}.txt" &
   PID=$!
   echo $PID > "${DATA_DIR}/pids/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}"
