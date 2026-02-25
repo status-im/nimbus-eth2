@@ -2888,7 +2888,7 @@ func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
     # In Gloas, state_root is filled in process_execution_payload for keeping
     # the block_root hash the same as block, as state_root would be varied after
     # applying an envelope.
-    if state.latest_block_header.state_root == ZERO_HASH:
+    if state.latest_block_header.state_root.isZero:
       var tmp = state.latest_block_header
       tmp.state_root = state_root
       hash_tree_root(tmp)
