@@ -87,8 +87,10 @@ proc do_update_latest_shufflings(
   ok()
 
 proc update_latest_shufflings*(
-    balance_source: var BalanceSource, dag: ChainDAGRef, current_slot: Slot) =
-  balance_source.do_update_latest_shufflings(dag, current_slot).isOkOr:
+    balance_source: var BalanceSource,
+    dag: ChainDAGRef, current_slot: Slot): Opt[void] =
+  result = balance_source.do_update_latest_shufflings(dag, current_slot)
+  if result.isErr:
     balance_source.shuffling_epochs = DefaultShufflingEpochs
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
