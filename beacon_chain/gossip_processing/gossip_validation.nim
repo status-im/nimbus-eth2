@@ -1985,10 +1985,10 @@ proc validateExecutionPayloadBid*(
     when consensusFork >= ConsensusFork.Gloas:
       # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
       # Check builder index is valid
-      if bid.builder_index >= forkyState.data.validators.lenu64:
+      if bid.builder_index >= forkyState.data.builders.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
 
-      let validator = forkyState.data.validators.item(bid.builder_index)
+      let validator = forkyState.data.builders.item(bid.builder_index)
 
       # Check builder is active
       let currentEpoch = get_current_epoch(forkyState.data)
