@@ -21,25 +21,36 @@ export fork_choice_types
 const
   AttesterDutyOffsets* = [
     ForkChoiceInfoOffset + 1,
-    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth]
+    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth,
+    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth * 2]
+  NumAttesterDuties* = AttesterDutyOffsets.len
   AttesterDutyMask = (distinctBase(1.Gwei) shl SLOTS_PER_EPOCH.bitWidth) - 1
   AttesterDutyMasks = [
     AttesterDutyMask shl AttesterDutyOffsets[0],
-    AttesterDutyMask shl AttesterDutyOffsets[1]]
+    AttesterDutyMask shl AttesterDutyOffsets[1],
+    AttesterDutyMask shl AttesterDutyOffsets[2]]
   AllAttesterDutiesMask =
-    AttesterDutyMasks[0] or AttesterDutyMasks[1]
+    AttesterDutyMasks[0] or
+    AttesterDutyMasks[1] or
+    AttesterDutyMasks[2]
   ClearAttesterDutyMasks = [
     not AttesterDutyMasks[0],
-    not AttesterDutyMasks[1]]
+    not AttesterDutyMasks[1],
+    not AttesterDutyMasks[2]]
   ClearAllAttesterDutiesMask =
-    ClearAttesterDutyMasks[0] or ClearAttesterDutyMasks[1]
-  DefaultShufflingEpochs = [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH]
+    ClearAttesterDutyMasks[0] and
+    ClearAttesterDutyMasks[1] and
+    ClearAttesterDutyMasks[2]
+  DefaultShufflingEpochs* = [
+    FAR_FUTURE_EPOCH,
+    FAR_FUTURE_EPOCH,
+    FAR_FUTURE_EPOCH]
 
 func balance_source*(checkpoint: BalanceCheckpoint): BalanceSource =
   BalanceSource(info: checkpoint, shuffling_epochs: DefaultShufflingEpochs)
 
 func shuffling_index*(epoch: Epoch): int =
-  (distinctBase(epoch) and distinctBase(1.Epoch)).int
+  (epoch mod NumAttesterDuties.uint64).int
 
 func has_shuffling(
     balance_source: BalanceSource,
@@ -70,20 +81,17 @@ proc do_update_latest_shufflings(
     dag: ChainDAGRef, current_slot: Slot): Opt[void] =
   var
     epoch = current_slot.epoch
-    blck = dag.head.atSlot(epoch.attester_dependent_slot).blck
-  if blck == nil:
-    return err()
-  if not balance_source.has_shuffling(epoch, blck.bid.root):
-    balance_source.record_shuffling(
-      ? dag.getShufflingRef(blck, epoch, preFinalized = false))
-  if epoch > GENESIS_EPOCH:
-    dec epoch
+    blck = dag.head
+  for i in 0 ..< NumAttesterDuties:
     blck = blck.atSlot(epoch.attester_dependent_slot).blck
     if blck == nil:
       return err()
     if not balance_source.has_shuffling(epoch, blck.bid.root):
       balance_source.record_shuffling(
         ? dag.getShufflingRef(blck, epoch, preFinalized = false))
+    if epoch <= GENESIS_EPOCH:
+      return ok()
+    dec epoch
   ok()
 
 proc update_latest_shufflings*(
@@ -109,12 +117,18 @@ func assigned_slot_into_epoch(
   (distinctBase(balance) shr AttesterDutyOffsets[i]) and AttesterDutyMask
 
 iterator assigned_slots*(
-    balance_source: BalanceSource, val_index: ValidatorIndex): Slot =
+    balance_source: BalanceSource, val_index: ValidatorIndex, o = 0): Slot =
   if val_index < balance_source.balances.len.ValidatorIndex:
-    for i in 0 .. 1:
+    var i = o
+    while true:
       if balance_source.shuffling_epochs[i] != FAR_FUTURE_EPOCH:
         yield balance_source.shuffling_epochs[i].start_slot +
           balance_source.balances[val_index].assigned_slot_into_epoch(i)
+      if i == 0:
+        i = NumAttesterDuties
+      dec i
+      if i == o:
+        break
 
 type SlotInfo* = object
   blck*: BlockRef
@@ -182,29 +196,18 @@ func get_ancestor_support_by_slot*(
       # Collect total weight of equivocating participants:
       # - get_adversarial_weight (to current_slot)
       # - compute_empty_slot_support_discount (per slot, between blocks)
-      var
-        i = -1
-        j = -1
-      for slot in balance_source.assigned_slots(val_index.ValidatorIndex):
+      var old_i = -1
+      let
+        eb = balance.effective_balance
+        o = current_slot.epoch.shuffling_index
+      for slot in balance_source.assigned_slots(val_index.ValidatorIndex, o):
         if slot in low_slot ..< current_slot:
-          if i == -1:
-            i = min(current_slot - slot, result.high.uint64).int
-          else:
-            doAssert j == -1
-            j = min(current_slot - slot, result.high.uint64).int
-      if i != -1:
-        let eb = balance.effective_balance
-        if j == -1:
-          result[i].adversarial += eb
-          result[i].total_adversarial += eb
-        else:
-          let latest = min(i, j)
-          if result[i].blck == result[j].blck:
-            result[latest].adversarial += eb
-          else:
+          let i = min(current_slot - slot, result.high.uint64).int
+          if old_i == -1 or result[i].blck != result[old_i].blck:
             result[i].adversarial += eb
-            result[j].adversarial += eb
-          result[latest].total_adversarial += eb
+            if old_i == -1:
+              result[i].total_adversarial += eb
+          old_i = i
     else:
       discard
 

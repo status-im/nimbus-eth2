@@ -331,9 +331,7 @@ suite "get_ancestor_info":
     let
       current_slot = 3.Epoch.start_slot + 3
       prev_epoch_start = 2.Epoch.start_slot
-      chain = makeChain [
-        #[0]# 0.Slot,
-        #[1]# 2.Epoch.start_slot + 2]
+      chain = makeChain [0.Slot, 2.Epoch.start_slot + 2]
       res = get_ancestor_info(chain[^1], chain[0].bid, current_slot)
     check:
       res.lenu64 == current_slot - prev_epoch_start + 2
@@ -374,10 +372,12 @@ suite "get_ancestor_support_by_slot":
 
   func makeBalanceSource(
       balances: seq[ForkChoiceBalance],
-      shuffling_epochs: array[2, Epoch]): BalanceSource =
-    BalanceSource(
+      current_epoch: Epoch): BalanceSource =
+    result = BalanceSource(
       info: BalanceCheckpoint(balances: balances),
-      shuffling_epochs: shuffling_epochs)
+      shuffling_epochs: DefaultShufflingEpochs)
+    for epoch in countdown(current_epoch, max(current_epoch, 2.Epoch) - 2):
+      result.shuffling_epochs[epoch.shuffling_index] = epoch
 
   test "Basic support":
     let
@@ -392,7 +392,7 @@ suite "get_ancestor_support_by_slot":
         @[makeBalance(10.Gwei).withAssignedSlots(current_slot - 1),
           makeBalance(20.Gwei).withAssignedSlots(current_slot - 2),
           makeBalance(30.Gwei).withAssignedSlots(prev_epoch_start + 4)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -417,7 +417,7 @@ suite "get_ancestor_support_by_slot":
       backend = makeBackend(@[makeVote(makeRoot(255), 3.Epoch.start_slot + 1)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(3.Epoch.start_slot + 1)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -437,7 +437,7 @@ suite "get_ancestor_support_by_slot":
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(1.Epoch.start_slot),
           makeBalance(20.Gwei).withAssignedSlots(prev_epoch_start - 1)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -453,7 +453,7 @@ suite "get_ancestor_support_by_slot":
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).asSlashed.withAssignedSlots(
           3.Epoch.start_slot + 1)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -469,8 +469,11 @@ suite "get_ancestor_support_by_slot":
       chain = makeFullChain(current_slot)
       backend = makeBackend(@[makeEquivocation()])
       balance_source = makeBalanceSource(
-        @[makeBalance(10.Gwei).withAssignedSlots(2.Epoch.start_slot + 4)],
-        [2.Epoch, FAR_FUTURE_EPOCH])
+        @[makeBalance(10.Gwei).withAssignedSlots(
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 4,
+            3.Epoch.start_slot + 1)],
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -484,15 +487,14 @@ suite "get_ancestor_support_by_slot":
     let
       current_slot = 3.Epoch.start_slot + 3
       prev_epoch_start = 2.Epoch.start_slot
-      chain = makeChain [
-        #[0]# 0.Slot,
-        #[1]# 2.Epoch.start_slot - 1,
-        #[2]# current_slot]
+      chain = makeChain [0.Slot, 2.Epoch.start_slot - 1, current_slot]
       backend = makeBackend(@[makeEquivocation()])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(
-          2.Epoch.start_slot + 1, 3.Epoch.start_slot + 1)],
-        [2.Epoch, 3.Epoch])
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 1,
+            3.Epoch.start_slot + 1)],
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -511,8 +513,10 @@ suite "get_ancestor_support_by_slot":
       backend = makeBackend(@[makeEquivocation()])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(
-          2.Epoch.start_slot + 4, 3.Epoch.start_slot + 1)],
-        [2.Epoch, 3.Epoch])
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 4,
+            3.Epoch.start_slot + 1)],
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -531,8 +535,10 @@ suite "get_ancestor_support_by_slot":
       backend = makeBackend(@[makeEquivocation()])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(
-          2.Epoch.start_slot + 4, 3.Epoch.start_slot + 3)],
-        [2.Epoch, 3.Epoch])
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 4,
+            3.Epoch.start_slot + 3)],
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -541,6 +547,54 @@ suite "get_ancestor_support_by_slot":
       res[current_slot - (2.Epoch.start_slot + 4)].adversarial == 10.Gwei
       res[0].total_adversarial == 0.Gwei
       res[current_slot - (2.Epoch.start_slot + 4)].total_adversarial == 10.Gwei
+
+  test "Equivocating, last block before previous epoch":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeChain [0.Slot, 2.Epoch.start_slot, current_slot]
+      backend = makeBackend(@[makeEquivocation()])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(
+            3.Epoch.start_slot + 1,
+            2.Epoch.start_slot + 4,
+            1.Epoch.start_slot + 2)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - (3.Epoch.start_slot + 1)].adversarial == 10.Gwei
+      res[current_slot - (2.Epoch.start_slot + 4)].adversarial == 0.Gwei
+      res[^1].adversarial == 10.Gwei
+      res[current_slot - (3.Epoch.start_slot + 1)].total_adversarial ==
+        10.Gwei
+      res[^1].total_adversarial == 10.Gwei
+
+  test "Equivocating, duties on different blocks":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeChain [
+        0.Slot, 5.Slot, 2.Epoch.start_slot,
+        2.Epoch.start_slot + 6, current_slot]
+      backend = makeBackend(@[makeEquivocation()])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(
+            3.Epoch.start_slot + 1,
+            2.Epoch.start_slot + 4,
+            1.Epoch.start_slot + 2)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - (3.Epoch.start_slot + 1)].adversarial == 10.Gwei
+      res[current_slot - (2.Epoch.start_slot + 4)].adversarial == 10.Gwei
+      res[^1].adversarial == 10.Gwei
+      res[current_slot - (3.Epoch.start_slot + 1)].total_adversarial ==
+        10.Gwei
+      res[^1].total_adversarial == 10.Gwei
 
   test "Mixed validators":
     let
@@ -554,16 +608,20 @@ suite "get_ancestor_support_by_slot":
         chain.makeVote(2.Epoch.start_slot + 4)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(3.Epoch.start_slot + 1),
-          makeBalance(20.Gwei).withAssignedSlots(2.Epoch.start_slot + 2),
+          makeBalance(20.Gwei).withAssignedSlots(
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 2,
+            3.Epoch.start_slot + 1),
           makeBalance(30.Gwei).withAssignedSlots(1.Epoch.start_slot),
           makeBalance(40.Gwei).asSlashed.withAssignedSlots(
             2.Epoch.start_slot + 4)],
-        [2.Epoch, FAR_FUTURE_EPOCH])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
       res.lenu64 == current_slot - prev_epoch_start + 2
       res[current_slot - (3.Epoch.start_slot + 1)].support == 10.Gwei
+      res[current_slot - (3.Epoch.start_slot + 1)].adversarial == 20.Gwei
       res[current_slot - (2.Epoch.start_slot + 2)].adversarial == 20.Gwei
       res[current_slot - (2.Epoch.start_slot + 4)].support == 0.Gwei
       res[^1].total_support == 10.Gwei
@@ -577,7 +635,7 @@ suite "get_ancestor_support_by_slot":
       backend = makeBackend(@[chain.makeVote(3.Epoch.start_slot + 1)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(3.Epoch.start_slot + 1)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], fake_bid, current_slot)
     check res.len == 0
@@ -589,13 +647,33 @@ suite "get_ancestor_support_by_slot":
       backend = makeBackend(@[chain.makeVote(2.Slot)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(2.Slot)],
-        [0.Epoch, FAR_FUTURE_EPOCH])
+        0.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
       res.lenu64 == distinctBase(current_slot) + 1
       res[current_slot - 2.Slot].support == 10.Gwei
       res[^1].total_support == 10.Gwei
+
+  test "Early epochs with 3 shufflings":
+    let
+      current_slot = 2.Epoch.start_slot + 3
+      prev_epoch_start = 1.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      backend = makeBackend(@[
+        chain.makeVote(1.Epoch.start_slot + 2),
+        chain.makeVote(2.Epoch.start_slot + 1)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(1.Epoch.start_slot + 2),
+          makeBalance(20.Gwei).withAssignedSlots(2.Epoch.start_slot + 1)],
+        2.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - (1.Epoch.start_slot + 2)].support == 10.Gwei
+      res[current_slot - (2.Epoch.start_slot + 1)].support == 20.Gwei
+      res[^1].total_support == 30.Gwei
 
   test "Gap in chain":
     let
@@ -610,7 +688,7 @@ suite "get_ancestor_support_by_slot":
         makeVote(chain[parent_index].bid.root, gap_slot)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(gap_slot)],
-        [2.Epoch, 3.Epoch])
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -635,10 +713,14 @@ suite "get_ancestor_support_by_slot":
           makeBalance(20.Gwei).withAssignedSlots(3.Epoch.start_slot + 1),
           makeBalance(30.Gwei).withAssignedSlots(2.Epoch.start_slot + 4),
           makeBalance(40.Gwei).withAssignedSlots(
-            2.Epoch.start_slot + 2, 3.Epoch.start_slot + 1),
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 2,
+            3.Epoch.start_slot + 1),
           makeBalance(50.Gwei).withAssignedSlots(
-            2.Epoch.start_slot + 6, 3.Epoch.start_slot + 0)],
-        [2.Epoch, 3.Epoch])
+            1.Epoch.start_slot + 2,
+            2.Epoch.start_slot + 6,
+            3.Epoch.start_slot + 0)],
+        3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
@@ -665,3 +747,22 @@ suite "get_ancestor_support_by_slot":
       res[current_slot - (3.Epoch.start_slot + 1)].total_adversarial == 40.Gwei
       res[current_slot - 3.Epoch.start_slot].total_adversarial == 90.Gwei
       res[^1].total_adversarial == 90.Gwei
+
+  test "assign_shufflings replaces duties":
+    var dst = makeBalanceSource(
+      @[makeBalance(10.Gwei).withAssignedSlots(
+          3.Epoch.start_slot + 1,
+          2.Epoch.start_slot + 4,
+          1.Epoch.start_slot + 2)],
+      3.Epoch)
+    let src = makeBalanceSource(
+      @[makeBalance(10.Gwei).withAssignedSlots(
+          3.Epoch.start_slot + 3,
+          2.Epoch.start_slot + 2,
+          1.Epoch.start_slot + 5)],
+      3.Epoch)
+    dst.assign_shufflings(src)
+    check toSeq(dst.assigned_slots(0.ValidatorIndex)) == @[
+      3.Epoch.start_slot + 3,
+      2.Epoch.start_slot + 2,
+      1.Epoch.start_slot + 5]

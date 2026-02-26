@@ -137,8 +137,8 @@ type
     # and overlap the top bits of `info.balances`. `fork_choice.nim` transfers
     # them from the old to the new `BalanceSource` when it changes.
     info*: BalanceCheckpoint
-    shuffling_epochs*: array[2, Epoch]
-    shuffling_roots*: array[2, Eth2Digest]
+    shuffling_epochs*: array[3, Epoch]
+    shuffling_roots*: array[3, Eth2Digest]
 
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
