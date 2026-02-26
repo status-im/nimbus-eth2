@@ -1119,6 +1119,13 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
+  
+  let onExecutionPayloadCallback =
+    envelopeQuarantine[].onExecutionPayloadCallback()
+  if not isNil(onExecutionPayloadCallback):
+    onExecutionPayloadCallback ExecutionPayloadInfoObject(
+      slot: envelope.slot,
+      block_root: envelope.beacon_block_root)
 
   ok()
 
