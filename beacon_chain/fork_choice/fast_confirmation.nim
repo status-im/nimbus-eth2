@@ -212,3 +212,33 @@ func get_ancestor_support_by_slot*(
   for i in 1 ..< result.len:
     result[i].total_support = result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
+
+proc should_revert_confirmed_on_new_epoch*(
+    self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+  # Revert to finalized block if either of the following is true:
+  # 1) the latest confirmed block's epoch is older than the previous epoch,
+  # 2) [...],
+  # 3) the confirmed chain starting from the current epoch observed justified
+  #    checkpoint cannot be re-confirmed at the start of the current epoch.
+  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+    return true
+
+  template balance_source: BalanceSource = self.current_epoch_observed_justified
+  balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
+    return true
+
+  false  # TODO: not self.is_confirmed_chain_safe
+
+func should_revert_confirmed_on_new_head*(
+    self: var ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
+  # Revert to finalized block if either of the following is true:
+  # 1) [...],
+  # 2) the latest confirmed block doesn't belong to the canonical chain,
+  # 3) [...].
+  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+    return true
+
+  var blck = blck
+  while blck != nil and blck.slot > self.confirmed.slot:
+    blck = blck.parent
+  blck == nil or blck.root != self.confirmed.root

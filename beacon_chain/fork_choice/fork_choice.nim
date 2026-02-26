@@ -188,6 +188,12 @@ proc on_tick(
       for realized in self.backend.proto_array.realizePendingCheckpoints():
         ? self.update_checkpoints(dag, realized, current_slot)
 
+      # Reconfirm with previous balance source
+      if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
+        self.backend.update_confirmed BlockId(
+          slot: self.checkpoints.finalized.epoch.start_slot,
+          root: self.checkpoints.finalized.root)
+
       # Update observed justified checkpoints at the start of an epoch
       self.update_unrealized_justified(dag)
 
@@ -411,7 +417,15 @@ proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-  self.backend.current_slot_head = dag.head.root
+  self.backend.current_slot_head = blckRef.root
+
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
+    self.backend.update_confirmed BlockId(
+      slot: self.checkpoints.finalized.epoch.start_slot,
+      root: self.checkpoints.finalized.root)
+
+  # TODO: Replace placeholder
   self.backend.update_confirmed BlockId(
     slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
     root: self.checkpoints.justified.checkpoint.root)
