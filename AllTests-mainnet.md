@@ -1254,10 +1254,13 @@ AllTests-mainnet
 ```diff
 + Basic support                                                                              OK
 + Early epochs                                                                               OK
++ Early epochs with 3 shufflings                                                             OK
 + Empty result                                                                               OK
 + Equivocating, assigned slot at current_slot                                                OK
 + Equivocating, cross-epoch, different blocks                                                OK
 + Equivocating, cross-epoch, same block                                                      OK
++ Equivocating, duties on different blocks                                                   OK
++ Equivocating, last block before previous epoch                                             OK
 + Equivocating, single slot in range                                                         OK
 + Gap in chain                                                                               OK
 + Mixed validators                                                                           OK
@@ -1265,6 +1268,7 @@ AllTests-mainnet
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
 + Votes outside range                                                                        OK
++ assign_shufflings replaces duties                                                          OK
 ```
 ## removeValidatorFiles()
 ```diff
