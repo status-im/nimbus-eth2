@@ -1178,9 +1178,7 @@ AllTests-mainnet
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
-+ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
++ addValidatorChangeMessage/getBlsToExecutionChange                                          OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
@@ -1244,12 +1242,33 @@ AllTests-mainnet
 + Gap in current epoch                                                                       OK
 + Mid epoch 0                                                                                OK
 + Only genesis                                                                               OK
++ Only one block after genesis                                                               OK
 + Sparse chain with terminal mid-gap                                                         OK
 + Start of epoch 1                                                                           OK
 + Start of epoch 2                                                                           OK
 + Terminal in current epoch                                                                  OK
 + Terminal in prev epoch                                                                     OK
 + Terminal not an ancestor                                                                   OK
+```
+## get_ancestor_support_by_slot
+```diff
++ Basic support                                                                              OK
++ Early epochs                                                                               OK
++ Early epochs with 3 shufflings                                                             OK
++ Empty result                                                                               OK
++ Equivocating, assigned slot at current_slot                                                OK
++ Equivocating, cross-epoch, different blocks                                                OK
++ Equivocating, cross-epoch, same block                                                      OK
++ Equivocating, duties on different blocks                                                   OK
++ Equivocating, last block before previous epoch                                             OK
++ Equivocating, single slot in range                                                         OK
++ Gap in chain                                                                               OK
++ Mixed validators                                                                           OK
++ No match                                                                                   OK
++ Running totals verification                                                                OK
++ Slashed validator                                                                          OK
++ Votes outside range                                                                        OK
++ assign_shufflings replaces duties                                                          OK
 ```
 ## removeValidatorFiles()
 ```diff

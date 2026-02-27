@@ -408,6 +408,14 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_BLS_TO_EXECUTION_CHANGE:
             to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE.data),
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#domains
+          DOMAIN_BEACON_BUILDER:
+            to0xHex(DOMAIN_BEACON_BUILDER.data),
+          DOMAIN_PROPOSER_PREFERENCES:
+            to0xHex(DOMAIN_PROPOSER_PREFERENCES.data),
+          DOMAIN_PTC_ATTESTER:
+            to0xHex(DOMAIN_PTC_ATTESTER.data),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
@@ -466,7 +474,19 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           FIELD_ELEMENTS_PER_EXT_BLOB:
             Base10.toString(fulu_preset.FIELD_ELEMENTS_PER_EXT_BLOB),
           CELLS_PER_EXT_BLOB:
-            Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB))
+            Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#constants
+          PTC_SIZE:
+            Base10.toString(uint64(PTC_SIZE)),
+          MAX_PAYLOAD_ATTESTATIONS:
+            Base10.toString(uint64(MAX_PAYLOAD_ATTESTATIONS)),
+          BUILDER_REGISTRY_LIMIT:
+            Base10.toString(uint64(BUILDER_REGISTRY_LIMIT)),
+          BUILDER_PENDING_WITHDRAWALS_LIMIT:
+            Base10.toString(uint64(BUILDER_PENDING_WITHDRAWALS_LIMIT)),
+          MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
+            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP))
         )
       )
     cachedDepositContract =

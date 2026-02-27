@@ -146,15 +146,9 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "proposer_slashing")
           res.add(handler)
         if EventTopic.AttesterSlashing in eventTopics:
-          block:
-            let handler = response.eventHandler(node.eventBus.phase0AttSlashQueue,
-                                                "attester_slashing")
-            res.add(handler)
-
-          block:
-            let handler = response.eventHandler(node.eventBus.electraAttSlashQueue,
-                                                "attester_slashing")
-            res.add(handler)
+          let handler = response.eventHandler(node.eventBus.attSlashQueue,
+                                              "attester_slashing")
+          res.add(handler)
         if EventTopic.BlobSidecar in eventTopics:
           let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
                                               "blob_sidecar")
