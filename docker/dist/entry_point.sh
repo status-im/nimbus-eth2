@@ -72,7 +72,7 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CC} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
@@ -92,7 +92,7 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
@@ -113,7 +113,7 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
