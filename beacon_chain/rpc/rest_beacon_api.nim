@@ -1668,7 +1668,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
   
-  # [Todo]: Add a reference link
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
@@ -1676,7 +1676,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
       bid = node.getBlockId(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
       contentType = block:
         let res = preferredContentType(jsonMediaType, sszMediaType)
         if res.isErr():
@@ -1686,12 +1686,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     
     if contentType == sszMediaType:
       let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
       RestApiResponse.sszResponse(
         envelope.asSigned(), consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
       let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
       RestApiResponse.jsonResponseFinalized(
         envelope.asSigned(),
         Opt.some(node.dag.is_optimistic(bid)),
