@@ -493,6 +493,8 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
+  proc onEnvelopeAdded(data: ExecutionPayloadInfoObject) =
+    node.eventBus.execPayloadAvlQueue.emit(data)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -552,7 +554,7 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init(dag.cfg))
-    envelopeQuarantine = newClone(EnvelopeQuarantine.init())
+    envelopeQuarantine = newClone(EnvelopeQuarantine.init(onEnvelopeAdded))
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, getBeaconTime(), onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
