@@ -11,7 +11,8 @@ import std/tables
 import ../spec/[digest, forks]
 
 type
-  OnExecutionPayloadCallback* = proc(data: ExecutionPayloadInfoObject)
+  OnExecutionPayloadCallback* = proc(
+    data: ExecutionPayloadInfoObject) {.gcsafe, raises: [].}
 
   EnvelopeQuarantine* = object
     orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
