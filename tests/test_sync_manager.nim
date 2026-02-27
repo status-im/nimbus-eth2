@@ -10,7 +10,7 @@
 
 import std/sequtils
 import unittest2
-import chronos, stew/base10, chronos/unittest2/asynctests
+import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid
 import ../beacon_chain/networking/peer_scores
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/[sync_queue, response_utils],
@@ -21,6 +21,7 @@ from std/sequtils import repeat
 type
   SomeTPeer = ref object
     id: string
+    peerId: PeerId
     score: int
     map: ColumnMap
 
@@ -29,8 +30,8 @@ type
 func init(t: typedesc[SomeTPeer], id: string, score = 1000): SomeTPeer =
   SomeTPeer(id: id, score: score)
 
-func init(t: typedesc[SomeTPeer], id: string, map: ColumnMap): SomeTPeer =
-  SomeTPeer(id: id, map: map)
+proc init(t: typedesc[SomeTPeer], id: string, map: ColumnMap): SomeTPeer =
+  SomeTPeer(id: id, map: map, peerId: PeerId.random().get())
 
 func init(t: typedesc[ColumnMap], columns: openArray[int]): ColumnMap =
   var res = columns.mapIt(ColumnIndex(it))
@@ -38,6 +39,9 @@ func init(t: typedesc[ColumnMap], columns: openArray[int]): ColumnMap =
 
 func `$`(peer: SomeTPeer): string =
   "peer#" & peer.id
+
+func getKey*(peer: SomeTPeer): PeerId =
+  peer.peerId
 
 template shortLog(peer: SomeTPeer): string =
   $peer
@@ -1615,6 +1619,8 @@ suite "SyncManager test suite":
         peer8 = SomeTPeer.init("8", getLocalMap())
         peer9 = SomeTPeer.init("9", getLocalMap())
         peer10 = SomeTPeer.init("10", getLocalMap())
+        peer11 = SomeTPeer.init("11", getLocalMap())
+        peer12 = SomeTPeer.init("12", getLocalMap())
 
       let
         r1 = sq.pop(Slot(127), peer1)
@@ -1678,7 +1684,7 @@ suite "SyncManager test suite":
       check p8.code == SyncProcessError.MissingSidecars
 
       let
-        r9 = sq.pop(Slot(127), peer8)
+        r9 = sq.pop(Slot(127), peer9)
         (d9, c9) = createFuluChain(r9, r9.item.map)
 
       var columns9 =
@@ -1692,17 +1698,18 @@ suite "SyncManager test suite":
 
       # Finish this range with full 32 blocks and columns
       let
-        r10 = sq.pop(Slot(127), peer8)
+        r10 = sq.pop(Slot(127), peer10)
         (d10, c10) = createFuluChain(r10, r10.item.map)
 
       let p10 = await sq.push(r10, d10, c10)
       check p10.code == SyncProcessError.NoError
 
       let
-        r11 = sq.pop(Slot(127), peer9)
-        r12 = sq.pop(Slot(127), peer10)
+        r11 = sq.pop(Slot(127), peer11)
+        r12 = sq.pop(Slot(127), peer12)
         r13 = sq.pop(Slot(127), peer8)
         r14 = sq.pop(Slot(127), peer9)
+        r15 = sq.pop(Slot(127), peer10)
         (d11, c11) = createFuluChain(r11, r11.item.map)
         (d12, c12) = createFuluChain(r12, r12.item.map)
 
@@ -1711,6 +1718,7 @@ suite "SyncManager test suite":
         r12.isEmpty() == false
         r13.isEmpty() == true
         r14.isEmpty() == true
+        r15.isEmpty() == true
 
       let p11 = await sq.push(r11, d11, c11)
       check p11.code == SyncProcessError.NoError
