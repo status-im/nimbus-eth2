@@ -239,7 +239,6 @@ proc setupColumnsVerifier(
       let fut =
         Future[Result[void, VerifierError]].Raising([CancelledError]).init()
       try:
-        let columns = quarantine.getOrDefault(signedBlock[].root)
         queue.addLastNoWait(BlockEntry(blck: signedBlock[], resfut: fut))
       except CatchableError as exc:
         raiseAssert exc.msg
@@ -1615,7 +1614,6 @@ suite "SyncManager test suite":
         peer4 = SomeTPeer.init("4", ColumnMap.init([12, 13, 14, 15]))
         peer5 = SomeTPeer.init("5", ColumnMap.init([16, 17, 18, 19]))
         peer6 = SomeTPeer.init("6", ColumnMap.init([20, 21, 22, 23]))
-        peer7 = SomeTPeer.init("7", ColumnMap.init([24, 25, 26, 27]))
         peer8 = SomeTPeer.init("8", getLocalMap())
         peer9 = SomeTPeer.init("9", getLocalMap())
         peer10 = SomeTPeer.init("10", getLocalMap())
