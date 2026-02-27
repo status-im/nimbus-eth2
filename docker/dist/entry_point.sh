@@ -163,7 +163,7 @@ elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
@@ -179,7 +179,7 @@ else
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --gcc.exe=${CXX} --gcc.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
