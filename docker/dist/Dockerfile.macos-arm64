@@ -1,5 +1,5 @@
 # The build is reproducible only if this base image stays the same.
-FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260225214627_macos
+FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260227010455_macos
 SHELL ["/bin/bash", "-c"]
 
 ARG USER_ID

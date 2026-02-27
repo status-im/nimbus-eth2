@@ -117,7 +117,7 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
-  export PATH="/opt/osxcross/bin:${PATH}"
+  export PATH="${PATH}:/opt/osxcross/bin"
   export OSXCROSS_MP_INC=1 # sets up include and library paths
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
@@ -148,7 +148,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CXX="${CXX}" \
     AR="arm64-apple-darwin${DARWIN_VER}-ar" \
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
-    DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
+    DSYMUTIL="dsymutil" \
     FORCE_DSYMUTIL=1 \
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CXX} --clang.cpp.exe=${CXX} --clang.cpp.linkerexe=${CXX}" \
     ${BINARIES}
