@@ -45,11 +45,13 @@ RUN \
     p7zip-full \
     patch \
     perl \
-    python \
+    python3 \
+    python-is-python3 \
     ruby \
     sed \
     unzip \
     wget \
+    nasm \
     xz-utils &>/dev/null \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
