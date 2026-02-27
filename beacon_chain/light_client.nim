@@ -9,7 +9,7 @@
 
 import
   chronicles,
-  ./gossip_processing/light_client_processor,
+  ./gossip_processing/[eth2_processor, light_client_processor],
   ./networking/[eth2_network, topic_params],
   ./spec/datatypes/altair,
   ./spec/helpers,
