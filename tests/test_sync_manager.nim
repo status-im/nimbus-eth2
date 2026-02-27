@@ -101,7 +101,6 @@ func createBlobs(
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
       signedBlock: ForkedSignedBeaconBlock,
-      signedEnvelope: Opt[ref SignedExecutionPayloadEnvelope],
       blobs: Opt[BlobSidecars],
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.
@@ -196,9 +195,9 @@ suite "SyncManager test suite":
         d3 = createChain(r3.data)
 
       let
-        f1 = sq.push(r1, d1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f2 = sq.push(r2, d2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f3 = sq.push(r3, d3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f1 = sq.push(r1, d1, Opt.none(seq[BlobSidecars]))
+        f2 = sq.push(r2, d2, Opt.none(seq[BlobSidecars]))
+        f3 = sq.push(r3, d3, Opt.none(seq[BlobSidecars]))
 
       check:
         f1.finished == false
@@ -229,7 +228,7 @@ suite "SyncManager test suite":
       let
         r4 = sq.pop(Slot(127), peer)
         d4 = createChain(r4.data)
-        f4 = sq.push(r4, d4, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f4 = sq.push(r4, d4, Opt.none(seq[BlobSidecars]))
 
       await noCancel f4
 
@@ -290,17 +289,17 @@ suite "SyncManager test suite":
         d33 = createChain(r33.data)
 
       let
-        f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
-        f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
-        f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
 
       await noCancel f11
       check:
@@ -342,7 +341,7 @@ suite "SyncManager test suite":
         r41 = sq.pop(Slot(127), peer1)
         d41 = createChain(r41.data)
 
-      await noCancel sq.push(r41, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await noCancel sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
 
       check:
         f11.finished == true
@@ -416,7 +415,7 @@ suite "SyncManager test suite":
           d12 = createChain(r12.data)
 
         sq.push(r11)
-        await noCancel sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        await noCancel sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
         sq.push(r13)
         # Next couple of calls should be detected as non relevant
         sq.push(r11)
@@ -432,7 +431,7 @@ suite "SyncManager test suite":
 
         sq.push(r11)
         sq.push(r12)
-        await noCancel sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        await noCancel sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
         # Next couple of calls should be detected as non relevant
         sq.push(r11)
         sq.push(r12)
@@ -509,17 +508,17 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
       await noCancel f11
       check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
       await noCancel f21
       check:
@@ -560,12 +559,12 @@ suite "SyncManager test suite":
         d43 = createChain(r43.data)
 
       let
-        f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f42 = sq.push(r42, d42, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f41 = sq.push(r41, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f43 = sq.push(r43, d43, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
       await noCancel f31
       check:
@@ -659,17 +658,17 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
       await noCancel f11
       check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
       await noCancel f21
       check:
@@ -712,12 +711,12 @@ suite "SyncManager test suite":
         d43 = createChain(r43.data)
 
       let
-        f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f42 = sq.push(r42, d42, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f41 = sq.push(r41, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f43 = sq.push(r43, d43, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
+        f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
       await noCancel f31
       check:
@@ -812,7 +811,7 @@ suite "SyncManager test suite":
 
       let
         r11 = sq.pop(Slot(127), peer1)
-      await sq.push(r11, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == startSlot
@@ -820,7 +819,7 @@ suite "SyncManager test suite":
 
       let
         r12 = sq.pop(Slot(127), peer2)
-      await sq.push(r12, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r12, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 2nd empty response
         sq.inpSlot == startSlot
@@ -828,7 +827,7 @@ suite "SyncManager test suite":
 
       let
         r13 = sq.pop(Slot(127), peer3)
-      await sq.push(r13, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r13, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # After 3rd empty response we moving forward
         sq.inpSlot == middleSlot1
@@ -836,7 +835,7 @@ suite "SyncManager test suite":
 
       let
         r21 = sq.pop(Slot(127), peer1)
-      await sq.push(r21, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r21, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == middleSlot1
@@ -844,7 +843,7 @@ suite "SyncManager test suite":
 
       let
         r22 = sq.pop(Slot(127), peer2)
-      await sq.push(r22, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r22, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 2nd empty response
         sq.inpSlot == middleSlot1
@@ -854,7 +853,7 @@ suite "SyncManager test suite":
         r23 = sq.pop(Slot(127), peer3)
         d23 = createChain(r23.data)
 
-      await sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
       check:
         # We got non-empty response so we should advance
         sq.inpSlot == middleSlot2
@@ -862,7 +861,7 @@ suite "SyncManager test suite":
 
       let
         r31 = sq.pop(Slot(127), peer1)
-      await sq.push(r31, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r31, emptyResponse, Opt.none(seq[BlobSidecars]))
       check:
         # No movement after 1st empty response
         sq.inpSlot == middleSlot2
@@ -871,7 +870,7 @@ suite "SyncManager test suite":
       let
         r32 = sq.pop(Slot(127), peer2)
         d32 = createChain(r32.data)
-      await sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
       check:
         # We got non-empty response, so we should advance
         sq.inpSlot == finishSlot
@@ -931,7 +930,7 @@ suite "SyncManager test suite":
       let
         r11 = sq.pop(Slot(159), peer1)
         r21 = sq.pop(Slot(159), peer2)
-      await sq.push(r11, emptyResponse, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
       let
         r12 = sq.pop(Slot(159), peer1)
         r13 = sq.pop(Slot(159), peer1)
@@ -949,15 +948,15 @@ suite "SyncManager test suite":
         r14.data.slot == slots[3]
 
       # Scenario requires some finish steps
-      await sq.push(r21, createChain(r21.data), Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r21, createChain(r21.data), Opt.none(seq[BlobSidecars]))
       let r22 = sq.pop(Slot(159), peer2)
-      await sq.push(r22, createChain(r22.data), Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r22, createChain(r22.data), Opt.none(seq[BlobSidecars]))
       let r23 = sq.pop(Slot(159), peer2)
-      await sq.push(r23, createChain(r23.data), Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r23, createChain(r23.data), Opt.none(seq[BlobSidecars]))
       let r24 = sq.pop(Slot(159), peer2)
-      await sq.push(r24, createChain(r24.data), Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r24, createChain(r24.data), Opt.none(seq[BlobSidecars]))
       let r35 = sq.pop(Slot(159), peer3)
-      await sq.push(r35, createChain(r35.data), Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      await sq.push(r35, createChain(r35.data), Opt.none(seq[BlobSidecars]))
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
@@ -1038,17 +1037,17 @@ suite "SyncManager test suite":
         d23 = createChain(r23.data)
 
       let
-        f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+        f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+        f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
       await noCancel f11
       check f11.finished == true
 
       let
-        f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+        f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+        f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
       await noCancel f21
       check:
@@ -1081,9 +1080,9 @@ suite "SyncManager test suite":
         d31 = createChain(r31.data)
         d32 = createChain(r32.data)
         d33 = createChain(r33.data)
-        f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
       await noCancel f31
       await noCancel f32
@@ -1096,9 +1095,9 @@ suite "SyncManager test suite":
         d41 = createChain(r41.data)
         d42 = createChain(r42.data)
         d43 = createChain(r43.data)
-        f42 = sq.push(r32, d42, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f41 = sq.push(r31, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f43 = sq.push(r33, d43, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f42 = sq.push(r32, d42, Opt.none(seq[BlobSidecars]))
+        f41 = sq.push(r31, d41, Opt.none(seq[BlobSidecars]))
+        f43 = sq.push(r33, d43, Opt.none(seq[BlobSidecars]))
 
       await noCancel allFutures(f42, f41, f43)
 
@@ -1277,9 +1276,9 @@ suite "SyncManager test suite":
       d11 = createChain(r11.data)
       d12 = createChain(r12.data)
       d13 = createChain(r13.data)
-      f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+      f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+      f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
     await noCancel f11
     await noCancel f12
@@ -1293,9 +1292,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1308,9 +1307,9 @@ suite "SyncManager test suite":
       d21 = createChain(r21.data)
       d22 = createChain(r22.data)
       d23 = createChain(r23.data)
-      f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+      f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+      f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
     await noCancel f21
     await noCancel f22
@@ -1324,9 +1323,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1339,9 +1338,9 @@ suite "SyncManager test suite":
       d31 = createChain(r31.data)
       d32 = createChain(r32.data)
       d33 = createChain(r33.data)
-      f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+      f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+      f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
     await noCancel f31
     await noCancel f32
@@ -1355,9 +1354,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1370,9 +1369,9 @@ suite "SyncManager test suite":
       d41 = createChain(r41.data)
       d42 = createChain(r42.data)
       d43 = createChain(r43.data)
-      f41 = sq.push(r41, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f42 = sq.push(r42, d42, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f43 = sq.push(r43, d43, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+      f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+      f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
     await noCancel f41
     await noCancel f42
@@ -1386,9 +1385,9 @@ suite "SyncManager test suite":
         df1 = createChain(rf1.data)
         df2 = createChain(rf2.data)
         df3 = createChain(rf3.data)
-        ff1 = sq.push(rf1, df1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        ff2 = sq.push(rf2, df2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        ff3 = sq.push(rf3, df3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        ff1 = sq.push(rf1, df1, Opt.none(seq[BlobSidecars]))
+        ff2 = sq.push(rf2, df2, Opt.none(seq[BlobSidecars]))
+        ff3 = sq.push(rf3, df3, Opt.none(seq[BlobSidecars]))
 
       await noCancel ff1
       await noCancel ff2
@@ -1440,9 +1439,9 @@ suite "SyncManager test suite":
       d11 = createChain(r11.data)
       d12 = createChain(r12.data)
       d13 = createChain(r13.data)
-      f11 = sq.push(r11, d11, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f12 = sq.push(r12, d12, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f13 = sq.push(r13, d13, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f11 = sq.push(r11, d11, Opt.none(seq[BlobSidecars]))
+      f12 = sq.push(r12, d12, Opt.none(seq[BlobSidecars]))
+      f13 = sq.push(r13, d13, Opt.none(seq[BlobSidecars]))
 
     await noCancel f11
     await noCancel f12
@@ -1456,9 +1455,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1471,9 +1470,9 @@ suite "SyncManager test suite":
       d21 = createChain(r21.data)
       d22 = createChain(r22.data)
       d23 = createChain(r23.data)
-      f21 = sq.push(r21, d21, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f22 = sq.push(r22, d22, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f23 = sq.push(r23, d23, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f21 = sq.push(r21, d21, Opt.none(seq[BlobSidecars]))
+      f22 = sq.push(r22, d22, Opt.none(seq[BlobSidecars]))
+      f23 = sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
 
     await noCancel f21
     await noCancel f22
@@ -1487,9 +1486,9 @@ suite "SyncManager test suite":
         d31 = createChain(r31.data)
         d32 = createChain(r32.data)
         d33 = createChain(r33.data)
-        f31 = sq.push(r31, d31, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f32 = sq.push(r32, d32, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f33 = sq.push(r33, d33, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f31 = sq.push(r31, d31, Opt.none(seq[BlobSidecars]))
+        f32 = sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+        f33 = sq.push(r33, d33, Opt.none(seq[BlobSidecars]))
 
       await noCancel f31
       await noCancel f32
@@ -1503,9 +1502,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1518,9 +1517,9 @@ suite "SyncManager test suite":
       d41 = createChain(r41.data)
       d42 = createChain(r42.data)
       d43 = createChain(r43.data)
-      f41 = sq.push(r41, d41, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f42 = sq.push(r42, d42, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f43 = sq.push(r43, d43, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f41 = sq.push(r41, d41, Opt.none(seq[BlobSidecars]))
+      f42 = sq.push(r42, d42, Opt.none(seq[BlobSidecars]))
+      f43 = sq.push(r43, d43, Opt.none(seq[BlobSidecars]))
 
     await noCancel f41
     await noCancel f42
@@ -1534,9 +1533,9 @@ suite "SyncManager test suite":
         d51 = createChain(r51.data)
         d52 = createChain(r52.data)
         d53 = createChain(r53.data)
-        f51 = sq.push(r51, d51, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f52 = sq.push(r52, d52, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f53 = sq.push(r53, d53, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f51 = sq.push(r51, d51, Opt.none(seq[BlobSidecars]))
+        f52 = sq.push(r52, d52, Opt.none(seq[BlobSidecars]))
+        f53 = sq.push(r53, d53, Opt.none(seq[BlobSidecars]))
 
       await noCancel f51
       await noCancel f52
@@ -1550,9 +1549,9 @@ suite "SyncManager test suite":
         de1 = default(seq[ref ForkedSignedBeaconBlock])
         de2 = default(seq[ref ForkedSignedBeaconBlock])
         de3 = default(seq[ref ForkedSignedBeaconBlock])
-        fe1 = sq.push(re1, de1, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe2 = sq.push(re2, de2, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        fe3 = sq.push(re3, de3, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        fe1 = sq.push(re1, de1, Opt.none(seq[BlobSidecars]))
+        fe2 = sq.push(re2, de2, Opt.none(seq[BlobSidecars]))
+        fe3 = sq.push(re3, de3, Opt.none(seq[BlobSidecars]))
 
       await noCancel fe1
       await noCancel fe2
@@ -1565,9 +1564,9 @@ suite "SyncManager test suite":
       d61 = createChain(r61.data)
       d62 = createChain(r62.data)
       d63 = createChain(r63.data)
-      f61 = sq.push(r61, d61, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f62 = sq.push(r62, d62, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-      f63 = sq.push(r63, d63, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+      f61 = sq.push(r61, d61, Opt.none(seq[BlobSidecars]))
+      f62 = sq.push(r62, d62, Opt.none(seq[BlobSidecars]))
+      f63 = sq.push(r63, d63, Opt.none(seq[BlobSidecars]))
 
     await noCancel f61
     await noCancel f62
@@ -1581,9 +1580,9 @@ suite "SyncManager test suite":
         d71 = createChain(r71.data)
         d72 = createChain(r72.data)
         d73 = createChain(r73.data)
-        f71 = sq.push(r71, d71, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f72 = sq.push(r72, d72, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
-        f73 = sq.push(r73, d73, Opt.none(seq[ref SignedExecutionPayloadEnvelope]), Opt.none(seq[BlobSidecars]))
+        f71 = sq.push(r71, d71, Opt.none(seq[BlobSidecars]))
+        f72 = sq.push(r72, d72, Opt.none(seq[BlobSidecars]))
+        f73 = sq.push(r73, d73, Opt.none(seq[BlobSidecars]))
 
       await noCancel f71
       await noCancel f72

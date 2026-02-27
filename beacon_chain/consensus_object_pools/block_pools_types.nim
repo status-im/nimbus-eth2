@@ -11,8 +11,7 @@ import
   # Standard library
   std/[tables, hashes],
   # Status libraries
-  chronicles,
-  results,
+  chronicles, libp2p/peerid, results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
@@ -336,6 +335,10 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
+  EventBeaconBlockGossipPeerObject* = object
+    blck*: ForkedSignedBeaconBlock
+    src*: PeerId
+
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 
@@ -470,3 +473,13 @@ func init*(t: typedesc[EventBeaconBlockGossipObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root
     )
+
+func init*(
+    t: typedesc[EventBeaconBlockGossipPeerObject],
+    v: ForkySignedBeaconBlock,
+    s: PeerId
+): EventBeaconBlockGossipPeerObject =
+  EventBeaconBlockGossipPeerObject(
+    blck: ForkedSignedBeaconBlock.init(v),
+    src: s
+  )

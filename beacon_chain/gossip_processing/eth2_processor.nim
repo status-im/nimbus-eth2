@@ -338,11 +338,15 @@ proc processExecutionPayloadEnvelope*(
   let delay = wallTime -
     signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
 
+  debug "Envelope received", delay
+
   self.dag.validateExecutionPayload(
       self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
+    debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
+  trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(signedEnvelope)
   self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
@@ -706,7 +710,7 @@ proc checkKnownValidatorSlashing(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    attesterSlashing: electra.AttesterSlashing):
     ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)

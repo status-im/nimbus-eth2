@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Everything needed to run a full Beacon Node
 
@@ -20,7 +20,7 @@ import
   ./[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
-  ./el/el_manager,
+  ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
@@ -49,12 +49,12 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
+    blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
-    phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
-    electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
+    attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
@@ -86,6 +86,7 @@ type
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -188,12 +189,12 @@ func init*(T: type EventBus): T =
     headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
     blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
     singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
     exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
     blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
     propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-    phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
-    electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
+    attSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
     blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
     finalQueue: newAsyncEventQueue[FinalizationInfoObject](),

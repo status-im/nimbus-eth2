@@ -13,33 +13,44 @@ import
   "."/fork_choice_types
 
 from ../consensus_object_pools/blockchain_dag import
+  effective_balance, unslashed_balance,
   fork_choice_balances, getShufflingRef, ForkChoiceInfoOffset
 
 export fork_choice_types
 
 const
-  AttesterDutyOffsets = [
+  AttesterDutyOffsets* = [
     ForkChoiceInfoOffset + 1,
-    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth]
+    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth,
+    ForkChoiceInfoOffset + 1 + SLOTS_PER_EPOCH.bitWidth * 2]
+  NumAttesterDuties* = AttesterDutyOffsets.len
   AttesterDutyMask = (distinctBase(1.Gwei) shl SLOTS_PER_EPOCH.bitWidth) - 1
   AttesterDutyMasks = [
     AttesterDutyMask shl AttesterDutyOffsets[0],
-    AttesterDutyMask shl AttesterDutyOffsets[1]]
+    AttesterDutyMask shl AttesterDutyOffsets[1],
+    AttesterDutyMask shl AttesterDutyOffsets[2]]
   AllAttesterDutiesMask =
-    AttesterDutyMasks[0] or AttesterDutyMasks[1]
+    AttesterDutyMasks[0] or
+    AttesterDutyMasks[1] or
+    AttesterDutyMasks[2]
   ClearAttesterDutyMasks = [
     not AttesterDutyMasks[0],
-    not AttesterDutyMasks[1]]
+    not AttesterDutyMasks[1],
+    not AttesterDutyMasks[2]]
   ClearAllAttesterDutiesMask =
-    ClearAttesterDutyMasks[0] or ClearAttesterDutyMasks[1]
+    ClearAttesterDutyMasks[0] and
+    ClearAttesterDutyMasks[1] and
+    ClearAttesterDutyMasks[2]
+  DefaultShufflingEpochs* = [
+    FAR_FUTURE_EPOCH,
+    FAR_FUTURE_EPOCH,
+    FAR_FUTURE_EPOCH]
 
 func balance_source*(checkpoint: BalanceCheckpoint): BalanceSource =
-  BalanceSource(
-    info: checkpoint,
-    shuffling_epochs: [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH])
+  BalanceSource(info: checkpoint, shuffling_epochs: DefaultShufflingEpochs)
 
-func shuffling_index(epoch: Epoch): int =
-  (distinctBase(epoch) and distinctBase(1.Epoch)).int
+func shuffling_index*(epoch: Epoch): int =
+  (epoch mod NumAttesterDuties.uint64).int
 
 func has_shuffling(
     balance_source: BalanceSource,
@@ -70,26 +81,25 @@ proc do_update_latest_shufflings(
     dag: ChainDAGRef, current_slot: Slot): Opt[void] =
   var
     epoch = current_slot.epoch
-    blck = dag.head.atSlot(epoch.attester_dependent_slot).blck
-  if blck == nil:
-    return err()
-  if not balance_source.has_shuffling(epoch, blck.bid.root):
-    balance_source.record_shuffling(
-      ? dag.getShufflingRef(blck, epoch, preFinalized = false))
-  if epoch > GENESIS_EPOCH:
-    dec epoch
+    blck = dag.head
+  for i in 0 ..< NumAttesterDuties:
     blck = blck.atSlot(epoch.attester_dependent_slot).blck
     if blck == nil:
       return err()
     if not balance_source.has_shuffling(epoch, blck.bid.root):
       balance_source.record_shuffling(
         ? dag.getShufflingRef(blck, epoch, preFinalized = false))
+    if epoch <= GENESIS_EPOCH:
+      return ok()
+    dec epoch
   ok()
 
 proc update_latest_shufflings*(
-    balance_source: var BalanceSource, dag: ChainDAGRef, current_slot: Slot) =
-  balance_source.do_update_latest_shufflings(dag, current_slot).isOkOr:
-    balance_source.shuffling_epochs = [FAR_FUTURE_EPOCH, FAR_FUTURE_EPOCH]
+    balance_source: var BalanceSource,
+    dag: ChainDAGRef, current_slot: Slot): Opt[void] =
+  result = balance_source.do_update_latest_shufflings(dag, current_slot)
+  if result.isErr:
+    balance_source.shuffling_epochs = DefaultShufflingEpochs
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
   if dst.balances.len > src.balances.len:
@@ -107,9 +117,131 @@ func assigned_slot_into_epoch(
   (distinctBase(balance) shr AttesterDutyOffsets[i]) and AttesterDutyMask
 
 iterator assigned_slots*(
-    balance_source: var BalanceSource, val_index: ValidatorIndex): Slot =
+    balance_source: BalanceSource, val_index: ValidatorIndex, o = 0): Slot =
   if val_index < balance_source.balances.len.ValidatorIndex:
-    for i in 0 .. 1:
+    var i = o
+    while true:
       if balance_source.shuffling_epochs[i] != FAR_FUTURE_EPOCH:
         yield balance_source.shuffling_epochs[i].start_slot +
           balance_source.balances[val_index].assigned_slot_into_epoch(i)
+      if i == 0:
+        i = NumAttesterDuties
+      dec i
+      if i == o:
+        break
+
+type SlotInfo* = object
+  blck*: BlockRef
+  support*: Gwei
+  adversarial*: Gwei
+  total_support*: Gwei
+  total_adversarial*: Gwei
+
+func get_ancestor_info*(
+    blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
+  ## Return a list of ancestors of ``blck`` inclusive back through the last
+  ## slot of ``current_slot.epoch - 2``, or ``terminal_bid``, whichever is
+  ## encountered first, iff ``terminal_bid`` is an ancestor of ``blck``.
+  ## Otherwise, return an empty list.
+  ## For slots within the previous and current epoch, an entry is emitted
+  ## per slot, even when there are slots without a block. A single extra entry
+  ## is emitted for the last block, if it was proposed during an earlier epoch.
+  let
+    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
+    low_slot = max(terminal_bid.slot, max(prev_epoch_start, 1.Slot) - 1)
+  result = newSeqOfCap[SlotInfo](current_slot  - low_slot + 1)
+
+  var bs = blck.atSlot(current_slot)
+  while bs.blck != nil and bs.slot > low_slot:
+    result.add SlotInfo(blck: bs.blck)
+    bs = bs.parent
+  while bs.blck != nil and not bs.isProposed and bs.slot >= prev_epoch_start:
+    result.add SlotInfo(blck: bs.blck)
+    bs = bs.parent
+  if bs.blck != nil:
+    result.add SlotInfo(blck: bs.blck)
+
+  while bs.blck != nil and bs.slot > terminal_bid.slot:
+    bs = bs.parent
+  if bs.blck == nil or bs.blck.root != terminal_bid.root:
+    result.reset()
+
+func get_ancestor_support_by_slot*(
+    self: ForkChoiceBackend, balance_source: BalanceSource,
+    blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
+  ## Return support of the ancestors of ``blck`` grouped by originating slot.
+  result = blck.get_ancestor_info(terminal_bid, current_slot)
+  if result.len == 0:
+    return result
+
+  let
+    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
+    last_slot = result[^1].blck.slot
+    low_slot =
+      if last_slot >= prev_epoch_start:
+        last_slot
+      else:
+        last_slot + 1
+  for val_index in 0 ..< min(self.votes.len, balance_source.balances.len):
+    template balance: ForkChoiceBalance = balance_source.balances[val_index]
+    template vote: VoteTracker = self.votes[val_index]
+    if vote.slot in low_slot .. current_slot:
+      # Collect support of the block per slot:
+      # - get_block_support_between_slots
+      # - get_current_target_score
+      let i = min(current_slot - vote.slot, result.high.uint64).int
+      if vote.current_root == result[i].blck.root:
+        result[i].support += balance.unslashed_balance
+    elif vote.slot == FAR_FUTURE_SLOT:
+      # Collect total weight of equivocating participants:
+      # - get_adversarial_weight (to current_slot)
+      # - compute_empty_slot_support_discount (per slot, between blocks)
+      var old_i = -1
+      let
+        eb = balance.effective_balance
+        o = current_slot.epoch.shuffling_index
+      for slot in balance_source.assigned_slots(val_index.ValidatorIndex, o):
+        if slot in low_slot ..< current_slot:
+          let i = min(current_slot - slot, result.high.uint64).int
+          if old_i == -1 or result[i].blck != result[old_i].blck:
+            result[i].adversarial += eb
+            if old_i == -1:
+              result[i].total_adversarial += eb
+          old_i = i
+    else:
+      discard
+
+  result[0].total_support = result[0].support
+  for i in 1 ..< result.len:
+    result[i].total_support = result[i].support + result[i - 1].total_support
+    result[i].total_adversarial += result[i - 1].total_adversarial
+
+proc should_revert_confirmed_on_new_epoch*(
+    self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+  # Revert to finalized block if either of the following is true:
+  # 1) the latest confirmed block's epoch is older than the previous epoch,
+  # 2) [...],
+  # 3) the confirmed chain starting from the current epoch observed justified
+  #    checkpoint cannot be re-confirmed at the start of the current epoch.
+  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+    return true
+
+  template balance_source: BalanceSource = self.current_epoch_observed_justified
+  balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
+    return true
+
+  false  # TODO: not self.is_confirmed_chain_safe
+
+func should_revert_confirmed_on_new_head*(
+    self: var ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
+  # Revert to finalized block if either of the following is true:
+  # 1) [...],
+  # 2) the latest confirmed block doesn't belong to the canonical chain,
+  # 3) [...].
+  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+    return true
+
+  var blck = blck
+  while blck != nil and blck.slot > self.confirmed.slot:
+    blck = blck.parent
+  blck == nil or blck.root != self.confirmed.root
