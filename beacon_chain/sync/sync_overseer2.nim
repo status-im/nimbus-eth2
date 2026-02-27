@@ -101,8 +101,7 @@ template blobsCount(blck: ForkedSignedBeaconBlock): int =
 func slimLog(blck: ref ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck[].slot() &
     ",root:" & shortLog(blck[].root()) &
-    ",parent_root:" & shortLog(blck[].parent_root()) &
-    ",blobs_count:" & $blck[].blobsCount() & ")"
+    ",parent_root:" & shortLog(blck[].parent_root()) & ")"
 
 func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it)).join(",") & "]"
@@ -206,22 +205,34 @@ func getColumnsFillRate(
 func getMissingColumnsLog(
     overseer: SyncOverseerRef2,
     blocks: openArray[ref ForkedSignedBeaconBlock]
-): string =
-  var res: seq[string]
+): (string, string) =
+  var
+    res: seq[string]
+    missingCount = 0.0
+    totalCount = 0.0
+
+  let blocksColumnsCount = float(len(overseer.columnQuarantine[].custodyMap))
+
   for blck in blocks:
     withBlck(blck[]):
       when consensusFork == ConsensusFork.Fulu:
-        res.add(
-          if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            shortLog(forkyBlck.root) & ":[]"
-          else:
-            let map =
-              overseer.columnQuarantine[].getMissingColumnsMap(forkyBlck.root)
-            shortLog(forkyBlck.root) & ":" & $map
-        )
+        if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
+          let map =
+            overseer.columnQuarantine[].getMissingColumnsMap(forkyBlck.root)
+          res.add(shortLog(forkyBlck.root) & ":" & $map)
+          missingCount += float(len(map))
+          totalCount += blocksColumnsCount
       else:
         raiseAssert "Unsupported fork"
-  "[" & res.join(",") & "]"
+
+  let missing =
+    if totalCount > 0.0:
+      ((missingCount * 100.0) / totalCount).formatBiggestFloat(ffDecimal, 2) &
+        "%"
+    else:
+      "0.00%"
+
+  (missing, "[" & res.join(",") & "]")
 
 func getLastSeenHeadLog(
     overseer: SyncOverseerRef2
@@ -1986,12 +1997,14 @@ proc doRangeSidecarsStep(
             # blocks.
             (false, false)
 
-        let missingLog = overseer.getMissingColumnsLog(blocks)
+        let (missingCount, missingLog) =
+          overseer.getMissingColumnsLog(blocks)
 
         debug "Peer columns compatibility",
            custody_map = shortLog(custodyMap),
            peer_map = shortLog(peerMap),
            intersect_map = shortLog(intersectMap),
+           missing_count = missingCount,
            missing_log = missingLog
 
         if (len(blocks) > 0) and (columnsNeeded and not(columnsHave)):
@@ -2000,6 +2013,7 @@ proc doRangeSidecarsStep(
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap),
             intersect_map = shortLog(intersectMap),
+            missing_count = missingCount,
             missing_log = missingLog
           overseer.ssqueue(direction).push(request)
           return true
@@ -2022,6 +2036,7 @@ proc doRangeSidecarsStep(
             columns_map = getShortMap(request, intersectMap, data.toSeq()),
             peer_map = shortLog(peerMap),
             intersection_map = shortLog(intersectMap),
+            missing_count = missingCount,
             columns = slimLog(data.asSeq()),
             missing_log = missingLog
 
@@ -2064,6 +2079,7 @@ proc doRangeSidecarsStep(
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap),
             intersect_map = shortLog(intersectMap),
+            missing_count = missingCount,
             missing_log = missingLog,
             columns_needed = columnsNeeded, columns_have = columnsHave
 

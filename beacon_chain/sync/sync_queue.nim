@@ -7,7 +7,8 @@
 
 {.push raises: [].}
 
-import std/[deques, heapqueue, tables, strutils, sequtils, math, typetraits]
+import std/[
+  deques, heapqueue, sets, tables, strutils, sequtils, math, typetraits]
 import stew/base10, chronos, chronicles, results
 import
   ../spec/[helpers, forks, column_map],
@@ -53,6 +54,7 @@ type
 
   ColumnCompleteness* = object
     map: ColumnMap
+    keys: HashSet[string]
     done: bool
 
   SyncRequest*[T] = object
@@ -334,6 +336,7 @@ func isComplete[M, N](
     peer: M,
     criteria: var N
 ): bool =
+  mixin getKey
   if criteria.done:
     return true
   when N is BlockCompleteness:
@@ -342,6 +345,10 @@ func isComplete[M, N](
     if criteria.map.empty():
       # If criteria's map is empty, it means that we do not need columns for
       # the range.
+      return true
+    if $(peer.getKey()) in criteria.keys:
+      # Columns was already downloaded from this peer for the range, there is no
+      # reason to request it one more time.
       return true
     # If the peer has columns that we are still missing, we should return
     # `false`, so that peer will get request for that range, but if the peer
@@ -377,12 +384,19 @@ func fillCompleteness[M](
     peer: M,
     missingMap: Opt[ColumnMap],
     done: bool,
+    storePeer: bool,
     criteria: var ColumnCompleteness
 ) =
+  mixin getKey
+
   if done:
     criteria.done = true
     criteria.map = ColumnMap()
     return
+
+  if storePeer:
+    let key = peer.getKey()
+    criteria.keys.incl($key)
 
   if missingMap.isSome():
     criteria.map = missingMap.get()
@@ -1024,7 +1038,7 @@ proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
     elif N is ColumnCompleteness:
       sq.fillCompleteness(
         sq.requests[pos.qindex].data, request.item, Opt.none(ColumnMap),
-        done = false, sq.requests[pos.qindex].completeness)
+        done = false, storePeer = false, sq.requests[pos.qindex].completeness)
     sq.del(pos)
 
 proc push*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]) =
@@ -1137,7 +1151,7 @@ proc push*[M, N](
       return SyncPushResponse(
         code: SyncProcessError.NoRelevant, count: 0'i64)
 
-  template fillCompleteness(pdone, pblck: untyped) =
+  template fillCompleteness(pdone, pblck, pstore: untyped) =
     when N is BlockCompleteness:
       sq.fillCompleteness(
         sq.requests[position.qindex].data, sr.item, done = pdone,
@@ -1147,11 +1161,13 @@ proc push*[M, N](
         let map = sq.getMissingMap(data, pblck.get().root)
         sq.fillCompleteness(
           sq.requests[position.qindex].data, sr.item, Opt.some(map),
-          done = pdone, sq.requests[position.qindex].completeness)
+          done = pdone, storePeer = pstore,
+          sq.requests[position.qindex].completeness)
       else:
         sq.fillCompleteness(
           sq.requests[position.qindex].data, sr.item, Opt.none(ColumnMap),
-          done = pdone, sq.requests[position.qindex].completeness)
+          done = pdone, storePeer = pstore,
+          sq.requests[position.qindex].completeness)
 
   # This is backpressure handling algorithm, this algorithm is blocking
   # all pending `push` requests if `request` is not in range.
@@ -1230,18 +1246,18 @@ proc push*[M, N](
       # peers returns empty response for the same range.
       if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
         when N is BlockCompleteness:
-          fillCompleteness(true, Opt.none(BlockId))
+          fillCompleteness(true, Opt.none(BlockId), false)
           sq.advanceQueue(res)
         elif N is ColumnCompleteness:
           let localMap = sq.cbGetLocalColumnMap()
           # If completeness map was changed it proves that specific range is
           # not actually empty and we should not move forward.
           if sq.requests[position.qindex].completeness.map != localMap:
-            fillCompleteness(false, Opt.none(BlockId))
+            fillCompleteness(false, Opt.none(BlockId), false)
           else:
-            fillCompleteness(true, Opt.none(BlockId))
+            fillCompleteness(true, Opt.none(BlockId), false)
       else:
-        fillCompleteness(false, Opt.none(BlockId))
+        fillCompleteness(false, Opt.none(BlockId), false)
 
     of SyncProcessError.Duplicate:
       # Duplicate responses does not affect failures count
@@ -1256,7 +1272,7 @@ proc push*[M, N](
             topics = "sync"
 
       sq.gapList.reset()
-      fillCompleteness(true, Opt.none(BlockId))
+      fillCompleteness(true, Opt.none(BlockId), false)
       sq.advanceQueue(res)
 
     of SyncProcessError.MissingSidecars:
@@ -1271,7 +1287,7 @@ proc push*[M, N](
             topics = "sync"
 
       inc(sq.requests[position.qindex].failuresCount)
-      fillCompleteness(false, pres.blck)
+      fillCompleteness(false, pres.blck, true)
       sq.del(position)
       res = 0'i64
 
@@ -1288,7 +1304,7 @@ proc push*[M, N](
             topics = "sync"
 
       inc(sq.requests[position.qindex].failuresCount)
-      fillCompleteness(false, pres.blck)
+      fillCompleteness(false, pres.blck, false)
       sq.del(position)
       res = 0'i64
 
@@ -1306,7 +1322,7 @@ proc push*[M, N](
 
       sr.item.updateScore(PeerScoreUnviableFork)
       inc(sq.requests[position.qindex].failuresCount)
-      fillCompleteness(false, pres.blck)
+      fillCompleteness(false, pres.blck, false)
       sq.del(position)
       res = 0'i64
 
@@ -1327,7 +1343,7 @@ proc push*[M, N](
       sq.rewardForGaps(PeerScoreMissingValues)
       sq.gapList.reset()
       inc(sq.requests[position.qindex].failuresCount)
-      fillCompleteness(false, pres.blck)
+      fillCompleteness(false, pres.blck, false)
       sq.del(position)
       res = 0'i64
 
@@ -1347,7 +1363,7 @@ proc push*[M, N](
             topics = "sync"
 
       sr.item.updateScore(PeerScoreMissingValues)
-      fillCompleteness(false, pres.blck)
+      fillCompleteness(false, pres.blck, false)
       sq.del(position)
       res = 0'i64
 
@@ -1360,7 +1376,7 @@ proc push*[M, N](
       if sr.hasEndGap(data):
         sq.gapList.add(GapItem.init(sr))
 
-      fillCompleteness(true, Opt.none(BlockId))
+      fillCompleteness(true, Opt.none(BlockId), false)
       sq.advanceQueue(res)
     of SyncProcessError.NoRelevant:
       raiseAssert "Processor should not return this error code"
@@ -1385,7 +1401,7 @@ proc push*[M, N](
   except CancelledError as exc:
     let pos = sq.find(sr)
     if pos.isSome():
-      fillCompleteness(false, Opt.none(BlockId))
+      fillCompleteness(false, Opt.none(BlockId), false)
       sq.del(pos.get())
     raise exc
   finally:
