@@ -542,7 +542,8 @@ proc addHeadExecutionPayload*(
     blck.slot() == signedEnvelope.message.slot
   ):
     debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
+    # TODO: we can 
+    return err(VerifierError.Duplicate)
 
   var cache: StateCache
   const consensusFork = typeof(signedBlock).kind
