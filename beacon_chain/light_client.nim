@@ -311,7 +311,7 @@ proc installMessageValidators*(
     let res1 =
       if eth2Processor != nil:
         let
-          v = eth2Processor[].`validatorProcName`(MsgSource.gossip, obj)
+          v = eth2Processor[].`validatorProcName`(obj)
           res = v.toValidationResult()
         if res == ValidationResult.Reject:
           msg.logDropped(v.error)

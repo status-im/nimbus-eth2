@@ -678,7 +678,7 @@ proc routePayloadAttestationMessage*(
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
-      MsgSource.api, message, checkSignature = checkSignature,
+      message, checkSignature = checkSignature,
       checkValidator = checkValidator)
 
     if not res.isGoodForSending:

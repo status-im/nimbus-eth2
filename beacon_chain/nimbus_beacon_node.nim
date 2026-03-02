@@ -23,7 +23,6 @@ import
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
-  ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
@@ -2319,8 +2318,7 @@ proc installMessageValidators(node: BeaconNode) =
               src: PeerId
             ): ValidationResult =
               toValidationResult(
-                node.processor[].processExecutionPayloadBid(
-                  MsgSource.gossip, signedBid)))
+                node.processor[].processExecutionPayloadBid(signedBid)))
 
         # execution_payload
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha-1/specs/gloas/p2p-interface.md#execution_payload
@@ -2346,8 +2344,8 @@ proc installMessageValidators(node: BeaconNode) =
                  async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processPayloadAttestationMessage(
-                  MsgSource.gossip, payloadAttestationMessage,
-                  checkSignature = true, checkValidator = false)))
+                  payloadAttestationMessage, checkSignature = true,
+                  checkValidator = false)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
