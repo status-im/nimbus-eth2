@@ -483,6 +483,10 @@ proc addHeadExecutionPayload*(
   ## First check that the block and envelope are matched with the DAG block.
   ## Then verify that it passes the state transition function.
 
+  # Check if there is any valid envelope so that we can save some resources.
+  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+    return err(VerifierError.Duplicate)
+
   template envelopeBlockRoot(): auto =
     signedEnvelope.message.beacon_block_root
 
@@ -519,6 +523,8 @@ proc addHeadExecutionPayload*(
   # Load state cache for state transition function.
   loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
 
+  debug "Envelope transitioning"
+
   # Verify with state transition function.
   process_execution_payload(
     dag.cfg,
@@ -530,6 +536,8 @@ proc addHeadExecutionPayload*(
     assign(dag.clearanceState, dag.headState)
     info "Envelope transition failed", msg = error
     return err(VerifierError.Invalid)
+
+  debug "Envelope transitioned"
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)

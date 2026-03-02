@@ -11,6 +11,9 @@ import std/tables
 import ../spec/[digest, forks]
 
 type
+  OnExecutionPayloadCallback* = proc(
+    data: ExecutionPayloadInfoObject) {.gcsafe, raises: [].}
+
   EnvelopeQuarantine* = object
     orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
       ## Envelopes that we have received but did not have a block yet. In the
@@ -22,11 +25,18 @@ type
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
 
-func init*(T: typedesc[EnvelopeQuarantine]): T =
-  T()
+    onEnvelopeCallback*: OnExecutionPayloadCallback
+
+func init*(T: typedesc[EnvelopeQuarantine],
+    onEnvelopeCallback: OnExecutionPayloadCallback = nil): T =
+  T(onEnvelopeCallback: onEnvelopeCallback)
 
 template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
   v.message.beacon_block_root
+
+template onExecutionPayloadCallback*(
+    quarantine: EnvelopeQuarantine): OnExecutionPayloadCallback =
+  quarantine.onEnvelopeCallback
 
 func addMissing*(
     self: var EnvelopeQuarantine,

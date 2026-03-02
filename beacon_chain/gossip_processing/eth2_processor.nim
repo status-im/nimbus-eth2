@@ -338,11 +338,15 @@ proc processExecutionPayloadEnvelope*(
   let delay = wallTime -
     signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
 
+  debug "Envelope received", delay
+
   self.dag.validateExecutionPayload(
       self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
+    debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
+  trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(signedEnvelope)
   self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
@@ -706,7 +710,7 @@ proc checkKnownValidatorSlashing(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    attesterSlashing: electra.AttesterSlashing):
     ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
@@ -876,8 +880,7 @@ proc processSignedContributionAndProof*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
-    self: var Eth2Processor, src: MsgSource,
-    finality_update: ForkedLightClientFinalityUpdate
+    self: var Eth2Processor, finality_update: ForkedLightClientFinalityUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
@@ -892,7 +895,7 @@ proc processLightClientFinalityUpdate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
-    self: var Eth2Processor, src: MsgSource,
+    self: var Eth2Processor,
     optimistic_update: ForkedLightClientOptimisticUpdate
 ): Result[void, ValidationError] =
   let
@@ -906,9 +909,7 @@ proc processLightClientOptimisticUpdate*(
   v
 
 proc processExecutionPayloadBid*(
-    self: var Eth2Processor,
-    src: MsgSource,
-    signedBid: SignedExecutionPayloadBid
+    self: var Eth2Processor, signedBid: SignedExecutionPayloadBid
 ): ValidationRes =
   let wallTime = self.getCurrentBeaconTime()
 
@@ -930,7 +931,7 @@ proc processExecutionPayloadBid*(
     err(v.error())
 
 proc processPayloadAttestationMessage*(
-    self: ref Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor,
     payload_attestation_message: PayloadAttestationMessage,
     checkSignature, checkValidator: bool
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =

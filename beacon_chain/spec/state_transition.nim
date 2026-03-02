@@ -321,7 +321,7 @@ template attester_slashings(changes: BeaconBlockValidatorChanges, consensusFork)
   when consensusFork >= ConsensusFork.Electra:
     changes.electra_attester_slashings
   else:
-    changes.phase0_attester_slashings
+    default(List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS])
 
 template BeaconBlock(fork: ConsensusFork, EPOH: type): type =
   when EPOH is ForkyExecutionPayloadHeader:

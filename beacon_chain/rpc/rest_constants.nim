@@ -217,6 +217,8 @@ const
     "Missing `start_period` value"
   MissingCountValueError* =
     "Missing `count` value"
+  EnvelopeNotFoundError* =
+    "Envelope data has not been found"
   LCBootstrapUnavailable* =
     "LC bootstrap unavailable"
   LCFinUpdateUnavailable* =

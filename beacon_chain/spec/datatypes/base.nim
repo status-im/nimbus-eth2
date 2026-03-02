@@ -141,6 +141,7 @@ template ethAmountUnit*(typ: type) {.dirty.} =
   func `mod`*(x, y: typ): typ {.borrow.}
 
   func `+=`*(x: var typ, y: typ) {.borrow.}
+  func `-=`*(x: var typ, y: typ) {.borrow.}
 
   func `<`*(x, y: typ): bool {.borrow.}
   func `<=`*(x, y: typ): bool {.borrow.}

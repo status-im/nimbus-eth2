@@ -1427,11 +1427,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     withConsensusFork(contextFork):
       when consensusFork < ConsensusFork.Electra:
         RestApiResponse.jsonResponseWVersion(
-          toSeq(node.validatorChangePool.phase0_attester_slashings),
+          default(seq[phase0.AttesterSlashing]),
           contextFork, node.hasRestAllowedOrigin)
       else:
         RestApiResponse.jsonResponseWVersion(
-          toSeq(node.validatorChangePool.electra_attester_slashings),
+          toSeq(node.validatorChangePool.attester_slashings),
           contextFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
@@ -1451,18 +1451,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let dres = decodeBody(AttesterSlashingType, contentBody.get())
       if dres.isErr():
         return RestApiResponse.jsonError(Http400,
-                                          InvalidAttesterSlashingObjectError,
-                                          $dres.error)
+                                         InvalidAttesterSlashingObjectError,
+                                         $dres.error)
       let res = await node.router.routeAttesterSlashing(dres.get())
       if res.isErr():
         return RestApiResponse.jsonError(Http400,
-                                       AttesterSlashingValidationError,
-                                       $res.error)
+                                         AttesterSlashingValidationError,
+                                         $res.error)
       return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        decodeAttesterSlashing(phase0.AttesterSlashing)
+        RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                  $error)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
@@ -1664,6 +1665,37 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonResponseFinalized(
         final_data,
         Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+  
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
+      block_id: BlockIdent) -> RestApiResponse:
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bid = node.getBlockId(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+      contentType = block:
+        let res = preferredContentType(jsonMediaType, sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+    
+    if contentType == sszMediaType:
+      let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+      RestApiResponse.sszResponse(
+        envelope.asSigned(), consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+      RestApiResponse.jsonResponseFinalized(
+        envelope.asSigned(),
+        Opt.some(node.dag.is_optimistic(bid)),
+        node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
