@@ -140,7 +140,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CXX="${CXX}" \
     LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-m1' --clang.exe=${CC}" \
     nat-libs
   make \
     LOG_LEVEL="TRACE" \
@@ -150,7 +150,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
     DSYMUTIL="dsymutil" \
     FORCE_DSYMUTIL=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CXX} --clang.cpp.exe=${CXX} --clang.cpp.linkerexe=${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-m1' --passL:'-mcpu=apple-m1' --clang.exe=${CC} --clang.linkerexe=${CXX} --clang.cpp.exe=${CXX} --clang.cpp.linkerexe=${CXX}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
   CC="gcc"
