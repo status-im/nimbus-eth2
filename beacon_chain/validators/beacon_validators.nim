@@ -576,15 +576,14 @@ proc proposeBlockAux(
       ))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
+      signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif consensusFork == ConsensusFork.Electra:
     let sidecarsOpt =
-      Opt.some(
-        signedBlock.create_blob_sidecars(
-          engineBlock.blobsBundle.proofs,
-          engineBlock.blobsBundle.blobs))
+      signedBlock.create_blob_sidecars(
+        engineBlock.blobsBundle.proofs,
+        engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 

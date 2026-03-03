@@ -61,9 +61,9 @@ type
     # TODO this belongs somewhere else, ie sync committee pool
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
-  SomeSidecarsToRoute* =
-    Opt[seq[BlobSidecar]] |
-    Opt[seq[fulu.DataColumnSidecar]] |
+  SomeSidecarsToRoute =
+    seq[BlobSidecar] |
+    seq[fulu.DataColumnSidecar] |
     Opt[seq[gloas.DataColumnSidecar]]
 
   SomeOptSidecars =
@@ -181,9 +181,8 @@ proc publishSidecars(
 proc publishSidecars(
     router: ref MessageRouter,
     blck: fulu.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
+    cols: seq[fulu.DataColumnSidecar]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
-  let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
@@ -215,12 +214,11 @@ proc publishSidecars(
 
   Opt.some(finalCols)
 
-proc publishSidecars*(
+proc publishSidecars(
     router: ref MessageRouter,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[BlobSidecar]]
+    blck: electra.SignedBeaconBlock,
+    blobs: seq[BlobSidecar]
 ): Future[Opt[BlobSidecars]] {.async: (raises: [CancelledError]).} =
-  let blobs = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(blobs))
 
   for i, blob in blobs:
