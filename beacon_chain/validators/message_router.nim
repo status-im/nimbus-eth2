@@ -61,9 +61,7 @@ type
     # TODO this belongs somewhere else, ie sync committee pool
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
-  NoSidecarsAtFork* = typeof(())
   SomeSidecarsToRoute* =
-    NoSidecarsAtFork |
     Opt[seq[BlobSidecar]] |
     Opt[seq[fulu.DataColumnSidecar]] |
     Opt[seq[gloas.DataColumnSidecar]]
@@ -71,8 +69,6 @@ type
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
-
-const noSidecarsAtFork* = default(NoSidecarsAtFork)
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -304,10 +300,7 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  when someSidecarsOpt is NoSidecarsAtFork:
-    const finalSidecars = noSidecars
-  else:
-    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)

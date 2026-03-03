@@ -1060,16 +1060,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               forkyBlck,
               Opt.some(data_columns),
               checkValidator = true)
-          elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+          elif consensusFork == ConsensusFork.Electra:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
               checkValidator = true)
           else:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck,
-              noSidecarsAtFork,
-              checkValidator = true)
+            return RestApiResponse.jsonError(
+              Http400, $consensusFork & " block proposals not supported")
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1160,7 +1158,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # TODO (cheatfate): handle broadcast_validation flag
       when consensusFork >= ConsensusFork.Gloas:
         debugGloasComment ""
-        return RestApiResponse.jsonError(
+        RestApiResponse.jsonError(
           Http400, $consensusFork & " builder API unsupported")
       elif consensusFork >= ConsensusFork.Electra:
         let
@@ -1180,40 +1178,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.get().isNone():
           return RestApiResponse.jsonError(Http202, BlockValidationError)
 
-        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        return RestApiResponse.jsonError(
-          Http400, $consensusFork & " builder API unsupported")
-      else:
-        # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
-        #
-        # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
-        # altair.
-        var
-          restBlock = decodeBody(
-              RestPublishedSignedBeaconBlock, body, version).valueOr:
-            return RestApiResponse.jsonError(error)
-          forked = ForkedSignedBeaconBlock(restBlock)
-
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(forked.slot.epoch):
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-
-        let res = withBlck(forked):
-          forkyBlck.root = hash_tree_root(forkyBlck.message)
-          when consensusFork >= ConsensusFork.Bellatrix:
-            return RestApiResponse.jsonError(
-              Http400, $consensusFork & " builder API unsupported")
-          else:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck, noSidecarsAtFork, checkValidator = true)
-
-        if res.isErr():
-          return RestApiResponse.jsonError(
-            Http503, BeaconNodeInSyncError, $res.error)
-        elif res.get().isNone():
-          return RestApiResponse.jsonError(Http202, BlockValidationError)
-
         RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+      else:
+        RestApiResponse.jsonError(
+          Http400, $consensusFork & " block proposals not supported")
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api2(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
@@ -1667,7 +1635,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
-  
+
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
@@ -1683,7 +1651,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
       consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-    
+
     if contentType == sszMediaType:
       let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
         return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
