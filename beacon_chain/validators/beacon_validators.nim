@@ -698,6 +698,15 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     notice "Attesting to a state in the past, falling behind?",
       attestationHead = shortLog(attestationHead),
       head = shortLog(head)
+  let payloadIndex =
+    if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas:
+      if attestationHead.blck.slot < slot:
+        1'u64
+      else:
+        uint64(node.dag.db.containsExecutionPayloadEnvelope(
+          attestationHead.blck.root))
+    else:
+      0'u64
 
   trace "Checking attestations",
     attestationHead = shortLog(attestationHead),
@@ -716,7 +725,8 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+    data = makeAttestationData(
+      epochRef, attestationHead, CommitteeIndex(payloadIndex))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
     signingRoot =
       compute_attestation_signing_root(fork, genesis_validators_root, data)
