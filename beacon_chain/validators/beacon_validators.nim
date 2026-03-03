@@ -611,33 +611,20 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when consensusFork >= ConsensusFork.Gloas:
-    var envelope = makeExecutionPayloadEnvelope(
+    # State here is for computing the state_root, so can be discarded afterward.
+    # It requires the proposed block applied in order to get the correct
+    # state_root.
+    var envlState = node.dag.clearanceState.forky(consensusFork)
+    let envelope = makeExecutionPayloadEnvelope(
+      node.dag.cfg, envlState, cache[],
       eps = engineBid[].eps,
       execution_requests = engineBid[].execution_requests,
       beacon_block_root = blockRoot,
-      slot = slot,
-      state_root = ZERO_HASH)
+      slot = slot)
 
-    template rollbackState() =
-      assign(node.dag.clearanceState, node.dag.headState)
-
-    process_execution_payload(
-      node.dag.cfg,
-      node.dag.clearanceState.forky(consensusFork),
-      gloas.SignedExecutionPayloadEnvelope(message: envelope),
-      func(_: deneb.ExecutionPayload): bool = true,
-      cache[],
-      verify = false,
-    ).isOkOr:
-      rollbackState()
-      debug "Proposed envelope failed to verify with transition", msg = error
+    if envelope.state_root.isZero():
+      debug "Proposed envelope failed to verify with transition"
       return head
-
-    envelope.state_root = hash_tree_root(
-      node.dag.clearanceState.forky(consensusFork).data)
-
-    # Rollback clearance state as we have got the transitioned state root.
-    rollbackState()
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),
