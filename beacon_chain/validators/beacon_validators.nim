@@ -614,13 +614,17 @@ proc proposeBlockAux(
     # State here is for computing the state_root, so can be discarded afterward.
     # It requires the proposed block applied in order to get the correct
     # state_root.
-    var envlState = node.dag.clearanceState.forky(consensusFork)
     let envelope = makeExecutionPayloadEnvelope(
-      node.dag.cfg, envlState, cache[],
+      node.dag.cfg,
+      node.dag.clearanceState.forky(consensusFork),
+      cache[],
       eps = engineBid[].eps,
       execution_requests = engineBid[].execution_requests,
       beacon_block_root = blockRoot,
       slot = slot)
+
+    # Rollback clearanceState as it is modified.
+    assign(node.dag.clearanceState, node.dag.headState)
 
     if envelope.state_root.isZero():
       debug "Proposed envelope failed to verify with transition"
