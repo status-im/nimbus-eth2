@@ -131,10 +131,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-# Workaround for v2.2.8 regression; remove with v2.2.10
-# https://github.com/nim-lang/Nim/pull/25343
---mangle:cpp
-
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 

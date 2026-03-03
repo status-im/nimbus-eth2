@@ -69,7 +69,7 @@ proc attemptGetBlobs*(
                 flat_proof.add kzg.KzgProof(bytes: proof.data)
             let recovered_columns = assemble_data_column_sidecars(
               forkyBlck,
-              blobsEL.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine

@@ -57,6 +57,7 @@ func init*(
       slot: finalized.checkpoint.epoch.start_slot,
       root: finalized.checkpoint.root),
     current_epoch_observed_justified: finalized.balance_source,
+    previous_epoch_greatest_unrealized_checkpoint: finalized.checkpoint,
     previous_slot_head: finalized.checkpoint.root,
     current_slot_head: finalized.checkpoint.root)
 
@@ -135,8 +136,7 @@ proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
   self.confirmed = confirmed
 
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
-  template justified: Checkpoint = self.checkpoints.justified.checkpoint
-  let unrealized = self.backend.proto_array.unrealized_justified(justified)
+  let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
   if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
     return
 
@@ -177,14 +177,25 @@ proc on_tick(
     self.backend.previous_slot_head = self.backend.current_slot_head
 
     if (current_slot + 1).is_epoch:
-      # Update observed justified checkpoint at the beginning of the
-      # last slot of an epoch
-      self.update_unrealized_justified(dag)
+      # Update greatest unrealized justified checkpoint
+      # at the last slot of an epoch
+      template justified: Checkpoint = self.checkpoints.justified.checkpoint
+      self.backend.previous_epoch_greatest_unrealized_checkpoint =
+        self.backend.proto_array.unrealized_justified(justified)
 
     elif current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
       for realized in self.backend.proto_array.realizePendingCheckpoints():
         ? self.update_checkpoints(dag, realized, current_slot)
+
+      # Reconfirm with previous balance source
+      if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
+        self.backend.update_confirmed BlockId(
+          slot: self.checkpoints.finalized.epoch.start_slot,
+          root: self.checkpoints.finalized.root)
+
+      # Update observed justified checkpoints at the start of an epoch
+      self.update_unrealized_justified(dag)
 
     else:
       discard
@@ -406,7 +417,15 @@ proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-  self.backend.current_slot_head = dag.head.root
+  self.backend.current_slot_head = blckRef.root
+
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
+    self.backend.update_confirmed BlockId(
+      slot: self.checkpoints.finalized.epoch.start_slot,
+      root: self.checkpoints.finalized.root)
+
+  # TODO: Replace placeholder
   self.backend.update_confirmed BlockId(
     slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
     root: self.checkpoints.justified.checkpoint.root)

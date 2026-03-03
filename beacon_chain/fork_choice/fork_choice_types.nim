@@ -137,14 +137,15 @@ type
     # and overlap the top bits of `info.balances`. `fork_choice.nim` transfers
     # them from the old to the new `BalanceSource` when it changes.
     info*: BalanceCheckpoint
-    shuffling_epochs*: array[2, Epoch]
-    shuffling_roots*: array[2, Eth2Digest]
+    shuffling_epochs*: array[3, Epoch]
+    shuffling_roots*: array[3, Eth2Digest]
 
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
     current_epoch_observed_justified*: BalanceSource
+    previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]

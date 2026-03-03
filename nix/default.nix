@@ -2,12 +2,12 @@
   pkgs ? import <nixpkgs> { },
   # Source code of this repo.
   src ? ../.,
-  # Nimbus-build-system package.
-  nim ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
   # Options: 0,1,2
-  verbosity ? 2,
+  verbosity ? 1,
+  # Perform 2-stage bootstrap instead of 3-stage to save time.
+  quickAndDirty ? true,
   # These are the only platforms tested in CI and considered stable.
   stableSystems ? [
     "x86_64-linux" "aarch64-linux" "armv7a-linux"
@@ -23,47 +23,56 @@ assert pkgs.lib.assertMsg ((src.submodules or true) == true)
 let
   inherit (pkgs) stdenv lib writeScriptBin callPackage;
 
-  revision = lib.substring 0 8 (src.rev or src.dirtyRev or "00000000");
+  revision = lib.substring 0 8 (src.rev or "00000000");
 in stdenv.mkDerivation rec {
   pname = "nimbus-eth2";
   version = "${callPackage ./version.nix {}}-${revision}";
 
   inherit src;
 
+  # Fix for Nim compiler calling 'git rev-parse' and 'lsb_release'.
   nativeBuildInputs = let
     fakeGit = writeScriptBin "git" "echo ${version}";
+    fakeLsbRelease = writeScriptBin "lsb_release" "echo nix";
   in
-    with pkgs; [ nim which fakeGit ]
+    with pkgs; [ fakeGit fakeLsbRelease which ]
     ++ lib.optionals stdenv.isDarwin [ pkgs.darwin.cctools ];
 
   enableParallelBuilding = true;
 
   # Disable CPU optmizations that make binary not portable.
   NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
-  # Avoid errors about missing user home.
-  NIMBLE_DIR = "/tmp";
   # Avoid Nim cache permission errors.
   XDG_CACHE_HOME = "/tmp";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
-    # Built from nimbus-build-system via flake.
-    "USE_SYSTEM_NIM=1"
+    # TODO: Compile Nim in a separate derivation to save time.
+    "QUICK_AND_DIRTY_COMPILER=${if quickAndDirty then "1" else "0"}"
+    "QUICK_AND_DIRTY_NIMBLE=${if quickAndDirty then "1" else "0"}"
   ];
 
-  patchPhase = ''
-    patchShebangs scripts vendor/nimbus-build-system/scripts
+  # Generate the nimbus-build-system.paths file.
+  configurePhase = ''
+    patchShebangs scripts vendor/nimbus-build-system > /dev/null
+    make nimbus-build-system-paths
+  '';
+
+  # Avoid nimbus-build-system invoking `git clone` to build Nim.
+  preBuild = ''
+    pushd vendor/nimbus-build-system/vendor/Nim
+    mkdir dist
+    cp -r ${callPackage ./nimble.nix {}}    dist/nimble
+    cp -r ${callPackage ./checksums.nix {}} dist/checksums
+    cp -r ${callPackage ./csources.nix {}}  csources_v2
+    chmod 777 -R dist/nimble csources_v2
+    popd
   '';
 
   installPhase = ''
     mkdir -p $out/bin
     rm -f build/generate_makefile
     cp build/* $out/bin
-  '';
-
-  doInstallCheck = true;
-  installCheckPhase = ''
-    for BINARY in $out/bin/*; do $BINARY --version; done
   '';
 
   meta = with lib; {

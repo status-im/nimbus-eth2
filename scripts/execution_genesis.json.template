@@ -29,10 +29,16 @@
         "target": 6,
         "max": 9,
         "baseFeeUpdateFraction": 5007716
+      },
+      "amsterdam": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
       }
     },
     "pragueTime":PRAGUE_FORK_TIME,
     "osakaTime":OSAKA_FORK_TIME,
+    "amsterdamTime":AMSTERDAM_FORK_TIME,
     "mergeForkBlock":0,
     "mergeNetsplitBlock":0,
     "terminalTotalDifficulty":0,
