@@ -484,15 +484,7 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   if isNil(node):
     return false
 
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if node[].value.count < columnsCount:
+  if node[].value.count < len(quarantine.custodyColumns):
     # Quarantine does not hold enough column sidecars.
     return false
   true
@@ -579,13 +571,8 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
 
-  if node[].value.count < columnsCount:
+  if node[].value.count < len(quarantine.custodyColumns):
     # Quarantine does not hold enough column sidecars.
     return Opt.none(seq[ref A])
 
@@ -597,18 +584,11 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   var sidecars: seq[ref A]
   if supernode:
     for sidecar in node[].value.sidecars:
-      # Supernode could have some of the columns not filled.
-      if not(sidecar.isEmpty()):
-        doAssert(sidecar.isLoaded(),
-          "Record should only have loaded values, but it is `" &
+      doAssert(not(sidecar.isEmpty()), "Record should not have empty values")
+      doAssert(sidecar.isLoaded(),
+        "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
-        sidecars.add(sidecar.data)
-      if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
-        break
-
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
-      "Incorrect amount of sidecars in record for supernode - " &
-        $len(sidecars))
+      sidecars.add(sidecar.data)
   else:
     for cindex in quarantine.custodyColumns:
       let index = quarantine.getIndex(cindex)
@@ -703,22 +683,15 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2)
-      else:
-        len(quarantine.custodyColumns)
 
   if supernode:
     if isNil(node):
+      # We do not have any columns yet, so we push all columns peer could
+      # provide.
       for column in peerMap.items():
-        if len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
-          break
         res.incl(column)
     else:
-      if node[].value.count > columnsCount:
+      if node[].value.count == len(quarantine.custodyColumns):
         # We already have enough columns for reconstruction.
         return
           DataColumnsByRootIdentifier(
@@ -726,10 +699,6 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
             indices: DataColumnIndices(default(seq[ColumnIndex])))
 
       for column in peerMap.items():
-        if node[].value.count + len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
-          break
         let index = quarantine.getIndex(column)
         if (index == -1) or node[].value.sidecars[index].isEmpty():
           res.incl(column)
