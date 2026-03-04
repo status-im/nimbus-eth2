@@ -512,7 +512,9 @@ proc addHeadExecutionPayload*(
 
   # Check with the DAG head.
   let blck = dag.head
-  if not (
+  if blck.slot() > signedEnvelope.message.slot:
+    return err(VerifierError.Duplicate)
+  elif not (
     blck.root() == envelopeBlockRoot() and
     blck.slot() == signedEnvelope.message.slot
   ):
