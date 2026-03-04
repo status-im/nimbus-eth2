@@ -48,6 +48,9 @@ type
   SyncRequestFlag* {.pure.} = enum
     Void
 
+  SyncRequestReason* {.pure.} = enum
+    NoMoreSpace, PeerSlotKnowledge, TooBigDistance
+
   BlockCompleteness* = object
     count: int
     done: bool
@@ -62,6 +65,7 @@ type
     id*: UniqueId
     data*: SyncRange
     flags*: set[SyncRequestFlag]
+    reason*: SyncRequestReason
     item*: T
 
   SyncQueueItem[M, N] = object
@@ -114,6 +118,7 @@ type
     chunkSize: uint64
     requestsCount: Natural
     failureResetThreshold: Natural
+    maxSlotDistance: Natural
     requests: Deque[SyncQueueItem[M, N]]
     getSafeSlot: GetSlotCallback
     blockVerifier: BlockVerifier
@@ -446,12 +451,14 @@ func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
 func init*[T](
     t: typedesc[SyncRequest],
     kind: SyncQueueKind,
-    item: T
+    item: T,
+    reason: SyncRequestReason
 ): SyncRequest[T] =
   SyncRequest[T](
     kind: kind,
     data: SyncRange(slot: FAR_FUTURE_SLOT, count: 0'u64),
-    item: item
+    item: item,
+    reason: reason
   )
 
 func init*[M, N](
@@ -827,40 +834,79 @@ proc rewardForGaps[M, N](sq: SyncQueue[M, N], score: int) =
     else:
       gap.item.updateScore(score)
 
+func getCurrentRange*[M, N](sq: SyncQueue[M, N]): Opt[SyncRange] =
+  ## Returns current working range.
+  case sq.kind
+  of SyncQueueKind.Forward:
+    if len(sq.requests) > 0:
+      return Opt.some(sq.requests[0].data)
+    let startSlot = sq.inpSlot
+    if startSlot >= sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.next(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+  of SyncQueueKind.Backward:
+    if len(sq.requests) > 0:
+      return Opt.some(sq.requests[0].data)
+    let startSlot = sq.inpSlot + 1
+    if startSlot < sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.prev(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+
+func getNextRange*[M, N](sq: SyncQueue[M, N]): Opt[SyncRange] =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    let startSlot =
+      if len(sq.requests) > 0:
+        let lastRange = sq.requests[^1].data
+        if lastRange.slot + lastRange.count < lastRange.slot:
+          return Opt.none(SyncRange)
+        lastRange.slot + lastRange.count
+      else:
+        sq.inpSlot
+    if startSlot >= sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.next(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+  of SyncQueueKind.Backward:
+    let startSlot =
+      if len(sq.requests) > 0:
+        let lastRange = sq.requests[^1].data
+        if lastRange.slot <= sq.finalSlot:
+          return Opt.none(SyncRange)
+        lastRange.slot
+      else:
+        if sq.inpSlot <= sq.finalSlot:
+          return Opt.none(SyncRange)
+        sq.inpSlot + 1
+    if startSlot < sq.finalSlot:
+      return Opt.none(SyncRange)
+    let res = sq.prev(startSlot).valueOr:
+      return Opt.none(SyncRange)
+    Opt.some(res)
+
 proc getNextRequest*[M, N](sq: SyncQueue[M, N], item: M): SyncRequest[M] =
-  let newRange =
-    case sq.kind
-    of SyncQueueKind.Forward:
-      let startSlot =
-        if len(sq.requests) > 0:
-          let lastRange = sq.requests[^1].data
-          if lastRange.slot + lastRange.count < lastRange.slot:
-            return SyncRequest.init(sq.kind, item)
-          lastRange.slot + lastRange.count
-        else:
-          sq.inpSlot
-      if startSlot >= sq.finalSlot:
-        return SyncRequest.init(sq.kind, item)
-      let res = sq.next(startSlot).valueOr:
-        return SyncRequest.init(sq.kind, item)
-      res
-    of SyncQueueKind.Backward:
-      let startSlot =
-        if len(sq.requests) > 0:
-          let lastRange = sq.requests[^1].data
-          if lastRange.slot <= sq.finalSlot:
-            return SyncRequest.init(sq.kind, item)
-          lastRange.slot
-        else:
-          if sq.inpSlot <= sq.finalSlot:
-            return SyncRequest.init(sq.kind, item)
-          sq.inpSlot + 1
-      if startSlot < sq.finalSlot:
-        return SyncRequest.init(sq.kind, item)
-      let res = sq.prev(startSlot).valueOr:
-        return SyncRequest.init(sq.kind, item)
-      res
+  let newRange = sq.getNextRange().valueOr:
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.NoMoreSpace)
   SyncRequest.init(sq, sq.kind, sq.epochFilter(newRange), item)
+
+proc getDistance*[M, N](sq: SyncQueue[M, N], srange: SyncRange): int =
+  let currentRange = sq.getCurrentRange().valueOr:
+    return 0
+  case sq.kind
+  of SyncQueueKind.Forward:
+    if srange.slot < currentRange.slot:
+      return 0
+    int((srange.slot - currentRange.slot))
+  of SyncQueueKind.Backward:
+    if srange.slot > currentRange.slot:
+      return 0
+    int((currentRange.slot - srange.slot))
 
 proc pop*[M, N](
     sq: SyncQueue[M, N],
@@ -876,7 +922,8 @@ proc pop*[M, N](
         return
           if qitem.data.slot > peerMaxSlot:
             # Peer could not satisfy our request, returning empty one.
-            SyncRequest.init(sq.kind, item)
+            SyncRequest.init(
+              sq.kind, item, SyncRequestReason.PeerSlotKnowledge)
           else:
             let request = SyncRequest.init(sq, sq.kind, qitem.data, item)
             qitem.requests.add(request)
@@ -898,13 +945,21 @@ proc pop*[M, N](
              "You should not pop so many requests for single peer")
 
   let request = sq.getNextRequest(item)
-  if request.data.slot > peerMaxSlot:
+  if request.isEmpty():
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.NoMoreSpace)
+  elif request.data.slot > peerMaxSlot:
     # Peer could not satisfy our request - returning empty request.
-    return SyncRequest.init(sq.kind, item)
+    return SyncRequest.init(
+      sq.kind, item, SyncRequestReason.PeerSlotKnowledge)
   var qitem =
     when N is BlockCompleteness:
       SyncQueueItem.init(N, request)
     elif N is ColumnCompleteness:
+      let distance = sq.getDistance(request.data)
+      if distance >= sq.maxSlotDistance:
+        return SyncRequest.init(
+          sq.kind, item, SyncRequestReason.TooBigDistance)
       SyncQueueItem.init(N, request, sq.cbGetLocalColumnMap())
   sq.drainCompleteness(qitem.data, item, qitem.completeness)
   sq.requests.addLast(qitem)
@@ -1504,6 +1559,7 @@ func init*[M](
     chunkSize: uint64,
     requestsCount: Natural,
     failureResetThreshold: Natural,
+    maxSlotDistance: Natural,
     getSafeSlotCb: GetSlotCallback,
     blockVerifier: BlockVerifier,
     forkAtEpoch: ForkAtEpochCallback,
@@ -1522,6 +1578,7 @@ func init*[M](
     chunkSize: chunkSize,
     requestsCount: requestsCount,
     failureResetThreshold: failureResetThreshold,
+    maxSlotDistance: maxSlotDistance,
     getSafeSlot: getSafeSlotCb,
     inpSlot: start,
     outSlot: start,
