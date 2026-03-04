@@ -496,6 +496,8 @@ proc addHeadExecutionPayload*(
     slot = signedEnvelope.message.slot
     signature = shortLog(signedEnvelope.signature)
 
+  const consensusFork = typeof(signedBlock).kind
+
   # Quick check between the received block and envelope.
   template bid(): auto =
     signedBlock.message.body.signed_execution_payload_bid.message
@@ -514,11 +516,19 @@ proc addHeadExecutionPayload*(
     blck.root() == envelopeBlockRoot() and
     blck.slot() == signedEnvelope.message.slot
   ):
+    # Mark as missing parent as this may be valid envelope but due to missing of
+    # previous blocks. Peer score would be deducted falsely.
+    #
+    # Envelopes in future slots would not be able reach here as the valid block
+    # should be missing.
     debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
+    return err(VerifierError.MissingParent)
+  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
+       signedEnvelope.message.payload.block_hash:
+    # The envelope has been applied to the state so skipping it.
+    return err(VerifierError.Duplicate)
 
   var cache: StateCache
-  const consensusFork = typeof(signedBlock).kind
 
   # Load state cache for state transition function.
   loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
