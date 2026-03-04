@@ -618,6 +618,7 @@ proc createQueues(
       uint64(overseer.blocksChunkSize),
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
+      maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
       getFirstSlotAtFinalizedEpoch,
       sidecarsVerifier, forkAtEpoch,
       localMap, peerMap, missingMap, "fsidecar")
@@ -643,6 +644,7 @@ proc createQueues(
         uint64(overseer.blocksChunkSize),
         ConcurrentRequestsCount,
         RepeatingFailuresCount,
+        maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
         getLastAddedBackfillSlot,
         sidecarsVerifier, forkAtEpoch,
         localMap, peerMap, missingMap, "bsidecar")
@@ -1825,7 +1827,8 @@ proc doRangeSidecarsStep(
     direction = direction
 
   if request.isEmpty():
-    debug "Empty request received from sidecars queue"
+    debug "Empty request received from sidecars queue",
+      reason = request.reason
     return true
 
   debug "New sidecars range request"

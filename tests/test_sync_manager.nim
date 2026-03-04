@@ -1590,6 +1590,7 @@ suite "SyncManager test suite":
                            32'u64, # 32 slots per request
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
+                           128, # maximum allowed distance
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
                            testforkAtEpoch,
@@ -1602,6 +1603,7 @@ suite "SyncManager test suite":
                            32'u64, # 32 slots per request
                            3, # 3 concurrent requests
                            2, # 2 failures allowed
+                           128, # maximum allowed distance
                            getStaticSlotCb(Slot(127)),
                            verifier.collector,
                            testforkAtEpoch,
@@ -1723,6 +1725,252 @@ suite "SyncManager test suite":
 
       let p12 = await sq.push(r12, d12, c12)
       check p12.code == SyncProcessError.NoError
+
+      await noCancel wait(verifier.verifier, 2.seconds)
+
+    asyncTest "[SyncQueue#" & $kind & "] data column max distance test":
+      let
+        scenario =
+          case kind
+          of SyncQueueKind.Forward:
+            @[
+              (Slot(0) .. Slot(0), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(0), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(0), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(31), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(32), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(32), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(32), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(64), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(64), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(64), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(96), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(96), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(96), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(127), Opt.none(VerifierError))
+            ]
+          of SyncQueueKind.Backward:
+            @[
+              (Slot(127) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(127) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(127) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(96) .. Slot(127), Opt.none(VerifierError)),
+              (Slot(95) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(95) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(95) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(95), Opt.none(VerifierError)),
+              (Slot(63) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(63) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(63) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(31) .. Slot(31), Opt.none(VerifierError)),
+              (Slot(31) .. Slot(31), Opt.none(VerifierError)),
+              (Slot(31) .. Slot(31), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(31), Opt.none(VerifierError))
+            ]
+        localMap = ColumnMap.init([4, 13, 38, 56])
+        verifier = setupColumnsVerifier(kind, localMap, scenario)
+
+      func getLocalMap(): ColumnMap =
+        localMap
+
+      func getMissingMap(root: Eth2Digest): ColumnMap =
+        let
+          map = verifier.quarantine.getOrDefault(root)
+          localMap = getLocalMap()
+        localMap and not(localMap and map)
+
+      func getPeerMap(peer: SomeTPeer): ColumnMap =
+        peer.map
+
+      func updateMap(a: var ColumnMap, b: ColumnMap) =
+        a = a or b
+
+      proc push(
+          sq: SyncQueue[SomeTPeer, ColumnCompleteness],
+          sr: SyncRequest[SomeTPeer],
+          data: seq[ref ForkedSignedBeaconBlock],
+          columns: seq[FuluColumnData]
+      ): Future[SyncPushResponse] {.
+          async: (raises: [CancelledError], raw: true).} =
+        let localMap = getLocalMap()
+        # Add all columns into "quarantine".
+        for item in columns:
+          let map = localMap and item.map
+          verifier.quarantine.mgetOrPut(
+            item.block_root, ColumnMap()).updateMap(map)
+        # Start processing blocks.
+        push(sq, sr, data)
+
+      let
+        sq =
+          case kind
+          of SyncQueueKind.Forward:
+            SyncQueue.init(SomeTPeer, ColumnCompleteness,
+                           kind, Slot(0), Slot(127),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           5, # 2 failures allowed
+                           64, # maximum allowed distance
+                           getStaticSlotCb(Slot(0)),
+                           verifier.collector,
+                           testforkAtEpoch,
+                           getLocalMap,
+                           getPeerMap,
+                           getMissingMap)
+          of SyncQueueKind.Backward:
+            SyncQueue.init(SomeTPeer, ColumnCompleteness,
+                           kind, Slot(127), Slot(0),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           5, # 2 failures allowed
+                           64, # maximum allowed distance
+                           getStaticSlotCb(Slot(127)),
+                           verifier.collector,
+                           testforkAtEpoch,
+                           getLocalMap,
+                           getPeerMap,
+                           getMissingMap)
+        peer1 = SomeTPeer.init("1", ColumnMap.init([0, 1, 2, 4]))
+        peer2 = SomeTPeer.init("2", ColumnMap.init([13, 15, 16, 17]))
+        peer3 = SomeTPeer.init("3", ColumnMap.init([38, 39, 40, 41]))
+        peer4 = SomeTPeer.init("4", ColumnMap.init([56, 57, 58, 59]))
+
+      var
+        requests1: seq[SyncRequest[SomeTPeer]]
+        requests2: seq[SyncRequest[SomeTPeer]]
+        requests3: seq[SyncRequest[SomeTPeer]]
+        requests4: seq[SyncRequest[SomeTPeer]]
+
+      for peer in [peer1, peer2, peer3, peer4]:
+        let
+          r1 = sq.pop(Slot(127), peer)
+          r2 = sq.pop(Slot(127), peer)
+          r3 = sq.pop(Slot(127), peer)
+          r4 = sq.pop(Slot(127), peer)
+
+        check:
+          r1.isEmpty() == false
+          r2.isEmpty() == false
+          r3.isEmpty() == true
+          r4.isEmpty() == true
+          r3.reason == SyncRequestReason.TooBigDistance
+          r4.reason == SyncRequestReason.TooBigDistance
+
+        requests1.add(r1)
+        requests2.add(r2)
+
+      let
+        (d1, c1) = createFuluChain(requests1[0], requests1[0].item.map)
+        (d2, c2) = createFuluChain(requests1[1], requests1[1].item.map)
+        (d3, c3) = createFuluChain(requests1[2], requests1[2].item.map)
+        (d4, c4) = createFuluChain(requests1[3], requests1[3].item.map)
+
+      let
+        res1 = await sq.push(requests1[0], d1, c1)
+        res2 = await sq.push(requests1[1], d2, c2)
+        res3 = await sq.push(requests1[2], d3, c3)
+        res4 = await sq.push(requests1[3], d4, c4)
+
+      check:
+        res1.code == SyncProcessError.MissingSidecars
+        res2.code == SyncProcessError.MissingSidecars
+        res3.code == SyncProcessError.MissingSidecars
+        res4.code == SyncProcessError.NoError
+
+      for peer in [peer1, peer2, peer3, peer4]:
+        let
+          r1 = sq.pop(Slot(127), peer)
+          r2 = sq.pop(Slot(127), peer)
+          r3 = sq.pop(Slot(127), peer)
+          r4 = sq.pop(Slot(127), peer)
+
+        check:
+          r1.isEmpty() == false
+          r2.isEmpty() == true
+          r3.isEmpty() == true
+          r4.isEmpty() == true
+          r2.reason == SyncRequestReason.TooBigDistance
+          r3.reason == SyncRequestReason.TooBigDistance
+          r4.reason == SyncRequestReason.TooBigDistance
+
+        requests3.add(r1)
+
+      let
+        (d5, c5) = createFuluChain(requests2[0], requests2[0].item.map)
+        (d6, c6) = createFuluChain(requests2[1], requests2[1].item.map)
+        (d7, c7) = createFuluChain(requests2[2], requests2[2].item.map)
+        (d8, c8) = createFuluChain(requests2[3], requests2[3].item.map)
+
+      let
+        res5 = await sq.push(requests2[0], d5, c5)
+        res6 = await sq.push(requests2[1], d6, c6)
+        res7 = await sq.push(requests2[2], d7, c7)
+        res8 = await sq.push(requests2[3], d8, c8)
+
+      check:
+        res5.code == SyncProcessError.MissingSidecars
+        res6.code == SyncProcessError.MissingSidecars
+        res7.code == SyncProcessError.MissingSidecars
+        res8.code == SyncProcessError.NoError
+
+      for peer in [peer1, peer2, peer3, peer4]:
+        let
+          r1 = sq.pop(Slot(127), peer)
+          r2 = sq.pop(Slot(127), peer)
+          r3 = sq.pop(Slot(127), peer)
+          r4 = sq.pop(Slot(127), peer)
+
+        check:
+          r1.isEmpty() == false
+          r2.isEmpty() == true
+          r3.isEmpty() == true
+          r4.isEmpty() == true
+          r2.reason == SyncRequestReason.NoMoreSpace
+          r3.reason == SyncRequestReason.NoMoreSpace
+          r4.reason == SyncRequestReason.NoMoreSpace
+
+        requests4.add(r1)
+
+      let
+        (d9, c9) = createFuluChain(requests3[0], requests3[0].item.map)
+        (d10, c10) = createFuluChain(requests3[1], requests3[1].item.map)
+        (d11, c11) = createFuluChain(requests3[2], requests3[2].item.map)
+        (d12, c12) = createFuluChain(requests3[3], requests3[3].item.map)
+
+      let
+        res9 = await sq.push(requests3[0], d9, c9)
+        res10 = await sq.push(requests3[1], d10, c10)
+        res11 = await sq.push(requests3[2], d11, c11)
+        res12 = await sq.push(requests3[3], d12, c12)
+
+      check:
+        res9.code == SyncProcessError.MissingSidecars
+        res10.code == SyncProcessError.MissingSidecars
+        res11.code == SyncProcessError.MissingSidecars
+        res12.code == SyncProcessError.NoError
+
+      let
+        (d13, c13) = createFuluChain(requests4[0], requests4[0].item.map)
+        (d14, c14) = createFuluChain(requests4[1], requests4[1].item.map)
+        (d15, c15) = createFuluChain(requests4[2], requests4[2].item.map)
+        (d16, c16) = createFuluChain(requests4[3], requests4[3].item.map)
+
+      let
+        res13 = await sq.push(requests4[0], d13, c13)
+        res14 = await sq.push(requests4[1], d14, c14)
+        res15 = await sq.push(requests4[2], d15, c15)
+        res16 = await sq.push(requests4[3], d16, c16)
+
+      check:
+        res13.code == SyncProcessError.MissingSidecars
+        res14.code == SyncProcessError.MissingSidecars
+        res15.code == SyncProcessError.MissingSidecars
+        res16.code == SyncProcessError.NoError
+
+      await noCancel wait(verifier.verifier, 2.seconds)
 
     test "[SyncQueue#" & $kind & "] epochFilter() test":
       let
