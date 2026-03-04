@@ -303,10 +303,8 @@ proc routeSignedBeaconBlock*(
   when consensusFork >= ConsensusFork.Gloas:
     # Disable column processing at block time.
     const finalSidecars = noSidecars
-  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
-    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
   else:
-    const finalSidecars = noSidecars
+    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
