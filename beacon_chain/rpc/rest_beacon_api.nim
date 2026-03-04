@@ -1058,12 +1058,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               @(kzg_proofs.mapIt(kzg.KzgProof(it))))
             await node.router.routeSignedBeaconBlock(
               forkyBlck,
-              Opt.some(data_columns),
+              data_columns,
               checkValidator = true)
           elif consensusFork == ConsensusFork.Electra:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              forkyBlck, forkyBlck.create_blob_sidecars(kzg_proofs, blobs),
               checkValidator = true)
           else:
             return RestApiResponse.jsonError(

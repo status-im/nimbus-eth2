@@ -21,15 +21,13 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_clock, sszdump],
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
-  ../beacon_chain/spec/[
-    beaconstate, crypto, engine_authentication, forks, helpers,
-    signatures, state_transition],
+  ../beacon_chain/spec/[crypto, forks, helpers, signatures, state_transition],
   ../beacon_chain/validators/[keystore_management, validator_pool]
 
 from std/sequtils import filterIt, toSeq
 from ../beacon_chain/gossip_processing/block_processor import
   newExecutionPayload
+from ../beacon_chain/spec/engine_authentication import loadJwtSecretFile
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
@@ -245,50 +243,37 @@ cli do(validatorsDir: string, secretsDir: string,
             proposer, default(ValidatorPrivKey))).toValidatorSig()
       withState(state[]):
         debugGloasComment ""
-        when consensusFork != ConsensusFork.Gloas:
+        when consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
           let
-            payload =
-              when consensusFork >= ConsensusFork.Bellatrix:
-                let
-                  executionHead =
-                    forkyState.data.latest_execution_payload_header.block_hash
-                  timestamp = cfg.timeParams.compute_timestamp_at_slot(
-                    forkyState.data, forkyState.data.slot
-                  )
-                  prevRandao =
-                    get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
+            payload = block:
+              let
+                executionHead =
+                  forkyState.data.latest_execution_payload_header.block_hash
+                timestamp = cfg.timeParams.compute_timestamp_at_slot(
+                  forkyState.data, forkyState.data.slot
+                )
+                prevRandao =
+                  get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
 
-                when consensusFork >= ConsensusFork.Capella:
-                  let withdrawals = get_expected_withdrawals(forkyState.data)
+              let attributes = PayloadAttributesV3.init(
+                timestamp, prevRandao, feeRecipient,
+                get_expected_withdrawals(forkyState.data),
+                forkyState.latest_block_root
+              )
 
-                when consensusFork >= ConsensusFork.Deneb:
-                  let attributes = PayloadAttributesV3.init(
-                    timestamp, prevRandao, feeRecipient, withdrawals,
-                    forkyState.latest_block_root,
+              var pl: consensusFork.ExecutionPayloadForSigning
+              while true:
+                pl = (
+                  waitFor noCancel elManager.getPayload(
+                    consensusFork.ExecutionPayloadForSigning,
+                    ForkchoiceStateV1.init(executionHead, executionHead, ZERO_HASH),
+                    attributes,
                   )
-                elif consensusFork >= ConsensusFork.Capella:
-                  let attributes = PayloadAttributesV2.init(
-                    timestamp, prevRandao, feeRecipient, withdrawals
-                  )
-                else:
-                  let attributes =
-                    PayloadAttributesV1.init(timestamp, prevRandao, feeRecipient)
-
-                var pl: consensusFork.ExecutionPayloadForSigning
-                while true:
-                  pl = (
-                    waitFor noCancel elManager.getPayload(
-                      consensusFork.ExecutionPayloadForSigning,
-                      ForkchoiceStateV1.init(executionHead, executionHead, ZERO_HASH),
-                      attributes,
-                    )
-                  ).valueOr:
-                    waitFor noCancel sleepAsync(chronos.seconds(2))
-                    continue
-                  break
-                pl
-              else:
-                default(bellatrix.ExecutionPayloadForSigning)
+                ).valueOr:
+                  waitFor noCancel sleepAsync(chronos.seconds(2))
+                  continue
+                break
+              pl
             message = makeBeaconBlock(
               cfg,
               consensusFork,

@@ -64,9 +64,6 @@ type
   DeadlineFuture* = Future[void].Raising([CancelledError])
 
   SomeEnginePayloadWithValue =
-    BellatrixExecutionPayloadWithValue |
-    GetPayloadV2Response |
-    GetPayloadV3Response |
     GetPayloadV4Response |
     GetPayloadV5Response |
     GetPayloadV6Response
@@ -368,14 +365,7 @@ proc getPayload(
       # Give the EL some time to build the block
       await sleepAsync(500.milliseconds)
 
-    payload =
-      when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
-        BellatrixExecutionPayloadWithValue(
-          executionPayload: await rpcClient.getPayload(ExecutionPayloadV1, payloadId),
-          blockValue: Wei.zero,
-        )
-      else:
-        await rpcClient.getPayload(GetPayloadResponseType, payloadId)
+    payload = await rpcClient.getPayload(GetPayloadResponseType, payloadId)
 
     break # retryUntilCancelled
 
@@ -414,15 +404,6 @@ proc getPayload(
       )
 
   payload
-
-template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
-  BellatrixExecutionPayloadWithValue
-
-template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV2Response
-
-template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV3Response
 
 template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response

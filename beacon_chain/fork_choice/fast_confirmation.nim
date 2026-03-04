@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  stew/bitops2,
+  std/sets, stew/bitops2,
   ../consensus_object_pools/spec_cache,
   "."/fork_choice_types
 
@@ -215,6 +215,32 @@ func get_ancestor_support_by_slot*(
   for i in 1 ..< result.len:
     result[i].total_support = result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
+
+func get_current_target_score*(
+    self: ForkChoiceBackend, head_state: ForkyBeaconState,
+    target: BlockRef, heads: seq[BlockRef]): Gwei =
+  ## Return the estimate of FFG support of the current epoch target
+  ## by using LMD-GHOST votes.
+  var roots: HashSet[Eth2Digest]
+  roots.incl target.root
+  for head in heads:
+    var blck = head
+    while blck != nil and blck.slot > target.slot:
+      blck = blck.parent
+    if blck == target:
+      blck = head
+      while blck != target and not roots.containsOrIncl(blck.root):
+        blck = blck.parent
+
+  let current_epoch = head_state.slot.epoch
+  doAssert target.slot <= current_epoch.start_slot
+  for val_index in 0 ..< min(self.votes.len, head_state.validators.len):
+    template validator: Validator = head_state.validators[val_index]
+    template vote: VoteTracker = self.votes[val_index]
+    if vote.slot.epoch == current_epoch and
+        validator.is_active_validator(current_epoch) and
+        not validator.slashed and vote.current_root in roots:
+      result += validator.effective_balance
 
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =

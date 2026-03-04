@@ -15,11 +15,6 @@ import
 
 from std/sequtils import mapIt
 
-type
-  BellatrixExecutionPayloadWithValue* = object
-    executionPayload*: ExecutionPayloadV1
-    blockValue*: UInt256
-
 func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
@@ -62,12 +57,6 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
-    bellatrix.ExecutionPayloadForSigning =
-  bellatrix.ExecutionPayloadForSigning(
-    executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
-
 template maybeDeref*[T](o: Opt[T]): T = o.get
 template maybeDeref*[V](v: V): V = v
 
@@ -95,12 +84,6 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
-func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
-    capella.ExecutionPayloadForSigning =
-  capella.ExecutionPayloadForSigning(
-    executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
-
 func asConsensusType*(
     rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
     deneb.ExecutionPayload =
@@ -127,25 +110,6 @@ func asConsensusType*(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
-
-func asConsensusType*(payload: engine_api.GetPayloadV3Response):
-    deneb.ExecutionPayloadForSigning =
-  deneb.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusType,
-    blockValue: payload.blockValue,
-    # TODO
-    # The `mapIt` calls below are necessary only because we use different distinct
-    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
-    # Both are defined as `array[N, byte]` under the hood.
-    blobsBundle: deneb.BlobsBundle(
-      commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: deneb.KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.data))),
-      blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))))
 
 func asConsensusType*(
     payload: engine_api.GetPayloadV4Response):
