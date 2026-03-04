@@ -1640,9 +1640,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
               finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
             let
               start = 0
               finish = len(custodyColumns)
@@ -1657,9 +1654,6 @@ suite "ColumnQuarantine data structure test suite " & preset():
               finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
             let
               start = len(custodyColumns)
               finish = start + len(custodyColumns)

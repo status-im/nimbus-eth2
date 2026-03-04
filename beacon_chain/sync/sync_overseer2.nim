@@ -194,11 +194,7 @@ func getColumnsFillRate(
     let tmp = overseer.columnsState.distribution.getOrDefault(index, 0)
     if tmp > 0: inc(columns)
   let
-    columnsCount =
-      if len(custodyMap) == NUMBER_OF_COLUMNS:
-        NUMBER_OF_COLUMNS div 2 + 1
-      else:
-        len(custodyMap)
+    columnsCount = len(custodyMap)
     fillRate = (float(columns) * 100.0) / float(columnsCount)
   fillRate.formatBiggestFloat(ffDecimal, 2) & "%"
 
