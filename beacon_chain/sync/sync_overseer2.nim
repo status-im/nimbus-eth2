@@ -83,13 +83,13 @@ func shortLog(cols: Opt[seq[ref fulu.DataColumnSidecar]]): string =
 
 func slimLog(blobs: openArray[ref BlobSidecar]): string =
   "[" & blobs.mapIt(
-    "(slot: " & $it[].signed_block_header.message.slot &
-    ", index: " & $it[].index & ")").join(",") & "]"
+    "(slot:" & $it[].signed_block_header.message.slot &
+    ",index:" & $it[].index & ")").join(",") & "]"
 
 func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
   "[" & columns.mapIt(
-    "(slot: " & $it[].signed_block_header.message.slot &
-    ", index: " & $it[].index & ")").join(",") & "]"
+    "(slot:" & $it[].signed_block_header.message.slot &
+    ",index:" & $it[].index & ")").join(",") & "]"
 
 template blobsCount(blck: ForkedSignedBeaconBlock): int =
   withBlck(blck):
@@ -181,7 +181,7 @@ func getColumnsDistribution(
   for index in custodyMap:
     let count = overseer.columnsState.distribution.getOrDefault(index, 0)
     res.add($uint64(index) & ": " & $count)
-  "[" & res.join(", ") & "]"
+  "[" & res.join(",") & "]"
 
 func getColumnsFillRate(
     overseer: SyncOverseerRef2
