@@ -286,7 +286,8 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: ForkySignedBeaconBlock,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+          gloas.SignedBeaconBlock,
     someSidecarsOpt: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =

@@ -931,7 +931,6 @@ AllTests-mainnet
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
-+ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK

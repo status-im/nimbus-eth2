@@ -659,49 +659,6 @@ block:
         sres3.get() == rres3.get()
 
     asyncTest "Signing aggregate and proof " &
-              "(getAggregateAndProofSignature(phase0))":
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        agAttestation = decodeBytes(
-          GetAggregatedAttestationResponse,
-          AgAttestationPhase0.toOpenArrayByte(0, len(AgAttestationPhase0) - 1),
-          Opt.some(contentType)).tryGet().data
-        agProof = phase0.AggregateAndProof(
-          aggregator_index: 1'u64,
-          aggregate: agAttestation,
-          selection_proof: ValidatorSig.fromHex(SomeSignature).get())
-        sres1 =
-          await validator1.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres2 =
-          await validator2.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres3 =
-          await validator3.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres1 =
-          await validator4.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres2 =
-          await validator5.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres3 =
-          await validator6.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
-
-    asyncTest "Signing aggregate and proof " &
               "(getAggregateAndProofSignature(electra))":
       let
         contentType = ContentTypeData(
