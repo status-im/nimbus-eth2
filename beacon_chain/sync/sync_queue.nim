@@ -60,6 +60,8 @@ type
     keys: HashSet[string]
     done: bool
 
+  SomeCompleteness* = BlockCompleteness | SomeCompleteness
+
   SyncRequest*[T] = object
     kind*: SyncQueueKind
     id*: UniqueId
@@ -151,6 +153,18 @@ chronicles.expandIt SyncRequest:
   `it` = shortLog(it)
   peer = shortLog(it.item)
   direction = toLowerAscii($it.kind)
+
+func shortLog(data: BlockCompleteness): string =
+  if data.done:
+    "complete"
+  else:
+    $data.count
+
+func shortLog(data: ColumnCompleteness): string =
+  if data.done:
+    "complete"
+  else:
+    $len(data.map)
 
 func getId[M, N](sq: SyncQueue[M, N]): UniqueId =
   inc(sq.uniqId)
@@ -1091,8 +1105,13 @@ proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
         sq.requests[pos.qindex].data, request.item,
         done = false, sq.requests[pos.qindex].completeness)
     elif N is ColumnCompleteness:
+      let
+        localMap = sq.cbGetLocalColumnMap()
+        peerMap = sq.cbGetColumnMap(request.item)
+        map =
+          sq.requests[pos.qindex].completeness.map or (peerMap and localMap)
       sq.fillCompleteness(
-        sq.requests[pos.qindex].data, request.item, Opt.none(ColumnMap),
+        sq.requests[pos.qindex].data, request.item, Opt.some(map),
         done = false, storePeer = false, sq.requests[pos.qindex].completeness)
     sq.del(pos)
 
@@ -1164,13 +1183,17 @@ func isError(e: SyncProcessError): bool =
 proc getMissingMap*[M](
     sq: SyncQueue[M, ColumnCompleteness],
     data: openArray[ref ForkedSignedBeaconBlock],
-    startRoot: Eth2Digest
+    startBid: Opt[BlockId]
 ): ColumnMap =
   var
     res: ColumnMap
-    started = false
+    started =
+      if startBid.isSome():
+        false
+      else:
+        true
   for blck in data:
-    if started or (blck[].root == startRoot):
+    if started or (startBid.isSome() and (blck[].root == startBid.get().root)):
       started = true
       let map = sq.cbGetMissingMap(blck[].root)
       res = res or map
@@ -1212,17 +1235,11 @@ proc push*[M, N](
         sq.requests[position.qindex].data, sr.item, done = pdone,
         sq.requests[position.qindex].completeness)
     elif N is ColumnCompleteness:
-      if pblck.isSome():
-        let map = sq.getMissingMap(data, pblck.get().root)
-        sq.fillCompleteness(
-          sq.requests[position.qindex].data, sr.item, Opt.some(map),
-          done = pdone, storePeer = pstore,
-          sq.requests[position.qindex].completeness)
-      else:
-        sq.fillCompleteness(
-          sq.requests[position.qindex].data, sr.item, Opt.none(ColumnMap),
-          done = pdone, storePeer = pstore,
-          sq.requests[position.qindex].completeness)
+      let map = sq.getMissingMap(data, pblck)
+      sq.fillCompleteness(
+        sq.requests[position.qindex].data, sr.item, Opt.some(map),
+        done = pdone, storePeer = pstore,
+        sq.requests[position.qindex].completeness)
 
   # This is backpressure handling algorithm, this algorithm is blocking
   # all pending `push` requests if `request` is not in range.
@@ -1283,6 +1300,7 @@ proc push*[M, N](
       debug "Received empty response",
             request = sr,
             queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
@@ -1319,6 +1337,7 @@ proc push*[M, N](
       debug "Received duplicate response",
             request = sr,
             queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
@@ -1334,6 +1353,7 @@ proc push*[M, N](
       debug "Received blocks without sidecars",
             request = sr,
             queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
@@ -1351,6 +1371,7 @@ proc push*[M, N](
             request = sr,
             queue = shortLog(sq),
             invalid_block = pres.blck,
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
@@ -1368,6 +1389,7 @@ proc push*[M, N](
              request = sr,
              queue = shortLog(sq),
              unviable_block = pres.blck,
+             completeness = shortLog(sq.requests[position.qindex].completeness),
              voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
@@ -1386,6 +1408,7 @@ proc push*[M, N](
              request = sr,
              queue = shortLog(sq),
              missing_parent_block = pres.blck,
+             completeness = shortLog(sq.requests[position.qindex].completeness),
              voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
@@ -1410,6 +1433,7 @@ proc push*[M, N](
             queue = shortLog(sq),
             finalized_slot = sq.getSafeSlot(),
             missing_parent_block = pres.blck,
+            completeness = shortLog(sq.requests[position.qindex].completeness),
             voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
