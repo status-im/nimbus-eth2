@@ -518,15 +518,15 @@ proc addHeadExecutionPayload*(
     # Envelopes in future slots would not be able reach here as the valid block
     # should be missing.
     return err(VerifierError.Invalid)
+  elif blck.root() != envelopeBlockRoot():
+    # The above should have ensure that they are in the same slot. Now verify
+    # the envelope is for the head block.
+    debug "Envelope is not for the current head"
+    return err(VerifierError.Invalid)
   elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
        signedEnvelope.message.payload.block_hash:
     # The envelope has been applied to the state so skipping it.
     return err(VerifierError.Duplicate)
-  elif blck.root() != envelopeBlockRoot():
-    # Mark as missing parent as this may be valid envelope but due to missing of
-    # previous blocks. Peer score would be deducted falsely.
-    debug "Envelope is not for the current head"
-    return err(VerifierError.MissingParent)
 
   var cache: StateCache
 
