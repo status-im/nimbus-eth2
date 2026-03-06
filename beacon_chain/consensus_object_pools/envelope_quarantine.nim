@@ -7,8 +7,11 @@
 
 {.push raises: [], gcsafe.}
 
-import std/tables
-import ../spec/[digest, forks]
+import
+  std/tables,
+  ./block_dag,
+  ../beacon_chain_db,
+  ../spec/[digest, forks]
 from std/sequtils import addUnique, keepItIf
 
 type
@@ -91,3 +94,8 @@ func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
 
   for k in toDel:
     self.orphans.del(k)
+
+proc checkIfMissingHeadEnvelope*(
+    self: var EnvelopeQuarantine, db: BeaconChainDB, head: BlockRef) =
+  if not db.containsExecutionPayloadEnvelope(head.root()):
+    self.addMissing(head.root())
