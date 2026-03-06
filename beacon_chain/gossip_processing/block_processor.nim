@@ -26,8 +26,8 @@ from ../consensus_object_pools/block_dag import
 from ../consensus_object_pools/block_pools_types import
   ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
-  remove, startProcessing, clearProcessing, UnviableKind
+  addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
+  get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
@@ -35,8 +35,9 @@ from ../consensus_object_pools/envelope_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar
+from ../beacon_chain_db import
+  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
+  putBlobSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -862,9 +863,15 @@ proc addBlock*(
 
   self[].dumpBlock(blck, res)
 
+  const consensusFork = typeof(blck).kind
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
-    self.enqueueQuarantine(res[])
+    #
+    # Since Gloas, the envelope may not be ready yet which would cause
+    # descendants failing with MissingParent by a high chance. So only enqueue
+    # them pre-Gloas.
+    when consensusFork <= ConsensusFork.Fulu:
+      self.enqueueQuarantine(res[])
     res.mapConvert(void)
   else:
     case res.error()
@@ -873,6 +880,23 @@ proc addBlock*(
         debug "Could not add orphan",
           blck = shortLog(blck), signature = shortLog(blck.signature), err = error
         return err(error.toVerifierError())
+
+      # Since Gloas, MissingParent can be for either block or envelope. We check
+      # again here to see if we need to request envelope.
+      #
+      # TODO: handle this in a new VerifierError.
+      when consensusFork >= ConsensusFork.Gloas:
+        template parentRoot(): auto = blck.message.parent_root
+        let parent = dag.getBlockRef(parentRoot)
+
+        # If the parent doesn't exist in DAG, it should have finalized and no
+        # actions is needed.
+        if parent.isSome():
+          template parentFork(): auto =
+            dag.cfg.consensusForkAtEpoch(parent.get().slot().epoch())
+          if parentFork >= ConsensusFork.Gloas:
+            if not dag.db.containsExecutionPayloadEnvelope(parentRoot):
+              self.envelopeQuarantine[].addMissing(parentRoot)
 
       # This indicates that no `BlockRef` is available for the `parent_root`.
       # However, the block may still be available in local storage. On startup,
@@ -903,7 +927,6 @@ proc addBlock*(
 
       debug "Block quarantined",
         blck = shortLog(blck), signature = shortLog(blck.signature)
-
       err(res.error())
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
@@ -941,15 +964,12 @@ proc storeBackfillPayload(
   self.storeSidecars(sidecarsOpt)
   ok()
 
-proc addPayload*(
+proc storePayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
-
+): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -988,10 +1008,14 @@ proc addPayload*(
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
+  let previousExecutionValid = dag.head.executionValid
+
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+  await self.consensusManager.updateExecutionHead(
+      deadline, retry = previousExecutionValid, self.getBeaconTime)
 
   debug "Envelope processed",
     head = shortLog(dag.head),
@@ -1002,7 +1026,31 @@ proc addPayload*(
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
-  ok()
+  ok(blck)
+
+proc addPayload*(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+
+  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+  if res.isOk():
+    # Once a block is successfully stored, enqueue the direct descendants
+    self.enqueueQuarantine(res.get())
+  else:
+    case res.error()
+    of VerifierError.MissingParent:
+      template parentRoot(): auto = signedBlock.message.parent_root
+      discard self.consensusManager.quarantine[].addMissing(parentRoot)
+      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+    of VerifierError.Invalid, VerifierError.UnviableFork, VerifierError.Duplicate:
+      discard
+
+  res.mapConvert(void)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
