@@ -54,11 +54,6 @@ type
     untrustedInProgress*: bool
     syncKind*: SyncKind
 
-  ColumnsPeerState* = object
-    usefulCount*: int
-    uselessCount*: int
-    distribution*: Table[ColumnIndex, int]
-
   SyncOverseer2* = object
     network*: Eth2Node
     consensusManager*: ref ConsensusManager
@@ -91,7 +86,6 @@ type
     lastSeenHead*: Opt[BlockId]
     statusMessages*: array[2, string]
     sdag*: SyncDag[Peer, PeerId]
-    columnsState*: ColumnsPeerState
 
   SyncOverseerRef* = ref SyncOverseer
 

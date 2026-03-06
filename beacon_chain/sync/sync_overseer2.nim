@@ -173,30 +173,35 @@ func decreaseBlocksCount(blocksCount: var int) =
 
 func getColumnsDistribution(
     overseer: SyncOverseerRef2
-): string =
-  var res: seq[string]
+): (string, string, string, string) =
+  var
+    res: seq[string]
+    indices: array[NUMBER_OF_COLUMNS, int]
+    useful = 0
+    useless = 0
   let custodyMap = overseer.columnQuarantine[].custodyMap
-  if len(overseer.columnsState.distribution) == 0:
-    return "[]"
-  for index in custodyMap:
-    let count = overseer.columnsState.distribution.getOrDefault(index, 0)
-    res.add($uint64(index) & ": " & $count)
-  "[" & res.join(",") & "]"
 
-func getColumnsFillRate(
-    overseer: SyncOverseerRef2
-): string =
-  let custodyMap = overseer.columnQuarantine[].custodyMap
-  if len(overseer.columnsState.distribution) == 0:
-    return "0.00%"
+  for entry in overseer.sdag.peers.values():
+    if entry.columnsMap.isNone():
+      continue
+    let intersection = (custodyMap and entry.columnsMap.get())
+    if len(intersection) == 0:
+      inc(useless)
+    else:
+      inc(useful)
+    for index in intersection.items():
+      indices[int(index)] += 1
+
   var columns = 0
   for index in custodyMap:
-    let tmp = overseer.columnsState.distribution.getOrDefault(index, 0)
-    if tmp > 0: inc(columns)
-  let
-    columnsCount = len(custodyMap)
-    fillRate = (float(columns) * 100.0) / float(columnsCount)
-  fillRate.formatBiggestFloat(ffDecimal, 2) & "%"
+    let count = indices[int(index)]
+    if count != 0:
+      inc(columns)
+    res.add($uint64(index) & ":" & $count)
+  let fillRate = (float(columns) * 100.0) / float(len(custodyMap))
+
+  ("[" & res.join(",") & "]",
+    fillRate.formatBiggestFloat(ffDecimal, 2) & "%", $useful, $useless)
 
 func getMissingColumnsLog(
     overseer: SyncOverseerRef2,
@@ -688,31 +693,6 @@ proc updateQueues(
         finishSlot = overseer.getBackfillSidecarFinalSlot()
       overseer.bsqueue.reset(startSlot, finishSlot)
 
-proc updateColumnStatistics(
-    overseer: SyncOverseerRef2,
-    peer: Peer,
-    map: ColumnMap,
-    remove: bool
-) =
-  let
-    custodyMap = overseer.columnQuarantine[].custodyMap
-    difference = custodyMap and map
-
-  if remove:
-    if len(difference) > 0:
-      dec(overseer.columnsState.usefulCount)
-      for index in difference:
-        overseer.columnsState.distribution.mgetOrPut(index, 0).dec()
-    else:
-      dec(overseer.columnsState.uselessCount)
-  else:
-    if len(difference) > 0:
-      inc(overseer.columnsState.usefulCount)
-      for index in difference:
-        overseer.columnsState.distribution.mgetOrPut(index, 0).inc()
-    else:
-      inc(overseer.columnsState.uselessCount)
-
 proc initPeer(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -720,7 +700,6 @@ proc initPeer(
   let dag = overseer.consensusManager.dag
   if dag.head.slot.epoch >= dag.cfg.FULU_FORK_EPOCH:
     let map = overseer.getPeerColumnMap(peer)
-    overseer.updateColumnStatistics(peer, map, false)
     overseer.sdag.peers.mgetOrPut(
       peer.getKey(), PeerEntryRef.init(peer, map))
   else:
@@ -2109,7 +2088,8 @@ proc doRangeSidecarsStep(
         # fatal errors.
         if res.count <= 0:
           if res.code in [SyncProcessError.Invalid,
-                          SyncProcessError.UnviableFork]:
+                          SyncProcessError.UnviableFork,
+                          SyncProcessError.NoRelevant]:
             for signed in blocks:
               overseer.columnQuarantine[].remove(signed[].root)
         res
@@ -2296,8 +2276,6 @@ proc startPeer(
     var entry: PeerEntryRef[Peer]
     if overseer.sdag.peers.pop(peer.getKey(), entry):
       overseer.pool.release(peer)
-    if entry.columnsMap.isSome():
-      overseer.updateColumnStatistics(peer, entry.columnsMap.get(), true)
     debug "Remote peer disconnected"
 
 proc speed(
@@ -2467,6 +2445,7 @@ proc timeMonitoringLoop(
             "[none]"
           else:
             overseer.sdag.getShortRootMap(overseer.lastSeenHead.get().root)
+        distribution = overseer.getColumnsDistribution()
 
       overseer.statusMessages[0] =
         if overseer.finalizedDistance.isNone():
@@ -2506,10 +2485,10 @@ proc timeMonitoringLoop(
         root_block_buffer_length = len(overseer.rblockBuffer),
         blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
-        useful_peers = overseer.columnsState.usefulCount,
-        useless_peers = overseer.columnsState.uselessCount,
-        distribution = overseer.getColumnsDistribution(),
-        columns_fill_rate = overseer.getColumnsFillRate(),
+        useful_peers = distribution[2],
+        useless_peers = distribution[3],
+        distribution = distribution[0],
+        columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
 
   except CancelledError:
