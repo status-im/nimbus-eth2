@@ -731,7 +731,15 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+    payloadIndex =
+      if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas:
+        if attestationHead.blck.slot < slot:
+          1'u64  # previous slot - payload present
+        else:
+          0'u64  # same slot - must be 0 per spec
+      else:
+        0'u64
+    data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(payloadIndex))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
     signingRoot =
       compute_attestation_signing_root(fork, genesis_validators_root, data)

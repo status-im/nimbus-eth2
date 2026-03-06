@@ -48,6 +48,7 @@ type
     ## Single votes are used to top up (or construct) aggregates.
     slot*: Slot
     index*: uint64
+    payloadIndex*: uint64
     beacon_block_root*: Eth2Digest
     source*: Checkpoint
     target*: Checkpoint
@@ -104,6 +105,7 @@ func init(
   T(
     slot: data.slot,
     index: committee_index,
+    payloadIndex: data.index,
     beacon_block_root: data.beacon_block_root,
     source: data.source,
     target: data.target,
@@ -113,7 +115,7 @@ func init(
 func init(T: type AttestationData, entry: AttestationEntry): T =
   T(
     slot: entry.slot,
-    index: 0,
+    index: entry.payloadIndex,
     beacon_block_root: entry.beacon_block_root,
     source: entry.source,
     target: entry.target,
