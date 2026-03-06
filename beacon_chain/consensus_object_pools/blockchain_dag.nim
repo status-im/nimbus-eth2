@@ -1185,9 +1185,30 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     var info: ForkedEpochInfo
 
     while headBlocks.len > 0:
+      let bid = headBlocks.pop().bid
       dag.applyBlock(
-        dag.headState, headBlocks.pop().bid, cache,
+        dag.headState, bid, cache,
         info, dag.updateFlags).expect("head blocks should apply")
+      # For Gloas blocks, also apply the envelope to update latest_block_hash,
+      # which is required by process_execution_payload_bid in the next block.
+      # Mirrors the logic in updateState (see applyExecutionPayloadEnvelope
+      # calls in the replay loop at ~line 1922).
+      dag.applyExecutionPayloadEnvelope(dag.headState, bid, cache).isOkOr:
+        # Envelope missing from DB — node shut down before it arrived.
+        # Recover latest_block_hash from the bid's committed block_hash so
+        # the next block's process_execution_payload_bid check can still pass.
+        withState(dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            let blk = dag.getBlock(bid, gloas.TrustedSignedBeaconBlock).valueOr:
+              fatal "Block missing from DB during DAG init", bid = shortLog(bid)
+              quit 1
+            warn "Execution payload envelope missing from DB during init, " &
+                 "recovering latest_block_hash from committed bid",
+              bid = shortLog(bid),
+              block_hash = shortLog(
+                blk.message.body.signed_execution_payload_bid.message.block_hash)
+            forkyState.data.latest_block_hash =
+              blk.message.body.signed_execution_payload_bid.message.block_hash
 
     dag.head = headRef
     dag.heads = @[headRef]
