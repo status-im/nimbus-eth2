@@ -35,8 +35,9 @@ from ../consensus_object_pools/envelope_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar
+from ../beacon_chain_db import
+  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
+  putBlobSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -903,6 +904,20 @@ proc addBlock*(
 
       debug "Block quarantined",
         blck = shortLog(blck), signature = shortLog(blck.signature)
+
+      # TODO: Need refactoring once syncv3 is landed, as new VerifierError requires
+      # changes to sync module.
+      #
+      # Check block hash here to determine if the head evenlope is missing.
+      const consensusFork = typeof(blck).kind
+      when consensusFork >= ConsensusFork.Gloas:
+        if consensusFork == dag.clearanceState.kind:
+          template bid(): auto =
+            blck.message.body.signed_execution_payload_bid
+          template stateBlockHash(): auto =
+            dag.clearanceState.forky(consensusFork).data.latest_block_hash
+          if stateBlockHash != bid.message.parent_block_hash:
+            self.envelopeQuarantine[].addMissing(blck.message.parent_root)
 
       err(res.error())
     of VerifierError.UnviableFork:

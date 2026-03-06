@@ -234,6 +234,22 @@ proc checkHeadBlock*(
     debug "Block parent unknown or finalized already", parentId
     return err(VerifierError.MissingParent)
 
+  # TODO: Need refactoring once syncv3 is landed, as new VerifierError requires
+  # changes to sync module.
+  const consensusFork = typeof(signedBlock).kind
+  when consensusFork >= ConsensusFork.Gloas:
+    if consensusFork == dag.clearanceState.kind:
+      template bid(): auto =
+        signedBlock.message.body.signed_execution_payload_bid
+      template stateBlockHash(): auto =
+        dag.clearanceState.forky(consensusFork).data.latest_block_hash
+      if stateBlockHash != bid.message.parent_block_hash:
+        debug "Head envelope missing",
+          head = shortLog(dag.head),
+          blckSlot = signedBlock.message.slot,
+          blckRoot = signedBlock.root
+        return err(VerifierError.MissingParent)
+
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
     # discard it immediately
