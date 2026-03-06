@@ -12,7 +12,7 @@ import
   ./block_dag,
   ../beacon_chain_db,
   ../spec/[digest, forks]
-from std/sequtils import addUnique, keepItIf
+from std/sequtils import addUnique, filterIt, keepItIf
 
 type
   OnExecutionPayloadCallback* = proc(
@@ -45,10 +45,11 @@ template onExecutionPayloadCallback*(
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
+  self.orphans.del(root)
   self.missing.addUnique(root)
 
 func getMissing*(self: EnvelopeQuarantine): seq[Eth2Digest] =
-  self.missing
+  self.missing.filterIt(it notin self.orphans)
 
 func addOrphan*(
     self: var EnvelopeQuarantine,

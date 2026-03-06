@@ -21,7 +21,7 @@ logScope:
 const
   blockResponseCost = allowedOpsPerSecondCost(64)
     ## Allow syncing ~64 blocks/sec (minus request costs)
-  envelopeResponseCost = allowedOpsPerSecondCost(64)
+  envelopeResponseCost = allowedOpsPerSecondCost(32)
     ## Part of beacon block so keep it aligned with block's
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
