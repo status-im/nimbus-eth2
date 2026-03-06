@@ -83,20 +83,13 @@ func shortLog(cols: Opt[seq[ref fulu.DataColumnSidecar]]): string =
 
 func slimLog(blobs: openArray[ref BlobSidecar]): string =
   "[" & blobs.mapIt(
-    "(slot:" & $it[].signed_block_header.message.slot &
-    ",index:" & $it[].index & ")").join(",") & "]"
+    "(" & $it[].signed_block_header.message.slot &
+      "/" & $it[].index & ")").join(",") & "]"
 
 func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
   "[" & columns.mapIt(
-    "(slot:" & $it[].signed_block_header.message.slot &
-    ",index:" & $it[].index & ")").join(",") & "]"
-
-template blobsCount(blck: ForkedSignedBeaconBlock): int =
-  withBlck(blck):
-    when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      len(forkyBlck.message.body.blob_kzg_commitments)
-    else:
-      0
+    "(" & $it[].signed_block_header.message.slot &
+      "/" & $it[].index & ")").join(",") & "]"
 
 func slimLog(blck: ref ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck[].slot() &
@@ -1101,25 +1094,25 @@ proc doPeerPause(
         else:
           1.seconds
 
+    debug "Peer is entering sleeping state", sleep_time = timeToSlot
     # Without this check peer.getFuture() could return absolutely new Future,
     # which will never be finished, because peer is already disconnected.
     if peer.connectionState != ConnectionState.Connected:
+      await sleepAsync(timeToSlot)
       return false
-
-    let
-      peerFut = peer.getFuture().join()
-      timeFut = sleepAsync(timeToSlot)
-
-    try:
-      debug "Peer is entering sleeping state", sleep_time = timeToSlot
-      discard await race(timeFut, peerFut)
-      if peerFut.finished():
-        await cancelAndWait(timeFut)
-        return false
-      await cancelAndWait(peerFut)
-    except CancelledError as exc:
-      await cancelAndWait(timeFut, peerFut)
-      raise exc
+    else:
+      let
+        peerFut = peer.getFuture().join()
+        timeFut = sleepAsync(timeToSlot)
+      try:
+        discard await race(timeFut, peerFut)
+        if peerFut.finished():
+          await cancelAndWait(timeFut)
+          return false
+        await cancelAndWait(peerFut)
+      except CancelledError as exc:
+        await cancelAndWait(timeFut, peerFut)
+        raise exc
   true
 
 proc doPeerUpdateStatus(
@@ -1857,7 +1850,7 @@ proc doRangeSidecarsStep(
 
           # Early detection of empty response.
         let
-          sindex = validateBlocks(blocks, grouped).valueOr:
+          sindex {.used.} = validateBlocks(blocks, grouped).valueOr:
             peer.updateScore(PeerScoreMissingValues)
             debug "Received non-complete blob sidecars range",
               reason = $error, blobs_count = len(data),
