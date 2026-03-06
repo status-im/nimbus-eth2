@@ -516,8 +516,9 @@ proc addHeadExecutionPayload*(
     return err(VerifierError.Duplicate)
   elif blck.slot() < signedEnvelope.message.slot:
     # Envelopes in future slots would not be able reach here as the valid block
-    # should be missing.
-    return err(VerifierError.Invalid)
+    # should be missing. If they reach this point, we could not know whether it
+    # is valid or not due to missing of block.
+    return err(VerifierError.MissingParent)
   elif blck.root() != envelopeBlockRoot():
     # The above should have ensure that they are in the same slot. Now verify
     # the envelope is for the head block.
