@@ -103,9 +103,9 @@ suite "ColumnMap test suite":
           vector[2]
 
   test "supernode test":
-    for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
+    block:
       var columns: seq[ColumnIndex]
-      for i in 0 ..< max:
+      for i in 0 ..< NUMBER_OF_COLUMNS:
         columns.add(ColumnIndex(i))
       let map = ColumnMap.init(columns)
       check:

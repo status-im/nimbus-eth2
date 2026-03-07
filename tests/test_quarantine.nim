@@ -1394,14 +1394,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
@@ -1564,14 +1564,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
@@ -1582,18 +1582,18 @@ suite "ColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 63),
+        (@[64, 65, 66, 95, 96, 97, 98], 64 .. 64),
+        (@[65, 66, 95, 96, 97, 98], 65 .. 65),
+        (@[66, 95, 96, 97, 98], 66 .. 66),
+        (@[95, 96, 97, 98], 67 .. 95),
+        (@[96, 97, 98], 96 .. 96),
+        (@[97, 98], 97 .. 97),
+        (@[98], 98 .. 98),
+        (@[], 99 .. 128)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 128)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -2571,12 +2571,11 @@ suite "ColumnQuarantine data structure test suite " & preset():
               finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -2588,12 +2587,11 @@ suite "ColumnQuarantine data structure test suite " & preset():
               finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -3092,14 +3090,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
@@ -3262,14 +3260,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2)))
           res
@@ -3280,18 +3278,18 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 63),
+        (@[64, 65, 66, 95, 96, 97, 98], 64 .. 64),
+        (@[65, 66, 95, 96, 97, 98], 65 .. 65),
+        (@[66, 95, 96, 97, 98], 66 .. 66),
+        (@[95, 96, 97, 98], 67 .. 95),
+        (@[96, 97, 98], 96 .. 96),
+        (@[97, 98], 97 .. 97),
+        (@[98], 98 .. 98),
+        (@[], 99 .. 128)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 128)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -4230,12 +4228,11 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
               finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -4247,12 +4244,11 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
               finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"

@@ -488,7 +488,7 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
     columnsCount =
       if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
+        NUMBER_OF_COLUMNS
       else:
         len(quarantine.custodyColumns)
 
@@ -581,7 +581,7 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
     columnsCount =
       if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
+        NUMBER_OF_COLUMNS
       else:
         len(quarantine.custodyColumns)
 
@@ -603,10 +603,10 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
           "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
-      if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
+      if len(sidecars) >= NUMBER_OF_COLUMNS:
         break
 
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
+    doAssert(len(sidecars) >= NUMBER_OF_COLUMNS,
       "Incorrect amount of sidecars in record for supernode - " &
         $len(sidecars))
   else:
@@ -705,30 +705,28 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
     columnsCount =
       if supernode:
-        (NUMBER_OF_COLUMNS div 2)
+        NUMBER_OF_COLUMNS
       else:
         len(quarantine.custodyColumns)
 
   if supernode:
     if isNil(node):
       for column in peerMap.items():
-        if len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
+        if len(res) >= columnsCount:
+          # We don't need to request more than NUMBER_OF_COLUMNS columns.
           break
         res.incl(column)
     else:
-      if node[].value.count > columnsCount:
-        # We already have enough columns for reconstruction.
+      if node[].value.count >= columnsCount:
+        # We already have enough columns.
         return
           DataColumnsByRootIdentifier(
             block_root: blockRoot,
             indices: DataColumnIndices(default(seq[ColumnIndex])))
 
       for column in peerMap.items():
-        if node[].value.count + len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
+        if node[].value.count + len(res) >= columnsCount:
+          # We don't need to request more than NUMBER_OF_COLUMNS columns.
           break
         let index = quarantine.getIndex(column)
         if (index == -1) or node[].value.sidecars[index].isEmpty():
@@ -770,7 +768,7 @@ func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
       for index in 0 ..< NUMBER_OF_COLUMNS:
         res.incl(ColumnIndex(index))
     else:
-      if len(node[].value.sidecars) > NUMBER_OF_COLUMNS div 2:
+      if node[].value.count >= NUMBER_OF_COLUMNS:
         return res
       for index in 0 ..< NUMBER_OF_COLUMNS:
         if node[].value.sidecars[index].isEmpty():
