@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # The build is reproducible only if this base image stays the same.
-FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260302164453_macos
+FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260308134335_macos_v2@sha256:7074006e79dd39897689938ee214164b7b1ac4126f74ca7ee4a80639aa65efd5
 SHELL ["/bin/bash", "-c"]
 
 ARG USER_ID

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # The build is reproducible only if this base image stays the same.
-FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260227024254_arm_v3
+FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260308134335_arm_v4@sha256:f5b834982e74b66bdd3238fd068a4c1c1021442994868e11462cd896718eaf3a
 
 SHELL ["/bin/bash", "-c"]
 
