@@ -30,7 +30,7 @@ logScope:
 const
   SyncDeviationSlotsCount = 1
     ## Number of slot allowed for deviation to continue backfilling job
-  RootSyncEpochsActivationCount = 2'u64
+  RootSyncEpochsActivationCount = 5'u64
     ## Number of epochs before latest known finalized epoch, when root sync
     ## starts working.
   ConcurrentRequestsCount* = 3
