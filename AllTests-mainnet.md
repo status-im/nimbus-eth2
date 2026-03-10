@@ -1290,6 +1290,7 @@ AllTests-mainnet
 + [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
 + [SyncQueue#Backward] block completeness test                                               OK
 + [SyncQueue#Backward] data column completeness test                                         OK
++ [SyncQueue#Backward] data column max distance test                                         OK
 + [SyncQueue#Backward] epochFilter() test                                                    OK
 + [SyncQueue#Backward] finish test                                                           OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
@@ -1304,6 +1305,7 @@ AllTests-mainnet
 + [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
 + [SyncQueue#Forward] block completeness test                                                OK
 + [SyncQueue#Forward] data column completeness test                                          OK
++ [SyncQueue#Forward] data column max distance test                                          OK
 + [SyncQueue#Forward] epochFilter() test                                                     OK
 + [SyncQueue#Forward] finish test                                                            OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
