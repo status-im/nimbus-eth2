@@ -87,9 +87,20 @@ func slimLog(blobs: openArray[ref BlobSidecar]): string =
       "/" & $it[].index & ")").join(",") & "]"
 
 func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
-  "[" & columns.mapIt(
-    "(" & $it[].signed_block_header.message.slot &
-      "/" & $it[].index & ")").join(",") & "]"
+  var slot = FAR_FUTURE_SLOT
+  var res = "["
+  for col in columns:
+    if slot != col[].signed_block_header.message.slot:
+      slot = col[].signed_block_header.message.slot
+      if res[^1] != '[':
+        res.add("),")
+      res.add("(" & $slot & ":")
+    else:
+      res.add(',')
+    res.add($col[].index)
+  if res[^1] != '[':
+    res.add(')')
+  res.add(']')
 
 func slimLog(blck: ref ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck[].slot() &
@@ -394,18 +405,17 @@ func getMissingIndicesLog(
 proc getForwardSidecarStartSlot(overseer: SyncOverseerRef2): Slot =
   let
     dag = overseer.consensusManager.dag
-    checkpoint = overseer.lastSeenCheckpoint.get()
-    lastSlot = checkpoint.epoch.start_slot()
-    consensusFork = consensusForkAtEpoch(dag.cfg, checkpoint.epoch)
+    currentSlot = overseer.beaconClock.currentSlot()
+    consensusFork = consensusForkAtEpoch(dag.cfg, currentSlot.epoch())
 
   if consensusFork < ConsensusFork.Deneb:
     return max(dag.finalizedHead.slot, dag.cfg.DENEB_FORK_EPOCH.start_slot())
 
   let horizon = overseer.getSidecarsHorizon(consensusFork)
-  if lastSlot < horizon:
+  if currentSlot < horizon:
     max(dag.finalizedHead.slot, GENESIS_SLOT)
   else:
-    max(dag.finalizedHead.slot, lastSlot - horizon)
+    max(dag.finalizedHead.slot, currentSlot - horizon)
 
 proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
   let
@@ -648,43 +658,67 @@ proc createQueues(
 proc updateQueues(
     overseer: SyncOverseerRef2
 ) =
-  let
-    dag = overseer.consensusManager.dag
-    checkpoint = overseer.lastSeenCheckpoint.get()
-    localHead = dag.finalizedHead.slot
+  let dag = overseer.consensusManager.dag
 
-  if overseer.fqueue.running():
-    # Forward syncing is in progress.
-    overseer.fqueue.updateLastSlot(checkpoint.epoch.start_slot())
-  else:
-    # Forward sync is not active, but we keep it up-to date.
-    overseer.fqueue.reset(localHead, checkpoint.epoch.start_slot())
+  block:
+    logScope:
+      forward_blocks_queue = shortLog(overseer.fqueue)
+      forward_sidecars_queue = shortLog(overseer.fsqueue)
 
-  if overseer.fsqueue.running():
-    # Forward syncing is in progress.
-    overseer.fsqueue.updateLastSlot(checkpoint.epoch.start_slot())
-  else:
-    # Forward sync is not active, but we keep it up-to date.
-    overseer.fsqueue.reset(
-      overseer.getForwardSidecarStartSlot(), checkpoint.epoch.start_slot())
+    let
+      checkpoint = overseer.lastSeenCheckpoint.get()
+      lastSlot = checkpoint.epoch.start_slot()
+      localHead = dag.finalizedHead.slot
 
-  if not(isNil(overseer.bqueue)):
-    if not(overseer.bqueue.running()):
-      let
-        startSlot = dag.backfill.slot
-        finishSlot =
-          if dag.horizon >= startSlot:
-            startSlot
-          else:
-            dag.horizon
-      overseer.bqueue.reset(startSlot, finishSlot)
+    if overseer.fqueue.running():
+      # Forward syncing is in progress.
+      overseer.fqueue.updateLastSlot(lastSlot)
+      debug "Forward blocks queue has been expanded",
+        last_slot = lastSlot
+    else:
+      # Forward sync is not active, but we keep it up-to date.
+      let startSlot = localHead
+      overseer.fqueue.reset(startSlot, lastSlot)
+      debug "Forward blocks queue has been reset",
+        start_slot = startSlot, last_slot = lastSlot
 
-  if not(isNil(overseer.bsqueue)):
-    if not(overseer.bsqueue.running()):
-      let
-        startSlot = dag.backfill.slot
-        finishSlot = overseer.getBackfillSidecarFinalSlot()
-      overseer.bsqueue.reset(startSlot, finishSlot)
+    if overseer.fsqueue.running():
+      # Forward syncing is in progress.
+      overseer.fsqueue.updateLastSlot(lastSlot)
+      debug "Forward sidecars queue has been expanded",
+        last_slot = lastSlot
+    else:
+      # Forward sync is not active, but we keep it up-to date.
+      let startSlot = overseer.getForwardSidecarStartSlot()
+      overseer.fsqueue.reset(startSlot, lastSlot)
+      debug "Forward sidecars queue has been reset",
+        start_slot = startSlot, last_slot = lastSlot
+
+  block:
+    logScope:
+      backward_blocks_queue = shortLog(overseer.bqueue)
+      backward_sidecars_queue = shortLog(overseer.bsqueue)
+
+    let startSlot = dag.backfill.slot
+
+    if not(isNil(overseer.bqueue)):
+      if not(overseer.bqueue.running()):
+        let
+          lastSlot =
+            if dag.horizon >= startSlot:
+              startSlot
+            else:
+              dag.horizon
+        overseer.bqueue.reset(startSlot, lastSlot)
+        debug "Backfill blocks queue has been reset",
+          start_slot = startSlot, last_slot = lastSlot
+
+    if not(isNil(overseer.bsqueue)):
+      if not(overseer.bsqueue.running()):
+        let lastSlot = overseer.getBackfillSidecarFinalSlot()
+        overseer.bsqueue.reset(startSlot, lastSlot)
+        debug "Backfill sidecars queue has been reset",
+          start_slot = startSlot, last_slot = lastSlot
 
 proc initPeer(
     overseer: SyncOverseerRef2,
@@ -1523,8 +1557,8 @@ proc doPeerUpdateRootsSidecars(
             return false
 
     debug "Received data column sidecars by root on request",
-      columns = slimLog(columnSidecars.asSeq()),
-      columns_count = len(columnSidecars)
+      columns_count = len(columnSidecars),
+      columns = slimLog(columnSidecars.asSeq())
 
     var
       records =
