@@ -239,7 +239,7 @@ suite "Gossip validation - Altair":
           continue
       let
         subcommitteeIndex = SyncSubcommitteeIndex(i div indicesPerSubcommittee)
-        pubkey = dag.headState.validators.item(index).pubkey
+        pubkey = dag.headState.validators[index].pubkey
         keystoreData = KeystoreData(
           kind: KeystoreKind.Local,
           pubkey: pubkey,
@@ -277,7 +277,7 @@ suite "Gossip validation - Altair":
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
       index = subcommittee[indexInSubcommittee]
       numPresent = subcommittee.count(index)
-      pubkey = dag.headState.validators.item(index).pubkey
+      pubkey = dag.headState.validators[index].pubkey
       keystoreData = KeystoreData(
         kind: KeystoreKind.Local,
         pubkey: pubkey,

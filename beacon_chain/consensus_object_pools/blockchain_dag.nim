@@ -689,7 +689,7 @@ func init*(
       raiseAssert err.msg
 
   epochRef.fork_choice_balances_bytes = snappyEncode(
-    SSZ.encode(get_fork_choice_balances(state.validators.asSeq, epoch)))
+    SSZ.encode(get_fork_choice_balances(state.validators, epoch)))
 
   epochRef
 
@@ -1367,7 +1367,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
-  dag.updateValidatorKeys(dag.headState.validators.asSeq())
+  dag.updateValidatorKeys(dag.headState.validators)
 
   # Initialize pruning such that when starting with a database that hasn't been
   # pruned, we work our way from the tail to the horizon in incremental steps
