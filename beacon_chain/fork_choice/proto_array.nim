@@ -64,6 +64,14 @@ func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
     return Opt.none(ProtoNode)
   Opt.some(nodes.buf[i])
 
+func contains(nodes: ProtoNodes, idx: Index): bool =
+  if idx < nodes.offset:
+    return false
+  let i = idx - nodes.offset
+  if i >= nodes.buf.len:
+    return false
+  true
+
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
@@ -72,6 +80,16 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 
 func find(self: ProtoArray, root: Eth2Digest): Index =
   self.indices.getOrDefault(root, -1)
+
+func contains*(self: ProtoArray, root: Eth2Digest): bool =
+  self.find(root) in self.nodes
+
+func slot*(self: ProtoArray, root: Eth2Digest): Opt[Slot] =
+  ok (? self.nodes[self.find(root)]).bid.slot
+
+func unrealized*(self: ProtoArray, root: Eth2Digest): Opt[FinalityCheckpoints] =
+  let idx = self.find(root)
+  ok self.currentEpochTips.getOrDefault(idx, (? self.nodes[idx]).checkpoints)
 
 # Forward declarations
 # ----------------------------------------------------------------------

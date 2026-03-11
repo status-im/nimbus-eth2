@@ -135,6 +135,11 @@ proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
       old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
   self.confirmed = confirmed
 
+proc update_confirmed(self: var ForkChoiceBackend, confirmed: Checkpoint) =
+  self.update_confirmed BlockId(
+    slot: self.proto_array.slot(confirmed.root).get(confirmed.epoch.start_slot),
+    root: confirmed.root)
+
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
   if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
@@ -190,12 +195,18 @@ proc on_tick(
 
       # Reconfirm with previous balance source
       if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
-        self.backend.update_confirmed BlockId(
-          slot: self.checkpoints.finalized.epoch.start_slot,
-          root: self.checkpoints.finalized.root)
+        self.backend.update_confirmed(self.checkpoints.finalized)
 
       # Update observed justified checkpoints at the start of an epoch
       self.update_unrealized_justified(dag)
+
+      # Restart confirmation chain if necessary
+      if not self.backend.is_proto_array_consistent:
+        self.backend.update_confirmed(self.checkpoints.finalized)
+      else:
+        if self.backend.should_restart_confirmation_chain(current_slot):
+          self.backend.update_confirmed(
+            self.backend.current_epoch_observed_justified.checkpoint)
 
     else:
       discard
@@ -421,9 +432,13 @@ proc will_select_head*(
 
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
-    self.backend.update_confirmed BlockId(
-      slot: self.checkpoints.finalized.epoch.start_slot,
-      root: self.checkpoints.finalized.root)
+    self.backend.update_confirmed(self.checkpoints.finalized)
+  if not self.backend.is_proto_array_consistent:
+    self.backend.update_confirmed(self.checkpoints.finalized)
+  else:
+    if self.backend.should_restart_confirmation_chain(current_slot):
+      self.backend.update_confirmed(
+        self.backend.current_epoch_observed_justified.checkpoint)
 
   # TODO: Replace placeholder
   self.backend.update_confirmed BlockId(

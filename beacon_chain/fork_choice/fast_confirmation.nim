@@ -10,7 +10,7 @@
 import
   std/sets, stew/bitops2,
   ../consensus_object_pools/spec_cache,
-  "."/fork_choice_types
+  "."/[fork_choice_types, proto_array]
 
 from ../consensus_object_pools/blockchain_dag import
   effective_balance, unslashed_balance,
@@ -271,3 +271,32 @@ func should_revert_confirmed_on_new_head*(
   while blck != nil and blck.slot > self.confirmed.slot:
     blck = blck.parent
   blck == nil or blck.root != self.confirmed.root
+
+func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
+  self.current_slot_head in self.proto_array and
+  self.current_epoch_observed_justified.checkpoint.root in self.proto_array
+
+func should_restart_confirmation_chain*(
+    self: var ForkChoiceBackend, current_slot: Slot): bool =
+  # Restart the confirmation chain if each of the following conditions are true:
+  # 1) it is the start of the current epoch,
+  # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
+  #    previous epoch,
+  # 3) self.current_epoch_observed_justified.checkpoint equals to unrealized
+  #    justification of the head,
+  # 4) confirmed block is older than the block of
+  #    self.current_epoch_observed_justified.checkpoint.
+  template current_epoch_justified: Checkpoint =
+    self.current_epoch_observed_justified.checkpoint
+  template current_epoch_justified_slot: Slot =
+    self.proto_array.slot(current_epoch_justified.root)
+      .expect("is_proto_array_consistent")
+
+  template head_unrealized_justified: Checkpoint =
+    self.proto_array.unrealized(self.current_slot_head)
+      .expect("is_proto_array_consistent").justified
+
+  current_slot.is_epoch and
+  current_epoch_justified.epoch + 1 == current_slot.epoch and
+  current_epoch_justified == head_unrealized_justified and
+  self.confirmed.slot < current_epoch_justified_slot
