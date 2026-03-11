@@ -1677,7 +1677,7 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
       if epoch >= entry.EPOCH:
         break
       res = entry.EPOCH
-    res
+    min(res, cfg.GLOAS_FORK_EPOCH)
   of ConsensusFork.Electra:   cfg.FULU_FORK_EPOCH
   of ConsensusFork.Deneb:     cfg.ELECTRA_FORK_EPOCH
   of ConsensusFork.Capella:   cfg.DENEB_FORK_EPOCH
