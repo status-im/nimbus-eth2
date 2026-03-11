@@ -407,6 +407,21 @@ func getOrDefault*(
 func len*(buffer: BlocksRootBuffer): int =
   len(buffer.roots)
 
+iterator popBlocks*(
+    buffer: var BlocksRootBuffer,
+    root: Eth2Digest
+): ref ForkedSignedBeaconBlock =
+  # Pop blocks from buffer, whose parent is the block identified by `root`
+  var toRemove: seq[Eth2Digest]
+  defer: # Run even if iterator is not carried to termination
+    for k in toRemove:
+      buffer.roots.del k
+
+  for k, v in buffer.roots.mpairs():
+    if v[].parent_root == root:
+      toRemove.add(k)
+      yield v
+
 func len*(buffer: BlocksRangeBuffer): int =
   len(buffer.blocks)
 
