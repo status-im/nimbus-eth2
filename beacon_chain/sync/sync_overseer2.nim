@@ -41,6 +41,12 @@ const
     ## Number of slots before peer's status information could be stale.
   GenesisCheckpoint = Checkpoint(root: Eth2Digest(), epoch: GENESIS_EPOCH)
 
+type
+  BlocksSource {.pure.} = enum
+    OrphansQuarantine,
+    SidecarlessQuarantine,
+    BlockBuffer
+
 func shortLog(optblkid: Opt[BlockId]): string =
   if optblkid.isNone():
     "<n/a>"
@@ -93,14 +99,13 @@ func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
     if slot != col[].signed_block_header.message.slot:
       slot = col[].signed_block_header.message.slot
       if res[^1] != '[':
-        res.add("),")
-      res.add("(" & $slot & ":")
+        res.add(",")
+      res.add($slot & "/")
     else:
       res.add(',')
     res.add($col[].index)
-  if res[^1] != '[':
-    res.add(')')
   res.add(']')
+  res
 
 func slimLog(blck: ref ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck[].slot() &
@@ -664,6 +669,7 @@ proc updateQueues(
     logScope:
       forward_blocks_queue = shortLog(overseer.fqueue)
       forward_sidecars_queue = shortLog(overseer.fsqueue)
+      forward_block_buffer = shortLog(overseer.fblockBuffer)
 
     let
       checkpoint = overseer.lastSeenCheckpoint.get()
@@ -679,6 +685,7 @@ proc updateQueues(
       # Forward sync is not active, but we keep it up-to date.
       let startSlot = localHead
       overseer.fqueue.reset(startSlot, lastSlot)
+      overseer.fblockBuffer.reset()
       debug "Forward blocks queue has been reset",
         start_slot = startSlot, last_slot = lastSlot
 
@@ -698,6 +705,7 @@ proc updateQueues(
     logScope:
       backward_blocks_queue = shortLog(overseer.bqueue)
       backward_sidecars_queue = shortLog(overseer.bsqueue)
+      backward_block_buffer = shortLog(overseer.bblockBuffer)
 
     let startSlot = dag.backfill.slot
 
@@ -710,6 +718,7 @@ proc updateQueues(
             else:
               dag.horizon
         overseer.bqueue.reset(startSlot, lastSlot)
+        overseer.bblockBuffer.reset()
         debug "Backfill blocks queue has been reset",
           start_slot = startSlot, last_slot = lastSlot
 
@@ -2714,16 +2723,78 @@ proc finalMonitoringLoop(
 
   debug "Finalization monitoring stopped"
 
+iterator popBlocks(
+    overseer: SyncOverseerRef2,
+    src: BlocksSource,
+    root: Eth2Digest
+): ForkedSignedBeaconBlock =
+  let
+    dag = overseer.consensusManager.dag
+    quarantine = overseer.consensusManager.quarantine
+
+  case src
+  of BlocksSource.BlockBuffer:
+    for blck in overseer.rblockBuffer.popBlocks(root):
+      yield blck[]
+  of BlocksSource.OrphansQuarantine:
+    for blck in quarantine[].pop(root):
+      yield blck
+  of BlocksSource.SidecarlessQuarantine:
+    for blck in quarantine[].popSidecarlessBlocks(root):
+      yield blck
+
+proc checkData(
+    overseer: SyncOverseerRef2,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    quarantine = overseer.consensusManager.quarantine
+
+  for blck in overseer.popBlocks(src, dag.head.root):
+    let blockId = BlockId(slot: blck.slot, root: blck.root)
+    debug "Processing late block",
+      bid = shortLog(blockId), source = $src
+    let res = await overseer.verifyBlock(blck, maybeFinalized = false)
+    if res.isErr():
+      debug "Late block processor response", reason = res.error,
+        bid = shortLog(blockId), source = $src
+      if res.error == VerifierError.MissingSidecars:
+        let entry = overseer.sdag.roots.getOrDefault(blck.root)
+        if not(isNil(entry)):
+          debug "Late block is already known, updating flags",
+            bid = shortLog(blockId), reason = res.error,
+            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags),
+            source = $src
+          entry.flags.incl(DagEntryFlag.MissingSidecars)
+          continue
+
+        debug "Late block is not known, adding new entry",
+          bid = shortLog(blockId), source = $src
+
+        discard
+          overseer.sdag.roots.mgetOrPut(
+            blockId.root, SyncDagEntryRef.init(blockId))
+        overseer.updatePeer(
+          overseer.localPeerId, peerMustPresent = false,
+          blockId.slot, blockId.root,
+          blck.parent_root,
+          sidecarsMissed = true)
+    else:
+      debug "Late block processor response", reason = "ok",
+        bid = shortLog(blockId), source = $src
+      # If block was added succesfully block processor will continue
+      # process of adding blocks from quarantine.
+      return true
+
+  false
+
 proc lateBlockMonitoringLoop*(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
   let
     dag = overseer.consensusManager.dag
     quarantine = overseer.consensusManager.quarantine
-
-  var
-    blockFound = false
-    blocksCount = 0
 
   debug "Late block monitoring established"
 
@@ -2744,95 +2815,12 @@ proc lateBlockMonitoringLoop*(
       debug "Check for late blocks", synced_slot = syncedSlot,
         head_slot = dag.head.slot, distance = syncedSlot - dag.head.slot
 
-      blockFound = false
-      blocksCount = 0
-      block checkOrphansLoop:
-        for blck in quarantine[].pop(dag.head.root):
-          inc(blocksCount)
-          debug "Processing late block from orphans",
-            block_root = shortLog(blck.root)
-          let res = await overseer.verifyBlock(blck, maybeFinalized = false)
-          if res.isErr():
-            debug "Late orphan block processor response", reason = res.error,
-              block_root = shortLog(blck.root)
-            if res.error == VerifierError.MissingSidecars:
-              let entry = overseer.sdag.roots.getOrDefault(blck.root)
-              if not(isNil(entry)):
-                debug "Late orphan block is already known, updating flags",
-                  reason = res.error,
-                  missing_sidecars =
-                    (DagEntryFlag.MissingSidecars in entry.flags)
-                entry.flags.incl(DagEntryFlag.MissingSidecars)
-                continue
-              let blockId = BlockId(slot: blck.slot, root: blck.root)
-              debug "Late orphan block is not known, adding new entry",
-                bid = shortLog(blockId)
-              discard
-                overseer.sdag.roots.mgetOrPut(
-                  blockId.root, SyncDagEntryRef.init(blockId))
-              overseer.updatePeer(
-                overseer.localPeerId, peerMustPresent = false,
-                blockId.slot, blockId.root,
-                blck.parent_root,
-                sidecarsMissed = true)
-          else:
-            debug "Late orphan block processor response", reason = "ok",
-              block_root = shortLog(blck.root)
-            # If block was added succesfully block processor will continue
-            # process of adding blocks from quarantine.
-            blockFound = true
-            break checkOrphansLoop
-
-      if not(blockFound):
-        debug "No ancestor orphan blocks found for current dag.head",
-          blocks_count = blocksCount
-        await sleepAsync(5.seconds)
-        continue
-
-      block checkSidecarlessLoop:
-        blocksCount = 0
-        blockFound = false
-        for blck in quarantine[].popSidecarlessBlocks(dag.head.root):
-          inc(blocksCount)
-          debug "Processing late block from sidecarless",
-            block_root = shortLog(blck.root)
-          let res = await overseer.verifyBlock(blck, maybeFinalized = false)
-          if res.isErr():
-            debug "Late sidecarless block processor response",
-              reason = res.error, block_root = shortLog(blck.root)
-            if res.error == VerifierError.MissingSidecars:
-              let entry = overseer.sdag.roots.getOrDefault(blck.root)
-              if not(isNil(entry)):
-                debug "Late sidecarless block is already known, updating flags",
-                  reason = res.error,
-                  missing_sidecars =
-                    (DagEntryFlag.MissingSidecars in entry.flags)
-                entry.flags.incl(DagEntryFlag.MissingSidecars)
-                continue
-              let blockId = BlockId(slot: blck.slot, root: blck.root)
-              debug "Late sidecarlass block is not known, adding new entry",
-                bid = shortLog(blockId)
-              discard
-                overseer.sdag.roots.mgetOrPut(
-                  blockId.root, SyncDagEntryRef.init(blockId))
-              overseer.updatePeer(
-                overseer.localPeerId, peerMustPresent = false,
-                blockId.slot, blockId.root,
-                blck.parent_root,
-                sidecarsMissed = true)
-          else:
-            debug "Late sidecarless block processor response", reason = "ok",
-              block_root = shortLog(blck.root)
-            # If block was added succesfully block penvelopeQuarantinerocessor
-            # will continue process of adding blocks from quarantine.
-            blockFound = true
-            break checkSidecarlessLoop
-
-      if not(blockFound):
-        debug "No ancestor sidecarless blocks found for current dag.head",
-          blocks_count = blocksCount
-        await sleepAsync(5.seconds)
-        continue
+      if not(await overseer.checkData(BlocksSource.BlockBuffer)):
+        debug "No ancestor blocks from buffer found for current head"
+        if not(await overseer.checkData(BlocksSource.OrphansQuarantine)):
+          debug "No ancestor orphan blocks found for current head"
+          if not(await overseer.checkData(BlocksSource.SidecarlessQuarantine)):
+            debug "No ancestor sidecarless blocks found for current head"
 
       await sleepAsync(5.seconds)
 
