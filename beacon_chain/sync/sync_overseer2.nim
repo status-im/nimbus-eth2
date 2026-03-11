@@ -45,7 +45,6 @@ type
   BlocksSource {.pure.} = enum
     OrphansQuarantine,
     SidecarlessQuarantine,
-    BlockBuffer
 
 func shortLog(optblkid: Opt[BlockId]): string =
   if optblkid.isNone():
@@ -2733,15 +2732,67 @@ iterator popBlocks(
     quarantine = overseer.consensusManager.quarantine
 
   case src
-  of BlocksSource.BlockBuffer:
-    for blck in overseer.rblockBuffer.popBlocks(root):
-      yield blck[]
   of BlocksSource.OrphansQuarantine:
     for blck in quarantine[].pop(root):
       yield blck
   of BlocksSource.SidecarlessQuarantine:
     for blck in quarantine[].popSidecarlessBlocks(root):
       yield blck
+
+proc checkBuffer(
+    overseer: SyncOverseerRef2
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    quarantine = overseer.consensusManager.quarantine
+
+  logScope:
+    source = "Buffer"
+
+  var recovery: seq[ref ForkedSignedBeaconBlock]
+  defer:
+    for blck in recovery:
+      overseer.rblockBuffer.add(blck)
+
+  for blck in overseer.rblockBuffer.popBlocks(dag.head.root):
+    let blockId = BlockId(slot: blck[].slot, root: blck[].root)
+    debug "Processing late block", bid = shortLog(blockId)
+    let res = await overseer.verifyBlock(blck[], maybeFinalized = false)
+    if res.isErr():
+      debug "Late block processor response", reason = res.error,
+        bid = shortLog(blockId)
+      # In case of error we should recover block in data structure.
+      recovery.add(blck)
+
+      if res.error == VerifierError.MissingSidecars:
+        recovery.add(blck)
+        let entry = overseer.sdag.roots.getOrDefault(blockId.root)
+        if not(isNil(entry)):
+          debug "Late block is already known, updating flags",
+            bid = shortLog(blockId), reason = res.error,
+            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
+          entry.flags.incl(DagEntryFlag.MissingSidecars)
+          continue
+
+        debug "Late block is not known, adding new entry",
+          bid = shortLog(blockId)
+
+        discard
+          overseer.sdag.roots.mgetOrPut(
+            blockId.root, SyncDagEntryRef.init(blockId))
+        overseer.updatePeer(
+          overseer.localPeerId, peerMustPresent = false,
+          blockId.slot, blockId.root,
+          blck[].parent_root,
+          sidecarsMissed = true)
+    else:
+      debug "Late block processor response", reason = "ok",
+        bid = shortLog(blockId)
+      # If block was added succesfully block processor will continue
+      # process of adding blocks from quarantine.
+      return true
+
+  false
 
 proc checkData(
     overseer: SyncOverseerRef2,
@@ -2751,26 +2802,46 @@ proc checkData(
     dag = overseer.consensusManager.dag
     quarantine = overseer.consensusManager.quarantine
 
+  logScope:
+    source = $src
+
+  var recovery: seq[ForkedSignedBeaconBlock]
+  defer:
+    case src
+    of BlocksSource.OrphansQuarantine:
+      for blck in recovery:
+        withBlck(blck):
+          discard quarantine[].addOrphan(dag.finalizedHead.slot, forkyBlck)
+    of BlocksSource.SidecarlessQuarantine:
+      for blck in recovery:
+        withBlck(blck):
+          when consensusFork >= ConsensusFork.Deneb:
+            discard quarantine[].addSidecarless(
+              dag.finalizedHead.slot, forkyBlck)
+          else:
+            raiseAssert "Incorrect block's fork"
+
   for blck in overseer.popBlocks(src, dag.head.root):
     let blockId = BlockId(slot: blck.slot, root: blck.root)
-    debug "Processing late block",
-      bid = shortLog(blockId), source = $src
+    debug "Processing late block", bid = shortLog(blockId)
     let res = await overseer.verifyBlock(blck, maybeFinalized = false)
     if res.isErr():
       debug "Late block processor response", reason = res.error,
-        bid = shortLog(blockId), source = $src
+        bid = shortLog(blockId)
+      # In case of error we should recover block in data structure.
+      recovery.add(blck)
+
       if res.error == VerifierError.MissingSidecars:
-        let entry = overseer.sdag.roots.getOrDefault(blck.root)
+        let entry = overseer.sdag.roots.getOrDefault(blockId.root)
         if not(isNil(entry)):
           debug "Late block is already known, updating flags",
             bid = shortLog(blockId), reason = res.error,
-            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags),
-            source = $src
+            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
           entry.flags.incl(DagEntryFlag.MissingSidecars)
           continue
 
         debug "Late block is not known, adding new entry",
-          bid = shortLog(blockId), source = $src
+          bid = shortLog(blockId)
 
         discard
           overseer.sdag.roots.mgetOrPut(
@@ -2782,7 +2853,7 @@ proc checkData(
           sidecarsMissed = true)
     else:
       debug "Late block processor response", reason = "ok",
-        bid = shortLog(blockId), source = $src
+        bid = shortLog(blockId)
       # If block was added succesfully block processor will continue
       # process of adding blocks from quarantine.
       return true
@@ -2815,7 +2886,7 @@ proc lateBlockMonitoringLoop*(
       debug "Check for late blocks", synced_slot = syncedSlot,
         head_slot = dag.head.slot, distance = syncedSlot - dag.head.slot
 
-      if not(await overseer.checkData(BlocksSource.BlockBuffer)):
+      if not(await overseer.checkBuffer()):
         debug "No ancestor blocks from buffer found for current head"
         if not(await overseer.checkData(BlocksSource.OrphansQuarantine)):
           debug "No ancestor orphan blocks found for current head"
