@@ -24,15 +24,6 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-## BPO forkdigests
-```diff
-+ Different fork versions                                                                    OK
-+ Different genesis validators roots                                                         OK
-+ Different lengths and blob limits                                                          OK
-+ ENR fork ID transitions from Fulu to Gloas                                                 OK
-+ nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
-+ nextForkEpochAtEpoch with BPO before Gloas                                                 OK
-```
 ## Backfill
 ```diff
 + Backfill to genesis                                                                        OK
@@ -246,6 +237,18 @@ AllTests-mainnet
 ```diff
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
+```
+## EF - BPO forkdigests
+```diff
++ Different fork versions                                                                    OK
++ Different genesis validators roots                                                         OK
++ Different lengths and blob limits                                                          OK
++ ENR fork ID transitions from Fulu to Gloas                                                 OK
++ Fulu fork digest resolved via bpos list                                                    OK
++ Fusaka devnet-2                                                                            OK
++ Glamsterdam bal-devnet-2                                                                   OK
++ nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
++ nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```
 ## EF - KZG
 ```diff
