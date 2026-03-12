@@ -1242,7 +1242,7 @@ func atConsensusFork*(
       if consensusFork == bpoConsensusFork:
         return bpoForkDigest
 
-    raiseAssert "Fulu and later forks should always be part of BPO list"
+    raiseAssert "post-Electra forks should always be part of BPO list"
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
@@ -1258,8 +1258,10 @@ template atEpoch*(
   else:
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
-iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
-  # Fulu and later live entirely in bpos while pre-Fulu forks use legacy fields
+iterator forkDigests*(
+    consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
+  # In Fulu and newer, all forkdigests live in bpos;
+  # don't refer to legacy fields at all
   if consensusFork < ConsensusFork.Fulu:
     yield forkDigests.atConsensusFork(consensusFork)
   else:
