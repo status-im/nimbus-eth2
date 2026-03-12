@@ -259,7 +259,7 @@ proc should_revert_confirmed_on_new_epoch*(
   false  # TODO: not self.is_confirmed_chain_safe
 
 func should_revert_confirmed_on_new_head*(
-    self: var ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
+    self: ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
   # 1) [...],
   # 2) the latest confirmed block doesn't belong to the canonical chain,
@@ -277,7 +277,7 @@ func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
   self.current_epoch_observed_justified.checkpoint.root in self.proto_array
 
 func should_restart_confirmation_chain*(
-    self: var ForkChoiceBackend, current_slot: Slot): bool =
+    self: ForkChoiceBackend, current_slot: Slot): bool =
   # Restart the confirmation chain if each of the following conditions are true:
   # 1) it is the start of the current epoch,
   # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
