@@ -875,6 +875,23 @@ proc addBlock*(
           blck = shortLog(blck), signature = shortLog(blck.signature), err = error
         return err(error.toVerifierError())
 
+      # Since Gloas, MissingParent can be for either block or envelope. We check
+      # again here to see if we need to request envelope.
+      #
+      # TODO: handle this in a new VerifierError.
+      when consensusFork >= ConsensusFork.Gloas:
+        template parentRoot(): auto = blck.message.parent_root
+        let parent = dag.getBlockRef(parentRoot)
+
+        # If the parent doesn't exist in DAG, it should have finalized and no
+        # actions is needed.
+        if parent.isSome():
+          template parentFork(): auto =
+            dag.cfg.consensusForkAtEpoch(parent.get().slot().epoch())
+          if parentFork >= ConsensusFork.Gloas:
+            if not dag.db.containsExecutionPayloadEnvelope(parentRoot):
+              self.envelopeQuarantine[].addMissing(parentRoot)
+
       # This indicates that no `BlockRef` is available for the `parent_root`.
       # However, the block may still be available in local storage. On startup,
       # only the canonical branch is imported into `blockchain_dag`, while
@@ -904,21 +921,6 @@ proc addBlock*(
 
       debug "Block quarantined",
         blck = shortLog(blck), signature = shortLog(blck.signature)
-
-      # TODO: Need refactoring once syncv3 is landed, as new VerifierError requires
-      # changes to sync module.
-      #
-      # Check block hash here to determine if the head evenlope is missing.
-      const consensusFork = typeof(blck).kind
-      when consensusFork >= ConsensusFork.Gloas:
-        if consensusFork == dag.clearanceState.kind:
-          template bid(): auto =
-            blck.message.body.signed_execution_payload_bid
-          template stateBlockHash(): auto =
-            dag.clearanceState.forky(consensusFork).data.latest_block_hash
-          if stateBlockHash != bid.message.parent_block_hash:
-            self.envelopeQuarantine[].addMissing(blck.message.parent_root)
-
       err(res.error())
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
