@@ -123,7 +123,7 @@ func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
 func attester_duty(
     balance: ForkChoiceBalance, i: int): uint64 =
   # 0: Validator was not assigned duties in this epoch (inactive)
-  # 1-SLOTS_PER_EPOOCH: (1 + since_epoch_start) of attester duty assignment
+  # 1-SLOTS_PER_EPOCH: (1 + since_epoch_start) of attester duty assignment
   (distinctBase(balance) shr AttesterDutyOffsets[i]) and AttesterDutyMask
 
 iterator assigned_slots*(
@@ -160,7 +160,7 @@ func get_ancestor_info*(
   let
     prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
     low_slot = max(terminal_bid.slot, max(prev_epoch_start, 1.Slot) - 1)
-  result = newSeqOfCap[SlotInfo](current_slot  - low_slot + 1)
+  result = newSeqOfCap[SlotInfo](current_slot - low_slot + 1)
 
   var bs = blck.atSlot(current_slot)
   while bs.blck != nil and bs.slot > low_slot:
