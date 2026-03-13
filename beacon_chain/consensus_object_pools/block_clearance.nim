@@ -111,7 +111,7 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(state.validators.asSeq())
+  dag.updateValidatorKeys(state.validators)
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
