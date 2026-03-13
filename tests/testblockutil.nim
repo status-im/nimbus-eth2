@@ -143,31 +143,39 @@ func makeExecutionPayloadForSigning*(
 
   let
     merged = is_merge_transition_complete(state)
-    latest = state.latest_execution_payload_header
     timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee =
+
+  var eps = default(consensusFork.ExecutionPayloadForSigning)
+  var payload = typeof(eps.executionPayload)(
+    fee_recipient: default(Eth1Address),
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
+    prev_randao: randao_mix,
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+  )
+
+  # Add withdrawals before computing hash (hash needs to include them)
+  when consensusFork >= ConsensusFork.Gloas:
+    let latest = state.latest_execution_payload_bid
+    payload.parent_hash = latest.block_hash
+    payload.state_root = ZERO_HASH
+    payload.block_number = uint64(state.slot) + 1
+    payload.gas_limit = latest.gas_limit
+    payload.base_fee_per_gas = EIP1559_INITIAL_BASE_FEE
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
+  elif consensusFork in ConsensusFork.Capella .. ConsensusFork.Fulu:
+    let latest = state.latest_execution_payload_header
+    payload.parent_hash = latest.block_hash
+    payload.state_root = latest.state_root
+    payload.block_number = latest.block_number + 1
+    payload.gas_limit = if merged: latest.gas_limit else: 30000000
+    payload.base_fee_per_gas =
       if merged:
         calcEip1599BaseFee(latest.gas_limit, latest.gas_used, latest.base_fee_per_gas)
       else:
         EIP1559_INITIAL_BASE_FEE
-
-  var eps = default(consensusFork.ExecutionPayloadForSigning)
-  var payload = typeof(eps.executionPayload)(
-    parent_hash: latest.block_hash,
-    fee_recipient: default(Eth1Address),
-    state_root: latest.state_root,
-    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: if merged: latest.gas_limit else: 30000000,
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: base_fee,
-  )
-
-  # Add withdrawals before computing hash (hash needs to include them)
-  when consensusFork >= ConsensusFork.Capella:
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
@@ -185,7 +193,7 @@ func makeExecutionPayloadForSigning*(
 
   eps.executionPayload = payload
 
-  when consensusFork == ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     eps.blobsBundle = fulu.BlobsBundle()
   elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
     eps.blobsBundle = deneb.BlobsBundle()
