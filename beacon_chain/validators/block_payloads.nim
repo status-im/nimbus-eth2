@@ -137,7 +137,7 @@ func builderBetterBid(
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
-func decodePayloadRequests(
+func decodePayloadRequests*(
     eps:
       electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
       gloas.ExecutionPayloadForSigning
@@ -219,7 +219,7 @@ proc makeExecutionPayloadEnvelope*(
   envelope.state_root = hash_tree_root(state.data)
   envelope
 
-func makeSignedExecutionPayloadBid(
+func makeSignedExecutionPayloadBid*(
     executionPayload: deneb.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
