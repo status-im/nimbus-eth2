@@ -65,14 +65,15 @@ func record_shuffling(
     i = shufflingRef.epoch.shuffling_index
     offset = AttesterDutyOffsets[i]
     clear_mask = ClearAttesterDutyMasks[i]
+  for balance in balance_source.balances.mitems:
+    balance = ForkChoiceBalance(distinctBase(balance) and clear_mask)
   for slot in shufflingRef.epoch.slots:
-    let duty_mask = slot.since_epoch_start shl offset
+    let duty_mask = (slot.since_epoch_start + 1) shl offset
     for committee_index in get_committee_indices(shufflingRef):
       for _, val in shufflingRef.get_beacon_committee(slot, committee_index):
         balance_source.balances.extend(val.int + 1)
         template balance: ForkChoiceBalance = balance_source.balances[val]
-        balance_source.balances[val] = ForkChoiceBalance(
-          (distinctBase(balance) and clear_mask) or duty_mask)
+        balance = ForkChoiceBalance(distinctBase(balance) or duty_mask)
   balance_source.shuffling_epochs[i] = shufflingRef.epoch
   balance_source.shuffling_roots[i] = shufflingRef.attester_dependent_root
 
@@ -102,18 +103,26 @@ proc update_latest_shufflings*(
     balance_source.shuffling_epochs = DefaultShufflingEpochs
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
+  let
+    clear_mask = ClearAllAttesterDutiesMask
+    duty_mask = AllAttesterDutiesMask
   if dst.balances.len > src.balances.len:
-    return
-  dst.balances.extend(src.balances.len)
+    for val in src.balances.len ..< dst.balances.len:
+      template balance: ForkChoiceBalance = dst.balances[val]
+      balance = ForkChoiceBalance(distinctBase(balance) and clear_mask)
+  else:
+    dst.balances.extend(src.balances.len)
   for val, balance in dst.balances.mpairs:
     balance = ForkChoiceBalance(
-      (distinctBase(balance) and ClearAllAttesterDutiesMask) or
-      (distinctBase(src.balances[val]) and AllAttesterDutiesMask))
+      (distinctBase(balance) and clear_mask) or
+      (distinctBase(src.balances[val]) and duty_mask))
   dst.shuffling_epochs = src.shuffling_epochs
   dst.shuffling_roots = src.shuffling_roots
 
-func assigned_slot_into_epoch(
+func attester_duty(
     balance: ForkChoiceBalance, i: int): uint64 =
+  # 0: Validator was not assigned duties in this epoch (inactive)
+  # 1-SLOTS_PER_EPOOCH: (1 + since_epoch_start) of attester duty assignment
   (distinctBase(balance) shr AttesterDutyOffsets[i]) and AttesterDutyMask
 
 iterator assigned_slots*(
@@ -122,8 +131,9 @@ iterator assigned_slots*(
     var i = o
     while true:
       if balance_source.shuffling_epochs[i] != FAR_FUTURE_EPOCH:
-        yield balance_source.shuffling_epochs[i].start_slot +
-          balance_source.balances[val_index].assigned_slot_into_epoch(i)
+        let duty = balance_source.balances[val_index].attester_duty(i)
+        if duty != 0:
+          yield balance_source.shuffling_epochs[i].start_slot + duty - 1
       if i == 0:
         i = NumAttesterDuties
       dec i

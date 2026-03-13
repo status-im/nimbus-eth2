@@ -369,7 +369,7 @@ suite "get_ancestor_support_by_slot":
       let
         i = slot.epoch.shuffling_index
         offset = AttesterDutyOffsets[i]
-        duty_mask = slot.since_epoch_start shl offset
+        duty_mask = (slot.since_epoch_start + 1) shl offset
       result = ForkChoiceBalance(distinctBase(result) or duty_mask)
 
   func makeBalanceSource(
@@ -473,16 +473,16 @@ suite "get_ancestor_support_by_slot":
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(
             1.Epoch.start_slot + 2,
-            2.Epoch.start_slot + 4,
+            2.Epoch.start_slot,
             3.Epoch.start_slot + 1)],
         3.Epoch)
       res = backend.get_ancestor_support_by_slot(
         balance_source, chain[^1], chain[0].bid, current_slot)
     check:
       res.lenu64 == current_slot - prev_epoch_start + 2
-      res[current_slot - (2.Epoch.start_slot + 4)].adversarial == 10.Gwei
+      res[current_slot - 2.Epoch.start_slot].adversarial == 10.Gwei
       res[0].total_adversarial == 0.Gwei
-      res[current_slot - (2.Epoch.start_slot + 4)].total_adversarial == 10.Gwei
+      res[current_slot - 2.Epoch.start_slot].total_adversarial == 10.Gwei
       res[^1].total_adversarial == 10.Gwei
 
   test "Equivocating, cross-epoch, same block":
@@ -768,6 +768,31 @@ suite "get_ancestor_support_by_slot":
       3.Epoch.start_slot + 3,
       2.Epoch.start_slot + 2,
       1.Epoch.start_slot + 5]
+
+  test "assign_shufflings dst longer than src":
+    var dst = makeBalanceSource(
+      @[makeBalance(10.Gwei).withAssignedSlots(
+          3.Epoch.start_slot + 1,
+          2.Epoch.start_slot + 4,
+          1.Epoch.start_slot + 2),
+        makeBalance(20.Gwei).withAssignedSlots(
+          3.Epoch.start_slot + 3,
+          2.Epoch.start_slot + 2,
+          1.Epoch.start_slot + 5)],
+      3.Epoch)
+    let src = makeBalanceSource(
+      @[makeBalance(10.Gwei).withAssignedSlots(
+          3.Epoch.start_slot + 5,
+          2.Epoch.start_slot + 1,
+          1.Epoch.start_slot + 7)],
+      3.Epoch)
+    dst.assign_shufflings(src)
+    check:
+      toSeq(dst.assigned_slots(0.ValidatorIndex)) == @[
+        3.Epoch.start_slot + 5,
+        2.Epoch.start_slot + 1,
+        1.Epoch.start_slot + 7]
+      toSeq(dst.assigned_slots(1.ValidatorIndex)).len == 0
 
 suite "get_current_target_score":
   func makeValidator(eb: Gwei, slashed = false, active = true): Validator =

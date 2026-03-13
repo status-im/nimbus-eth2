@@ -1267,6 +1267,7 @@ AllTests-mainnet
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
 + Votes outside range                                                                        OK
++ assign_shufflings dst longer than src                                                      OK
 + assign_shufflings replaces duties                                                          OK
 ```
 ## get_current_target_score
