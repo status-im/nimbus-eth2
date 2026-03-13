@@ -1008,10 +1008,14 @@ proc storePayload(
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
+  let previousExecutionValid = dag.head.executionValid
+
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+  await self.consensusManager.updateExecutionHead(
+      deadline, retry = previousExecutionValid, self.getBeaconTime)
 
   debug "Envelope processed",
     head = shortLog(dag.head),
