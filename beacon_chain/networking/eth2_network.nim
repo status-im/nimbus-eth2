@@ -2856,6 +2856,15 @@ proc broadcastDataColumnSidecar*(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column)
 
+proc broadcastPartialDataColumnHeader*(
+    node: Eth2Node, subnet_id: uint64, p_data_column: fulu.PartialDataColumnHeader):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = p_data_column.signed_block_header.message.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, p_data_column)
+
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):

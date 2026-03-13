@@ -117,7 +117,7 @@ type
     kzg_proofs*: deneb.KzgProofs
 
   # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
-  PartialDataColumnPartsMetadat* = object
+  PartialDataColumnPartsMetadata* = object
     available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 

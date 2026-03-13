@@ -241,6 +241,17 @@ proc check_data_column_sidecar_kzg_proofs(
 
   ok()
 
+proc check_partial_data_column_sidecar_kzg_proofs(
+    p_data_column: fulu.PartialDataColumnSidecar,
+    all_commitments: deneb.KzgCommitments):
+    Result[void, ValidationError] =
+  let res = p_data_column.verify_partial_data_column_sidecar_kzg_proofs(
+      all_commitments)
+  if res.isErr:
+    return errReject(res.error)
+
+  ok()
+
 # Gossip Validation
 # ----------------------------------------------------------------
 
