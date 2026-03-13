@@ -30,7 +30,7 @@ const
   SYNC_MAX_REQUESTED_BLOCKS = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
     ## Maximum number of blocks which will be requested in each
     ## `beaconBlocksByRoot` invocation.
-  PARALLEL_REQUESTS = 2
+  PARALLEL_REQUESTS = 1
     ## Number of peers we're using to resolve our request.
 
   PARALLEL_DATA_COLUMNS = 8
