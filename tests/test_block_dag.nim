@@ -356,6 +356,13 @@ suite "get_ancestor_info":
       res[^1].blck == chain[0]
 
 suite "get_ancestor_support_by_slot":
+  func get_ancestor_support_by_slot(
+      self: ForkChoiceBackend, balance_source: BalanceSource,
+      blck: BlockRef, terminal_bid: BlockId,
+      current_slot: Slot): seq[SlotInfo] =
+    self.get_ancestor_support_by_slot(
+      balance_source, @[blck], blck, terminal_bid, current_slot)
+
   func makeBalance(eb: Gwei): ForkChoiceBalance =
     ForkChoiceBalance(distinctBase(eb))
 
@@ -749,6 +756,133 @@ suite "get_ancestor_support_by_slot":
       res[current_slot - (3.Epoch.start_slot + 1)].total_adversarial == 40.Gwei
       res[current_slot - 3.Epoch.start_slot].total_adversarial == 90.Gwei
       res[^1].total_adversarial == 90.Gwei
+
+  test "Non-canonical, single vote":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      fork_slot = 3.Epoch.start_slot
+      head2 = BlockRef(
+        bid: BlockId(slot: fork_slot + 1, root: makeRoot(200)),
+        parent: chain[distinctBase(fork_slot)])
+      backend = makeBackend(@[
+        makeVote(head2.bid.root, fork_slot + 1)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(fork_slot + 1)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, @[chain[^1], head2],
+        chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - fork_slot].total_support == 10.Gwei
+      res[^1].total_support == 10.Gwei
+
+  test "Non-canonical, deep fork":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      fork_slot = 2.Epoch.start_slot + 4
+      fork_blck = BlockRef(
+        bid: BlockId(slot: fork_slot + 1, root: makeRoot(200)),
+        parent: chain[distinctBase(fork_slot)])
+      head2 = BlockRef(
+        bid: BlockId(slot: fork_slot + 2, root: makeRoot(201)),
+        parent: fork_blck)
+      backend = makeBackend(@[
+        makeVote(head2.bid.root, fork_slot + 2),
+        makeVote(fork_blck.bid.root, fork_slot + 1)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(fork_slot + 2),
+          makeBalance(20.Gwei).withAssignedSlots(fork_slot + 1)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, @[chain[^1], head2],
+        chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - fork_slot].total_support == 30.Gwei
+      res[^1].total_support == 30.Gwei
+
+  test "Non-canonical, three forks":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      fork_slot = 3.Epoch.start_slot
+      head2 = BlockRef(
+        bid: BlockId(slot: fork_slot + 1, root: makeRoot(200)),
+        parent: chain[distinctBase(fork_slot)])
+      head3 = BlockRef(
+        bid: BlockId(slot: fork_slot + 1, root: makeRoot(201)),
+        parent: chain[distinctBase(fork_slot)])
+      head4 = BlockRef(
+        bid: BlockId(slot: fork_slot + 2, root: makeRoot(202)),
+        parent: head2)
+      backend = makeBackend(@[
+        makeVote(head2.bid.root, fork_slot + 1),
+        makeVote(head3.bid.root, fork_slot + 1),
+        makeVote(head4.bid.root, fork_slot + 2)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(fork_slot + 1),
+          makeBalance(20.Gwei).withAssignedSlots(fork_slot + 1),
+          makeBalance(30.Gwei).withAssignedSlots(fork_slot + 2)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, @[chain[^1], head2, head3, head4],
+        chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - fork_slot].total_support == 60.Gwei
+      res[^1].total_support == 60.Gwei
+
+  test "Non-canonical, mixed with canonical":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      fork_slot = 3.Epoch.start_slot
+      head2 = BlockRef(
+        bid: BlockId(slot: fork_slot + 1, root: makeRoot(200)),
+        parent: chain[distinctBase(fork_slot)])
+      backend = makeBackend(@[
+        chain.makeVote(fork_slot + 1),
+        makeVote(head2.bid.root, fork_slot + 1)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(fork_slot + 1),
+          makeBalance(20.Gwei).withAssignedSlots(fork_slot + 1)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, @[chain[^1], head2],
+        chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - (fork_slot + 1)].support == 10.Gwei
+      res[current_slot - (fork_slot + 0)].total_support == 30.Gwei
+      res[^1].total_support == 30.Gwei
+
+  test "Non-canonical, fork before range":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      head2 = BlockRef(
+        bid: BlockId(
+          slot: prev_epoch_start + 1, root: makeRoot(200)),
+        parent: chain[distinctBase(prev_epoch_start) - 2])
+      backend = makeBackend(@[
+        makeVote(head2.bid.root, prev_epoch_start + 1)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(prev_epoch_start + 1)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, @[chain[^1], head2],
+        chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[^1].total_support == 0.Gwei
 
   test "assign_shufflings replaces duties":
     var dst = makeBalanceSource(

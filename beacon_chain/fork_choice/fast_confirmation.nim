@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/sets, stew/bitops2,
+  std/[sets, tables], stew/bitops2,
   ../consensus_object_pools/spec_cache,
   "."/fork_choice_types
 
@@ -166,35 +166,68 @@ func get_ancestor_info*(
   if bs.blck == nil or bs.blck.root != terminal_bid.root:
     result.reset()
 
+func low_slot(chain: seq[SlotInfo], current_slot: Slot): Slot =
+  let
+    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
+    last_slot = chain[^1].blck.slot
+  if last_slot >= prev_epoch_start:
+    last_slot
+  else:
+    last_slot + 1
+
+func noncanonical_ancestors(
+    chain: seq[SlotInfo], heads: seq[BlockRef],
+    low_slot, current_slot: Slot): Table[Eth2Digest, int] =
+  if chain.len == 0:
+    return result
+
+  for head in heads:
+    var blck = head
+    while blck != nil and blck.slot in low_slot .. current_slot:
+      let
+        i = min(current_slot - blck.slot, chain.high.uint64).int
+        ancestor =
+          if blck == chain[i].blck:
+            i
+          else:
+            result.getOrDefault(blck.root, -1)
+      if ancestor != -1:
+        var b = head
+        while b != blck:
+          result[b.root] = ancestor
+          b = b.parent
+        break
+      blck = blck.parent
+
 func get_ancestor_support_by_slot*(
     self: ForkChoiceBackend, balance_source: BalanceSource,
-    blck: BlockRef, terminal_bid: BlockId, current_slot: Slot): seq[SlotInfo] =
+    heads: seq[BlockRef], blck: BlockRef, terminal_bid: BlockId,
+    current_slot: Slot): seq[SlotInfo] =
   ## Return support of the ancestors of ``blck`` grouped by originating slot.
   result = blck.get_ancestor_info(terminal_bid, current_slot)
   if result.len == 0:
     return result
 
   let
-    prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
-    last_slot = result[^1].blck.slot
-    low_slot =
-      if last_slot >= prev_epoch_start:
-        last_slot
-      else:
-        last_slot + 1
+    low_slot = result.low_slot(current_slot)
+    noncanonical = result.noncanonical_ancestors(heads, low_slot, current_slot)
   for val_index in 0 ..< min(self.votes.len, balance_source.balances.len):
     template balance: ForkChoiceBalance = balance_source.balances[val_index]
     template vote: VoteTracker = self.votes[val_index]
     if vote.slot in low_slot .. current_slot:
       # Collect support of the block per slot:
-      # - get_block_support_between_slots
-      # - get_current_target_score
+      # - get_block_support_between_slots (per slot, canonical only)
+      # - get_attestation_score (total, including non-canonical)
       let i = min(current_slot - vote.slot, result.high.uint64).int
       if vote.current_root == result[i].blck.root:
         result[i].support += balance.unslashed_balance
+      else:
+        let i = noncanonical.getOrDefault(vote.current_root, -1)
+        if i != -1:
+          result[i].total_support += balance.unslashed_balance
     elif vote.slot == FAR_FUTURE_SLOT:
-      # Collect total weight of equivocating participants:
-      # - get_adversarial_weight (to current_slot)
+      # Collect weight of equivocating participants:
+      # - get_adversarial_weight (total, to current_slot)
       # - compute_empty_slot_support_discount (per slot, between blocks)
       var old_i = -1
       let
@@ -211,9 +244,9 @@ func get_ancestor_support_by_slot*(
     else:
       discard
 
-  result[0].total_support = result[0].support
+  result[0].total_support += result[0].support
   for i in 1 ..< result.len:
-    result[i].total_support = result[i].support + result[i - 1].total_support
+    result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
 func get_current_target_score*(
