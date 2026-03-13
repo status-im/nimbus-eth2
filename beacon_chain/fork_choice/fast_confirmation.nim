@@ -112,7 +112,8 @@ func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
       balance = ForkChoiceBalance(distinctBase(balance) and clear_mask)
   else:
     dst.balances.extend(src.balances.len)
-  for val, balance in dst.balances.mpairs:
+  for val in 0 ..< src.balances.len:
+    template balance: ForkChoiceBalance = dst.balances[val]
     balance = ForkChoiceBalance(
       (distinctBase(balance) and clear_mask) or
       (distinctBase(src.balances[val]) and duty_mask))
