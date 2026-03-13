@@ -26,8 +26,8 @@ from ../consensus_object_pools/block_dag import
 from ../consensus_object_pools/block_pools_types import
   ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
-  remove, startProcessing, clearProcessing, UnviableKind
+  addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
+  get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
 from ../consensus_object_pools/envelope_quarantine import
@@ -863,9 +863,15 @@ proc addBlock*(
 
   self[].dumpBlock(blck, res)
 
+  const consensusFork = typeof(blck).kind
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
-    self.enqueueQuarantine(res[])
+    #
+    # Since Gloas, the envelope may not be ready yet which would cause
+    # descendants failing with MissingParent by a high chance. So only enqueue
+    # them pre-Gloas.
+    when consensusFork <= ConsensusFork.Fulu:
+      self.enqueueQuarantine(res[])
     res.mapConvert(void)
   else:
     case res.error()
@@ -958,15 +964,12 @@ proc storeBackfillPayload(
   self.storeSidecars(sidecarsOpt)
   ok()
 
-proc addPayload(
+proc storePayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
-
+): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -1019,7 +1022,31 @@ proc addPayload(
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
-  ok()
+  ok(blck)
+
+proc addPayload*(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+
+  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+  if res.isOk():
+    # Once a block is successfully stored, enqueue the direct descendants
+    self.enqueueQuarantine(res.get())
+  else:
+    case res.error()
+    of VerifierError.MissingParent:
+      template parentRoot(): auto = signedBlock.message.parent_root
+      discard self.consensusManager.quarantine[].addMissing(parentRoot)
+      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+    of VerifierError.Invalid, VerifierError.UnviableFork, VerifierError.Duplicate:
+      discard
+
+  res.mapConvert(void)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
