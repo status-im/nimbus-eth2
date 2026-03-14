@@ -107,7 +107,12 @@ proc getPeerBlock(
           Opt.some(res.blobs.get()[0])
         else:
           Opt.none(BlobSidecars)
-    ok(BlockData(blck: res.blocks[0][], blob: blob))
+      envelope =
+        if res.envelopes.isSome():
+          Opt.some(res.envelopes.get()[0])
+        else:
+          Opt.none(ref gloas.SignedExecutionPayloadEnvelope)
+    ok(BlockData(blck: res.blocks[0][], blob: blob, envelope: envelope))
   finally:
     overseer.pool.release(peer)
 

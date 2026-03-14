@@ -1033,11 +1033,34 @@ proc applyBlock(
 
 proc applyExecutionPayloadEnvelope(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache,
+    nextBid: Opt[BlockId] = Opt.none(BlockId)): Result[void, cstring] =
   withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
       let data = dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
-        return err("Envelope load failed")
+        # Envelope not in DB — builder may not have delivered the payload.
+        # This is normal in ePBS; skip and continue.
+        return ok()
+
+      # Check if the envelope was actually delivered on the canonical chain
+      # by looking at the next block's bid.parent_block_hash.
+      if nextBid.isSome():
+        let nextBlockRoot = nextBid.get().root
+        withConsensusFork(dag.cfg.consensusForkAtEpoch(nextBid.get().slot.epoch)):
+          when consensusFork >= ConsensusFork.Gloas:
+            let nextBlock = getBlock(
+              dag, nextBid.get(),
+              consensusFork.TrustedSignedBeaconBlock).valueOr:
+              return err("Next block load failed")
+            let envelopeBlockHash =
+              data.message.payload.block_hash
+            let nextParentHash =
+              nextBlock.message.body.signed_execution_payload_bid.message.parent_block_hash
+            if nextParentHash != envelopeBlockHash:
+              # The next block doesn't reference this envelope's block_hash,
+              # meaning the builder didn't deliver. Skip the envelope.
+              return ok()
+
       ? process_execution_payload(
         dag.cfg, state.forky(consensusFork), data,
         func(_: deneb.ExecutionPayload): bool = true,
@@ -1776,7 +1799,7 @@ proc updateState*(
           withState(state):
             when consensusFork >= ConsensusFork.Gloas:
               is_parent_block_full(forkyState.data) ==
-                (skipLastEnvelope notin dag.updateFlags)
+                (skipLastEnvelope notin updateFlags)
             else:
               true
         else:
@@ -1926,7 +1949,12 @@ proc updateState*(
     # envelope, which is controlled by updateFlags, for allowing state
     # transitioning with a single beacon block.
     if i > 0 or (i == 0 and (skipLastEnvelope notin updateFlags)):
-      dag.applyExecutionPayloadEnvelope(state, ancestors[i], cache).isOkOr:
+      # Pass the next block so we can check if the envelope was delivered
+      let nextBid =
+        if i > 0: Opt.some(ancestors[i - 1])
+        else: Opt.none(BlockId)
+      dag.applyExecutionPayloadEnvelope(
+          state, ancestors[i], cache, nextBid).isOkOr:
         warn "Failed to apply envelope from database",
           blck = shortLog(ancestors[i]),
           state_bid = shortLog(state.latest_block_id),

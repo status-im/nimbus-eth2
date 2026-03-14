@@ -234,23 +234,10 @@ proc checkHeadBlock*(
     debug "Block parent unknown or finalized already", parentId
     return err(VerifierError.MissingParent)
 
-  # In the case of handling blocks and envelopes other than the head, they
-  # arrive in a random order (request missing). A block could be falsely marked
-  # as invalid if the envelope of the parent block.is missing.
-  when typeof(signedBlock).kind >= ConsensusFork.Gloas:
-    template parentFork(): auto =
-      dag.cfg.consensusForkAtEpoch(parent.slot().epoch())
-
-    if parentFork >= ConsensusFork.Gloas:
-      if not dag.db.containsExecutionPayloadEnvelope(parent.root()) and
-          parent.bid != dag.tail:
-        # TODO: add a new VerifierError for MissingParentEnvelope once syncv3 is
-        # landed.
-        debug "Parent envelope missing",
-          head = shortLog(dag.head),
-          blckSlot = signedBlock.message.slot,
-          blckRoot = signedBlock.root
-        return err(VerifierError.MissingParent)
+  # In ePBS, the parent's envelope may legitimately be missing if the builder
+  # didn't deliver. The state transition (process_execution_payload_bid) will
+  # handle this correctly by checking bid.parent_block_hash against the actual
+  # state.latest_block_hash, which reflects only delivered envelopes.
 
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
@@ -310,12 +297,54 @@ proc addHeadBlockWithParent*(
 
   if not updateState(
       dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
-    # We should never end up here - the parent must be a block no older than and
-    # rooted in the finalized checkpoint, hence we should always be able to
-    # load its corresponding state
     error "Unable to load clearance state for parent block, database corrupt?",
       clearanceBlock = shortLog(clearanceBlock)
     return err(VerifierError.MissingParent)
+
+  const consensusFork = typeof(signedBlock).kind
+
+  when consensusFork >= ConsensusFork.Gloas:
+    # In ePBS, the parent's envelope may or may not have been applied to the
+    # clearance state. Two mismatch cases exist:
+    #
+    # 1. is_parent_block_full=true but incoming block disagrees: the parent
+    #    was orphaned and its envelope shouldn't have been applied. Recover by
+    #    reloading state without the orphaned envelope.
+    #
+    # 2. is_parent_block_full=false: the parent's envelope hasn't been applied
+    #    yet (race condition — envelope processing is async). Quarantine the
+    #    block so it's retried after the envelope arrives.
+    let
+      incomingParentHash =
+        signedBlock.message.body.signed_execution_payload_bid.message.parent_block_hash
+      stateBlockHash =
+        dag.clearanceState.forky(consensusFork).data.latest_block_hash
+    if incomingParentHash != stateBlockHash:
+      if is_parent_block_full(dag.clearanceState.forky(consensusFork).data):
+        # Case 1: Orphaned block's envelope was applied — reload without it
+        let parentBlock = BlockSlotId.init(parent.bid, parent.bid.slot)
+        if not updateState(
+            dag, dag.clearanceState, parentBlock, true, cache,
+            dag.updateFlags + {skipLastEnvelope}):
+          error "Unable to reload clearance state without envelope",
+            clearanceBlock = shortLog(parentBlock)
+          return err(VerifierError.MissingParent)
+
+        # Advance slots to the incoming block's slot
+        var info: ForkedEpochInfo
+        dag.advanceSlots(
+          dag.clearanceState, signedBlock.message.slot, true, cache, info,
+          dag.updateFlags)
+      else:
+        # Case 2: Parent's envelope not yet applied — quarantine until it
+        # arrives. The async envelope pipeline will call enqueueQuarantine
+        # after processing, which retries this block.
+        info "Parent envelope not yet applied, quarantining block",
+          parentRoot = shortLog(parent.bid.root),
+          incomingParentHash = incomingParentHash,
+          stateBlockHash = stateBlockHash,
+          slot = signedBlock.message.slot
+        return err(VerifierError.MissingParent)
 
   let stateDataTick = Moment.now()
 
@@ -739,5 +768,26 @@ proc addLightForwardBlock*(
     proposerVerifyTick - startTick,
     stateDataTick - proposerVerifyTick,
     stateVerifyTick - stateDataTick)
+
+  # Apply envelope to clearance state so latest_block_hash stays current.
+  # Without this, subsequent blocks fail process_execution_payload_bid's
+  # parent_block_hash check against the stale latest_block_hash.
+  when consensusFork >= ConsensusFork.Gloas:
+    if bdata.envelope.isSome():
+      let envelopeRef = bdata.envelope.get()
+      process_execution_payload(
+        dag.cfg,
+        dag.clearanceState.forky(consensusFork),
+        envelopeRef[],
+        func(_: deneb.ExecutionPayload): bool = true,
+        cache,
+        verify = false,
+      ).isOkOr:
+        # Full processing may fail if state root wasn't computed (light sync
+        # uses skipStateRootValidation). Fall back to the minimal update
+        # needed for subsequent blocks to pass the parent hash check.
+        dag.clearanceState.forky(consensusFork).data.latest_block_hash =
+          envelopeRef[].message.payload.block_hash
+      dag.db.putExecutionPayloadEnvelope(envelopeRef[])
 
   ok()

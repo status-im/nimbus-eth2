@@ -636,10 +636,10 @@ proc initFullNode(
           if bres.isErr() and bres.error() != VerifierError.Duplicate:
             bres
           elif signedEnvelope.isNone():
-            if bres.isErr():  # Duplicate block without envelope
-              bres
-            else:
-              err(VerifierError.Invalid)
+            # No envelope: either Duplicate block, or envelope was not
+            # delivered on the canonical chain (builder didn't fulfill bid).
+            # Both cases are OK — just return the block result.
+            bres
           else:
             let columnsOpt =
               if len(bid.message.blob_kzg_commitments) > 0:

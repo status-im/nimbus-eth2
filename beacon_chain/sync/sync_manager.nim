@@ -551,6 +551,10 @@ proc getSyncBlockData[A, B](
             blckSlots = blockSlots,
             envlLen = envelopes.len(),
             envlSlots = envelopes.mapIt(it.message.slot)
+          # Use mild penalty — peers may legitimately not serve envelopes
+          # for old/backfill blocks, and kicking them prevents the request
+          # manager from fetching head envelopes needed to stay synced.
+          peer.updateScore(PeerScoreNoValues)
           return err("Blocks and envelopes mismatch")
 
         debugGloasComment("verify response")
