@@ -166,6 +166,9 @@ func get_ancestor_info*(
   if bs.blck == nil or bs.blck.root != terminal_bid.root:
     result.reset()
 
+func index(chain: seq[SlotInfo], slot, current_slot: Slot): int =
+  min(current_slot - slot, chain.high.uint64).int
+
 func low_slot(chain: seq[SlotInfo], current_slot: Slot): Slot =
   let
     prev_epoch_start = (max(current_slot.epoch, 1.Epoch) - 1).start_slot
@@ -185,7 +188,7 @@ func noncanonical_ancestors(
     var blck = head
     while blck != nil and blck.slot in low_slot .. current_slot:
       let
-        i = min(current_slot - blck.slot, chain.high.uint64).int
+        i = chain.index(blck.slot, current_slot)
         ancestor =
           if blck == chain[i].blck:
             i
@@ -217,7 +220,7 @@ func get_ancestor_support_by_slot*(
     if vote.slot in low_slot .. current_slot:
       # Collect support of the block per slot:
       # - get_block_support_between_slots (per slot, canonical only)
-      let i = min(current_slot - vote.slot, result.high.uint64).int
+      let i = result.index(vote.slot, current_slot)
       if vote.current_root == result[i].blck.root:
         result[i].support += balance.unslashed_balance
 
@@ -237,7 +240,7 @@ func get_ancestor_support_by_slot*(
         o = current_slot.epoch.shuffling_index
       for slot in balance_source.assigned_slots(val.ValidatorIndex, o):
         if slot in low_slot ..< current_slot:
-          let i = min(current_slot - slot, result.high.uint64).int
+          let i = result.index(slot, current_slot)
           if old_i == -1 or result[i].blck != result[old_i].blck:
             result[i].adversarial += eb
             if old_i == -1:
