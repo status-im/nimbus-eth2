@@ -184,6 +184,9 @@ func noncanonical_ancestors(
   if chain.len == 0:
     return result
 
+  for i in 0 ..< chain.high:
+    result[chain[i].blck.root] = i
+
   for head in heads:
     var blck = head
     while blck != nil and blck.slot in low_slot .. current_slot:
@@ -224,7 +227,7 @@ func get_ancestor_support_by_slot*(
       if vote.current_root == result[i].blck.root:
         result[i].support += balance.unslashed_balance
 
-      # Collect noncanonical support of the block:
+      # Collect noncanonical (or stale) support of the block:
       # - get_attestation_score (total, including non-canonical)
       else:
         let ancestor_i = noncanonical.getOrDefault(vote.current_root, -1)

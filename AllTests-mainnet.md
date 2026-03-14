@@ -1271,6 +1271,7 @@ AllTests-mainnet
 + Non-canonical, three forks                                                                 OK
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
++ Stale view, no assigned slot at stale block                                                OK
 + Votes outside range                                                                        OK
 + assign_shufflings replaces duties                                                          OK
 ```

@@ -692,9 +692,8 @@ suite "get_ancestor_support_by_slot":
       chain = makeChain(
         toSeq(0.Slot .. 3.Epoch.start_slot) &
         toSeq(gap_slot + 1 .. current_slot))
-      parent_index = distinctBase(3.Epoch.start_slot)
       backend = makeBackend(@[
-        makeVote(chain[parent_index].bid.root, gap_slot)])
+        makeVote(chain[distinctBase(3.Epoch.start_slot)].bid.root, gap_slot)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(gap_slot)],
         3.Epoch)
@@ -705,6 +704,24 @@ suite "get_ancestor_support_by_slot":
       res[current_slot - gap_slot].support == 10.Gwei
       res[current_slot - 3.Epoch.start_slot].total_support == 10.Gwei
       res[^1].total_support == 10.Gwei
+
+  test "Stale view, no assigned slot at stale block":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      stale_slot = 2.Epoch.start_slot + 4
+      vote_slot = 3.Epoch.start_slot + 2
+      chain = makeFullChain(current_slot)
+      backend = makeBackend(@[
+        makeVote(chain[distinctBase(stale_slot)].bid.root, vote_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(vote_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - stale_slot].total_support == 10.Gwei
 
   test "Running totals verification":
     let
@@ -872,8 +889,7 @@ suite "get_ancestor_support_by_slot":
         bid: BlockId(
           slot: prev_epoch_start + 1, root: makeRoot(200)),
         parent: chain[distinctBase(prev_epoch_start) - 2])
-      backend = makeBackend(@[
-        makeVote(head2.bid.root, prev_epoch_start + 1)])
+      backend = makeBackend(@[makeVote(head2.bid.root, prev_epoch_start + 1)])
       balance_source = makeBalanceSource(
         @[makeBalance(10.Gwei).withAssignedSlots(prev_epoch_start + 1)],
         3.Epoch)
