@@ -1034,7 +1034,7 @@ proc addPayload*(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+  if signedBlock.message.slot < self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
   let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)

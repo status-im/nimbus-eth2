@@ -633,10 +633,13 @@ proc initFullNode(
         when consensusFork >= ConsensusFork.Gloas:
           template bid(): auto =
             forkyBlck.message.body.signed_execution_payload_bid
-          if bres.isErr():
+          if bres.isErr() and bres.error() != VerifierError.Duplicate:
             bres
           elif signedEnvelope.isNone():
-            err(VerifierError.Invalid)
+            if bres.isErr():  # Duplicate block without envelope
+              bres
+            else:
+              err(VerifierError.Invalid)
           else:
             let columnsOpt =
               if len(bid.message.blob_kzg_commitments) > 0:
@@ -645,8 +648,12 @@ proc initFullNode(
                 Opt.some(default(gloas.DataColumnSidecars))
 
             debugGloasComment("columns may not be guaranteed")
-            await blockProcessor.addPayload(
+            let eres = await blockProcessor.addPayload(
               forkyBlck, signedEnvelope.get()[], columnsOpt)
+            if bres.isErr():  # Block was Duplicate, still return Duplicate
+              bres
+            else:
+              eres
         else:
           bres
 

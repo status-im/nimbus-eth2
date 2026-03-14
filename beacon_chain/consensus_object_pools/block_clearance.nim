@@ -242,7 +242,8 @@ proc checkHeadBlock*(
       dag.cfg.consensusForkAtEpoch(parent.slot().epoch())
 
     if parentFork >= ConsensusFork.Gloas:
-      if not dag.db.containsExecutionPayloadEnvelope(parent.root()):
+      if not dag.db.containsExecutionPayloadEnvelope(parent.root()) and
+          parent.bid != dag.tail:
         # TODO: add a new VerifierError for MissingParentEnvelope once syncv3 is
         # landed.
         debug "Parent envelope missing",
@@ -306,6 +307,7 @@ proc addHeadBlockWithParent*(
   # parent, so we should now be able to create an appropriate clearance state
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
+
   if not updateState(
       dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
     # We should never end up here - the parent must be a block no older than and
@@ -616,7 +618,9 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  # Check builder index is matched with the block
+  # Check builder index is matched with the block and get proposer for
+  # self-build signature verification
+  var proposerIndex: uint64
   block:
     let blck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
@@ -629,14 +633,22 @@ proc addBackfillExecutionPayload*(
           forkyBlck.message.body.signed_execution_payload_bid
         if bid.message.builder_index != envelope.builder_index:
           return err(VerifierError.Invalid)
+        proposerIndex = forkyBlck.message.proposer_index
       else:
         return err(VerifierError.UnviableFork)
 
   # Verify signature
-  let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
-    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
-      head = shortLog(dag.head), tail = shortLog(dag.tail)
-    quit 1
+  let builderKey =
+    if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
+      dag.validatorKey(proposerIndex).valueOr:
+        fatal "Invalid proposer in backfill envelope - checkpoint state corrupt?",
+          head = shortLog(dag.head), tail = shortLog(dag.tail)
+        quit 1
+    else:
+      dag.validatorKey(envelope.builder_index).valueOr:
+        fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
+          head = shortLog(dag.head), tail = shortLog(dag.tail)
+        quit 1
   if not verify_execution_payload_envelope_signature(
       dag.forkAtEpoch(envelope.slot.epoch),
       dag.genesis_validators_root,
