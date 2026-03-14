@@ -227,8 +227,8 @@ func get_ancestor_support_by_slot*(
           result[i].total_support += balance.unslashed_balance
     elif vote.slot == FAR_FUTURE_SLOT:
       # Collect weight of equivocating participants:
+      # - get_equivocation_score (per slot, between blocks)
       # - get_adversarial_weight (total, to current_slot)
-      # - compute_empty_slot_support_discount (per slot, between blocks)
       var old_i = -1
       let
         eb = balance.effective_balance
