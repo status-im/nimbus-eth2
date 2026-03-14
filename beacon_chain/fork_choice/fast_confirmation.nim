@@ -211,20 +211,22 @@ func get_ancestor_support_by_slot*(
   let
     low_slot = result.low_slot(current_slot)
     noncanonical = result.noncanonical_ancestors(heads, low_slot, current_slot)
-  for val_index in 0 ..< min(self.votes.len, balance_source.balances.len):
-    template balance: ForkChoiceBalance = balance_source.balances[val_index]
-    template vote: VoteTracker = self.votes[val_index]
+  for val in 0 ..< min(self.votes.len, balance_source.balances.len):
+    template balance: ForkChoiceBalance = balance_source.balances[val]
+    template vote: VoteTracker = self.votes[val]
     if vote.slot in low_slot .. current_slot:
       # Collect support of the block per slot:
       # - get_block_support_between_slots (per slot, canonical only)
-      # - get_attestation_score (total, including non-canonical)
       let i = min(current_slot - vote.slot, result.high.uint64).int
       if vote.current_root == result[i].blck.root:
         result[i].support += balance.unslashed_balance
+
+      # Collect noncanonical support of the block:
+      # - get_attestation_score (total, including non-canonical)
       else:
-        let i = noncanonical.getOrDefault(vote.current_root, -1)
-        if i != -1:
-          result[i].total_support += balance.unslashed_balance
+        let ancestor_i = noncanonical.getOrDefault(vote.current_root, -1)
+        if ancestor_i != -1:
+          result[ancestor_i].total_support += balance.unslashed_balance
     elif vote.slot == FAR_FUTURE_SLOT:
       # Collect weight of equivocating participants:
       # - get_equivocation_score (per slot, between blocks)
@@ -233,7 +235,7 @@ func get_ancestor_support_by_slot*(
       let
         eb = balance.effective_balance
         o = current_slot.epoch.shuffling_index
-      for slot in balance_source.assigned_slots(val_index.ValidatorIndex, o):
+      for slot in balance_source.assigned_slots(val.ValidatorIndex, o):
         if slot in low_slot ..< current_slot:
           let i = min(current_slot - slot, result.high.uint64).int
           if old_i == -1 or result[i].blck != result[old_i].blck:
