@@ -321,7 +321,7 @@ proc addHeadBlockWithParent*(
         dag.clearanceState.forky(consensusFork).data.latest_block_hash
     if incomingParentHash != stateBlockHash:
       if is_parent_block_full(dag.clearanceState.forky(consensusFork).data):
-        # Case 1: Orphaned block's envelope was applied — reload without it
+        # Case 1: Orphaned block's envelope was applied then reload without it
         let parentBlock = BlockSlotId.init(parent.bid, parent.bid.slot)
         if not updateState(
             dag, dag.clearanceState, parentBlock, true, cache,
@@ -336,15 +336,47 @@ proc addHeadBlockWithParent*(
           dag.clearanceState, signedBlock.message.slot, true, cache, info,
           dag.updateFlags)
       else:
-        # Case 2: Parent's envelope not yet applied — quarantine until it
-        # arrives. The async envelope pipeline will call enqueueQuarantine
-        # after processing, which retries this block.
-        info "Parent envelope not yet applied, quarantining block",
+        # Case 2: Parent's envelope not yet applied. Try loading it from DB
+        # If not in DB, quarantine the block until it arrives.
+        let parentEnvelope =
+          dag.db.getExecutionPayloadEnvelope(parent.bid.root)
+        if parentEnvelope.isNone():
+          info "Parent envelope not yet available, quarantining block",
+            parentRoot = shortLog(parent.bid.root),
+            incomingParentHash = incomingParentHash,
+            stateBlockHash = stateBlockHash,
+            slot = signedBlock.message.slot
+          return err(VerifierError.MissingParent)
+
+        # If envelope is found in DB, we reload state at parent's slot and apply it.
+        let parentBlock = BlockSlotId.init(parent.bid, parent.bid.slot)
+        if not updateState(
+            dag, dag.clearanceState, parentBlock, true, cache,
+            dag.updateFlags + {skipLastEnvelope}):
+          error "Unable to reload clearance state for envelope application",
+            clearanceBlock = shortLog(parentBlock)
+          return err(VerifierError.MissingParent)
+
+        process_execution_payload(
+          dag.cfg,
+          dag.clearanceState.forky(consensusFork),
+          parentEnvelope.get(),
+          func(_: deneb.ExecutionPayload): bool = true,
+          cache,
+        ).isOkOr:
+          warn "Failed to apply parent envelope from DB",
+            parentRoot = shortLog(parent.bid.root), msg = error
+          return err(VerifierError.MissingParent)
+
+        info "Applied parent envelope from DB",
           parentRoot = shortLog(parent.bid.root),
-          incomingParentHash = incomingParentHash,
-          stateBlockHash = stateBlockHash,
           slot = signedBlock.message.slot
-        return err(VerifierError.MissingParent)
+
+        # Advance slots to the incoming block's slot
+        var info: ForkedEpochInfo
+        dag.advanceSlots(
+          dag.clearanceState, signedBlock.message.slot, true, cache, info,
+          dag.updateFlags)
 
   let stateDataTick = Moment.now()
 

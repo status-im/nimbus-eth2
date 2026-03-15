@@ -274,7 +274,8 @@ proc storeSidecars(
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
-proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock):
+    Future[void] {.async: (raises: [CancelledError]).}
 
 proc storeBackfillBlock(
     self: ref BlockProcessor,
@@ -773,9 +774,9 @@ proc storeBlock(
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
   when consensusFork >= ConsensusFork.Gloas:
-    # Enqueue payload here instead of `addBlock` for the consistency of payload
-    # processing with backfilling.
-    self.enqueuePayload(signedBlock)
+    # Process envelope synchronously before returning — the next block in the
+    # queue needs the clearance state to have this block's envelope applied.
+    await self.enqueuePayload(signedBlock)
 
   ok(blck)
 
@@ -865,13 +866,10 @@ proc addBlock*(
 
   const consensusFork = typeof(blck).kind
   if res.isOk():
-    # Once a block is successfully stored, enqueue the direct descendants
-    #
-    # Since Gloas, the envelope may not be ready yet which would cause
-    # descendants failing with MissingParent by a high chance. So only enqueue
-    # them pre-Gloas.
-    when consensusFork <= ConsensusFork.Fulu:
-      self.enqueueQuarantine(res[])
+    # Once a block is successfully stored, enqueue the direct descendants.
+    # Since we process envelopes synchronously in storeBlock, the clearance
+    # state is fully updated and quarantined children should succeed.
+    self.enqueueQuarantine(res[])
     res.mapConvert(void)
   else:
     case res.error()
@@ -1047,21 +1045,38 @@ proc addPayload*(
       template parentRoot(): auto = signedBlock.message.parent_root
       discard self.consensusManager.quarantine[].addMissing(parentRoot)
       self.envelopeQuarantine[].addOrphan(signedEnvelope)
-    of VerifierError.Invalid, VerifierError.UnviableFork, VerifierError.Duplicate:
+    of VerifierError.Invalid, VerifierError.UnviableFork:
+      # Preserve envelope for retry. The request manager or a future block
+      # processing attempt can retry with it.
+      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+    of VerifierError.Duplicate:
       discard
 
   res.mapConvert(void)
 
-proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
-  ## Enqueue payload processing by block that is a valid block.
+proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock):
+    Future[void] {.async: (raises: [CancelledError]).} =
+  ## Process the envelope for a newly added block. This is awaited to
+  ## ensure the clearance state has the envelope applied before the next block
+  ## is processed, otherwise the next block fails with block hash mismatch.
 
   template bid(): auto = blck.message.body.signed_execution_payload_bid
 
   let
-    envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
-      # We have not received the envelope yet so mark it as missing.
-      self.envelopeQuarantine[].addMissing(blck.root)
-      return
+    envelope = block:
+      var env = self.envelopeQuarantine[].popOrphan(blck)
+      if env.isNone():
+        # Envelope may arrive via gossip shortly after the block; we poll briefly
+        # here (up to ~2s in 100ms steps) to give it time.
+        for i in 0 ..< 20:
+          await sleepAsync(chronos.milliseconds(100))
+          env = self.envelopeQuarantine[].popOrphan(blck)
+          if env.isSome():
+            break
+      env.valueOr:
+        # Still not found — mark as missing for the request manager.
+        self.envelopeQuarantine[].addMissing(blck.root)
+        return
     sidecarsOpt =
       block:
         let sidecarsOpt =
@@ -1076,7 +1091,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           return
         sidecarsOpt
 
-  discard self.addPayload(blck, envelope, sidecarsOpt)
+  discard await self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the
@@ -1104,4 +1119,4 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
               bid = shortLog(blockRef.bid)
             return
 
-  self.enqueuePayload(blck)
+  discard self.enqueuePayload(blck)
