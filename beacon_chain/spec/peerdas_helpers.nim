@@ -416,22 +416,23 @@ proc assemble_partial_data_column_sidecars*(
 
 proc verify_partial_data_column_sidecar_kzg_proofs*(
     sidecar: fulu.PartialDataColumnSidecar,
-    all_commitments: deneb.KzgCommitments): Result[void, cstring] =
-  ## Verify if the KZG proofs are correct.
-  var
-    cellIndices = newSeqOfCap[CellIndex](sidecar.partial_columns.len)
-    commitments = newSeqOfCap[KzgCommitment](sidecar.partial_columns.len)
+    all_commitments: deneb.KzgCommitments,
+    column_index: ColumnIndex): Result[void, cstring] =
+  ## Verify the KZG proofs.
 
-  let maxI = min(all_commitments.len, int(MAX_BLOB_COMMITMENTS_PER_BLOCK))
-  for i in 0 ..< maxI:
-    let idx = Natural(i)
-    if sidecar.cells_present_bitmap[idx]:
-      cellIndices.add(CellIndex(i))
-      commitments.add(all_commitments[i])
+  # Get the blob indices from the bitmap
+  var blobIndices = newSeqOfCap[int](sidecar.partial_columns.len)
+  for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+    if sidecar.cells_present_bitmap[Natural(i)]:
+      blobIndices.add(i)
 
-  if commitments.len != sidecar.partial_columns.len or
-      commitments.len != sidecar.kzg_proofs.len:
-    return err("PartialDataColumnSidecar: length mismatch")
+  # The cell index is the column index for all cells in this column
+  let cellIndices = repeat(CellIndex(column_index), blobIndices.len)
+
+  # Batch verify that the cells match the corresponding commitments and proofs
+  var commitments = newSeqOfCap[KzgCommitment](blobIndices.len)
+  for i in blobIndices:
+    commitments.add(all_commitments[i])
 
   let res = verifyCellKzgProofBatch(
       commitments, cellIndices, sidecar.partial_columns.asSeq,

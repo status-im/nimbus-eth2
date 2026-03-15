@@ -110,12 +110,6 @@ type
     block_root*: Eth2Digest
     indices*: DataColumnIndices
 
-  # https://github.com/MarcoPolo/consensus-specs/blob/c02a3a764d9b9cfe74f701493e08aa8291f40dfe/specs/fulu/p2p-interface.md#partial-columns
-  PartialDataColumnSidecar* = object
-    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    kzg_proofs*: deneb.KzgProofs
-
   # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
   PartialDataColumnPartsMetadata* = object
     available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
@@ -127,6 +121,14 @@ type
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/c02a3a764d9b9cfe74f701493e08aa8291f40dfe/specs/fulu/p2p-interface.md#partial-columns
+  PartialDataColumnSidecar* = object
+    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_proofs*: deneb.KzgProofs
+    # Optional header, only sent on eager pushes
+    header*: List[PartialDataColumnHeader, 1]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
