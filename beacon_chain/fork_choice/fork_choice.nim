@@ -80,6 +80,38 @@ proc init*(
       justified: finalized,
       finalized: finalized.checkpoint))
 
+func process_attestation(
+    self: var ForkChoiceBackend,
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
+  ## Add an attestation to the fork choice context
+  self.votes.extend(validator_index.int + 1)
+
+  template vote: untyped = self.votes[validator_index]
+  if vote.slot != FAR_FUTURE_SLOT:
+    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.slot = slot
+
+      trace "Integrating vote in fork choice",
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
+
+proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+  # Spec:
+  # Attestations can only affect the fork choice of subsequent slots.
+  # Delay consideration in the fork choice until their slot is in the past.
+  let startTick = Moment.now()
+  self.queuedAttestations.keepItIf:
+    if it.slot < slot:
+      for validator_index in it.attesting_indices:
+        self.backend.process_attestation(
+          validator_index, it.block_root, it.slot)
+      false
+    else:
+      true
+  let endTick = Moment.now()
+  debug "Processed attestation queue", processDur = endTick - startTick
+
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
     epoch: Epoch, blck: BlockRef, current_slot: Slot) =
@@ -193,7 +225,9 @@ proc on_tick(
       for realized in self.backend.proto_array.realizePendingCheckpoints():
         ? self.update_checkpoints(dag, realized, current_slot)
 
-      # Reconfirm with previous balance source
+      # Reconfirm with previous balance source after attestations
+      # from past slots have been applied
+      self.process_attestation_queue(current_slot)
       if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
         self.backend.update_confirmed(self.checkpoints.finalized)
 
@@ -211,38 +245,6 @@ proc on_tick(
     else:
       discard
   ok()
-
-func process_attestation(
-    self: var ForkChoiceBackend,
-    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
-  ## Add an attestation to the fork choice context
-  self.votes.extend(validator_index.int + 1)
-
-  template vote: untyped = self.votes[validator_index]
-  if vote.slot != FAR_FUTURE_SLOT:
-    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
-      vote.next_root = block_root
-      vote.slot = slot
-
-      trace "Integrating vote in fork choice",
-        validator_index = validator_index,
-        new_vote = shortLog(vote)
-
-proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
-  # Spec:
-  # Attestations can only affect the fork choice of subsequent slots.
-  # Delay consideration in the fork choice until their slot is in the past.
-  let startTick = Moment.now()
-  self.queuedAttestations.keepItIf:
-    if it.slot < slot:
-      for validator_index in it.attesting_indices:
-        self.backend.process_attestation(
-          validator_index, it.block_root, it.slot)
-      false
-    else:
-      true
-  let endTick = Moment.now()
-  debug "Processed attestation queue", processDur = endTick - startTick
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
