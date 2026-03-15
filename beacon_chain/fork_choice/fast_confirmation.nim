@@ -224,13 +224,13 @@ func get_ancestor_support_by_slot*(
       # Collect support of the block per slot:
       # - get_block_support_between_slots (per slot, canonical only)
       let i = result.index(vote.slot, current_slot)
-      if vote.current_root == result[i].blck.root:
+      if vote.next_root == result[i].blck.root:
         result[i].support += balance.unslashed_balance
 
       # Collect noncanonical (and stale) support of the block:
       # - get_attestation_score (total, including non-canonical)
       else:
-        let ancestor_i = noncanonical.getOrDefault(vote.current_root, -1)
+        let ancestor_i = noncanonical.getOrDefault(vote.next_root, -1)
         if ancestor_i != -1:
           result[ancestor_i].total_support += balance.unslashed_balance
     elif vote.slot == FAR_FUTURE_SLOT:
@@ -280,7 +280,7 @@ func get_current_target_score*(
     template vote: VoteTracker = self.votes[val_index]
     if vote.slot.epoch == current_epoch and
         validator.is_active_validator(current_epoch) and
-        not validator.slashed and vote.current_root in roots:
+        not validator.slashed and vote.next_root in roots:
       result += validator.effective_balance
 
 proc should_revert_confirmed_on_new_epoch*(
