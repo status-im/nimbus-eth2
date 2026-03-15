@@ -88,11 +88,11 @@ func nodeLeadsToViableHead(
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
+func init*(
+    T: type ProtoArray,
+    finalized: Checkpoint, finalizedSlot, currentSlot: Slot): T =
   let node = ProtoNode(
-    bid: BlockId(
-      slot: finalized.epoch.start_slot,
-      root: finalized.root),
+    bid: BlockId(slot: finalizedSlot, root: finalized.root),
     parent: Opt.none(int),
     checkpoints: FinalityCheckpoints(
       justified: finalized,

@@ -50,11 +50,12 @@ logScope: topics = "fork_choice"
 
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
-    finalized: BalanceCheckpoint, currentSlot: Slot): T =
+    finalized: BalanceCheckpoint, finalizedSlot, currentSlot: Slot): T =
   T(confirmation_byzantine_threshold: confirmation_byzantine_threshold,
-    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot),
+    proto_array: ProtoArray.init(
+      finalized.checkpoint, finalizedSlot, currentSlot),
     confirmed: BlockId(
-      slot: finalized.checkpoint.epoch.start_slot,
+      slot: finalizedSlot,
       root: finalized.checkpoint.root),
     current_epoch_observed_justified: finalized.balance_source,
     previous_epoch_greatest_unrealized_checkpoint: finalized.checkpoint,
@@ -71,10 +72,12 @@ proc init*(
   debug "Initializing fork choice",
     epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let finalized = to_balance_checkpoint(epochRef, blck)
+  let
+    finalized = to_balance_checkpoint(epochRef, blck)
+    finalizedSlot = blck.slot
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      confirmation_byzantine_threshold, finalized, currentSlot),
+      confirmation_byzantine_threshold, finalized, finalizedSlot, currentSlot),
     checkpoints: Checkpoints(
       time: wallTime,
       justified: finalized,
