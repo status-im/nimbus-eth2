@@ -106,9 +106,12 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
 func unrealized_justified*(
     self: ProtoArray, justified: Checkpoint): Checkpoint =
   result = justified
-  for unrealized in self.currentEpochTips.values:
-    if unrealized.justified.epoch > result.epoch:
+  var bestIdx = Index.high
+  for idx, unrealized in self.currentEpochTips:
+    if unrealized.justified.epoch > result.epoch or
+        (unrealized.justified.epoch == result.epoch and idx < bestIdx):
       result = unrealized.justified
+      bestIdx = idx
 
 iterator realizePendingCheckpoints*(
     self: var ProtoArray): FinalityCheckpoints =
