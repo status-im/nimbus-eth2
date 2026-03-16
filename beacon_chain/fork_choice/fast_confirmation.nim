@@ -13,8 +13,9 @@ import
   "."/fork_choice_types
 
 from ../consensus_object_pools/blockchain_dag import
+  ForkChoiceInfoOffset, fork_choice_balances,
   effective_balance, unslashed_balance,
-  fork_choice_balances, getShufflingRef, ForkChoiceInfoOffset
+  getBlockIdAtSlot, getShufflingRef
 
 export fork_choice_types
 
@@ -76,30 +77,40 @@ func record_shuffling(
   balance_source.shuffling_epochs[i] = shufflingRef.epoch
   balance_source.shuffling_roots[i] = shufflingRef.attester_dependent_root
 
-proc do_update_latest_shufflings(
-    balance_source: var BalanceSource,
-    dag: ChainDAGRef, current_slot: Slot): Opt[void] =
+proc do_update_shufflings(
+    balance_source: var BalanceSource, dag: ChainDAGRef,
+    blck: BlockRef, current_slot: Slot): Opt[void] =
   var
+    blck = blck
     epoch = current_slot.epoch
-    blck = dag.head
   for i in 0 ..< NumAttesterDuties:
-    blck = blck.atSlot(epoch.attester_dependent_slot).blck
-    if blck == nil:
-      return err()
-    if not balance_source.has_shuffling(epoch, blck.bid.root):
-      balance_source.record_shuffling(
-        ? dag.getShufflingRef(blck, epoch, preFinalized = false))
+    let dependent_slot = epoch.attester_dependent_slot
+    blck = blck.atSlot(dependent_slot).blck
+    let dependent_root =
+      if blck != nil:
+        blck.bid.root
+      else:
+        (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
+    if balance_source.has_shuffling(epoch, dependent_root):
+      return ok()
+    balance_source.record_shuffling(
+      ? dag.getShufflingRef(blck, epoch, preFinalized = true))
     if epoch <= GENESIS_EPOCH:
       return ok()
     dec epoch
   ok()
 
-proc update_latest_shufflings*(
-    balance_source: var BalanceSource,
-    dag: ChainDAGRef, current_slot: Slot): Opt[void] =
-  result = balance_source.do_update_latest_shufflings(dag, current_slot)
+proc update_latest_shufflings(
+    balance_source: var BalanceSource, dag: ChainDAGRef,
+    blck: BlockRef, current_slot: Slot): Opt[void] =
+  result = balance_source.do_update_shufflings(dag, dag.head, current_slot)
   if result.isErr:
     balance_source.shuffling_epochs = DefaultShufflingEpochs
+
+proc update_latest_shufflings*(
+    balance_source: var BalanceSource, dag: ChainDAGRef,
+    current_slot: Slot): Opt[void] =
+  balance_source.update_latest_shufflings(dag, dag.head, current_slot)
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
   if dst.balances.len > src.balances.len:
