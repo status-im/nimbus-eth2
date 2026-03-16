@@ -165,7 +165,7 @@ func makeExecutionPayloadForSigning*(
     payload.base_fee_per_gas = EIP1559_INITIAL_BASE_FEE
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
-  elif consensusFork in ConsensusFork.Capella .. ConsensusFork.Fulu:
+  elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
     let latest = state.latest_execution_payload_header
     payload.parent_hash = latest.block_hash
     payload.state_root = latest.state_root
@@ -176,8 +176,9 @@ func makeExecutionPayloadForSigning*(
         calcEip1599BaseFee(latest.gas_limit, latest.gas_used, latest.base_fee_per_gas)
       else:
         EIP1559_INITIAL_BASE_FEE
-    payload.withdrawals =
-      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
+    when consensusFork >= ConsensusFork.Capella:
+      payload.withdrawals =
+        List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
   let parent_root = state.latest_block_root(default(Eth2Digest))
   payload.block_hash =
