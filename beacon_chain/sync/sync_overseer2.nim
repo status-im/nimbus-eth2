@@ -2072,13 +2072,22 @@ proc doRangeSidecarsStep(
 
           # Early detection of empty response.
           let
-            sindex = validateBlocks(blocks, grouped, intersectMap).valueOr:
-              peer.updateScore(PeerScoreMissingValues)
-              debug "Received non-complete data column sidecars range",
-                reason = $error, columns_count = len(data),
-                columns = shortLog(grouped)
-              overseer.ssqueue(direction).push(request)
-              return false
+            (sindex, bcount) =
+              validateBlocks(blocks, grouped, intersectMap).valueOr:
+                peer.updateScore(PeerScoreMissingValues)
+                debug "Received non-complete data column sidecars range",
+                  reason = $error, columns_count = len(data),
+                  columns = shortLog(grouped)
+                overseer.ssqueue(direction).push(request)
+                return false
+
+          if (sindex == 0) and (bcount > 0):
+            # Empty response case, when we sure that blocks with sidecars
+            # exists in the range.
+            debug "Received empty columns range"
+            peer.updateScore(PeerScoreMissingValues)
+            overseer.ssqueue(direction).push(request)
+            return false
 
           if (len(blocks) == 0) and (len(grouped) > 0):
             # Case when we have no blocks, but a lot of blobs.
@@ -2475,10 +2484,19 @@ proc timeMonitoringLoop(
           else:
             "[finished]"
       overseer.statusMessages[1] =
-        if overseer.backfillDistance() > 0'u64:
-          backwardPerf.formatString()
-        else:
+        if not(dag.needsBackfill()):
           "[finished]"
+        else:
+          if overseer.backfillDistance() > 0'u64:
+            if overseer.bqueue.running():
+              if overseer.wallSyncDistance() <= SyncDeviationSlotsCount:
+                backwardPerf.formatString()
+              else:
+                "[paused]"
+            else:
+              "[waiting]"
+          else:
+            "[finished]"
 
       debug "Overseer debug statistics",
         wall_slot = overseer.beaconClock.currentSlot(),
@@ -2497,16 +2515,15 @@ proc timeMonitoringLoop(
         backward_sync_status = overseer.statusMessages[1],
         forward_block_buffer = shortLog(overseer.fblockBuffer),
         backward_block_buffer = shortLog(overseer.bblockBuffer),
-        forward_blocks_sync_queue = shortLog(overseer.fqueue),
-        forward_sidecars_sync_queue = shortLog(overseer.fsqueue),
-        backfill_blocks_sync_queue = shortLog(overseer.bqueue),
-        backfill_sidecars_sync_queue = shortLog(overseer.bsqueue),
+        forward_blocks_queue = shortLog(overseer.fqueue),
+        forward_sidecars_queue = shortLog(overseer.fsqueue),
+        backfill_blocks_queue = shortLog(overseer.bqueue),
+        backfill_sidecars_queue = shortLog(overseer.bsqueue),
         root_block_buffer_length = len(overseer.rblockBuffer),
         blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
         useful_peers = distribution[2],
         useless_peers = distribution[3],
-        distribution = distribution[0],
         columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
 
@@ -2712,7 +2729,6 @@ iterator popBlocks(
     root: Eth2Digest
 ): ForkedSignedBeaconBlock =
   let
-    dag = overseer.consensusManager.dag
     quarantine = overseer.consensusManager.quarantine
 
   case src
@@ -2728,7 +2744,6 @@ proc checkBuffer(
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    quarantine = overseer.consensusManager.quarantine
 
   logScope:
     source = "Buffer"
@@ -2849,7 +2864,6 @@ proc lateBlockMonitoringLoop*(
 ): Future[void] {.async: (raises: []).} =
   let
     dag = overseer.consensusManager.dag
-    quarantine = overseer.consensusManager.quarantine
 
   debug "Late block monitoring established"
 
