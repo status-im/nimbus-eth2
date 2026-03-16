@@ -707,12 +707,13 @@ proc routeExecutionPayloadEnvelope*(
     checkValidator: bool
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   # Publish envelope
-  (await router[].network.broadcastExecutionPayloadEnvelope(
-      signedEnvelope)).isOkOr:
-    return err("Proposed envelope failed to broadcast")
-
-  info "Execution payload envelope sent",
-    envelope = shortLog(signedEnvelope.message)
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isErr():
+    notice "Envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
+  else:
+    notice "Envelope sent",
+      envelope = shortLog(signedEnvelope.message)
 
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
