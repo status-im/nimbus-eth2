@@ -71,8 +71,7 @@ func shortLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
     join(",") & "]"
 
 func shortLog(bids: openArray[BlockId]): string =
-  "[" & bids.mapIt(
-    "(slot:" & $it.slot & ",root:" & shortLog(it.root) & ")").join(",") & "]"
+  "[" & bids.mapIt(shortLog(it)).join(",") & "]"
 
 func shortLog(blobs: Opt[seq[ref BlobSidecar]]): string =
   if blobs.isNone():
@@ -437,6 +436,36 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
   else:
     min(backfillSlot, dag.finalizedHead.slot - horizon)
 
+template bsqueue(
+    overseer: SyncOverseerRef2,
+    direction: SyncQueueKind
+): untyped =
+  case direction
+  of SyncQueueKind.Forward:
+    overseer.fqueue
+  of SyncQueueKind.Backward:
+    overseer.bqueue
+
+template ssqueue(
+    overseer: SyncOverseerRef2,
+    direction: SyncQueueKind
+): untyped =
+  case direction
+  of SyncQueueKind.Forward:
+    overseer.fsqueue
+  of SyncQueueKind.Backward:
+    overseer.bsqueue
+
+template sbuffer(
+    overseer: SyncOverseerRef2,
+    direction: SyncQueueKind
+): untyped =
+  case direction
+  of SyncQueueKind.Forward:
+    overseer.fblockBuffer
+  of SyncQueueKind.Backward:
+    overseer.bblockBuffer
+
 proc createQueues(
     overseer: SyncOverseerRef2
 ) =
@@ -489,6 +518,7 @@ proc createQueues(
               blck = shortLog(forkyBlck),
               verifier = "block"
 
+            # TODO (cheatfate): templates does not support `var` arguments.
             when direction == SyncQueueKind.Forward:
               overseer.fblockBuffer.add(signedBlock)
             elif direction == SyncQueueKind.Backward:
@@ -518,6 +548,7 @@ proc createQueues(
               blck = shortLog(forkyBlck),
               verifier = "block"
 
+            # TODO (cheatfate): templates does not support `var` arguments.
             when direction == SyncQueueKind.Forward:
               overseer.fblockBuffer.add(signedBlock)
             elif direction == SyncQueueKind.Backward:
@@ -1585,13 +1616,14 @@ proc doPeerUpdateRootsSidecars(
     for record in records:
       overseer.columnQuarantine[].put(record.block_root, record.sidecar)
 
+    if len(records) == 0:
+      peer.updateScore(PeerScoreNoValues)
+      debug "Empty response received for root request",
+        columns = slimLog(columnSidecars.asSeq()),
+        columns_count = len(columnSidecars)
+      return true
+
     if len(records) < columnsCount:
-      if columnsCount == 1:
-        debug "Empty response received for single root request",
-          columns = slimLog(columnSidecars.asSeq()),
-          columns_count = len(columnSidecars)
-        peer.updateScore(PeerScoreBadResponse)
-        return false
       # Number of received sidecars is less than number of requested.
       peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
     else:
@@ -1640,36 +1672,6 @@ proc doPeerUpdateRootsSidecars(
         else:
           raiseAssert "Should not be happen!"
   true
-
-template bsqueue(
-    overseer: SyncOverseerRef2,
-    direction: SyncQueueKind
-): untyped =
-  case direction
-  of SyncQueueKind.Forward:
-    overseer.fqueue
-  of SyncQueueKind.Backward:
-    overseer.bqueue
-
-template ssqueue(
-    overseer: SyncOverseerRef2,
-    direction: SyncQueueKind
-): untyped =
-  case direction
-  of SyncQueueKind.Forward:
-    overseer.fsqueue
-  of SyncQueueKind.Backward:
-    overseer.bsqueue
-
-template sbuffer(
-    overseer: SyncOverseerRef2,
-    direction: SyncQueueKind
-): var BlocksRangeBuffer =
-  case direction
-  of SyncQueueKind.Forward:
-    overseer.fblockBuffer
-  of SyncQueueKind.Backward:
-    overseer.bblockBuffer
 
 proc doRangeSyncStep(
     overseer: SyncOverseerRef2,
@@ -1761,6 +1763,7 @@ proc doRangeSyncStep(
         blck = shortLog(resp.blck)
 
       let before = shortLog(overseer.sbuffer(direction))
+      # TODO (cheatfate): templates does not support `var` arguments.
       case direction
       of SyncQueueKind.Forward:
         overseer.fblockBuffer.invalidate(rewindPoint)
@@ -2138,6 +2141,7 @@ proc doRangeSidecarsStep(
 
   if resp.count > 0:
     peer.updateScore(PeerScoreGoodValues)
+    # TODO (cheatfate): templates does not support `var` arguments.
     case direction
     of SyncQueueKind.Forward:
       let advanceSlot =
@@ -2166,6 +2170,7 @@ proc doRangeSidecarsStep(
       blck = shortLog(resp.blck)
 
     let before = shortLog(overseer.sbuffer(direction))
+    # TODO (cheatfate): templates does not support `var` arguments.
     case direction
     of SyncQueueKind.Forward:
       overseer.fblockBuffer.invalidate(rewindPoint)
@@ -2389,27 +2394,6 @@ func formatString(performance: SyncPerformance): string =
   performance.timeLeft.toTimeLeftString() & " (" &
     (performance.done * 100.0).formatBiggestFloat(ffDecimal, 2) & "%) " &
     performance.average.formatBiggestFloat(ffDecimal, 4) & "slots/s"
-
-proc maintenanceLoop(
-    overseer: SyncOverseerRef2
-): Future[void] {.async: (raises: []).} =
-  try:
-    debug "Overseer maintenance established"
-
-    while true:
-      await sleepAsync(1.seconds)
-      if overseer.finalizedDistance.isSome() and
-        (overseer.finalizedDistance().get() == 0'u64):
-        # We perform reset of forward block buffer when forward syncing
-        # finished
-        overseer.fblockBuffer.reset()
-      if overseer.backfillDistance() == 0'u64:
-        # We perform reset of backfill block buffer when backfill process
-        # finished
-        overseer.bblockBuffer.reset()
-
-  except CancelledError:
-    discard
 
 proc timeMonitoringLoop(
     overseer: SyncOverseerRef2
@@ -2925,7 +2909,6 @@ proc mainLoop*(
     blockMonitoringLoopFut = overseer.blockMonitoringLoop()
     finalMonitoringLoopFut = overseer.finalMonitoringLoop()
     timeMonitoringLoopFut = overseer.timeMonitoringLoop()
-    maintenanceLoopFut = overseer.maintenanceLoop()
     lateBlockMonitoringLoopFut = overseer.lateBlockMonitoringLoop()
 
   while true:
@@ -2938,7 +2921,7 @@ proc mainLoop*(
         await cancelAndWait(
           gossipMonitoringLoopFut, blockMonitoringLoopFut,
           finalMonitoringLoopFut, timeMonitoringLoopFut,
-          maintenanceLoopFut, lateBlockMonitoringLoopFut)
+          lateBlockMonitoringLoopFut)
         return
     let entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)
