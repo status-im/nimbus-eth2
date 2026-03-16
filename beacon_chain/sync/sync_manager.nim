@@ -531,16 +531,11 @@ proc getSyncBlockData[A, B](
     shouldGetEnvelope = sr.data.slot.epoch() >= man.GLOAS_FORK_EPOCH
     envelopes =
       if shouldGetEnvelope:
-        debugEcho "getSyncBlockData: fetching envelopes for slot=" &
-          $sr.data.slot & " count=" & $sr.data.count
         let envelopes = (await man.getEnvelopes(peer, sr)).valueOr:
-          debugEcho "getSyncBlockData: envelope fetch FAILED: " & $error
           peer.updateScore(PeerScoreNoValues)
           return err(
             "Failed to receive envelopes on request, reason: " & $error)
 
-        debugEcho "getSyncBlockData: got " & $envelopes.len() &
-          " envelopes for " & $blocks.len() & " blocks"
         debug "Received envelopes on request",
           request = sr,
           peer_score = sr.item.getScore(),
@@ -556,10 +551,6 @@ proc getSyncBlockData[A, B](
             blckSlots = blockSlots,
             envlLen = envelopes.len(),
             envlSlots = envelopes.mapIt(it.message.slot)
-          # Use mild penalty — peers may legitimately not serve envelopes
-          # for old/backfill blocks, and kicking them prevents the request
-          # manager from fetching head envelopes needed to stay synced.
-          peer.updateScore(PeerScoreNoValues)
           return err("Blocks and envelopes mismatch")
 
         debugGloasComment("verify response")

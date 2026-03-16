@@ -304,79 +304,19 @@ proc addHeadBlockWithParent*(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork >= ConsensusFork.Gloas:
-    # In ePBS, the parent's envelope may or may not have been applied to the
-    # clearance state. Two mismatch cases exist:
-    #
-    # 1. is_parent_block_full=true but incoming block disagrees: the parent
-    #    was orphaned and its envelope shouldn't have been applied. Recover by
-    #    reloading state without the orphaned envelope.
-    #
-    # 2. is_parent_block_full=false: the parent's envelope hasn't been applied
-    #    yet (race condition — envelope processing is async). Quarantine the
-    #    block so it's retried after the envelope arrives.
+    # In ePBS, the parent's envelope may not be in DB yet (async gossip) or
+    # may never arrive (builder didn't deliver). updateState skips missing
+    # envelopes, so we check here if the state is consistent with the incoming
+    # block's expected parent hash. If not, quarantine for retry.
     let
       incomingParentHash =
         signedBlock.message.body.signed_execution_payload_bid.message.parent_block_hash
       stateBlockHash =
         dag.clearanceState.forky(consensusFork).data.latest_block_hash
     if incomingParentHash != stateBlockHash:
-      if is_parent_block_full(dag.clearanceState.forky(consensusFork).data):
-        # Case 1: Orphaned block's envelope was applied then reload without it
-        let parentBlock = BlockSlotId.init(parent.bid, parent.bid.slot)
-        if not updateState(
-            dag, dag.clearanceState, parentBlock, true, cache,
-            dag.updateFlags + {skipLastEnvelope}):
-          error "Unable to reload clearance state without envelope",
-            clearanceBlock = shortLog(parentBlock)
-          return err(VerifierError.MissingParent)
-
-        # Advance slots to the incoming block's slot
-        var info: ForkedEpochInfo
-        dag.advanceSlots(
-          dag.clearanceState, signedBlock.message.slot, true, cache, info,
-          dag.updateFlags)
-      else:
-        # Case 2: Parent's envelope not yet applied. Try loading it from DB
-        # If not in DB, quarantine the block until it arrives.
-        let parentEnvelope =
-          dag.db.getExecutionPayloadEnvelope(parent.bid.root)
-        if parentEnvelope.isNone():
-          info "Parent envelope not yet available, quarantining block",
-            parentRoot = shortLog(parent.bid.root),
-            incomingParentHash = incomingParentHash,
-            stateBlockHash = stateBlockHash,
-            slot = signedBlock.message.slot
-          return err(VerifierError.MissingParent)
-
-        # If envelope is found in DB, we reload state at parent's slot and apply it.
-        let parentBlock = BlockSlotId.init(parent.bid, parent.bid.slot)
-        if not updateState(
-            dag, dag.clearanceState, parentBlock, true, cache,
-            dag.updateFlags + {skipLastEnvelope}):
-          error "Unable to reload clearance state for envelope application",
-            clearanceBlock = shortLog(parentBlock)
-          return err(VerifierError.MissingParent)
-
-        process_execution_payload(
-          dag.cfg,
-          dag.clearanceState.forky(consensusFork),
-          parentEnvelope.get(),
-          func(_: deneb.ExecutionPayload): bool = true,
-          cache,
-        ).isOkOr:
-          warn "Failed to apply parent envelope from DB",
-            parentRoot = shortLog(parent.bid.root), msg = error
-          return err(VerifierError.MissingParent)
-
-        info "Applied parent envelope from DB",
-          parentRoot = shortLog(parent.bid.root),
-          slot = signedBlock.message.slot
-
-        # Advance slots to the incoming block's slot
-        var info: ForkedEpochInfo
-        dag.advanceSlots(
-          dag.clearanceState, signedBlock.message.slot, true, cache, info,
-          dag.updateFlags)
+      debug "Parent envelope not yet applied, quarantining block",
+        incomingParentHash, stateBlockHash, slot = signedBlock.message.slot
+      return err(VerifierError.MissingParent)
 
   let stateDataTick = Moment.now()
 

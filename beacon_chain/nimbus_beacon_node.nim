@@ -617,10 +617,6 @@ proc initFullNode(
         when consensusFork >= ConsensusFork.Gloas:
           # Disable sidecars processing at block time.
           const sidecarsOpt = noSidecars
-          # Stage the envelope in quarantine so enqueuePayload
-          # can apply it to clearance state before the next block runs.
-          if signedEnvelope.isSome():
-            envelopeQuarantine[].addOrphan(signedEnvelope.get()[])
         elif consensusFork == ConsensusFork.Fulu:
           # TODO document why there are no columns here
           let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
