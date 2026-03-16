@@ -10,7 +10,7 @@
 import
   std/tables,
   ../spec/[digest, forks]
-from std/sequtils import addUnique, keepItIf
+from std/sequtils import addUnique, filterIt, keepItIf
 
 type
   EnvelopeQuarantine* = object
@@ -36,7 +36,7 @@ func addMissing*(
   self.missing.addUnique(root)
 
 func getMissing*(self: EnvelopeQuarantine): seq[Eth2Digest] =
-  self.missing
+  self.missing.filterIt(it notin self.orphans)
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
