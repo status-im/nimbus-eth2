@@ -536,6 +536,24 @@ proc getSyncBlockData[A, B](
           return err(
             "Failed to receive envelopes on request, reason: " & $error)
 
+        debug "Received envelopes on request",
+          request = sr,
+          peer_score = sr.item.getScore(),
+          peer_speed = sr.item.netKbps(),
+          index = index,
+          sync_ident = man.ident,
+          topics = "syncman"
+
+        if blocks.len() != envelopes.len():
+          peer.updateScore(PeerScoreBadResponse)
+          debug "Mismatch between blocks and envelopes",
+            request = sr,
+            blckLen = blockSlots.len(),
+            blckSlots = blockSlots,
+            envlLen = envelopes.len(),
+            envlSlots = envelopes.mapIt(it.message.slot)
+          return err("Blocks and envelopes mismatch")
+
         debugGloasComment("verify response")
         Opt.some(envelopes.asSeq())
       else:
