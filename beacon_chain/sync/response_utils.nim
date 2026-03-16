@@ -200,14 +200,17 @@ func validateBlocks*(
     blocks: openArray[ref ForkedSignedBeaconBlock],
     sidecars: openArray[DataColumnSidecarResponseRecord],
     map: ColumnMap
-): Result[int, cstring] =
-  var sindex = 0
+): Result[tuple[sidecars: int, blocks: int], cstring] =
+  var
+    sindex = 0
+    bcount = 0
   for blck in blocks:
     withBlck(blck[]):
       when consensusFork == ConsensusFork.Fulu:
         let columnsCount = len(forkyBlck.message.body.blob_kzg_commitments)
         if columnsCount == 0:
           continue
+        inc(bcount)
         while sindex < len(sidecars):
           let record = sidecars[sindex]
           if record.block_root != forkyBlck.root:
@@ -218,7 +221,7 @@ func validateBlocks*(
       else:
         return err("Found block with incorrect fork")
 
-  ok(sindex)
+  ok((sindex, bcount))
 
 func checkResponse*(
     srange: SyncRange,
