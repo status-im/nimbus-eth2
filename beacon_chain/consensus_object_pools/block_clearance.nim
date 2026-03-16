@@ -111,7 +111,7 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(state.validators.asSeq())
+  dag.updateValidatorKeys(state.validators)
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -496,6 +496,8 @@ proc addHeadExecutionPayload*(
     slot = signedEnvelope.message.slot
     signature = shortLog(signedEnvelope.signature)
 
+  const consensusFork = typeof(signedBlock).kind
+
   # Quick check between the received block and envelope.
   template bid(): auto =
     signedBlock.message.body.signed_execution_payload_bid.message
@@ -510,15 +512,24 @@ proc addHeadExecutionPayload*(
 
   # Check with the DAG head.
   let blck = dag.head
-  if not (
-    blck.root() == envelopeBlockRoot() and
-    blck.slot() == signedEnvelope.message.slot
-  ):
+  if blck.slot() > signedEnvelope.message.slot:
+    return err(VerifierError.Duplicate)
+  elif blck.slot() < signedEnvelope.message.slot:
+    # Envelopes in future slots would not be able reach here as the valid block
+    # should be missing. If they reach this point, we could not know whether it
+    # is valid or not due to missing of block.
+    return err(VerifierError.MissingParent)
+  elif blck.root() != envelopeBlockRoot():
+    # The above should have ensure that they are in the same slot. Now verify
+    # the envelope is for the head block.
     debug "Envelope is not for the current head"
     return err(VerifierError.Invalid)
+  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
+       signedEnvelope.message.payload.block_hash:
+    # The envelope has been applied to the state so skipping it.
+    return err(VerifierError.Duplicate)
 
   var cache: StateCache
-  const consensusFork = typeof(signedBlock).kind
 
   # Load state cache for state transition function.
   loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())

@@ -189,12 +189,12 @@ cli do(validatorsDir: string, secretsDir: string,
 
     var exited: seq[ValidatorIndex]
     for k, v in validators:
-      if state[].validators.asSeq[k].exit_epoch != FAR_FUTURE_EPOCH:
+      if state[].validators[k].exit_epoch != FAR_FUTURE_EPOCH:
         exited.add k
     for k in exited:
       warn "Validator exited", k
 
-      validatorKeys.del(state[].validators.asSeq[k].pubkey)
+      validatorKeys.del(state[].validators[k].pubkey)
       validators.del(k)
 
     if slot.epoch != (slot - 1).epoch:
@@ -204,13 +204,13 @@ cli do(validatorsDir: string, secretsDir: string,
         balance = block:
           var b: Gwei
           for k, _ in validators:
-            if is_active_validator(state[].validators.asSeq[k], slot.epoch):
-              b += state[].balances.asSeq[k]
+            if is_active_validator(state[].validators[k], slot.epoch):
+              b += state[].balances[k]
           b
         validators = block:
           var b: int
           for k, _ in validators:
-            if is_active_validator(state[].validators.asSeq[k], slot.epoch):
+            if is_active_validator(state[].validators[k], slot.epoch):
               b += 1
           b
         avgBalance = balance.int64 div validators.int64

@@ -115,6 +115,10 @@ declareHistogram data_column_sidecar_delay,
   "Time(s) betweeen slot start and data column sidecar reception",
   buckets = delayBuckets
 
+declareHistogram data_column_sidecar_validation_duration,
+  "Time(s) taken to validate a data column sidecar",
+  buckets = [0.001, 0.005, 0.010, 0.015, 0.020, 0.030, 0.050, 0.100, 0.250, 0.500, 1.0, Inf]
+
 type
   DoppelgangerProtection = object
     broadcastStartEpoch*: Epoch  ##\
@@ -429,9 +433,14 @@ proc processDataColumnSidecar*(
     block_header.slot.start_beacon_time(self.dag.timeParams)
   debug "Data column received", delay
 
-  let v =
-    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
-                                       dataColumnSidecar, wallTime, subnet_id)
+  let
+    validationStart = Moment.now()
+    v =
+      self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
+                                         dataColumnSidecar, wallTime, subnet_id)
+
+  data_column_sidecar_validation_duration.observe(
+    (Moment.now() - validationStart).toFloatSeconds())
 
   if v.isErr():
     debug "Dropping data column", error = v.error()

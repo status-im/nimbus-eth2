@@ -1021,7 +1021,7 @@ proc init*(
     path = config.validatorsDir()
 
   func getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-    getValidator(dag.headState.validators.asSeq, pubkey)
+    getValidator(dag.headState.validators, pubkey)
 
   func getCapellaForkVersion(): Opt[presets.Version] =
     Opt.some(metadata.cfg.CAPELLA_FORK_VERSION)

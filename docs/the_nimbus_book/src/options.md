@@ -134,12 +134,12 @@ The following options are available:
      --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
                                overhead with large numbers of validators [=false].
      --suggested-fee-recipient  Suggested fee recipient.
-     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
+     --suggested-gas-limit     Suggested gas limit [=60000000].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=10].
-     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
+     --history                 Retention strategy for historical data (archive/prune) [=prune].
      --reindex                 Reindex historical states for archive access.
 
 ...

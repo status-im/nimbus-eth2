@@ -358,7 +358,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 # validators.
                 for index, validator in state.validators:
                   let
-                    balance = state.balances.item(index)
+                    balance = state.balances[index]
                     status = validator.getStatus(stateEpoch).valueOr:
                       return RestApiResponse.jsonError(
                         Http400, ValidatorStatusNotFoundError, $error)
@@ -368,8 +368,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             else:
               for index in indices:
                 let
-                  validator = state.validators.item(index)
-                  balance = state.balances.item(index)
+                  validator = state.validators[index]
+                  balance = state.balances[index]
                   status = validator.getStatus(stateEpoch).valueOr:
                     return RestApiResponse.jsonError(
                       Http400, ValidatorStatusNotFoundError, $error)
@@ -410,7 +410,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             else:
               for index in indices:
                 let
-                  validator = state.validators.item(index)
+                  validator = state.validators[index]
                 res.add(RestValidatorIdentity.init(index,
                                                    validator.pubkeyData.pubkey(),
                                                    validator.activation_epoch))
@@ -446,7 +446,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                     balance))
             else:
               for index in indices:
-                let balance = state.balances.item(index)
+                let balance = state.balances[index]
                 res.add(RestValidatorBalance.init(index, balance))
             res
 
@@ -576,8 +576,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             index
 
       let
-        validator = state.validators.item(vindex)
-        balance = state.balances.item(vindex)
+        validator = state.validators[vindex]
+        balance = state.balances[vindex]
         status =
           block:
             let sres = validator.getStatus(current_epoch)

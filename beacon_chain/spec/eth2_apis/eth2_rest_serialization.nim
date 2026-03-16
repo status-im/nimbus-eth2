@@ -1085,8 +1085,6 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Block)
   of "block_gossip":
     ok(EventTopic.BlockGossip)
-  of "attestation":
-    ok(EventTopic.Attestation)
   of "single_attestation":
     ok(EventTopic.SingleAttestation)
   of "voluntary_exit":
@@ -1128,8 +1126,6 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("block,")
   if EventTopic.BlockGossip in value:
     res.add("block_gossip,")
-  if EventTopic.Attestation in value:
-    res.add("attestation,")
   if EventTopic.SingleAttestation in value:
     res.add("single_attestation,")
   if EventTopic.VoluntaryExit in value:

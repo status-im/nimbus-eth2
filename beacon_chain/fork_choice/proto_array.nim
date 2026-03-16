@@ -50,7 +50,6 @@ func tiebreak(a, b: Eth2Digest): bool =
 template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   ## Get a value from a Nim Table, turning KeyError into
   ## an AssertionError defect
-  # Pointer is used to work around the lack of a `var` withValue
   try:
     table[key]
   except KeyError as exc:
@@ -71,6 +70,8 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+func find(self: ProtoArray, root: Eth2Digest): Index =
+  self.indices.getOrDefault(root, -1)
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -290,10 +291,8 @@ func onBlock*(
   if bid.root in self.indices:
     return ok()
 
-  var parentIdx: Index
-  self.indices.withValue(parent, index):
-    parentIdx = index[]
-  do:
+  let parentIdx = self.find(parent)
+  if parentIdx < 0:
     return err ForkChoiceError(
       kind: fcUnknownParent,
       childRoot: bid.root,
@@ -324,14 +323,11 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## The result may not be accurate if `onBlock` is not followed by
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
   template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
-  var justifiedIdx: Index
-  self.indices.withValue(justifiedRoot, value):
-    justifiedIdx = value[]
-  do:
+  let justifiedIdx = self.find(justifiedRoot)
+  if justifiedIdx < 0:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
-
   let
     justifiedNode = self.nodes[justifiedIdx].valueOr:
       return err ForkChoiceError(
@@ -369,10 +365,8 @@ func prune*(
   ##   inalized root is different
   ## - Internal error due to invalid indices in `self`
 
-  var finalizedIdx: int
-  self.indices.withValue(checkpoints.finalized.root, index):
-    finalizedIdx = index[]
-  do:
+  let finalizedIdx = self.find(checkpoints.finalized.root)
+  if finalizedIdx < 0:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
       blockRoot: checkpoints.finalized.root)

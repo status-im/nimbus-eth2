@@ -1132,11 +1132,11 @@ func eth1_data*(state: ForkedHashedBeaconState): lent Eth1Data =
 func eth1_deposit_index*(state: ForkedHashedBeaconState): uint64 =
   withState(state): forkyState.data.eth1_deposit_index
 
-func validators*(state: ForkedHashedBeaconState): lent HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] =
-  (block: withState(state): addr forkyState.data.validators)[]
+func validators*(state: ForkedHashedBeaconState): lent seq[Validator] =
+  (block: withState(state): addr forkyState.data.validators.asSeq)[]
 
-func balances*(state: ForkedHashedBeaconState): lent HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT] =
-  (block: withState(state): addr forkyState.data.balances)[]
+func balances*(state: ForkedHashedBeaconState): lent seq[Gwei] =
+  (block: withState(state): addr forkyState.data.balances.asSeq)[]
 
 func previous_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
   (block: withState(state): addr forkyState.data.previous_justified_checkpoint)[]
