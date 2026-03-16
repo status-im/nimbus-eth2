@@ -704,32 +704,34 @@ proc updateQueues(
     let
       checkpoint = overseer.lastSeenCheckpoint.get()
       lastSlot = checkpoint.epoch.start_slot()
-      localHead = dag.finalizedHead.slot
+      old_forward_blocks_queue = shortLog(overseer.fqueue)
+      old_forward_sidecars_queue = shortLog(overseer.fsqueue)
 
-    if overseer.fqueue.running():
+    if overseer.fqueue.running() or overseer.fsqueue.running():
       # Forward syncing is in progress.
       overseer.fqueue.updateLastSlot(lastSlot)
-      debug "Forward blocks queue has been expanded",
-        last_slot = lastSlot
-    else:
-      # Forward sync is not active, but we keep it up-to date.
-      let startSlot = localHead
-      overseer.fqueue.reset(startSlot, lastSlot)
-      overseer.fblockBuffer.reset()
-      debug "Forward blocks queue has been reset",
-        start_slot = startSlot, last_slot = lastSlot
-
-    if overseer.fsqueue.running():
-      # Forward syncing is in progress.
       overseer.fsqueue.updateLastSlot(lastSlot)
-      debug "Forward sidecars queue has been expanded",
-        last_slot = lastSlot
+
+      debug "Forward queues has been expanded", last_slot = lastSlot,
+        old_forward_blocks_queue = old_forward_blocks_queue,
+        old_forward_sidecars_queue = old_forward_sidecars_queue
     else:
       # Forward sync is not active, but we keep it up-to date.
-      let startSlot = overseer.getForwardSidecarStartSlot()
-      overseer.fsqueue.reset(startSlot, lastSlot)
-      debug "Forward sidecars queue has been reset",
-        start_slot = startSlot, last_slot = lastSlot
+      let
+        localHead = dag.finalizedHead.slot
+        startBlocksSlot = localHead
+        startSidecarsSlot = overseer.getForwardSidecarStartSlot()
+
+      overseer.fqueue.reset(startBlocksSlot, lastSlot)
+      overseer.fsqueue.reset(startSidecarsSlot, lastSlot)
+      overseer.fblockBuffer.reset()
+
+      debug "Forward queues has been reset",
+        start_blocks_slot = startBlocksSlot,
+        start_sidecars_slot = startSidecarsSlot,
+        last_slot = lastSlot,
+        old_forward_blocks_queue = old_forward_blocks_queue,
+        old_forward_sidecars_queue = old_forward_sidecars_queue
 
   block:
     logScope:
@@ -737,27 +739,29 @@ proc updateQueues(
       backward_sidecars_queue = shortLog(overseer.bsqueue)
       backward_block_buffer = shortLog(overseer.bblockBuffer)
 
-    let startSlot = dag.backfill.slot
-
     if not(isNil(overseer.bqueue)):
-      if not(overseer.bqueue.running()):
+      if not(overseer.bqueue.running()) and not(overseer.bsqueue.running()):
         let
-          lastSlot =
+          startSlot = dag.backfill.slot
+          lastBlocksSlot =
             if dag.horizon >= startSlot:
               startSlot
             else:
               dag.horizon
-        overseer.bqueue.reset(startSlot, lastSlot)
-        overseer.bblockBuffer.reset()
-        debug "Backfill blocks queue has been reset",
-          start_slot = startSlot, last_slot = lastSlot
+          lastSidecarsSlot = overseer.getBackfillSidecarFinalSlot()
+          old_backward_blocks_queue = shortLog(overseer.bqueue)
+          old_backward_sidecars_queue = shortLog(overseer.bsqueue)
 
-    if not(isNil(overseer.bsqueue)):
-      if not(overseer.bsqueue.running()):
-        let lastSlot = overseer.getBackfillSidecarFinalSlot()
-        overseer.bsqueue.reset(startSlot, lastSlot)
-        debug "Backfill sidecars queue has been reset",
-          start_slot = startSlot, last_slot = lastSlot
+        overseer.bqueue.reset(startSlot, lastBlocksSlot)
+        overseer.bsqueue.reset(startSlot, lastSidecarsSlot)
+        overseer.bblockBuffer.reset()
+
+        debug "Backfill queues has been reset",
+          start_slot = startSlot,
+          last_blocks_slot = lastBlocksSlot,
+          last_sidecars_slot = lastSidecarsSlot,
+          old_backward_blocks_queue = old_backward_blocks_queue,
+          old_backward_sidecars_queue = old_backward_sidecars_queue
 
 proc initPeer(
     overseer: SyncOverseerRef2,
@@ -2524,6 +2528,7 @@ proc timeMonitoringLoop(
         column_quarantine = shortLog(overseer.columnQuarantine[]),
         useful_peers = distribution[2],
         useless_peers = distribution[3],
+        columns_count = len(overseer.columnQuarantine[].custodyMap),
         columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
 
