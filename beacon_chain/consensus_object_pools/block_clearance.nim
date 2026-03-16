@@ -238,7 +238,7 @@ proc checkHeadBlock*(
   # didn't deliver. The state transition (process_execution_payload_bid) will
   # handle this correctly by checking bid.parent_block_hash against the actual
   # state.latest_block_hash, which should reflect only delivered
-  # envelopes all things neing equal.
+  # envelopes, all things being equal.
 
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
