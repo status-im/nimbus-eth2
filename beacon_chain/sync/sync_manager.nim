@@ -216,6 +216,7 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
         request = req,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
+        peer_agent = $peer.getRemoteAgent(),
         sync_ident = man.ident,
         topics = "syncman"
 
@@ -230,6 +231,7 @@ proc getEnvelopes[A, B](man: SyncManager[A, B], peer: A,
         request = req,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
+        peer_agent = $peer.getRemoteAgent(),
         sync_ident = man.ident,
         topics = "syncman"
 
@@ -257,6 +259,7 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
         request = req,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
+        peer_agent = $peer.getRemoteAgent(),
         sync_ident = man.ident,
         topics = "syncman"
 
@@ -464,11 +467,13 @@ proc getSyncBlockData[A, B](
       peer.updateScore(PeerScoreNoValues)
       return err("Failed to receive blocks on request, reason: " & $error)
     blockSlots = mapIt(blocks, it[].slot)
+    peerAgent = peer.getRemoteAgent()
 
   debug "Received blocks on request",
         request = sr,
         peer_score = sr.item.getScore(),
         peer_speed = sr.item.netKbps(),
+        peer_agent = $peerAgent,
         index = index,
         blocks_count = len(blocks),
         blocks_map = getShortMap(sr, blocks.toSeq()),
@@ -504,6 +509,7 @@ proc getSyncBlockData[A, B](
               request = sr,
               peer_score = sr.item.getScore(),
               peer_speed = sr.item.netKbps(),
+              peer_agent = $peerAgent,
               index = index,
               blobs_count = len(blobData),
               blobs_map = getShortMap(sr, blobData),
@@ -531,13 +537,36 @@ proc getSyncBlockData[A, B](
     shouldGetEnvelope = sr.data.slot.epoch() >= man.GLOAS_FORK_EPOCH
     envelopes =
       if shouldGetEnvelope:
-        let envelopes = (await man.getEnvelopes(peer, sr)).valueOr:
-          peer.updateScore(PeerScoreNoValues)
-          return err(
-            "Failed to receive envelopes on request, reason: " & $error)
+        let
+          res = (await man.getEnvelopes(peer, sr)).valueOr:
+            peer.updateScore(PeerScoreNoValues)
+            return err(
+              "Failed to receive envelopes on request, reason: " & $error)
+          envelopes = res.asSeq()
+
+        debug "Received envelopes on request",
+          request = sr,
+          peer_score = sr.item.getScore(),
+          peer_speed = sr.item.netKbps(),
+          peer_agent = $peerAgent,
+          index = index,
+          envls_count = len(envelopes),
+          envls_map = getShortMap(sr, envelopes),
+          sync_ident = man.ident,
+          topics = "syncman"
+
+        if blocks.len() != envelopes.len():
+          peer.updateScore(PeerScoreBadResponse)
+          debug "Mismatch between blocks and envelopes",
+            request = sr,
+            blckLen = blockSlots.len(),
+            blckSlots = blockSlots,
+            envlLen = envelopes.len(),
+            envlSlots = envelopes.mapIt(it.message.slot)
+          return err("Blocks and envelopes mismatch")
 
         debugGloasComment("verify response")
-        Opt.some(envelopes.asSeq())
+        Opt.some(envelopes)
       else:
         Opt.none(seq[ref SignedExecutionPayloadEnvelope])
 
@@ -745,9 +774,11 @@ proc syncStep[A, B](
 
       let data = (await man.getSyncBlockData(index, request)).valueOr:
         debug "Failed to get block data",
+              request = request,
               peer = peer,
               peer_score = peer.getScore(),
               peer_speed = peer.netKbps(),
+              peer_agent = $peer.getRemoteAgent(),
               index = index,
               request_index = rindex,
               reason = error,

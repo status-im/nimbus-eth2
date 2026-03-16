@@ -151,6 +151,31 @@ func getShortMap*[T](
     slider = slider + 1
   res
 
+func getShortMap*[T](
+    req: SyncRequest[T],
+    data: openArray[ref SignedExecutionPayloadEnvelope]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k][].message.slot:
+          res.add('x')
+          last = k + 1
+          break
+        elif slider < data[k][].message.slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[ref BlobSidecar]): string =
   var
@@ -211,7 +236,8 @@ proc getShortMap*[T](
 
 proc getShortMap*[T](
     req: SyncRequest[T],
-    data: Opt[seq[BlobSidecars]]
+    data: Opt[seq[BlobSidecars]] |
+          Opt[seq[ref SignedExecutionPayloadEnvelope]]
 ): string =
   if data.isNone():
     return '.'.repeat(req.data.count)
@@ -745,10 +771,13 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
     Opt.none(BlobSidecars)
 
 func getOpt(
-    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]], i: int
+    envelopes: Opt[seq[ref gloas.SignedExecutionPayloadEnvelope]], s: Slot
 ): Opt[ref gloas.SignedExecutionPayloadEnvelope] =
   if envelopes.isSome:
-    Opt.some(envelopes.get()[i])
+    for i in 0 ..< len(envelopes.get()):
+      if envelopes.get()[i].message.slot == s:
+        return Opt.some(envelopes.get()[i])
+    Opt.none(ref gloas.SignedExecutionPayloadEnvelope)
   else:
     Opt.none(ref gloas.SignedExecutionPayloadEnvelope)
 
@@ -763,10 +792,10 @@ iterator blocks(
   case kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(blcks) - 1):
-      yield (blcks[i], envelopes.getOpt(i), blobs.getOpt(i))
+      yield (blcks[i], envelopes.getOpt(blcks[i][].slot()), blobs.getOpt(i))
   of SyncQueueKind.Backward:
     for i in countdown(len(blcks) - 1, 0):
-      yield (blcks[i], envelopes.getOpt(i), blobs.getOpt(i))
+      yield (blcks[i], envelopes.getOpt(blcks[i][].slot()), blobs.getOpt(i))
 
 proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
   ## Push multiple failed requests back to queue.
