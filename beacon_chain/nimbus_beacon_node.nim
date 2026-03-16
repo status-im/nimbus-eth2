@@ -648,12 +648,12 @@ proc initFullNode(
                 Opt.some(default(gloas.DataColumnSidecars))
 
             debugGloasComment("columns may not be guaranteed")
-            let eres = await blockProcessor.addPayload(
+            let envRes = await blockProcessor.addPayload(
               forkyBlck, signedEnvelope.get()[], columnsOpt)
-            if bres.isErr():  # Block was Duplicate, still return Duplicate
+            if bres.isErr():  # if block was Duplicate, still return Duplicate
               bres
             else:
-              eres
+              envRes
         else:
           bres
 

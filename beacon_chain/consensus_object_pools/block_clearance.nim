@@ -237,7 +237,8 @@ proc checkHeadBlock*(
   # In ePBS, the parent's envelope may legitimately be missing if the builder
   # didn't deliver. The state transition (process_execution_payload_bid) will
   # handle this correctly by checking bid.parent_block_hash against the actual
-  # state.latest_block_hash, which reflects only delivered envelopes.
+  # state.latest_block_hash, which should reflect only delivered
+  # envelopes all things neing equal.
 
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
