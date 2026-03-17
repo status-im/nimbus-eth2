@@ -60,7 +60,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
 template maybeDeref*[T](o: Opt[T]): T = o.get
 template maybeDeref*[V](v: V): V = v
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)

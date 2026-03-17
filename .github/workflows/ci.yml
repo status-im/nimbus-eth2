@@ -148,9 +148,12 @@ jobs:
           case '${{ runner.os }}' in
           'Linux')
             ncpu=$(nproc)
+            cat /proc/meminfo
+            df -h
             ;;
           'macOS')
             ncpu=$(sysctl -n hw.ncpu)
+            df -h
             ;;
           'Windows')
             ncpu=${NUMBER_OF_PROCESSORS}
