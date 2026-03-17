@@ -43,6 +43,11 @@ func compute_deltas(
     old_balances: openArray[ForkChoiceBalance],
     new_balances: openArray[ForkChoiceBalance]): FcResult[void]
 
+func find_head(
+    self: var ForkChoiceBackend,
+    current_slot: Slot,
+    checkpoints: Checkpoints): FcResult[Eth2Digest]
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
