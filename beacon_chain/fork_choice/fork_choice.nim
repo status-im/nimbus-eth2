@@ -185,8 +185,11 @@ proc on_tick(
 
     elif current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
-      for realized in self.backend.proto_array.realizePendingCheckpoints():
-        ? self.update_checkpoints(dag, realized, current_slot)
+      let realized = self.backend.proto_array.realizePendingCheckpoints(
+        FinalityCheckpoints(
+          justified: self.checkpoints.justified.checkpoint,
+          finalized: self.checkpoints.finalized))
+      ? self.update_checkpoints(dag, realized, current_slot)
 
       # Reconfirm with previous balance source
       if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
