@@ -121,6 +121,7 @@ func unrealized_justified*(
 func realizePendingCheckpoints*(
     self: var ProtoArray,
     checkpoints: FinalityCheckpoints): FinalityCheckpoints =
+  # Pull-up chain tips from previous epoch
   var jIdx, fIdx = Index.high
   result = checkpoints
   for idx, unrealized in self.currentEpochTips:
