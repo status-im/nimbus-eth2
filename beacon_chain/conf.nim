@@ -231,6 +231,11 @@ type
       desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
+    partialColumns* {
+      defaultValue: false,
+      desc: "Backward compatible partial data column sidecar support",
+      name: "peerdas-supernode" .}: bool
+
     debugEnableReconstruction* {.
       hidden
       defaultValue: false,
