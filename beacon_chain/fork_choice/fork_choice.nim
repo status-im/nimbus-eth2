@@ -210,8 +210,9 @@ proc on_tick(
     # Reset store.proposer_boost_root
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
-    # Update prev slot head
+    # Update prev and curr slot head
     self.backend.previous_slot_head = self.backend.current_slot_head
+    self.backend.current_slot_head = dag.head.root
 
     if (current_slot + 1).is_epoch:
       # Update greatest unrealized justified checkpoint
@@ -430,9 +431,13 @@ proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-  self.backend.current_slot_head = blckRef.root
 
-  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  let
+    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+    consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
+    deadline = current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  if wallTime < deadline:
+    self.backend.current_slot_head = blckRef.root
   if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
     self.backend.update_confirmed(self.checkpoints.finalized)
   if not self.backend.is_proto_array_consistent:
