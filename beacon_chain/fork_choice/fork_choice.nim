@@ -236,6 +236,8 @@ proc on_tick(
       self.update_unrealized_justified(dag)
 
       # Restart confirmation chain if necessary
+      self.backend.current_slot_head =
+        ? self.backend.find_head(current_slot, self.checkpoints)
       if not self.backend.is_proto_array_consistent:
         self.backend.update_confirmed(self.checkpoints.finalized)
       else:
