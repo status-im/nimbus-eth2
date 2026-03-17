@@ -410,10 +410,11 @@ proc processBlobSidecar*(
 
   v
 
-processPartialDataColumnSidecar*(
+proc processPartialDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
     partialdatacolumnheader: fulu.PartialDataColumnSidecar,
-    subnet_id: uint64): ValidationRes
+    subnet_id: uint64): ValidationRes =
+  discard
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
