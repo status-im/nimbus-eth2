@@ -242,20 +242,32 @@ func get_ancestor_support_by_slot*(
   for val in 0 ..< min(self.votes.len, balance_source.balances.len):
     template balance: ForkChoiceBalance = balance_source.balances[val]
     template vote: VoteTracker = self.votes[val]
-    if vote.slot in low_slot .. current_slot:
+    if vote.slot != FAR_FUTURE_SLOT:
       # Collect support of the block per slot:
       # - get_block_support_between_slots (per slot, canonical only)
-      let i = result.index(vote.slot, current_slot)
-      if vote.next_root == result[i].blck.root:
-        result[i].support += balance.unslashed_balance
+      #
+      # Spec get_block_support_between_slots over-counts support
+      # when a validator was assigned during an empty slot, but actually
+      # voted for the root at a different slot (only assignment slot matters).
+      # Deliberately ignoring vote.slot to match spec over-count
+      var found = false
+      let o = current_slot.epoch.shuffling_index
+      for slot in balance_source.assigned_slots(val.ValidatorIndex, o):
+        if slot in low_slot .. current_slot:
+          let i = result.index(slot, current_slot)
+          if vote.next_root == result[i].blck.root:
+            result[i].support += balance.unslashed_balance
+            found = true
+            break
 
       # Collect noncanonical (and stale) support of the block:
       # - get_attestation_score (total, including non-canonical)
-      else:
+      if not found:
         let ancestor_i = noncanonical.getOrDefault(vote.next_root, -1)
         if ancestor_i != -1:
           result[ancestor_i].total_support += balance.unslashed_balance
-    elif vote.slot == FAR_FUTURE_SLOT:
+
+    else:
       # Collect weight of equivocating participants:
       # - get_equivocation_score (per slot, between blocks)
       # - get_adversarial_weight (total, to current_slot)
@@ -271,8 +283,6 @@ func get_ancestor_support_by_slot*(
             if old_i == -1:
               result[i].total_adversarial += eb
           old_i = i
-    else:
-      discard
 
   result[0].total_support += result[0].support
   for i in 1 ..< result.len:
