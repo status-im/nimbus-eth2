@@ -348,8 +348,6 @@ func proposer_dependent_slot*(epochRef: EpochRef): Slot =
 func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
   shufflingRef.epoch.attester_dependent_slot()
 
-template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
-
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   ## When there's a gap in the block database, this is the most recent block
   ## that we know of _before_ the gap - after a checkpoint sync, this will
