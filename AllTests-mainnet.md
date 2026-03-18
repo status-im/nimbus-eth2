@@ -947,7 +947,7 @@ AllTests-mainnet
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
 + Can get payload attestations for block production [Preset: mainnet]                        OK
-+ Different payload presence values [Preset: mainnet]                                        OK
++ Different 'blob data available' and 'payload presence' values [Preset: mainnet]            OK
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
