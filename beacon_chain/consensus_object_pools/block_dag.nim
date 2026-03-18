@@ -38,7 +38,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
-    parentBlockHash*: Opt[Eth2Digest]
+    executionParentHash*: Opt[Eth2Digest]
       ## Added in Gloas for computing the `PayloadStatus`
     optimisticStatus*: OptimisticStatus
 
@@ -62,14 +62,14 @@ func init*(
     T: type BlockRef,
     root: Eth2Digest,
     executionBlockHash: Opt[Eth2Digest],
-    parentBlockHash: Opt[Eth2Digest],
+    executionParentHash: Opt[Eth2Digest],
     optimisticStatus: OptimisticStatus,
     slot: Slot,
 ): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
     executionBlockHash: executionBlockHash,
-    parentBlockHash: parentBlockHash,
+    executionParentHash: executionParentHash,
     optimisticStatus: optimisticStatus,
   )
 
@@ -188,21 +188,6 @@ func get_ancestor*(
     depth += 1
 
     blck = blck.parent
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/fork-choice.md#new-get_parent_payload_status
-func get_parent_payload_status*(blck: BlockRef): PayloadStatus =
-  if isNil(blck.parent) or
-      # When block_hash is `Opt.none`, it means it requires loading data from
-      # dag. Returns as PENDING as it is waiting the data to be filled.
-      blck.parentBlockHash.isNone or
-      blck.parent.executionBlockHash.isNone:
-    PAYLOAD_STATUS_PENDING
-  elif blck.parentBlockHash.value() != blck.parent.executionBlockHash.value() or
-      # Check either one should be enough to ensure both values are non-zero.
-      blck.parentBlockHash.value() == ZERO_HASH:
-    PAYLOAD_STATUS_EMPTY
-  else:
-    PAYLOAD_STATUS_FULL
 
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
