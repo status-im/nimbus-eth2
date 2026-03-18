@@ -27,7 +27,7 @@ import
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ../[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, peerdas_helpers, column_map],
   ../validators/keystore_management,
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
      libp2p_json_serialization, peer_pool, peer_scores]
@@ -126,6 +126,7 @@ type
     connections*: int
     enr*: Opt[enr.Record]
     metadata*: Opt[fulu.MetaData]
+    columnMap: Opt[ColumnMap]
     failedMetadataRequests: int
     lastMetadataTime*: Moment
     direction*: PeerType
@@ -2617,6 +2618,23 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
 
   # Return default value if no valid custody group count is found.
   ok(CUSTODY_REQUIREMENT)
+
+proc getColumnMapOrDefault*(
+    peer: Peer,
+    defaultCgc: uint64 = CUSTODY_REQUIREMENT
+): ColumnMap =
+  if peer.columnMap.isNone():
+    let
+      nodeId = peer.fetchNodeIdFromPeerId()
+      custodyGroupCount = peer.lookupCgcFromPeer()
+      count =
+        if custodyGroupCount == 0'u64:
+          defaultCgc
+        else:
+          custodyGroupCount
+    peer.columnMap = Opt.some(
+      ColumnMap.init(peer.network.cfg.get_custody_groups(nodeId, count)))
+  peer.columnMap.get()
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
