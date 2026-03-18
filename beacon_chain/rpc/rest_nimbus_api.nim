@@ -665,6 +665,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       "\"backward_blocks_queue\":" &
         node.syncOverseer.bqueue.debugJsonDump() & "," &
       "\"backward_sidecars_queue\":" &
-        node.syncOverseer.bsqueue.debugJsonDump() & "," &
+        node.syncOverseer.bsqueue.debugJsonDump() &
     "}"
     RestApiResponse.response(res, Http200, "application/json")
