@@ -1264,9 +1264,16 @@ AllTests-mainnet
 + Gap in chain                                                                               OK
 + Mixed validators                                                                           OK
 + No match                                                                                   OK
++ Non-canonical, deep fork                                                                   OK
++ Non-canonical, fork before range                                                           OK
++ Non-canonical, mixed with canonical                                                        OK
++ Non-canonical, single vote                                                                 OK
++ Non-canonical, three forks                                                                 OK
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
++ Stale view, no assigned slot at stale block                                                OK
 + Votes outside range                                                                        OK
++ assign_shufflings dst longer than src                                                      OK
 + assign_shufflings replaces duties                                                          OK
 ```
 ## get_current_target_score

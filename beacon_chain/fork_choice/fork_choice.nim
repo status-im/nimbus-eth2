@@ -317,6 +317,31 @@ func process_block*(
     unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+proc update_proposer_boost_root(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
+  const consensusFork = typeof(blck).kind
+
+  template is_first_block: bool =
+    self.checkpoints.proposer_boost_root == ZERO_HASH
+
+  template attestation_threshold: BeaconTime =
+    current_slot.attestation_deadline(dag.timeParams, consensusFork)
+
+  template is_timely: bool =
+    current_slot == blck.slot and
+    self.checkpoints.time < attestation_threshold
+
+  # Add proposer score boost if the block is the first timely block
+  # for this slot, with the same proposer as the canonical chain.
+  if is_timely and is_first_block:
+    # Only update if the proposer is the same as on the canonical chain
+    let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
+      return
+    if blck.proposer_index == expected_proposer.uint64:
+      self.checkpoints.proposer_boost_root = blckRef.root
+
 proc process_block*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -338,19 +363,14 @@ proc process_block*(
     if attestation.data.beacon_block_root in self.backend:
       for vidx in dag.get_attesting_indices(attestation):
         self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot
-        )
+          vidx, attestation.data.beacon_block_root, attestation.data.slot)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  if slot == blck.slot and
-      self.checkpoints.time < slot.attestation_deadline(
-        dag.timeParams, typeof(blck).kind) and
-      self.checkpoints.proposer_boost_root == ZERO_HASH:
-    self.checkpoints.proposer_boost_root = blckRef.root
+  self.update_proposer_boost_root(dag, blckRef, blck, slot)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)
@@ -428,8 +448,8 @@ proc will_select_head*(
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
-    deadline = current_slot.attestation_deadline(dag.timeParams, consensusFork)
-  if wallTime < deadline:
+    threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  if self.checkpoints.time < threshold:
     self.backend.current_slot_head = blckRef.root
   if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
     self.backend.update_confirmed BlockId(
