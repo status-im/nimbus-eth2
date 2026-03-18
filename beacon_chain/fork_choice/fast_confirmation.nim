@@ -15,7 +15,7 @@ import
 from ../consensus_object_pools/blockchain_dag import
   ForkChoiceInfoOffset, fork_choice_balances,
   slashed, effective_balance, unslashed_balance,
-  getBlockIdAtSlot, getEpochRef, getShufflingRef
+  getBlockIdAtSlot, getBlockRef, getEpochRef, getShufflingRef
 
 from ../spec/beaconstate import latest_block_root
 
@@ -291,6 +291,58 @@ func get_ancestor_support_by_slot*(
     result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
+func is_one_confirmed(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): bool =
+  ## Return ``true`` if and only if the block is LMD-GHOST safe.
+  true  # TODO
+
+func is_confirmed_chain_safe(
+    self: ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+  ## Return ``true`` if and only if all blocks of the confirmed chain starting
+  ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
+
+  template balance_source: BalanceSource =
+    # This is still get_previous_balance_source. Caller's responsibility
+    # to update _after_ reconfirmation via update_unrealized_justified
+    self.current_epoch_observed_justified
+
+  template current_epoch_justified: Checkpoint =
+    # This is what current_epoch_observed_justified.checkpoint will hold
+    # after the balance source gets updated via update_unrealized_justified
+    self.previous_epoch_greatest_unrealized_checkpoint
+
+  # Exclude the justified checkpoint block if it is from the previous epoch
+  # as then this block will always be canonical in this case.
+  # Otherwise: Limit reconfirmation to the first block of the previous epoch
+  # as if it's successful, reconfirmation of the ancestors is implied.
+  let
+    confirmed = dag.getBlockRef(self.confirmed.root).valueOr:
+      return false
+    current_justified = BlockId(
+      slot: current_epoch_justified.epoch.start_slot,
+      root: current_epoch_justified.root)
+    chain = self.get_ancestor_support_by_slot(
+      balance_source, dag.heads, confirmed, current_justified, current_slot)
+
+  # Check if the confirmed.root is descendant of
+  # current_epoch_observed_justified.checkpoint.
+  if chain.len == 0:
+    return false
+
+  # Run is_one_confirmed for each block in the confirmed chain with the
+  # previous epoch balance source.
+  let
+    total_active_balance = balance_source.total_active_balance
+    byzantine_threshold = self.confirmation_byzantine_threshold
+  for i in countdown(chain.high - 1, 0):
+    if chain[i].blck == chain[i + 1].blck:
+      continue
+    if not chain.is_one_confirmed(
+        i, current_slot, total_active_balance, byzantine_threshold):
+      return false
+  true
+
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
@@ -305,7 +357,7 @@ proc should_revert_confirmed_on_new_epoch*(
   balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
     return true
 
-  false  # TODO: not self.is_confirmed_chain_safe
+  not self.is_confirmed_chain_safe(dag, current_slot)
 
 func should_revert_confirmed_on_new_head*(
     self: var ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
