@@ -161,7 +161,7 @@ pipeline {
           sh 'ls -hl *.tar.gz'
           archiveArtifacts(
             artifacts: '*.tar.gz',
-            excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
+            excludes: '**/geth-*.tar.gz,**/spamoor_*.tar.gz',  /* `scripts/geth_binaries.sh`, `scripts/spamoor_binaries.sh` */
             allowEmptyArchive: true
           )
         } }

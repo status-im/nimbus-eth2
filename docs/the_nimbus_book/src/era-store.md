@@ -1,9 +1,5 @@
 # Era store
 
-!!! warning
-    This feature is currently in BETA!
-    Nodes using era files may need to be resynced as the data format is not yet considered stable.
-
 Era files are a long-term archival format for Ethereum data.
 They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past states.
 
@@ -31,7 +27,19 @@ mkdir -p era
 wget --no-parent  -A '*.era' -q --show-progress -nd -r -c https://provider/era
 ```
 
-With the era files present, perform a [trusted node sync](./trusted-node-sync.md) to complete the import, possibly with `--reindex` in order to create an [archive node](./history.md).
+The beacon node will automatically serve data from the Era files.
+
+### Recreate historical state access indices
+
+To create an archive node that can access historical state, start the node with `--reindex --history:archive`:
+
+```sh
+build/nimbus_beacon_node \
+  --network=mainnet \
+  --data-dir=build/data/shared_mainnet_0 \
+  --reindex \
+  --history:archive
+```
 
 ## Generating era files
 

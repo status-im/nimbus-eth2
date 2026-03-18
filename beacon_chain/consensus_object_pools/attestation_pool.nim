@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,12 +13,12 @@ import
   chronicles, stew/byteutils,
   # Internal
   ../spec/[eth2_merkleization, forks, validator],
-  "."/[spec_cache, blockchain_dag, block_quarantine],
+  ./[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
 
 from std/algorithm import sort
-from std/sequtils import keepItIf
+from std/sequtils import anyIt, keepItIf
 from ../spec/beaconstate import check_attestation, dependent_root
 from ../spec/state_transition_epoch import compute_unrealized_finality
 
@@ -26,18 +26,15 @@ export blockchain_dag, fork_choice
 
 const
   # TODO since deneb, this is looser (whole previous epoch)
-  ATTESTATION_LOOKBACK =
-    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+  ATTESTATION_LOOKBACK = SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
 type
-  OnPhase0AttestationCallback =
-    proc(data: phase0.Attestation) {.gcsafe, raises: [].}
   OnSingleAttestationCallback =
     proc(data: SingleAttestation) {.gcsafe, raises: [].}
 
-  ElectraValidation = object
+  Validation = object
     ## Validations collect a set of signatures for a distinct attestation - in
     ## eth2, a single bit is used to keep track of which signatures have been
     ## added to the aggregate meaning that only non-overlapping aggregates may
@@ -46,19 +43,24 @@ type
     aggregate_signature: AggregateSignature
 
   AttestationEntry = object
-    ## Each entry holds the known signatures for a particular, distinct vote
-    ## For electra+, the data has been changed to hold the committee index
-    data: AttestationData
+    ## Each entry holds the known signatures of a particular
+    ## slot/committee/block root combination, both single votes and aggregates.
+    ## Single votes are used to top up (or construct) aggregates.
+    slot*: Slot
+    index*: uint64
+    beacon_block_root*: Eth2Digest
+    source*: Checkpoint
+    target*: Checkpoint
+
     committee_len: int
-    singles: Table[int, CookedSig] ## \
+      ## Size of the committee, for initializing aggregates from singles
+    singles: Table[int, CookedSig]
       ## On the attestation subnets, only attestations with a single vote are
-      ## allowed - these can be collected separately to top up aggregates with -
+      ## allowed - these are collected separately to top up aggregates -
       ## here we collect them by mapping index in committee to a vote
-    aggregates: seq[ElectraValidation]
+    aggregates: seq[Validation]
 
-  ElectraAttestationEntry = AttestationEntry
-
-  AttestationTable = Table[Eth2Digest, ElectraAttestationEntry]
+  AttestationTable = Table[Eth2Digest, AttestationEntry]
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - this map keeps track of each vote keyed by
     ## getAttestationCandidateKey()
@@ -70,53 +72,73 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    electraCandidates: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
+    candidates: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
       ## We keep one item per slot such that indexing matches slot number
       ## together with startingSlot
 
-    startingSlot: Slot ## \
-    ## Generally, we keep attestations only until a slot has been finalized -
-    ## after that, they may no longer affect fork choice.
+    startingSlot: Slot
+      ## Generally, we keep attestations only until a slot has been finalized -
+      ## after that, they may no longer affect fork choice.
 
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
 
     forkChoice*: ForkChoice
 
-    nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
-    ## sequence based on validator indices
+    nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]]
+      ## sequence based on validator indices
 
     onSingleAttestationAdded: OnSingleAttestationCallback
-
-  CandidateKey = tuple
-    ## Search key for selecting the final candidates for
-    ## electra chain aggregates.
-    hash: Eth2Digest
-    slot: Slot
 
 logScope: topics = "attpool"
 
 declareGauge attestation_pool_block_attestation_packing_time,
   "Time it took to create list of attestations for block"
 
+func init(
+    T: type AttestationEntry,
+    data: AttestationData,
+    committee_index: uint64,
+    committee_len: int,
+): T =
+  T(
+    slot: data.slot,
+    index: committee_index,
+    beacon_block_root: data.beacon_block_root,
+    source: data.source,
+    target: data.target,
+    committee_len: committee_len,
+  )
+
+func init(T: type AttestationData, entry: AttestationEntry): T =
+  T(
+    slot: entry.slot,
+    index: 0,
+    beacon_block_root: entry.beacon_block_root,
+    source: entry.source,
+    target: entry.target,
+  )
+
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: ref Quarantine,
-           onPhase0Attestation: OnPhase0AttestationCallback = nil,
+           quarantine: ref Quarantine, wallTime = default(BeaconTime),
            onSingleAttestation: OnSingleAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
-  let finalizedEpochRef = dag.getFinalizedEpochRef()
-
+  let
+    currentSlot = wallTime.slotOrZero(dag.timeParams)
+    finalizedEpochRef = dag.getFinalizedEpochRef()
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck)
+    dag.cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
+    finalizedEpochRef, dag.finalizedHead.blck, currentSlot, wallTime)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
   doAssert dag.heads.len == 1, "Init only supports a single history"
 
-  var blocks: seq[BlockRef]
-  var cur = dag.head
+  var
+    blocks: seq[BlockRef]
+    cur = dag.head
 
   # When the chain is finalizing, the votes between the head block and the
   # finalized checkpoint should be enough for a stable fork choice - when the
@@ -170,9 +192,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
-    justified = shortLog(getStateField(
-      dag.headState, current_justified_checkpoint)),
-    finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+    justified = shortLog(dag.headState.current_justified_checkpoint),
+    finalized = shortLog(dag.headState.finalized_checkpoint)
   T(
     dag: dag,
     quarantine: quarantine,
@@ -194,7 +215,7 @@ proc addForkChoiceVotes(
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
 func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
-  const poolLength = pool.electraCandidates.lenu64
+  const poolLength = pool.candidates.lenu64
 
   if slot >= pool.startingSlot and slot < (pool.startingSlot + poolLength):
     Opt.some(int(slot mod poolLength))
@@ -202,10 +223,10 @@ func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
     Opt.none(int)
 
 proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
-  if wallSlot + 1 < pool.electraCandidates.lenu64:
+  if wallSlot + 1 < pool.candidates.lenu64:
     return # Genesis
 
-  let newStartingSlot = wallSlot + 1 - pool.electraCandidates.lenu64
+  let newStartingSlot = wallSlot + 1 - pool.candidates.lenu64
 
   if newStartingSlot < pool.startingSlot:
     error "Current slot older than attestation pool view, clock reset?",
@@ -215,13 +236,13 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   # As time passes we'll clear out any old attestations as they are no longer
   # viable to be included in blocks
 
-  if newStartingSlot - pool.startingSlot >= pool.electraCandidates.lenu64():
+  if newStartingSlot - pool.startingSlot >= pool.candidates.lenu64():
     # In case many slots passed since the last update, avoid iterating over
     # the same indices over and over
-    pool.electraCandidates.reset()
+    pool.candidates.reset()
   else:
     for i in pool.startingSlot..newStartingSlot:
-      pool.electraCandidates[i.uint64 mod pool.electraCandidates.lenu64].reset()
+      pool.candidates[i.uint64 mod pool.candidates.lenu64].reset()
 
   pool.startingSlot = newStartingSlot
 
@@ -237,21 +258,16 @@ func oneIndex(bits: ElectraCommitteeValidatorsBits): Opt[int] =
   res
 
 func toElectraAttestation(
-    entry: AttestationEntry, validation: ElectraValidation):
-    electra.Attestation =
+    entry: AttestationEntry, validation: Validation
+): electra.Attestation =
   var committee_bits: AttestationCommitteeBits
-  committee_bits[int(entry.data.index)] = true
+  committee_bits[int(entry.index)] = true
 
   electra.Attestation(
     aggregation_bits: validation.aggregation_bits,
     committee_bits: committee_bits,
-    data: AttestationData(
-      slot: entry.data.slot,
-      index: 0,
-      beacon_block_root: entry.data.beacon_block_root,
-      source: entry.data.source,
-      target: entry.data.target),
-    signature: validation.aggregate_signature.finish().toValidatorSig()
+    data: AttestationData.init(entry),
+    signature: validation.aggregate_signature.finish().toValidatorSig(),
   )
 
 func updateAggregates(entry: var AttestationEntry) =
@@ -267,13 +283,10 @@ func updateAggregates(entry: var AttestationEntry) =
     for index_in_committee, signature in entry.singles:
       if entry.aggregates.len() == 0:
         # Create aggregate on first iteration..
-        template getInitialAggregate(_: ElectraAttestationEntry):
-            untyped {.used.} =
-          ElectraValidation(
-            aggregation_bits:
-              ElectraCommitteeValidatorsBits.init(entry.committee_len),
-            aggregate_signature: AggregateSignature.init(signature))
-        entry.aggregates.add(getInitialAggregate(entry))
+        entry.aggregates.add Validation(
+          aggregation_bits: ElectraCommitteeValidatorsBits.init(entry.committee_len),
+          aggregate_signature: AggregateSignature.init(signature),
+        )
       else:
         entry.aggregates[0].aggregate_signature.aggregate(signature)
 
@@ -313,54 +326,19 @@ func updateAggregates(entry: var AttestationEntry) =
             inc j
         inc i
 
-func covers(
-    entry: AttestationEntry,
-    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits): bool =
-  for i in 0..<entry.aggregates.len():
-    if bits.isSubsetOf(entry.aggregates[i].aggregation_bits):
-      return true
-  false
+  if entry.aggregates.len == 1 and
+      entry.aggregates[0].aggregation_bits.countOnes() ==
+      entry.aggregates[0].aggregation_bits.len:
+    # All bits are set in the aggregate (ergo all other aggregates should have
+    # been removed in the cover check) meaning that the singles are no longer
+    # useful - although we reset things here, we have to be careful to not rely
+    # on singles remaining empty (more might drop in later) - this is simply a
+    # small way to save some memory in the optimistic case that everyone in the
+    # committee voted successfully
+    entry.singles.reset()
 
-proc addAttestation(
-    entry: var AttestationEntry,
-    attestation: electra.Attestation, _: int, signature: CookedSig): bool =
-  logScope:
-    attestation = shortLog(attestation)
-
-  let singleIndex = oneIndex(attestation.aggregation_bits)
-
-  if singleIndex.isSome():
-    if singleIndex.get() in entry.singles:
-      trace "Attestation already seen",
-        singles = entry.singles.len(),
-        aggregates = entry.aggregates.len()
-
-      return false
-
-    debug "Attestation resolved",
-      singles = entry.singles.len(),
-      aggregates = entry.aggregates.len()
-
-    entry.singles[singleIndex.get()] = signature
-  else:
-    # More than one vote in this attestation
-    if entry.covers(attestation.aggregation_bits):
-      return false
-
-    # Since we're adding a new aggregate, we can now remove existing
-    # aggregates that don't add any new votes
-    entry.aggregates.keepItIf(
-      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
-
-    entry.aggregates.add(ElectraValidation(
-      aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: AggregateSignature.init(signature)))
-
-    debug "Aggregate resolved",
-      singles = entry.singles.len(),
-      aggregates = entry.aggregates.len()
-
-  true
+func covers(entry: AttestationEntry, bits: ElectraCommitteeValidatorsBits): bool =
+  entry.aggregates.anyIt(bits.isSubsetOf(it.aggregation_bits))
 
 proc addAttestation(
     entry: var AttestationEntry, attestation: SingleAttestation,
@@ -375,37 +353,78 @@ proc addAttestation(
 
     return false
 
+  entry.singles[index_in_committee] = signature
+
   debug "SingleAttestation resolved",
     singles = entry.singles.len(),
     aggregates = entry.aggregates.len()
 
-  entry.singles[index_in_committee] = signature
+  true
+
+proc addAttestation(
+    entry: var AttestationEntry,
+    attestation: electra.Attestation, _: int, signature: CookedSig): bool =
+  logScope:
+    attestation = shortLog(attestation)
+
+  let singleIndex = oneIndex(attestation.aggregation_bits)
+
+  if singleIndex.isSome():
+    # An aggregate that contains only a single vote can be stored as a single
+    if singleIndex.get() in entry.singles:
+      trace "Aggregate already seen",
+        singles = entry.singles.len(),
+        aggregates = entry.aggregates.len()
+
+      return false
+
+    entry.singles[singleIndex.get()] = signature
+  else:
+    # More than one vote in this attestation
+    if entry.covers(attestation.aggregation_bits):
+      trace "Aggregate already covered",
+        singles = entry.singles.len(),
+        aggregates = entry.aggregates.len()
+      return false
+
+    # Since we're adding a new aggregate, we can now remove existing
+    # aggregates that don't add any new votes
+    entry.aggregates.keepItIf(
+      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
+
+    entry.aggregates.add Validation(
+      aggregation_bits: attestation.aggregation_bits,
+      aggregate_signature: AggregateSignature.init(signature),
+    )
+
+  debug "Aggregate resolved",
+    singles = entry.singles.len(),
+    aggregates = entry.aggregates.len()
 
   true
 
 func getAttestationCandidateKey(
-    attestationDataRoot: Eth2Digest, committee_index: CommitteeIndex):
-    Eth2Digest =
-  hash_tree_root([attestationDataRoot, hash_tree_root(committee_index.uint64)])
+    attestationDataRoot: Eth2Digest, committee_index: uint64
+): Eth2Digest =
+  ## Key that keeps entries separated by committee index - since the votes of
+  ## each committee are non-overlapping, this makes it easier to construct an
+  ## aggregate or on-chain attestation down the line
+  hash_tree_root([attestationDataRoot, hash_tree_root(committee_index)])
 
 func getAttestationCandidateKey(
-    data: AttestationData,
-    committee_index: Opt[CommitteeIndex]): Eth2Digest =
-  # Some callers might have used for the key just htr(data), so rather than
-  # risk some random regression (one was caught in test suite, but there is
-  # not any particular reason other code could not have manually calculated
-  # the key, too), special-case the phase0 case as htr(data).
-  if committee_index.isNone:
-    # i.e. no committees selected, so it can't be an actual Electra attestation
-    hash_tree_root(data)
-  else:
-    getAttestationCandidateKey(hash_tree_root(data), committee_index.get)
+    attestationData: AttestationData, committee_index: uint64
+): Eth2Digest =
+  getAttestationCandidateKey(hash_tree_root(attestationData), committee_index)
 
 proc addAttestation*(
     pool: var AttestationPool,
-    attestation: phase0.Attestation | electra.Attestation | SingleAttestation,
-    attesting_indices: openArray[ValidatorIndex], beacon_committee_len: int,
-    index_in_committee: int, signature: CookedSig, wallTime: BeaconTime) =
+    attestation: SingleAttestation | electra.Attestation,
+    attesting_indices: openArray[ValidatorIndex],
+    beacon_committee_len: int,
+    index_in_committee: int,
+    signature: CookedSig,
+    wallTime: BeaconTime,
+) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ##
   ## Assuming the votes in the attestation have not already been seen, the
@@ -419,105 +438,69 @@ proc addAttestation*(
 
   updateCurrent(pool, wallTime.slotOrZero(pool.dag.timeParams))
 
-  let candidateIdx = pool.candidateIdx(attestation.data.slot)
-  if candidateIdx.isNone:
-    debug "Skipping old attestation for block production",
-      startingSlot = pool.startingSlot
-    return
+  let
+    candidateIdx = pool.candidateIdx(attestation.data.slot).valueOr:
+      debug "Skipping old attestation for block production",
+        startingSlot = pool.startingSlot
+      return
+    committee_index =
+      when attestation is SingleAttestation:
+        attestation.committee_index
+      else:
+        uint64 get_committee_index_one(attestation.committee_bits).expect(
+          "Gossip validation requires this"
+        )
+    candidateKey = getAttestationCandidateKey(attestation.data, committee_index)
 
-  # TODO withValue is an abomination but hard to use anything else too without
-  #      creating an unnecessary AttestationEntry on the hot path and avoiding
-  #      multiple lookups
-  template addAttToPool(attCandidates: untyped, entry: untyped, committee_index: untyped) =
-    # `AttestationData.index == 0` in Electra, but the attestation pool always
-    # represents an AttestationEntry regardless as having the actual committee
-    # index. The entry, therefore, is not the same as the AttestationData, and
-    # thus cannot function as the basis for deriving the hashtable key for the
-    # entry. Instead use the (correctly data.index == 0) attestation passed to
-    # addAttestation.
-    let candidate_key = getAttestationCandidateKey(attestation.data, committee_index)
+  # Add or update an attestation entry in the candidate list but return early
+  # in case the attestation adds no new votes - uses `withValue` to avoid
+  # constructing the entry in case it's already present
+  pool.candidates[candidateIdx].withValue(candidateKey, entry):
+    if not addAttestation(entry[], attestation, index_in_committee, signature):
+      return
+  do:
+    var entry =
+      AttestationEntry.init(attestation.data, committee_index, beacon_committee_len)
+    if not addAttestation(entry, attestation, index_in_committee, signature):
+      # This can only happen if there are no votes in the attestation which
+      # would mean a bug elsewhere..
+      return
 
-    attCandidates[candidateIdx.get()].withValue(candidate_key, entry) do:
-      if not addAttestation(entry[], attestation, index_in_committee, signature):
-        return
-    do:
-      if not addAttestation(
-          attCandidates[candidateIdx.get()].mgetOrPut(candidate_key, entry),
-          attestation, index_in_committee, signature):
-        # Returns from overall function, not only template
-        return
+    pool.candidates[candidateIdx][candidateKey] = move(entry)
 
-  template addAttToPool(_: phase0.Attestation) {.used.} = discard
+  pool.addForkChoiceVotes(
+    attestation.data.slot, attesting_indices, attestation.data.beacon_block_root,
+    wallTime,
+  )
 
-  template addAttToPool(_: electra.Attestation) {.used.} =
-    let
-      committee_index = get_committee_index_one(
-        attestation.committee_bits).expect("Gossip validation requires this")
-      data = AttestationData(
-        slot: attestation.data.slot,
-        index: uint64 committee_index,
-        beacon_block_root: attestation.data.beacon_block_root,
-        source: attestation.data.source,
-        target: attestation.data.target)
-      newAttEntry = ElectraAttestationEntry(
-        data: data,
-        committee_len: attestation.aggregation_bits.len)
-    addAttToPool(pool.electraCandidates, newAttEntry, Opt.some committee_index)
-    pool.addForkChoiceVotes(
-      attestation.data.slot, attesting_indices,
-      attestation.data.beacon_block_root, wallTime)
+  # There does not seem to be an SSE stream event corresponding to Attestation,
+  # because both attestation and single_attestation specifically specify
+  # the `beacon_attestation_{subnet_id}` topic and that in not possible,
+  # for this type, in Electra because this case is always an aggregate.
 
-    # There does not seem to be an SSE stream event corresponding to this,
-    # because both attestation and single_attestation specifically specify
-    # the `beacon_attestation_{subnet_id}` topic and that in not possible,
-    # for this type, in Electra because this case is always an aggregate.
-
-  template addAttToPool(_: SingleAttestation) {.used.} =
-    let
-      data = AttestationData(
-        slot: attestation.data.slot,
-        index: uint64 attestation.committee_index,
-        beacon_block_root: attestation.data.beacon_block_root,
-        source: attestation.data.source,
-        target: attestation.data.target)
-      newAttEntry = ElectraAttestationEntry(
-        data: data, committee_len: beacon_committee_len)
-    addAttToPool(
-      pool.electraCandidates, newAttEntry,
-      Opt.some attestation.committee_index.CommitteeIndex)
-    pool.addForkChoiceVotes(
-      attestation.data.slot, attesting_indices,
-      attestation.data.beacon_block_root, wallTime)
-
+  when attestation is SingleAttestation:
     # Send notification about new attestation via callback.
     if not(isNil(pool.onSingleAttestationAdded)):
       pool.onSingleAttestationAdded(attestation)
 
-  addAttToPool(attestation)
-
 func covers*(
-    _: var AttestationPool, _: AttestationData,
-    _: CommitteeValidatorsBits): bool =
-  # The phase0 version
-  false
-
-func covers*(
-    pool: var AttestationPool, data: AttestationData,
+    pool: var AttestationPool,
+    data: AttestationData,
     aggregation_bits: ElectraCommitteeValidatorsBits,
-    committee_bits: AttestationCommitteeBits): bool =
+    committee_index: CommitteeIndex,
+): bool =
   ## Return true iff the given attestation already is fully covered by one of
   ## the existing aggregates, making it redundant
-  ## the `var` attestation pool is needed to use `withValue`, else Table becomes
+  ##
+  ## `pool` must be `var` to enable the use of `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot).valueOr:
-    return false
+  let
+    candidateIdx = pool.candidateIdx(data.slot).valueOr:
+      return false
+    candidateKey = getAttestationCandidateKey(data, uint64 committee_index)
 
-  pool.electraCandidates[candidateIdx].withValue(
-      getAttestationCandidateKey(
-        data, Opt.some get_committee_index_one(
-          committee_bits).expect("Gossip validation requires this")), entry):
-    if entry[].covers(aggregation_bits):
-      return true
+  pool.candidates[candidateIdx].withValue(candidateKey, entry):
+    return entry[].covers(aggregation_bits)
 
   false
 
@@ -538,11 +521,6 @@ proc addForkChoice*(pool: var AttestationPool,
     error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
-iterator attestations*(
-    _: AttestationPool, _: Opt[Slot], _: Opt[CommitteeIndex]):
-    phase0.Attestation =
-  discard
-
 iterator electraAttestations*(
     pool: AttestationPool, slot: Opt[Slot],
     committee_index: Opt[CommitteeIndex]): electra.Attestation =
@@ -554,33 +532,28 @@ iterator electraAttestations*(
       else:
         1 .. 0
     else:
-      0 ..< pool.electraCandidates.len()
+      0 ..< pool.candidates.len()
 
   for candidateIndex in candidateIndices:
-    for _, entry in pool.electraCandidates[candidateIndex]:
+    for _, entry in pool.candidates[candidateIndex]:
       ## data.index field from phase0 is still being used while we have
       ## 2 attestation pools (pre and post electra). Refer to template addAttToPool
       ## at addAttestation proc.
-      if committee_index.isNone() or entry.data.index == committee_index.get():
+      if committee_index.isNone() or entry.index == committee_index.get().uint64:
         var committee_bits: AttestationCommitteeBits
-        committee_bits[int(entry.data.index)] = true
+        committee_bits[int(entry.index)] = true
 
-        var singleAttestation = electra.Attestation(
+        var attestation = electra.Attestation(
           aggregation_bits: ElectraCommitteeValidatorsBits.init(entry.committee_len),
           committee_bits: committee_bits,
-          data: AttestationData(
-            slot: entry.data.slot,
-            index: 0,
-            beacon_block_root: entry.data.beacon_block_root,
-            source: entry.data.source,
-            target: entry.data.target)
+          data: AttestationData.init(entry),
         )
 
         for index, signature in entry.singles:
-          singleAttestation.aggregation_bits.setBit(index)
-          singleAttestation.signature = signature.toValidatorSig()
-          yield singleAttestation
-          singleAttestation.aggregation_bits.clearBit(index)
+          attestation.aggregation_bits.setBit(index)
+          attestation.signature = signature.toValidatorSig()
+          yield attestation
+          attestation.aggregation_bits.clearBit(index)
 
         for v in entry.aggregates:
           yield entry.toElectraAttestation(v)
@@ -588,19 +561,18 @@ iterator electraAttestations*(
 type
   AttestationCacheKey = (Slot, uint64)
   AttestationCache =
-    Table[AttestationCacheKey, ElectraCommitteeValidatorsBits] ##\
+    Table[AttestationCacheKey, ElectraCommitteeValidatorsBits]
       ## Cache for quick lookup during beacon block construction of attestations
       ## which have already been included, and therefore should be skipped.
 
-func getAttestationCacheKey(ad: AttestationData): AttestationCacheKey =
+func getAttestationCacheKey(entry: AttestationEntry): AttestationCacheKey =
   # The committee is unique per slot and committee index which means we can use
   # it as key for a participation cache - this is checked in `check_attestation`
-  (ad.slot, ad.index)
+  (entry.slot, entry.index)
 
 func add(
-    attCache: var AttestationCache, data: AttestationData,
+    attCache: var AttestationCache, key: AttestationCacheKey,
     aggregation_bits: ElectraCommitteeValidatorsBits) =
-  let key = data.getAttestationCacheKey()
   attCache.withValue(key, v) do:
     v[].incl(aggregation_bits)
   do:
@@ -622,11 +594,12 @@ func init(
       state.data, epoch, cache)
     for committee_index in get_committee_indices(committees_per_slot):
       for slot in epoch.slots():
-        let committee = get_beacon_committee(
-            state.data, slot, committee_index, cache)
-        var
-          validator_bits = typeof(result).B.init(committee.len)
-        for index_in_committee, validator_index in committee:
+        let committee_len =
+          get_beacon_committee_len(state.data, slot, committee_index, cache)
+        var validator_bits = ElectraCommitteeValidatorsBits.init(committee_len.int)
+        for index_in_committee, validator_index in get_beacon_committee(
+          state.data, slot, committee_index, cache
+        ):
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.
             validator_bits[index_in_committee] = true
@@ -639,15 +612,13 @@ func init(
     cur_epoch, state.data.current_epoch_participation)
 
 func score(
-    attCache: var AttestationCache, data: AttestationData,
+    attCache: var AttestationCache, key: AttestationCacheKey,
     aggregation_bits: ElectraCommitteeValidatorsBits): int =
   # The score of an attestation is loosely based on how many new votes it brings
   # to the state - a more accurate score function would also look at inclusion
   # distance and effective balance.
   # TODO cache not var, but `withValue` requires it
-  let
-    key = data.getAttestationCacheKey()
-    bitsScore = aggregation_bits.countOnes()
+  let bitsScore = aggregation_bits.countOnes()
 
   attCache.withValue(key, xxx):
     doAssert aggregation_bits.len() == xxx[].len(),
@@ -680,15 +651,6 @@ func check_attestation_compatible*(
   ok()
 
 proc getAttestationsForBlock*(
-    _: var AttestationPool,
-    _:
-      bellatrix.HashedBeaconState | capella.HashedBeaconState |
-      deneb.HashedBeaconState,
-    _: var StateCache,
-): seq[phase0.Attestation] =
-  @[]
-
-proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
            gloas.HashedBeaconState,
@@ -706,9 +668,8 @@ proc getAttestationsForBlock*(
     startPackingTick = Moment.now()
 
   var
-    candidates: seq[tuple[
-      score: int, slot: Slot, entry: ptr ElectraAttestationEntry,
-      validation: int]]
+    candidates:
+      seq[tuple[score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
     attCache = AttestationCache.init(state, cache)
 
   for i in 0..<ATTESTATION_LOOKBACK:
@@ -717,14 +678,12 @@ proc getAttestationsForBlock*(
 
     let
       slot = Slot(maxAttestationSlot - i)
-      candidateIdx = pool.candidateIdx(slot)
+      candidateIdx = pool.candidateIdx(slot).valueOr:
+        # Passed the collection horizon - shouldn't happen because it's based on
+        # ATTESTATION_LOOKBACK
+        break
 
-    if candidateIdx.isNone():
-      # Passed the collection horizon - shouldn't happen because it's based on
-      # ATTESTATION_LOOKBACK
-      break
-
-    for _, entry in pool.electraCandidates[candidateIdx.get()].mpairs():
+    for _, entry in pool.candidates[candidateIdx].mpairs():
       entry.updateAggregates()
 
       for j in 0..<entry.aggregates.len():
@@ -739,11 +698,11 @@ proc getAttestationsForBlock*(
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
         if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache, false).isOk():
+              state.data, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(
-          entry.data, entry.aggregates[j].aggregation_bits)
+          entry.getAttestationCacheKey(), entry.aggregates[j].aggregation_bits)
         if score == 0:
           # 0 score means the attestation would not bring any votes - discard
           # it early
@@ -771,7 +730,7 @@ proc getAttestationsForBlock*(
   #
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
-  var candidatesPerBlock: OrderedTable[CandidateKey, seq[electra.Attestation]]
+  var candidatesPerBlock: OrderedTable[Eth2Digest, seq[electra.Attestation]]
 
   let totalCandidates = candidates.len()
   while candidates.len > 0 and candidatesPerBlock.lenu64() <
@@ -788,32 +747,26 @@ proc getAttestationsForBlock*(
       #TODO: Merge candidates per block structure with the candidates one
       # and score possible on-chain attestations while collecting candidates
       # (previous loop) and reevaluate cache key definition
-      let
-        entry2 = block:
-          var e2 = entry.data
-          e2.index = 0
-          e2
-        key = (hash_tree_root(entry2), entry.data.slot)
-        newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
-
-      candidatesPerBlock.mgetOrPut(key, @[]).add(newAtt)
+      let newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
+      candidatesPerBlock.mgetOrPut(hash_tree_root(newAtt.data), @[]).add(newAtt)
 
       # Update cache so that the new votes are taken into account when updating
       # the score below
-      attCache.add(entry[].data,  entry[].aggregates[j].aggregation_bits)
+      let key = entry[].getAttestationCacheKey()
+      attCache.add(key, entry[].aggregates[j].aggregation_bits)
 
-      entry[].data.getAttestationCacheKey
+      key
 
     block:
       # Because we added some votes, it's quite possible that some candidates
       # are no longer interesting - update the scores of the existing candidates
       for it in candidates.mitems():
         # Aggregates not on the same (slot, committee) pair don't change scores
-        if it.entry[].data.getAttestationCacheKey != entryCacheKey:
+        if it.entry[].getAttestationCacheKey() != entryCacheKey:
           continue
 
         it.score = attCache.score(
-          it.entry[].data,
+          entryCacheKey,
           it.entry[].aggregates[it.validation].aggregation_bits)
 
       candidates.keepItIf:
@@ -847,8 +800,7 @@ proc getAttestationsForBlock*(
 
   res
 
-func bestValidation(
-    aggregates: openArray[ElectraValidation]): (int, int) =
+func bestValidation(aggregates: openArray[Validation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
   doAssert aggregates.len() > 0,
     "updateAggregates should have created at least one aggregate"
@@ -865,15 +817,15 @@ func bestValidation(
 
 func getElectraAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot,
-    attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
+    attestationDataRoot: Eth2Digest, committee_index: CommitteeIndex):
     Opt[electra.Attestation] =
-  let candidateIdx = pool.candidateIdx(slot)
-  if candidateIdx.isNone:
-    return Opt.none(electra.Attestation)
+  let
+    candidateIdx = ?pool.candidateIdx(slot)
+    candidateKey =
+      getAttestationCandidateKey(attestationDataRoot, committee_index.uint64)
 
-  pool.electraCandidates[candidateIdx.get].withValue(
-      getAttestationCandidateKey(attestationDataRoot, committeeIndex), entry):
-    if entry.data.index == committeeIndex.distinctBase:
+  pool.candidates[candidateIdx].withValue(candidateKey, entry):
+    if entry[].index == committee_index.uint64:
       entry[].updateAggregates()
 
       let (bestIndex, _) = bestValidation(entry[].aggregates)
@@ -895,14 +847,12 @@ func getElectraAggregatedAttestation*(
   # be used here, because otherwise they wouldn't have the same value. It thus
   # leaves the cross-committee aggregation for getAttestationsForBlock() which
   # does do this.
-  let candidateIdx = pool.candidateIdx(slot)
-  if candidateIdx.isNone:
-    return Opt.none(electra.Attestation)
+  let candidateIdx = ?pool.candidateIdx(slot)
 
   var res: Opt[electra.Attestation]
-  for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
-    doAssert entry.data.slot == slot
-    if index != entry.data.index:
+  for _, entry in pool.candidates[candidateIdx].mpairs():
+    doAssert entry.slot == slot
+    if index.uint64 != entry.index:
       continue
 
     entry.updateAggregates()
@@ -913,10 +863,6 @@ func getElectraAggregatedAttestation*(
       res = Opt.some(entry.toElectraAttestation(entry.aggregates[bestIndex]))
 
   res
-
-func getPhase0AggregatedAttestation*(
-    _: var AttestationPool, _: Slot, _: Eth2Digest): Opt[phase0.Attestation] =
-  Opt.none(phase0.Attestation)
 
 type BeaconHead* = object
   blck*: BlockRef
@@ -934,12 +880,10 @@ proc getBeaconHead*(
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionBlockHash =
       if safeBlock.isErr:
-        # Safe block is currently the justified block determined by fork choice.
-        # If finality already advanced beyond the current justified checkpoint,
-        # e.g., because we have selected a head that did not yet realize the cp,
-        # the justified block may end up not having a `BlockRef` anymore.
-        # Because we know that a different fork already finalized a later point,
-        # let's just report the finalized execution payload hash instead.
+        # If finality already advanced beyond the current safe block,
+        # the safe block may end up not having a `BlockRef` anymore.
+        # Because a different fork already finalized a later point,
+        # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)
@@ -950,23 +894,39 @@ proc getBeaconHead*(
     safeExecutionBlockHash: safeExecutionBlockHash,
     finalizedExecutionBlockHash: finalizedExecutionBlockHash)
 
+proc willSelectNewHead*(
+    pool: var AttestationPool,
+    headBlock: BlockRef, wallTime: BeaconTime): Opt[void] =
+  ## Informs fork choice that a new head will be selected.
+  ## This may affect `get_safe_beacon_block_root` so must be called before that.
+  pool.forkChoice.will_select_head(pool.dag, headBlock, wallTime).isOkOr:
+    error "Couldn't store head to fork choice", err = error
+    return err()
+  ok()
+
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
-  if newHeadRoot.isErr:
-    error "Couldn't select head", err = newHeadRoot.error
-    return err()
+  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
+    error "Couldn't select head", err = error
+    return Opt.none(BeaconHead)
 
-  let headBlock = pool.dag.getBlockRef(newHeadRoot.get()).valueOr:
+  let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice
     # get out of sync, we'll need to try to download the selected head - in
     # the meantime, return nil to indicate that no new head was chosen
-    warn "Fork choice selected unknown head, trying to sync",
-      root = newHeadRoot.get()
-    pool.quarantine[].addMissing(newHeadRoot.get())
-    return err()
 
+    pool.quarantine[].addMissing(newHeadRoot).isOkOr:
+      # The newly selected head is unviable for some reason - the only way out
+      # here is that fork choice gets information about some other head
+      warn "Fork choice selected unviable head - cannot sync",
+        newHeadRoot, err = error
+      return Opt.none(BeaconHead)
+
+    warn "Fork choice selected unknown head, trying to sync", newHeadRoot
+    return Opt.none(BeaconHead)
+
+  ? pool.willSelectNewHead(headBlock, wallTime)
   ok pool.getBeaconHead(headBlock)
 
 proc prune*(pool: var AttestationPool) =

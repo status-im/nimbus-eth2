@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -397,10 +397,12 @@ proc verifySoon(
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      attestationData: AttestationData, pubkey: CookedPubKey,
-      signature: ValidatorSig
-     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    attestationData: AttestationData,
+    pubkey: CookedPubKey,
+    sig: CookedSig,
+): FutureBatchResult =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -410,24 +412,19 @@ proc scheduleAttestationCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred attestation check otherwise.
   ##
-  let
-    sig = signature.load().valueOr:
-      return err("attestation: cannot load signature")
-    fut = batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
-      attestation_signature_set(
-        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
-        sig)
-
-  ok((fut, sig))
+  batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
+    attestation_signature_set(
+      fork, batchCrypto[].genesis_validators_root, attestationData, pubkey, sig
+    )
 
 proc scheduleAggregateChecks*(
-      batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof:
-        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
-     ): Result[tuple[
-        aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
-        sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    fork: Fork,
+    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    aggregateSig: CookedSig,
+    dag: ChainDAGRef,
+    attesting_indices: openArray[ValidatorIndex],
+): Result[tuple[aggregatorFut, slotFut, aggregateFut: FutureBatchResult], cstring] =
   ## Schedule crypto verification of an aggregate
   ##
   ## This involves 3 checks:
@@ -455,8 +452,6 @@ proc scheduleAggregateChecks*(
     slotSig = aggregate_and_proof.selection_proof.load().valueOr:
       return err("aggregateAndProof: invalid selection signature")
     aggregateKey = ? aggregateAll(dag, attesting_indices)
-    aggregateSig = aggregate.signature.load().valueOr:
-      return err("aggregateAndProof: invalid aggregate signature")
 
   let
     aggregatorFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregator"):
@@ -472,7 +467,7 @@ proc scheduleAggregateChecks*(
         fork, batchCrypto[].genesis_validators_root, aggregate.data,
         aggregateKey, aggregateSig)
 
-  ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
+  ok((aggregatorFut, slotFut, aggregateFut))
 
 proc scheduleSyncCommitteeMessageCheck*(
       batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,
@@ -550,7 +545,8 @@ proc scheduleContributionChecks*(
 
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
-    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange):
+    genesis_fork_version: Version,
+    signedBLSToExecutionChange: SignedBLSToExecutionChange):
     Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
@@ -562,9 +558,6 @@ proc scheduleBlsToExecutionChangeCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred check otherwise.
 
-  # Must be genesis fork
-  doAssert genesis_fork.previous_version == genesis_fork.current_version
-
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
@@ -575,8 +568,33 @@ proc scheduleBlsToExecutionChangeCheck*(
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
-        genesis_fork, batchCrypto[].genesis_validators_root,
+        genesis_fork_version, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         pubkey, sig)
+
+  ok((fut, sig))
+
+proc schedulePayloadAttestationCheck*(
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      genesis_validators_root: Eth2Digest,
+      msg: PayloadAttestationMessage,
+      pubkey: CookedPubKey,
+      signature: ValidatorSig
+    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of a payload attestation
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred payload attestation check otherwise.
+  ##
+  let
+    sig = signature.load().valueOr:
+      return err("payload attestation: cannot load signature")
+    fut = batchCrypto.verifySoon("batch_validation.schedulePayloadAttestationCheck"):
+      payload_attestation_signature_set(
+        fork, genesis_validators_root, msg, pubkey, sig)
 
   ok((fut, sig))

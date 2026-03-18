@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -190,7 +190,9 @@ suite baseDescription & "Deposit Request " & preset():
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     process_deposit_request(
-      defaultRuntimeConfig, preState, depositRequest, {})
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      sortValidatorBuckets(preState.builders.asSeq)[], depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
@@ -219,20 +221,9 @@ suite baseDescription & "Execution Payload " & preset():
       res
 
   for path in walkTests(OpExecutionPayloadDir):
-    let
-      testDir = OpExecutionPayloadDir / "pyspec_tests" / path
-      inputFile =
-        if fileExists(testDir/"signed_envelope.ssz_snappy"):
-          "signed_envelope"
-        # Skip test vectors with missing signed envelope files
-        # will be fixed in next consensus-spec-tests release
-        # https://github.com/ethereum/consensus-specs/issues/4545
-        else:
-          continue
-
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", inputFile,
+      OpExecutionPayloadDir, suiteName, "Execution Payload", "signed_envelope",
       applyExecutionPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
@@ -323,12 +314,35 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  func applyWithdrawals(
-      preState: var gloas.BeaconState,
-      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
-    process_withdrawals(preState)
-
   for path in walkTests(OpWithdrawalsDir):
-    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
-      OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
-      applyWithdrawals, path)
+    # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494
+    if path in ["invalid_validator_index_pending_partial", 
+                "invalid_builder_index_sweep", 
+                "invalid_validator_index_sweep",
+                "invalid_builder_index_pending"]:
+      continue
+    let prefix =
+      if fileExists(OpWithdrawalsDir / "pyspec_tests" / path / "post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
+    
+    test prefix & baseDescription & "Withdrawals - " & path:
+      let
+        testDir = OpWithdrawalsDir / "pyspec_tests" / path
+        preState = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
+        done = process_withdrawals(preState[])
+
+      if fileExists(testDir/"post.ssz_snappy"):
+        let 
+          postState = newClone(parseTest(
+            testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+          pass = preState[].hash_tree_root() == postState[].hash_tree_root()
+        if not pass:
+          reportDiff(preState, postState)
+        check:
+          done.isOk()
+          pass
+      else:
+        check: done.isErr()

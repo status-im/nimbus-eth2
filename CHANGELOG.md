@@ -1,3 +1,158 @@
+2026-03-02 v26.3.0
+==================
+
+The Nimbus consensus client `v26.3.0` is a `low-urgency` release which improves blob and column-handling performance.
+
+### Improvements
+
+- Improve blob and column-handling performance:
+  https://github.com/status-im/nimbus-eth2/commit/1a4774a42da0bc636e15a5d6ca234b2d6a3e05ce
+
+2026-02-18 v26.2.1
+==================
+
+The Nimbus consensus client `v26.2.1` is a `low-urgency`, packaging-fix-only release for ARM and multiarch Docker images for anyone running `v26.2.0` and otherwise `medium-urgency` due to addressing the cause of the Nimbus outage on mainnet present in `v26.1.0` and earlier. Those still running `v26.1.0` or previous versions on mainnet should verify they're still on the canonical chain, restart Nimbus otherwise, and regardless update. There is no change to either the beacon node or validator client between `v26.2.0` and `v26.2.1`.
+
+2026-02-13 v26.2.0
+==================
+
+The Nimbus consensus client `v26.2.0` is a `medium-urgency` release with improved network stability. In particular, it addresses a scenario during which Nimbus clients falsely rejected as invalid a mainnet block and forked off. Cache corruption in Nimbus's implementation Merkle tree hashing causing this arose from certain size changes of SSZ `List` objects which appeared on mainnet which bypassed correct cache invalidation; https://github.com/status-im/nim-ssz-serialization/pull/150#issuecomment-3895939018 provides additional detail. Because descendants of block inaccurately determined to be invalid could not be processed without violating protocol, Nimbus could not continue to follow mainnet's canonical chain until the node was restarted. This release fills in the previously missing cases of Merkle tree root cache invalidation to prevent recurrence of such an event.
+
+### Improvements
+
+- Simplify era file-based node startup:
+  https://github.com/status-im/nimbus-eth2/pull/7888
+
+### Fixes
+
+- Fix `hash_tree_root` cache invalidation for SSZ `List`s:
+  https://github.com/status-im/nimbus-eth2/pull/7951
+  https://github.com/status-im/nimbus-eth2/pull/7967
+
+- Fix a validator client crash on startup with offline or unavailable beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/7962
+
+- Fix handling of validator custody changes in requesting missing columns:
+  https://github.com/status-im/nimbus-eth2/pull/7927
+
+2026-01-29 v26.1.0
+===================
+
+The Nimbus consensus client `v26.1.0` is a `low-urgency` release with improved validator client stability.
+
+### Improvements
+
+- Support alternate fallback mode for multiple beacon nodes in the validator client:
+  https://github.com/status-im/nimbus-eth2/pull/7747
+
+### Fixes
+
+- Fix a validator client crash with offline or unavailable beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/7862
+
+2025-12-18 v25.12.0
+===================
+
+The Nimbus consensus client `v25.12.0` is a `medium-urgency` release for mainnet due to network stability improvements. To access blobs in Fusaka and later in this release, use the `--light-supernode` option. The undocumented `--debug-peerdas-supernode` option will be removed in a pending release.
+
+### Improvements
+
+- Allow genesis epoch BPOs:
+  https://github.com/status-im/nimbus-eth2/pull/7788
+
+### Fixes
+
+- Ensure distinct Fulu and Gloas fork digests:
+  https://github.com/status-im/nimbus-eth2/pull/7794
+
+- Fix stack traces memory leak:
+  https://github.com/status-im/nimbus-eth2/pull/7791
+
+2025-11-28 v25.11.1
+===================
+
+The Nimbus consensus client `v25.11.1` is a `high-urgency` release for mainnet due to the impending Fusaka fork and a `medium-urgency` release on other networks due to stability fixes. To access blobs in Fusaka and later in this release, use the `--light-supernode` option. The undocumented `--debug-peerdas-supernode` option will be removed in a pending release.
+
+### Improvements
+
+- Introduce light supernodes to provide blobs with less resource usage:
+  https://github.com/status-im/nimbus-eth2/pull/7752
+
+- Allow the consensus light client to specify finalized block hashes to sync:
+  https://github.com/status-im/nimbus-eth2/pull/7735
+
+- Allow updating column custody during any slot:
+  https://github.com/status-im/nimbus-eth2/pull/7724
+
+### Fixes
+
+- Fix blob and column quarantine-related hang:
+  https://github.com/status-im/nimbus-eth2/pull/7743
+
+- Fix blocking of command-line-supplied invalid blocks:
+  https://github.com/status-im/nimbus-eth2/pull/7714
+
+2025-11-03 v25.11.0
+===================
+
+Nimbus `v25.11.0` is a `high-urgency` release for mainnet due to the impending Fusaka fork and a `low-urgency` release on other networks.
+
+### Improvements
+
+- Schedule Fulu on mainnet:
+  https://github.com/status-im/nimbus-eth2/pull/7702
+
+2025-10-31 v25.10.0
+===================
+
+Nimbus `v25.10.0` is a `low-urgency` release which increases the default gas limit to 60M, improves beacon API support, adds runtime configuration flexibility, and removes macOS amd64 support.
+
+### Improvements
+
+- Increase default builder API gas limit to 60M:
+  https://github.com/status-im/nimbus-eth2/pull/7555
+
+- Support `--peerdas-supernode` to require beacon node to operate as a supernode:
+  https://github.com/status-im/nimbus-eth2/pull/7629
+
+- Support runtime configuration of `SECONDS_PER_SLOT`:
+  https://github.com/status-im/nimbus-eth2/pull/7639
+  https://github.com/status-im/nimbus-eth2/pull/7643
+  https://github.com/status-im/nimbus-eth2/pull/7644
+  https://github.com/status-im/nimbus-eth2/pull/7645
+  https://github.com/status-im/nimbus-eth2/pull/7647
+  https://github.com/status-im/nimbus-eth2/pull/7652
+  https://github.com/status-im/nimbus-eth2/pull/7653
+  https://github.com/status-im/nimbus-eth2/pull/7654
+  https://github.com/status-im/nimbus-eth2/pull/7658
+  https://github.com/status-im/nimbus-eth2/pull/7661
+
+- Implement getBlobs beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7670
+
+- Ensure validator client uses non-deprecated beacon API attestation endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/7642
+
+- Double trusted node sync state download timeout to 6 minutes:
+  https://github.com/status-im/nimbus-eth2/pull/7677
+
+- Make `REORG_HEAD_WEIGHT_THRESHOLD` and `REORG_MAX_EPOCHS_SINCE_FINALIZATION` runtime-configurable:
+  https://github.com/status-im/nimbus-eth2/pull/7620
+
+### Fixes
+
+- Fix consensus fork when validator client publishes attestations:
+  https://github.com/status-im/nimbus-eth2/pull/7689
+
+- Fix Nix builds:
+  https://github.com/status-im/nimbus-eth2/pull/7585
+
+- Ensure validator client always targets the correct slot:
+  https://github.com/status-im/nimbus-eth2/pull/7571
+
+- Stop using obsolete `TTFB_TIMEOUT` and `RESP_TIMEOUT` configuration:
+  https://github.com/status-im/nimbus-eth2/pull/7619
+
 2025-09-26 v25.9.2
 ==================
 

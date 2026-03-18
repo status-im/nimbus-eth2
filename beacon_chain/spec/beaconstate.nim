@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,8 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  "."/[eth2_merkleization, forks, signatures, validator]
+  "."/[eth2_merkleization, forks, signatures, validator],
+  ../validator_bucket_sort
 
 from std/algorithm import fill, isSorted, sort
 from std/sequtils import anyIt, mapIt, toSeq
@@ -673,89 +674,133 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
-iterator get_attesting_indices_iter*(state: ForkyBeaconState,
-                                     data: AttestationData,
-                                     bits: CommitteeValidatorsBits,
-                                     cache: var StateCache): ValidatorIndex =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
-  ## or nothing if `data` is invalid
-  ## This iterator must not be called in functions using a
-  ## ForkedHashedBeaconState due to https://github.com/nim-lang/Nim/issues/18188
-  let committee_index = CommitteeIndex.init(data.index)
-  if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
-      state, data.slot, committee_index.get(), cache):
-    trace "get_attesting_indices: invalid attestation data"
-  else:
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    slot: Slot,
+    index: CommitteeIndex,
+    aggregation_bits: CommitteeValidatorsBits,
+    cache: var StateCache,
+): ValidatorIndex =
+  ## Return the set of attesting indices corresponding to ``data`` and
+  ## ``aggregation_bits`` or nothing if `data` is invalid
+  if aggregation_bits.lenu64 == get_beacon_committee_len(state, slot, index, cache):
     for index_in_committee, validator_index in get_beacon_committee(
-        state, data.slot, committee_index.get(), cache):
-      if bits[index_in_committee]:
+      state, slot, index, cache
+    ):
+      if aggregation_bits[index_in_committee]:
         yield validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_attesting_indices
-iterator get_attesting_indices_iter*(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
-    data: AttestationData,
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    slot: Slot,
+    committee_bits: AttestationCommitteeBits,
     aggregation_bits: ElectraCommitteeValidatorsBits,
-    committee_bits: auto,
     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
-  var pos = 0
-  for committee_index in get_committee_indices(committee_bits):
-    for _, validator_index in get_beacon_committee(
-        state, data.slot, committee_index, cache):
+  var committee_offset = 0
+  for index in get_committee_indices(committee_bits):
+    let committee_len = get_beacon_committee_len(state, slot, index, cache).int
+    if aggregation_bits.len < committee_offset + committee_len:
+      # Would overflow, invalid attestation caught in check_attestation()
+      break
 
-      if aggregation_bits[pos]:
-        yield validator_index
-      pos += 1
+    for i, attester_index in get_beacon_committee(state, slot, index, cache):
+      if aggregation_bits[committee_offset + i]:
+        yield attester_index
+
+    committee_offset += committee_len
+
+# Attestation validation
+# ------------------------------------------------------------------------------------------
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+
+func check_attestation_index*(
+    index, committees_per_slot: uint64
+): Result[CommitteeIndex, cstring] =
+  CommitteeIndex.init(index, committees_per_slot)
+
+func check_attestation_index*(
+    data: AttestationData, committees_per_slot: uint64
+): Result[CommitteeIndex, cstring] =
+  check_attestation_index(data.index, committees_per_slot)
+
+# Attestation validation
+# ------------------------------------------------------------------------------------------
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+
+func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
+  if not (data.target.epoch == epoch(data.slot)):
+    return err("Target epoch doesn't match attestation slot")
+
+  ok(data.slot)
+
+func check_attestation_target_epoch(
+    data: AttestationData, current_epoch: Epoch
+): Result[Epoch, cstring] =
+  if not (
+    data.target.epoch == get_previous_epoch(current_epoch) or
+    data.target.epoch == current_epoch
+  ):
+    return err("Target epoch not current or previous epoch")
+
+  ok(data.target.epoch)
+
+func check_attestation_slot_target*(
+    data: AttestationData, current_epoch: Epoch
+): Result[Slot, cstring] =
+  check_attestation_target_epoch(data, current_epoch) and
+    check_attestation_slot_target(data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    attestation: phase0.Attestation | phase0.TrustedAttestation,
+    cache: var StateCache,
+): ValidatorIndex =
+  block iter:
+    let
+      slot = check_attestation_slot_target(attestation.data, state.get_current_epoch()).valueOr:
+        break iter
+      committees_per_slot = get_committee_count_per_slot(state, slot.epoch, cache)
+      index = check_attestation_index(attestation.data, committees_per_slot).valueOr:
+        break iter
+    for vidx in state.get_attesting_indices(
+      slot, index, attestation.aggregation_bits, cache
+    ):
+      yield vidx
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(
+    state: ForkyBeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    cache: var StateCache,
+): ValidatorIndex =
+  block iter:
+    let slot = check_attestation_slot_target(attestation.data, get_current_epoch(state)).valueOr:
+      break iter
+
+    for vidx in state.get_attesting_indices(
+      slot, attestation.committee_bits, attestation.aggregation_bits, cache
+    ):
+      yield vidx
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_attesting_indices
 func get_attesting_indices*(
-    state: ForkyBeaconState, data: AttestationData,
-    aggregation_bits: CommitteeValidatorsBits, cache: var StateCache):
-    seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
+    state: ForkyBeaconState,
+    attestation:
+      phase0.Attestation | phase0.TrustedAttestation | electra.Attestation |
+      electra.TrustedAttestation,
+    cache: var StateCache,
+): seq[ValidatorIndex] =
+  ## Return the set of attesting indices corresponding to ``attestation``
   ## or nothing if `data` is invalid
-
-  toSeq(get_attesting_indices_iter(state, data, aggregation_bits, cache))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(
-    state: ForkyBeaconState, data: AttestationData,
-    aggregation_bits: ElectraCommitteeValidatorsBits, committee_bits: auto,
-    cache: var StateCache): seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
-  ## or nothing if `data` is invalid
-
-  toSeq(get_attesting_indices_iter(state, data, aggregation_bits, committee_bits, cache))
-
-func get_attesting_indices*(state: ForkedHashedBeaconState;
-                            data: AttestationData;
-                            bits: CommitteeValidatorsBits;
-                            cache: var StateCache): seq[ValidatorIndex] =
-  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
-  # iterator
-
-  var idxBuf: seq[ValidatorIndex]
-  withState(state):
-    for vidx in forkyState.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  idxBuf
-
-func get_attesting_indices*(state: ForkedHashedBeaconState;
-                            data: AttestationData;
-                            aggregation_bits: ElectraCommitteeValidatorsBits;
-                            committee_bits: auto,
-                            cache: var StateCache): seq[ValidatorIndex] =
-  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
-  # iterator
-  var idxBuf: seq[ValidatorIndex]
-  withState(state):
-    when consensusFork >= ConsensusFork.Electra:
-      for vidx in forkyState.data.get_attesting_indices(
-          data, aggregation_bits, committee_bits, cache):
-        idxBuf.add vidx
-  idxBuf
+  for vidx in state.get_attesting_indices(attestation, cache):
+    result.add vidx
 
 proc is_valid_indexed_attestation(
     state: ForkyBeaconState,
@@ -775,9 +820,8 @@ proc is_valid_indexed_attestation(
   if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits, cache):
-      pubkeys.add(state.validators[index].pubkey)
+    for vidx in state.get_attesting_indices(attestation, cache):
+      pubkeys.add(state.validators[vidx].pubkey)
 
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, attestation.data,
@@ -804,9 +848,8 @@ proc is_valid_indexed_attestation(
   if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
-      pubkeys.add(state.validators[index].pubkey)
+    for vidx in state.get_attesting_indices(attestation, cache):
+      pubkeys.add(state.validators[vidx].pubkey)
 
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, attestation.data,
@@ -814,25 +857,6 @@ proc is_valid_indexed_attestation(
       return err("indexed attestation: signature verification failure")
 
   ok()
-
-# Attestation validation
-# ------------------------------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-
-func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
-  if not (data.target.epoch == epoch(data.slot)):
-    return err("Target epoch doesn't match attestation slot")
-
-  ok(data.slot)
-
-func check_attestation_target_epoch(
-    data: AttestationData, current_epoch: Epoch): Result[Epoch, cstring] =
-  if not (data.target.epoch == get_previous_epoch(current_epoch) or
-      data.target.epoch == current_epoch):
-    return err("Target epoch not current or previous epoch")
-
-  ok(data.target.epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-process_attestation
@@ -854,17 +878,6 @@ func check_attestation_inclusion(
       return err("Attestation too old")
 
   ok()
-
-func check_attestation_index*(
-    index, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  CommitteeIndex.init(index, committees_per_slot)
-
-func check_attestation_index(
-    data: AttestationData, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  check_attestation_index(data.index, committees_per_slot)
-
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_attestation_same_slot
 func is_attestation_same_slot(
@@ -1044,7 +1057,7 @@ func get_base_reward(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache, on_chain: static bool = true): Result[void, cstring] =
+    cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -1053,9 +1066,8 @@ proc check_attestation*(
     data = attestation.data
     epoch = ? check_attestation_target_epoch(data, state.get_current_epoch())
     slot = ? check_attestation_slot_target(data)
-    committee_index = ? check_attestation_index(
-      data,
-      get_committee_count_per_slot(state, epoch, cache))
+    committee_count_per_slot = get_committee_count_per_slot(state, epoch, cache)
+    committee_index = ? check_attestation_index(data, committee_count_per_slot)
 
   ? check_attestation_inclusion((typeof state).kind, slot, state.slot)
 
@@ -1081,7 +1093,7 @@ proc check_attestation*(
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
-    flags: UpdateFlags, cache: var StateCache, on_chain: static bool):
+    flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -1105,42 +1117,34 @@ proc check_attestation*(
     if not (data.index == 0):
       return err("Electra attestation data index not 0")
 
-  when on_chain:
-    var committee_offset = 0
-    for committee_index in attestation.committee_bits.oneIndices:
-      if not (committee_index.uint64 < get_committee_count_per_slot(
-          state, data.target.epoch, cache)):
-        return err("attestation wrong committee index len")
-      let committee = get_beacon_committee(
-        state, data.slot, committee_index.CommitteeIndex, cache)
+  var committee_offset = 0
+  for committee_index in attestation.committee_bits.oneIndices:
+    if not (committee_index.uint64 < get_committee_count_per_slot(
+        state, epoch, cache)):
+      return err("attestation wrong committee index len")
+    let committee_index = CommitteeIndex(committee_index)
+    let committee_len = get_beacon_committee_len(
+      state, slot, committee_index, cache)
 
-      if attestation.aggregation_bits.len < committee_offset + len(committee):
-        # This would overflow; see invalid_too_many_committee_bits test case
-        return err("Electra attestation has too many committee bits")
+    if attestation.aggregation_bits.len < committee_offset + committee_len.int:
+      # This would overflow; see invalid_too_many_committee_bits test case
+      return err("Electra attestation has too many committee bits")
 
-      # This construction modified slightly from spec version to early-exit and
-      # not create the actual set, but the result is it uses a flag variable to
-      # look similar.
-      var committee_attesters_nonzero = false
-      for i, attester_index in committee:
-        if attestation.aggregation_bits[committee_offset + i]:
-          committee_attesters_nonzero = true
-          break
-      if not committee_attesters_nonzero:
-        return err("Electra attestation committee not present in aggregated bits")
+    # This construction modified slightly from spec version to early-exit and
+    # not create the actual set, but the result is it uses a flag variable to
+    # look similar.
+    var committee_attesters_nonzero = false
+    for i, attester_index in get_beacon_committee(state, slot, committee_index, cache):
+      if attestation.aggregation_bits[committee_offset + i]:
+        committee_attesters_nonzero = true
+        break
+    if not committee_attesters_nonzero:
+      return err("Electra attestation committee not present in aggregated bits")
 
-      committee_offset += len(committee)
+    committee_offset += committee_len.int
 
-    if not (len(attestation.aggregation_bits) == committee_offset):
-      return err("attestation wrong aggregation bit length")
-  else:
-    let
-      committee_index = get_committee_index_one(attestation.committee_bits).valueOr:
-        return err("Network attestation without single committee index")
-
-    if not (lenu64(attestation.aggregation_bits) ==
-        get_beacon_committee_len(state, data.slot, committee_index, cache)):
-      return err("attestation wrong aggregation bit length")
+  if not (len(attestation.aggregation_bits) == committee_offset):
+    return err("attestation wrong aggregation bit length")
 
   if epoch == get_current_epoch(state):
     if not (data.source == state.current_justified_checkpoint):
@@ -1155,7 +1159,7 @@ proc check_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
-    genesisFork: Fork,
+    genesis_fork_version: Version,
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState |
            fulu.BeaconState | gloas.BeaconState,
     signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
@@ -1178,7 +1182,7 @@ proc check_bls_to_execution_change*(
   doAssert flags + {skipBlsValidation} == {skipBlsValidation}
   if  skipBlsValidation notin flags and
       not verify_bls_to_execution_change_signature(
-        genesisFork, state.genesis_validators_root, signed_address_change,
+        genesis_fork_version, state.genesis_validators_root, signed_address_change,
         address_change.from_bls_pubkey, signed_address_change.signature):
     return err("process_bls_to_execution_change: invalid signature")
 
@@ -1192,15 +1196,14 @@ func get_proposer_reward*(
     epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
-  for index in get_attesting_indices_iter(
-      state, attestation.data, attestation.aggregation_bits, cache):
+  for vidx in state.get_attesting_indices(attestation, cache):
     let
-      base_reward = get_base_reward(state, index, base_reward_per_increment)
+      base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(index), flag_index):
-        asList(epoch_participation)[index] =
-          add_flag(epoch_participation.item(index), flag_index)
+         not has_flag(epoch_participation.item(vidx), flag_index):
+        asList(epoch_participation)[vidx] =
+          add_flag(epoch_participation.item(vidx), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1218,15 +1221,14 @@ func get_proposer_reward*(
     epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
-  for index in get_attesting_indices_iter(
-      state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
+  for vidx in state.get_attesting_indices(attestation, cache):
     let
-      base_reward = get_base_reward(state, index, base_reward_per_increment)
+      base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(index), flag_index):
-        asList(epoch_participation)[index] =
-          add_flag(epoch_participation.item(index), flag_index)
+         not has_flag(epoch_participation.item(vidx), flag_index):
+        asList(epoch_participation)[vidx] =
+          add_flag(epoch_participation.item(vidx), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1294,7 +1296,7 @@ proc process_attestation*(
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
-  ? check_attestation(state, attestation, flags, cache, true)
+  ? check_attestation(state, attestation, flags, cache)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
@@ -1320,7 +1322,7 @@ proc process_attestation*(
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
-  ? check_attestation(state, attestation, flags, cache, true)
+  ? check_attestation(state, attestation, flags, cache)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
@@ -1341,21 +1343,19 @@ proc process_attestation*(
 
   template updateParticipationFlags(epoch_participation: untyped): Gwei =
     var proposer_reward_numerator = 0.Gwei
-    for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits,
-        attestation.committee_bits, cache):
+    for vidx in state.get_attesting_indices(attestation, cache):
       # [New in Gloas:EIP7732]
       # For same-slot attestations, check if we're setting any new flags
       # If we are, this validator hasn't contributed to this slot's quorum yet
       var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
-           not has_flag(epoch_participation.item(index), flag_index):
-          asList(epoch_participation)[index] =
-            add_flag(epoch_participation.item(index), flag_index)
+           not has_flag(epoch_participation.item(vidx), flag_index):
+          asList(epoch_participation)[vidx] =
+            add_flag(epoch_participation.item(vidx), flag_index)
           proposer_reward_numerator +=
             get_base_reward(
-              state, index, base_reward_per_increment) * weight.uint64
+              state, vidx, base_reward_per_increment) * weight.uint64
           will_set_new_flag = true
 
       # [New in Gloas:EIP7732]
@@ -1364,7 +1364,7 @@ proc process_attestation*(
       if will_set_new_flag and
           is_attestation_same_slot(state, attestation.data) and
           payment.withdrawal.amount > 0.Gwei:
-        payment.weight += state.validators.item(index).effective_balance
+        payment.weight += state.validators.item(vidx).effective_balance
 
     let
       proposer_reward_denominator =
@@ -1762,145 +1762,247 @@ func get_expected_withdrawals*(
     seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-get_expected_withdrawals
-template get_expected_withdrawals_with_builder_count_aux(
-    state: gloas.BeaconState,
-    epoch: Epoch, fetch_balance: untyped):
-    (seq[Withdrawal], uint64, uint64) =
-  doAssert epoch == get_current_epoch(state)
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_builder_index_to_validator_index
+func convert_builder_index_to_validator_index(builder_index: BuilderIndex):
+    uint64 =
+  builder_index or BUILDER_INDEX_FLAG
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_withdrawals
+func get_builder_withdrawals(
+    state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
+    prior_withdrawals: seq[Withdrawal]):
+    (seq[Withdrawal], WithdrawalIndex, uint64) =
+  const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
+
+  # Safe: prior_withdrawals is always empty when called from get_expected_withdrawals
+  doAssert len(prior_withdrawals) <= withdrawals_limit
+
+  var withdrawal_index = withdrawal_index
 
   var
-    withdrawal_index = state.next_withdrawal_index
-    validator_index {.inject.} = state.next_withdrawal_validator_index
-    withdrawals = newSeqOfCap[Withdrawal](MAX_WITHDRAWALS_PER_PAYLOAD)
-    processed_partial_withdrawals_count = 0'u64
-    processed_builder_withdrawals_count = 0'u64
-
-  # [New in Gloas:EIP7732]
-  # Sweep for builder payments
+    processed_count: uint64
+    withdrawals: seq[Withdrawal]
   for withdrawal in state.builder_pending_withdrawals:
-    if  withdrawal.withdrawable_epoch > epoch or
-        len(withdrawals) + 1 == MAX_WITHDRAWALS_PER_PAYLOAD:
+    let
+      all_withdrawals = prior_withdrawals & withdrawals
+      has_reached_limit = len(all_withdrawals) == withdrawals_limit
+    if has_reached_limit:
       break
 
-    if is_builder_payment_withdrawable(state, withdrawal):
-      let
-        total_withdrawn = block:
-          var res: Gwei
-          for w in withdrawals:
-            if w.validator_index == withdrawal.builder_index:
-              res += w.amount
-          res
-        balance = fetch_balance - total_withdrawn
-        builder = state.validators.item(withdrawal.builder_index)
+    let builder_index = withdrawal.builder_index
+    withdrawals.add(Withdrawal(
+      index: withdrawal_index,
+      validator_index: convert_builder_index_to_validator_index(builder_index),
+      address: withdrawal.fee_recipient,
+      amount: withdrawal.amount))
+    withdrawal_index += WithdrawalIndex(1)
+    processed_count += 1
 
-      let withdrawable_balance =
-        if builder.slashed:
-          min(balance, withdrawal.amount)
-        elif balance > static(MIN_ACTIVATION_BALANCE.Gwei):
-          min(balance - static(MIN_ACTIVATION_BALANCE.Gwei), withdrawal.amount)
-        else:
-          0.Gwei
+  (withdrawals, withdrawal_index, processed_count)
 
-      var w = Withdrawal(
-        index: withdrawal_index,
-        validator_index: withdrawal.builder_index,
-        amount: withdrawable_balance)
-      w.address = withdrawal.fee_recipient
-      withdrawals.add w
-      withdrawal_index += 1
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/capella/beacon-chain.md#new-get_balance_after_withdrawals
+func get_balance_after_withdrawals(
+    state: gloas.BeaconState, validator_index: uint64,
+    withdrawals: seq[Withdrawal]): Gwei =
+  var withdrawn: Gwei
+  for withdrawal in withdrawals:
+    if withdrawal.validator_index == validator_index:
+      withdrawn += withdrawal.amount
 
-    processed_builder_withdrawals_count += 1
+  state.balances.item(validator_index) - withdrawn
 
-  # Sweep for pending partial withdrawals
-  let bound = min(
-    len(withdrawals) + MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
-    MAX_WITHDRAWALS_PER_PAYLOAD - 1)
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/electra/beacon-chain.md#new-is_eligible_for_partial_withdrawals
+func is_eligible_for_partial_withdrawals(
+    validator: Validator, balance: Gwei): bool =
+  ## Check if ``validator`` can process a pending partial withdrawal.
+  let
+    has_sufficient_effective_balance =
+      validator.effective_balance >= MIN_ACTIVATION_BALANCE.Gwei
+    has_excess_balance = balance > MIN_ACTIVATION_BALANCE.Gwei
 
+  validator.exit_epoch == FAR_FUTURE_EPOCH and
+    has_sufficient_effective_balance and has_excess_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/electra/beacon-chain.md#new-get_pending_partial_withdrawals
+func get_pending_partial_withdrawals(
+    state: gloas.BeaconState,
+    withdrawal_index: WithdrawalIndex, prior_withdrawals: seq[Withdrawal]):
+    (seq[Withdrawal], WithdrawalIndex, uint64) =
+  let
+    epoch = get_current_epoch(state)
+    withdrawals_limit = min(
+      len(prior_withdrawals) + MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
+      MAX_WITHDRAWALS_PER_PAYLOAD - 1)
+
+  doAssert len(prior_withdrawals) <= withdrawals_limit
+
+  var
+    processed_count: uint64
+    withdrawals: seq[Withdrawal]
+    withdrawal_index = withdrawal_index
   for withdrawal in state.pending_partial_withdrawals:
-    if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == bound:
+    let
+      all_withdrawals = prior_withdrawals & withdrawals
+      is_withdrawable = withdrawal.withdrawable_epoch <= epoch
+      has_reached_limit = len(all_withdrawals) == withdrawals_limit
+    if not is_withdrawable or has_reached_limit:
       break
 
     let
-      validator = state.validators.item(withdrawal.validator_index)
-      validator_index {.inject.} = withdrawal.validator_index
-      has_sufficient_effective_balance =
-        validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
-      total_withdrawn = block:
-        var res: Gwei
-        for w in withdrawals:
-          if w.validator_index == validator_index:
-            res += w.amount
-        res
-      balance = fetch_balance - total_withdrawn
-      has_excess_balance = balance > static(MIN_ACTIVATION_BALANCE.Gwei)
+      validator_index = withdrawal.validator_index
+      validator = state.validators.item(validator_index)
+      balance =
+        get_balance_after_withdrawals(state, validator_index, all_withdrawals)
+    if is_eligible_for_partial_withdrawals(validator, balance):
+      let withdrawal_amount =
+        min(balance - Gwei(MIN_ACTIVATION_BALANCE), withdrawal.amount)
+      var address {.noinit.}: ExecutionAddress
+      distinctBase(address)[0 .. 19] = validator.withdrawal_credentials.data.toOpenArray(12, 31)
+      withdrawals.add(Withdrawal(
+          index: withdrawal_index,
+          validator_index: validator_index,
+          address: address,
+          amount: withdrawal_amount))
+      withdrawal_index += WithdrawalIndex(1)
 
-    if validator.exit_epoch == FAR_FUTURE_EPOCH and
-       has_sufficient_effective_balance and has_excess_balance:
-      let withdrawable_balance = min(
-        balance - static(MIN_ACTIVATION_BALANCE.Gwei),
-        withdrawal.amount)
-      var w = Withdrawal(
-        index: withdrawal_index,
-        validator_index: withdrawal.validator_index,
-        amount: withdrawable_balance)
-      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
-      withdrawals.add w
-      withdrawal_index += 1
+    processed_count += 1
 
-    processed_partial_withdrawals_count += 1
+  (withdrawals, withdrawal_index, processed_count)
 
-  # Sweep for remaining
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builders_sweep_withdrawals
+func get_builders_sweep_withdrawals(
+    state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
+    prior_withdrawals: seq[Withdrawal]):
+    (seq[Withdrawal], WithdrawalIndex, uint64) =
   let
-    sweep_bound = min(len(state.validators),
-      MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
-    num_validators = lenu64(state.validators)
-  validator_index = state.next_withdrawal_validator_index
+    epoch = get_current_epoch(state)
+    builders_limit =
+      min(len(state.builders), MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)
+  const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
 
-  for _ in 0 ..< sweep_bound:
+  doAssert len(prior_withdrawals) <= withdrawals_limit
+
+  var withdrawal_index = withdrawal_index
+
+  var
+    processed_count: uint64
+    withdrawals: seq[Withdrawal]
+    builder_index = state.next_withdrawal_builder_index
+  for _ in 0 ..< builders_limit:
+    let
+      all_withdrawals = prior_withdrawals & withdrawals
+      has_reached_limit = len(all_withdrawals) == withdrawals_limit
+    if has_reached_limit:
+      break
+
+    let builder = state.builders.item(builder_index)
+    if builder.withdrawable_epoch <= epoch and builder.balance > 0.Gwei:
+      withdrawals.add(Withdrawal(
+          index: withdrawal_index,
+          validator_index:
+            convert_builder_index_to_validator_index(builder_index),
+          address: builder.execution_address,
+          amount: builder.balance))
+      withdrawal_index += WithdrawalIndex(1)
+
+    builder_index = BuilderIndex((builder_index + 1) mod state.builders.lenu64)
+    processed_count += 1
+
+  (withdrawals, withdrawal_index, processed_count)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/electra/beacon-chain.md#modified-get_validators_sweep_withdrawals
+func get_validators_sweep_withdrawals(
+    state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
+    prior_withdrawals: seq[Withdrawal]):
+    (seq[Withdrawal], WithdrawalIndex, uint64) =
+  let
+    epoch = get_current_epoch(state)
+    validators_limit = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
+  const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD
+
+  # Safe: prior_withdrawals length is bounded by the preceding get_builder_withdrawals
+  # and get_partial_withdrawals calls in get_expected_withdrawals
+  doAssert len(prior_withdrawals) < withdrawals_limit
+
+  var
+    processed_count: uint64
+    withdrawals: seq[Withdrawal]
+    validator_index = state.next_withdrawal_validator_index
+    withdrawal_index = withdrawal_index
+  for _ in 0 ..< validators_limit:
+    let
+      all_withdrawals = prior_withdrawals & withdrawals
+      has_reached_limit = len(all_withdrawals) == withdrawals_limit
+    if has_reached_limit:
+      break
+
     let
       validator = state.validators.item(validator_index)
-      total_withdrawn = block:
-        var subtot: Gwei
-        for withdrawal in withdrawals:
-          if withdrawal.validator_index == validator_index:
-            subtot += withdrawal.amount
-        subtot
-      balance = fetch_balance - total_withdrawn
-
+      balance =
+        get_balance_after_withdrawals(state, validator_index, all_withdrawals)
+    var address {.noinit.}: ExecutionAddress
+    distinctBase(address)[0 .. 19] =
+      validator.withdrawal_credentials.data.toOpenArray(12, 31)
     if is_fully_withdrawable_validator(
-        typeof(state).kind, validator, balance, epoch):
-      var w = Withdrawal(
+        state.typeof.kind, validator, balance, epoch):
+      withdrawals.add(Withdrawal(
         index: withdrawal_index,
         validator_index: validator_index,
-        amount: balance)
-      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
-      withdrawals.add w
-      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+        address: address,
+        amount: balance))
+      withdrawal_index += WithdrawalIndex(1)
     elif is_partially_withdrawable_validator(
-        typeof(state).kind, validator, balance):
-      var w = Withdrawal(
+        state.typeof.kind, validator, balance):
+      withdrawals.add(Withdrawal(
         index: withdrawal_index,
         validator_index: validator_index,
-        amount: balance - get_max_effective_balance(type(state).kind, validator))
-      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
-      withdrawals.add w
-      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+        address: address,
+        amount:
+          balance - get_max_effective_balance(state.typeof.kind, validator)))
+      withdrawal_index += WithdrawalIndex(1)
 
-    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
-      break
-    validator_index = (validator_index + 1) mod num_validators
+    validator_index = (validator_index + 1) mod lenu64(state.validators)
+    processed_count += 1
 
-  (withdrawals,
-   processed_builder_withdrawals_count,
-   processed_partial_withdrawals_count)
+  (withdrawals, withdrawal_index, processed_count)
 
-template get_expected_withdrawals*(
-    state: gloas.BeaconState):
-    (seq[Withdrawal], uint64, uint64) =
-  get_expected_withdrawals_with_builder_count_aux(
-      state, get_current_epoch(state)) do:
-    state.balances.item(validator_index)
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-get_expected_withdrawals
+func get_expected_withdrawals*(state: gloas.BeaconState): ExpectedWithdrawals =
+  # [New in Gloas:EIP7732]
+  # Get builder withdrawals
+  let (builder_withdrawals, builder_withdrawal_index,
+       processed_builder_withdrawals_count) =
+    get_builder_withdrawals(state, state.next_withdrawal_index, @[])
+  var withdrawals = builder_withdrawals
+
+  # Get partial withdrawals
+  let (partial_withdrawals, partial_withdrawal_index,
+       processed_partial_withdrawals_count) =
+    get_pending_partial_withdrawals(state, builder_withdrawal_index, withdrawals)
+  withdrawals &= partial_withdrawals
+
+  # [New in Gloas:EIP7732]
+  # Get builders sweep withdrawals
+  let (builders_sweep_withdrawals, builders_sweep_withdrawal_index,
+       processed_builders_sweep_count) =
+    get_builders_sweep_withdrawals(
+      state, partial_withdrawal_index, withdrawals)
+  withdrawals &= builders_sweep_withdrawals
+
+  # Get validators sweep withdrawals
+  let (validators_sweep_withdrawals, _, processed_validators_sweep_count) =
+    get_validators_sweep_withdrawals(
+      state, builders_sweep_withdrawal_index, withdrawals)
+  withdrawals &= validators_sweep_withdrawals
+
+  ExpectedWithdrawals(
+    withdrawals: withdrawals,
+    # [New in Gloas:EIP7732]
+    processed_builder_withdrawals_count: processed_builder_withdrawals_count,
+    processed_partial_withdrawals_count: processed_partial_withdrawals_count,
+    # [New in Gloas:EIP7732]
+    processed_builders_sweep_count: processed_builders_sweep_count,
+    processed_sweep_withdrawals_count: processed_validators_sweep_count)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
@@ -1930,7 +2032,7 @@ func compute_deposit_root(deposits: openArray[DepositData]): Eth2Digest =
 
   mixInLength(merkleizer.getFinalHash(), deposits.len)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
@@ -1981,7 +2083,7 @@ proc initialize_beacon_state_from_eth1(
       increase_balance(state, foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
-         verify_deposit_signature(cfg, deposit):
+         verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit):
         pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
         if not state.validators.add(get_validator_from_deposit(
             state, deposit.pubkey, deposit.withdrawal_credentials,
@@ -2027,123 +2129,6 @@ proc initialize_hashed_beacon_state_from_eth1*(
       cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
   result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
-proc initialize_beacon_state_from_eth1*(
-    cfg: RuntimeConfig,
-    consensusFork: static ConsensusFork,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): consensusFork.BeaconState =
-  ## Get the genesis ``BeaconState``.
-  ##
-  ## Before the beacon chain starts, validators will register in the Eth1 chain
-  ## and deposit ETH. When enough many validators have registered, a
-  ## `ChainStart` log will be emitted and the beacon chain can start beaconing.
-  ##
-  ## Because the state root hash is part of the genesis block, the beacon state
-  ## must be calculated before creating the genesis block.
-
-  # Induct validators
-  # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
-  # validators - there needs to be at least one member in each committee -
-  # good to know for testing, though arguably the system is not that useful at
-  # at that point :)
-  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
-
-  let
-    forkVersion = cfg.forkVersion(consensusFork)
-    fork = Fork(
-      previous_version: forkVersion,
-      current_version: forkVersion,
-      epoch: GENESIS_EPOCH)
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  template state(): untyped = result
-  result = consensusFork.BeaconState(
-    fork: fork,
-    genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
-    eth1_data: Eth1Data(
-      deposit_count: deposits.lenu64,
-      deposit_root: compute_deposit_root(deposits),
-      block_hash: eth1_block_hash),
-    eth1_deposit_index: deposits.lenu64,
-    latest_block_header: BeaconBlockHeader(
-      body_root: hash_tree_root(default consensusFork.BeaconBlockBody)))
-
-  # Seed RANDAO with Eth1 entropy
-  state.randao_mixes.data.fill(eth1_block_hash)
-
-  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-  for idx, deposit in deposits:
-    let
-      pubkey = deposit.pubkey
-      amount = deposit.amount
-
-    pubkeyToIndex.withValue(pubkey, foundIdx) do:
-      # Increase balance by deposit amount
-      increase_balance(state, foundIdx[], amount)
-    do:
-      if skipBlsValidation in flags or
-         verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
-        if not state.validators.add get_validator_from_deposit(
-            state, deposit.pubkey, deposit.withdrawal_credentials,
-            deposit.amount):
-          raiseAssert "too many validators"
-        if not state.balances.add(amount):
-          raiseAssert "same as validators"
-
-      else:
-        # Invalid deposits are perfectly possible
-        trace "Skipping deposit with invalid signature",
-          deposit = shortLog(deposit)
-
-  # Initialize epoch participations - TODO (This must be added to the spec)
-  var
-    empty_participation: EpochParticipationFlags
-    inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
-
-  doAssert empty_participation.asList.setLen(state.validators.len)
-  doAssert inactivity_scores.data.setLen(state.validators.len)
-  inactivity_scores.resetCache()
-
-  state.previous_epoch_participation = empty_participation
-  state.current_epoch_participation = empty_participation
-  state.inactivity_scores = inactivity_scores
-
-  # Process activations
-  for vidx in state.validators.vindices:
-    let
-      balance = state.balances.item(vidx)
-      validator = addr state.validators.mitem(vidx)
-
-    validator.effective_balance = min(
-      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
-      MAX_EFFECTIVE_BALANCE.Gwei)
-
-    if validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei:
-      validator.activation_eligibility_epoch = GENESIS_EPOCH
-      validator.activation_epoch = GENESIS_EPOCH
-
-  # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root = hash_tree_root(state.validators)
-
-  # Fill in sync committees
-  # Note: A duplicate committee is assigned for the current and next committee at genesis
-  state.current_sync_committee = get_next_sync_committee(state)
-  state.next_sync_committee = get_next_sync_committee(state)
-
-  # [New in Bellatrix] Initialize the execution payload header
-  # If empty, will initialize a chain that has not yet gone through the Merge transition
-  state.latest_execution_payload_header = execution_payload_header
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  # state
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
@@ -2154,20 +2139,152 @@ func translate_participation(
     let
       data = attestation.data
       inclusion_delay = attestation.inclusion_delay
-
+      slot = data.slot
+      index = CommitteeIndex.init(data.index).expect("valid index in state")
       # Translate attestation inclusion info to flag indices
       participation_flag_indices =
         get_attestation_participation_flag_indices(state, data, inclusion_delay)
 
     # Apply flags to all attesting validators
-    for index in get_attesting_indices_iter(
-        state, data, attestation.aggregation_bits, cache):
+    for vidx in state.get_attesting_indices(
+      slot, index, attestation.aggregation_bits, cache
+    ):
       for flag_index in participation_flag_indices:
-        state.previous_epoch_participation[index] =
-          add_flag(state.previous_epoch_participation.item(index), flag_index)
+        state.previous_epoch_participation[vidx] =
+          add_flag(state.previous_epoch_participation.item(vidx), flag_index)
 
-func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
-    ref altair.BeaconState =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
+func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
+  # TODO probably this cannot make it into production as-is; check for
+  # performance issues. It will depend on amount of builders
+  for index, builder in state.builders:
+    if  builder.withdrawable_epoch <= get_current_epoch(state) and
+        builder.balance == 0.Gwei:
+      return BuilderIndex(index)
+  BuilderIndex(len(state.builders))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_from_deposit
+func get_builder_from_deposit(
+    state: gloas.BeaconState, pubkey: ValidatorPubKey,
+    withdrawal_credentials: Eth2Digest,
+    amount: Gwei, slot: Slot): Builder =
+  var execution_address {.noinit.}: ExecutionAddress
+  distinctBase(execution_address)[0 .. 19] =
+    withdrawal_credentials.data.toOpenArray(12, 31)
+  Builder(
+    pubkey: pubkey,
+    version: uint8(withdrawal_credentials.data[0]),
+    execution_address: execution_address,
+    balance: amount,
+    deposit_epoch: slot.epoch,
+    withdrawable_epoch: FAR_FUTURE_EPOCH)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-add_builder_to_registry
+func add_builder_to_registry(
+    state: var gloas.BeaconState,
+    bucket_sorted_builders: var BucketSortedValidators,
+    pubkey: ValidatorPubKey,
+    withdrawal_credentials: Eth2Digest, amount: Gwei, slot: Slot) =
+  let
+    index = get_index_for_new_builder(state)
+    builder =
+      get_builder_from_deposit(
+        state, pubkey, withdrawal_credentials, amount, slot)
+  if state.builders.lenu64 == index:
+    # TODO handle this potential failure (?) differently
+    discard state.builders.add builder
+    # TODO this isn't really safe
+    bucket_sorted_builders.add index.ValidatorIndex
+  else:
+    state.builders.mitem(index) = builder
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-apply_deposit_for_builder
+func apply_deposit_for_builder*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    bucket_sorted_builders: var BucketSortedValidators,
+    pubkey: ValidatorPubKey, withdrawal_credentials: Eth2Digest,
+    amount: Gwei, signature: ValidatorSig, slot: Slot) =
+  let opt_validator_index =
+    findValidatorIndex(state.builders.asSeq, bucket_sorted_builders, pubkey)
+  if opt_validator_index.isErr():
+    # Verify the deposit signature (proof of possession) which is not checked by
+    # the deposit contract
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION, DepositData(
+          pubkey: pubkey, withdrawal_credentials: withdrawal_credentials,
+          amount: amount, signature: signature)):
+      add_builder_to_registry(
+        state, bucket_sorted_builders, pubkey,
+        withdrawal_credentials, amount, slot)
+
+  else:
+    # Increase balance by deposit amount
+    state.builders.mitem(opt_validator_index.get).balance += amount
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
+func onboard_builders_from_pending_deposits*(
+    cfg: RuntimeConfig,
+    state: var gloas.BeaconState) =
+  ## Applies any pending deposit for builders, effectively
+  ## onboarding builders at the fork.
+
+  var
+    bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
+    bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
+    pending_deposits: seq[PendingDeposit]
+    pending_validator_pubkeys: HashSet[ValidatorPubKey]
+
+  for deposit in state.pending_deposits:
+    # Deposits for existing validators stay in pending queue
+    let is_existing_validator = findValidatorIndex(
+      state.validators.asSeq, bucket_sorted_validators[], deposit.pubkey).isSome
+
+    if is_existing_validator or deposit.pubkey in pending_validator_pubkeys:
+      pending_deposits.add(deposit)
+      continue
+
+    # If the pubkey is associated with a builder that was created in a
+    # previous iteration or it is a builder deposit, try to apply the
+    # deposit to the new/existing builder. Note that the function
+    # apply_deposit_for_builder can mutate the state and may add a builder
+    # to the registry.
+    let
+      is_existing_builder = findValidatorIndex(
+        state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
+      has_builder_credentials =
+        is_builder_withdrawal_credential(deposit.withdrawal_credentials)
+
+    if is_existing_builder or has_builder_credentials:
+      apply_deposit_for_builder(
+        cfg, state, bucket_sorted_builders[],
+        deposit.pubkey,
+        deposit.withdrawal_credentials,
+        deposit.amount,
+        deposit.signature,
+        deposit.slot)
+      continue
+
+    # If there is a pending deposit for a new validator that has a valid
+    # signature, track the pubkey so that subsequent builder deposits for
+    # the same pubkey stay in pending (applied to the validator later)
+    # rather than creating a builder. Deposits with invalid signatures are
+    # dropped here since they would fail in apply_pending_deposit anyway.
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: deposit.pubkey,
+          withdrawal_credentials: deposit.withdrawal_credentials,
+          amount: deposit.amount,
+          signature: deposit.signature)):
+      pending_validator_pubkeys.incl(deposit.pubkey)
+      pending_deposits.add(deposit)
+
+  state.pending_deposits =
+    typeof(state.pending_deposits).init(pending_deposits)
+
+# upgrade_to_altair
+func upgrade_to_next*(cfg: RuntimeConfig, pre: phase0.BeaconState, _: var StateCache):
+    altair.BeaconState =
   var
     empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
@@ -2177,7 +2294,8 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()
 
-  let post = (ref altair.BeaconState)(
+  template post: untyped = result
+  post = altair.BeaconState(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
@@ -2220,21 +2338,22 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 
   # Fill in previous epoch participation from the pre state's pending
   # attestations
-  translate_participation(post[], pre.previous_epoch_attestations.asSeq)
+  translate_participation(post, pre.previous_epoch_attestations.asSeq)
 
   # Fill in sync committees
   # Note: A duplicate committee is assigned for the current and next committee
   # at the fork boundary
-  post[].current_sync_committee = get_next_sync_committee(post[])
-  post[].next_sync_committee = get_next_sync_committee(post[])
+  post.current_sync_committee = get_next_sync_committee(post)
+  post.next_sync_committee = get_next_sync_committee(post)
 
-  post
+  # result = post
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/fork.md#upgrading-the-state
-func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
-    ref bellatrix.BeaconState =
+# upgrade_to_bellatrix
+func upgrade_to_next*(cfg: RuntimeConfig, pre: altair.BeaconState, _: var StateCache):
+    bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
-  (ref bellatrix.BeaconState)(
+  bellatrix.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2288,8 +2407,9 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/fork.md#upgrading-the-state
-func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
-    ref capella.BeaconState =
+# upgrade_to_capella
+func upgrade_to_next*(cfg: RuntimeConfig, pre: bellatrix.BeaconState, _: var StateCache):
+    capella.BeaconState =
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = capella.ExecutionPayloadHeader(
@@ -2310,7 +2430,7 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
       withdrawals_root: Eth2Digest()  # [New in Capella]
     )
 
-  (ref capella.BeaconState)(
+  capella.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2371,8 +2491,9 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/deneb/fork.md#upgrading-the-state
-func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
-    ref deneb.BeaconState =
+# upgrade_to_deneb
+func upgrade_to_next*(cfg: RuntimeConfig, pre: capella.BeaconState, _: var StateCache):
+    deneb.BeaconState =
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = deneb.ExecutionPayloadHeader(
@@ -2395,7 +2516,7 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
       excess_blob_gas: 0 # [New in Deneb]
     )
 
-  (ref deneb.BeaconState)(
+  deneb.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2456,9 +2577,10 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/fork.md#upgrading-the-state
-func upgrade_to_electra*(
+# upgrade_to_electra
+func upgrade_to_next*(
     cfg: RuntimeConfig, pre: deneb.BeaconState, cache: var StateCache):
-    ref electra.BeaconState =
+    electra.BeaconState =
   let epoch = get_current_epoch(pre)
 
   var earliest_exit_epoch =
@@ -2469,7 +2591,8 @@ func upgrade_to_electra*(
         earliest_exit_epoch = v.exit_epoch
   earliest_exit_epoch += 1
 
-  let post = (ref electra.BeaconState)(
+  template post: untyped = result
+  post = electra.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2544,9 +2667,9 @@ func upgrade_to_electra*(
   )
 
   post.exit_balance_to_consume =
-    get_activation_exit_churn_limit(cfg, post[], cache)
+    get_activation_exit_churn_limit(cfg, post, cache)
   post.consolidation_balance_to_consume =
-    get_consolidation_churn_limit(cfg, post[], cache)
+    get_consolidation_churn_limit(cfg, post, cache)
 
   # [New in Electra:EIP7251]
   # add validators that are not yet active to pending balance deposits
@@ -2574,18 +2697,19 @@ func upgrade_to_electra*(
   # Ensure early adopters of compounding credentials go through the activation
   # churn
   for index, validator in post.validators:
-    if has_compounding_withdrawal_credential(type(post[]).kind, validator):
-      queue_excess_active_balance(post[], index.uint64)
+    if has_compounding_withdrawal_credential(type(post).kind, validator):
+      queue_excess_active_balance(post, index.uint64)
 
-  post
+  # result = post
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/fulu/fork.md#upgrading-the-state
-func upgrade_to_fulu*(
+# upgrade_to_fulu
+func upgrade_to_next*(
     cfg: RuntimeConfig, pre: electra.BeaconState, cache: var StateCache):
-    ref fulu.BeaconState =
+    fulu.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  let post = (ref fulu.BeaconState)(
+  fulu.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2659,11 +2783,10 @@ func upgrade_to_fulu*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-  post
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/fork.md#upgrading-the-state
-func upgrade_to_gloas*(
-    cfg: RuntimeConfig, pre: fulu.BeaconState): ref gloas.BeaconState =
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork.md#upgrading-the-state
+# upgrade_to_gloas
+func upgrade_to_next*(
+    cfg: RuntimeConfig, pre: fulu.BeaconState, _: var StateCache): gloas.BeaconState =
   let epoch = get_current_epoch(pre)
 
   const full_execution_payload_availability = block:
@@ -2672,7 +2795,8 @@ func upgrade_to_gloas*(
       setBit(res, i)
     res
 
-  let post = (ref gloas.BeaconState)(
+  template post: untyped = result
+  post = gloas.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -2722,7 +2846,9 @@ func upgrade_to_gloas*(
     next_sync_committee: pre.next_sync_committee,
 
     # [Modified in Gloas:EIP7732]
-    latest_execution_payload_bid: gloas.ExecutionPayloadBid(),
+    latest_execution_payload_bid: gloas.ExecutionPayloadBid(
+      block_hash: pre.latest_execution_payload_header.block_hash
+    ),
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,
@@ -2743,8 +2869,9 @@ func upgrade_to_gloas*(
     execution_payload_availability: full_execution_payload_availability,
     latest_block_hash: pre.latest_execution_payload_header.block_hash
   )
+  onboard_builders_from_pending_deposits(cfg, post)
 
-  post
+  # result = post
 
 func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =
@@ -2757,9 +2884,16 @@ func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
   if state.slot == state.latest_block_header.slot:
     # process_slot will not yet have updated the header of the "current" block -
     # similar to block creation, we fill it in with the state root
-    var tmp = state.latest_block_header
-    tmp.state_root = state_root
-    hash_tree_root(tmp)
+    #
+    # In Gloas, state_root is filled in process_execution_payload for keeping
+    # the block_root hash the same as block, as state_root would be varied after
+    # applying an envelope.
+    if state.latest_block_header.state_root.isZero:
+      var tmp = state.latest_block_header
+      tmp.state_root = state_root
+      hash_tree_root(tmp)
+    else:
+      hash_tree_root(state.latest_block_header)
   elif state.slot <=
       (state.latest_block_header.slot + SLOTS_PER_HISTORICAL_ROOT):
     # block_roots is limited to about a day - see assert in
@@ -2872,9 +3006,11 @@ func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
+# {.closure.} prevents stack overflow from inline expansion.
+# See: https://github.com/nim-lang/Nim/issues/25287
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
-    ValidatorIndex =
+iterator get_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCache):
+    ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]
@@ -2944,3 +3080,40 @@ proc is_valid_indexed_payload_attestation*(
 
   blsFastAggregateVerify(
     pubkeys, signing_root.data, indexed_payload_attestation.signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_active_builder
+func is_active_builder*(
+    state: gloas.BeaconState, builder_index: BuilderIndex): bool =
+  ## Check if the builder at ``builder_index`` is active for the given ``state``.
+  template builder: untyped = state.builders.item(builder_index)
+
+  # Placement in builder list is finalized and has not initiated exit
+  builder.deposit_epoch < state.finalized_checkpoint.epoch and
+    builder.withdrawable_epoch == FAR_FUTURE_EPOCH
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_pending_balance_to_withdraw_for_builder
+func get_pending_balance_to_withdraw_for_builder(
+    state: gloas.BeaconState, builder_index: BuilderIndex): Gwei =
+  var sum: Gwei
+  for withdrawal in state.builder_pending_withdrawals:
+    if withdrawal.builder_index == builder_index:
+      sum += withdrawal.amount
+
+  for payment in state.builder_pending_payments:
+    if payment.withdrawal.builder_index == builder_index:
+      sum += payment.withdrawal.amount
+
+  sum
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-can_builder_cover_bid
+func can_builder_cover_bid*(
+    state: gloas.BeaconState, builder_index: BuilderIndex, bid_amount: Gwei):
+    bool =
+  let
+    builder_balance = state.builders.item(builder_index).balance
+    pending_withdrawals_amount =
+      get_pending_balance_to_withdraw_for_builder(state, builder_index)
+    min_balance = MIN_DEPOSIT_AMOUNT.Gwei + pending_withdrawals_amount
+  if builder_balance < min_balance:
+    return false
+  builder_balance - min_balance >= bid_amount

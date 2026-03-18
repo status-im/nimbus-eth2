@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,6 @@ const
     "0xa73469094bf134f32a4e91fce07101290c85ffb259f277c97308310ffd0ef1aa3bd90eea1a8217d060b727b7a0154c34"
   GenesisValidatorsRoot = Eth2Digest.fromHex(
     "043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb")
-  GenesisForkVersion = Version(hexToByteArray[4]("00001020"))
   SomeOtherRoot = Eth2Digest.fromHex(
     "ccccccaaaaaaffffffeeeeee50d23797757d430911a9320530ad8a0eabc43efb")
   SigningFork = Fork(
@@ -660,49 +659,6 @@ block:
         sres3.get() == rres3.get()
 
     asyncTest "Signing aggregate and proof " &
-              "(getAggregateAndProofSignature(phase0))":
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        agAttestation = decodeBytes(
-          GetAggregatedAttestationResponse,
-          AgAttestationPhase0.toOpenArrayByte(0, len(AgAttestationPhase0) - 1),
-          Opt.some(contentType)).tryGet().data
-        agProof = phase0.AggregateAndProof(
-          aggregator_index: 1'u64,
-          aggregate: agAttestation,
-          selection_proof: ValidatorSig.fromHex(SomeSignature).get())
-        sres1 =
-          await validator1.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres2 =
-          await validator2.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres3 =
-          await validator3.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres1 =
-          await validator4.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres2 =
-          await validator5.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres3 =
-          await validator6.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
-
-    asyncTest "Signing aggregate and proof " &
               "(getAggregateAndProofSignature(electra))":
       let
         contentType = ContentTypeData(
@@ -802,39 +758,6 @@ block:
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
 
-    asyncTest "Signing deposit message (getDepositMessageSignature())":
-      let
-        depositMessage = default(DepositMessage)
-        sres1 =
-          await validator1.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres2 =
-          await validator2.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres3 =
-          await validator3.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres1 =
-          await validator4.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres2 =
-          await validator5.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres3 =
-          await validator6.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
-
     asyncTest "Signing BeaconBlock (getBlockSignature(electra))":
       let
         forked = getBlock(ConsensusFork.Electra)
@@ -869,6 +792,26 @@ block:
         sres1.get() == rres1.get()
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
+
+    asyncTest "Signing payload attestation (getPayloadAttestationSignature())":
+      let
+        payloadData = PayloadAttestationData(
+          beacon_block_root: SomeOtherRoot,
+          slot: Slot(10),
+          payload_present: true,
+          blob_data_available: true
+        )
+
+        sres1 = await validator1.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        sres2 = await validator2.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+      check:
+        sres1.isOk()
+        sres2.isOk()
+        sres3.isOk()
 
     asyncTest "Connection timeout test":
       let

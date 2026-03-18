@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -286,7 +286,6 @@ proc updateValidator*(pool: var ValidatorPool,
   ## Update activation information for a validator
   if validator.index != Opt.some data.index:
     pool.setValidatorIndex(validator, data.index)
-    validator.index = Opt.some data.index
     validator.validator = Opt.some data.validator
 
   if validator.activationEpoch != data.validator.activation_epoch:
@@ -533,7 +532,6 @@ proc signData(v: AttachedValidator,
     v.signWithSingleKey(request)
   else:
     v.signWithDistributedKey(request)
-
 
 proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock): Web3SignerForkedBeaconBlock =
   Web3SignerForkedBeaconBlock(kind: typeof(blck).kind, data: blck.toBeaconBlockHeader())
@@ -788,19 +786,6 @@ proc getValidatorExitSignature*(v: AttachedValidator, fork: Fork,
                                           voluntary_exit)
     await v.signData(request)
 
-proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
-                                 deposit_message: DepositMessage
-                                ): Future[SignatureResult]
-                                {.async: (raises: [CancelledError]).} =
-  case v.kind
-  of ValidatorKind.Local:
-    SignatureResult.ok(get_deposit_signature(
-      deposit_message, version,
-      v.data.privateKey).toValidatorSig())
-  of ValidatorKind.Remote:
-    let request = Web3SignerRequest.init(version, deposit_message)
-    await v.signData(request)
-
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 proc getBuilderSignature*(v: AttachedValidator, genesis_fork_version: Version,
     validatorRegistration: ValidatorRegistrationV1):
@@ -812,3 +797,33 @@ proc getBuilderSignature*(v: AttachedValidator, genesis_fork_version: Version,
   of ValidatorKind.Remote:
     let request = Web3SignerRequest.init(ZERO_HASH, validatorRegistration)
     await v.signData(request)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/validator.md#constructing-payload_attestations
+proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              data: PayloadAttestationData,
+                             ): Future[SignatureResult]
+                             {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_payload_attestation_message_signature(
+        fork, genesis_validators_root, data,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("Remote signer lacks payload attestation support")
+
+proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              slot: Slot,
+                              envelope: ExecutionPayloadEnvelope,
+                             ): Future[SignatureResult]
+                             {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_execution_payload_envelope_signature(
+        fork, genesis_validators_root, slot.epoch, envelope,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("Remote signer lacks envelope support")

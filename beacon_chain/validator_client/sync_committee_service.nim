@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -37,6 +37,7 @@ proc serveSyncCommitteeMessage*(
     vc = service.client
     startTime = Moment.now()
     fork = vc.forkAtEpoch(slot.epoch)
+    currentFork = vc.getConsensusFork(fork)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
     vindex = duty.validator_index
     validator = vc.getValidatorForDuties(
@@ -63,11 +64,13 @@ proc serveSyncCommitteeMessage*(
 
   debug "Sending sync committee message",
         delay = vc.getDelay(
-          message.slot.sync_committee_message_deadline(vc.timeParams))
+          message.slot.sync_committee_message_deadline(
+            vc.timeParams, currentFork))
 
   let res =
     try:
-      await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
+      await vc.submitPoolSyncCommitteeSignature(
+        message, vc.getMode()[FnKind.submitPoolSyncCommitteeSignature])
     except ValidatorApiError as exc:
       warn "Unable to publish sync committee message",
            reason = exc.getFailureReason()
@@ -78,7 +81,8 @@ proc serveSyncCommitteeMessage*(
 
   let
     delay = vc.getDelay(
-      message.slot.sync_committee_message_deadline(vc.timeParams))
+      message.slot.sync_committee_message_deadline(
+        vc.timeParams, currentFork))
     dur = Moment.now() - startTime
 
   if res:
@@ -133,7 +137,9 @@ proc produceAndPublishSyncCommitteeMessages(
       (succeed, errored, failed)
 
   let
-    delay = vc.getDelay(slot.attestation_deadline(vc.timeParams))
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+    delay = vc.getDelay(slot.attestation_deadline(
+      vc.timeParams, consensusFork))
     dur = Moment.now() - startTime
 
   debug "Sync committee message statistics",
@@ -154,6 +160,7 @@ proc serveContributionAndProof*(
     slot = proof.contribution.slot
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.forkAtEpoch(slot.epoch)
+    consensusFork = vc.getConsensusFork(fork)
 
   logScope:
     validator = validatorLog(validator)
@@ -176,15 +183,16 @@ proc serveContributionAndProof*(
       res.get()
 
   debug "Sending sync contribution",
-        delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
+        delay = vc.getDelay(slot.sync_contribution_deadline(
+          vc.timeParams, consensusFork))
 
   let restSignedProof = RestSignedContributionAndProof.init(
     proof, signature)
 
   let res =
     try:
-      await vc.publishContributionAndProofs(@[restSignedProof],
-                                            ApiStrategyKind.First)
+      await vc.publishContributionAndProofs(
+        @[restSignedProof], vc.getMode()[FnKind.publishContributionAndProofs])
     except ValidatorApiError as exc:
       warn "Unable to publish sync contribution",
            reason = exc.getFailureReason()
@@ -245,7 +253,8 @@ proc produceAndPublishContributions(
             if isNil(resMap[subCommitteeIdx]):
               let future =
                 vc.produceSyncCommitteeContribution(
-                  slot, subCommitteeIdx, beaconBlockRoot, ApiStrategyKind.Best)
+                  slot, subCommitteeIdx, beaconBlockRoot,
+                  vc.getMode()[FnKind.produceSyncCommitteeContribution])
               resMap[int(subCommitteeIdx)] = future
               resFutures.add(FutureBase(future))
       (resItems, resFutures, resMap)
@@ -328,7 +337,8 @@ proc produceAndPublishContributions(
           (succeed, errored, failed)
 
     let
-      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams))
+      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+      delay = vc.getDelay(slot.aggregate_deadline(vc.timeParams, consensusFork))
       dur = Moment.now() - startTime
 
     debug "Sync message contribution statistics",
@@ -355,15 +365,18 @@ proc publishSyncMessagesAndContributions(
     slot = slot
 
   block:
-    let delay = vc.getDelay(
-      slot.sync_committee_message_deadline(vc.timeParams))
+    let 
+      currentFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+      delay = vc.getDelay(
+        slot.sync_committee_message_deadline(vc.timeParams, currentFork))
     debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
   let beaconBlockRoot =
     block:
       try:
-        let res = await vc.getHeadBlockRoot(ApiStrategyKind.Best)
+        let res = await vc.getHeadBlockRoot(
+          vc.getMode()[FnKind.getHeadBlockRoot])
         if res.execution_optimistic.isNone():
           ## The `execution_optimistic` is missing from the response, we assume
           ## that the BN is unaware optimistic sync, so we consider the BN
@@ -396,15 +409,19 @@ proc publishSyncMessagesAndContributions(
     return
 
   let currentTime = vc.beaconClock.now()
-  if slot.sync_contribution_deadline(vc.timeParams) > currentTime:
+  let consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
+  if slot.sync_contribution_deadline(
+      vc.timeParams, consensusFork) > currentTime:
     let waitDur = nanoseconds((
-      slot.sync_contribution_deadline(vc.timeParams) - currentTime).nanoseconds)
+      slot.sync_contribution_deadline(
+        vc.timeParams, consensusFork) - currentTime).nanoseconds)
     # Sleeping until `sync_contribution_deadline`.
     debug "Waiting for sync contribution deadline", wait_time = waitDur
     await sleepAsync(waitDur)
 
   block:
-    let delay = vc.getDelay(slot.sync_contribution_deadline(vc.timeParams))
+    let delay = vc.getDelay(
+      slot.sync_contribution_deadline(vc.timeParams, consensusFork))
     debug "Producing contribution and proofs", delay = delay
 
   try:

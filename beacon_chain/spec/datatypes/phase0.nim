@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -422,13 +422,13 @@ func init*(
     committee_len: int,
     data: AttestationData,
     signature: ValidatorSig): Result[T, cstring] =
-  var bits = CommitteeValidatorsBits.init(committee_len)
+  var aggregation_bits = CommitteeValidatorsBits.init(committee_len)
   for index_in_committee in indices_in_committee:
     if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
-    bits.setBit index_in_committee
+    aggregation_bits.setBit index_in_committee
 
   ok Attestation(
-    aggregation_bits: bits,
+    aggregation_bits: aggregation_bits,
     data: data,
     signature: signature
   )

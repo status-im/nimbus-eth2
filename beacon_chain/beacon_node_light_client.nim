@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,7 +19,7 @@ func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
     when lcDataFork > LightClientDataFork.None:
       shouldSyncOptimistically(
         optimisticSlot = forkyHeader.beacon.slot,
-        dagSlot = getStateField(node.dag.headState, slot),
+        dagSlot = node.dag.headState.slot,
         wallSlot = wallSlot)
     else:
       false
@@ -98,12 +98,14 @@ proc initLightClient*(
             let beaconHead = node.attestationPool[].getBeaconHead(nil)
             withConsensusFork(consensusFork):
               when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+                let state = ForkchoiceStateV1.init(
+                  blockHash, beaconHead.safeExecutionBlockHash,
+                  beaconHead.finalizedExecutionBlockHash,
+                )
                 node.optimisticFcuFut = node.elManager.forkchoiceUpdated(
-                  headBlockHash = blockHash,
-                  safeBlockHash = beaconHead.safeExecutionBlockHash,
-                  finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
-                  payloadAttributes = Opt.none consensusFork.PayloadAttributes)
-                node.optimisticFcuFut.addCallback do (future: pointer):
+                  state, payloadAttributes = Opt.none consensusFork.PayloadAttributes
+                )
+                node.optimisticFcuFut.addCallback do(future: pointer):
                   node.optimisticFcuFut = nil
           else:
             # The execution block hash is only available from Capella onward

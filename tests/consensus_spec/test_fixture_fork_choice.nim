@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -101,9 +101,10 @@ proc initialLoad(
 
   let
     cfg = forkedState[].kind.genesisTestRuntimeConfig
-    validatorMonitor = newClone(ValidatorMonitor.init(cfg.timeParams))
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
+      cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
@@ -207,18 +208,33 @@ proc loadOps(
       doAssert step.len == 1 + numExtraFields
       result[^1].valid = true
 
+proc updateHead(
+    dag: ChainDAGRef, fkChoice: ref ForkChoice, time: BeaconTime,
+    updateFastConfirm = false) =
+  var quarantine = Quarantine.init(dag.cfg)
+  let
+    newHeadRoot = fkChoice[].get_head(dag, time).get()
+    newHead = dag.getBlockRef(newHeadRoot).get()
+  if updateFastConfirm:
+    doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
+  dag.updateHead(newHead, quarantine, [])
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
+    let pruneRes = fkChoice[].prune()
+    doAssert pruneRes.isOk()
+
 proc stepOnBlock(
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       verifier: var BatchVerifier,
-       state: var ForkedHashedBeaconState,
-       stateCache: var StateCache,
-       signedBlock: ForkySignedBeaconBlock,
-       blobData: Opt[BlobData],
-       columnsValid: bool,
-       time: BeaconTime,
-       invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
-       Result[BlockRef, VerifierError] =
+    dag: ChainDAGRef,
+    fkChoice: ref ForkChoice,
+    verifier: var BatchVerifier,
+    state: var ForkedHashedBeaconState,
+    stateCache: var StateCache,
+    signedBlock: ForkySignedBeaconBlock,
+    blobData: Opt[BlobData],
+    columnsValid: bool,
+    time: BeaconTime,
+    invalidatedHashes: Table[Eth2Digest, Eth2Digest]
+): Result[BlockRef, VerifierError] =
   # 1. Validate blobs and columns
   when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -270,7 +286,7 @@ proc stepOnBlock(
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
-      state: consensusFork.Beaconstate,
+      state: consensusFork.BeaconState,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
     # 4. Update fork choice if valid
@@ -279,13 +295,7 @@ proc stepOnBlock(
     doAssert status.isOk()
 
     # 5. Update DAG with new head
-    var quarantine = Quarantine.init(dag.cfg)
-    let newHead = fkChoice[].get_head(dag, time).get()
-    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
-    if dag.needStateCachesAndForkChoicePruning():
-      dag.pruneStateCachesDAG()
-      let pruneRes = fkChoice[].prune()
-      doAssert pruneRes.isOk()
+    dag.updateHead(fkChoice, time)
 
   blockAdded
 
@@ -310,17 +320,9 @@ proc stepChecks(
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "justified_checkpoint_root": # undocumented check
-      let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
-      doAssert checkpointRoot == Eth2Digest.fromHex(val.getStr())
     elif check == "finalized_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.finalized.root
       let checkpointEpoch = fkChoice.checkpoints.finalized.epoch
-      doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
-      doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
-    elif check == "best_justified_checkpoint":
-      let checkpointRoot = fkChoice.checkpoints.best_justified.root
-      let checkpointEpoch = fkChoice.checkpoints.best_justified.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "proposer_boost_root":
@@ -368,6 +370,8 @@ proc doRunTest(
       time = BeaconTime(ns_since_genesis: step.tick.seconds.nanoseconds)
       let status = stores.fkChoice[].update_time(stores.dag, time)
       doAssert status.isOk == step.valid
+      if status.isOk:
+        stores.dag.updateHead(stores.fkChoice, time, updateFastConfirm = true)
     of opOnPhase0Attestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
@@ -377,7 +381,7 @@ proc doRunTest(
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt, true)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt)), time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
@@ -454,10 +458,13 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
+          # proposer boost mechanics to depend on the canonical chain
+          if  path.contains("voting_source_beyond_two_epoch") or
+              path.contains("justified_update_not_realized_finality") or
+              path.contains("justified_update_always_if_better"):
+            continue
           runTest(suiteName, basePath/path, fork)
-
-from ../../beacon_chain/conf import loadKzgTrustedSetup
-discard loadKzgTrustedSetup()  # Required for Deneb tests
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@ const
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
   MIN_ACTIVATION_BALANCE* = 32000000000
   # 2**11 * 10**9 (= 2,048,000,000,000) Gwei
-  MAX_EFFECTIVE_BALANCE_ELECTRA* = 2048000000000
+  MAX_EFFECTIVE_BALANCE_ELECTRA*: uint64 = 2048000000000'u64
 
   # Rewards and penalties
   # ---------------------------------------------------------------

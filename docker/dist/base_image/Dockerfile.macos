@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,9 +21,10 @@ SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential git-lfs clang-11 llvm-11-dev cmake curl libssl-dev lzma-dev libxml2-dev &>/dev/null \
- && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-11 100 \
- && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-11 100 \
+ && apt-get -qq -y install build-essential git-lfs clang-14 lld-14 cmake curl libssl-dev lzma-dev libxml2-dev &>/dev/null \
+ && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 100 \
+ && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-14 100 \
+ && ln -sf /usr/bin/dsymutil-14 /usr/bin/dsymutil \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

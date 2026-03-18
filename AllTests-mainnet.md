@@ -48,7 +48,6 @@ AllTests-mainnet
 + sanity check capella blocks [Preset: mainnet]                                              OK
 + sanity check capella states [Preset: mainnet]                                              OK
 + sanity check capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check data columns [Preset: mainnet]                                                OK
 + sanity check deneb and cross-fork getState rollback [Preset: mainnet]                      OK
 + sanity check deneb blocks [Preset: mainnet]                                                OK
 + sanity check deneb states [Preset: mainnet]                                                OK
@@ -57,13 +56,16 @@ AllTests-mainnet
 + sanity check electra blocks [Preset: mainnet]                                              OK
 + sanity check electra states [Preset: mainnet]                                              OK
 + sanity check electra states, reusing buffers [Preset: mainnet]                             OK
++ sanity check execution payload envelopes [Preset: mainnet]                                 OK
 + sanity check fulu and cross-fork getState rollback [Preset: mainnet]                       OK
 + sanity check fulu blocks [Preset: mainnet]                                                 OK
++ sanity check fulu data columns [Preset: mainnet]                                           OK
 + sanity check fulu states [Preset: mainnet]                                                 OK
 + sanity check fulu states, reusing buffers [Preset: mainnet]                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
   sanity check gloas and cross-fork getState rollback [Preset: mainnet]                      Skip
   sanity check gloas blocks [Preset: mainnet]                                                Skip
++ sanity check gloas data columns [Preset: mainnet]                                          OK
   sanity check gloas states [Preset: mainnet]                                                Skip
   sanity check gloas states, reusing buffers [Preset: mainnet]                               Skip
 + sanity check phase0 blocks [Preset: mainnet]                                               OK
@@ -113,6 +115,7 @@ AllTests-mainnet
 + database and memory overfill protection and pruning test                                   OK
 + database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
++ overfill test [maximum number of blobs]                                                    OK
 + popSidecars()/hasSidecars() return []/true on block without blobs                          OK
 + pruneAfterFinalization() test                                                              OK
 + put() duplicate items should not affect counters                                           OK
@@ -135,12 +138,18 @@ AllTests-mainnet
 ## Block processor [Preset: mainnet]
 ```diff
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
++ Process Deneb block without blob sidecars [Preset: mainnet]                                OK
++ Process Fulu block with data column sidecars [Preset: mainnet]                             OK
++ Process Fulu block without data column sidecars [Preset: mainnet]                          OK
++ Process a block from each fork (without blobs) [Preset: mainnet]                           OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 ## Block quarantine
 ```diff
 + Don't re-download unviable blocks                                                          OK
 + Keep downloading parent chain even if we hit missing limit                                 OK
++ No new missing/orphans while processing                                                    OK
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
@@ -169,12 +178,29 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ popSidecars()/hasSidecars() return []/true on block without columns                        OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
++ ColumnQuarantine: update(empty:grow) [node->node] test                                     OK
++ ColumnQuarantine: update(empty:grow) [node->supernode] test                                OK
++ ColumnQuarantine: update(empty:shrink) [node->node] test                                   OK
++ ColumnQuarantine: update(empty:shrink) [supernode->node] test                              OK
++ ColumnQuarantine: update(memory+disk:grow) [node->node] test                               OK
++ ColumnQuarantine: update(memory+disk:grow) [node->supernode] test                          OK
++ ColumnQuarantine: update(memory+disk:shrink) [node->node] test                             OK
++ ColumnQuarantine: update(memory+disk:shrink) [supernode->node] test                        OK
++ ColumnQuarantine: update(memory:grow) [node->node] test                                    OK
++ ColumnQuarantine: update(memory:grow) [node->supernode] test                               OK
++ ColumnQuarantine: update(memory:shrink) [node->node] test                                  OK
++ ColumnQuarantine: update(memory:shrink) [supernode->node] test                             OK
++ Empty in-memory scenario test [node]                                                       OK
++ Empty in-memory scenario test [supernode]                                                  OK
++ Mixed entries scenario test [node]                                                         OK
++ Mixed entries scenario test [supernode]                                                    OK
++ database and memory overfill protection and pruning test [node]                            OK
++ database unload/load test [node]                                                           OK
++ overfill protection test [node]                                                            OK
++ overfill test [node]                                                                       OK
++ overfill test [supernode]                                                                  OK
++ pruneAfterFinalization() test [node]                                                       OK
++ put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
 + put()/fetchMissingSidecars/remove test [supernode]                                         OK
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
@@ -212,12 +238,13 @@ AllTests-mainnet
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
-## EF - Fulu - BPO forkdigests
+## EF - BPO forkdigests
 ```diff
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
 + Fusaka devnet-2                                                                            OK
++ Glamsterdam bal-devnet-2                                                                   OK
 ```
 ## EF - KZG
 ```diff
@@ -584,21 +611,88 @@ AllTests-mainnet
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
 ```
+## EL Manager - Async Operations
+```diff
++ ELManager can be started and stopped safely                                                OK
++ ELManager with custom chain network                                                        OK
+```
+## EL Manager - Helpers
+```diff
++ Rewrite URLs                                                                               OK
+```
+## EL Manager - Multiple Engines
+```diff
++ forkchoiceUpdated with multiple engines                                                    OK
++ getPayload with multiple engines                                                           OK
++ newPayload with multiple engines                                                           OK
++ two engines, one broken, retry                                                             OK
+```
+## EL Manager - Payload Request Caching
+```diff
++ concurrent forkchoiceUpdated calls                                                         OK
++ forkchoiceUpdated without payload attributes doesn't cache                                 OK
++ getPayload makes new forkchoiceUpdated when parameters change                              OK
++ getPayload reuses cached forkchoiceUpdated when parameters match                           OK
++ getPayload with different forkchoiceUpdated attributes                                     OK
++ multiple sequential forkchoiceUpdated calls with payload attributes                        OK
+```
+## EL Manager - forkchoiceUpdated
+```diff
++ forkchoiceUpdated basic call                                                               OK
++ forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated with payload attributes                                                  OK
++ forkchoiceUpdated with response delay                                                      OK
+```
+## EL Manager - getPayload
+```diff
++ success without retry                                                                      OK
+```
+## EL Manager - newPayload
+```diff
++ success without retry                                                                      OK
+```
 ## Engine API conversions
 ```diff
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and deneb ExecutionPayload representations                         OK
 ```
-## Eth1 monitor
+## Envelope Quarantine
 ```diff
-+ Rewrite URLs                                                                               OK
++ Add missing                                                                                OK
++ Add orphan                                                                                 OK
++ Clean up orphans                                                                           OK
++ Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
+```
+## Execution Payload Bid Pool
+```diff
++ Add and retrieve highest bid                                                               OK
++ Duplicate detection - same builder same slot                                               OK
++ Empty pool returns none                                                                    OK
++ Highest bid selection - different builders                                                 OK
++ Multiple bids for different parents same slot                                              OK
++ Pruning removes old bids                                                                   OK
++ Track seen bids                                                                            OK
+```
+## Fast confirmation [Preset: mainnet]
+```diff
++ Assign shufflings [Preset: mainnet]                                                        OK
++ Assigned slots cross-check [Preset: mainnet]                                               OK
++ Epoch 1 shares dependent root for both epochs [Preset: mainnet]                            OK
++ Genesis epoch [Preset: mainnet]                                                            OK
++ Older epochRef with current shufflings [Preset: mainnet]                                   OK
++ Shuffling dependent roots [Preset: mainnet]                                                OK
++ Shuffling epoch transition [Preset: mainnet]                                               OK
++ Shuffling preserves effective balance [Preset: mainnet]                                    OK
++ Shuffling update idempotency [Preset: mainnet]                                             OK
++ Update shufflings for current and previous epoch [Preset: mainnet]                         OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -647,6 +741,37 @@ AllTests-mainnet
 + Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
+```
+## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
+```diff
++ Empty in-memory scenario test [node]                                                       OK
++ Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
++ GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
++ GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
++ GloasColumnQuarantine: update(empty:shrink) [supernode->node] test                         OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->node] test                          OK
++ GloasColumnQuarantine: update(memory+disk:grow) [node->supernode] test                     OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [node->node] test                        OK
++ GloasColumnQuarantine: update(memory+disk:shrink) [supernode->node] test                   OK
++ GloasColumnQuarantine: update(memory:grow) [node->node] test                               OK
++ GloasColumnQuarantine: update(memory:grow) [node->supernode] test                          OK
++ GloasColumnQuarantine: update(memory:shrink) [node->node] test                             OK
++ GloasColumnQuarantine: update(memory:shrink) [supernode->node] test                        OK
++ Mixed entries scenario test [node]                                                         OK
++ Mixed entries scenario test [supernode]                                                    OK
++ database and memory overfill protection and pruning test [node]                            OK
++ database unload/load test [node]                                                           OK
++ overfill protection test [node]                                                            OK
++ overfill test [node]                                                                       OK
++ overfill test [supernode]                                                                  OK
++ pruneAfterFinalization() test [node]                                                       OK
++ put() duplicate items should not affect counters [node]                                    OK
++ put()/fetchMissingSidecars/remove test [node]                                              OK
++ put()/fetchMissingSidecars/remove test [supernode]                                         OK
++ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
++ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
 ```
 ## Gossip fork transition
 ```diff
@@ -774,6 +899,8 @@ AllTests-mainnet
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ BLS to execution change signatures                                                         OK
++ Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -804,10 +931,9 @@ AllTests-mainnet
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
-+ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
-+ Signing deposit message (getDepositMessageSignature())                                     OK
++ Signing payload attestation (getPayloadAttestationSignature())                             OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
@@ -816,6 +942,16 @@ AllTests-mainnet
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
+```
+## Payload attestation pool [Preset: mainnet]
+```diff
++ Can add and retrieve payload attestations [Preset: mainnet]                                OK
++ Can get payload attestations for block production [Preset: mainnet]                        OK
++ Different payload presence values [Preset: mainnet]                                        OK
++ Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
++ Multiple validators in PTC can attest [Preset: mainnet]                                    OK
++ Payload attestations get pruned [Preset: mainnet]                                          OK
++ get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
 ```diff
@@ -1041,9 +1177,7 @@ AllTests-mainnet
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
-+ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
++ addValidatorChangeMessage/getBlsToExecutionChange                                          OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
@@ -1095,6 +1229,61 @@ AllTests-mainnet
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
+## get_ancestor_info
+```diff
++ All slots filled - end of epoch                                                            OK
++ All slots filled - mid epoch                                                               OK
++ All slots filled - start of epoch                                                          OK
++ Current_slot = 0                                                                           OK
++ Current_slot = 1                                                                           OK
++ Entire prev epoch empty                                                                    OK
++ Gap crossing epoch boundary                                                                OK
++ Gap in current epoch                                                                       OK
++ Mid epoch 0                                                                                OK
++ Only genesis                                                                               OK
++ Only one block after genesis                                                               OK
++ Sparse chain with terminal mid-gap                                                         OK
++ Start of epoch 1                                                                           OK
++ Start of epoch 2                                                                           OK
++ Terminal in current epoch                                                                  OK
++ Terminal in prev epoch                                                                     OK
++ Terminal not an ancestor                                                                   OK
+```
+## get_ancestor_support_by_slot
+```diff
++ Basic support                                                                              OK
++ Early epochs                                                                               OK
++ Early epochs with 3 shufflings                                                             OK
++ Empty result                                                                               OK
++ Equivocating, assigned slot at current_slot                                                OK
++ Equivocating, cross-epoch, different blocks                                                OK
++ Equivocating, cross-epoch, same block                                                      OK
++ Equivocating, duties on different blocks                                                   OK
++ Equivocating, last block before previous epoch                                             OK
++ Equivocating, single slot in range                                                         OK
++ Gap in chain                                                                               OK
++ Mixed validators                                                                           OK
++ No match                                                                                   OK
++ Running totals verification                                                                OK
++ Slashed validator                                                                          OK
++ Votes outside range                                                                        OK
++ assign_shufflings replaces duties                                                          OK
+```
+## get_current_target_score
+```diff
++ Basic support                                                                              OK
++ Empty votes                                                                                OK
++ Equivocating excluded                                                                      OK
++ Gap at epoch start                                                                         OK
++ Inactive excluded                                                                          OK
++ Mixed                                                                                      OK
++ Multiple heads                                                                             OK
++ Multiple voters                                                                            OK
++ Slashed excluded                                                                           OK
++ Vote for target at epoch start                                                             OK
++ Vote for unknown block                                                                     OK
++ Vote in previous epoch                                                                     OK
+```
 ## removeValidatorFiles()
 ```diff
 + Remove nonexistent validator                                                               OK
@@ -1127,9 +1316,11 @@ AllTests-mainnet
 ```
 ## subnet tracker
 ```diff
++ should register and prune PTC duties                                                       OK
 + should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
++ should track PTC duties in slot bitmaps                                                    OK
 ```
 ## test_fixture_ssz_generic_types.nim
 ```diff

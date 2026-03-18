@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -42,9 +42,6 @@ const
   # Earlier spec versions had these at a different slot
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#constant
-  INTERVALS_PER_SLOT* = 3
 
 func FAR_FUTURE_BEACON_TIME(timeParams: TimeParams): BeaconTime =
   # Ensure all representable slots are complete
@@ -141,35 +138,53 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 # Offsets from the start of the slot to when the corresponding message should
 # be sent
 
+func slotOffset(timeParams: TimeParams, bps: uint16): TimeDiff =
+  let oneBps = timeParams.SLOT_DURATION.nanoseconds div MAX_BPS.int64
+  TimeDiff(nanoseconds: bps.int64 * oneBps)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#attesting
 func attestationSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.ATTESTATION_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
 func aggregateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 * 2 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#prepare-sync-committee-message
 func syncCommitteeMessageSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.SYNC_MESSAGE_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
 func syncContributionSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 * 2 div INTERVALS_PER_SLOT)
+  timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
 func lightClientFinalityUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.syncCommitteeMessageSlotOffset
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#sync-committee
 func lightClientOptimisticUpdateSlotOffset*(timeParams: TimeParams): TimeDiff =
-  TimeDiff(nanoseconds:
-    timeParams.SLOT_DURATION.nanoseconds.int64 div INTERVALS_PER_SLOT)
+  timeParams.syncCommitteeMessageSlotOffset
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#attestation
+func attestationSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.ATTESTATION_DUE_BPS_GLOAS)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#time-parameters
+func aggregateSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS_GLOAS)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#sync-committee-participations
+func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#sync-committee-participations
+func syncContributionSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS_GLOAS)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#payload-timeliness-attestation
+func payloadAttestationSlotOffset*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
 
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
@@ -188,25 +203,51 @@ func start_beacon_time*(s: Slot, timeParams: TimeParams): BeaconTime =
 func block_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams)
 
-func attestation_deadline*(
+func attestation_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.attestationSlotOffset
 
-func aggregate_deadline*(
+func aggregate_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.aggregateSlotOffset
 
-func sync_committee_message_deadline*(
+func sync_committee_message_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncCommitteeMessageSlotOffset
 
-func sync_contribution_deadline*(
+func sync_contribution_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffset
+
+# Gloas
+func attestation_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.attestationSlotOffsetGloas
+
+func aggregate_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.aggregateSlotOffsetGloas
+
+func sync_committee_message_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.syncCommitteeMessageSlotOffsetGloas
+
+func sync_contribution_deadline_gloas*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.syncContributionSlotOffsetGloas
+
+func payload_attestation_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.payloadAttestationSlotOffset
 
 func light_client_finality_update_time*(
     s: Slot, timeParams: TimeParams): BeaconTime =

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2025 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2026 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -28,8 +28,8 @@ BASE_METRICS_PORT := 8008
 # WARNING: Use lazy assignment to allow CI to override.
 EXECUTOR_NUMBER ?= 0
 
-SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
-GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
+SEPOLIA_WEB3_URL := "--el=https://rpc.sepolia.dev --el=https://www.sepoliarpc.space"
+GNOSIS_WEB3_URLS := "--el=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
 CPU_LIMIT := 0
@@ -97,7 +97,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-arm64 \
 	dist-arm \
 	dist-win64 \
-	dist-macos \
 	dist-macos-arm64 \
 	dist \
 	local-testnet-minimal \
@@ -153,8 +152,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
-
-DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
@@ -235,11 +232,9 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--electra-fork-epoch 0 \
-		--fulu-fork-epoch 100000 \
+		--fulu-fork-epoch 1000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-payload-builder \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -255,6 +250,7 @@ local-testnet-minimal:
 		--timeout 648 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no \
@@ -264,8 +260,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--electra-fork-epoch 0 \
-		--fulu-fork-epoch 100000 \
+		--fulu-fork-epoch 1 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
@@ -283,6 +278,7 @@ local-testnet-mainnet:
 		--timeout 2784 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
+		--run-spamoor \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -720,6 +716,7 @@ test_libnimbus_lc: libnimbus_lc.a
 				--std=c17 -flto \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
+				-Wno-stringop-overflow \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \
@@ -782,7 +779,7 @@ publish-book: | book auditors-book
 			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
 		fi
 	CURRENT_COMMIT="$$(git rev-parse --short HEAD)" && \
-	git branch -D gh-pages && \
+	{ git branch -D gh-pages || true; } && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
@@ -818,10 +815,6 @@ dist-win64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
-dist-macos:
-	+ MAKE="$(MAKE)" \
-		scripts/make_dist.sh macos
-
 dist-macos-arm64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh macos-arm64
@@ -832,7 +825,6 @@ dist:
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64
-	+ $(MAKE) dist-macos
 	+ $(MAKE) dist-macos-arm64
 
 #- Build and run benchmarks using an external repo (which can be used easily on

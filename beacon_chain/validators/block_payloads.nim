@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,20 +20,23 @@
 ## and then pass it back.
 ##
 ## Either way, signing is out of scope for this module.
-##
 
 # Implementation notes
 #
 # * Even though they are in theory redundant, we sometimes pass both
 #   `consensusFork` and fork-specific `Forky*` types - this makes spelling the
 #   return type slightly easier
+# * Where support for earlier forks is dropped, we still accurately maintain
+#   the fork where the feature was introduced - ie although at the time of
+#   Deneb will have Deneb in their fork check.
 
 {.push raises: [], gcsafe.}
 
 import
   chronicles,
   results,
-  ../consensus_object_pools/[attestation_pool, consensus_manager],
+  ../consensus_object_pools/
+    [attestation_pool, consensus_manager, payload_attestation_pool],
   ../spec/[forks, state_transition],
   ../spec/mev/rest_mev_calls,
   ../beacon_node
@@ -46,18 +49,19 @@ export results
 type
   BuilderBidResult[BB: ForkyBuilderBid] = Result[BB, string]
 
-  EngineBlock[BB: ForkyBeaconBlock] = object
+  EngineBlock[BB: ForkyBeaconBlock, FB: ForkyBlobsBundle] = object
     blck*: BB
     executionValue*: Wei
     consensusValue*: UInt256
-    blobsBundle*: fulu.BlobsBundle
+    blobsBundle*: FB
 
   BuilderBlock[BBB: ForkyBlindedBeaconBlock] = object
     blck*: BBB
     executionValue*: Wei
     consensusValue*: UInt256
 
-  EngineBlockResult[BB: ForkyBeaconBlock] = Result[EngineBlock[BB], string]
+  EngineBlockResult[BB: ForkyBeaconBlock, FB: ForkyBlobsBundle] =
+    Result[EngineBlock[BB, FB], string]
   BuilderBlockResult[BBB: ForkyBlindedBeaconBlock] = Result[BuilderBlock[BBB], string]
 
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
@@ -78,24 +82,6 @@ type
       value8: uint8
     of BoostFactorKind.Builder:
       value64: uint64
-
-template toBlockContents(
-    engineBlock: EngineBlock, consensusFork: static ConsensusFork
-): untyped =
-  when consensusFork >= ConsensusFork.Fulu:
-    consensusFork.BlockContents(
-      `block`: engineBlock.blck,
-      kzg_proofs: engineBlock.blobsBundle.proofs,
-      blobs: engineBlock.blobsBundle.blobs,
-    )
-  elif consensusFork >= ConsensusFork.Deneb:
-    consensusFork.BlockContents(
-      `block`: engineBlock.blck,
-      kzg_proofs: deneb.KzgProofs(engineBlock.blobsBundle.proofs),
-      blobs: engineBlock.blobsBundle.blobs,
-    )
-  else:
-    engineBlock.blck
 
 func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Local, value8: value)
@@ -152,14 +138,9 @@ func builderBetterBid(
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
 func decodePayloadRequests(
-    _:
-      bellatrix.ExecutionPayloadForSigning | capella.ExecutionPayloadForSigning |
-      deneb.ExecutionPayloadForSigning
-): Result[ExecutionRequests, string] =
-  ok default(ExecutionRequests)
-
-func decodePayloadRequests(
-    eps: electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning
+    eps:
+      electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
+      gloas.ExecutionPayloadForSigning
 ): Result[ExecutionRequests, string] =
   try:
     var
@@ -204,6 +185,46 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+func makeExecutionPayloadEnvelope*(
+    eps: gloas.ExecutionPayloadForSigning,
+    execution_requests: ExecutionRequests,
+    beacon_block_root: Eth2Digest,
+    slot: Slot,
+    state_root: Eth2Digest,
+): gloas.ExecutionPayloadEnvelope =
+  gloas.ExecutionPayloadEnvelope(
+    payload: eps.executionPayload,
+    execution_requests: execution_requests,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    beacon_block_root: beacon_block_root,
+    slot: slot,
+    state_root: state_root,
+  )
+
+func makeSignedExecutionPayloadBid(
+    executionPayload: deneb.ExecutionPayload,
+    blob_kzg_commitments: KzgCommitments,
+    parentBlockRoot: Eth2Digest,
+    slot: Slot,
+): SignedExecutionPayloadBid =
+  let bid = ExecutionPayloadBid(
+    parent_block_hash: executionPayload.parent_hash,
+    parent_block_root: parentBlockRoot,
+    block_hash: executionPayload.block_hash,
+    prev_randao: executionPayload.prev_randao,
+    fee_recipient: executionPayload.fee_recipient,
+    gas_limit: executionPayload.gas_limit,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    slot: slot,
+    value: 0.Gwei,
+    execution_payment: 0.Gwei,
+    blob_kzg_commitments: blob_kzg_commitments,
+  )
+  SignedExecutionPayloadBid(
+    message: bid,
+    signature: ValidatorSig.infinity()
+  )
+
 proc makeEngineBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -216,13 +237,25 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
-): EngineBlockResult[consensusFork.BeaconBlock] =
+): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        makeSignedExecutionPayloadBid(
+          eps.executionPayload, eps.kzg_commitments, state.latest_block_root, slot
+        )
+      else:
+        default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+      else:
+        default(seq[PayloadAttestation])
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -241,6 +274,8 @@ proc makeEngineBlock*(
       verificationFlags = {},
       eps.kzg_commitments,
       execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -249,25 +284,11 @@ proc makeEngineBlock*(
         slot, head = shortLog(head), error = error
       return err($error)
 
-  template getFuluBlobsBundle(bb: fulu.BlobsBundle):
-      fulu.BlobsBundle {.used.} =
-    bb
-  template getFuluBlobsBundle(bb: deneb.BlobsBundle):
-      fulu.BlobsBundle {.used.} =
-    fulu.BlobsBundle(
-      commitments: bb.commitments,
-      proofs: fulu.KzgProofs(bb.proofs),
-      blobs: bb.blobs)
-
-  ok EngineBlock[consensusFork.BeaconBlock](
+  ok EngineBlock[consensusFork.BeaconBlock, consensusFork.BlobsBundle](
     blck: blockAndRewards.blck,
     executionValue: eps.blockValue,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
-    blobsBundle:
-      when consensusFork >= ConsensusFork.Deneb:
-        getFuluBlobsBundle(eps.blobsBundle)
-      else:
-        default(fulu.BlobsBundle),
+    blobsBundle: eps.blobsBundle,
   )
 
 proc getExecutionPayload*(
@@ -282,34 +303,31 @@ proc getExecutionPayload*(
 .} =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
 
+  template forkyState(): untyped =
+    proposalState[].forky(consensusFork)
+
   let
-    slot = withState(proposalState[]):
-      forkyState.data.slot
+    slot = forkyState.data.slot
     feeRecipient = node.consensusManager[].getFeeRecipient(
       validator_pubkey, Opt.some(validator_index), slot.epoch
     )
     beaconHead = node.attestationPool[].getBeaconHead(head)
-    executionHead = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Bellatrix and
-          consensusFork < ConsensusFork.Gloas:
-        forkyState.data.latest_execution_payload_header.block_hash
-      elif consensusFork >= ConsensusFork.Gloas:
+    executionHead =
+      when consensusFork >= ConsensusFork.Gloas:
         forkyState.data.latest_execution_payload_bid.block_hash
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        forkyState.data.latest_execution_payload_header.block_hash
       else:
         (static(default(Eth2Digest)))
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
-    timestamp = withState(proposalState[]): node.dag.timeParams
-      .compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
-    prevRandao = withState(proposalState[]):
-      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
-    withdrawals = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Capella:
-        when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "Extracting just the withdrawals from tuple"
-          get_expected_withdrawals(forkyState.data)[0]
-        else:
-          get_expected_withdrawals(forkyState.data)
+    timestamp = node.dag.timeParams.compute_timestamp_at_slot(forkyState.data, slot)
+    prevRandao = get_randao_mix(forkyState.data, slot.epoch)
+    withdrawals =
+      when consensusFork >= ConsensusFork.Gloas:
+        get_expected_withdrawals(forkyState.data).withdrawals
+      elif consensusFork >= ConsensusFork.Capella:
+        get_expected_withdrawals(forkyState.data)
       else:
         @[]
 
@@ -325,12 +343,11 @@ proc getExecutionPayload*(
 
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
-    eps = (
-      await node.elManager.getPayload(
-        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, prevRandao, feeRecipient, withdrawals,
-      )
-    ).valueOr:
+    state = ForkchoiceStateV1.init(executionHead, latestSafe, latestFinalized)
+    attributes = PayloadAttributesV3.init(
+      timestamp, prevRandao, feeRecipient, withdrawals, beaconHead.blck.bid.root
+    )
+    eps = await(node.elManager.getPayload(PayloadType, state, attributes)).valueOr:
       if not proposalState[].is_merge_transition_complete():
         # Pre-merge, an all-zeroes execution payload is used and there are no
         # requests, so default is fine here
@@ -459,6 +476,15 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
+  debugGloasComment "make signed bid from engine payload"
+  let
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+      else:
+        newSeq[PayloadAttestation]()
+
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -476,6 +502,8 @@ proc makeBuilderBlock*(
       verificationFlags = {},
       builderBid.blob_kzg_commitments,
       builderBid.execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -492,8 +520,8 @@ proc makeBuilderBlock*(
 
 func isExcludedTestnet(cfg: RuntimeConfig): bool =
   ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and
-    cfg.DEPOSIT_CHAIN_ID == 560048'u64  # Hoodi
+  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
+    # Hoodi
 
 proc collectBids*(
     node: BeaconNode,
@@ -530,11 +558,9 @@ proc collectBids*(
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
             when consensusFork == ConsensusFork.Gloas:
-              get_expected_withdrawals(
-                proposalState[].forky(consensusFork).data)[0]
+              get_expected_withdrawals(proposalState[].forky(consensusFork).data)[0]
             else:
-              get_expected_withdrawals(
-                proposalState[].forky(consensusFork).data)
+              get_expected_withdrawals(proposalState[].forky(consensusFork).data)
           )
           expected_withdrawals_root = hash_tree_root(withdrawals)
         node.getBuilderBid(
@@ -573,7 +599,7 @@ proc collectBids*(
 
   Bids[consensusFork](engineBid: enginePayload, builderBid: builderBid)
 
-proc useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
+func useBuilderPayload*(bids: Bids, boostFactor: BoostFactor): bool =
   bids.builderBid.isSome() and (
     bids.engineBid.isNone() or
     builderBetterBid(
@@ -594,8 +620,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     Result[
       tuple[
         blck: consensusFork.MaybeBlindedBeaconBlock,
-        executionValue: UInt256,
-        consensusValue: UInt256,
+        executionValue, consensusValue: UInt256,
       ],
       string,
     ]
@@ -651,78 +676,29 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
   if bids.engineBid.isNone:
     return err("Engine payload is not available")
 
-  let engineBlock =
-    ?node.makeEngineBlock(
-      consensusFork,
-      state[].forky(consensusFork),
-      cache[],
-      validator_index,
-      randao_reveal,
-      graffiti,
-      head,
-      slot,
-      bids.engineBid[].eps,
-      bids.engineBid[].execution_requests,
-    )
+  let engineBlock = ?node.makeEngineBlock(
+    consensusFork,
+    state[].forky(consensusFork),
+    cache[],
+    validator_index,
+    randao_reveal,
+    graffiti,
+    head,
+    slot,
+    bids.engineBid[].eps,
+    bids.engineBid[].execution_requests,
+  )
 
   ok(
     (
       blck: consensusFork.MaybeBlindedBeaconBlock(
-        isBlinded: false, data: engineBlock.toBlockContents(consensusFork)
+        isBlinded: false,
+        data: consensusFork.BlockContents(
+          `block`: engineBlock.blck,
+          kzg_proofs: engineBlock.blobsBundle.proofs,
+          blobs: engineBlock.blobsBundle.blobs,
+        ),
       ),
-      executionValue: engineBlock.executionValue,
-      consensusValue: engineBlock.consensusValue,
-    )
-  )
-
-proc makeBeaconBlockForHeadAndSlot*(
-    node: BeaconNode,
-    consensusFork: static ConsensusFork,
-    validator_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    graffiti: GraffitiBytes,
-    head: BlockRef,
-    slot: Slot,
-): Future[
-    Result[
-      tuple[
-        blck: consensusFork.BlockContents,
-        executionValue: UInt256,
-        consensusValue: UInt256,
-      ],
-      string,
-    ]
-] {.async: (raises: [CancelledError]).} =
-  let
-    proposerKey = node.dag.validatorKey(validator_index).get().toPubKey()
-    cache = new StateCache
-    # TODO move the creation of this proposal state away from the hot path
-    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
-      return err("Proposal state is not available")
-    enginePayload = (
-      await node.getExecutionPayload(
-        consensusFork, head, state, validator_index, proposerKey
-      )
-    ).valueOr:
-      return err("Engine payload is not available")
-
-  let engineBlock =
-    ?node.makeEngineBlock(
-      consensusFork,
-      state[].forky(consensusFork),
-      cache[],
-      validator_index,
-      randao_reveal,
-      graffiti,
-      head,
-      slot,
-      enginePayload.eps,
-      enginePayload.execution_requests,
-    )
-
-  ok(
-    (
-      blck: engineBlock.toBlockContents(consensusFork),
       executionValue: engineBlock.executionValue,
       consensusValue: engineBlock.consensusValue,
     )

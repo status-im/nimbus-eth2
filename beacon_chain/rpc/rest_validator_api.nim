@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -453,29 +453,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        let
-          message = (await node.makeBeaconBlockForHeadAndSlot(
-              consensusFork, proposer, qrandao, qgraffiti, qhead, qslot)).valueOr:
-            return RestApiResponse.jsonError(Http500, error)
-
-        if contentType == sszMediaType:
-          RestApiResponse.sszResponse(
-            message.blck, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        elif contentType == jsonMediaType:
-          let forked = ForkedMaybeBlindedBeaconBlock.init(
-            message.blck,
-            Opt.some message.executionValue,
-            Opt.some message.consensusValue)
-
-          RestApiResponse.jsonResponsePlain(
-            forked, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        else:
-          raiseAssert "preferredContentType() returns invalid content type"
       else:
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
@@ -547,38 +524,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     RestApiResponse.jsonResponse(adata)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
-    let attestation =
-      block:
-        let qslot =
-          block:
-            if slot.isNone():
-              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-            let res = slot.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                               $res.error())
-            res.get()
-        let qroot =
-          block:
-            if attestation_data_root.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                           MissingAttestationDataRootValueError)
-            let res = attestation_data_root.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                             InvalidAttestationDataRootValueError, $res.error())
-            res.get()
-        let res =
-          node.attestationPool[].getPhase0AggregatedAttestation(qslot, qroot)
-        if res.isNone():
-          return RestApiResponse.jsonError(Http400,
-                                          UnableToGetAggregatedAttestationError)
-        res.get()
-    RestApiResponse.jsonResponse(attestation)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
   router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
@@ -628,48 +577,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 UnableToGetAggregatedAttestationError)
           ForkedAttestation.init(electra_attestation, qfork)
         else:
-          let phase0_attestation =
-            node.attestationPool[].getPhase0AggregatedAttestation(
-              qslot, root).valueOr:
-              return RestApiResponse.jsonError(Http404,
-                UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(phase0_attestation, qfork)
+          return RestApiResponse.jsonError(Http404,
+            UnableToGetAggregatedAttestationError)
 
     RestApiResponse.jsonResponsePlain(forked, qfork, node.hasRestAllowedOrigin)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
   router.api2(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let proofs =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidAggregateAndProofObjectError,
-                                           $dres.error())
-        dres.get()
-    # Since our validation logic supports batch processing, we will submit all
-    # aggregated attestations for validation.
-    let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for proof in proofs:
-          res.add(node.router.routeSignedAggregateAndProof(proof))
-        res
-    await allFutures(pending)
-    for future in pending:
-      if future.completed():
-        let res = future.value()
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           AggregateAndProofValidationError,
-                                           $res.error())
-      else:
-        return RestApiResponse.jsonError(Http500,
-               "Unexpected server failure, while sending aggregate and proof")
-    RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
   router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
@@ -686,28 +601,28 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var proofs: seq[Future[SendResult]]
     template addDecodedProofs(ProofType: untyped) =
-      let dres = decodeBody(seq[ProofType], contentBody.get())
-      if dres.isErr():
+      let dres = decodeBody(seq[ProofType], contentBody.get()).valueOr:
         return RestApiResponse.jsonError(Http400,
                                          InvalidAggregateAndProofObjectError,
-                                         $dres.error())
-      for proof in dres.get():
+                                         $error)
+      for proof in dres:
         proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        addDecodedProofs(phase0.SignedAggregateAndProof)
+        return RestApiResponse.jsonError(Http400,
+                                         UnsupportedForkError,
+                                         $UnsupportedForkError)
       of ConsensusFork.Electra .. ConsensusFork.Gloas:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
       if future.completed():
-        let res = future.value()
-        if res.isErr():
+        future.value().isOkOr:
           return RestApiResponse.jsonError(Http400,
                                            AggregateAndProofValidationError,
-                                           $res.error())
+                                           $error)
       else:
         return RestApiResponse.jsonError(Http500,
                "Unexpected server failure, while sending aggregate and proof")
@@ -752,8 +667,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
-      if uint64(request.validator_index) >=
-                  lenu64(getStateField(node.dag.headState, validators)):
+      if uint64(request.validator_index) >= node.dag.headState.validators.lenu64:
         return RestApiResponse.jsonError(Http400,
                                          InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
@@ -775,8 +689,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.committee_index)
 
       if not is_active_validator(
-          getStateField(
-            node.dag.headState, validators).item(request.validator_index),
+          node.dag.headState.validators[request.validator_index],
           request.slot.epoch):
         return RestApiResponse.jsonError(Http400, ValidatorNotActive)
 
@@ -785,8 +698,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.is_aggregator)
 
       let validator_pubkey =
-        getStateField(node.dag.headState, validators).item(
-          request.validator_index).pubkey
+        node.dag.headState.validators[request.validator_index].pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, request.validator_index)
@@ -814,8 +726,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
-          if uint64(item.validator_index) >=
-            lenu64(getStateField(node.dag.headState, validators)):
+          if uint64(item.validator_index) >= node.dag.headState.validators.lenu64:
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           res.add(item)
@@ -823,8 +734,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     for item in subscriptions:
       let validator_pubkey =
-        getStateField(node.dag.headState, validators).item(
-          item.validator_index).pubkey
+        node.dag.headState.validators[item.validator_index].pubkey
 
       node.consensusManager[].actionTracker.registerSyncDuty(
         validator_pubkey, item.until_epoch)

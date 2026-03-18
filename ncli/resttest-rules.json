@@ -2683,9 +2683,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2695,9 +2695,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2707,9 +2707,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"version":"electra","execution_optimistic":false,"finalized":false,"data":[]}}]
     }
   },
   {
@@ -2976,7 +2976,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -2991,7 +2991,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3006,7 +3006,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3021,7 +3021,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3317,146 +3317,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "410"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/genesis/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/finalized/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/18446744073709551615/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "404"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/18446744073709551616/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0x0000000000000000000000000000000000000000000000000000000000000000/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "404"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/heat/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/geneziz/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/finalised/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/foobar/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0x/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0x0/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0x00/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["beacon", "beacon_block_attestations_blockid"],
-    "request": {
-      "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blindedblocks_blockid"],
@@ -3468,7 +3331,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3483,7 +3346,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3498,7 +3361,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3513,7 +3376,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3651,9 +3514,9 @@
       "body": {"content-type": "application/json", "data": "[]"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "410"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 410, "message": ""}}]
     }
   },
   {
@@ -3681,7 +3544,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": [],"value": [{"version":"","data":{"attested_header":{"beacon":{"slot":"6","proposer_index":"28","parent_root":"0xc3640959c639e6fd3e3404842f09e211c0b74e71bb44fc32939a013bf385fe77","state_root":"0x3c61bd0b9bdb706d42b4b2a093fc3bfc50444b60d67e66f0f90ac5a1bdf0fdd2","body_root":"0x41d46fd59c2b75b47f1b2a9904f1af14a0b21b2d00108e9c2c7db63355b4c14d"}},"next_sync_committee":{"pubkeys":["0x9799063b332cfbdd6c5913fdcf47d83b6277be3f174d2acd8059dcadb84dab131a9c8ec4ddb4e1e42c0acd543deebfa9"],"aggregate_pubkey":"0x8675cdecf7cb5aa6c14de5ad24f638d6c384b65737d9f60618e0a9c1411bc11659a080617d1e07d46789739ceb929d02"},"next_sync_committee_branch":["0x40cfc59c70b042b86576ff570f8c4f84ca397e436c9a13a16fc713723a53f983"],"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"}},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xa9e05329da094eebe7874f1664c2dfccd0430420c720e8243c25e4031a678f8d99a69270f7b72ba09d6672a7e61e155612f1e0ccf260ede2344322ea53a27acfefe6cd09bd3a543dab1f9678e474f3ac01da94af28373031c2f09e3aeeba2de8"},"signature_slot":"7"}}]}]
+      "body": [{"operator": "jstructcmps", "start": [],"value": [{"version":"electra","data":{"attested_header":{"beacon":{"slot":"6","proposer_index":"5","parent_root":"0x2cd31e5bc8894d3f3feb37c6a5fb286b393ad2b9e09d9f1e648f50df9c552f37","state_root":"0xc97e396e9b3efb67ef333de376792d0ee7cd40521e9fa57829362ffa8260b4c1","body_root":"0x246d5177145155fd28ac1ea823b7f9acd7f705318720614850fad1788e24a485"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x50dbcb1fd7c53f50bb3bd1a30640f38eec60300722977902a47779cae66d448c","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0x8ef0851b75f19d0f1e4db84b022aaf630474ad2ac9a724acd60154a43a942ec7"]},"next_sync_committee":{"pubkeys":["0xa06c5dca3adfbe25d37208466ce4d2cc7c474d5663fe36177f41991e04e98c5bbd7e43b1060b3999111c2394dad41d8e"],"aggregate_pubkey":"0x912e8c003f176c4d4b9029b88d2eed153551f1de8660816520734b5cb7293ab8f3f8a5d44292ac9e91fd5127b5fdba57"},"next_sync_committee_branch":["0xda47c4bc926e06f68d5702cc17bbed6dbe4f0699bc4ff718b89cacb55ef80271","0x37564d93cedec9887f5ba2233696ddf6dbc4c2a1f8a101ff215b6bd71d0b51ca","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x4e39475a32e3efade87904c2885bd891da4ed47b2b7a36b1e36631fc6bbbe418","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x0000000000000000000000000000000000000000000000000000000000000000","withdrawals_root":"0x0000000000000000000000000000000000000000000000000000000000000000","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000"]},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0xfddcc00356aacf0defab108ae8938b624220c89daab3f48ebab1248c46facee3","0x8f28ea0db9a8f027898a496a8dcfd173e6ab297a21bd0aa15eae1d68e0e84b9c","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x4e39475a32e3efade87904c2885bd891da4ed47b2b7a36b1e36631fc6bbbe418","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0x8f1abd33ef9b411b38d519d8048b1a1e622873540c80ddb515f842f8fcf18cbd737c2664a2f46abc01b8acf4a83a20d7013833c899adea2fdca3f7dcfa1f4a5a4f0eb22ff073a8ddc5959e50129228955e524e93323efaca635a7004b853c962"},"signature_slot":"7"}}]}]
     }
   },
   {
@@ -3725,7 +3588,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"2","proposer_index":"18","parent_root":"0x87cc18e17479f1af290f078dee05f78fb61a493866874d4c7319737f8470d8c3","state_root":"0x9b33428ca370d41a89e94239d7bb4f117bd6f3d828f84307523660481613f036","body_root":"0x2546d749931de6be38ea6aa16f0633d46aef84543f3b25804f0e14a41774ca0f"}},"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"}},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xb73ccf4a5ed492a75e6d569de7caf3595203b5b0687c6ea02531a9ae2fbbc7f34b9fe86e8b8f0e0ae976f199641a296b0e29a757114dc5c3cb2516d6affead47df71078f2216ec0196bfd11d6ff1881722e95317c7e6f3446ff5aacbdc94f300"},"signature_slot":"3"}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"6","proposer_index":"5","parent_root":"0xb7180d185973ec6d83342c3fde505693df909384eb89f328695a58ffb97fd04c","state_root":"0x08cb3202022eda94cf73591a61175552b278b0ba77499a73b3039ece589cd89d","body_root":"0x246d5177145155fd28ac1ea823b7f9acd7f705318720614850fad1788e24a485"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x50dbcb1fd7c53f50bb3bd1a30640f38eec60300722977902a47779cae66d448c","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0x8ef0851b75f19d0f1e4db84b022aaf630474ad2ac9a724acd60154a43a942ec7"]},"finalized_header":{"beacon":{"slot":"0","proposer_index":"0","parent_root":"0x0000000000000000000000000000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","body_root":"0x0000000000000000000000000000000000000000000000000000000000000000"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x0000000000000000000000000000000000000000000000000000000000000000","withdrawals_root":"0x0000000000000000000000000000000000000000000000000000000000000000","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000000"]},"finality_branch":["0x0000000000000000000000000000000000000000000000000000000000000000","0xfddcc00356aacf0defab108ae8938b624220c89daab3f48ebab1248c46facee3","0x8f28ea0db9a8f027898a496a8dcfd173e6ab297a21bd0aa15eae1d68e0e84b9c","0x94ebc8490a932abfd6f0d0551b40462489e5b4f84741a288daa1f9dbced0c09c","0x36e2dc17b4e249b509804fbd1fa2af12da693e15d7ba717495d8c626859cf6af","0x98db389ef91199f6fe8a504612d2bd45ad099c51a86571ed5e2ca1fe0469c17f","0xf1863483b36f331fc0e0b6d2c4625784a2fda0933ebfe732f6da8786821ca3fb"],"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0x8017447d385419f6715dea736ac780ddbd592da4261d80033cd7cb7ca8ed78b30b38b6c7d340d5d87d5faca1b0243cd209671f6b3b319a211047651f4d1cc0f40e337c626cca9c0e2e32fd0b6007774f2d9e9d805dc78107836ef796b4e00b5d"},"signature_slot":"7"}}]
     }
   },
   {
@@ -3737,163 +3600,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"2","proposer_index":"18","parent_root":"0x87cc18e17479f1af290f078dee05f78fb61a493866874d4c7319737f8470d8c3","state_root":"0x9b33428ca370d41a89e94239d7bb4f117bd6f3d828f84307523660481613f036","body_root":"0x2546d749931de6be38ea6aa16f0633d46aef84543f3b25804f0e14a41774ca0f"}},"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xb73ccf4a5ed492a75e6d569de7caf3595203b5b0687c6ea02531a9ae2fbbc7f34b9fe86e8b8f0e0ae976f199641a296b0e29a757114dc5c3cb2516d6affead47df71078f2216ec0196bfd11d6ff1881722e95317c7e6f3446ff5aacbdc94f300"},"signature_slot":"3"}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=0",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551615",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551616",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=word",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?committee_index=0",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?committee_index=18446744073709551615",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?committee_index=18446744073709551616",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?committee_index=word",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=0&committee_index=0",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=word&committee_index=word",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551615&committee_index=18446744073709551615",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["beacon", "pool_attestations"],
-    "request": {
-      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551616&committee_index=18446744073709551616",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"attested_header":{"beacon":{"slot":"10","proposer_index":"18","parent_root":"0x8816a94b25232aef1e48a4ae75c6616f0e309978aea7d481acaea81eb4f25901","state_root":"0x3ab2ee44823796b1be6ae090f05390b4c6d299fa487d95becc212f88e55f779e","body_root":"0xe2332f312a4655f6ccdf02593681d8ea3e03856a9accaa7bacc6d5e686c7e8c6"},"execution":{"parent_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","fee_recipient":"0x0000000000000000000000000000000000000000","state_root":"0x0000000000000000000000000000000000000000000000000000000000000000","receipts_root":"0x0000000000000000000000000000000000000000000000000000000000000000","logs_bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","prev_randao":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0","gas_limit":"0","gas_used":"0","timestamp":"0","extra_data":"0x","base_fee_per_gas":"0","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions_root":"0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1","withdrawals_root":"0x792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535","blob_gas_used":"0","excess_blob_gas":"0"},"execution_branch":["0x4c2357282d7a60cd85fdaa5f99ed86a2f17b96a78dc96319f50294d126bc6b25","0xb46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb","0x6dd3b9955d892d92338b19976fd07084bfe88a76c3063482b7f30ee60feb2a58","0xf1e7a2005a0aed4a11c742d11be1495304cb4a295813db2574d6c49392875741"]},"sync_aggregate":{"sync_committee_bits":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","sync_committee_signature":"0xabbc9eb7d17622110d3e5cd95512a1098c87865e8d1461850c72074b5b27c194fcd0b675df142057ebaba35510352ad802daddafe328256224fd294733c332287cddbffdf2b0d31f9fccd9ea6b845b4f270700ebf7aa25659b485d806ee1d5cf"},"signature_slot":"11"}}]
     }
   },
   {
@@ -3905,7 +3612,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -3917,7 +3624,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -3965,7 +3672,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "committee_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
     }
   },
   {
@@ -4059,9 +3766,8 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "410"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
     }
   },
   {
@@ -4072,7 +3778,7 @@
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}],
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["electra"], "operator": "oneof"}],
       "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
     }
   },
@@ -4137,116 +3843,56 @@
     "response": {"status": {"operator": "equals", "value": "404"}}
   },
   {
+    "topics": ["beacon", "blobs_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blobs/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "body": [{"operator": "jstructcmpns", "start": [],"value": {"execution_optimistic": false, "finalized": false, "data": []}}]
+    }
+  },
+  {
+    "topics": ["beacon", "blobs_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blobs/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "body": [{"operator": "jstructcmpns", "start": [],"value": {"execution_optimistic": false, "finalized": false, "data": []}}]
+    }
+  },
+  {
+    "topics": ["beacon", "blobs_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blobs/invalid_block_id",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "blobs_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blobs/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
     "topics": ["builder", "states_expected_withdrawals"],
     "request": {
       "url": "/eth/v1/builder/states/head/expected_withdrawals",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/genesis/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/finalized/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/justified/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/heat/expected_withdrawals"},
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/genezis/expected_withdrawals"},
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/finalised/expected_withdrawals"},
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/justilied/expected_withdrawals"},
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/0/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/18446744073709551615/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "comment": "Maximum value for uint64",
-    "response": {"status": {"operator": "equals", "value": "404"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {
-      "url": "/eth/v1/builder/states/18446744073709551616/expected_withdrawals",
-      "headers": {"Accept": "application/json"}
-    },
-    "comment": "Overflow uint64 value test",
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/0x/expected_withdrawals"},
-    "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/0x0/expected_withdrawals"},
-    "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/0x00/expected_withdrawals"},
-    "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/0x1/expected_withdrawals"},
-    "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "400"}}
-  },
-  {
-    "topics": ["builder", "states_expected_withdrawals"],
-    "request": {"url": "/eth/v1/builder/states/0x11/expected_withdrawals"},
-    "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "400"}}
+    "response": {"status": {"operator": "equals", "value": "410"}}
   },
   {
     "topics": ["config"],
@@ -4269,7 +3915,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"MAX_COMMITTEES_PER_SLOT":"","TARGET_COMMITTEE_SIZE":"","MAX_VALIDATORS_PER_COMMITTEE":"","SHUFFLE_ROUND_COUNT":"","HYSTERESIS_QUOTIENT":"","HYSTERESIS_DOWNWARD_MULTIPLIER":"","HYSTERESIS_UPWARD_MULTIPLIER":"","MIN_DEPOSIT_AMOUNT":"","MAX_EFFECTIVE_BALANCE":"","EFFECTIVE_BALANCE_INCREMENT":"","MIN_ATTESTATION_INCLUSION_DELAY":"","SLOTS_PER_EPOCH":"","MIN_SEED_LOOKAHEAD":"","MAX_SEED_LOOKAHEAD":"","EPOCHS_PER_ETH1_VOTING_PERIOD":"","SLOTS_PER_HISTORICAL_ROOT":"","MIN_EPOCHS_TO_INACTIVITY_PENALTY":"","EPOCHS_PER_HISTORICAL_VECTOR":"","EPOCHS_PER_SLASHINGS_VECTOR":"","HISTORICAL_ROOTS_LIMIT":"","VALIDATOR_REGISTRY_LIMIT":"","BASE_REWARD_FACTOR":"","WHISTLEBLOWER_REWARD_QUOTIENT":"","PROPOSER_REWARD_QUOTIENT":"","INACTIVITY_PENALTY_QUOTIENT":"","MIN_SLASHING_PENALTY_QUOTIENT":"","PROPORTIONAL_SLASHING_MULTIPLIER":"","MAX_PROPOSER_SLASHINGS":"","MAX_ATTESTER_SLASHINGS":"","MAX_ATTESTATIONS":"","MAX_DEPOSITS":"","MAX_VOLUNTARY_EXITS":"","INACTIVITY_PENALTY_QUOTIENT_ALTAIR":"","MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR":"","PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR":"","SYNC_COMMITTEE_SIZE":"","EPOCHS_PER_SYNC_COMMITTEE_PERIOD":"","MIN_SYNC_COMMITTEE_PARTICIPANTS":"","UPDATE_TIMEOUT":"","INACTIVITY_PENALTY_QUOTIENT_BELLATRIX":"","MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX":"","PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX":"","MAX_BYTES_PER_TRANSACTION":"","MAX_TRANSACTIONS_PER_PAYLOAD":"","BYTES_PER_LOGS_BLOOM":"","MAX_EXTRA_DATA_BYTES":"","MAX_BLS_TO_EXECUTION_CHANGES":"","MAX_WITHDRAWALS_PER_PAYLOAD":"","MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP":"","FIELD_ELEMENTS_PER_BLOB":"","MAX_BLOB_COMMITMENTS_PER_BLOCK":"","KZG_COMMITMENT_INCLUSION_PROOF_DEPTH":"","PRESET_BASE":"","CONFIG_NAME":"","TERMINAL_TOTAL_DIFFICULTY":"","TERMINAL_BLOCK_HASH":"","TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH":"","MIN_GENESIS_ACTIVE_VALIDATOR_COUNT":"","MIN_GENESIS_TIME":"","GENESIS_FORK_VERSION":"","GENESIS_DELAY":"","ALTAIR_FORK_VERSION":"","ALTAIR_FORK_EPOCH":"","BELLATRIX_FORK_VERSION":"","BELLATRIX_FORK_EPOCH":"","CAPELLA_FORK_VERSION":"","CAPELLA_FORK_EPOCH":"","DENEB_FORK_VERSION":"","DENEB_FORK_EPOCH":"","ELECTRA_FORK_VERSION":"","ELECTRA_FORK_EPOCH":"","FULU_FORK_VERSION":"","FULU_FORK_EPOCH":"","SECONDS_PER_SLOT":"","SLOT_DURATION_MS":"","SECONDS_PER_ETH1_BLOCK":"","MIN_VALIDATOR_WITHDRAWABILITY_DELAY":"","SHARD_COMMITTEE_PERIOD":"","ETH1_FOLLOW_DISTANCE":"","INACTIVITY_SCORE_BIAS":"","INACTIVITY_SCORE_RECOVERY_RATE":"","EJECTION_BALANCE":"","MIN_PER_EPOCH_CHURN_LIMIT":"","CHURN_LIMIT_QUOTIENT":"","MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT":"","PROPOSER_SCORE_BOOST":"","REORG_HEAD_WEIGHT_THRESHOLD":"","REORG_PARENT_WEIGHT_THRESHOLD":"","REORG_MAX_EPOCHS_SINCE_FINALIZATION":"","DEPOSIT_CHAIN_ID":"","DEPOSIT_NETWORK_ID":"","DEPOSIT_CONTRACT_ADDRESS":"","MAX_PAYLOAD_SIZE":"","MAX_REQUEST_BLOCKS":"","EPOCHS_PER_SUBNET_SUBSCRIPTION":"","MIN_EPOCHS_FOR_BLOCK_REQUESTS":"","ATTESTATION_PROPAGATION_SLOT_RANGE":"","MAXIMUM_GOSSIP_CLOCK_DISPARITY":"","MESSAGE_DOMAIN_INVALID_SNAPPY":"","MESSAGE_DOMAIN_VALID_SNAPPY":"","SUBNETS_PER_NODE":"","ATTESTATION_SUBNET_COUNT":"","ATTESTATION_SUBNET_EXTRA_BITS":"","ATTESTATION_SUBNET_PREFIX_BITS":"","MAX_REQUEST_BLOCKS_DENEB":"","MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS":"","BLOB_SIDECAR_SUBNET_COUNT":"","MAX_BLOBS_PER_BLOCK":"","MAX_REQUEST_BLOB_SIDECARS":"","MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA":"","MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT":"","BLOB_SIDECAR_SUBNET_COUNT_ELECTRA":"","MAX_BLOBS_PER_BLOCK_ELECTRA":"","MAX_REQUEST_BLOB_SIDECARS_ELECTRA":"","NUMBER_OF_COLUMNS":"","NUMBER_OF_CUSTODY_GROUPS":"","DATA_COLUMN_SIDECAR_SUBNET_COUNT":"","MAX_REQUEST_DATA_COLUMN_SIDECARS":"","SAMPLES_PER_SLOT":"","CUSTODY_REQUIREMENT":"","VALIDATOR_CUSTODY_REQUIREMENT":"","BALANCE_PER_ADDITIONAL_CUSTODY_GROUP":"","BLOB_SCHEDULE": [{"EPOCH": "*", "MAX_BLOBS_PER_BLOCK": "*"}],"MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS":"","BLS_WITHDRAWAL_PREFIX":"","ETH1_ADDRESS_WITHDRAWAL_PREFIX":"","DOMAIN_BEACON_PROPOSER":"","DOMAIN_BEACON_ATTESTER":"","DOMAIN_RANDAO":"","DOMAIN_DEPOSIT":"","DOMAIN_VOLUNTARY_EXIT":"","DOMAIN_SELECTION_PROOF":"","DOMAIN_AGGREGATE_AND_PROOF":"","TIMELY_SOURCE_FLAG_INDEX":"","TIMELY_TARGET_FLAG_INDEX":"","TIMELY_HEAD_FLAG_INDEX":"","TIMELY_SOURCE_WEIGHT":"","TIMELY_TARGET_WEIGHT":"","TIMELY_HEAD_WEIGHT":"","SYNC_REWARD_WEIGHT":"","PROPOSER_WEIGHT":"","WEIGHT_DENOMINATOR":"","DOMAIN_SYNC_COMMITTEE":"","DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF":"","DOMAIN_CONTRIBUTION_AND_PROOF":"","DOMAIN_BLS_TO_EXECUTION_CHANGE":"","TARGET_AGGREGATORS_PER_COMMITTEE":"","TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE":"","SYNC_COMMITTEE_SUBNET_COUNT":"","UNSET_DEPOSIT_REQUESTS_START_INDEX":"","FULL_EXIT_REQUEST_AMOUNT":"","COMPOUNDING_WITHDRAWAL_PREFIX":"","DEPOSIT_REQUEST_TYPE":"","WITHDRAWAL_REQUEST_TYPE":"","CONSOLIDATION_REQUEST_TYPE":"","MIN_ACTIVATION_BALANCE":"","MAX_EFFECTIVE_BALANCE_ELECTRA":"","MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA":"","WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA":"","PENDING_DEPOSITS_LIMIT":"","PENDING_PARTIAL_WITHDRAWALS_LIMIT":"","PENDING_CONSOLIDATIONS_LIMIT":"","MAX_ATTESTER_SLASHINGS_ELECTRA":"","MAX_ATTESTATIONS_ELECTRA":"","MAX_DEPOSIT_REQUESTS_PER_PAYLOAD":"","MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD":"","MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD":"","MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP":"","MAX_PENDING_DEPOSITS_PER_EPOCH":""}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"MAX_COMMITTEES_PER_SLOT":"","TARGET_COMMITTEE_SIZE":"","MAX_VALIDATORS_PER_COMMITTEE":"","SHUFFLE_ROUND_COUNT":"","HYSTERESIS_QUOTIENT":"","HYSTERESIS_DOWNWARD_MULTIPLIER":"","HYSTERESIS_UPWARD_MULTIPLIER":"","MIN_DEPOSIT_AMOUNT":"","MAX_EFFECTIVE_BALANCE":"","EFFECTIVE_BALANCE_INCREMENT":"","MIN_ATTESTATION_INCLUSION_DELAY":"","SLOTS_PER_EPOCH":"","MIN_SEED_LOOKAHEAD":"","MAX_SEED_LOOKAHEAD":"","EPOCHS_PER_ETH1_VOTING_PERIOD":"","SLOTS_PER_HISTORICAL_ROOT":"","MIN_EPOCHS_TO_INACTIVITY_PENALTY":"","EPOCHS_PER_HISTORICAL_VECTOR":"","EPOCHS_PER_SLASHINGS_VECTOR":"","HISTORICAL_ROOTS_LIMIT":"","VALIDATOR_REGISTRY_LIMIT":"","BASE_REWARD_FACTOR":"","WHISTLEBLOWER_REWARD_QUOTIENT":"","PROPOSER_REWARD_QUOTIENT":"","INACTIVITY_PENALTY_QUOTIENT":"","MIN_SLASHING_PENALTY_QUOTIENT":"","PROPORTIONAL_SLASHING_MULTIPLIER":"","MAX_PROPOSER_SLASHINGS":"","MAX_ATTESTER_SLASHINGS":"","MAX_ATTESTATIONS":"","MAX_DEPOSITS":"","MAX_VOLUNTARY_EXITS":"","INACTIVITY_PENALTY_QUOTIENT_ALTAIR":"","MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR":"","PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR":"","SYNC_COMMITTEE_SIZE":"","EPOCHS_PER_SYNC_COMMITTEE_PERIOD":"","MIN_SYNC_COMMITTEE_PARTICIPANTS":"","UPDATE_TIMEOUT":"","INACTIVITY_PENALTY_QUOTIENT_BELLATRIX":"","MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX":"","PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX":"","MAX_BYTES_PER_TRANSACTION":"","MAX_TRANSACTIONS_PER_PAYLOAD":"","BYTES_PER_LOGS_BLOOM":"","MAX_EXTRA_DATA_BYTES":"","MAX_BLS_TO_EXECUTION_CHANGES":"","MAX_WITHDRAWALS_PER_PAYLOAD":"","MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP":"","FIELD_ELEMENTS_PER_BLOB":"","MAX_BLOB_COMMITMENTS_PER_BLOCK":"","KZG_COMMITMENT_INCLUSION_PROOF_DEPTH":"","PRESET_BASE":"","CONFIG_NAME":"","TERMINAL_TOTAL_DIFFICULTY":"","TERMINAL_BLOCK_HASH":"","TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH":"","MIN_GENESIS_ACTIVE_VALIDATOR_COUNT":"","MIN_GENESIS_TIME":"","GENESIS_FORK_VERSION":"","GENESIS_DELAY":"","ALTAIR_FORK_VERSION":"","ALTAIR_FORK_EPOCH":"","BELLATRIX_FORK_VERSION":"","BELLATRIX_FORK_EPOCH":"","CAPELLA_FORK_VERSION":"","CAPELLA_FORK_EPOCH":"","DENEB_FORK_VERSION":"","DENEB_FORK_EPOCH":"","ELECTRA_FORK_VERSION":"","ELECTRA_FORK_EPOCH":"","FULU_FORK_VERSION":"","FULU_FORK_EPOCH":"","GLOAS_FORK_VERSION":"","GLOAS_FORK_EPOCH":"","SECONDS_PER_SLOT":"","SLOT_DURATION_MS":"","SECONDS_PER_ETH1_BLOCK":"","MIN_VALIDATOR_WITHDRAWABILITY_DELAY":"","SHARD_COMMITTEE_PERIOD":"","ETH1_FOLLOW_DISTANCE":"","PROPOSER_REORG_CUTOFF_BPS":"","ATTESTATION_DUE_BPS":"","AGGREGATE_DUE_BPS":"","SYNC_MESSAGE_DUE_BPS":"","CONTRIBUTION_DUE_BPS":"","ATTESTATION_DUE_BPS_GLOAS":"","AGGREGATE_DUE_BPS_GLOAS":"","SYNC_MESSAGE_DUE_BPS_GLOAS":"","CONTRIBUTION_DUE_BPS_GLOAS":"","PAYLOAD_ATTESTATION_DUE_BPS":"","INACTIVITY_SCORE_BIAS":"","INACTIVITY_SCORE_RECOVERY_RATE":"","EJECTION_BALANCE":"","MIN_PER_EPOCH_CHURN_LIMIT":"","CHURN_LIMIT_QUOTIENT":"","MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT":"","PROPOSER_SCORE_BOOST":"","REORG_HEAD_WEIGHT_THRESHOLD":"","REORG_PARENT_WEIGHT_THRESHOLD":"","REORG_MAX_EPOCHS_SINCE_FINALIZATION":"","DEPOSIT_CHAIN_ID":"","DEPOSIT_NETWORK_ID":"","DEPOSIT_CONTRACT_ADDRESS":"","MAX_PAYLOAD_SIZE":"","MAX_REQUEST_BLOCKS":"","EPOCHS_PER_SUBNET_SUBSCRIPTION":"","MIN_EPOCHS_FOR_BLOCK_REQUESTS":"","ATTESTATION_PROPAGATION_SLOT_RANGE":"","MAXIMUM_GOSSIP_CLOCK_DISPARITY":"","MESSAGE_DOMAIN_INVALID_SNAPPY":"","MESSAGE_DOMAIN_VALID_SNAPPY":"","SUBNETS_PER_NODE":"","ATTESTATION_SUBNET_COUNT":"","ATTESTATION_SUBNET_EXTRA_BITS":"","ATTESTATION_SUBNET_PREFIX_BITS":"","MAX_REQUEST_BLOCKS_DENEB":"","MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS":"","BLOB_SIDECAR_SUBNET_COUNT":"","MAX_BLOBS_PER_BLOCK":"","MAX_REQUEST_BLOB_SIDECARS":"","MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA":"","MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT":"","BLOB_SIDECAR_SUBNET_COUNT_ELECTRA":"","MAX_BLOBS_PER_BLOCK_ELECTRA":"","MAX_REQUEST_BLOB_SIDECARS_ELECTRA":"","NUMBER_OF_COLUMNS":"","NUMBER_OF_CUSTODY_GROUPS":"","DATA_COLUMN_SIDECAR_SUBNET_COUNT":"","MAX_REQUEST_DATA_COLUMN_SIDECARS":"","SAMPLES_PER_SLOT":"","CUSTODY_REQUIREMENT":"","VALIDATOR_CUSTODY_REQUIREMENT":"","BALANCE_PER_ADDITIONAL_CUSTODY_GROUP":"","BLOB_SCHEDULE": [{"EPOCH": "*", "MAX_BLOBS_PER_BLOCK": "*"}],"MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS":"","CONFIRMATION_BYZANTINE_THRESHOLD":"","BLS_WITHDRAWAL_PREFIX":"","ETH1_ADDRESS_WITHDRAWAL_PREFIX":"","DOMAIN_BEACON_PROPOSER":"","DOMAIN_BEACON_ATTESTER":"","DOMAIN_RANDAO":"","DOMAIN_DEPOSIT":"","DOMAIN_VOLUNTARY_EXIT":"","DOMAIN_SELECTION_PROOF":"","DOMAIN_AGGREGATE_AND_PROOF":"","TIMELY_SOURCE_FLAG_INDEX":"","TIMELY_TARGET_FLAG_INDEX":"","TIMELY_HEAD_FLAG_INDEX":"","TIMELY_SOURCE_WEIGHT":"","TIMELY_TARGET_WEIGHT":"","TIMELY_HEAD_WEIGHT":"","SYNC_REWARD_WEIGHT":"","PROPOSER_WEIGHT":"","WEIGHT_DENOMINATOR":"","DOMAIN_SYNC_COMMITTEE":"","DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF":"","DOMAIN_CONTRIBUTION_AND_PROOF":"","DOMAIN_BLS_TO_EXECUTION_CHANGE":"","DOMAIN_BEACON_BUILDER": "","DOMAIN_PROPOSER_PREFERENCES":"","DOMAIN_PTC_ATTESTER":"","TARGET_AGGREGATORS_PER_COMMITTEE":"","TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE":"","SYNC_COMMITTEE_SUBNET_COUNT":"","UNSET_DEPOSIT_REQUESTS_START_INDEX":"","FULL_EXIT_REQUEST_AMOUNT":"","COMPOUNDING_WITHDRAWAL_PREFIX":"","DEPOSIT_REQUEST_TYPE":"","WITHDRAWAL_REQUEST_TYPE":"","CONSOLIDATION_REQUEST_TYPE":"","MIN_ACTIVATION_BALANCE":"","MAX_EFFECTIVE_BALANCE_ELECTRA":"","MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA":"","WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA":"","PENDING_DEPOSITS_LIMIT":"","PENDING_PARTIAL_WITHDRAWALS_LIMIT":"","PENDING_CONSOLIDATIONS_LIMIT":"","MAX_ATTESTER_SLASHINGS_ELECTRA":"","MAX_ATTESTATIONS_ELECTRA":"","MAX_DEPOSIT_REQUESTS_PER_PAYLOAD":"","MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD":"","MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD":"","MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP":"","MAX_PENDING_DEPOSITS_PER_EPOCH":"","KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH":"","FIELD_ELEMENTS_PER_CELL":"","FIELD_ELEMENTS_PER_EXT_BLOB":"","CELLS_PER_EXT_BLOB":"","PTC_SIZE":"","MAX_PAYLOAD_ATTESTATIONS":"","BUILDER_REGISTRY_LIMIT":"","BUILDER_PENDING_WITHDRAWALS_LIMIT":"","MAX_BUILDERS_PER_WITHDRAWALS_SWEEP":""}}]
     }
   },
   {
@@ -4552,7 +4198,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot": "", "sync_distance": "", "is_syncing": false, "is_optimistic": false}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot":"","sync_distance":"","is_syncing":false,"is_optimistic":false,"el_offline":true}}]
     }
   },
   {
@@ -4765,43 +4411,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "410"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-    {
-    "topics": ["validator", "aggregate_attestation"],
-    "request": {
-      "url": "/eth/v1/validator/aggregate_attestation?slot=0",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["validator", "aggregate_attestation"],
-    "request": {
-      "url": "/eth/v1/validator/aggregate_attestation?slot=&attestation_data_root=",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "400"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
-    }
-  },
-  {
-    "topics": ["validator", "aggregate_attestation"],
-    "request": {
-      "url": "/eth/v1/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]}
+      "body": [{"operator": "jstructcmpns", "value": {"code": 410, "message": ""}}]
     }
   },
   {

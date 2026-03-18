@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,7 @@ import
   "."/[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
-  ssz_serialization/[merkleization, proofs],
+  ssz_serialization/[merkleization, proofs, bitseqs],
   ssz_serialization/types as sszTypes,
   ../digest,
   kzg4844/[kzg, kzg_abi]
@@ -41,20 +41,12 @@ export json_serialization, base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
-  FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
+  FIELD_ELEMENTS_PER_EXT_BLOB = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
   # Number of field elements in a Reed-Solomon extended blob |
-  FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
-  BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
-  # The number of bytes in a cell |
-  CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
+  BYTES_PER_CELL* = kzg_abi.FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#preset
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
-  NUMBER_OF_COLUMNS* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
@@ -75,8 +67,8 @@ type
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
-  Coset* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
-  CosetEvals* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
+  Coset* = array[kzg_abi.FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
+  CosetEvals* = array[kzg_abi.FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   Cell* = KzgCell
   Cells* = KzgCells
   CellsAndProofs* = KzgCellsAndKzgProofs
@@ -117,6 +109,24 @@ type
   DataColumnsByRootIdentifier* = object
     block_root*: Eth2Digest
     indices*: DataColumnIndices
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/c02a3a764d9b9cfe74f701493e08aa8291f40dfe/specs/fulu/p2p-interface.md#partial-columns
+  PartialDataColumnSidecar* = object
+    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_proofs*: deneb.KzgProofs
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  PartialDataColumnPartsMetadat* = object
+    available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnheader
+  PartialDataColumnHeader* = object
+    kzg_commitments*: KzgCommitments
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitments_inclusion_proof*:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object

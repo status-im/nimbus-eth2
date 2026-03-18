@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2025 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2026 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -49,7 +49,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,electra-fork-epoch:,fulu-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:"
 
 # default values
 BINARIES=""
@@ -60,7 +60,6 @@ USE_HTOP="1"
 USE_PAYLOAD_BUILDER="false"
 : ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
 : ${PAYLOAD_BUILDER_PORT:=4888}
-LIGHTHOUSE_VC_NODES="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
@@ -88,9 +87,9 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
 LC_NODES=1
-ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
+RUN_SPAMOOR="0"
 : ${DL_NIMBUS_ETH1:="0"}
 : ${DL_NIMBUS_ETH2:="0"}
 
@@ -99,8 +98,8 @@ DL_GETH="0"
 : ${NIMBUS_ETH2_REVISION:=6c0d756d}
 
 : ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
-: ${ELECTRA_FORK_EPOCH:=0}
-: ${FULU_FORK_EPOCH:=100000}
+: ${FULU_FORK_EPOCH:=1}
+: ${GLOAS_FORK_EPOCH:=100000}
 
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
@@ -144,7 +143,6 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               (by default validators are split 50/50 between beacon nodes
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
-  --lighthouse-vc-nodes       number of Lighthouse VC nodes (assigned before Nimbus VC nodes, default: ${LIGHTHOUSE_VC_NODES})
   --log-level                 set the log level (default: "${LOG_LEVEL}")
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
@@ -159,6 +157,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --light-clients             number of light clients
   --run-nimbus-eth1           Run nimbush-eth1 as EL
   --run-geth                  Run geth EL clients
+  --run-spamoor               Run spamoor for EL clients
   --dl-geth                   Download geth binary if not found
   --dl-nimbus-eth2            Download Nimbus CL binary
   --verbose                   Verbose output
@@ -207,12 +206,12 @@ while true; do
       CONST_PRESET="$2"
       shift 2
       ;;
-    --electra-fork-epoch)
-      ELECTRA_FORK_EPOCH="$2"
-      shift 2
-      ;;
     --fulu-fork-epoch)
       FULU_FORK_EPOCH="$2"
+      shift 2
+      ;;
+    --gloas-fork-epoch)
+      GLOAS_FORK_EPOCH="$2"
       shift 2
       ;;
     --stop-at-epoch)
@@ -313,10 +312,6 @@ while true; do
       USE_VC="0"
       LC_NODES="0"
       ;;
-    --lighthouse-vc-nodes)
-      LIGHTHOUSE_VC_NODES="$2"
-      shift 2
-      ;;
     --light-clients)
       LC_NODES="$2"
       shift 2
@@ -339,6 +334,10 @@ while true; do
       ;;
     --dl-nimbus-eth1)
       DL_NIMBUS_ETH1="1"
+      shift
+      ;;
+    --run-spamoor)
+      RUN_SPAMOOR="1"
       shift
       ;;
     --verbose)
@@ -375,11 +374,6 @@ fi
 
 rm -rf "${DATA_DIR}/pids/*"
 mkdir -p "${DATA_DIR}/pids" "${DATA_DIR}/logs"
-
-if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
-  echo "The prebuilt Lighthouse binary we're using only supports mainnet. Aborting."
-  exit 1
-fi
 
 scripts/makedir.sh "${DATA_DIR}"
 echo x > "${DATA_DIR}/keymanager-token"
@@ -451,6 +445,13 @@ fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
   . ./scripts/nimbus_el_vars.sh
+fi
+
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  source "${SCRIPTS_DIR}/spamoor_binaries.sh"
+
+  download_spamoor_stable
+  SPAMOOR_BINARY="$STABLE_SPAMOOR_BINARY"
 fi
 
 # kill lingering processes from a previous run
@@ -535,11 +536,8 @@ download_nimbus_eth1() {
       linux-arm64|linux-aarch64)
         NIMBUS_ETH1_PLATFORM=Linux_arm64v8
         ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_ETH1_PLATFORM=macOS_arm64
-        ;;
       macos-arm64|macos-aarch64)
-        NIMBUS_ETH1_PLATFORM=macOS_amd64
+        NIMBUS_ETH1_PLATFORM=macOS_arm64
         ;;
       windows-amd64|windows-x86_64)
         NIMBUS_ETH1_PLATFORM=Windows_amd64
@@ -581,9 +579,6 @@ download_nimbus_eth2() {
       linux-arm64|linux-aarch64)
         NIMBUS_PLATFORM=Linux_arm64v8
         ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_PLATFORM=macOS_amd64
-        ;;
       macos-arm64|macos-aarch64)
         NIMBUS_PLATFORM=macOS_arm64
         ;;
@@ -610,37 +605,6 @@ download_nimbus_eth2() {
     REUSE_BINARIES=1
   fi
 }
-
-# Download the Lighthouse binary.
-LH_VERSION="2.1.3"
-LH_ARCH="${ARCH}"
-if [[ "${LH_ARCH}" == "arm64" ]]; then
-  LH_ARCH="aarch64"
-fi
-
-case "${OS}" in
-  linux)
-    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-unknown-linux-gnu-portable.tar.gz"
-    ;;
-  macos)
-    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-apple-darwin-portable.tar.gz"
-    ;;
-  windows)
-    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-windows-portable.tar.gz"
-    ;;
-esac
-LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH_TARBALL}"
-LH_BINARY="lighthouse-${LH_VERSION}${EXE_EXTENSION}"
-
-if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
-  echo "Downloading Lighthouse binary"
-  pushd "build" >/dev/null
-  "${CURL_BINARY}" -sSLO "${LH_URL}"
-  tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
-  rm lighthouse-* # deletes both the tarball and old binary versions
-  mv "lighthouse$EXE_EXTENSION" "${LH_BINARY}"
-  popd >/dev/null
-fi
 
 BINARIES="ncli_testnet"
 
@@ -713,11 +677,6 @@ cleanup() {
   # Avoid the trap enterring an infinite loop
   trap - SIGINT SIGTERM EXIT
 
-  PKILL_ECHO_FLAG='-e'
-  if [[ "${OS}" == "macos" ]]; then
-    PKILL_ECHO_FLAG='-l'
-  fi
-
   PIDS_TO_KILL=$(find "${DATA_DIR}/pids" -type f -exec cat {} \+ 2>/dev/null)
 
   echo Terminating processes...
@@ -729,14 +688,14 @@ cleanup() {
 
   echo Killing processes...
   for PID in $PIDS_TO_KILL; do
-    kill -SIGKILL $PID 2>/dev/null || true
+    kill -SIGKILL "${PID}" 2>/dev/null || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
   # local testnet.
   if [[ "${REUSE_BINARIES}" == "0" ]]; then
     for BINARY in ${BINARIES}; do
-      rm -f build/${BINARY}
+      rm -f "build/${BINARY}"
     done
   fi
 
@@ -784,11 +743,9 @@ NUM_JOBS=${NUM_NODES}
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
-CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
 
 CONTAINER_BOOTSTRAP_NETWORK_KEYFILE="bootstrap_network_key.json"
 DIRECTPEER_NETWORK_KEYFILE="directpeer_network_key.json"
-
 
 BOOTSTRAP_NODE=1
 DIRECTPEER_NODE=2
@@ -804,7 +761,7 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
     --out-deposits-file="${DEPOSITS_FILE}" \
-    --threshold=${REMOTE_SIGNER_THRESHOLD} \
+    --threshold="${REMOTE_SIGNER_THRESHOLD}" \
     --remote-validators-count="${REMOTE_VALIDATORS_COUNT}" \
     ${REMOTE_URLS}
 fi
@@ -812,8 +769,8 @@ fi
 GENESIS_OFFSET=60  # See `Scheduling first slot action` > `startTime`
 NOW_UNIX_TIMESTAMP=$(date +%s)
 GENESIS_TIME=$((NOW_UNIX_TIMESTAMP + GENESIS_OFFSET))
-PRAGUE_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * ELECTRA_FORK_EPOCH))
 OSAKA_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * FULU_FORK_EPOCH))
+AMSTERDAM_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * GLOAS_FORK_EPOCH))
 
 EXECUTION_GENESIS_JSON="${DATA_DIR}/execution_genesis.json"
 EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
@@ -822,7 +779,7 @@ EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
 #      currently hard-codes some merkle branches that won't match the random deposits generated
 #      by this simulation. This doesn't happen to produce problems only by accident. If we enable
 #      the `deposit_root` safety-checks in the deposit downloader, it will detect the discrepancy.
-sed "s/SHANGHAI_FORK_TIME/${GENESIS_TIME}/g; s/CANCUN_FORK_TIME/${GENESIS_TIME}/g; s/PRAGUE_FORK_TIME/${PRAGUE_FORK_TIME}/g; s/OSAKA_FORK_TIME/${OSAKA_FORK_TIME}/g" \
+sed "s/SHANGHAI_FORK_TIME/${GENESIS_TIME}/g; s/CANCUN_FORK_TIME/${GENESIS_TIME}/g; s/PRAGUE_FORK_TIME/${GENESIS_TIME}/g; s/OSAKA_FORK_TIME/${OSAKA_FORK_TIME}/g; s/AMSTERDAM_FORK_TIME/${AMSTERDAM_FORK_TIME}/g" \
   "${SCRIPTS_DIR}/execution_genesis.json.template" > "$EXECUTION_GENESIS_JSON"
 
 DEPOSIT_CONTRACT_ADDRESS="0x4242424242424242424242424242424242424242"
@@ -872,6 +829,15 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  if [[ ! -e "${SPAMOOR_BINARY}" ]]; then
+    echo "Missing spamoor executable"
+    exit 1
+  fi
+
+  source "./scripts/start_spamoor.sh"
+fi
+
 for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
@@ -891,7 +857,9 @@ done
   --genesis-time=$GENESIS_TIME \
   --capella-fork-epoch=0 \
   --deneb-fork-epoch=0 \
-  --electra-fork-epoch="${ELECTRA_FORK_EPOCH}" \
+  --electra-fork-epoch=0 \
+  --fulu-fork-epoch="${FULU_FORK_EPOCH}" \
+  --gloas-fork-epoch="${GLOAS_FORK_EPOCH}" \
   --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
 
 DIRECTPEER_ENR=$(
@@ -919,23 +887,16 @@ MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
-ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
 CAPELLA_FORK_EPOCH: 0
 DENEB_FORK_EPOCH: 0
-ELECTRA_FORK_EPOCH: ${ELECTRA_FORK_EPOCH}
+ELECTRA_FORK_EPOCH: 0
 FULU_FORK_EPOCH: ${FULU_FORK_EPOCH}
-TERMINAL_TOTAL_DIFFICULTY: 0
+GLOAS_FORK_EPOCH: ${GLOAS_FORK_EPOCH}
 EOF
 
 echo $DEPOSIT_CONTRACT_BLOCK > "${DATA_DIR}/deposit_contract_block.txt"
-
-if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
-  # I don't know what this is, but Lighthouse wants it, so we recreate it from
-  # Lighthouse's own local testnet.
-  echo $DEPOSIT_CONTRACT_BLOCK > "${DATA_DIR}/deploy_block.txt"
-fi
 
 dump_logs() {
   LOG_LINES=50
@@ -973,6 +934,10 @@ if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
   NUM_JOBS=$(( NUM_JOBS + NIMBUS_ETH1_NUM_NODES ))
 fi
 
+if [[ "${RUN_SPAMOOR}" == "1" ]]; then
+  NUM_JOBS=$(( NUM_JOBS + 1 ))
+fi
+
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
 VALIDATOR_OFFSET=$(( SYSTEM_VALIDATORS / 2 ))
 
@@ -986,7 +951,7 @@ CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node
 #./build/ncli_testnet sendDeposits \
 #  --deposits-file="$DEPOSITS_FILE" \
 #  --min-delay=$MIN_DEPOSIT_SENDING_DELAY --max-delay=$MAX_DEPOSIT_SENDING_DELAY \
-#  --web3-url="$MAIN_WEB3_URL" \
+#  --el="$MAIN_WEB3_URL" \
 #  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS > "$DATA_DIR/log_deposit_maker.txt" 2>&1 &
 
 for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
@@ -1094,11 +1059,11 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
 
   WEB3_ARG=()
   if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODE - 1 ))]}")
+    WEB3_ARG+=("--el=http://127.0.0.1:${NIMBUS_ETH1_AUTH_RPC_PORTS[$(( NUM_NODE - 1 ))]}")
   fi
 
   if [ "${RUN_GETH}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$((NUM_NODE - 1))]}")
+    WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$((NUM_NODE - 1))]}")
   fi
 
   if [ ${#WEB3_ARG[@]} -eq 0 ]; then # check if the array is empty
@@ -1126,7 +1091,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     --light-client-data-serve=on \
     --light-client-data-import-mode=full \
     --light-client-data-max-periods=999999 \
-    ${STOP_AT_EPOCH_FLAG} \
+    "${STOP_AT_EPOCH_FLAG}" \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
@@ -1139,42 +1104,21 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   echo $PID > "$DATA_DIR/pids/nimbus_beacon_node.${NUM_NODE}"
 
   if [[ "${USE_VC}" == "1" ]]; then
-    if [[ "${LIGHTHOUSE_VC_NODES}" -ge "${NUM_NODE}" ]]; then
-      # Lighthouse needs a different keystore filename for its auto-discovery process.
-      for D in "${VALIDATOR_DATA_DIR}/validators"/0x*; do
-        if [[ -e "${D}/keystore.json" ]]; then
-          mv "${D}/keystore.json" "${D}/voting-keystore.json"
-        fi
-      done
-
-      ./build/"${LH_BINARY}" vc \
-        --debug-level "debug" \
-        --logfile-max-number 0 \
-        --log-format "JSON" \
-        --validators-dir "${VALIDATOR_DATA_DIR}" \
-        --secrets-dir "${VALIDATOR_DATA_DIR}/secrets" \
-        --beacon-nodes "http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
-        --testnet-dir "${DATA_DIR}" \
-        --init-slashing-protection \
-        &> "${DATA_DIR}/logs/lighthouse_vc.${NUM_NODE}.txt" &
-      echo $! > "$DATA_DIR/pids/lighthouse_vc.${NUM_NODE}"
-    else
-      ./build/nimbus_validator_client \
-        --log-level="${LOG_LEVEL}" \
-        "${STOP_AT_EPOCH_FLAG}" \
-        --data-dir="${VALIDATOR_DATA_DIR}" \
-        --metrics \
-        --metrics-port=$(( BASE_VC_METRICS_PORT + NUM_NODE - 1 )) \
-        --payload-builder=${USE_PAYLOAD_BUILDER} \
-        ${KEYMANAGER_FLAG} \
-        --keymanager-port=$(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )) \
-        --keymanager-token-file="${DATA_DIR}/keymanager-token" \
-        --beacon-node="http://127.0.0.1:$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
-        &> "${DATA_DIR}/logs/nimbus_validator_client.${NUM_NODE}.jsonl" &
-      PID=$!
-      PIDS_TO_WAIT="${PIDS_TO_WAIT},$PID"
-      echo $PID > "$DATA_DIR/pids/nimbus_validator_client.${NUM_NODE}"
-    fi
+    ./build/nimbus_validator_client \
+      --log-level="${LOG_LEVEL}" \
+      "${STOP_AT_EPOCH_FLAG}" \
+      --data-dir="${VALIDATOR_DATA_DIR}" \
+      --metrics \
+      --metrics-port=$(( BASE_VC_METRICS_PORT + NUM_NODE - 1 )) \
+      --payload-builder=${USE_PAYLOAD_BUILDER} \
+      ${KEYMANAGER_FLAG} \
+      --keymanager-port=$(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )) \
+      --keymanager-token-file="${DATA_DIR}/keymanager-token" \
+      --beacon-node="http://127.0.0.1:$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
+      &> "${DATA_DIR}/logs/nimbus_validator_client.${NUM_NODE}.jsonl" &
+    PID=$!
+    PIDS_TO_WAIT="${PIDS_TO_WAIT},$PID"
+    echo $PID > "$DATA_DIR/pids/nimbus_validator_client.${NUM_NODE}"
   fi
 
   # Wait for the master node to write out its address file
@@ -1227,11 +1171,11 @@ if [ "$LC_NODES" -ge "1" ]; then
 
     WEB3_ARG=()
     if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
+      WEB3_ARG+=("--el=http://127.0.0.1:${NIMBUS_ETH1_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
     if [ "${RUN_GETH}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
+      WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
     ./build/nimbus_light_client \

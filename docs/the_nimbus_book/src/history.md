@@ -35,7 +35,7 @@ To reclaim space, perform a [trusted node sync](./trusted-node-sync.md) using a 
 
 When switching to `archive` mode, the node will start keeping history from the most recent prune point, but will not recreate deep history.
 
-In order to recreate deep history in a pruned node, download the [era archive of deep history](./era-store.md) and [reindex the database](./trusted-node-sync.md#recreate-historical-state-access-indices) — this operation may take several hours.
+In order to recreate deep history in a pruned node, download the [era archive of deep history](./era-store.md) and [reindex the database](./era-store.md#recreate-historical-state-access-indices) — this operation may take several hours.
 
 ## Command line
 

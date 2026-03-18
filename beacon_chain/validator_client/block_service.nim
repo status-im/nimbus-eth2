@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -127,9 +127,10 @@ proc publishBlockV3(
   let
     maybeBlock =
       try:
-        await vc.produceBlockV3(slot, randaoReveal, graffiti,
-                                vc.config.builderBoostFactor,
-                                ApiStrategyKind.Best)
+        await vc.produceBlockV3(
+          slot, randaoReveal, graffiti,
+          vc.config.builderBoostFactor,
+          vc.getMode()[FnKind.produceBlock])
       except ValidatorApiError as exc:
         warn "Unable to retrieve block data", reason = exc.getFailureReason()
         return
@@ -185,13 +186,9 @@ proc publishBlockV3(
         res =
           try:
             debug "Sending blinded block"
-            if vc.isPastElectraFork(slot.epoch()):
-              await vc.publishBlindedBlockV2(
-                signedBlock, BroadcastValidationType.Gossip,
-                ApiStrategyKind.First)
-            else:
-              await vc.publishBlindedBlock(
-                signedBlock, ApiStrategyKind.First)
+            await vc.publishBlindedBlockV2(
+              signedBlock, BroadcastValidationType.Gossip,
+              vc.getMode()[FnKind.publishBlindedBlock])
           except ValidatorApiError as exc:
             warn "Unable to publish blinded block",
                  reason = exc.getFailureReason()
@@ -267,7 +264,7 @@ proc publishBlockV3(
             debug "Sending block"
             await vc.publishBlockV2(
               signedBlockContents, BroadcastValidationType.Gossip,
-              ApiStrategyKind.First)
+              vc.getMode()[FnKind.publishBlock])
           except ValidatorApiError as exc:
             warn "Unable to publish block", reason = exc.getFailureReason()
             return
@@ -598,8 +595,10 @@ proc runBlockPollMonitor(service: BlockServiceRef,
     let
       currentTime = vc.beaconClock.now()
       afterSlot = currentTime.slotOrZero(vc.timeParams)
+      consensusFork = vc.getConsensusFork(vc.forkAtEpoch(afterSlot.epoch))
 
-    if currentTime > afterSlot.attestation_deadline(vc.timeParams):
+    if currentTime > afterSlot.attestation_deadline(
+        vc.timeParams, consensusFork):
       # Attestation time already, lets wait for next slot.
       continue
 
@@ -658,17 +657,33 @@ proc runBlockPollMonitor(service: BlockServiceRef,
       await noCancel allFutures(pending)
       raise exc
 
-proc runBlockMonitor(service: BlockServiceRef) {.
-     async: (raises: [CancelledError]).} =
+proc runBlockMonitor(
+    service: BlockServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+
+  if vc.config.monitoringType == BlockMonitoringType.Disabled:
+    info "Block monitoring disabled"
+    return
+
+  debug "Block monitoring loop is waiting for initialization"
+  try:
+    await allFutures(
+      vc.preGenesisEvent.wait(),
+      vc.forksAvailable.wait()
+    )
+  except CancelledError as exc:
+    debug "Block monitoring loop interrupted"
+    raise exc
+
   let
-    vc = service.client
-    blockNodes = vc.filterNodes(ResolvedBeaconNodeStatuses,
-                                {BeaconNodeRole.BlockProposalData})
+    blockNodes = vc.filterNodes(
+      ResolvedBeaconNodeStatuses, {BeaconNodeRole.BlockProposalData})
+
   let pendingTasks =
     case vc.config.monitoringType
     of BlockMonitoringType.Disabled:
-      debug "Block monitoring disabled"
-      @[Future[void].Raising([CancelledError]).init("block.monitor.disabled")]
+      raiseAssert "Block monitoring must not be disabled"
     of BlockMonitoringType.Poll:
       blockNodes.mapIt(service.runBlockPollMonitor(it))
     of BlockMonitoringType.Event:
@@ -680,6 +695,7 @@ proc runBlockMonitor(service: BlockServiceRef) {.
     let pending =
       pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
+    debug "Block monitoring loop interrupted"
     raise exc
 
 proc mainLoop(service: BlockServiceRef) {.async: (raises: []).} =

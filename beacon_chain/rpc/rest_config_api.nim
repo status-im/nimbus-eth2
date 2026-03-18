@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -210,6 +210,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.FULU_FORK_VERSION,
           FULU_FORK_EPOCH:
             Base10.toString(uint64(cfg.FULU_FORK_EPOCH)),
+          GLOAS_FORK_VERSION:
+            "0x" & $cfg.GLOAS_FORK_VERSION,
+          GLOAS_FORK_EPOCH:
+            Base10.toString(uint64(cfg.GLOAS_FORK_EPOCH)),
 
           SECONDS_PER_SLOT:
             Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),
@@ -223,6 +227,28 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.SHARD_COMMITTEE_PERIOD),
           ETH1_FOLLOW_DISTANCE:
             Base10.toString(cfg.ETH1_FOLLOW_DISTANCE),
+          PROPOSER_REORG_CUTOFF_BPS:
+            Base10.toString(cfg.timeParams.PROPOSER_REORG_CUTOFF_BPS),
+          ATTESTATION_DUE_BPS:
+            Base10.toString(cfg.timeParams.ATTESTATION_DUE_BPS),
+          AGGREGATE_DUE_BPS:
+            Base10.toString(cfg.timeParams.AGGREGATE_DUE_BPS),
+
+          SYNC_MESSAGE_DUE_BPS:
+            Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS),
+          CONTRIBUTION_DUE_BPS:
+            Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS),
+
+          ATTESTATION_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS),
+          AGGREGATE_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS),
+          SYNC_MESSAGE_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS),
+          CONTRIBUTION_DUE_BPS_GLOAS:
+            Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS),
+          PAYLOAD_ATTESTATION_DUE_BPS:
+            Base10.toString(cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS),
 
           INACTIVITY_SCORE_BIAS:
             Base10.toString(cfg.INACTIVITY_SCORE_BIAS),
@@ -301,25 +327,29 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(cfg.NUMBER_OF_COLUMNS.uint64),
+            Base10.toString(NUMBER_OF_COLUMNS.uint64),
           NUMBER_OF_CUSTODY_GROUPS:
-            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS.uint64),
+            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
+            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT),
           MAX_REQUEST_DATA_COLUMN_SIDECARS:
             Base10.toString(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS),
           SAMPLES_PER_SLOT:
-            Base10.toString(cfg.SAMPLES_PER_SLOT.uint64),
+            Base10.toString(cfg.SAMPLES_PER_SLOT),
           CUSTODY_REQUIREMENT:
-            Base10.toString(cfg.CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.CUSTODY_REQUIREMENT),
           VALIDATOR_CUSTODY_REQUIREMENT:
-            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
-            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP.uint64),
+            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
           BLOB_SCHEDULE:
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
-            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS.uint64),
+            Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
+
+          CONFIRMATION_BYZANTINE_THRESHOLD:
+            Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
@@ -378,6 +408,14 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_BLS_TO_EXECUTION_CHANGE:
             to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE.data),
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#domains
+          DOMAIN_BEACON_BUILDER:
+            to0xHex(DOMAIN_BEACON_BUILDER.data),
+          DOMAIN_PROPOSER_PREFERENCES:
+            to0xHex(DOMAIN_PROPOSER_PREFERENCES.data),
+          DOMAIN_PTC_ATTESTER:
+            to0xHex(DOMAIN_PTC_ATTESTER.data),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
@@ -404,7 +442,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MIN_ACTIVATION_BALANCE:
             Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
           MAX_EFFECTIVE_BALANCE_ELECTRA:
-            Base10.toString(uint64(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+            Base10.toString(MAX_EFFECTIVE_BALANCE_ELECTRA),
           MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA:
             Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA),
           WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA:
@@ -428,7 +466,27 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)),
           MAX_PENDING_DEPOSITS_PER_EPOCH:
-            Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH))
+            Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH)),
+          KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH:
+            Base10.toString(KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH),
+          FIELD_ELEMENTS_PER_CELL:
+            Base10.toString(FIELD_ELEMENTS_PER_CELL),
+          FIELD_ELEMENTS_PER_EXT_BLOB:
+            Base10.toString(fulu_preset.FIELD_ELEMENTS_PER_EXT_BLOB),
+          CELLS_PER_EXT_BLOB:
+            Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#constants
+          PTC_SIZE:
+            Base10.toString(uint64(PTC_SIZE)),
+          MAX_PAYLOAD_ATTESTATIONS:
+            Base10.toString(uint64(MAX_PAYLOAD_ATTESTATIONS)),
+          BUILDER_REGISTRY_LIMIT:
+            Base10.toString(uint64(BUILDER_REGISTRY_LIMIT)),
+          BUILDER_PENDING_WITHDRAWALS_LIMIT:
+            Base10.toString(uint64(BUILDER_PENDING_WITHDRAWALS_LIMIT)),
+          MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
+            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP))
         )
       )
     cachedDepositContract =

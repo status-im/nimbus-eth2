@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -111,11 +111,11 @@ func process_attestation(
 
       if a.data.beacon_block_root == get_block_root_at_slot(state, a.data.slot):
         flags.incl RewardFlags.isPreviousEpochHeadAttester
+  let index = CommitteeIndex.init(a.data.index).expect("valid index in state")
 
   # Update the cache for all participants
-  for validator_index in get_attesting_indices_iter(
-      state, a.data, a.aggregation_bits, cache):
-    template v(): untyped = info.validators[validator_index]
+  for vidx in state.get_attesting_indices(a.data.slot, index, a.aggregation_bits, cache):
+    template v(): untyped = info.validators[vidx]
 
     v.flags = v.flags + flags
 
@@ -673,13 +673,13 @@ func get_flag_index_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
-    info: altair.EpochInfo | bellatrix.BeaconState,
+    info: altair.EpochInfo,
     flag_index: TimelyFlag): uint64 =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_active_increments*(
-    info: altair.EpochInfo | bellatrix.BeaconState): uint64 =
+    info: altair.EpochInfo): uint64 =
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
@@ -1199,7 +1199,7 @@ func apply_pending_deposit(
       pubkey: deposit.pubkey,
       withdrawal_credentials: deposit.withdrawal_credentials,
       amount: deposit.amount, signature: deposit.signature)
-    if verify_deposit_signature(cfg, deposit_data):
+    if verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit_data):
       ? add_validator_to_registry(state, deposit_data, deposit_data.amount)
   else:
     # Increase balance
@@ -1371,7 +1371,7 @@ func get_builder_payment_quorum_threshold(state: gloas.BeaconState, cache: var S
     get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
   uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
 func process_builder_pending_payments*(
     cfg: RuntimeConfig, state: var gloas.BeaconState, cache: var StateCache):
     Result[void, cstring] =
@@ -1381,11 +1381,7 @@ func process_builder_pending_payments*(
   for index in 0 ..< min(
       state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
     var payment = state.builder_pending_payments.mitem(index)
-    if payment.weight.distinctBase > quorum:
-      let exit_queue_epoch = compute_exit_epoch_and_update_churn(
-        cfg, state, payment.withdrawal.amount, cache)
-      payment.withdrawal.withdrawable_epoch =
-        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    if payment.weight.distinctBase >= quorum:
       if not state.builder_pending_withdrawals.add(payment.withdrawal):
         return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
 
@@ -1601,7 +1597,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1628,6 +1624,7 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   ? process_pending_consolidations(cfg, state)
   process_effective_balance_updates(state)
   process_slashings_reset(state)
@@ -1636,6 +1633,5 @@ proc process_epoch*(
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
   ? process_proposer_lookahead(state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
 
   ok()

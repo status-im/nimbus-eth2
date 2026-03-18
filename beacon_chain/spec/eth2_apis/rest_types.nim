@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,10 +56,12 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
+    Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate
+    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
+    ExecutionPayloadBid, PayloadAttestationMessage
+
 
   EventTopics* = set[EventTopic]
 
@@ -590,7 +592,10 @@ type
     extra_data*: Opt[RestNodeExtraData]
 
   RestExtraData* = object
-    discard
+    confirmed_root*: Eth2Digest
+    current_epoch_observed_justified_checkpoint*: Checkpoint
+    previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
+    previous_slot_head*, current_slot_head*: Eth2Digest
 
   GetForkChoiceResponse* = object
     justified_checkpoint*: Checkpoint

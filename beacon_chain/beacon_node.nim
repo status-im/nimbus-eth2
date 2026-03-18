@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Everything needed to run a full Beacon Node
 
@@ -17,13 +17,14 @@ import
   metrics, metrics/chronos_httpserver,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf, light_client, version],
+  ./[beacon_clock, beacon_chain_db, conf, light_client, version],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
-  ./el/el_manager,
+  ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    attestation_pool, execution_payload_pool, payload_attestation_pool,
+    sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
@@ -48,13 +49,12 @@ type
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
-    phase0AttestQueue*: AsyncEventQueue[phase0.Attestation]
+    blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     singleAttestQueue*: AsyncEventQueue[SingleAttestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
-    phase0AttSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
-    electraAttSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
+    attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
@@ -65,6 +65,9 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
+    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
     nickname*: string
@@ -83,10 +86,13 @@ type
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
+    executionPayloadBidPool*: ref ExecutionPayloadBidPool
+    payloadAttestationPool*: ref PayloadAttestationPool
     elManager*: ELManager
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
@@ -94,7 +100,6 @@ type
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
-    vcProcess*: Process
     requestManager*: RequestManager
     validatorCustody*: ValidatorCustodyRef
     syncManager*: SyncManager[Peer, PeerId]
@@ -178,3 +183,28 @@ proc getPayloadBuilderClient*(
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
+
+func init*(T: type EventBus): T =
+  T(
+    headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+    blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+    blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
+    singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
+    exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+    blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+    propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
+    attSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
+    blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+    columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
+    reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+    contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
+    finUpdateQueue: newAsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]](),
+    optUpdateQueue:
+      newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
+    optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
+    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
+    payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
+  )

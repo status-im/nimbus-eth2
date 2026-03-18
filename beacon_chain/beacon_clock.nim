@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,8 @@ import
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from std/times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
+from std/times import
+  Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds, inSeconds
 
 export timer.Duration, Moment, now, beacon_time
 
@@ -40,6 +41,9 @@ proc init*(
     T: type BeaconClock,
     timeParams: TimeParams,
     genesis_time: uint64): Opt[T] =
+  if not timeParams.isValid:
+    return Opt.none(BeaconClock)
+
   let
     MIN_GENESIS_TIME = GENESIS_SLOT * timeParams.SLOT_DURATION.seconds.uint64
     MAX_GENESIS_TIME =
@@ -47,20 +51,18 @@ proc init*(
       # the time can't be outrageously far from now
       getTime().toUnix().uint64 +
       100'u64 * 365'u64 * 24'u64 * 60'u64 * 60'u64
-  if timeParams.SLOT_DURATION notin MIN_SLOT_DURATION .. MAX_SLOT_DURATION or
-      genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
-    Opt.none(BeaconClock)
-  else:
-    let
-      unixGenesis = fromUnix(genesis_time.int64)
-      # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
-      # that offset to genesis instead of applying it at every time conversion
-      unixGenesisOffset = times.seconds(
-        (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
+  if genesis_time notin MIN_GENESIS_TIME .. MAX_GENESIS_TIME:
+    return Opt.none(BeaconClock)
 
-    Opt.some T(
-      timeParams: timeParams,
-      genesis: unixGenesis - unixGenesisOffset)
+  let
+    unixGenesis = fromUnix(genesis_time.int64)
+    # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply
+    # that offset to genesis instead of applying it at every time conversion
+    unixGenesisOffset = fromUnix(
+      (GENESIS_SLOT.int64 * timeParams.SLOT_DURATION).seconds)
+  Opt.some T(
+    timeParams: timeParams,
+    genesis: (unixGenesis - unixGenesisOffset).inSeconds.fromUnix)
 
 func timeParams*(c: BeaconClock): TimeParams =
   c.timeParams  # Readonly

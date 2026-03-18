@@ -49,7 +49,7 @@ See the [execution client guide](./eth1.md) for instructions on how to pick and 
 
 ### 4. Sync from a trusted node
 
-While this step is not mandatory, since Nimbus will automatically start syncing process on the first start, we recommend doing it as it will allow you to get started in **minutes** instead of hours or even days.
+While this step is not mandatory, it can cut down the initial sync time from days to **minutes**.
 
 Follow our [trusted node sync guide](./trusted-node-sync.md).
 
@@ -68,7 +68,7 @@ cd nimbus-eth2
     ```sh
     # Start a mainnet node
     ./run-mainnet-beacon-node.sh \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```
 
@@ -78,14 +78,14 @@ cd nimbus-eth2
     build/nimbus_beacon_node \
         --network=hoodi \
         --data-dir=build/data/shared_hoodi_0 \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```
 
 Once the beacon node starts, you'll see it logging information to the console, like so:
 
 ```sh
-INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      topics="beacnde" version=v22.10.1-97a1cdc4-stateofus ...
+INF 2022-07-19 15:42:58.145+02:00 Launching beacon node       topics="beacnde" version=v22.10.1-97a1cdc4-stateofus ...
 ```
 
 Congratulations!

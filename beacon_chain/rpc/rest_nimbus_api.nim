@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -157,9 +157,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState, finalized_checkpoint)
-      justified =
-        getStateField(node.dag.headState, current_justified_checkpoint)
+      finalized = node.dag.headState.finalized_checkpoint
+      justified = node.dag.headState.current_justified_checkpoint
     RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
@@ -259,10 +258,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestFutureInfo]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
-        let futureId = Base10.toString(item.id)
+        let futureId = Base10.toString(item.internalId)
         let childId =
-          if isNil(item.child): ""
-          else: Base10.toString(item.child.id)
+          if isNil(item.internalChild): ""
+          else: Base10.toString(item.internalChild.internalId)
         res.add(
           RestFutureInfo(
             id: futureId,
@@ -270,7 +269,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
             procname: $loc.procedure,
             filename: $loc.file,
             line: loc.line,
-            state: $item.state
+            state: $item.internalState
           )
         )
       RestApiResponse.jsonResponse(res)

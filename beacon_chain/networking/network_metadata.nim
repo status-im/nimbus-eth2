@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/os,
+  std/[os, uri],
   stew/byteutils, stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
@@ -64,7 +64,7 @@ type
     of BakedIn:
       networkName*: string
     of BakedInUrl:
-      url*: string
+      url*: Uri
       digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
@@ -153,6 +153,8 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
+    runtimeConfig.checkForkConsistency()
+
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -160,7 +162,7 @@ proc loadEth2NetworkMetadata*(
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
+                          url: parseUri downloadGenesisFrom.get.url,
                           digest: downloadGenesisFrom.get.digest)
         elif useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
@@ -242,9 +244,12 @@ when IsGnosisSupported:
     for network in [gnosisMetadata, chiadoMetadata]:
       checkForkConsistency(network.cfg)
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
+      doAssert network.cfg.BLOB_SCHEDULE.len == 0
+
+    doAssert gnosisMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert chiadoMetadata.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
 
 elif IsMainnetSupported:
   when incbinEnabled:
@@ -316,17 +321,11 @@ elif IsMainnetSupported:
         digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    for network in [
-        mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
+    doAssert ConsensusFork.high == ConsensusFork.Gloas
+    for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Gloas
-
-    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert mainnetMetadata.cfg.BLOB_SCHEDULE.len == 0
-
-    for network in [sepoliaMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =

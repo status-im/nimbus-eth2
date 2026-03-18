@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,6 +36,8 @@ const
     "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
+  UnsupportedForkError* =
+    "Slot is from an unsupported fork"
   InvalidAttestationObjectError* =
     "Unable to decode attestation object(s)"
   AttestationValidationError* =
@@ -109,6 +111,8 @@ const
     "Invalid state identifier value"
   InvalidBlockIdValueError* =
     "Invalid block identifier value"
+  InvalidVersionedHashError* =
+    "Invalid versioned hash value"
   InvalidValidatorIdValueError* =
     "Invalid validator identifier value(s)"
   NonUniqueValidatorIdError* =
@@ -213,6 +217,8 @@ const
     "Missing `start_period` value"
   MissingCountValueError* =
     "Missing `count` value"
+  EnvelopeNotFoundError* =
+    "Envelope data has not been found"
   LCBootstrapUnavailable* =
     "LC bootstrap unavailable"
   LCFinUpdateUnavailable* =
@@ -235,6 +241,13 @@ const
   DeprecatedRemovalValidatorBlocksV2* =
     "v2/validator/blocks/{slot} was deprecated, removed, and replaced " &
     "by produceBlockV3: https://github.com/ethereum/beacon-APIs/pull/466"
+  DeprecatedRemovalElectra* =
+    "v1/beacon/deposit_snapshot, /eth/v1/beacon/blocks/{block_id}/attestations," &
+    "v1/beacon/pool/attestations, v1/beacon/pool/attester_slashings, " &
+    "v1/validator/aggregate_attestation, v1/validator/aggregate_and_proofs, " &
+    "v1/beacon/blocks, v1/beacon/blinded_blocks, and " &
+    "v1/builder/states/{state_id}/expected_withdrawals have been removed: " &
+    "https://github.com/ethereum/beacon-APIs/pull/549"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =

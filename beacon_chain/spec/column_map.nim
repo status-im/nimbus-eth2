@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,8 +43,12 @@ func excl*(a: var ColumnMap, column: ColumnIndex) =
   a.data[index].clearBit(offset)
 
 func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
+  ## NOTE: `columns` array's content should be checked before running this
+  ## function. Function will assert if `ColumnIndex >= NUMBER_OF_COLUMNS`.
   var res: ColumnMap
   for column in columns:
+    if uint64(column) >= NUMBER_OF_COLUMNS:
+      raiseAssert "Incorrect column index, " & $uint64(column)
     let (index, offset) = column.getPos()
     res.data[index].setBit(offset)
   res
@@ -60,6 +64,9 @@ func `xor`*(a, b: ColumnMap): ColumnMap =
 
 func `not`*(a: ColumnMap): ColumnMap =
   ColumnMap(data: [not(a.data[0]), not(a.data[1])])
+
+func `==`*(a, b: ColumnMap): bool =
+  (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
 
 func empty*(a: ColumnMap): bool =
   (a.data[0] == 0'u64) and (a.data[1] == 0'u64)
@@ -84,6 +91,12 @@ iterator items*(a: ColumnMap): ColumnIndex =
       res = firstOne(data1)
     yield ColumnIndex(64 + res - 1)
     data1 = data1 xor t
+
+iterator pairs*(a: ColumnMap): (int, ColumnIndex) =
+  var index = 0
+  for item in a.items():
+    yield (index, item)
+    inc(index)
 
 func len*(a: ColumnMap): int =
   # Returns number of columns in map.
