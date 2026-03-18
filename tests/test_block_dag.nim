@@ -471,6 +471,41 @@ suite "get_ancestor_support_by_slot":
       res[^1].total_support == 0.Gwei
       res[^1].total_adversarial == 0.Gwei
 
+  test "Balance source, all validator states":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      chain = makeFullChain(current_slot)
+      backend = makeBackend(@[
+        makeEquivocation(), makeEquivocation(),
+        makeEquivocation(), makeEquivocation()])
+      balances = get_fork_choice_balances([
+        Validator(
+          effective_balance: 10.Gwei, slashed: false,
+          activation_epoch: 0.Epoch, exit_epoch: FAR_FUTURE_EPOCH),
+        Validator(
+          effective_balance: 20.Gwei, slashed: false,
+          activation_epoch: 3.Epoch, exit_epoch: FAR_FUTURE_EPOCH),
+        Validator(
+          effective_balance: 30.Gwei, slashed: true,
+          activation_epoch: 0.Epoch, exit_epoch: FAR_FUTURE_EPOCH),
+        Validator(
+          effective_balance: 40.Gwei, slashed: true,
+          activation_epoch: 3.Epoch, exit_epoch: FAR_FUTURE_EPOCH)],
+        2.Epoch)
+      balance_source = makeBalanceSource(
+        @[balances[0].withAssignedSlots(3.Epoch.start_slot + 1),
+          balances[1].withAssignedSlots(3.Epoch.start_slot + 1),
+          balances[2].withAssignedSlots(3.Epoch.start_slot + 1),
+          balances[3].withAssignedSlots(3.Epoch.start_slot + 1)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - (3.Epoch.start_slot + 1)].adversarial == 40.Gwei
+      res[^1].total_adversarial == 40.Gwei
+
   test "Equivocating, single slot in range":
     let
       current_slot = 3.Epoch.start_slot + 3
@@ -705,6 +740,97 @@ suite "get_ancestor_support_by_slot":
       res[current_slot - 3.Epoch.start_slot].total_support == 10.Gwei
       res[^1].total_support == 10.Gwei
 
+  test "Gap in chain, vote from later epoch":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      gap_slot = 2.Epoch.start_slot + 1
+      vote_slot = 3.Epoch.start_slot + 2
+      chain = makeChain(
+        toSeq(0.Slot .. 2.Epoch.start_slot) &
+        toSeq(gap_slot + 1 .. current_slot))
+      backend = makeBackend(@[
+        makeVote(chain[distinctBase(2.Epoch.start_slot)].bid.root, vote_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(gap_slot, vote_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - gap_slot].support == 10.Gwei
+      res[current_slot - vote_slot].support == 0.Gwei
+      res[current_slot - gap_slot].total_support == 10.Gwei
+      res[^1].total_support == 10.Gwei
+
+  test "Gap in chain, vote from earlier epoch":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      gap_slot = 3.Epoch.start_slot
+      vote_slot = 2.Epoch.start_slot + 1
+      chain = makeChain(
+        toSeq(0.Slot .. vote_slot) &
+        toSeq(gap_slot + 1 .. current_slot))
+      backend = makeBackend(@[
+        makeVote(chain[distinctBase(vote_slot)].bid.root, vote_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(gap_slot, vote_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - gap_slot].support == 10.Gwei
+      res[current_slot - vote_slot].support == 0.Gwei
+      res[current_slot - gap_slot].total_support == 10.Gwei
+      res[^1].total_support == 10.Gwei
+
+  test "Gap in chain, vote in both epochs":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      gap_slot = 3.Epoch.start_slot + 1
+      prev_vote_slot = 2.Epoch.start_slot + 4
+      parent_slot = 2.Epoch.start_slot + 2
+      chain = makeChain(
+        toSeq(0.Slot .. parent_slot) &
+        toSeq(gap_slot + 1 .. current_slot))
+      backend = makeBackend(@[
+        makeVote(chain[distinctBase(parent_slot)].bid.root, gap_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(prev_vote_slot, gap_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - gap_slot].support == 10.Gwei
+      res[current_slot - prev_vote_slot].support == 0.Gwei
+      res[current_slot - gap_slot].total_support == 10.Gwei
+      res[^1].total_support == 10.Gwei
+
+  test "Stale view, vote from later epoch":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      stale_slot = 2.Epoch.start_slot + 4
+      vote_slot = 3.Epoch.start_slot + 2
+      chain = makeFullChain(current_slot)
+      backend = makeBackend(@[
+        makeVote(chain[distinctBase(stale_slot)].bid.root, vote_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(stale_slot, vote_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], chain[0].bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - stale_slot].support == 10.Gwei
+      res[current_slot - vote_slot].support == 0.Gwei
+      res[current_slot - stale_slot].total_support == 10.Gwei
+      res[^1].total_support == 10.Gwei
+
   test "Stale view, no assigned slot at stale block":
     let
       current_slot = 3.Epoch.start_slot + 3
@@ -722,6 +848,25 @@ suite "get_ancestor_support_by_slot":
     check:
       res.lenu64 == current_slot - prev_epoch_start + 2
       res[current_slot - stale_slot].total_support == 10.Gwei
+
+  test "Vote at terminal slot, duty in gap":
+    let
+      current_slot = 3.Epoch.start_slot + 3
+      prev_epoch_start = 2.Epoch.start_slot
+      terminal_slot = 1.Epoch.start_slot + 2
+      gap_slot = 2.Epoch.start_slot + 4
+      chain = makeChain(toSeq(0.Slot .. terminal_slot) & @[current_slot])
+      terminal_bid = chain[distinctBase(terminal_slot)].bid
+      backend = makeBackend(@[makeVote(terminal_bid.root, terminal_slot)])
+      balance_source = makeBalanceSource(
+        @[makeBalance(10.Gwei).withAssignedSlots(terminal_slot, gap_slot)],
+        3.Epoch)
+      res = backend.get_ancestor_support_by_slot(
+        balance_source, chain[^1], terminal_bid, current_slot)
+    check:
+      res.lenu64 == current_slot - prev_epoch_start + 2
+      res[current_slot - gap_slot].support == 10.Gwei
+      res[^1].total_support == 10.Gwei
 
   test "Running totals verification":
     let

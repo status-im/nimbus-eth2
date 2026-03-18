@@ -1251,6 +1251,7 @@ AllTests-mainnet
 ```
 ## get_ancestor_support_by_slot
 ```diff
++ Balance source, all validator states                                                       OK
 + Basic support                                                                              OK
 + Early epochs                                                                               OK
 + Early epochs with 3 shufflings                                                             OK
@@ -1262,6 +1263,9 @@ AllTests-mainnet
 + Equivocating, last block before previous epoch                                             OK
 + Equivocating, single slot in range                                                         OK
 + Gap in chain                                                                               OK
++ Gap in chain, vote from earlier epoch                                                      OK
++ Gap in chain, vote from later epoch                                                        OK
++ Gap in chain, vote in both epochs                                                          OK
 + Mixed validators                                                                           OK
 + No match                                                                                   OK
 + Non-canonical, deep fork                                                                   OK
@@ -1272,6 +1276,8 @@ AllTests-mainnet
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
 + Stale view, no assigned slot at stale block                                                OK
++ Stale view, vote from later epoch                                                          OK
++ Vote at terminal slot, duty in gap                                                         OK
 + Votes outside range                                                                        OK
 + assign_shufflings dst longer than src                                                      OK
 + assign_shufflings replaces duties                                                          OK
