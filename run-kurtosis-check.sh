@@ -38,7 +38,7 @@ if command -v kurtosis &> /dev/null; then
   echo "Kurtosis installation found"
 else
   echo "Kurtosis installation not found. Installing kurtosis"
-  echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+  echo "deb [trusted=yes] https://sdk.kurtosis.com/kurtosis-cli-release-artifacts/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
   sudo apt-get update
   sudo apt-get install -y kurtosis
 fi
