@@ -11,13 +11,9 @@
 import
   std/sequtils,
   unittest2,
-  ../beacon_chain/consensus_object_pools/block_dag,
+  ../beacon_chain/consensus_object_pools/[
+    block_dag, blockchain_dag, spec_cache],
   ../beacon_chain/fork_choice/fast_confirmation
-
-from ../beacon_chain/consensus_object_pools/blockchain_dag import
-  ForkChoiceBalance, SlashedBit
-
-from ../beacon_chain/spec/datatypes/phase0 import BeaconState
 
 func `$`(x: BlockRef): string = shortLog(x)
 
