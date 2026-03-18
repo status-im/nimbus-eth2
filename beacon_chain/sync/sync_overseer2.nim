@@ -10,7 +10,7 @@ import std/[sequtils, strutils, sets, algorithm]
 import chronos, chronicles, results
 import
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network, peerdas_helpers, column_map],
+  ../spec/[helpers, forks, network, column_map],
   ../networking/[peer_pool, eth2_network],
   ../consensus_object_pools/[consensus_manager, block_pools_types,
       blockchain_dag, block_quarantine, blob_quarantine],
@@ -86,9 +86,8 @@ func shortLog(cols: Opt[seq[ref fulu.DataColumnSidecar]]): string =
     $len(cols.get())
 
 func slimLog(blobs: openArray[ref BlobSidecar]): string =
-  "[" & blobs.mapIt(
-    "(" & $it[].signed_block_header.message.slot &
-      "/" & $it[].index & ")").join(",") & "]"
+  "[" & blobs.mapIt($it[].signed_block_header.message.slot &
+     "/" & $it[].index).join(",") & "]"
 
 func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
   var slot = FAR_FUTURE_SLOT
@@ -178,7 +177,7 @@ func decreaseBlocksCount(blocksCount: var int) =
     return
   blocksCount = blocksCount div 2
 
-func getColumnsDistribution(
+proc getColumnsDistribution(
     overseer: SyncOverseerRef2
 ): (string, string, string, string) =
   var
@@ -189,9 +188,7 @@ func getColumnsDistribution(
   let custodyMap = overseer.columnQuarantine[].custodyMap
 
   for entry in overseer.sdag.peers.values():
-    if entry.columnsMap.isNone():
-      continue
-    let intersection = (custodyMap and entry.columnsMap.get())
+    let intersection = (custodyMap and entry.peer.getColumnMapOrDefault())
     if len(intersection) == 0:
       inc(useless)
     else:
@@ -334,27 +331,6 @@ proc shouldGetColumns(overseer: SyncOverseerRef2, slot: Slot): bool =
     return false
   slot.epoch() >= overseer.getColumnsHorizon()
 
-proc getPeerColumnMap(
-    overseer: SyncOverseerRef2,
-    peer: Peer
-): ColumnMap =
-  let
-    cfg = overseer.consensusManager.dag.cfg
-    nodeId = peer.fetchNodeIdFromPeerId()
-    custodyGroupCount = peer.lookupCgcFromPeer()
-  ColumnMap.init(cfg.get_custody_groups(nodeId, custodyGroupCount))
-
-proc getPeerColumnMap(
-    overseer: SyncOverseerRef2,
-    peerEntry: PeerEntryRef
-): ColumnMap =
-  if peerEntry.columnsMap.isNone():
-    let map = overseer.getPeerColumnMap(peerEntry.peer)
-    peerEntry.columnsMap = Opt.some(map)
-    map
-  else:
-    peerEntry.columnsMap.get()
-
 proc checkDataAvailable(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -483,7 +459,7 @@ proc createQueues(
     consensusForkAtEpoch(dag.cfg, epoch)
 
   proc peerMap(peer: Peer): ColumnMap =
-    overseer.getPeerColumnMap(peer)
+    peer.getColumnMapOrDefault()
 
   func missingMap(blockRoot: Eth2Digest): ColumnMap =
     overseer.columnQuarantine[].getMissingColumnsMap(blockRoot)
@@ -767,13 +743,7 @@ proc initPeer(
     overseer: SyncOverseerRef2,
     peer: Peer,
 ): PeerEntryRef[Peer] =
-  let dag = overseer.consensusManager.dag
-  if dag.head.slot.epoch >= dag.cfg.FULU_FORK_EPOCH:
-    let map = overseer.getPeerColumnMap(peer)
-    overseer.sdag.peers.mgetOrPut(
-      peer.getKey(), PeerEntryRef.init(peer, map))
-  else:
-    overseer.sdag.peers.mgetOrPut(peer.getKey(), PeerEntryRef.init(peer))
+  overseer.sdag.peers.mgetOrPut(peer.getKey(), PeerEntryRef.init(peer))
 
 proc updatePeerStatus(overseer: SyncOverseerRef2, peer: Peer) =
   let
@@ -1454,7 +1424,7 @@ proc doPeerUpdateRootsSidecars(
             break
       elif consensusFork == ConsensusFork.Fulu:
         let
-          peerMap = overseer.getPeerColumnMap(peerEntry)
+          peerMap = peer.getColumnMapOrDefault()
           request =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               DataColumnsByRootIdentifier()
@@ -1574,107 +1544,119 @@ proc doPeerUpdateRootsSidecars(
   ##
   ## Data column sidecars processing.
   ##
-  if len(columnRoots) > 0:
-    logScope:
-      head = shortLog(dag.head)
-      roots = shortLog(columnRoots)
-      roots_count = columnsCount
-      peer_map = shortLog(overseer.getPeerColumnMap(peerEntry))
-      data_type = "columns"
+  if len(columnRoots) == 0:
+    debug "No pending data column sidecars available for peer",
+      peer_map = shortLog(peer.getColumnMapOrDefault())
+    return true
 
-    debug "Requesting data column sidecars by root from peer"
+  logScope:
+    head = shortLog(dag.head)
+    roots = shortLog(columnRoots)
+    roots_count = columnsCount
+    data_type = "columns"
 
-    defer:
-      # Preemptively cleanup blocks range on exit
-      cleanupList(emptyColumnBlocks)
+  debug "Requesting data column sidecars by root from peer"
 
-    let
-      consensusFork = ConsensusFork.Fulu
-        # This `consensusFork` is only used for request sidecars amount
-        # adjustments.
-      columnSidecars =
-        (await dataColumnSidecarsByRoot(peer,
-          DataColumnsByRootIdentifierList columnRoots)).valueOr:
-            debug "Data columns by root request failed", reason = error
-            peer.updateScore(PeerScoreNoValues)
-            return false
+  defer:
+    # Preemptively cleanup blocks range on exit
+    cleanupList(emptyColumnBlocks)
 
-    debug "Received data column sidecars by root on request",
-      columns_count = len(columnSidecars),
-      columns = slimLog(columnSidecars.asSeq())
+  let
+    consensusFork = ConsensusFork.Fulu
+      # This `consensusFork` is only used for request sidecars amount
+      # adjustments.
+    columnSidecars =
+      (await dataColumnSidecarsByRoot(peer,
+        DataColumnsByRootIdentifierList columnRoots)).valueOr:
+          debug "Data columns by root request failed", reason = error
+          peer.updateScore(PeerScoreNoValues)
+          return false
 
-    var
-      records =
-        groupSidecars(
-          columnRoots, columnsCount, columnSidecars.asSeq()).valueOr:
-            debug "Response to data columns by root is incorrect",
-              columns = slimLog(columnSidecars.asSeq()),
-              columns_count = len(columnSidecars), reason = error
-            peer.updateScore(PeerScoreBadResponse)
-            return false
+  debug "Received data column sidecars by root on request",
+    columns_count = len(columnSidecars),
+    columns = slimLog(columnSidecars.asSeq())
 
-    defer:
-      # Preemptively cleanup sidecar records list on exit
-      cleanupRecordsList(records)
+  var
+    records =
+      groupSidecars(
+        columnRoots, columnsCount, columnSidecars.asSeq()).valueOr:
+          debug "Response to data columns by root is incorrect",
+            columns = slimLog(columnSidecars.asSeq()),
+            columns_count = len(columnSidecars), reason = error
+          peer.updateScore(PeerScoreBadResponse)
+          return false
 
-    for record in records:
-      overseer.columnQuarantine[].put(record.block_root, record.sidecar)
+  defer:
+    # Preemptively cleanup sidecar records list on exit
+    cleanupRecordsList(records)
 
-    if len(records) == 0:
-      peer.updateScore(PeerScoreNoValues)
-      debug "Empty response received for root request",
-        columns = slimLog(columnSidecars.asSeq()),
-        columns_count = len(columnSidecars)
-      return true
+  for record in records:
+    overseer.columnQuarantine[].put(record.block_root, record.sidecar)
 
-    if len(records) < columnsCount:
-      # Number of received sidecars is less than number of requested.
-      peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
-    else:
-      overseer.increaseSidecarsCount(
-        peerEntry.maxSidecarsPerRequest, consensusFork)
+  if len(records) == 0:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request",
+      columns = slimLog(columnSidecars.asSeq()),
+      columns_count = len(columnSidecars)
+    return true
 
-    debug "Processing blocks and sidecars by root",
-      blocks = slimLog(emptyColumnBlocks)
+  if len(records) < columnsCount:
+    # Number of received sidecars is less than number of requested.
+    peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
+  else:
+    overseer.increaseSidecarsCount(
+      peerEntry.maxSidecarsPerRequest, consensusFork)
 
-    for signedBlock in emptyColumnBlocks:
-      debug "Processing single block and sidecars by root",
-        blck = slimLog(signedBlock)
-      withBlck(signedBlock[]):
-        when consensusFork == ConsensusFork.Fulu:
-          let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
-          if not(isNil(entry)) and (DagEntryFlag.MissingSidecars in entry.flags):
-            let res = await overseer.verifyBlock(signedBlock, false)
-            if res.isErr():
-              debug "Block and sidecars by root processor response",
-                reason = res.error, blck = slimLog(signedBlock)
-              case res.error
-              of VerifierError.Invalid:
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                peer.updateScore(PeerScoreBadResponse)
-                overseer.rblockBuffer.remove(forkyBlck.root)
-                return false
-              of VerifierError.UnviableFork:
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                peer.updateScore(PeerScoreUnviableFork)
-                entry.flags.incl(DagEntryFlag.Unviable)
-                overseer.rblockBuffer.remove(forkyBlck.root)
-                return false
-              of VerifierError.MissingParent, VerifierError.Duplicate:
-                # This flags means that we have sidecars.
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                overseer.rblockBuffer.remove(forkyBlck.root)
-              of VerifierError.MissingSidecars:
-                # We still missing sidecars.
-                discard
-            else:
-              debug "Block and sidecars by root processor response",
-                reason = "ok", blck = slimLog(signedBlock)
+  # Peer provided at least some sidecars, so we award it with reward.
+  peer.updateScore(PeerScoreGoodValues)
+
+  debug "Processing blocks and sidecars by root",
+    blocks = slimLog(emptyColumnBlocks)
+
+  for signedBlock in emptyColumnBlocks:
+    debug "Processing single block and sidecars by root",
+      blck = slimLog(signedBlock)
+    withBlck(signedBlock[]):
+      when consensusFork == ConsensusFork.Fulu:
+        let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
+        if not(isNil(entry)):
+          let res = await overseer.verifyBlock(signedBlock, false)
+          if res.isErr():
+            debug "Block and sidecars by root processor response",
+              reason = res.error, blck = slimLog(signedBlock)
+            case res.error
+            of VerifierError.Invalid:
+              # TODO (cheatfate): This part should remove all references to
+              # specific block and it sidecars, so syncer should download
+              # block and all the sidecars again.
+              entry.flags.incl(
+                {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
+              entry.parent = nil
               overseer.rblockBuffer.remove(forkyBlck.root)
-              peer.updateScore(PeerScoreGoodValues)
+              overseer.columnQuarantine[].remove(forkyBlck.root)
+              # We add this block's root into global missing root table, so
+              # all other peers will try to re-download it again.
+              overseer.missingRoots.incl(forkyBlck.root)
+              return false
+            of VerifierError.UnviableFork:
+              # TODO (cheatfate): Think about this part!
               entry.flags.excl(DagEntryFlag.MissingSidecars)
-        else:
-          raiseAssert "Should not be happen!"
+              entry.flags.incl(DagEntryFlag.Unviable)
+              overseer.rblockBuffer.remove(forkyBlck.root)
+              return false
+            of VerifierError.MissingParent, VerifierError.Duplicate:
+              # This flags means that we have sidecars.
+              entry.flags.excl(DagEntryFlag.MissingSidecars)
+            of VerifierError.MissingSidecars:
+              # We still missing sidecars.
+              discard
+          else:
+            debug "Block and sidecars by root processor response",
+              reason = "ok", blck = slimLog(signedBlock)
+            overseer.rblockBuffer.remove(forkyBlck.root)
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+      else:
+        raiseAssert "Should not be happen!"
   true
 
 proc doRangeSyncStep(
@@ -1789,11 +1771,6 @@ proc doRangeSidecarsStep(
   let
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
-    peerEntry =
-      block:
-        let res = overseer.sdag.peers.getOrDefault(peer.getKey())
-        if isNil(res): return false
-        res
 
   block:
     let
@@ -1968,7 +1945,7 @@ proc doRangeSidecarsStep(
 
         let
           custodyMap = overseer.columnQuarantine[].custodyMap
-          peerMap = overseer.getPeerColumnMap(peerEntry)
+          peerMap = peer.getColumnMapOrDefault()
           intersectMap = custodyMap and peerMap
 
         defer:
@@ -2093,15 +2070,15 @@ proc doRangeSidecarsStep(
             overseer.ssqueue(direction).push(request)
             return false
 
+          for record in grouped:
+            overseer.columnQuarantine[].put(record.block_root, record.sidecar)
+
           if (len(blocks) == 0) and (len(grouped) > 0):
             # Case when we have no blocks, but a lot of blobs.
             debug "Received columns range which do not have corresponding " &
                   "blocks range"
             overseer.ssqueue(direction).push(request)
             return false
-
-          for record in grouped:
-            overseer.columnQuarantine[].put(record.block_root, record.sidecar)
 
         else:
           debug "Sidecars are already downloaded",
@@ -2588,9 +2565,8 @@ proc gossipMonitoringLoop(
         else:
           shortLog(event.src)
 
-      debug "Got block from gossip event", block_root = blockId.root,
-        block_slot = blockId.slot, peer = peerLog,
-        fork = consensusFork, missing_sidecars = missingSidecars
+      debug "Got block from gossip event", bid = shortLog(blockId),
+        peer = peerLog, fork = consensusFork, missing_sidecars = missingSidecars
 
       discard overseer.sdag.roots.mgetOrPut(
         blockId.root, SyncDagEntryRef.init(blockId))
@@ -2745,26 +2721,27 @@ iterator popBlocks(
       yield blck
 
 proc checkBuffer(
-    overseer: SyncOverseerRef2
+    overseer: SyncOverseerRef2,
+    head: BlockId
 ): Future[bool] {.async: (raises: [CancelledError]).} =
-  let
-    dag = overseer.consensusManager.dag
-
   logScope:
     source = "Buffer"
+    local_head = shortLog(head)
 
   var recovery: seq[ref ForkedSignedBeaconBlock]
   defer:
     for blck in recovery:
       overseer.rblockBuffer.add(blck)
 
-  for blck in overseer.rblockBuffer.popBlocks(dag.head.root):
+  for blck in overseer.rblockBuffer.popBlocks(head.root):
     let blockId = BlockId(slot: blck[].slot, root: blck[].root)
-    debug "Processing late block", bid = shortLog(blockId)
+    logScope:
+      bid = shortLog(blockId)
+
+    debug "Processing late block"
     let res = await overseer.verifyBlock(blck[], maybeFinalized = false)
     if res.isErr():
-      debug "Late block processor response", reason = res.error,
-        bid = shortLog(blockId)
+      debug "Late block processor response", reason = res.error
       # In case of error we should recover block in data structure.
       recovery.add(blck)
 
@@ -2773,13 +2750,12 @@ proc checkBuffer(
         let entry = overseer.sdag.roots.getOrDefault(blockId.root)
         if not(isNil(entry)):
           debug "Late block is already known, updating flags",
-            bid = shortLog(blockId), reason = res.error,
+            reason = res.error,
             missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
           entry.flags.incl(DagEntryFlag.MissingSidecars)
           continue
 
-        debug "Late block is not known, adding new entry",
-          bid = shortLog(blockId)
+        debug "Late block is not known, adding new entry"
 
         discard
           overseer.sdag.roots.mgetOrPut(
@@ -2790,8 +2766,7 @@ proc checkBuffer(
           blck[].parent_root,
           sidecarsMissed = true)
     else:
-      debug "Late block processor response", reason = "ok",
-        bid = shortLog(blockId)
+      debug "Late block processor response", reason = "ok"
       # If block was added succesfully block processor will continue
       # process of adding blocks from quarantine.
       return true
@@ -2800,6 +2775,7 @@ proc checkBuffer(
 
 proc checkData(
     overseer: SyncOverseerRef2,
+    head: BlockId,
     src: BlocksSource
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
@@ -2808,6 +2784,7 @@ proc checkData(
 
   logScope:
     source = $src
+    local_head = shortLog(head)
 
   var recovery: seq[ForkedSignedBeaconBlock]
   defer:
@@ -2825,13 +2802,15 @@ proc checkData(
           else:
             raiseAssert "Incorrect block's fork"
 
-  for blck in overseer.popBlocks(src, dag.head.root):
+  for blck in overseer.popBlocks(src, head.root):
     let blockId = BlockId(slot: blck.slot, root: blck.root)
-    debug "Processing late block", bid = shortLog(blockId)
+    logScope:
+      bid = shortLog(blockId)
+
+    debug "Processing late block"
     let res = await overseer.verifyBlock(blck, maybeFinalized = false)
     if res.isErr():
-      debug "Late block processor response", reason = res.error,
-        bid = shortLog(blockId)
+      debug "Late block processor response", reason = res.error
       # In case of error we should recover block in data structure.
       recovery.add(blck)
 
@@ -2839,13 +2818,12 @@ proc checkData(
         let entry = overseer.sdag.roots.getOrDefault(blockId.root)
         if not(isNil(entry)):
           debug "Late block is already known, updating flags",
-            bid = shortLog(blockId), reason = res.error,
+            reason = res.error,
             missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
           entry.flags.incl(DagEntryFlag.MissingSidecars)
           continue
 
-        debug "Late block is not known, adding new entry",
-          bid = shortLog(blockId)
+        debug "Late block is not known, adding new entry"
 
         discard
           overseer.sdag.roots.mgetOrPut(
@@ -2856,8 +2834,7 @@ proc checkData(
           blck.parent_root,
           sidecarsMissed = true)
     else:
-      debug "Late block processor response", reason = "ok",
-        bid = shortLog(blockId)
+      debug "Late block processor response", reason = "ok"
       # If block was added succesfully block processor will continue
       # process of adding blocks from quarantine.
       return true
@@ -2881,19 +2858,22 @@ proc lateBlockMonitoringLoop*(
             wallSlot
           else:
             overseer.lastSeenHead.get.slot
+        head = dag.head.bid
 
       if syncedSlot <= dag.head.slot:
         await sleepAsync(5.seconds)
         continue
 
       debug "Check for late blocks", synced_slot = syncedSlot,
-        head_slot = dag.head.slot, distance = syncedSlot - dag.head.slot
+        head = shortLog(head), distance = syncedSlot - dag.head.slot
 
-      if not(await overseer.checkBuffer()):
+      if not(await overseer.checkBuffer(head)):
         debug "No ancestor blocks from buffer found for current head"
-        if not(await overseer.checkData(BlocksSource.OrphansQuarantine)):
+        if not(await overseer.checkData(
+          head, BlocksSource.OrphansQuarantine)):
           debug "No ancestor orphan blocks found for current head"
-          if not(await overseer.checkData(BlocksSource.SidecarlessQuarantine)):
+          if not(await overseer.checkData(
+            head, BlocksSource.SidecarlessQuarantine)):
             debug "No ancestor sidecarless blocks found for current head"
 
       await sleepAsync(5.seconds)

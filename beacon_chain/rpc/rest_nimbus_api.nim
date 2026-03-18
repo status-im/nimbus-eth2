@@ -654,3 +654,17 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res =
         "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/sync/queues") do (
+    ) -> RestApiResponse:
+    let res = "{\"data\": {" &
+      "\"forward_blocks_queue\":" &
+        node.syncOverseer.fqueue.debugJsonDump() & "," &
+      "\"forward_sidecars_queue\":" &
+        node.syncOverseer.fsqueue.debugJsonDump() & "," &
+      "\"backward_blocks_queue\":" &
+        node.syncOverseer.bqueue.debugJsonDump() & "," &
+      "\"backward_sidecars_queue\":" &
+        node.syncOverseer.bsqueue.debugJsonDump() & "," &
+    "}"
+    RestApiResponse.response(res, Http200, "application/json")

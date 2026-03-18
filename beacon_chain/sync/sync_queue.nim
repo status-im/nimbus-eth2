@@ -68,6 +68,7 @@ type
     data*: SyncRange
     flags*: set[SyncRequestFlag]
     reason*: SyncRequestReason
+    createMoment*: chronos.Moment
     item*: T
 
   SyncQueueItem[M, N] = object
@@ -153,6 +154,13 @@ chronicles.expandIt SyncRequest:
   `it` = shortLog(it)
   peer = shortLog(it.item)
   direction = toLowerAscii($it.kind)
+
+func shortLog(s: set[SyncRequestFlag]): string =
+  var res = "["
+  if SyncRequestFlag.Void in s:
+    res.add("void")
+  res.add("]")
+  res
 
 func shortLog(data: BlockCompleteness): string =
   if data.done:
@@ -317,10 +325,16 @@ func getShortMap*[T](
     map: ColumnMap,
     data: openArray[ref fulu.DataColumnSidecar]
 ): string =
+  # Provides short map of columns where
+  # `+` means that all requested columns for the block was received
+  # `O` means that excessive amount of columns for the block was received
+  # `1-f` means (number of requested columns) - ord(`1-f`) being received
+  # `-` some amount of requested columns being received but it was
+  # less than (number of requested columns) - 15.
   let
     alphabet =
-      "123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/#-"
-    unknown = "…"
+      "0123456789abcdef"
+    maplen = len(map)
 
   var
     res = newStringOfCap(req.data.count)
@@ -340,10 +354,14 @@ func getShortMap*[T](
       if counter == 0:
         res.add('.')
       else:
-        if counter < 66:
-          res.add(alphabet[counter - 1])
+        if counter == maplen:
+          res.add('+')
+        elif counter > maplen:
+          res.add('O')
+        elif (maplen - counter) < 16:
+          res.add(alphabet[maplen - counter])
         else:
-          res.add(unknown)
+          res.add('-')
     else:
       res.add('.')
     slider = slider + 1
@@ -462,7 +480,7 @@ func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
           sblck: BlockId): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(sblck), code: SyncProcessError.init(ve))
 
-func init*[T](
+proc init*[T](
     t: typedesc[SyncRequest],
     kind: SyncQueueKind,
     item: T,
@@ -472,10 +490,11 @@ func init*[T](
     kind: kind,
     data: SyncRange(slot: FAR_FUTURE_SLOT, count: 0'u64),
     item: item,
-    reason: reason
+    reason: reason,
+    createMoment: Moment.now()
   )
 
-func init*[M, N](
+proc init*[M, N](
     t: typedesc[SyncRequest],
     sq: SyncQueue[M, N],
     kind: SyncQueueKind,
@@ -486,7 +505,8 @@ func init*[M, N](
     kind: kind,
     data: data,
     item: item,
-    id: sq.getId()
+    id: sq.getId(),
+    createMoment: Moment.now()
   )
 
 func init[M, BlockCompleteness](
@@ -1517,6 +1537,14 @@ proc total*[M, N](sq: SyncQueue[M, N]): uint64 {.inline.} =
     else:
       0'u64
 
+proc getCompleteness*[M, N](
+    sq: SyncQueue[M, N],
+    sr: SyncRequest[M]
+): Opt[ColumnCompleteness] =
+  let position = sq.find(sr).valueOr:
+    return Opt.none(N)
+  Opt.some(sq.requests[pos.qindex].completeness)
+
 proc progress*[M, N](sq: SyncQueue[M, N]): uint64 =
   ## How many useful slots we've synced so far, adjusting for how much has
   ## become obsolete by time movements
@@ -1537,6 +1565,70 @@ func started*[M, N](sq: SyncQueue[M, N]): bool =
   ## Returns `true` if SyncQueue was started, e.g. internal counters changed
   ## since starting state.
   sq.startSlot != sq.inpSlot
+
+proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
+  ## Provides SyncQueue's debug information in JSON string format.
+  mixin getKey
+  var res: seq[string]
+
+  func peerLog(pid: string): string =
+    var spid = pid
+    if len(spid) > 10:
+      spid[3] = '*'
+    spid.delete(4 .. spid.high - 6)
+    spid
+
+  let moment = Moment.now()
+
+  for item in sq.requests:
+    let
+      srange = "\"" & $item.data & "\""
+      requests =
+        item.requests.mapIt(
+          "{" &
+          "\"id\": " & $uint64(it.id) & "," &
+          "\"flags\": \"" & shortLog(it.flags) & "\"," &
+          "\"reason\": \"" & $it.reason & "\"," &
+          "\"created\": \"" & $(moment - it.createMoment) & "\"," &
+          "\"peer\": \"" & shortLog(getKey(it.item)) & "\"" &
+          "}"
+        ).join(",")
+      completeness =
+        when N is BlockCompleteness:
+          "{" &
+          "\"count\": " & $item.completeness.count & "," &
+          "\"done\": " & $item.completeness.done &
+          "}"
+        elif N is ColumnCompleteness:
+          let keys =
+            item.completeness.keys.toSeq().mapIt(
+              "\"" & peerLog(it) & "\""
+            ).join(",")
+          "{" &
+          "\"map\": \"" & $item.completeness.map & "\"," &
+          "\"done\": " & $item.completeness.done & "\"," &
+          "\"keys\": [" & keys & "]" &
+          "}"
+
+    res.add(
+      srange & ": {" &
+        "\"requests\": [" & requests & "]," &
+        "\"completeness\": " & completeness & "," &
+        "\"failures\": " & $item.failuresCount & "," &
+        "\"voids\": " & $item.voidsCount & "}"
+    )
+
+  "{" &
+    "\"kind\": \"" & $sq.kind & "\"," &
+    "\"startSlot\": \"" & $sq.startSlot & "\"," &
+    "\"finalSlot\": \"" & $sq.finalSlot & "\"," &
+    "\"inpSlot\": \"" & $sq.inpSlot & "\"," &
+    "\"outSlot\": \"" & $sq.outSlot & "\"," &
+    "\"waiters_count\": " & $len(sq.waiters) & "," &
+    "\"uniq_id\": \"" & $sq.uniqId & "\"," &
+    "\"skip_id\": \"" & $sq.skipId & "\"," &
+    "\"queue\": [" & res.join(",") & "]" &
+  "}"
 
 func init*[M](
     t1: typedesc[SyncQueue],

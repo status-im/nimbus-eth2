@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 {.push raises: [].}
 
-import std/[sets, tables, strutils]
+import std/[sets, tables, strutils, hashes]
 import stew/base10, chronos, chronicles, results
 import ../spec/[forks, block_id, column_map]
 import ./sync_queue
@@ -25,7 +25,6 @@ type
     pendingRoots*: Deque[Eth2Digest]
     maxBlocksPerRequest*: int
     maxSidecarsPerRequest*: int
-    columnsMap*: Opt[ColumnMap]
     peerLoopFut*: Future[void].Raising([])
 
   SyncDag*[A, B] = object
@@ -36,6 +35,9 @@ type
 
 const
   EmptyBlockId* = BlockId(slot: FAR_FUTURE_SLOT)
+
+proc hash*(entry: SyncDagEntryRef): Hash =
+  hash(cast[pointer](entry))
 
 func toBlockId*(checkpoint: Checkpoint): BlockId =
   BlockId(root: checkpoint.root, slot: checkpoint.epoch.start_slot())
@@ -71,21 +73,8 @@ func init*[T](
   PeerEntryRef[T](
     pendingRoots: initDeque[Eth2Digest](16),
     peer: peer,
-    maxBlocksPerRequest: 2,
-    maxSidecarsPerRequest: 16
-  )
-
-func init*[T](
-    t: typedesc[PeerEntryRef],
-    peer: T,
-    columns: ColumnMap
-): PeerEntryRef[T] =
-  PeerEntryRef[T](
-    pendingRoots: initDeque[Eth2Digest](16),
-    peer: peer,
-    maxBlocksPerRequest: 2,
-    maxSidecarsPerRequest: 16,
-    columnsMap: Opt.some(columns)
+    maxBlocksPerRequest: 4,
+    maxSidecarsPerRequest: 128
   )
 
 iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
@@ -253,23 +242,36 @@ proc prune*[A, B](
     epoch: Epoch
 ) =
   var
-    entriesToDelete: seq[Eth2Digest]
+    rootsToDelete: HashSet[Eth2Digest]
     slotsToDelete: seq[Slot]
+    entriesToDelete: HashSet[SyncDagEntryRef]
 
   let startSlot = epoch.start_slot()
   for cslot, roots in sdag.slots.pairs():
     if cslot < startSlot:
       slotsToDelete.add(cslot)
-      entriesToDelete.add(roots.toSeq())
+      for root in roots:
+        rootsToDelete.incl(root)
 
   for slot in slotsToDelete:
     sdag.slots.del(slot)
+  slotsToDelete.reset()
+
+  # Next two loops to cleanup ancestor->parent reference relation.
+  for root, entry in sdag.roots.mpairs():
+    if root in rootsToDelete:
+      entriesToDelete.incl(entry)
+  for entry in sdag.roots.mvalues():
+    if entry.parent in entriesToDelete:
+      entry.parent = nil
+  entriesToDelete.clear()
 
   var entry: SyncDagEntryRef = nil
-  for item in entriesToDelete:
-    if sdag.roots.pop(item, entry):
+  for root in rootsToDelete:
+    if sdag.roots.pop(root, entry):
       entry.parent = nil
       entry = nil
+  rootsToDelete.clear()
 
 proc init*(
     t: typedesc[SyncDag],
