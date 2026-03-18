@@ -14,8 +14,10 @@ import
 
 from ../consensus_object_pools/blockchain_dag import
   ForkChoiceInfoOffset, fork_choice_balances,
-  effective_balance, unslashed_balance,
-  getBlockIdAtSlot, getShufflingRef
+  slashed, effective_balance, unslashed_balance,
+  getBlockIdAtSlot, getEpochRef, getShufflingRef
+
+from ../spec/beaconstate import latest_block_root
 
 export fork_choice_types
 
@@ -279,32 +281,6 @@ func get_ancestor_support_by_slot*(
     result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
-func get_current_target_score*(
-    self: ForkChoiceBackend, head_state: ForkyBeaconState,
-    target: BlockRef, heads: seq[BlockRef]): Gwei =
-  ## Return the estimate of FFG support of the current epoch target
-  ## by using LMD-GHOST votes.
-  var roots: HashSet[Eth2Digest]
-  roots.incl target.root
-  for head in heads:
-    var blck = head
-    while blck != nil and blck.slot > target.slot:
-      blck = blck.parent
-    if blck == target:
-      blck = head
-      while blck != target and not roots.containsOrIncl(blck.root):
-        blck = blck.parent
-
-  let current_epoch = head_state.slot.epoch
-  doAssert target.slot <= current_epoch.start_slot
-  for val_index in 0 ..< min(self.votes.len, head_state.validators.len):
-    template validator: Validator = head_state.validators[val_index]
-    template vote: VoteTracker = self.votes[val_index]
-    if vote.slot.epoch == current_epoch and
-        validator.is_active_validator(current_epoch) and
-        not validator.slashed and vote.next_root in roots:
-      result += validator.effective_balance
-
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
@@ -334,3 +310,79 @@ func should_revert_confirmed_on_new_head*(
   while blck != nil and blck.slot > self.confirmed.slot:
     blck = blck.parent
   blck == nil or blck.root != self.confirmed.root
+
+type CurrentTargetInfo* = object
+  total_active_balance*: Gwei
+  total_support*: Gwei
+  total_adversarial*: Gwei
+
+func all_current_target_descendants*(
+    blck: BlockRef, heads: seq[BlockRef],
+    current_slot: Slot): HashSet[Eth2Digest] =
+  let target_slot = current_slot.epoch.start_slot
+  var target = blck
+  while target != nil and target.slot > target_slot:
+    result.incl target.root
+    target = target.parent
+  if target != nil:
+    result.incl target.root
+  for head in heads:
+    if head.atSlot(target_slot).blck == target:
+      var blck = head
+      while not result.containsOrIncl(blck.root):
+        blck = blck.parent
+
+func get_current_target_info*[T: Validator | ForkChoiceBalance](
+    self: ForkChoiceBackend, roots: HashSet[Eth2Digest],
+    shufflingRef: ShufflingRef, validators: seq[T],
+    current_slot: Slot): CurrentTargetInfo =
+  let current_epoch = current_slot.epoch
+  for slot in current_slot.epoch.slots:
+    for committee_index in get_committee_indices(shufflingRef):
+      for _, val in shufflingRef.get_beacon_committee(slot, committee_index):
+        if val < validators.lenu64:
+          template validator: T = validators[val]
+          let eb = validator.effective_balance
+          result.total_active_balance += eb
+          if val < self.votes.lenu64:
+            template vote: VoteTracker = self.votes[val]
+            if vote.slot.epoch == current_epoch and
+                not validator.slashed and vote.next_root in roots:
+              result.total_support += eb
+            elif vote.slot == FAR_FUTURE_SLOT and slot < current_slot:
+              result.total_adversarial += eb
+            else:
+              discard
+
+proc get_current_target_info*(
+    self: ForkChoiceBackend, dag: ChainDAGRef,
+    blck: BlockRef, current_slot: Slot): Opt[CurrentTargetInfo] =
+  ## Return the estimate of FFG support of the current epoch target
+  ## by using LMD-GHOST votes.
+  let
+    current_epoch = current_slot.epoch
+    shufflingRef = ? dag.getShufflingRef(blck, current_epoch, false)
+    roots = blck.all_current_target_descendants(dag.heads, current_slot)
+
+  template isCompatible(state: ForkedHashedBeaconState): bool =
+    withState(state):
+      forkyState.data.slot.epoch == current_epoch and
+      forkyState.latest_block_root == blck.root
+
+  let state =
+    if dag.clearanceState.isCompatible:
+      addr dag.clearanceState
+    elif dag.headState.isCompatible:
+      addr dag.headState
+    elif dag.epochRefState.isCompatible:
+      addr dag.epochRefState
+    else:
+      nil
+  if state != nil:
+    result.ok self.get_current_target_info(
+      roots, shufflingRef, state[].validators, current_slot)
+  else:
+    let epochRef = dag.getEpochRef(blck, current_epoch, false).valueOr:
+      return Opt.none CurrentTargetInfo
+    result.ok self.get_current_target_info(
+      roots, epochRef.shufflingRef, epochRef.fork_choice_balances, current_slot)

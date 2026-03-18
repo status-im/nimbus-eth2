@@ -1276,7 +1276,7 @@ AllTests-mainnet
 + assign_shufflings dst longer than src                                                      OK
 + assign_shufflings replaces duties                                                          OK
 ```
-## get_current_target_score
+## get_current_target_info
 ```diff
 + Basic support                                                                              OK
 + Empty votes                                                                                OK

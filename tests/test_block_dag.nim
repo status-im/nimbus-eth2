@@ -11,13 +11,9 @@
 import
   std/sequtils,
   unittest2,
-  ../beacon_chain/consensus_object_pools/block_dag,
+  ../beacon_chain/consensus_object_pools/[
+    block_dag, blockchain_dag, spec_cache],
   ../beacon_chain/fork_choice/fast_confirmation
-
-from ../beacon_chain/consensus_object_pools/blockchain_dag import
-  ForkChoiceBalance, SlashedBit
-
-from ../beacon_chain/spec/datatypes/phase0 import BeaconState
 
 func `$`(x: BlockRef): string = shortLog(x)
 
@@ -944,7 +940,7 @@ suite "get_ancestor_support_by_slot":
         1.Epoch.start_slot + 7]
       toSeq(dst.assigned_slots(1.ValidatorIndex)).len == 0
 
-suite "get_current_target_score":
+suite "get_current_target_info":
   func makeValidator(eb: Gwei, slashed = false, active = true): Validator =
     Validator(
       effective_balance: eb,
@@ -952,82 +948,129 @@ suite "get_current_target_score":
       activation_epoch: 0.Epoch,
       exit_epoch: if active: FAR_FUTURE_EPOCH else: 0.Epoch)
 
-  func makeState(
-      slot: Slot, validators: openArray[Validator]): ref phase0.BeaconState =
-    result = (ref phase0.BeaconState)()
-    result.slot = slot
-    for v in validators:
-      doAssert result.validators.add(v)
+  func get_current_target_info(
+      self: ForkChoiceBackend, blck: BlockRef, heads: seq[BlockRef],
+      validators: openArray[Validator], current_slot: Slot
+  ): tuple[info: CurrentTargetInfo, assigned_slots: seq[Opt[Slot]]] =
+    let
+      roots = blck.all_current_target_descendants(heads, current_slot)
+      state = ForkedHashedBeaconState.new(
+        (ref phase0.BeaconState)(slot: current_slot)[])
+    withState(state[]):
+      for validator in validators:
+        doAssert forkyState.data.validators.add(validator)
+    var cache: StateCache
+    let shufflingRef = ShufflingRef.init(state[], cache, current_slot.epoch)
+    result.info = self.get_current_target_info(
+      roots, shufflingRef, state[].validators, current_slot)
+    result.assigned_slots.setLen(validators.len)
+    for slot in current_slot.epoch.slots:
+      for committee_index in get_committee_indices(shufflingRef):
+        for _, val in shufflingRef.get_beacon_committee(slot, committee_index):
+          doAssert val < validators.lenu64
+          result.assigned_slots[val].ok slot
 
-  func singleVoterScore(validator: Validator, vote_slot: Slot): Gwei =
+  func singleVoterInfo(
+      validator: Validator, vote_slot: Slot): CurrentTargetInfo =
     let
       current_slot = 3.Epoch.start_slot + 3
-      target_slot = current_slot.epoch.start_slot
       chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
       heads = @[chain[^1]]
-      state = makeState(current_slot, @[validator])
       backend = makeBackend(@[chain.makeVote(vote_slot)])
-    backend.get_current_target_score(state[], target, heads)
+    backend.get_current_target_info(
+      chain[^1], heads, @[validator], current_slot).info
 
   test "Basic support":
-    check singleVoterScore(
-      makeValidator(10.Gwei), 3.Epoch.start_slot + 1) == 10.Gwei
+    let info = singleVoterInfo(
+      makeValidator(10.Gwei), 3.Epoch.start_slot + 1)
+    check:
+      info.total_active_balance == 10.Gwei
+      info.total_support == 10.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Vote for target at epoch start":
-    check singleVoterScore(
-      makeValidator(10.Gwei), 3.Epoch.start_slot) == 10.Gwei
+    let info = singleVoterInfo(
+      makeValidator(10.Gwei), 3.Epoch.start_slot)
+    check:
+      info.total_active_balance == 10.Gwei
+      info.total_support == 10.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Slashed excluded":
-    check singleVoterScore(
-      makeValidator(10.Gwei, slashed = true), 3.Epoch.start_slot + 1) == 0.Gwei
+    let info = singleVoterInfo(
+      makeValidator(10.Gwei, slashed = true), 3.Epoch.start_slot + 1)
+    check:
+      info.total_active_balance == 10.Gwei
+      info.total_support == 0.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Inactive excluded":
-    check singleVoterScore(
-      makeValidator(10.Gwei, active = false), 3.Epoch.start_slot + 1) == 0.Gwei
+    let info = singleVoterInfo(
+      makeValidator(10.Gwei, active = false), 3.Epoch.start_slot + 1)
+    check:
+      info.total_active_balance == 0.Gwei
+      info.total_support == 0.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Vote in previous epoch":
-    check singleVoterScore(
-      makeValidator(10.Gwei), 2.Epoch.start_slot + 4) == 0.Gwei
+    let info = singleVoterInfo(
+      makeValidator(10.Gwei), 2.Epoch.start_slot + 4)
+    check:
+      info.total_active_balance == 10.Gwei
+      info.total_support == 0.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Equivocating excluded":
-    let
-      current_slot = 3.Epoch.start_slot + 3
-      target_slot = current_slot.epoch.start_slot
-      chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
-      heads = @[chain[^1]]
-      state = makeState(current_slot, @[makeValidator(10.Gwei)])
-      backend = makeBackend(@[makeEquivocation()])
-    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
+    for slot_in_epoch in 0'u64 ..< SLOTS_PER_EPOCH:
+      let
+        current_slot = 3.Epoch.start_slot + slot_in_epoch
+        chain = makeFullChain(current_slot)
+        heads = @[chain[^1]]
+        backend = makeBackend(@[makeEquivocation()])
+        (info, assigned_slots) = backend.get_current_target_info(
+          chain[^1], heads, @[makeValidator(10.Gwei)], current_slot)
+      check:
+        info.total_active_balance == 10.Gwei
+        info.total_support == 0.Gwei
+      if assigned_slots[0].get < current_slot:
+        check info.total_adversarial == 10.Gwei
+      else:
+        check info.total_adversarial == 0.Gwei
 
   test "Vote for unknown block":
     let
       current_slot = 3.Epoch.start_slot + 3
       target_slot = current_slot.epoch.start_slot
       chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
       heads = @[chain[^1]]
-      state = makeState(current_slot, @[makeValidator(10.Gwei)])
       backend = makeBackend(@[makeVote(makeRoot(255), target_slot + 1)])
-    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
+      (info, _) = backend.get_current_target_info(
+        chain[^1], heads, @[makeValidator(10.Gwei)], current_slot)
+    check:
+      info.total_active_balance == 10.Gwei
+      info.total_support == 0.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Multiple voters":
     let
       current_slot = 3.Epoch.start_slot + 4
       target_slot = current_slot.epoch.start_slot
       chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
       heads = @[chain[^1]]
-      state = makeState(current_slot, @[
+      validators = @[
         makeValidator(10.Gwei),
         makeValidator(20.Gwei),
-        makeValidator(30.Gwei)])
+        makeValidator(30.Gwei)]
       backend = makeBackend(@[
         chain.makeVote(target_slot + 1),
         chain.makeVote(target_slot + 2),
         chain.makeVote(target_slot + 3)])
-    check backend.get_current_target_score(state[], target, heads) == 60.Gwei
+      (info, _) = backend.get_current_target_info(
+        chain[^1], heads, validators, current_slot)
+    check:
+      info.total_active_balance == 60.Gwei
+      info.total_support == 60.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Multiple heads":
     let
@@ -1038,24 +1081,31 @@ suite "get_current_target_score":
       head1 = makeBlock(target_slot + 1, target)
       head2 = makeBlock(target_slot + 2, target)
       heads = @[head1, head2]
-      state = makeState(current_slot, @[
+      validators = @[
         makeValidator(10.Gwei),
-        makeValidator(20.Gwei)])
+        makeValidator(20.Gwei)]
       backend = makeBackend(@[
         makeVote(head1.root, target_slot + 1),
         makeVote(head2.root, target_slot + 2)])
-    check backend.get_current_target_score(state[], target, heads) == 30.Gwei
+      (info, _) = backend.get_current_target_info(
+        target, heads, validators, current_slot)
+    check:
+      info.total_active_balance == 30.Gwei
+      info.total_support == 30.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Empty votes":
     let
       current_slot = 3.Epoch.start_slot + 3
-      target_slot = current_slot.epoch.start_slot
       chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
       heads = @[chain[^1]]
-      state = makeState(current_slot, newSeq[Validator]())
       backend = makeBackend(newSeq[VoteTracker]())
-    check backend.get_current_target_score(state[], target, heads) == 0.Gwei
+      (info, _) = backend.get_current_target_info(
+        chain[^1], heads, newSeq[Validator](), current_slot)
+    check:
+      info.total_active_balance == 0.Gwei
+      info.total_support == 0.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Gap at epoch start":
     let
@@ -1066,38 +1116,51 @@ suite "get_current_target_score":
         toSeq(target_slot + 1 .. current_slot))
       target = chain[distinctBase(target_slot) - 1]
       heads = @[chain[^1]]
-      state = makeState(current_slot, @[
+      validators = @[
         makeValidator(10.Gwei),
-        makeValidator(20.Gwei)])
+        makeValidator(20.Gwei)]
       backend = makeBackend(@[
         makeVote(chain[distinctBase(target_slot)].bid.root, target_slot + 1),
         makeVote(chain[^1].bid.root, current_slot - 1)])
+      (info, _) = backend.get_current_target_info(
+        chain[^1], heads, validators, current_slot)
     check:
       target.slot == target_slot - 1
-      backend.get_current_target_score(state[], target, heads) == 30.Gwei
+      info.total_active_balance == 30.Gwei
+      info.total_support == 30.Gwei
+      info.total_adversarial == 0.Gwei
 
   test "Mixed":
-    let
-      current_slot = 3.Epoch.start_slot + 3
-      target_slot = current_slot.epoch.start_slot
-      chain = makeFullChain(current_slot)
-      target = chain[distinctBase(target_slot)]
-      head2 = makeBlock(target_slot + 1, target)
-      heads = @[chain[^1], head2]
-      state = makeState(current_slot, @[
-        #[0]# makeValidator(10.Gwei),
-        #[1]# makeValidator(20.Gwei, slashed = true),
-        #[2]# makeValidator(30.Gwei, active = false),
-        #[3]# makeValidator(40.Gwei),
-        #[4]# makeValidator(50.Gwei),
-        #[5]# makeValidator(60.Gwei),
-        #[6]# makeValidator(70.Gwei)])
-      backend = makeBackend(@[
-        #[0]# chain.makeVote(target_slot + 1),
-        #[1]# chain.makeVote(target_slot + 2),
-        #[2]# chain.makeVote(target_slot + 1),
-        #[3]# makeEquivocation(),
-        #[4]# chain.makeVote(2.Epoch.start_slot + 4),
-        #[5]# makeVote(makeRoot(255), target_slot + 1),
-        #[6]# makeVote(head2.root, target_slot + 1)])
-    check backend.get_current_target_score(state[], target, heads) == 80.Gwei
+    let validators = @[
+      #[0]# makeValidator(10.Gwei),
+      #[1]# makeValidator(20.Gwei, slashed = true),
+      #[2]# makeValidator(30.Gwei, active = false),
+      #[3]# makeValidator(40.Gwei),
+      #[4]# makeValidator(50.Gwei),
+      #[5]# makeValidator(60.Gwei),
+      #[6]# makeValidator(70.Gwei)]
+    for slot_in_epoch in 3'u64 ..< SLOTS_PER_EPOCH:
+      let
+        current_slot = 3.Epoch.start_slot + slot_in_epoch
+        target_slot = current_slot.epoch.start_slot
+        chain = makeFullChain(current_slot)
+        target = chain[distinctBase(target_slot)]
+        head2 = makeBlock(target_slot + 1, target)
+        heads = @[chain[^1], head2]
+        backend = makeBackend(@[
+          #[0]# chain.makeVote(target_slot + 1),
+          #[1]# chain.makeVote(target_slot + 2),
+          #[2]# chain.makeVote(target_slot + 1),
+          #[3]# makeEquivocation(),
+          #[4]# chain.makeVote(2.Epoch.start_slot + 4),
+          #[5]# makeVote(makeRoot(255), target_slot + 1),
+          #[6]# makeVote(head2.root, target_slot + 1)])
+        (info, assigned_slots) = backend.get_current_target_info(
+          chain[^1], heads, validators, current_slot)
+      check:
+        info.total_active_balance == 250.Gwei
+        info.total_support == 80.Gwei
+      if assigned_slots[3].get < current_slot:
+        check info.total_adversarial == 40.Gwei
+      else:
+        check info.total_adversarial == 0.Gwei
