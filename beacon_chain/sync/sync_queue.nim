@@ -1381,7 +1381,6 @@ proc push*[M, N](
             sync_ident = sq.ident,
             topics = "sync"
 
-      inc(sq.requests[position.qindex].failuresCount)
       fillCompleteness(false, pres.blck, true)
       sq.del(position)
       res = 0'i64
@@ -1588,7 +1587,6 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
           "{" &
           "\"id\": " & $uint64(it.id) & "," &
           "\"flags\": \"" & shortLog(it.flags) & "\"," &
-          "\"reason\": \"" & $it.reason & "\"," &
           "\"created\": \"" & $(moment - it.createMoment) & "\"," &
           "\"peer\": \"" & shortLog(getKey(it.item)) & "\"" &
           "}"
@@ -1600,13 +1598,17 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
           "\"done\": " & $item.completeness.done &
           "}"
         elif N is ColumnCompleteness:
-          let keys =
-            item.completeness.keys.toSeq().mapIt(
-              "\"" & peerLog(it) & "\""
-            ).join(",")
+          let
+            localMap = sq.cbGetLocalColumnMap()
+            presentMap = not(localMap and item.completeness.map)
+            keys =
+              item.completeness.keys.toSeq().mapIt(
+                "\"" & peerLog(it) & "\""
+              ).join(",")
           "{" &
-          "\"map\": \"" & $item.completeness.map & "\"," &
-          "\"done\": " & $item.completeness.done & "\"," &
+          "\"missing_map\": \"" & $item.completeness.map & "\"," &
+          "\"present_map\": \"" & $presentMap & "\"," &
+          "\"done\": " & $item.completeness.done & "," &
           "\"keys\": [" & keys & "]" &
           "}"
 
@@ -1627,7 +1629,7 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
     "\"waiters_count\": " & $len(sq.waiters) & "," &
     "\"uniq_id\": \"" & $sq.uniqId & "\"," &
     "\"skip_id\": \"" & $sq.skipId & "\"," &
-    "\"queue\": [" & res.join(",") & "]" &
+    "\"queue\": {" & res.join(",") & "}" &
   "}"
 
 func init*[M](
