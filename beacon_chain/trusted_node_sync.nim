@@ -416,7 +416,7 @@ proc doTrustedNodeSync*(
           client.getExecutionPayloadEnvelope(BlockIdent.init(blockRoot)),
           smallRequestsTimeout):
           warn "Attempt to download execution payload envelope timed out"
-          none(SignedExecutionPayloadEnvelope)
+          Opt.none(SignedExecutionPayloadEnvelope)
         if envelope.isSome():
           db.putExecutionPayloadEnvelope(envelope.get())
           notice "Execution payload envelope saved to database",
