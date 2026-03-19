@@ -1600,7 +1600,8 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
         elif N is ColumnCompleteness:
           let
             localMap = sq.cbGetLocalColumnMap()
-            presentMap = not(localMap and item.completeness.map)
+            missingMap = item.completeness.map
+            presentMap = localMap and not(localMap and missingMap)
             keys =
               item.completeness.keys.toSeq().mapIt(
                 "\"" & peerLog(it) & "\""
