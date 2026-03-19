@@ -87,13 +87,15 @@ proc do_update_shufflings(
     blck = blck
     epoch = current_slot.epoch
   for i in 0 ..< NumAttesterDuties:
-    let dependent_slot = epoch.attester_dependent_slot
-    blck = blck.atSlot(dependent_slot).blck
-    let dependent_root =
-      if blck != nil:
-        blck.bid.root
-      else:
-        (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
+    let
+      dependent_slot = epoch.attester_dependent_slot
+      dependent_blck = blck.atSlot(dependent_slot).blck
+      dependent_root =
+        if dependent_blck != nil:
+          blck = dependent_blck
+          blck.bid.root
+        else:
+          (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
     if balance_source.has_shuffling(epoch, dependent_root):
       return ok()
     balance_source.record_shuffling(
