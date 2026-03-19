@@ -147,7 +147,7 @@ func makeFullChain(last: Slot): seq[BlockRef] =
   makeChain(toSeq(0.Slot .. last))
 
 func makeVote(root: Eth2Digest, slot: Slot): VoteTracker =
-  VoteTracker(current_root: root, next_root: root, slot: slot)
+  VoteTracker(next_root: root, slot: slot)
 
 func makeVote(chain: seq[BlockRef], slot: Slot): VoteTracker =
   doAssert chain[distinctBase(slot)].bid.slot == slot
