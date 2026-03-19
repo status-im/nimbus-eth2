@@ -723,20 +723,26 @@ func makeFullElectraAttestations*(
     result.add attestation
 
 func makeElectraIndexedAttestation*(
-    state: ForkedHashedBeaconState, slot: Slot, validator_index: uint64,
+    state: ForkedHashedBeaconState, slot: Slot,
+    validator_indices: openArray[uint64],
     beacon_block_root: Eth2Digest): electra.IndexedAttestation =
-  let data = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
+  let
+    data = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
+    committee = validator_indices.mapIt(it.ValidatorIndex)
+  var bits = ElectraCommitteeValidatorsBits.init(committee.len)
+  for i in 0 ..< committee.len:
+    bits.setBit i
   electra.IndexedAttestation(
     data: data,
     attesting_indices:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT](
-        @[validator_index]),
-    signature: get_attestation_signature(
-      state.fork, state.genesis_validators_root, data,
-      MockPrivKeys[validator_index]).toValidatorSig)
+        @validator_indices),
+    signature: makeAttestationSig(
+      state.fork, state.genesis_validators_root, data, committee, bits))
 
 func makeElectraAttesterSlashing*(
-    state: ForkedHashedBeaconState, validator_index: uint64, slot: Slot,
+    state: ForkedHashedBeaconState,
+    validator_indices: openArray[uint64], slot: Slot,
     root_a = Eth2Digest.fromHex(
       "0x0100000000000000000000000000000000000000000000000000000000000000"),
     root_b = Eth2Digest.fromHex(
@@ -744,9 +750,9 @@ func makeElectraAttesterSlashing*(
 ): electra.AttesterSlashing =
   electra.AttesterSlashing(
     attestation_1: makeElectraIndexedAttestation(
-      state, slot, validator_index, root_a),
+      state, slot, validator_indices, root_a),
     attestation_2: makeElectraIndexedAttestation(
-      state, slot, validator_index, root_b))
+      state, slot, validator_indices, root_b))
 
 proc makeSyncAggregate(
     state: ForkedHashedBeaconState,

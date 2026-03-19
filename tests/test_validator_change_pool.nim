@@ -95,7 +95,7 @@ suite "Validator change pool testing suite":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS_ELECTRA + 5:
       for j in 0'u64 .. i:
         let msg = dag.headState.makeElectraAttesterSlashing(
-          j, Slot(1), makeFakeHash(0), makeFakeHash(1))
+          [j], Slot(1), makeFakeHash(0), makeFakeHash(1))
 
         if i == 0:
           check not pool[].isSeen(msg)
