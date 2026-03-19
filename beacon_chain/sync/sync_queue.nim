@@ -57,7 +57,7 @@ type
 
   ColumnCompleteness* = object
     map: ColumnMap
-    keys: HashSet[string]
+    keys: Table[string, ColumnMap]
     done: bool
 
   SomeCompleteness* = BlockCompleteness | SomeCompleteness
@@ -432,8 +432,10 @@ func fillCompleteness[M](
     return
 
   if storePeer:
-    let key = peer.getKey()
-    criteria.keys.incl($key)
+    let
+      key = peer.getKey()
+      map = sq.cbGetColumnMap(peer)
+    criteria.keys[$key] = map
 
   if missingMap.isSome():
     criteria.map = missingMap.get()
@@ -1585,17 +1587,18 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
       requests =
         item.requests.mapIt(
           "{" &
-          "\"id\": " & $uint64(it.id) & "," &
-          "\"flags\": \"" & shortLog(it.flags) & "\"," &
-          "\"created\": \"" & $(moment - it.createMoment) & "\"," &
-          "\"peer\": \"" & shortLog(getKey(it.item)) & "\"" &
+            "\"id\": " & $uint64(it.id) & "," &
+            "\"flags\": \"" & shortLog(it.flags) & "\"," &
+            "\"created\": \"" & $(moment - it.createMoment) & "\"," &
+            "\"peer\": \"" & shortLog(getKey(it.item)) & "\"" &
+            "\"peer_map\": \"" & $(sq.cbGetColumnMap(it.item)) & "\"" &
           "}"
         ).join(",")
       completeness =
         when N is BlockCompleteness:
           "{" &
-          "\"count\": " & $item.completeness.count & "," &
-          "\"done\": " & $item.completeness.done &
+            "\"count\": " & $item.completeness.count & "," &
+            "\"done\": " & $item.completeness.done &
           "}"
         elif N is ColumnCompleteness:
           let
@@ -1603,14 +1606,14 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
             missingMap = item.completeness.map
             presentMap = localMap and not(localMap and missingMap)
             keys =
-              item.completeness.keys.toSeq().mapIt(
-                "\"" & peerLog(it) & "\""
+              item.completeness.keys.pairs.toSeq().mapIt(
+                "\"" & peerLog(it[0]) & "\": \"" & $it[1] & "\""
               ).join(",")
           "{" &
-          "\"missing_map\": \"" & $item.completeness.map & "\"," &
-          "\"present_map\": \"" & $presentMap & "\"," &
-          "\"done\": " & $item.completeness.done & "," &
-          "\"keys\": [" & keys & "]" &
+            "\"missing_map\": \"" & $item.completeness.map & "\"," &
+            "\"present_map\": \"" & $presentMap & "\"," &
+            "\"done\": " & $item.completeness.done & "," &
+            "\"keys\": {" & keys & "}" &
           "}"
 
     res.add(
