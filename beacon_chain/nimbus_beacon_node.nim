@@ -2693,8 +2693,8 @@ when not defined(windows):
     template safe: lent BlockId =
       node.attestationPool[].forkChoice.get_safe_beacon_block_id()
 
-    var stored_justified: Opt[Checkpoint]
-    template justified: lent Checkpoint =
+    var stored_justified: Opt[BlockSlot]
+    template justified: lent BlockSlot =
       if stored_justified.isNone:
         stored_justified.ok node.dag.head.atEpochStart(
           node.dag.headState.current_justified_checkpoint.epoch)
