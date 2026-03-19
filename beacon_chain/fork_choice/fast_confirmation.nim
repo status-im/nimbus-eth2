@@ -396,8 +396,8 @@ func should_restart_confirmation_chain*(
       .expect("is_proto_array_consistent")
 
   template head_unrealized_justified: Checkpoint =
-    self.proto_array.unrealized(self.current_slot_head)
-      .expect("is_proto_array_consistent").justified
+    self.proto_array.checkpoints(self.current_slot_head)
+      .expect("is_proto_array_consistent").unrealized
 
   current_slot.is_epoch and
   current_epoch_justified.epoch + 1 == current_slot.epoch and
