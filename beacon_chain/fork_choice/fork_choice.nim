@@ -167,6 +167,13 @@ proc update_checkpoints(
       store = self.checkpoints.finalized, state = checkpoints.finalized
     self.checkpoints.finalized = checkpoints.finalized
 
+    template previous_epoch_justified: Checkpoint =
+      self.backend.previous_epoch_greatest_unrealized_checkpoint
+    if self.checkpoints.finalized.epoch >= previous_epoch_justified.epoch:
+      trace "Pruned previous_epoch_greatest_unrealized_checkpoint",
+        store = previous_epoch_justified, state = self.checkpoints.finalized
+      previous_epoch_justified = self.checkpoints.finalized
+
   ok()
 
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
