@@ -293,11 +293,204 @@ func get_ancestor_support_by_slot*(
     result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
+func get_block_support_between_slots(
+    chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot): Gwei =
+  ## Return support of the block within ``slots``.
+  let
+    a = chain.index(slots.a, current_slot)
+    b = chain.index(slots.b, current_slot)
+  for i in b .. a:
+    result += chain[i].support
+
+func is_full_validator_set_covered(slots: Slice[Slot]): bool =
+  ## Return ``true`` if the range within ``slots`` includes an entire epoch.
+  let
+    start_full_epoch = (slots.a + (SLOTS_PER_EPOCH - 1)).epoch
+    end_full_epoch = (slots.b + 1).epoch
+
+  start_full_epoch < end_full_epoch
+
+func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
+  ## Return adjusted ``estimate`` of the weight of a committee for a sequence
+  ## of slots not covering a full epoch.
+  # Per mille value to add to the estimation of the committee weight across a
+  # range of slots not covering a full epoch in order to ensure the safety of
+  # the confirmation rule with high probability.
+  # See https://gist.github.com/saltiniroberto/9ee53d29c33878d79417abb2b4468c20
+  # for an explanation about the value chosen.
+  const COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR = 5'u64
+  estimate div 1000 * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
+
+func estimate_committee_weight_between_slots(
+    total_active_balance: Gwei, slots: Slice[Slot]): Gwei =
+  ## Return estimate of the total weight of committees within ``slots``.
+
+  # Sanity check
+  if slots.a > slots.b:
+    return 0.Gwei
+
+  # If an entire epoch is covered by the range, return the total active balance
+  if is_full_validator_set_covered(slots):
+    return total_active_balance
+
+  let
+    start_epoch = slots.a.epoch
+    end_epoch = slots.b.epoch
+    committee_weight = total_active_balance div SLOTS_PER_EPOCH
+  if start_epoch == end_epoch:
+    committee_weight * (slots.b - slots.a + 1)
+  else:
+    let
+      # First, calculate the number of committees in the end epoch
+      num_slots_in_end_epoch = slots.b.since_epoch_start + 1
+      # Next, calculate the number of slots remaining in the end epoch
+      remaining_slots_in_end_epoch = SLOTS_PER_EPOCH - num_slots_in_end_epoch
+      # Then, calculate the number of slots in the start epoch
+      num_slots_in_start_epoch = SLOTS_PER_EPOCH - slots.a.since_epoch_start
+
+      start_epoch_weight = committee_weight * num_slots_in_start_epoch
+      end_epoch_weight = committee_weight * num_slots_in_end_epoch
+
+      # A range that spans an epoch boundary, but does not span any full epoch
+      # needs pro-rata calculation, see
+      # https://gist.github.com/saltiniroberto/9ee53d29c33878d79417abb2b4468c20
+      # start_epoch_weight_pro_rated =
+      #   start_epoch_weight * (1 - num_slots_in_end_epoch / SLOTS_PER_EPOCH)
+      start_epoch_weight_pro_rated =
+        start_epoch_weight div SLOTS_PER_EPOCH * remaining_slots_in_end_epoch
+
+    adjust_committee_weight_estimate_to_ensure_safety(
+      start_epoch_weight_pro_rated + end_epoch_weight)
+
+func get_equivocation_score(
+    chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot): Gwei =
+  ## Return total weight of equivocating participants of all committees
+  ## in the slots within ``slots``.
+  let
+    a = chain.index(slots.a, current_slot)
+    b = chain.index(slots.b, current_slot)
+  for i in b .. a:
+    result += chain[i].adversarial
+
+func compute_adversarial_weight(
+    equivocation_score: Gwei, slots: Slice[Slot],
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return maximum possible adversarial weight in the committees of the slots
+  ## within ``slots``.
+  let
+    maximum_weight = estimate_committee_weight_between_slots(
+      total_active_balance, slots)
+    max_adversarial_weight = maximum_weight div 100 * byzantine_threshold
+
+  # Discount total weight of equivocating validators.
+  if max_adversarial_weight > equivocation_score:
+    max_adversarial_weight - equivocation_score
+  else:
+    0.Gwei
+
+func compute_adversarial_weight(
+    chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return maximum possible adversarial weight in the committees of the slots
+  ## within ``slots``.
+  let equivocation_score = chain.get_equivocation_score(slots, current_slot)
+  equivocation_score.compute_adversarial_weight(
+    slots, total_active_balance, byzantine_threshold)
+
+func compute_adversarial_weight(
+    chain: seq[SlotInfo], start_slot, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return maximum possible adversarial weight in the committees of the slots
+  ## between ``start_slot`` and ``current_slot - 1`` (inclusive of both).
+  let
+    i = chain.index(start_slot, current_slot)
+    equivocation_score = chain[i].total_adversarial
+  equivocation_score.compute_adversarial_weight(
+    start_slot ..< current_slot, total_active_balance, byzantine_threshold)
+
+func get_adversarial_weight(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return maximum adversarial weight that can support the block.
+  let start_slot =
+    if chain[i].blck.slot.epoch > chain[i + 1].blck.slot.epoch:
+      # Use the first epoch slot as the start slot when crossing epoch boundary.
+      chain[i].blck.slot.epoch.start_slot
+    else:
+      chain[i].blck.slot
+  chain.compute_adversarial_weight(
+    start_slot, current_slot, total_active_balance, byzantine_threshold)
+
+func compute_empty_slot_support_discount(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return weight that can be discounted during the safety threshold
+  ## computation if there are empty slots preceding the block.
+
+  # No empty slot.
+  if chain[i + 1].blck.slot + 1 == chain[i].blck.slot:
+    return 0.Gwei
+
+  let
+    empty_slots = chain[i + 1].blck.slot + 1 ..< chain[i].blck.slot
+    # Discount votes supporting the parent block if they are from
+    # the committees of empty slots.
+    parent_support_in_empty_slots = chain.get_block_support_between_slots(
+      empty_slots, current_slot)
+    # Adversarial weight is not discounted.
+    adversarial_weight = chain.compute_adversarial_weight(
+      empty_slots, current_slot, total_active_balance, byzantine_threshold)
+  if parent_support_in_empty_slots > adversarial_weight:
+    parent_support_in_empty_slots - adversarial_weight
+  else:
+    0.Gwei
+
+func get_support_discount(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Return weight that can be discounted during the safety threshold
+  ## computation for the block.
+
+  # Empty slot support discount
+  chain.compute_empty_slot_support_discount(
+    i, current_slot, total_active_balance, byzantine_threshold)
+
+func compute_safety_threshold(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+  ## Compute the LMD_GHOST safety threshold for ``chain[i].blck.root``.
+  let
+    parent_blck = chain[i + 1].blck
+
+    proposer_score = compute_proposer_score(total_active_balance)
+    maximum_support = estimate_committee_weight_between_slots(
+      total_active_balance, parent_blck.slot + 1 ..< current_slot)
+    support_discount = chain.get_support_discount(
+      i, current_slot, total_active_balance, byzantine_threshold)
+    adversarial_weight = chain.get_adversarial_weight(
+      i, current_slot, total_active_balance, byzantine_threshold)
+
+    # Return (maximum_support + proposer_score - support_discount) // 2 +
+    # adversarial_weight with an underflow guard
+    threshold = maximum_support + proposer_score + 2 * adversarial_weight
+  if support_discount < threshold:
+    (threshold - support_discount) div 2
+  else:
+    0.Gwei
+
 func is_one_confirmed(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): bool =
   ## Return ``true`` if and only if the block is LMD-GHOST safe.
-  true  # TODO
+  if chain[i].blck.optimisticStatus != OptimisticStatus.valid:
+    return false  # Do not confirm optimistically imported / invalid blocks
+
+  let
+    support = chain[i].total_support
+    safety_threshold = chain.compute_safety_threshold(
+      i, current_slot, total_active_balance, byzantine_threshold)
+
+  support > safety_threshold
 
 func is_confirmed_chain_safe(
     self: ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
