@@ -494,7 +494,12 @@ func prune(
     self: var ForkChoiceBackend,
     checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.prune(checkpoints)
+  ? self.proto_array.prune(checkpoints)
+  if self.previous_slot_head notin self.proto_array:
+    self.previous_slot_head = checkpoints.finalized.root
+  if self.current_slot_head notin self.proto_array:
+    self.current_slot_head = checkpoints.finalized.root
+  ok()
 
 func prune*(self: var ForkChoice): FcResult[void] =
   self.backend.prune(
