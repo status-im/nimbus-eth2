@@ -1658,21 +1658,23 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   ## Used to construct the eth2 field of ENRs
   case cfg.consensusForkAtEpoch(epoch)
-  of ConsensusFork.Fulu, ConsensusFork.Gloas:
-    var res = FAR_FUTURE_EPOCH
-    for entry in cfg.BLOB_SCHEDULE:
-      if epoch >= entry.EPOCH:
-        break
-      res = entry.EPOCH
-    if epoch < cfg.GLOAS_FORK_EPOCH:
-      res = min(res, cfg.GLOAS_FORK_EPOCH)
-    res
   of ConsensusFork.Electra:   cfg.FULU_FORK_EPOCH
   of ConsensusFork.Deneb:     cfg.ELECTRA_FORK_EPOCH
   of ConsensusFork.Capella:   cfg.DENEB_FORK_EPOCH
   of ConsensusFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of ConsensusFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of ConsensusFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
+  else:
+    # New post-Fulu forks are picked up automatically via the enum.
+    var res = FAR_FUTURE_EPOCH
+    for fork in ConsensusFork.Fulu .. high(ConsensusFork):
+      let forkEpoch = cfg.consensusForkEpoch(fork)
+      if forkEpoch > epoch and forkEpoch < res:
+        res = forkEpoch
+    for entry in cfg.BLOB_SCHEDULE:
+      if entry.EPOCH > epoch and entry.EPOCH < res:
+        res = entry.EPOCH
+    res
 
 func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   case consensusFork
