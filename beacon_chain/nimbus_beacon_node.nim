@@ -12,7 +12,6 @@ import
   std/[os, random, strutils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
-  lsquic/lsquic_ffi,
   stew/[byteutils, io2],
   kzg4844/kzg,
   eth/enr/enr,

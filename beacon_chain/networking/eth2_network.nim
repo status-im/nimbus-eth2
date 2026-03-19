@@ -10,7 +10,7 @@
 import
   # Std lib
   std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
-  lsquic/lsquic_ffi,
+
   # Status libs
   results,
   stew/[leb128, endians2, byteutils, io2, bitops2],
@@ -235,7 +235,6 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
-    ## 
   
   PeerAddrProto* {.pure.} = enum
     TCP
@@ -1048,7 +1047,7 @@ proc doMakeEth2Request(
     res
   except CancelledError as exc:
     raise exc
-  except LPStreamError as exc:
+  except LPStreamError:
     peer.updateScore(PeerScorePoorRequest)
     neterr BrokenConnection
   finally:
@@ -1192,7 +1191,7 @@ proc handleIncomingStream(network: Eth2Node,
     of Disconnecting, Disconnected, None:
       # We got incoming stream request while disconnected or disconnecting.
       debug "Got incoming request from disconnected peer", peer = peer,
-           message = msgName, state=peer.connectionState
+           message = msgName
       return
     of Connecting:
       # We got incoming stream request while handshake is not yet finished,
@@ -1350,7 +1349,7 @@ template quicEndPoint(address, port): auto =
     raiseAssert "invalid quic address"
 
 func toPeerAddr*(r: enr.TypedRecord,
-                 peerAddrProto: seq[PeerAddrProto]): Result[PeerAddr, cstring] =
+                 peerAddrProto: openArray[PeerAddrProto]): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 

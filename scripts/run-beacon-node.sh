@@ -62,7 +62,7 @@ fi
 
 TCP_PORT=$(( BASE_P2P_PORT + NODE_ID ))
 UDP_PORT=$(( TCP_PORT ))
-QUIC_PORT=$(( TCP_PORT + 1 ))
+QUIC_PORT=$(( TCP_PORT + 2000 ))
 
 # Allow the binary to receive signals directly.
 exec ${WINPTY} build/${NBC_BINARY} \

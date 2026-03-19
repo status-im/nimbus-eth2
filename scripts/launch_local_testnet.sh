@@ -1194,7 +1194,8 @@ if [ "$LC_NODES" -ge "1" ]; then
     fi
 
     TCP_PORT=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 ))
-    QUIC_PORT=$(( TCP_PORT + 1000 ))
+    UDP_PORT=$(( TCP_PORT ))
+    QUIC_PORT=$(( TCP_PORT + 2000 ))
 
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
@@ -1202,11 +1203,11 @@ if [ "$LC_NODES" -ge "1" ]; then
       --data-dir="${LC_DATA_DIR}" \
       --network="${CONTAINER_DATA_DIR}" \
       --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
-      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
-      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
+      --tcp-port=$(( TCP_PORT )) \
+      --udp-port=$(( UDP_PORT ))  \
       --tcp=true \
       --debug-quic=true \
-      --debug-quic-port=$(( BASE_PORT + 2000 + NUM_NODES + NUM_LC - 1 )) \
+      --debug-quic-port=$(( QUIC_PORT )) \
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
