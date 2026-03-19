@@ -470,7 +470,7 @@ proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse 
 
 proc getExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):
-    Future[Option[SignedExecutionPayloadEnvelope]] {.async.} =
+    Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
   let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
   return
     case resp.status
@@ -486,16 +486,16 @@ proc getExecutionPayloadEnvelope*(
               SignedExecutionPayloadEnvelope], resp.data,
               resp.contentType).valueOr:
             raise newException(RestError, $error)
-          some(envelope.data)
+          Opt.some(envelope.data)
         elif mediaType == OctetStreamMediaType:
           try:
-            some(SSZ.decode(resp.data, SignedExecutionPayloadEnvelope))
+            Opt.some(SSZ.decode(resp.data, SignedExecutionPayloadEnvelope))
           except CatchableError as exc:
             raise newException(RestError, exc.msg)
         else:
           raise newException(RestError, "Unsupported Content-Type")
     of 404:
-      none(SignedExecutionPayloadEnvelope)
+      Opt.none(SignedExecutionPayloadEnvelope)
     of 400, 500:
       let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
