@@ -11,6 +11,7 @@ import
   std/hashes,
   minilru, results,
   kzg4844/[kzg, kzg_abi],
+  ssz_serialization/bitseqs,
   ../spec/[digest, forks, helpers, presets]
 
 from ../spec/datatypes/fulu import
@@ -32,7 +33,7 @@ type
   PartialColumnEntry* = object
     ## Tracks accumulated cells for a single (block_root, column_index) pair.
     headerValidated*: bool
-    cellsReceived*: seq[bool]
+    cellsReceived*: BitSeq
       ## Per-blob cell presence tracking, indexed by blob index.
     cells*: seq[Opt[KzgCell]]
       ## Accumulated cell data, indexed by blob index.
@@ -136,7 +137,7 @@ func getOrCreateEntry*(
   var proofOpts = newSeq[Opt[KzgProof]](numBlobs)
   let entry = PartialColumnEntry(
     headerValidated: quarantine.hasPartialHeader(blockRoot),
-    cellsReceived: newSeq[bool](numBlobs),
+    cellsReceived: BitSeq.init(numBlobs),
     cells: cellOpts,
     proofs: proofOpts)
   quarantine.entries.put(key, entry)
@@ -153,7 +154,7 @@ func markCellReceived*(
   var entry = quarantine.entries.get(key).valueOr:
     return
   if blobIndex < entry.cellsReceived.len:
-    entry.cellsReceived[blobIndex] = true
+    entry.cellsReceived.setBit(blobIndex)
     quarantine.entries.put(key, entry)
 
 func markCellReceived*(
@@ -168,7 +169,7 @@ func markCellReceived*(
   var entry = quarantine.entries.get(key).valueOr:
     return
   if blobIndex < entry.cellsReceived.len:
-    entry.cellsReceived[blobIndex] = true
+    entry.cellsReceived.setBit(blobIndex)
     entry.cells[blobIndex] = Opt.some(cell)
     entry.proofs[blobIndex] = Opt.some(proof)
     quarantine.entries.put(key, entry)
@@ -206,7 +207,7 @@ func addCells*(
       if cellIdx < sidecar.partial_columns.len and
          cellIdx < sidecar.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
-        entry.cellsReceived[blobIdx] = true
+        entry.cellsReceived.setBit(blobIdx)
         entry.cells[blobIdx] = Opt.some(sidecar.partial_columns[cellIdx])
         entry.proofs[blobIdx] = Opt.some(sidecar.kzg_proofs[cellIdx])
       cellIdx.inc

@@ -130,11 +130,6 @@ type
     # Optional header, only sent on eager pushes
     header*: List[PartialDataColumnHeader, 1]
 
-  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
-  PartialDataColumnPartsMetadat* = object
-    available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
     cell*: Cell
@@ -574,6 +569,14 @@ func shortLog*(v: DataColumnSidecar): auto =
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
+  )
+
+func shortLog*(v: PartialDataColumnSidecar): auto =
+  (
+    cells_present: v.cells_present_bitmap,
+    partial_columns: v.partial_columns.len,
+    kzg_proofs: v.kzg_proofs.len,
+    has_header: v.header.len > 0,
   )
 
 func shortLog*(v: seq[DataColumnSidecar]): auto =

@@ -12,7 +12,7 @@ import
   stew/endians2,
   unittest2,
   kzg4844/kzg_abi,
-  ssz_serialization/types as sszTypes,
+  ssz_serialization/[types as sszTypes, bitseqs],
   ../beacon_chain/spec/datatypes/[fulu, deneb],
   ../beacon_chain/spec/presets,
   ../beacon_chain/consensus_object_pools/partial_column_quarantine
@@ -176,7 +176,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(5)
       entry = PartialColumnEntry(
         headerValidated: true,
-        cellsReceived: newSeq[bool](4))
+        cellsReceived: BitSeq.init(4))
 
     quarantine.putEntry(root, colIdx, entry)
     check:
@@ -197,9 +197,9 @@ suite "Partial Column Quarantine":
     let root = genBlockRoot(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
     quarantine.putEntry(root, ColumnIndex(1), PartialColumnEntry(
-      headerValidated: false, cellsReceived: newSeq[bool](5)))
+      headerValidated: false, cellsReceived: BitSeq.init(5)))
 
     check:
       quarantine.hasEntry(root, ColumnIndex(0))
@@ -216,9 +216,9 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(7)
 
     quarantine.putEntry(root1, colIdx, PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](2)))
+      headerValidated: true, cellsReceived: BitSeq.init(2)))
     quarantine.putEntry(root2, colIdx, PartialColumnEntry(
-      headerValidated: false, cellsReceived: newSeq[bool](4)))
+      headerValidated: false, cellsReceived: BitSeq.init(4)))
 
     check:
       quarantine.getEntry(root1, colIdx).get().headerValidated == true
@@ -231,7 +231,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(3)
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](2)))
+      headerValidated: true, cellsReceived: BitSeq.init(2)))
     check quarantine.hasEntry(root, colIdx)
 
     quarantine.removeEntry(root, colIdx)
@@ -244,9 +244,9 @@ suite "Partial Column Quarantine":
     let root = genBlockRoot(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](2)))
+      headerValidated: true, cellsReceived: BitSeq.init(2)))
     quarantine.putEntry(root, ColumnIndex(1), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
 
     quarantine.removeEntry(root, ColumnIndex(0))
     check:
@@ -277,9 +277,12 @@ suite "Partial Column Quarantine":
       root = genBlockRoot(1)
       colIdx = ColumnIndex(2)
 
+    var cellBits = BitSeq.init(3)
+    cellBits.setBit(0)
+    cellBits.setBit(2)
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: @[true, false, true]))
+      cellsReceived: cellBits))
 
     let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 10)
     check:
@@ -317,7 +320,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: newSeq[bool](4)))
+      cellsReceived: BitSeq.init(4)))
 
     check:
       not quarantine.hasCellReceived(root, colIdx, 0)
@@ -348,7 +351,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: newSeq[bool](3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.markCellReceived(root, colIdx, 10) # out of bounds
     check not quarantine.hasCellReceived(root, colIdx, 10)
@@ -365,7 +368,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: newSeq[bool](2)))
+      cellsReceived: BitSeq.init(2)))
 
     check not quarantine.hasCellReceived(root, colIdx, 5)
 
@@ -378,7 +381,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: newSeq[bool](numBlobs)))
+      cellsReceived: BitSeq.init(numBlobs)))
 
     for i in 0 ..< numBlobs:
       quarantine.markCellReceived(root, colIdx, i)
@@ -391,9 +394,9 @@ suite "Partial Column Quarantine":
     let root = genBlockRoot(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
     quarantine.putEntry(root, ColumnIndex(1), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
 
     quarantine.markCellReceived(root, ColumnIndex(0), 1)
 
@@ -462,7 +465,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putPartialHeader(root, header)
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
 
     quarantine.removeHeader(root)
     check:
@@ -478,7 +481,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putPartialHeader(root, header)
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
-      headerValidated: true, cellsReceived: newSeq[bool](3)))
+      headerValidated: true, cellsReceived: BitSeq.init(3)))
 
     quarantine.removeEntry(root, ColumnIndex(0))
     check:
@@ -784,9 +787,11 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     # Manually create entry with headerValidated = true but no header in cache
+    var allReceived = BitSeq.init(1)
+    allReceived.setBit(0)
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
       headerValidated: true,
-      cellsReceived: @[true],
+      cellsReceived: allReceived,
       cells: @[Opt.some(genKzgCell(1))],
       proofs: @[Opt.some(genKzgProof(1))]))
 
