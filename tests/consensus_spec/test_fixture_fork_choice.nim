@@ -331,6 +331,25 @@ proc stepChecks(
     elif check == "genesis_time":
       # We do not store genesis in fork choice..
       discard
+    elif check == "previous_epoch_observed_justified_checkpoint":
+      discard  # Not tracked
+    elif check == "current_epoch_observed_justified_checkpoint":
+      let cp = fkChoice.backend.current_epoch_observed_justified.checkpoint
+      doAssert cp.epoch == Epoch(val["epoch"].getInt())
+      doAssert cp.root == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "previous_epoch_greatest_unrealized_checkpoint":
+      let cp = fkChoice.backend.previous_epoch_greatest_unrealized_checkpoint
+      doAssert cp.epoch == Epoch(val["epoch"].getInt())
+      doAssert cp.root == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "previous_slot_head":
+      doAssert fkChoice.backend.previous_slot_head ==
+        Eth2Digest.fromHex(val.getStr())
+    elif check == "current_slot_head":
+      doAssert fkChoice.backend.current_slot_head ==
+        Eth2Digest.fromHex(val.getStr())
+    elif check == "confirmed_root":
+      doAssert fkChoice.backend.confirmed.root ==
+        Eth2Digest.fromHex(val.getStr())
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -468,3 +487,4 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")
+fcSuite("Fast Confirmation", "fast_confirmation")
