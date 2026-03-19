@@ -14,6 +14,8 @@ AllTests-mainnet
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attester slashing marks validator as equivocating                                          OK
++ Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Everyone voting for something different [Preset: mainnet]                                  OK
