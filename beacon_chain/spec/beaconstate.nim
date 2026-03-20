@@ -3053,7 +3053,7 @@ func get_indexed_payload_attestation*(
     signature: payload_attestation.signature
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
     state: gloas.BeaconState,
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
@@ -3074,7 +3074,8 @@ proc is_valid_indexed_payload_attestation*(
       state.validators[it].pubkey)
     domain = get_domain(
       state.fork, DOMAIN_PTC_ATTESTER,
-      GENESIS_EPOCH, state.genesis_validators_root)
+      indexed_payload_attestation.data.slot.epoch,
+      state.genesis_validators_root)
     signing_root = compute_signing_root(
       indexed_payload_attestation.data, domain)
 

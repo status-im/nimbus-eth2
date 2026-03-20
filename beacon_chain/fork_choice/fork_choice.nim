@@ -43,6 +43,11 @@ func compute_deltas(
     old_balances: openArray[ForkChoiceBalance],
     new_balances: openArray[ForkChoiceBalance]): FcResult[void]
 
+func find_head(
+    self: var ForkChoiceBackend,
+    current_slot: Slot,
+    checkpoints: Checkpoints): FcResult[Eth2Digest]
+
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -50,11 +55,12 @@ logScope: topics = "fork_choice"
 
 func init*(
     T: type ForkChoiceBackend, confirmation_byzantine_threshold: uint64,
-    finalized: BalanceCheckpoint, currentSlot: Slot): T =
+    finalized: BalanceCheckpoint, finalizedSlot, currentSlot: Slot): T =
   T(confirmation_byzantine_threshold: confirmation_byzantine_threshold,
-    proto_array: ProtoArray.init(finalized.checkpoint, currentSlot),
+    proto_array: ProtoArray.init(
+      finalized.checkpoint, finalizedSlot, currentSlot),
     confirmed: BlockId(
-      slot: finalized.checkpoint.epoch.start_slot,
+      slot: finalizedSlot,
       root: finalized.checkpoint.root),
     current_epoch_observed_justified: finalized.balance_source,
     previous_epoch_greatest_unrealized_checkpoint: finalized.checkpoint,
@@ -71,14 +77,48 @@ proc init*(
   debug "Initializing fork choice",
     epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let finalized = to_balance_checkpoint(epochRef, blck)
+  let
+    finalized = to_balance_checkpoint(epochRef, blck)
+    finalizedSlot = blck.slot
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      confirmation_byzantine_threshold, finalized, currentSlot),
+      confirmation_byzantine_threshold, finalized, finalizedSlot, currentSlot),
     checkpoints: Checkpoints(
       time: wallTime,
       justified: finalized,
       finalized: finalized.checkpoint))
+
+func process_attestation(
+    self: var ForkChoiceBackend,
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
+  ## Add an attestation to the fork choice context
+  self.votes.extend(validator_index.int + 1)
+
+  template vote: untyped = self.votes[validator_index]
+  if vote.slot != FAR_FUTURE_SLOT:
+    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+      vote.next_root = block_root
+      vote.slot = slot
+
+      trace "Integrating vote in fork choice",
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
+
+proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+  # Spec:
+  # Attestations can only affect the fork choice of subsequent slots.
+  # Delay consideration in the fork choice until their slot is in the past.
+  let startTick = Moment.now()
+  self.queuedAttestations.keepItIf:
+    if it.slot < slot:
+      for validator_index in it.attesting_indices:
+        self.backend.process_attestation(
+          validator_index, it.block_root, it.slot)
+      false
+    else:
+      true
+  let endTick = Moment.now()
+  debug "Processed attestation queue", processDur = endTick - startTick
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
@@ -127,6 +167,13 @@ proc update_checkpoints(
       store = self.checkpoints.finalized, state = checkpoints.finalized
     self.checkpoints.finalized = checkpoints.finalized
 
+    template previous_epoch_justified: Checkpoint =
+      self.backend.previous_epoch_greatest_unrealized_checkpoint
+    if self.checkpoints.finalized.epoch >= previous_epoch_justified.epoch:
+      trace "Pruned previous_epoch_greatest_unrealized_checkpoint",
+        store = previous_epoch_justified, state = self.checkpoints.finalized
+      previous_epoch_justified = self.checkpoints.finalized
+
   ok()
 
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
@@ -134,6 +181,11 @@ proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
     warn "Confirmed block was unconfirmed",
       old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
   self.confirmed = confirmed
+
+proc update_confirmed(self: var ForkChoiceBackend, confirmed: Checkpoint) =
+  self.update_confirmed BlockId(
+    slot: self.proto_array.slot(confirmed.root).get(confirmed.epoch.start_slot),
+    root: confirmed.root)
 
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
@@ -173,8 +225,9 @@ proc on_tick(
     # Reset store.proposer_boost_root
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
-    # Update prev slot head
+    # Update prev and curr slot head
     self.backend.previous_slot_head = self.backend.current_slot_head
+    self.backend.current_slot_head = dag.head.root
 
     if (current_slot + 1).is_epoch:
       # Update greatest unrealized justified checkpoint
@@ -185,53 +238,34 @@ proc on_tick(
 
     elif current_slot.is_epoch:
       # Pull-up unrealized justified / finalized checkpoints from previous epoch
-      for realized in self.backend.proto_array.realizePendingCheckpoints():
-        ? self.update_checkpoints(dag, realized, current_slot)
+      let realized = self.backend.proto_array.realizePendingCheckpoints(
+        FinalityCheckpoints(
+          justified: self.checkpoints.justified.checkpoint,
+          finalized: self.checkpoints.finalized))
+      ? self.update_checkpoints(dag, realized, current_slot)
 
-      # Reconfirm with previous balance source
+      # Reconfirm with previous balance source after attestations
+      # from past slots have been applied
+      self.process_attestation_queue(current_slot)
       if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
-        self.backend.update_confirmed BlockId(
-          slot: self.checkpoints.finalized.epoch.start_slot,
-          root: self.checkpoints.finalized.root)
+        self.backend.update_confirmed(self.checkpoints.finalized)
 
       # Update observed justified checkpoints at the start of an epoch
       self.update_unrealized_justified(dag)
 
+      # Restart confirmation chain if necessary
+      self.backend.current_slot_head =
+        ? self.backend.find_head(current_slot, self.checkpoints)
+      if not self.backend.is_proto_array_consistent:
+        self.backend.update_confirmed(self.checkpoints.finalized)
+      else:
+        if self.backend.should_restart_confirmation_chain(current_slot):
+          self.backend.update_confirmed(
+            self.backend.current_epoch_observed_justified.checkpoint)
+
     else:
       discard
   ok()
-
-func process_attestation(
-    self: var ForkChoiceBackend,
-    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
-  ## Add an attestation to the fork choice context
-  self.votes.extend(validator_index.int + 1)
-
-  template vote: untyped = self.votes[validator_index]
-  if vote.slot != FAR_FUTURE_SLOT:
-    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
-      vote.next_root = block_root
-      vote.slot = slot
-
-      trace "Integrating vote in fork choice",
-        validator_index = validator_index,
-        new_vote = shortLog(vote)
-
-proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
-  # Spec:
-  # Attestations can only affect the fork choice of subsequent slots.
-  # Delay consideration in the fork choice until their slot is in the past.
-  let startTick = Moment.now()
-  self.queuedAttestations.keepItIf:
-    if it.slot < slot:
-      for validator_index in it.attesting_indices:
-        self.backend.process_attestation(
-          validator_index, it.block_root, it.slot)
-      false
-    else:
-      true
-  let endTick = Moment.now()
-  debug "Processed attestation queue", processDur = endTick - startTick
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
@@ -310,6 +344,31 @@ func process_block*(
     unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+proc update_proposer_boost_root(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
+  const consensusFork = typeof(blck).kind
+
+  template is_first_block: bool =
+    self.checkpoints.proposer_boost_root == ZERO_HASH
+
+  template attestation_threshold: BeaconTime =
+    current_slot.attestation_deadline(dag.timeParams, consensusFork)
+
+  template is_timely: bool =
+    current_slot == blck.slot and
+    self.checkpoints.time < attestation_threshold
+
+  # Add proposer score boost if the block is the first timely block
+  # for this slot, with the same proposer as the canonical chain.
+  if is_timely and is_first_block:
+    # Only update if the proposer is the same as on the canonical chain
+    let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
+      return
+    if blck.proposer_index == expected_proposer.uint64:
+      self.checkpoints.proposer_boost_root = blckRef.root
+
 proc process_block*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -331,19 +390,14 @@ proc process_block*(
     if attestation.data.beacon_block_root in self.backend:
       for vidx in dag.get_attesting_indices(attestation):
         self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot
-        )
+          vidx, attestation.data.beacon_block_root, attestation.data.slot)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  if slot == blck.slot and
-      self.checkpoints.time < slot.attestation_deadline(
-        dag.timeParams, typeof(blck).kind) and
-      self.checkpoints.proposer_boost_root == ZERO_HASH:
-    self.checkpoints.proposer_boost_root = blckRef.root
+  self.update_proposer_boost_root(dag, blckRef, blck, slot)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)
@@ -417,13 +471,21 @@ proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-  self.backend.current_slot_head = blckRef.root
 
-  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  let
+    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+    consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
+    threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  if self.checkpoints.time < threshold:
+    self.backend.current_slot_head = blckRef.root
   if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
-    self.backend.update_confirmed BlockId(
-      slot: self.checkpoints.finalized.epoch.start_slot,
-      root: self.checkpoints.finalized.root)
+    self.backend.update_confirmed(self.checkpoints.finalized)
+  if not self.backend.is_proto_array_consistent:
+    self.backend.update_confirmed(self.checkpoints.finalized)
+  else:
+    if self.backend.should_restart_confirmation_chain(current_slot):
+      self.backend.update_confirmed(
+        self.backend.current_epoch_observed_justified.checkpoint)
 
   # TODO: Replace placeholder
   self.backend.update_confirmed BlockId(
@@ -439,7 +501,12 @@ func prune(
     self: var ForkChoiceBackend,
     checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.prune(checkpoints)
+  ? self.proto_array.prune(checkpoints)
+  if self.previous_slot_head notin self.proto_array:
+    self.previous_slot_head = checkpoints.finalized.root
+  if self.current_slot_head notin self.proto_array:
+    self.current_slot_head = checkpoints.finalized.root
+  ok()
 
 func prune*(self: var ForkChoice): FcResult[void] =
   self.backend.prune(

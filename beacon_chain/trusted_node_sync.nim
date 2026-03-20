@@ -15,7 +15,7 @@ import
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
           network, presets, state_transition],
-  ./process_state
+  ./[beacon_chain_db, process_state]
 
 from presto import RestDecodingError
 from "."/beacon_clock import
@@ -403,6 +403,30 @@ proc doTrustedNodeSync*(
         ChainDAGRef.preInit(db, state[])
     else:
       ChainDAGRef.preInit(db, state[])
+
+    # For Gloas states and possibly beyond, we also need to
+    # download the payload envelope for the head block.
+    if cfg.consensusForkAtEpoch(state[].slot.epoch) >= ConsensusFork.Gloas:
+      let blockRoot = withState(state[]):
+        forkyState.latest_block_root()
+      notice "Downloading execution payload envelope for checkpoint block",
+        blockRoot
+      try:
+        let envelope = awaitWithTimeout(
+          client.getExecutionPayloadEnvelope(BlockIdent.init(blockRoot)),
+          smallRequestsTimeout):
+          warn "Attempt to download execution payload envelope timed out"
+          Opt.none(SignedExecutionPayloadEnvelope)
+        if envelope.isSome():
+          db.putExecutionPayloadEnvelope(envelope.get())
+          notice "Execution payload envelope saved to database",
+            blockRoot, slot = envelope.get().message.slot
+        else:
+          warn "Execution payload envelope not available from checkpoint sync server - sync may be delayed until peers can provide it",
+            blockRoot
+      except CatchableError as exc:
+        warn "Unable to download execution payload envelope",
+          error = exc.msg, blockRoot
 
   else:
     notice "Skipping checkpoint download, database already exists (remove db directory to get a fresh snapshot)",

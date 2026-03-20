@@ -26,21 +26,6 @@ func makeSignedBeaconBlockHeader(
       fork, genesis_validators_root, slot, hash_tree_root(tmp),
       MockPrivKeys[proposer_index]).toValidatorSig())
 
-func makeElectraIndexedAttestation(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    validator_index: uint64, beacon_block_root: Eth2Digest):
-    electra.IndexedAttestation =
-  let tmp = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
-
-  electra.IndexedAttestation(
-    data: tmp,
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT](
-        @[validator_index]),
-    signature: get_attestation_signature(
-      fork, genesis_validators_root, tmp,
-      MockPrivKeys[validator_index]).toValidatorSig)
-
 func makeSignedVoluntaryExit(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     validator_index: uint64): SignedVoluntaryExit =
@@ -106,16 +91,11 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 5,
       cache, info, {}).expect("ok")
-    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS_ELECTRA + 5:
       for j in 0'u64 .. i:
-        let
-          msg = electra.AttesterSlashing(
-            attestation_1: makeElectraIndexedAttestation(
-              fork, genesis_validators_root, Slot(1), j, makeFakeHash(0)),
-            attestation_2: makeElectraIndexedAttestation(
-              fork, genesis_validators_root, Slot(1), j, makeFakeHash(1)))
+        let msg = dag.headState.makeElectraAttesterSlashing(
+          [j], Slot(1), makeFakeHash(0), makeFakeHash(1))
 
         if i == 0:
           check not pool[].isSeen(msg)
