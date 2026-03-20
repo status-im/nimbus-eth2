@@ -1071,8 +1071,7 @@ proc isParentBlockFull(blck: BlockRef): bool =
   ## blck should have the execution hashes all the time for updateState() and
   ## other envelope checks to work properly.
 
-  if isNil(blck) or isNil(blck.parent) or
-      blck.executionParentHash.isNone() or
+  if blck.executionParentHash.isNone() or
       blck.parent.executionBlockHash.isNone() or
       blck.executionParentHash.get().isZero():
     false
@@ -1085,8 +1084,7 @@ proc isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
 
   template bid(): auto = blck.message.body.signed_execution_payload_bid
 
-  if isNil(parent) or
-      parent.executionBlockHash.isNone() or
+  if parent.executionBlockHash.isNone() or
       bid.message.parent_block_hash.isZero():
     false
   else:
