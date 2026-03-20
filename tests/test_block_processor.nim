@@ -69,6 +69,7 @@ suite "Block processor" & preset():
         res.DENEB_FORK_EPOCH = Epoch(2)
         res.ELECTRA_FORK_EPOCH = Epoch(3)
         res.FULU_FORK_EPOCH = Epoch(4)
+        res.GLOAS_FORK_EPOCH = Epoch(5)
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
@@ -208,8 +209,7 @@ suite "Block processor" & preset():
       envelopeQuarantine, getTimeFn,
     )
 
-    debugGloasComment "TODO testing"
-    for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+    for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Gloas:
       process_slots(
         cfg,
         state[],
@@ -402,6 +402,39 @@ suite "Block processor" & preset():
         check:
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
+
+  asyncTest "Process Gloas block (without envelope)" & preset():
+    # Advance to Gloas fork
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
+    )
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Gloas:
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Gloas, forkyState, cache)
+
+        # addBlock processes the block without an envelope.
+        # The block is stored optimistically; envelope is processed separately.
+        let res = await processor.addBlock(
+          MsgSource.gossip,
+          engineBlock.blck,
+          noSidecars
+        )
+
+        check:
+          res.isOk
+          dag.containsForkBlock(engineBlock.blck.root)
+
+        check:
+          engineBlock.blck.root in envelopeQuarantine[].getMissing()
 
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk
