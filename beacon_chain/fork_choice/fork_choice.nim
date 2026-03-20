@@ -178,7 +178,7 @@ proc update_checkpoints(
 
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
   if confirmed.slot < self.confirmed.slot:
-    warn "Confirmed block was unconfirmed",
+    notice "Confirmed block was unconfirmed",
       old_confirmed = self.confirmed, new_confirmed = confirmed
   if confirmed != self.confirmed:
     trace "Updating confirmed block",
@@ -228,11 +228,12 @@ proc reconfirm_fcr(
 
   # Restart confirmation chain if necessary
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
-  if not fcr.is_proto_array_consistent:
+  fcr.check_proto_array_consistency.isOkOr:
+    warn "Proto array inconsistent - report bug", reason = error
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
-  else:
-    if fcr.should_restart_confirmation_chain(confirmed, current_slot):
-      confirmed = fcr.to_block_id(current_epoch_justified)
+    return ok()
+  if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    confirmed = fcr.to_block_id(current_epoch_justified)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
@@ -500,19 +501,22 @@ proc will_select_head*(
     fcr.current_slot_head = blckRef.root
   if fcr.should_revert_confirmed_on_new_head(blckRef, confirmed, current_slot):
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
-  if not fcr.is_proto_array_consistent:
+  fcr.check_proto_array_consistency.isOkOr:
+    warn "Proto array inconsistent - report bug", reason = error
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
-  else:
-    if fcr.should_restart_confirmation_chain(confirmed, current_slot):
-      confirmed = fcr.to_block_id(current_epoch_justified)
-    # Attempt to further advance the latest confirmed block.
-    if confirmed.slot.epoch + 1 >= current_slot.epoch:
-      template justified: Checkpoint = self.checkpoints.justified.checkpoint
-      let unrealized = fcr.proto_array.unrealized_justified(justified)
-      confirmed = fcr.find_latest_confirmed_descendant(
-          dag, blckRef, unrealized, confirmed, current_slot).valueOr:
-        error "EpochRef / ShufflingRef unavailable", blckRef, current_slot
-        fcr.to_block_id(self.checkpoints.finalized)
+    fcr.update_confirmed(confirmed)
+    return ok()
+  if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    confirmed = fcr.to_block_id(current_epoch_justified)
+  # Attempt to further advance the latest confirmed block.
+  if confirmed.slot.epoch + 1 >= current_slot.epoch:
+    template justified: Checkpoint = self.checkpoints.justified.checkpoint
+    let unrealized = fcr.proto_array.unrealized_justified(justified)
+    confirmed = fcr.find_latest_confirmed_descendant(
+        dag, blckRef, unrealized, confirmed, current_slot).valueOr:
+      warn "Failed to advance 'safe' block - report bug",
+        blckRef, unrealized, confirmed, current_slot, reason = error
+      fcr.to_block_id(self.checkpoints.finalized)
   fcr.update_confirmed(confirmed)
   ok()
 

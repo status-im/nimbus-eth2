@@ -87,9 +87,19 @@ func contains*(self: ProtoArray, root: Eth2Digest): bool =
 func slot*(self: ProtoArray, root: Eth2Digest): Opt[Slot] =
   ok (? self.nodes[self.find(root)]).bid.slot
 
+func voting_source*(self: ProtoArray, root: Eth2Digest): Opt[Checkpoint] =
+  ok (? self.nodes[self.find(root)]).checkpoints.justified
+
+func unrealized_justified*(
+    self: ProtoArray, root: Eth2Digest): Opt[Checkpoint] =
+  let
+    idx = self.find(root)
+    checkpoints = (? self.nodes[idx]).checkpoints
+  ok self.unrealized.getOrDefault(idx, checkpoints).justified
+
 type NodeCheckpoints* = object
   voting_source*: Checkpoint
-  unrealized*: Checkpoint
+  unrealized_justified*: Checkpoint
 
 func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
   let
@@ -97,7 +107,8 @@ func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
     checkpoints = (? self.nodes[idx]).checkpoints
   result.ok NodeCheckpoints(
     voting_source: checkpoints.justified,
-    unrealized: self.unrealized.getOrDefault(idx, checkpoints).justified)
+    unrealized_justified:
+      self.unrealized.getOrDefault(idx, checkpoints).justified)
 
 # Forward declarations
 # ----------------------------------------------------------------------

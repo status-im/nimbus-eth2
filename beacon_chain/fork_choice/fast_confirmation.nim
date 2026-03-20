@@ -21,6 +21,9 @@ from ../spec/beaconstate import latest_block_root
 
 export fork_choice_types
 
+# FCR research paper: https://arxiv.org/abs/2405.00549
+# Primary spec PR: https://github.com/ethereum/consensus-specs/pull/4747
+
 const
   AttesterDutyOffsets* = [
     ForkChoiceInfoOffset + 1,
@@ -82,7 +85,7 @@ func record_shuffling(
 
 proc do_update_shufflings(
     balance_source: var BalanceSource, dag: ChainDAGRef,
-    blck: BlockRef, current_slot: Slot): Opt[void] =
+    blck: BlockRef, current_slot: Slot): FcResult[void] =
   var
     blck = blck
     epoch = current_slot.epoch
@@ -95,11 +98,22 @@ proc do_update_shufflings(
           blck = dependent_blck
           blck.bid.root
         else:
-          (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
-    if balance_source.has_shuffling(epoch, dependent_root):
-      return ok()
-    balance_source.record_shuffling(
-      ? dag.getShufflingRef(blck, epoch, preFinalized = true))
+          let bsi = dag.getBlockIdAtSlot(dependent_slot).valueOr:
+            return err ForkChoiceError(
+              kind: fcUnknownBlockIdAtSlot,
+              shufflingRoot: blck.bid.root,
+              shufflingEpoch: epoch)
+          bsi.bid.root
+      shufflingRef =
+        if balance_source.has_shuffling(epoch, dependent_root):
+          return ok()
+        else:
+          dag.getShufflingRef(blck, epoch, preFinalized = true).valueOr:
+            return err ForkChoiceError(
+              kind: fcUnknownShufflingRef,
+              shufflingRoot: blck.bid.root,
+              shufflingEpoch: epoch)
+    balance_source.record_shuffling(shufflingRef)
     if epoch <= GENESIS_EPOCH:
       return ok()
     dec epoch
@@ -107,14 +121,14 @@ proc do_update_shufflings(
 
 proc update_latest_shufflings(
     balance_source: var BalanceSource, dag: ChainDAGRef,
-    blck: BlockRef, current_slot: Slot): Opt[void] =
+    blck: BlockRef, current_slot: Slot): FcResult[void] =
   result = balance_source.do_update_shufflings(dag, dag.head, current_slot)
   if result.isErr:
     balance_source.shuffling_epochs = DefaultShufflingEpochs
 
 proc update_latest_shufflings*(
     balance_source: var BalanceSource, dag: ChainDAGRef,
-    current_slot: Slot): Opt[void] =
+    current_slot: Slot): FcResult[void] =
   balance_source.update_latest_shufflings(dag, dag.head, current_slot)
 
 func assign_shufflings*(dst: var BalanceSource, src: BalanceSource) =
@@ -427,12 +441,13 @@ func compute_empty_slot_support_discount(
   ## Return weight that can be discounted during the safety threshold
   ## computation if there are empty slots preceding the block.
 
+  let parent_blck = chain[i + 1].blck
   # No empty slot.
-  if chain[i + 1].blck.slot + 1 == chain[i].blck.slot:
+  if parent_blck.slot + 1 == chain[i].blck.slot:
     return 0.Gwei
 
   let
-    empty_slots = chain[i + 1].blck.slot + 1 ..< chain[i].blck.slot
+    empty_slots = parent_blck.slot + 1 ..< chain[i].blck.slot
     # Discount votes supporting the parent block if they are from
     # the committees of empty slots.
     parent_support_in_empty_slots = chain.get_block_support_between_slots(
@@ -571,10 +586,22 @@ func should_revert_confirmed_on_new_head*(
     blck = blck.parent
   blck == nil or blck.root != confirmed.root
 
-func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
-  self.previous_slot_head in self.proto_array and
-  self.current_slot_head in self.proto_array and
-  self.current_epoch_observed_justified.checkpoint.root in self.proto_array
+func check_proto_array_consistency*(self: ForkChoiceBackend): FcResult[void] =
+  if self.previous_slot_head notin self.proto_array:
+    return err ForkChoiceError(
+      kind: fcPreviousHeadUnknown,
+      blockRoot: self.previous_slot_head)
+  if self.current_slot_head notin self.proto_array:
+    return err ForkChoiceError(
+      kind: fcCurrentHeadUnknown,
+      blockRoot: self.current_slot_head)
+  template current_epoch_justified: Checkpoint =
+    self.current_epoch_observed_justified.checkpoint
+  if current_epoch_justified.root notin self.proto_array:
+    return err ForkChoiceError(
+      kind: fcJustifiedNodeUnknown,
+      blockRoot: current_epoch_justified.root)
+  ok()
 
 func should_restart_confirmation_chain*(
     self: ForkChoiceBackend, confirmed: BlockId, current_slot: Slot): bool =
@@ -590,11 +617,11 @@ func should_restart_confirmation_chain*(
     self.current_epoch_observed_justified.checkpoint
   template current_epoch_justified_slot: Slot =
     self.proto_array.slot(current_epoch_justified.root)
-      .expect("is_proto_array_consistent")
+      .expect("check_proto_array_consistency")
 
   template head_unrealized_justified: Checkpoint =
-    self.proto_array.checkpoints(self.current_slot_head)
-      .expect("is_proto_array_consistent").unrealized
+    self.proto_array.unrealized_justified(self.current_slot_head)
+      .expect("check_proto_array_consistency")
 
   current_slot.is_epoch and
   current_epoch_justified.epoch + 1 == current_slot.epoch and
@@ -653,12 +680,16 @@ func get_current_target_info*[T: Validator | ForkChoiceBalance](
 
 proc get_current_target_info*(
     self: ForkChoiceBackend, dag: ChainDAGRef,
-    blck: BlockRef, current_slot: Slot): Opt[CurrentTargetInfo] =
+    blck: BlockRef, current_slot: Slot): FcResult[CurrentTargetInfo] =
   ## Return the estimate of FFG support of the current epoch target
   ## by using LMD-GHOST votes.
   let
     current_epoch = current_slot.epoch
-    shufflingRef = ? dag.getShufflingRef(blck, current_epoch, false)
+    shufflingRef = dag.getShufflingRef(blck, current_epoch, false).valueOr:
+      return err ForkChoiceError(
+        kind: fcUnknownShufflingRef,
+        shufflingRoot: blck.root,
+        shufflingEpoch: current_epoch)
     roots = blck.all_current_target_descendants(dag.heads, current_slot)
 
   template isCompatible(state: ForkedHashedBeaconState): bool =
@@ -680,7 +711,10 @@ proc get_current_target_info*(
       roots, shufflingRef, state[].validators, current_slot)
   else:
     let epochRef = dag.getEpochRef(blck, current_epoch, false).valueOr:
-      return Opt.none CurrentTargetInfo
+      return err ForkChoiceError(
+        kind: fcUnknownShufflingRef,
+        shufflingRoot: blck.root,
+        shufflingEpoch: current_epoch)
     result.ok self.get_current_target_info(
       roots, epochRef.shufflingRef, epochRef.fork_choice_balances, current_slot)
 
@@ -740,7 +774,7 @@ func will_current_target_be_justified(
 proc find_latest_confirmed_descendant*(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
     blck: BlockRef, unrealized: Checkpoint,
-    confirmed: BlockId, current_slot: Slot): Opt[BlockId] =
+    confirmed: BlockId, current_slot: Slot): FcResult[BlockId] =
   ## Return the most recent confirmed block in the suffix of the canonical chain
   ## starting from ``confirmed.root``.
 
@@ -752,16 +786,14 @@ proc find_latest_confirmed_descendant*(
     total_active_balance = balance_source.total_active_balance
     byzantine_threshold = self.confirmation_byzantine_threshold
     previous = self.proto_array.checkpoints(self.previous_slot_head)
-      .expect("is_proto_array_consistent")
+      .expect("check_proto_array_consistency")
     current = self.proto_array.checkpoints(self.current_slot_head)
-      .expect("is_proto_array_consistent")
+      .expect("check_proto_array_consistency")
 
   var stored_info: Opt[CurrentTargetInfo]
   template info: lent CurrentTargetInfo =
     if stored_info.isNone:
-      stored_info = self.get_current_target_info(dag, blck, current_slot)
-      if stored_info.isNone:
-        return Opt.none BlockId
+      stored_info.ok(? self.get_current_target_info(dag, blck, current_slot))
     stored_info.unsafeGet
 
   var stored_no_conflict: Opt[bool]
@@ -787,8 +819,8 @@ proc find_latest_confirmed_descendant*(
       previous.voting_source.epoch + 2 >= current_epoch and (
         current_slot.is_epoch or (
           will_no_conflicting_be_justified and (
-            previous.unrealized.epoch + 1 >= current_epoch or
-            current.unrealized.epoch + 1 >= current_epoch))):
+            previous.unrealized_justified.epoch + 1 >= current_epoch or
+            current.unrealized_justified.epoch + 1 >= current_epoch))):
     # Get suffix of the canonical chain
     init_chain()
 
@@ -796,7 +828,10 @@ proc find_latest_confirmed_descendant*(
       # The algorithm can only rely on the previous head
       # if it is a descendant of the block that is attempted to be confirmed
       var
-        blck = ? dag.getBlockRef(self.previous_slot_head)
+        blck = dag.getBlockRef(self.previous_slot_head).valueOr:
+          return err ForkChoiceError(
+            kind: fcPreviousHeadUnknown,
+            blockRoot: self.previous_slot_head)
         j = chain.index(blck.slot, current_slot)
       while j < chain.high and chain[j].blck != blck:
         blck = blck.parent
@@ -824,7 +859,7 @@ proc find_latest_confirmed_descendant*(
         confirmed_i = i
 
   if current_slot.is_epoch or
-      current.unrealized.epoch + 1 >= current_epoch:
+      current.unrealized_justified.epoch + 1 >= current_epoch:
     # Get suffix of the canonical chain
     init_chain()
 
@@ -855,7 +890,10 @@ proc find_latest_confirmed_descendant*(
     # The tentative_confirmed.root can only be confirmed if it is for sure
     # not going to be reorged out in either the current or next epoch.
     template tentative_voting_source: Checkpoint =
-      (? self.proto_array.checkpoints(tentative_confirmed.root)).voting_source
+      self.proto_array.voting_source(tentative_confirmed.root).valueOr:
+        return err ForkChoiceError(
+          kind: fcConfirmedNodeUnknown,
+          blockRoot: tentative_confirmed.root)
     if tentative_confirmed.slot.epoch == current_epoch or (
         tentative_voting_source.epoch + 2 >= current_epoch and (
           current_slot.is_epoch or
