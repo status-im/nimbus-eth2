@@ -191,11 +191,6 @@ proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
     checkpoint.epoch.start_slot
   result.root = checkpoint.root
 
-proc update_confirmed(self: var ForkChoiceBackend, confirmed: Checkpoint) =
-  self.update_confirmed BlockId(
-    slot: self.proto_array.slot(confirmed.root).get(confirmed.epoch.start_slot),
-    root: confirmed.root)
-
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
   if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
@@ -238,6 +233,7 @@ proc reconfirm_fcr(
   else:
     if fcr.should_restart_confirmation_chain(confirmed, current_slot):
       confirmed = fcr.to_block_id(current_epoch_justified)
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
