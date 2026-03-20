@@ -407,6 +407,9 @@ func getOrDefault*(
 func len*(buffer: BlocksRootBuffer): int =
   len(buffer.roots)
 
+func contains*(buffer: BlocksRootBuffer, root: Eth2Digest): bool =
+  contains(buffer.roots, root)
+
 iterator popBlocks*(
     buffer: var BlocksRootBuffer,
     root: Eth2Digest

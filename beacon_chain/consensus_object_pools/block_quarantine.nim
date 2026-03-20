@@ -106,6 +106,14 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## to be called periodically but not too often (once per slot?)
   quarantine.missing.checkMissing(max)
 
+func checkOrphan*(quarantine: var Quarantine, root: Eth2Digest): bool =
+  ## Returns ``true`` if block with root ``root`` exists in ``orphans`` table.
+  ## Note: This procedure has O(n) complexity!
+  for k, v in quarantine.orphans.mpairs():
+      if v.root == root:
+        return true
+  false
+
 proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, UnviableKind] =
   ## Schedule the download a given block or its ancestor, if we're keeping
   ## track of it as an orphan
