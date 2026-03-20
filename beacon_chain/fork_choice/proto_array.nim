@@ -64,6 +64,14 @@ func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
     return Opt.none(ProtoNode)
   Opt.some(nodes.buf[i])
 
+func contains(nodes: ProtoNodes, idx: Index): bool =
+  if idx < nodes.offset:
+    return false
+  let i = idx - nodes.offset
+  if i >= nodes.buf.len:
+    return false
+  true
+
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
@@ -72,6 +80,24 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 
 func find(self: ProtoArray, root: Eth2Digest): Index =
   self.indices.getOrDefault(root, -1)
+
+func contains*(self: ProtoArray, root: Eth2Digest): bool =
+  self.find(root) in self.nodes
+
+func slot*(self: ProtoArray, root: Eth2Digest): Opt[Slot] =
+  ok (? self.nodes[self.find(root)]).bid.slot
+
+type NodeCheckpoints* = object
+  voting_source*: Checkpoint
+  unrealized*: Checkpoint
+
+func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
+  let
+    idx = self.find(root)
+    checkpoints = (? self.nodes[idx]).checkpoints
+  result.ok NodeCheckpoints(
+    voting_source: checkpoints.justified,
+    unrealized: self.unrealized.getOrDefault(idx, checkpoints).justified)
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -115,7 +141,7 @@ func unrealized_justified*(
     self: ProtoArray, justified: Checkpoint): Checkpoint =
   result = justified
   var bestIdx = Index.high
-  for idx, unrealized in self.currentEpochTips:
+  for idx, unrealized in self.unrealized:
     result.updateIfBetter(bestIdx, unrealized.justified, idx)
 
 func realizePendingCheckpoints*(
@@ -124,7 +150,7 @@ func realizePendingCheckpoints*(
   # Pull-up chain tips from previous epoch
   var jIdx, fIdx = Index.high
   result = checkpoints
-  for idx, unrealized in self.currentEpochTips:
+  for idx, unrealized in self.unrealized:
     let physicalIdx = idx - self.nodes.offset
     if unrealized != self.nodes.buf[physicalIdx].checkpoints:
       trace "Pulling up chain tip",
@@ -136,7 +162,7 @@ func realizePendingCheckpoints*(
     result.finalized.updateIfBetter(fIdx, unrealized.finalized, idx)
 
   # Reset tip tracking for new epoch
-  self.currentEpochTips.clear()
+  self.unrealized.clear()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/phase0/fork-choice.md#compute_proposer_score
 func compute_proposer_score*(total_active_balance: Gwei): Gwei =
@@ -319,9 +345,8 @@ func onBlock*(
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
 
-  self.currentEpochTips.del parentIdx
   if unrealized.isSome:
-    self.currentEpochTips[nodeLogicalIdx] = unrealized.get
+    self.unrealized[nodeLogicalIdx] = unrealized.get
 
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
@@ -396,7 +421,7 @@ func prune*(
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
     let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-    self.currentEpochTips.del nodeLogicalIdx
+    self.unrealized.del nodeLogicalIdx
     self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
@@ -630,8 +655,8 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
 
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-      if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+      if self.unrealized.hasKey(nodeLogicalIdx):
+        Opt.some self.unrealized.unsafeGet(nodeLogicalIdx)
       else:
         Opt.none(FinalityCheckpoints)
 

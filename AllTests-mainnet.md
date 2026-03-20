@@ -14,6 +14,8 @@ AllTests-mainnet
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attester slashing marks validator as equivocating                                          OK
++ Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Everyone voting for something different [Preset: mainnet]                                  OK
@@ -243,8 +245,12 @@ AllTests-mainnet
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
++ ENR fork ID transitions from Fulu to Gloas                                                 OK
++ Fulu fork digest resolved via bpos list                                                    OK
 + Fusaka devnet-2                                                                            OK
 + Glamsterdam bal-devnet-2                                                                   OK
++ nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
++ nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```
 ## EF - KZG
 ```diff
@@ -947,7 +953,7 @@ AllTests-mainnet
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
 + Can get payload attestations for block production [Preset: mainnet]                        OK
-+ Different payload presence values [Preset: mainnet]                                        OK
++ Different 'blob data available' and 'payload presence' values [Preset: mainnet]            OK
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
@@ -1251,6 +1257,7 @@ AllTests-mainnet
 ```
 ## get_ancestor_support_by_slot
 ```diff
++ Balance source, all validator states                                                       OK
 + Basic support                                                                              OK
 + Early epochs                                                                               OK
 + Early epochs with 3 shufflings                                                             OK
@@ -1262,6 +1269,9 @@ AllTests-mainnet
 + Equivocating, last block before previous epoch                                             OK
 + Equivocating, single slot in range                                                         OK
 + Gap in chain                                                                               OK
++ Gap in chain, vote from earlier epoch                                                      OK
++ Gap in chain, vote from later epoch                                                        OK
++ Gap in chain, vote in both epochs                                                          OK
 + Mixed validators                                                                           OK
 + No match                                                                                   OK
 + Non-canonical, deep fork                                                                   OK
@@ -1272,11 +1282,13 @@ AllTests-mainnet
 + Running totals verification                                                                OK
 + Slashed validator                                                                          OK
 + Stale view, no assigned slot at stale block                                                OK
++ Stale view, vote from later epoch                                                          OK
++ Vote at terminal slot, duty in gap                                                         OK
 + Votes outside range                                                                        OK
 + assign_shufflings dst longer than src                                                      OK
 + assign_shufflings replaces duties                                                          OK
 ```
-## get_current_target_score
+## get_current_target_info
 ```diff
 + Basic support                                                                              OK
 + Empty votes                                                                                OK

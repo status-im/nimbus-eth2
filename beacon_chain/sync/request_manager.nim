@@ -12,14 +12,15 @@ import ssz_serialization/types
 import
   ../spec/[forks, network, peerdas_helpers],
   ../networking/eth2_network,
-  ../consensus_object_pools/block_quarantine,
-  ../consensus_object_pools/blob_quarantine,
+  ../consensus_object_pools/[
+    blob_quarantine, block_quarantine, envelope_quarantine],
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
 from std/algorithm import binarySearch, sort
 from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
+from stew/assign2 import assign
 export block_quarantine, sync_manager
 
 logScope:
@@ -52,9 +53,17 @@ type
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
+  EnvelopeVerifierFn = proc(
+      signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+  ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+
   BlockLoaderFn = proc(
       blockRoot: Eth2Digest
   ): Opt[ForkedTrustedSignedBeaconBlock] {.gcsafe, raises: [].}
+
+  EnvelopeLoaderFn = proc(
+      blockRoot: Eth2Digest,
+  ): Opt[gloas.TrustedSignedExecutionPayloadEnvelope] {.gcsafe, raises: [].}
 
   BlobLoaderFn = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
@@ -80,13 +89,17 @@ type
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
+    envelopeQuarantine: ref EnvelopeQuarantine
     blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine: ref ColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
+    envelopeVerifier: EnvelopeVerifierFn
+    envelopeLoader: EnvelopeLoaderFn
     blobLoader: BlobLoaderFn
     dataColumnLoader: DataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
+    envelopeLoopFuture: Future[void].Raising([CancelledError])
     blobLoopFuture: Future[void].Raising([CancelledError])
     dataColumnLoopFuture: Future[void].Raising([CancelledError])
 
@@ -103,10 +116,13 @@ func init*(T: type RequestManager, network: Eth2Node,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
+              envelopeQuarantine: ref EnvelopeQuarantine,
               blobQuarantine: ref BlobQuarantine,
               dataColumnQuarantine: ref ColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
+              envelopeVerifier: EnvelopeVerifierFn,
+              envelopeLoader: EnvelopeLoaderFn,
               blobLoader: BlobLoaderFn = nil,
               dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
@@ -116,10 +132,13 @@ func init*(T: type RequestManager, network: Eth2Node,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
+    envelopeQuarantine: envelopeQuarantine,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
+    envelopeVerifier: envelopeVerifier,
+    envelopeLoader: envelopeLoader,
     blobLoader: blobLoader,
     dataColumnLoader: dataColumnLoader)
 
@@ -136,6 +155,13 @@ func checkResponse(roots: openArray[Eth2Digest],
     else:
       checks.del(res)
   true
+
+func checkResponse(
+    roots: openArray[Eth2Digest],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope],
+): bool =
+  ## Ensure the response contains only the requested envelopes.
+  envelopes.allIt(it[].message.beacon_block_root in roots)
 
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
@@ -259,6 +285,68 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
   finally:
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
+
+proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
+    {.async: (raises: [CancelledError]).} =
+  let peer = await self.network.peerPool.acquire()
+  debug "Requesting envelopes by root",
+    peer = peer, envelopes = shortLog(roots),
+    peer_score = peer.getScore()
+
+  try:
+    let envelopes = await executionPayloadEnvelopesByRoot(
+      peer, BlockRootsList roots)
+
+    if envelopes.isOk:
+      let uenvelopes = envelopes.get().asSeq()
+      if checkResponse(roots, uenvelopes):
+        var
+          gotGoodEnvelope = false
+          gotUnviableEnvelope = false
+
+        for envelope in uenvelopes:
+          self.envelopeQuarantine[].addOrphan(envelope[])
+          let res = await self.envelopeVerifier(envelope[])
+          if res.isErr():
+            case res.error():
+            of VerifierError.MissingParent:
+              # Ignoring due to it should have checked in processing the valid
+              # block.
+              discard
+            of VerifierError.Duplicate:
+              # Ignoring as it could occur when making parallel requests.
+              discard
+            of VerifierError.UnviableFork:
+              gotUnviableEnvelope = true
+            of VerifierError.Invalid:
+              notice "Received invalid envelope",
+                peer = peer, envelopes = shortLog(roots)
+              peer.updateScore(PeerScoreBadValues)
+              return
+          else:
+            gotGoodEnvelope = true
+
+        if gotUnviableEnvelope:
+          notice "Received envelope from an unviable fork",
+            peer = peer, envelopes = shortLog(roots)
+          peer.updateScore(PeerScoreUnviableFork)
+        if gotGoodEnvelope:
+          debug "Request manager got good envelope",
+            peer = peer, envelopes = shortLog(roots), uenvelopes = len(uenvelopes)
+          peer.updateScore(PeerScoreGoodValues)
+
+      else:
+        debug "Mismatching response to envelopes by root",
+          peer = peer, envelopes = shortLog(roots), uenvelopes = len(uenvelopes)
+        peer.updateScore(PeerScoreBadResponse)
+    else:
+      debug "Envelopes by root request failed",
+        peer = peer, envelopes = shortLog(roots), err = envelopes.error()
+      peer.updateScore(PeerScoreNoValues)
+
+  finally:
+    if not(isNil(peer)):
+      self.network.peerPool.release(peer)
 
 func cmpSidecarIndexes(x, y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
@@ -504,6 +592,59 @@ proc requestManagerBlockLoop(
     debug "Request manager block tick", blocks = shortLog(blockRoots),
                                         sync_speed = speed(start, finish)
 
+proc requestManagerEnvelopeLoop(self: RequestManager)
+    {.async: (raises: [CancelledError]).} =
+  while true:
+    # TODO This polling could be replaced with an AsyncEvent that is fired
+    #      from the quarantine when there's work to do
+    await sleepAsync(POLL_INTERVAL)
+
+    if self.inhibit():
+      continue
+
+    let missingBlockRoots = self.envelopeQuarantine[].getMissing()
+    if missingBlockRoots.len() == 0:
+      continue
+
+    var blockRoots: seq[Eth2Digest]
+    if self.envelopeLoader == nil:
+      assign(blockRoots, missingBlockRoots)
+    else:
+      var verifiers:
+        seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
+      for blockRoot in missingBlockRoots:
+        let envelope = self.envelopeLoader(blockRoot).valueOr:
+          blockRoots.add blockRoot
+          continue
+        debug "Loaded orphaned envelope from storage", blockRoot
+        verifiers.add self.envelopeVerifier(envelope.asSigned())
+      try:
+        await allFutures(verifiers)
+      except CancelledError as exc:
+        let futs = verifiers.mapIt(it.cancelAndWait())
+        await noCancel allFutures(futs)
+        raise exc
+
+    if blockRoots.len() == 0:
+      continue
+
+    debug "Requesting detected missing envelopes", envelopes = shortLog(blockRoots)
+    let start = SyncMoment.now(0)
+
+    var workers:
+      array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
+
+    for i in 0 ..< PARALLEL_REQUESTS:
+      workers[i] = self.fetchEnvelopesFromNetwork(blockRoots)
+
+    await allFutures(workers)
+
+    let finish = SyncMoment.now(lenu64(blockRoots))
+
+    debug "Request manager envelope tick",
+      envelopes = shortLog(blockRoots),
+      sync_speed = speed(start, finish)
+
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
     wallTime = rman.getBeaconTime()
@@ -740,7 +881,7 @@ proc start*(rman: var RequestManager) =
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
-proc switchToColumnLoop*(rman: var RequestManager) =
+proc upgradeLoops*(rman: var RequestManager) =
   let currentEpoch =
     rman.getBeaconTime().slotOrZero(rman.network.cfg.timeParams).epoch()
 
@@ -752,10 +893,16 @@ proc switchToColumnLoop*(rman: var RequestManager) =
     rman.dataColumnLoopFuture =
       rman.requestManagerDataColumnLoop()
 
+  if currentEpoch >= rman.network.cfg.GLOAS_FORK_EPOCH and
+     isNil(rman.envelopeLoopFuture):
+    rman.envelopeLoopFuture = rman.requestManagerEnvelopeLoop()
+
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
   if not(isNil(rman.blockLoopFuture)):
     rman.blockLoopFuture.cancelSoon()
+  if not(isNil(rman.envelopeLoopFuture)):
+    rman.envelopeLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
   if not(isNil(rman.dataColumnLoopFuture)):

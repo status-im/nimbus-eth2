@@ -10,12 +10,14 @@
 import
   std/[sets, tables], stew/bitops2,
   ../consensus_object_pools/spec_cache,
-  "."/fork_choice_types
+  "."/[fork_choice_types, proto_array]
 
 from ../consensus_object_pools/blockchain_dag import
   ForkChoiceInfoOffset, fork_choice_balances,
-  effective_balance, unslashed_balance,
-  getBlockIdAtSlot, getShufflingRef
+  slashed, effective_balance, unslashed_balance,
+  getBlockIdAtSlot, getBlockRef, getEpochRef, getShufflingRef
+
+from ../spec/beaconstate import latest_block_root
 
 export fork_choice_types
 
@@ -85,13 +87,15 @@ proc do_update_shufflings(
     blck = blck
     epoch = current_slot.epoch
   for i in 0 ..< NumAttesterDuties:
-    let dependent_slot = epoch.attester_dependent_slot
-    blck = blck.atSlot(dependent_slot).blck
-    let dependent_root =
-      if blck != nil:
-        blck.bid.root
-      else:
-        (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
+    let
+      dependent_slot = epoch.attester_dependent_slot
+      dependent_blck = blck.atSlot(dependent_slot).blck
+      dependent_root =
+        if dependent_blck != nil:
+          blck = dependent_blck
+          blck.bid.root
+        else:
+          (? dag.getBlockIdAtSlot(dependent_slot)).bid.root
     if balance_source.has_shuffling(epoch, dependent_root):
       return ok()
     balance_source.record_shuffling(
@@ -242,20 +246,32 @@ func get_ancestor_support_by_slot*(
   for val in 0 ..< min(self.votes.len, balance_source.balances.len):
     template balance: ForkChoiceBalance = balance_source.balances[val]
     template vote: VoteTracker = self.votes[val]
-    if vote.slot in low_slot .. current_slot:
+    if vote.slot != FAR_FUTURE_SLOT:
       # Collect support of the block per slot:
       # - get_block_support_between_slots (per slot, canonical only)
-      let i = result.index(vote.slot, current_slot)
-      if vote.next_root == result[i].blck.root:
-        result[i].support += balance.unslashed_balance
+      #
+      # Spec get_block_support_between_slots over-counts support
+      # when a validator was assigned during an empty slot, but actually
+      # voted for the root at a different slot (only assignment slot matters).
+      # Deliberately ignoring vote.slot to match spec over-count
+      var found = false
+      let o = current_slot.epoch.shuffling_index
+      for slot in balance_source.assigned_slots(val.ValidatorIndex, o):
+        if slot in low_slot .. current_slot:
+          let i = result.index(slot, current_slot)
+          if vote.next_root == result[i].blck.root:
+            result[i].support += balance.unslashed_balance
+            found = true
+            break
 
       # Collect noncanonical (and stale) support of the block:
       # - get_attestation_score (total, including non-canonical)
-      else:
+      if not found:
         let ancestor_i = noncanonical.getOrDefault(vote.next_root, -1)
         if ancestor_i != -1:
           result[ancestor_i].total_support += balance.unslashed_balance
-    elif vote.slot == FAR_FUTURE_SLOT:
+
+    else:
       # Collect weight of equivocating participants:
       # - get_equivocation_score (per slot, between blocks)
       # - get_adversarial_weight (total, to current_slot)
@@ -271,39 +287,63 @@ func get_ancestor_support_by_slot*(
             if old_i == -1:
               result[i].total_adversarial += eb
           old_i = i
-    else:
-      discard
 
   result[0].total_support += result[0].support
   for i in 1 ..< result.len:
     result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
-func get_current_target_score*(
-    self: ForkChoiceBackend, head_state: ForkyBeaconState,
-    target: BlockRef, heads: seq[BlockRef]): Gwei =
-  ## Return the estimate of FFG support of the current epoch target
-  ## by using LMD-GHOST votes.
-  var roots: HashSet[Eth2Digest]
-  roots.incl target.root
-  for head in heads:
-    var blck = head
-    while blck != nil and blck.slot > target.slot:
-      blck = blck.parent
-    if blck == target:
-      blck = head
-      while blck != target and not roots.containsOrIncl(blck.root):
-        blck = blck.parent
+func is_one_confirmed(
+    chain: seq[SlotInfo], i: int, current_slot: Slot,
+    total_active_balance: Gwei, byzantine_threshold: uint64): bool =
+  ## Return ``true`` if and only if the block is LMD-GHOST safe.
+  true  # TODO
 
-  let current_epoch = head_state.slot.epoch
-  doAssert target.slot <= current_epoch.start_slot
-  for val_index in 0 ..< min(self.votes.len, head_state.validators.len):
-    template validator: Validator = head_state.validators[val_index]
-    template vote: VoteTracker = self.votes[val_index]
-    if vote.slot.epoch == current_epoch and
-        validator.is_active_validator(current_epoch) and
-        not validator.slashed and vote.next_root in roots:
-      result += validator.effective_balance
+func is_confirmed_chain_safe(
+    self: ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+  ## Return ``true`` if and only if all blocks of the confirmed chain starting
+  ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
+
+  template balance_source: BalanceSource =
+    # This is still get_previous_balance_source. Caller's responsibility
+    # to update _after_ reconfirmation via update_unrealized_justified
+    self.current_epoch_observed_justified
+
+  template current_epoch_justified: Checkpoint =
+    # This is what current_epoch_observed_justified.checkpoint will hold
+    # after the balance source gets updated via update_unrealized_justified
+    self.previous_epoch_greatest_unrealized_checkpoint
+
+  # Exclude the justified checkpoint block if it is from the previous epoch
+  # as then this block will always be canonical in this case.
+  # Otherwise: Limit reconfirmation to the first block of the previous epoch
+  # as if it's successful, reconfirmation of the ancestors is implied.
+  let
+    confirmed = dag.getBlockRef(self.confirmed.root).valueOr:
+      return false
+    current_justified = BlockId(
+      slot: current_epoch_justified.epoch.start_slot,
+      root: current_epoch_justified.root)
+    chain = self.get_ancestor_support_by_slot(
+      balance_source, dag.heads, confirmed, current_justified, current_slot)
+
+  # Check if the confirmed.root is descendant of
+  # current_epoch_observed_justified.checkpoint.
+  if chain.len == 0:
+    return false
+
+  # Run is_one_confirmed for each block in the confirmed chain with the
+  # previous epoch balance source.
+  let
+    total_active_balance = balance_source.total_active_balance
+    byzantine_threshold = self.confirmation_byzantine_threshold
+  for i in countdown(chain.high - 1, 0):
+    if chain[i].blck == chain[i + 1].blck:
+      continue
+    if not chain.is_one_confirmed(
+        i, current_slot, total_active_balance, byzantine_threshold):
+      return false
+  true
 
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
@@ -319,10 +359,10 @@ proc should_revert_confirmed_on_new_epoch*(
   balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
     return true
 
-  false  # TODO: not self.is_confirmed_chain_safe
+  not self.is_confirmed_chain_safe(dag, current_slot)
 
 func should_revert_confirmed_on_new_head*(
-    self: var ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
+    self: ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
   # 1) [...],
   # 2) the latest confirmed block doesn't belong to the canonical chain,
@@ -334,3 +374,108 @@ func should_revert_confirmed_on_new_head*(
   while blck != nil and blck.slot > self.confirmed.slot:
     blck = blck.parent
   blck == nil or blck.root != self.confirmed.root
+
+func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
+  self.current_slot_head in self.proto_array and
+  self.current_epoch_observed_justified.checkpoint.root in self.proto_array
+
+func should_restart_confirmation_chain*(
+    self: ForkChoiceBackend, current_slot: Slot): bool =
+  # Restart the confirmation chain if each of the following conditions are true:
+  # 1) it is the start of the current epoch,
+  # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
+  #    previous epoch,
+  # 3) self.current_epoch_observed_justified.checkpoint equals to unrealized
+  #    justification of the head,
+  # 4) confirmed block is older than the block of
+  #    self.current_epoch_observed_justified.checkpoint.
+  template current_epoch_justified: Checkpoint =
+    self.current_epoch_observed_justified.checkpoint
+  template current_epoch_justified_slot: Slot =
+    self.proto_array.slot(current_epoch_justified.root)
+      .expect("is_proto_array_consistent")
+
+  template head_unrealized_justified: Checkpoint =
+    self.proto_array.checkpoints(self.current_slot_head)
+      .expect("is_proto_array_consistent").unrealized
+
+  current_slot.is_epoch and
+  current_epoch_justified.epoch + 1 == current_slot.epoch and
+  current_epoch_justified == head_unrealized_justified and
+  self.confirmed.slot < current_epoch_justified_slot
+
+type CurrentTargetInfo* = object
+  total_active_balance*: Gwei
+  total_support*: Gwei
+  total_adversarial*: Gwei
+
+func all_current_target_descendants*(
+    blck: BlockRef, heads: seq[BlockRef],
+    current_slot: Slot): HashSet[Eth2Digest] =
+  let target_slot = current_slot.epoch.start_slot
+  var target = blck
+  while target != nil and target.slot > target_slot:
+    result.incl target.root
+    target = target.parent
+  if target != nil:
+    result.incl target.root
+  for head in heads:
+    if head.atSlot(target_slot).blck == target:
+      var blck = head
+      while not result.containsOrIncl(blck.root):
+        blck = blck.parent
+
+func get_current_target_info*[T: Validator | ForkChoiceBalance](
+    self: ForkChoiceBackend, roots: HashSet[Eth2Digest],
+    shufflingRef: ShufflingRef, validators: seq[T],
+    current_slot: Slot): CurrentTargetInfo =
+  let current_epoch = current_slot.epoch
+  for slot in current_slot.epoch.slots:
+    for committee_index in get_committee_indices(shufflingRef):
+      for _, val in shufflingRef.get_beacon_committee(slot, committee_index):
+        if val < validators.lenu64:
+          template validator: T = validators[val]
+          let eb = validator.effective_balance
+          result.total_active_balance += eb
+          if val < self.votes.lenu64:
+            template vote: VoteTracker = self.votes[val]
+            if vote.slot.epoch == current_epoch and
+                not validator.slashed and vote.next_root in roots:
+              result.total_support += eb
+            elif vote.slot == FAR_FUTURE_SLOT and slot < current_slot:
+              result.total_adversarial += eb
+            else:
+              discard
+
+proc get_current_target_info*(
+    self: ForkChoiceBackend, dag: ChainDAGRef,
+    blck: BlockRef, current_slot: Slot): Opt[CurrentTargetInfo] =
+  ## Return the estimate of FFG support of the current epoch target
+  ## by using LMD-GHOST votes.
+  let
+    current_epoch = current_slot.epoch
+    shufflingRef = ? dag.getShufflingRef(blck, current_epoch, false)
+    roots = blck.all_current_target_descendants(dag.heads, current_slot)
+
+  template isCompatible(state: ForkedHashedBeaconState): bool =
+    withState(state):
+      forkyState.data.slot.epoch == current_epoch and
+      forkyState.latest_block_root == blck.root
+
+  let state =
+    if dag.clearanceState.isCompatible:
+      addr dag.clearanceState
+    elif dag.headState.isCompatible:
+      addr dag.headState
+    elif dag.epochRefState.isCompatible:
+      addr dag.epochRefState
+    else:
+      nil
+  if state != nil:
+    result.ok self.get_current_target_info(
+      roots, shufflingRef, state[].validators, current_slot)
+  else:
+    let epochRef = dag.getEpochRef(blck, current_epoch, false).valueOr:
+      return Opt.none CurrentTargetInfo
+    result.ok self.get_current_target_info(
+      roots, epochRef.shufflingRef, epochRef.fork_choice_balances, current_slot)
