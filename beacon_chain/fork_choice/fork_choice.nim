@@ -486,11 +486,18 @@ proc will_select_head*(
     if self.backend.should_restart_confirmation_chain(current_slot):
       self.backend.update_confirmed(
         self.backend.current_epoch_observed_justified.checkpoint)
-
-  # TODO: Replace placeholder
-  self.backend.update_confirmed BlockId(
-    slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
-    root: self.checkpoints.justified.checkpoint.root)
+    # Attempt to further advance the latest confirmed block.
+    if self.backend.confirmed.slot.epoch + 1 >= current_slot.epoch:
+      template justified: Checkpoint = self.checkpoints.justified.checkpoint
+      let
+        unrealized = self.backend.proto_array.unrealized_justified(justified)
+        confirmed = self.backend.find_latest_confirmed_descendant(
+          dag, blckRef, unrealized, current_slot)
+      if confirmed.isErr:
+        error "EpochRef / ShufflingRef unavailable", blckRef, current_slot
+        self.backend.update_confirmed(self.checkpoints.finalized)
+      else:
+        self.backend.update_confirmed(confirmed.unsafeGet)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root

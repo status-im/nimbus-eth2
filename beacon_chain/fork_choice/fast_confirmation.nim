@@ -376,6 +376,7 @@ func should_revert_confirmed_on_new_head*(
   blck == nil or blck.root != self.confirmed.root
 
 func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
+  self.previous_slot_head in self.proto_array and
   self.current_slot_head in self.proto_array and
   self.current_epoch_observed_justified.checkpoint.root in self.proto_array
 
@@ -403,6 +404,13 @@ func should_restart_confirmation_chain*(
   current_epoch_justified.epoch + 1 == current_slot.epoch and
   current_epoch_justified == head_unrealized_justified and
   self.confirmed.slot < current_epoch_justified_slot
+
+func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
+  ## Return current epoch target.
+  let current_epoch = current_slot.epoch
+  Checkpoint(
+    epoch: current_epoch,
+    root: blck.atSlot(current_epoch.start_slot).blck.root)
 
 type CurrentTargetInfo* = object
   total_active_balance*: Gwei
@@ -479,3 +487,180 @@ proc get_current_target_info*(
       return Opt.none CurrentTargetInfo
     result.ok self.get_current_target_info(
       roots, epochRef.shufflingRef, epochRef.fork_choice_balances, current_slot)
+
+func compute_honest_ffg_support_for_current_target(
+    info: CurrentTargetInfo, current_slot: Slot,
+    byzantine_threshold: uint64): Gwei =
+  ## Compute honest FFG support of the current epoch target.
+  let
+    slots = current_slot.epoch.start_slot ..< current_slot
+
+    # Compute FFG support for the target
+    ffg_support_for_checkpoint = info.total_support
+
+    # Compute total FFG weight till current slot exclusive
+    ffg_weight_till_now = estimate_committee_weight_between_slots(
+      info.total_active_balance, slots)
+
+    # Compute remaining honest FFG weight
+    remaining_ffg_weight = info.total_active_balance - ffg_weight_till_now
+    remaining_honest_ffg_weight =
+      remaining_ffg_weight div 100 * (100 - byzantine_threshold)
+
+    # Compute potential adversarial weight
+    adversarial_weight = info.total_adversarial.compute_adversarial_weight(
+      slots, info.total_active_balance, byzantine_threshold)
+
+    # Compute min honest FFG support
+    min_honest_ffg_support = ffg_support_for_checkpoint -
+      min(adversarial_weight, ffg_support_for_checkpoint)
+
+  min_honest_ffg_support + remaining_honest_ffg_weight
+
+func will_no_conflicting_checkpoint_be_justified(
+    info: CurrentTargetInfo, blck: BlockRef, unrealized: Checkpoint,
+    current_slot: Slot, byzantine_threshold: uint64): bool =
+  ## Return ``true`` if and only if no checkpoint conflicting with the
+  ## current target can ever be justified.
+
+  # If the target is unrealized justified then no conflicting checkpoint
+  # can be justified.
+  if blck.get_current_target(current_slot) == unrealized:
+    return true
+
+  let honest_ffg_support = info.compute_honest_ffg_support_for_current_target(
+    current_slot, byzantine_threshold)
+  3 * honest_ffg_support >= 1 * info.total_active_balance
+
+func will_current_target_be_justified(
+    info: CurrentTargetInfo,
+    current_slot: Slot, byzantine_threshold: uint64): bool =
+  ## Return ``true`` if and only if the current target will eventually
+  ## be justified.
+  let honest_ffg_support = info.compute_honest_ffg_support_for_current_target(
+    current_slot, byzantine_threshold)
+  3 * honest_ffg_support >= 2 * info.total_active_balance
+
+proc find_latest_confirmed_descendant*(
+    self: var ForkChoiceBackend, dag: ChainDAGRef, blck: BlockRef,
+    unrealized: Checkpoint, current_slot: Slot): Opt[BlockId] =
+  ## Return the most recent confirmed block in the suffix of the canonical chain
+  ## starting from ``self.confirmed.root``.
+
+  template balance_source: BalanceSource =
+    self.current_epoch_observed_justified
+
+  let
+    current_epoch = current_slot.epoch
+    total_active_balance = balance_source.total_active_balance
+    byzantine_threshold = self.confirmation_byzantine_threshold
+    previous = self.proto_array.checkpoints(self.previous_slot_head)
+      .expect("is_proto_array_consistent")
+    current = self.proto_array.checkpoints(self.current_slot_head)
+      .expect("is_proto_array_consistent")
+
+  var stored_info: Opt[CurrentTargetInfo]
+  template info: lent CurrentTargetInfo =
+    if stored_info.isNone:
+      stored_info = self.get_current_target_info(dag, blck, current_slot)
+      if stored_info.isNone:
+        return Opt.none BlockId
+    stored_info.unsafeGet
+
+  var stored_no_conflict: Opt[bool]
+  template will_no_conflicting_be_justified: bool =
+    if stored_no_conflict.isNone:
+      stored_no_conflict.ok info.will_no_conflicting_checkpoint_be_justified(
+        blck, unrealized, current_slot, byzantine_threshold)
+    stored_no_conflict.unsafeGet
+
+  var
+    stored_chain: Opt[seq[SlotInfo]]
+    confirmed_i = -1
+  template chain: lent seq[SlotInfo] = stored_chain.unsafeGet
+  template init_chain =
+    if stored_chain.isNone:
+      ? balance_source.update_latest_shufflings(dag, blck, current_slot)
+      stored_chain.ok self.get_ancestor_support_by_slot(
+        balance_source, dag.heads, blck, self.confirmed, current_slot)
+      confirmed_i = chain.high
+
+  result.ok self.confirmed
+  if self.confirmed.slot.epoch + 1 == current_epoch and
+      previous.voting_source.epoch + 2 >= current_epoch and (
+        current_slot.is_epoch or (
+          will_no_conflicting_be_justified and (
+            previous.unrealized.epoch + 1 >= current_epoch or
+            current.unrealized.epoch + 1 >= current_epoch))):
+    # Get suffix of the canonical chain
+    init_chain()
+
+    if chain.len > 0:
+      # The algorithm can only rely on the previous head
+      # if it is a descendant of the block that is attempted to be confirmed
+      var
+        blck = ? dag.getBlockRef(self.previous_slot_head)
+        j = chain.index(blck.slot, current_slot)
+      while j < chain.high and chain[j].blck != blck:
+        blck = blck.parent
+        j =
+          if blck != nil:
+            chain.index(blck.slot, current_slot)
+          else:
+            chain.high
+
+      # If the current epoch is reached, exit the loop
+      # as this code is meant to confirm blocks from the previous epoch
+      let prev_epoch_end = max(current_epoch, 1.Epoch).start_slot - 1
+      j = max(j, chain.index(prev_epoch_end, current_slot))
+
+      # Starting with the child of the latest_confirmed_root
+      # move towards the head in attempt to advance confirmed block
+      # and stop when the first unconfirmed descendant is encountered
+      for i in countdown(confirmed_i - 1, j):
+        if chain[i].blck == chain[i + 1].blck:
+          continue
+        if not chain.is_one_confirmed(
+            i, current_slot, total_active_balance, byzantine_threshold):
+          break
+        result.ok chain[i].blck.bid
+        confirmed_i = i
+
+  if current_slot.is_epoch or
+      current.unrealized.epoch + 1 >= current_epoch:
+    # Get suffix of the canonical chain
+    init_chain()
+
+    var tentative_confirmed = result.unsafeGet
+
+    for i in countdown(confirmed_i - 1, 0):
+      if chain[i].blck == chain[i + 1].blck:
+        continue
+      let
+        block_epoch = chain[i].blck.slot.epoch
+        tentative_confirmed_epoch = tentative_confirmed.slot.epoch
+
+      # The following condition can only be true the first time
+      # the algorithm advances to a block from the current epoch
+      if block_epoch > tentative_confirmed_epoch:
+        # To confirm blocks from the current epoch ensure that
+        # current epoch target will be justified
+        if not info.will_current_target_be_justified(
+            current_slot, byzantine_threshold):
+          break
+
+      if not chain.is_one_confirmed(
+          i, current_slot, total_active_balance, byzantine_threshold):
+        break
+
+      tentative_confirmed = chain[i].blck.bid
+
+    # The tentative_confirmed.root can only be confirmed if it is for sure
+    # not going to be reorged out in either the current or next epoch.
+    template tentative_voting_source: Checkpoint =
+      (? self.proto_array.checkpoints(tentative_confirmed.root)).voting_source
+    if tentative_confirmed.slot.epoch == current_epoch or (
+        tentative_voting_source.epoch + 2 >= current_epoch and (
+          current_slot.is_epoch or
+          will_no_conflicting_be_justified)):
+      result.ok tentative_confirmed
