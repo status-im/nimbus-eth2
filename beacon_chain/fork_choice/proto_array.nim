@@ -64,6 +64,14 @@ func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
     return Opt.none(ProtoNode)
   Opt.some(nodes.buf[i])
 
+func contains(nodes: ProtoNodes, idx: Index): bool =
+  if idx < nodes.offset:
+    return false
+  let i = idx - nodes.offset
+  if i >= nodes.buf.len:
+    return false
+  true
+
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
@@ -72,6 +80,24 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 
 func find(self: ProtoArray, root: Eth2Digest): Index =
   self.indices.getOrDefault(root, -1)
+
+func contains*(self: ProtoArray, root: Eth2Digest): bool =
+  self.find(root) in self.nodes
+
+func slot*(self: ProtoArray, root: Eth2Digest): Opt[Slot] =
+  ok (? self.nodes[self.find(root)]).bid.slot
+
+type NodeCheckpoints* = object
+  voting_source*: Checkpoint
+  unrealized*: Checkpoint
+
+func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
+  let
+    idx = self.find(root)
+    checkpoints = (? self.nodes[idx]).checkpoints
+  result.ok NodeCheckpoints(
+    voting_source: checkpoints.justified,
+    unrealized: self.unrealized.getOrDefault(idx, checkpoints).justified)
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -88,11 +114,11 @@ func nodeLeadsToViableHead(
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
+func init*(
+    T: type ProtoArray,
+    finalized: Checkpoint, finalizedSlot, currentSlot: Slot): T =
   let node = ProtoNode(
-    bid: BlockId(
-      slot: finalized.epoch.start_slot,
-      root: finalized.root),
+    bid: BlockId(slot: finalizedSlot, root: finalized.root),
     parent: Opt.none(int),
     checkpoints: FinalityCheckpoints(
       justified: finalized,
@@ -103,17 +129,28 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
+template updateIfBetter(
+    best: var Checkpoint, bestIdx: var Index,
+    unrealized: Checkpoint, unrealizedIdx: Index) =
+  if unrealized.epoch > best.epoch or
+      (unrealized.epoch == best.epoch and unrealizedIdx < bestIdx):
+    best = unrealized
+    bestIdx = unrealizedIdx
+
 func unrealized_justified*(
     self: ProtoArray, justified: Checkpoint): Checkpoint =
   result = justified
-  for unrealized in self.currentEpochTips.values:
-    if unrealized.justified.epoch > result.epoch:
-      result = unrealized.justified
+  var bestIdx = Index.high
+  for idx, unrealized in self.unrealized:
+    result.updateIfBetter(bestIdx, unrealized.justified, idx)
 
-iterator realizePendingCheckpoints*(
-    self: var ProtoArray): FinalityCheckpoints =
+func realizePendingCheckpoints*(
+    self: var ProtoArray,
+    checkpoints: FinalityCheckpoints): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch
-  for idx, unrealized in self.currentEpochTips:
+  var jIdx, fIdx = Index.high
+  result = checkpoints
+  for idx, unrealized in self.unrealized:
     let physicalIdx = idx - self.nodes.offset
     if unrealized != self.nodes.buf[physicalIdx].checkpoints:
       trace "Pulling up chain tip",
@@ -121,15 +158,15 @@ iterator realizePendingCheckpoints*(
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
-
-    yield unrealized
+    result.justified.updateIfBetter(jIdx, unrealized.justified, idx)
+    result.finalized.updateIfBetter(fIdx, unrealized.finalized, idx)
 
   # Reset tip tracking for new epoch
-  self.currentEpochTips.clear()
+  self.unrealized.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
-  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/phase0/fork-choice.md#compute_proposer_score
+func compute_proposer_score*(total_active_balance: Gwei): Gwei =
+  let committee_weight = total_active_balance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(
@@ -200,7 +237,7 @@ func applyScoreChanges*(
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
+      proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(
@@ -308,9 +345,8 @@ func onBlock*(
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
 
-  self.currentEpochTips.del parentIdx
   if unrealized.isSome:
-    self.currentEpochTips[nodeLogicalIdx] = unrealized.get
+    self.unrealized[nodeLogicalIdx] = unrealized.get
 
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
@@ -385,7 +421,7 @@ func prune*(
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
     let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-    self.currentEpochTips.del nodeLogicalIdx
+    self.unrealized.del nodeLogicalIdx
     self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
@@ -619,8 +655,8 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
 
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-      if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+      if self.unrealized.hasKey(nodeLogicalIdx):
+        Opt.some self.unrealized.unsafeGet(nodeLogicalIdx)
       else:
         Opt.none(FinalityCheckpoints)
 

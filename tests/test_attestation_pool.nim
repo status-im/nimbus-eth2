@@ -24,6 +24,7 @@ from std/sequtils import mapIt, toSeq
 from stew/byteutils import `<`
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
+from ../beacon_chain/fork_choice/proto_array import checkpoints
 from ../beacon_chain/spec/beaconstate import
   attester_dependent_root, check_attestation, get_attesting_indices,
   latest_block_root
@@ -784,6 +785,73 @@ suite "Attestation pool electra processing" & preset():
           blckRef.slot.start_beacon_time(cfg.timeParams))
 
     doAssert: b10Add_clone.error == VerifierError.Duplicate
+
+  proc addElectraBlock(
+      state: var ForkedHashedBeaconState, dag: ChainDAGRef,
+      pool: ref AttestationPool, verifier: var BatchVerifier,
+      quarantine: ref Quarantine, cache: var StateCache,
+      attested = true, validator_changes = BeaconBlockValidatorChanges()) =
+    let
+      attestations =
+        if attested:
+          makeFullElectraAttestations(
+            state, dag.head.root, state.slot, cache)
+        else:
+          newSeq[electra.Attestation]()
+      blck = addTestBlock(
+        state, cache, electraAttestations = attestations,
+        validator_changes = validator_changes,
+        cfg = dag.cfg).electraData
+      added = dag.addHeadBlock(verifier, blck) do (
+          blckRef: BlockRef,
+          signedBlock: electra.TrustedSignedBeaconBlock,
+          state: electra.BeaconState,
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
+        pool[].addForkChoice(
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blckRef.slot.start_beacon_time(dag.cfg.timeParams))
+    doAssert added.isOk
+    dag.updateHead(added[], quarantine[], [])
+
+  test "Attester slashing marks validator as equivocating":
+    check process_slots(
+      cfg, state[], state[].slot + 1, cache, info, {}).isOk
+
+    var validator_changes: BeaconBlockValidatorChanges
+    doAssert validator_changes.electra_attester_slashings.add(
+      state[].makeElectraAttesterSlashing([0'u64], state[].slot))
+    state[].addElectraBlock(
+      dag, pool, verifier, quarantine, cache,
+      attested = false, validator_changes = validator_changes)
+
+    check:
+      pool[].forkChoice.backend.votes.len > 0
+      pool[].forkChoice.backend.votes[0].slot == FAR_FUTURE_SLOT
+
+  test "Attester slashing retains unrealized checkpoints":
+    template proto_array: ProtoArray =
+      pool[].forkChoice.backend.proto_array
+
+    for i in 0 ..< SLOTS_PER_EPOCH * 2 + 1:
+      state[].addElectraBlock(dag, pool, verifier, quarantine, cache)
+
+    let
+      root = dag.head.root
+      unrealized = proto_array.checkpoints(root).get().unrealized
+    check unrealized.epoch >
+      proto_array.checkpoints(root).get().voting_source.epoch
+
+    var slashed_indices: seq[uint64]
+    for i in 0'u64 ..< dag.headState.validators.lenu64 div 2:
+      slashed_indices.add i
+    var validator_changes: BeaconBlockValidatorChanges
+    doAssert validator_changes.electra_attester_slashings.add(
+      state[].makeElectraAttesterSlashing(slashed_indices, state[].slot))
+    state[].addElectraBlock(
+      dag, pool, verifier, quarantine, cache,
+      validator_changes = validator_changes)
+
+    check proto_array.checkpoints(root).get().unrealized == unrealized
 
   test "Working with electra aggregates" & preset():
     let

@@ -119,7 +119,7 @@ func get_fork_choice_balances*(
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
-    if validator[].is_active_validator(epoch) and not validator[].slashed:
+    if validator[].is_active_validator(epoch):
       result[i] = ForkChoiceBalance(
         if validator[].slashed:
           distinctBase(validator[].effective_balance) or SlashedBit

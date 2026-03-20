@@ -677,6 +677,60 @@ proc initFullNode(
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
+    rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+      ## Envelope verifier contains the same logic as block_processor
+      ## enqueuePayload() except when the valid block or any sidecars is
+      ## missing, we will return ok() as it is not any types of VerifierError.
+      ## Therefore, the call is discarded silently.
+      template blockRoot(): auto = signedEnvelope.message.beacon_block_root
+
+      let
+        blockRef = dag.getBlockRef(blockRoot).valueOr:
+          # Return ok() as we may not have the block yet.
+          return ok()
+        blck =
+          block:
+            let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
+              # We have checked that the block exists in the chain. There might be
+              # issues in reading the database or data in the memory is broken.
+              # Since no result is returned, we log for investigation.
+              debug "Enqueue payload from envelope. Block is missing in DB",
+                bid = shortLog(blockRef.bid)
+              return err(VerifierError.Invalid)
+            withBlck(forkedBlock):
+              when consensusFork >= ConsensusFork.Gloas:
+                forkyBlck.asSigned()
+              else:
+                # Incorrect fork which shouldn't be happening.
+                debug "Enqueue payload from envelope. Block is in incorrect fork",
+                  bid = shortLog(blockRef.bid)
+                return err(VerifierError.UnviableFork)
+        envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
+          # At this point, the signedEnvelope is from a different builder since
+          # the block should be the source of truth. We should notify receiving
+          # bad value from the peer.
+          return err(VerifierError.Invalid)
+        sidecarsOpt =
+          block:
+            template bid(): auto =
+              blck.message.body.signed_execution_payload_bid
+            let sidecarsOpt =
+              if bid.message.blob_kzg_commitments.len() == 0:
+                Opt.some(default(gloas.DataColumnSidecars))
+              else:
+                gloasColumnQuarantine[].popSidecars(blockRoot)
+            if sidecarsOpt.isNone():
+              # As sidecars are missing, put envelope back to quarantine.
+              consensusManager.quarantine[].addSidecarless(blck)
+              envelopeQuarantine[].addOrphan(envelope)
+              # Return ok() as columns may arrive late.
+              return ok()
+            sidecarsOpt
+      await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
+    rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
+        Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
+      dag.db.getExecutionPayloadEnvelope(blockRoot)
     rmanBlobLoader = proc(
         blobId: BlobIdentifier): Opt[ref BlobSidecar] =
       var blob_sidecar = BlobSidecar.new()
@@ -752,8 +806,10 @@ proc initFullNode(
     requestManager = RequestManager.init(
       node.network, supernode, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+      quarantine, envelopeQuarantine, blobQuarantine,
+      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
+      rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
       dataColumnQuarantine)
 
@@ -2150,7 +2206,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-  node.requestManager.switchToColumnLoop()
+  node.requestManager.upgradeLoops()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
