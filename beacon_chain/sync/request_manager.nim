@@ -305,7 +305,6 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           gotUnviableEnvelope = false
 
         for envelope in uenvelopes:
-          self.envelopeQuarantine[].addOrphan(envelope[])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():

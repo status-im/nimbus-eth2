@@ -712,6 +712,11 @@ proc initFullNode(
 
       let
         blockRef = dag.getBlockRef(blockRoot).valueOr:
+          # This should be less likely happening as we mark envelope as missing
+          # only when we have a valid block.
+          debug "The block is not found for a missing envelope",
+            slot = signedEnvelope.message.slot,
+            blockRoot = shortLog(blockRoot)
           # Return ok() as we may not have the block yet.
           return ok()
         blck =
@@ -731,11 +736,6 @@ proc initFullNode(
                 debug "Enqueue payload from envelope. Block is in incorrect fork",
                   bid = shortLog(blockRef.bid)
                 return err(VerifierError.UnviableFork)
-        envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
-          # At this point, the signedEnvelope is from a different builder since
-          # the block should be the source of truth. We should notify receiving
-          # bad value from the peer.
-          return err(VerifierError.Invalid)
         sidecarsOpt =
           block:
             template bid(): auto =
@@ -748,11 +748,11 @@ proc initFullNode(
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               consensusManager.quarantine[].addSidecarless(blck)
-              envelopeQuarantine[].addOrphan(envelope)
+              envelopeQuarantine[].addOrphan(signedEnvelope)
               # Return ok() as columns may arrive late.
               return ok()
             sidecarsOpt
-      await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
+      await blockProcessor.addPayload(blck, signedEnvelope, sidecarsOpt)
     rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
         Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
       dag.db.getExecutionPayloadEnvelope(blockRoot)
