@@ -947,6 +947,10 @@ proc updateBeaconMetrics(
         0'u64.toGaugeValue
     )
 
+proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
+  beacon_safe_root.set(safeBlockId.root.toGaugeValue)
+  beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
+
 import blockchain_dag_light_client
 
 export
