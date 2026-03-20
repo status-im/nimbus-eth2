@@ -92,7 +92,7 @@ func init*(
   BlockRef.init(
     root,
     Opt.some blck.body.execution_payload.block_hash,
-    Opt.some blck.body.execution_payload.parent_hash,
+    Opt.some ZERO_HASH,
     optimisticStatus,
     blck.slot
   )
@@ -100,12 +100,13 @@ func init*(
 func init*(
     T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+  template bid(): auto = blck.body.signed_execution_payload_bid
   BlockRef.init(
     root,
-    Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
-    Opt.some blck.body.signed_execution_payload_bid.message.parent_block_hash,
+    Opt.some bid.message.block_hash,
+    Opt.some bid.message.parent_block_hash,
     if optimisticStatus == OptimisticStatus.valid or
-        blck.body.signed_execution_payload_bid.message.block_hash.isZero:
+        bid.message.block_hash.isZero:
       OptimisticStatus.valid
     else:
       optimisticStatus,

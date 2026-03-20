@@ -1025,15 +1025,16 @@ proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
     return (Opt.none(Eth2Digest), Opt.none(Eth2Digest))
 
   withBlck(blockData):
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Gloas:
+      template bid(): auto = forkyBlck.message.body.signed_execution_payload_bid
       (
-        Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash,
-        Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.parent_block_hash
+        Opt.some bid.message.block_hash,
+        Opt.some bid.message.parent_block_hash
       )
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
       (
         Opt.some forkyBlck.message.body.execution_payload.block_hash,
-        Opt.some forkyBlck.message.body.execution_payload.parent_hash
+        Opt.some ZERO_HASH
       )
     else:
       (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
@@ -1053,13 +1054,6 @@ proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
       var cur = blck.parent
       while cur != nil and cur.executionBlockHash.isNone:
         cur.executionBlockHash = blck.executionBlockHash
-        cur = cur.parent
-
-    if blck.executionParentHash == static(Opt.some(ZERO_HASH)):
-      # Same as executionBlockHash
-      var cur = blck.parent
-      while cur != nil and cur.executionParentHash.isNone:
-        cur.executionParentHash = blck.executionParentHash
         cur = cur.parent
 
   (blck.executionBlockHash, blck.executionParentHash)
