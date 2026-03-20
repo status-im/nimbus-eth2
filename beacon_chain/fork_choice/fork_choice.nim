@@ -179,8 +179,17 @@ proc update_checkpoints(
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
   if confirmed.slot < self.confirmed.slot:
     warn "Confirmed block was unconfirmed",
-      old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
+      old_confirmed = self.confirmed, new_confirmed = confirmed
+  if confirmed != self.confirmed:
+    trace "Updating confirmed block",
+      old_confirmed = self.confirmed, new_confirmed = confirmed
   self.confirmed = confirmed
+
+proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
+  result.slot = self.proto_array.slot(checkpoint.root).valueOr:
+    warn "Checkpoint not in proto array", checkpoint
+    checkpoint.epoch.start_slot
+  result.root = checkpoint.root
 
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: Checkpoint) =
   self.update_confirmed BlockId(
@@ -201,10 +210,34 @@ proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
       warn "Skipping unrealized justified checkpoint update - no EpochRef",
         unrealized, blck, error
       return
-  let old_source = move(self.backend.current_epoch_observed_justified)
+    old_source = move(self.backend.current_epoch_observed_justified)
   self.backend.current_epoch_observed_justified.info =
     epochRef.to_balance_checkpoint(blck)
   self.backend.current_epoch_observed_justified.assign_shufflings(old_source)
+
+proc reconfirm_fcr(
+    self: var ForkChoice, dag: ChainDAGRef,
+    confirmed: var BlockId, current_slot: Slot): FcResult[void] =
+  template fcr: ForkChoiceBackend = self.backend
+
+  # Reconfirm with previous balance source after attestations
+  # from past slots have been applied
+  self.process_attestation_queue(current_slot)
+  if fcr.should_revert_confirmed_on_new_epoch(dag, confirmed, current_slot):
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
+
+  # Update observed justified checkpoints at the start of an epoch
+  self.update_unrealized_justified(dag)
+  template current_epoch_justified: Checkpoint =
+    fcr.current_epoch_observed_justified.checkpoint
+
+  # Restart confirmation chain if necessary
+  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
+  if not fcr.is_proto_array_consistent:
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
+  else:
+    if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+      confirmed = fcr.to_block_id(current_epoch_justified)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
@@ -244,24 +277,11 @@ proc on_tick(
           finalized: self.checkpoints.finalized))
       ? self.update_checkpoints(dag, realized, current_slot)
 
-      # Reconfirm with previous balance source after attestations
-      # from past slots have been applied
-      self.process_attestation_queue(current_slot)
-      if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
-        self.backend.update_confirmed(self.checkpoints.finalized)
-
-      # Update observed justified checkpoints at the start of an epoch
-      self.update_unrealized_justified(dag)
-
-      # Restart confirmation chain if necessary
-      self.backend.current_slot_head =
-        ? self.backend.find_head(current_slot, self.checkpoints)
-      if not self.backend.is_proto_array_consistent:
-        self.backend.update_confirmed(self.checkpoints.finalized)
-      else:
-        if self.backend.should_restart_confirmation_chain(current_slot):
-          self.backend.update_confirmed(
-            self.backend.current_epoch_observed_justified.checkpoint)
+      var confirmed = self.backend.confirmed
+      result = self.reconfirm_fcr(dag, confirmed, current_slot)
+      self.backend.update_confirmed(confirmed)
+      if result.isErr:
+        return result
 
     else:
       discard
@@ -472,32 +492,32 @@ proc will_select_head*(
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
 
+  var confirmed = self.backend.confirmed
+  template fcr: ForkChoiceBackend = self.backend
+  template current_epoch_justified: Checkpoint =
+    fcr.current_epoch_observed_justified.checkpoint
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
     threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
   if self.checkpoints.time < threshold:
-    self.backend.current_slot_head = blckRef.root
-  if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
-    self.backend.update_confirmed(self.checkpoints.finalized)
-  if not self.backend.is_proto_array_consistent:
-    self.backend.update_confirmed(self.checkpoints.finalized)
+    fcr.current_slot_head = blckRef.root
+  if fcr.should_revert_confirmed_on_new_head(blckRef, confirmed, current_slot):
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
+  if not fcr.is_proto_array_consistent:
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
   else:
-    if self.backend.should_restart_confirmation_chain(current_slot):
-      self.backend.update_confirmed(
-        self.backend.current_epoch_observed_justified.checkpoint)
+    if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+      confirmed = fcr.to_block_id(current_epoch_justified)
     # Attempt to further advance the latest confirmed block.
-    if self.backend.confirmed.slot.epoch + 1 >= current_slot.epoch:
+    if fcr.confirmed.slot.epoch + 1 >= current_slot.epoch:
       template justified: Checkpoint = self.checkpoints.justified.checkpoint
-      let
-        unrealized = self.backend.proto_array.unrealized_justified(justified)
-        confirmed = self.backend.find_latest_confirmed_descendant(
-          dag, blckRef, unrealized, current_slot)
-      if confirmed.isErr:
+      let unrealized = fcr.proto_array.unrealized_justified(justified)
+      confirmed = fcr.find_latest_confirmed_descendant(
+          dag, blckRef, unrealized, confirmed, current_slot).valueOr:
         error "EpochRef / ShufflingRef unavailable", blckRef, current_slot
-        self.backend.update_confirmed(self.checkpoints.finalized)
-      else:
-        self.backend.update_confirmed(confirmed.unsafeGet)
+        fcr.to_block_id(self.checkpoints.finalized)
+  fcr.update_confirmed(confirmed)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root

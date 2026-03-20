@@ -493,7 +493,8 @@ func is_one_confirmed(
   support > safety_threshold
 
 func is_confirmed_chain_safe(
-    self: ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+    self: ForkChoiceBackend, dag: ChainDAGRef,
+    confirmed: BlockId, current_slot: Slot): bool =
   ## Return ``true`` if and only if all blocks of the confirmed chain starting
   ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
 
@@ -512,7 +513,7 @@ func is_confirmed_chain_safe(
   # Otherwise: Limit reconfirmation to the first block of the previous epoch
   # as if it's successful, reconfirmation of the ancestors is implied.
   let
-    confirmed = dag.getBlockRef(self.confirmed.root).valueOr:
+    confirmed = dag.getBlockRef(confirmed.root).valueOr:
       return false
     current_justified = BlockId(
       slot: current_epoch_justified.epoch.start_slot,
@@ -539,34 +540,36 @@ func is_confirmed_chain_safe(
   true
 
 proc should_revert_confirmed_on_new_epoch*(
-    self: var ForkChoiceBackend, dag: ChainDAGRef, current_slot: Slot): bool =
+    self: var ForkChoiceBackend, dag: ChainDAGRef,
+    confirmed: BlockId, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
   # 1) the latest confirmed block's epoch is older than the previous epoch,
   # 2) [...],
   # 3) the confirmed chain starting from the current epoch observed justified
   #    checkpoint cannot be re-confirmed at the start of the current epoch.
-  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+  if confirmed.slot.epoch + 1 < current_slot.epoch:
     return true
 
   template balance_source: BalanceSource = self.current_epoch_observed_justified
   balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
     return true
 
-  not self.is_confirmed_chain_safe(dag, current_slot)
+  not self.is_confirmed_chain_safe(dag, confirmed, current_slot)
 
 func should_revert_confirmed_on_new_head*(
-    self: ForkChoiceBackend, blck: BlockRef, current_slot: Slot): bool =
+    self: ForkChoiceBackend, blck: BlockRef,
+    confirmed: BlockId, current_slot: Slot): bool =
   # Revert to finalized block if either of the following is true:
   # 1) [...],
   # 2) the latest confirmed block doesn't belong to the canonical chain,
   # 3) [...].
-  if self.confirmed.slot.epoch + 1 < current_slot.epoch:
+  if confirmed.slot.epoch + 1 < current_slot.epoch:
     return true
 
   var blck = blck
-  while blck != nil and blck.slot > self.confirmed.slot:
+  while blck != nil and blck.slot > confirmed.slot:
     blck = blck.parent
-  blck == nil or blck.root != self.confirmed.root
+  blck == nil or blck.root != confirmed.root
 
 func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
   self.previous_slot_head in self.proto_array and
@@ -574,7 +577,7 @@ func is_proto_array_consistent*(self: ForkChoiceBackend): bool =
   self.current_epoch_observed_justified.checkpoint.root in self.proto_array
 
 func should_restart_confirmation_chain*(
-    self: ForkChoiceBackend, current_slot: Slot): bool =
+    self: ForkChoiceBackend, confirmed: BlockId, current_slot: Slot): bool =
   # Restart the confirmation chain if each of the following conditions are true:
   # 1) it is the start of the current epoch,
   # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
@@ -596,7 +599,7 @@ func should_restart_confirmation_chain*(
   current_slot.is_epoch and
   current_epoch_justified.epoch + 1 == current_slot.epoch and
   current_epoch_justified == head_unrealized_justified and
-  self.confirmed.slot < current_epoch_justified_slot
+  confirmed.slot < current_epoch_justified_slot
 
 func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
   ## Return current epoch target.
@@ -735,10 +738,11 @@ func will_current_target_be_justified(
   3 * honest_ffg_support >= 2 * info.total_active_balance
 
 proc find_latest_confirmed_descendant*(
-    self: var ForkChoiceBackend, dag: ChainDAGRef, blck: BlockRef,
-    unrealized: Checkpoint, current_slot: Slot): Opt[BlockId] =
+    self: var ForkChoiceBackend, dag: ChainDAGRef,
+    blck: BlockRef, unrealized: Checkpoint,
+    confirmed: BlockId, current_slot: Slot): Opt[BlockId] =
   ## Return the most recent confirmed block in the suffix of the canonical chain
-  ## starting from ``self.confirmed.root``.
+  ## starting from ``confirmed.root``.
 
   template balance_source: BalanceSource =
     self.current_epoch_observed_justified
@@ -775,11 +779,11 @@ proc find_latest_confirmed_descendant*(
     if stored_chain.isNone:
       ? balance_source.update_latest_shufflings(dag, blck, current_slot)
       stored_chain.ok self.get_ancestor_support_by_slot(
-        balance_source, dag.heads, blck, self.confirmed, current_slot)
+        balance_source, dag.heads, blck, confirmed, current_slot)
       confirmed_i = chain.high
 
-  result.ok self.confirmed
-  if self.confirmed.slot.epoch + 1 == current_epoch and
+  result.ok confirmed
+  if confirmed.slot.epoch + 1 == current_epoch and
       previous.voting_source.epoch + 2 >= current_epoch and (
         current_slot.is_epoch or (
           will_no_conflicting_be_justified and (
