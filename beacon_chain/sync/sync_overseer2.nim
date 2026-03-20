@@ -2980,3 +2980,66 @@ proc syncStatusMessage*(
     return "backfill: " & overseer.statusMessages[1]
 
   "synced" & optSuffix & lcSuffix
+
+proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
+  let
+    head = overseer.lastSeenHead.valueOr:
+      return "{\"roots\":{}}"
+    entry = overseer.sdag.roots.getOrDefault(head.root)
+
+  func getLocation(root: Eth2Digest): string =
+    var res = ""
+    if root in overseer.rblockBuffer:
+      res.add("\"buffer\"")
+    if overseer.blockQuarantine[].checkOrphan(root):
+      res.add("\"orphan\"")
+    if root in overseer.blockQuarantine[].sidecarless:
+      res.add("\"sidecarless\"")
+    "[" & res.join(",") & "]"
+
+  func getMissingMap(root: Eth2Digest): string =
+    $(overseer.columnQuarantine[].getMissingColumnsMap(root))
+
+  func getFlags(flags: set[DagEntryFlag]): string =
+    var res: seq[string]
+    if DagEntryFlag.Local in flags:
+      res.add("\"local\"")
+    if DagEntryFlag.Unviable in flags:
+      res.add("\"unviable\"")
+    if DagEntryFlag.Finalized in flags:
+      res.add("\"finalized\"")
+    if DagEntryFlag.Pending in flags:
+      res.add("\"pending\"")
+    if DagEntryFlag.MissingSidecars in flags:
+      res.add("\"missing_sidecars\"")
+    "[" & res.join(",") & "]"
+
+  func getBid(entry: SyncDagEntryRef): string =
+    shortLog(entry.blockId)
+
+  func getParent(entry: SyncDagEntryRef): string =
+    if isNil(entry.parent):
+      "unavailable"
+    else:
+      getBid(entry.parent)
+
+  func getItem(entry: SyncDagEntryRef): string =
+    "\"" & getBid(entry) & "\":{" &
+      "\"flags\":" & getFlags(entry.flags) & "," &
+      "\"missing_map\":" & getMissingMap(entry.blockId.root) & "," &
+      "\"locations\":" & getLocation(entry.blockId.root) & "," &
+      "\"parent_root\":" & getParent(entry) &
+    "}"
+
+  var items: seq[string]
+
+  if isNil(entry):
+    return "{\"roots\":{}}"
+
+  items.add(getItem(entry))
+  for centry in entry.parents():
+    if isNil(centry):
+      break
+    items.add(getItem(centry))
+
+  "{\"roots\": {" & items.join(",") & "}"
