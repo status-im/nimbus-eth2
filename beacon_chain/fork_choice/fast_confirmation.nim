@@ -509,7 +509,7 @@ func is_one_confirmed(
 
 func is_confirmed_chain_safe(
     self: ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot): bool =
+    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   ## Return ``true`` if and only if all blocks of the confirmed chain starting
   ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
 
@@ -529,7 +529,9 @@ func is_confirmed_chain_safe(
   # as if it's successful, reconfirmation of the ancestors is implied.
   let
     confirmed = dag.getBlockRef(confirmed.root).valueOr:
-      return false
+      return err ForkChoiceError(
+        kind: fcConfirmedNodeUnknown,
+        blockRoot: confirmed.root)
     current_justified = BlockId(
       slot: current_epoch_justified.epoch.start_slot,
       root: current_epoch_justified.root)
@@ -539,7 +541,7 @@ func is_confirmed_chain_safe(
   # Check if the confirmed.root is descendant of
   # current_epoch_observed_justified.checkpoint.
   if chain.len == 0:
-    return false
+    return ok false
 
   # Run is_one_confirmed for each block in the confirmed chain with the
   # previous epoch balance source.
@@ -551,8 +553,8 @@ func is_confirmed_chain_safe(
       continue
     if not chain.is_one_confirmed(
         i, current_slot, total_active_balance, byzantine_threshold):
-      return false
-  true
+      return ok false
+  ok true
 
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
@@ -568,7 +570,7 @@ proc should_revert_confirmed_on_new_epoch*(
   template balance_source: BalanceSource = self.current_epoch_observed_justified
   ? balance_source.update_latest_shufflings(dag, current_slot)
 
-  ok not self.is_confirmed_chain_safe(dag, confirmed, current_slot)
+  ok not ? self.is_confirmed_chain_safe(dag, confirmed, current_slot)
 
 func should_revert_confirmed_on_new_head*(
     self: ForkChoiceBackend, blck: BlockRef,

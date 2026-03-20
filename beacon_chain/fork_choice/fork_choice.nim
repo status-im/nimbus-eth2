@@ -178,10 +178,10 @@ proc update_checkpoints(
 
 proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
   if confirmed.slot < self.confirmed.slot:
-    notice "Confirmed block was unconfirmed",
+    notice "'Safe' block was unconfirmed",
       old_confirmed = self.confirmed, new_confirmed = confirmed
   if confirmed != self.confirmed:
-    trace "Updating confirmed block",
+    trace "Updating 'safe' block",
       old_confirmed = self.confirmed, new_confirmed = confirmed
   self.confirmed = confirmed
 
@@ -488,13 +488,8 @@ proc advance_fcr(
   template current_epoch_justified: Checkpoint =
     fcr.current_epoch_observed_justified.checkpoint
 
-  let
-    consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
-    threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
-  if self.checkpoints.time < threshold:
-    fcr.current_slot_head = blckRef.root
-
-  if ? fcr.should_revert_confirmed_on_new_head(blckRef, confirmed, current_slot):
+  if ? fcr.should_revert_confirmed_on_new_head(
+      blckRef, confirmed, current_slot):
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
 
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
@@ -512,7 +507,12 @@ proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  let
+    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+    consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
+    threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  if self.checkpoints.time < threshold:
+    self.backend.current_slot_head = blckRef.root
 
   var confirmed = self.backend.confirmed
   self.advance_fcr(dag, blckRef, confirmed, current_slot).isOkOr:
@@ -529,7 +529,7 @@ func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
 func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
   self.get_safe_beacon_block_id.root
 
-func prune(
+proc prune(
     self: var ForkChoiceBackend,
     checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
@@ -538,9 +538,11 @@ func prune(
     self.previous_slot_head = checkpoints.finalized.root
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
+  if self.confirmed.root notin self.proto_array:
+    self.update_confirmed(self.to_block_id(checkpoints.finalized))
   ok()
 
-func prune*(self: var ForkChoice): FcResult[void] =
+proc prune*(self: var ForkChoice): FcResult[void] =
   self.backend.prune(
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
