@@ -556,55 +556,38 @@ func is_confirmed_chain_safe(
 
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot): bool =
+    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   # Revert to finalized block if either of the following is true:
   # 1) the latest confirmed block's epoch is older than the previous epoch,
   # 2) [...],
   # 3) the confirmed chain starting from the current epoch observed justified
   #    checkpoint cannot be re-confirmed at the start of the current epoch.
   if confirmed.slot.epoch + 1 < current_slot.epoch:
-    return true
+    return ok true
 
   template balance_source: BalanceSource = self.current_epoch_observed_justified
-  balance_source.update_latest_shufflings(dag, current_slot).isOkOr:
-    return true
+  ? balance_source.update_latest_shufflings(dag, current_slot)
 
-  not self.is_confirmed_chain_safe(dag, confirmed, current_slot)
+  ok not self.is_confirmed_chain_safe(dag, confirmed, current_slot)
 
 func should_revert_confirmed_on_new_head*(
     self: ForkChoiceBackend, blck: BlockRef,
-    confirmed: BlockId, current_slot: Slot): bool =
+    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   # Revert to finalized block if either of the following is true:
   # 1) [...],
   # 2) the latest confirmed block doesn't belong to the canonical chain,
   # 3) [...].
   if confirmed.slot.epoch + 1 < current_slot.epoch:
-    return true
+    return ok true
 
   var blck = blck
   while blck != nil and blck.slot > confirmed.slot:
     blck = blck.parent
-  blck == nil or blck.root != confirmed.root
-
-func check_proto_array_consistency*(self: ForkChoiceBackend): FcResult[void] =
-  if self.previous_slot_head notin self.proto_array:
-    return err ForkChoiceError(
-      kind: fcPreviousHeadUnknown,
-      blockRoot: self.previous_slot_head)
-  if self.current_slot_head notin self.proto_array:
-    return err ForkChoiceError(
-      kind: fcCurrentHeadUnknown,
-      blockRoot: self.current_slot_head)
-  template current_epoch_justified: Checkpoint =
-    self.current_epoch_observed_justified.checkpoint
-  if current_epoch_justified.root notin self.proto_array:
-    return err ForkChoiceError(
-      kind: fcJustifiedNodeUnknown,
-      blockRoot: current_epoch_justified.root)
-  ok()
+  ok(blck == nil or blck.root != confirmed.root)
 
 func should_restart_confirmation_chain*(
-    self: ForkChoiceBackend, confirmed: BlockId, current_slot: Slot): bool =
+    self: ForkChoiceBackend,
+    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   # Restart the confirmation chain if each of the following conditions are true:
   # 1) it is the start of the current epoch,
   # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
@@ -616,17 +599,21 @@ func should_restart_confirmation_chain*(
   template current_epoch_justified: Checkpoint =
     self.current_epoch_observed_justified.checkpoint
   template current_epoch_justified_slot: Slot =
-    self.proto_array.slot(current_epoch_justified.root)
-      .expect("check_proto_array_consistency")
+    self.proto_array.slot(current_epoch_justified.root).valueOr:
+      return err ForkChoiceError(
+        kind: fcJustifiedNodeUnknown,
+        blockRoot: current_epoch_justified.root)
 
   template head_unrealized_justified: Checkpoint =
-    self.proto_array.unrealized_justified(self.current_slot_head)
-      .expect("check_proto_array_consistency")
+    self.proto_array.unrealized_justified(self.current_slot_head).valueOr:
+      return err ForkChoiceError(
+        kind: fcCurrentHeadUnknown,
+        blockRoot: self.current_slot_head)
 
-  current_slot.is_epoch and
-  current_epoch_justified.epoch + 1 == current_slot.epoch and
-  current_epoch_justified == head_unrealized_justified and
-  confirmed.slot < current_epoch_justified_slot
+  ok(current_slot.is_epoch and
+    current_epoch_justified.epoch + 1 == current_slot.epoch and
+    current_epoch_justified == head_unrealized_justified and
+    confirmed.slot < current_epoch_justified_slot)
 
 func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
   ## Return current epoch target.
@@ -785,10 +772,14 @@ proc find_latest_confirmed_descendant*(
     current_epoch = current_slot.epoch
     total_active_balance = balance_source.total_active_balance
     byzantine_threshold = self.confirmation_byzantine_threshold
-    previous = self.proto_array.checkpoints(self.previous_slot_head)
-      .expect("check_proto_array_consistency")
-    current = self.proto_array.checkpoints(self.current_slot_head)
-      .expect("check_proto_array_consistency")
+    previous = self.proto_array.checkpoints(self.previous_slot_head).valueOr:
+      return err ForkChoiceError(
+        kind: fcPreviousHeadUnknown,
+        blockRoot: self.previous_slot_head)
+    current = self.proto_array.checkpoints(self.current_slot_head).valueOr:
+      return err ForkChoiceError(
+        kind: fcCurrentHeadUnknown,
+        blockRoot: self.current_slot_head)
 
   var stored_info: Opt[CurrentTargetInfo]
   template info: lent CurrentTargetInfo =

@@ -218,7 +218,7 @@ proc reconfirm_fcr(
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
   self.process_attestation_queue(current_slot)
-  if fcr.should_revert_confirmed_on_new_epoch(dag, confirmed, current_slot):
+  if ? fcr.should_revert_confirmed_on_new_epoch(dag, confirmed, current_slot):
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
 
   # Update observed justified checkpoints at the start of an epoch
@@ -228,11 +228,7 @@ proc reconfirm_fcr(
 
   # Restart confirmation chain if necessary
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
-  fcr.check_proto_array_consistency.isOkOr:
-    warn "Proto array inconsistent - report bug", reason = error
-    confirmed = fcr.to_block_id(self.checkpoints.finalized)
-    return ok()
-  if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+  if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     confirmed = fcr.to_block_id(current_epoch_justified)
   ok()
 
@@ -275,10 +271,11 @@ proc on_tick(
       ? self.update_checkpoints(dag, realized, current_slot)
 
       var confirmed = self.backend.confirmed
-      result = self.reconfirm_fcr(dag, confirmed, current_slot)
+      self.reconfirm_fcr(dag, confirmed, current_slot).isOkOr:
+        warn "Failed to reconfirm 'safe' block - report bug",
+          current_slot, reason = error
+        confirmed = self.backend.to_block_id(self.checkpoints.finalized)
       self.backend.update_confirmed(confirmed)
-      if result.isErr:
-        return result
 
     else:
       discard
@@ -484,40 +481,45 @@ proc get_head*(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
 
-proc will_select_head*(
-    self: var ForkChoice, dag: ChainDAGRef,
-    blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
-  ? self.update_time(dag, wallTime)
-
-  var confirmed = self.backend.confirmed
+proc advance_fcr(
+    self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
+    confirmed: var BlockId, current_slot: Slot): FcResult[void] =
   template fcr: ForkChoiceBackend = self.backend
   template current_epoch_justified: Checkpoint =
     fcr.current_epoch_observed_justified.checkpoint
+
   let
-    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
     threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
   if self.checkpoints.time < threshold:
     fcr.current_slot_head = blckRef.root
-  if fcr.should_revert_confirmed_on_new_head(blckRef, confirmed, current_slot):
+
+  if ? fcr.should_revert_confirmed_on_new_head(blckRef, confirmed, current_slot):
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
-  fcr.check_proto_array_consistency.isOkOr:
-    warn "Proto array inconsistent - report bug", reason = error
-    confirmed = fcr.to_block_id(self.checkpoints.finalized)
-    fcr.update_confirmed(confirmed)
-    return ok()
-  if fcr.should_restart_confirmation_chain(confirmed, current_slot):
+
+  if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     confirmed = fcr.to_block_id(current_epoch_justified)
+
   # Attempt to further advance the latest confirmed block.
   if confirmed.slot.epoch + 1 >= current_slot.epoch:
     template justified: Checkpoint = self.checkpoints.justified.checkpoint
     let unrealized = fcr.proto_array.unrealized_justified(justified)
-    confirmed = fcr.find_latest_confirmed_descendant(
-        dag, blckRef, unrealized, confirmed, current_slot).valueOr:
-      warn "Failed to advance 'safe' block - report bug",
-        blckRef, unrealized, confirmed, current_slot, reason = error
-      fcr.to_block_id(self.checkpoints.finalized)
-  fcr.update_confirmed(confirmed)
+    confirmed = ? fcr.find_latest_confirmed_descendant(
+      dag, blckRef, unrealized, confirmed, current_slot)
+  ok()
+
+proc will_select_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
+  ? self.update_time(dag, wallTime)
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+
+  var confirmed = self.backend.confirmed
+  self.advance_fcr(dag, blckRef, confirmed, current_slot).isOkOr:
+    warn "Failed to advance 'safe' block - report bug",
+      blckRef, current_slot, reason = error
+    confirmed = self.backend.to_block_id(self.checkpoints.finalized)
+  self.backend.update_confirmed(confirmed)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
