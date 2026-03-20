@@ -234,23 +234,6 @@ proc checkHeadBlock*(
     debug "Block parent unknown or finalized already", parentId
     return err(VerifierError.MissingParent)
 
-  # In the case of handling blocks and envelopes other than the head, they
-  # arrive in a random order (request missing). A block could be falsely marked
-  # as invalid if the envelope of the parent block.is missing.
-  when typeof(signedBlock).kind >= ConsensusFork.Gloas:
-    template parentFork(): auto =
-      dag.cfg.consensusForkAtEpoch(parent.slot().epoch())
-
-    if parentFork >= ConsensusFork.Gloas:
-      if not dag.db.containsExecutionPayloadEnvelope(parent.root()):
-        # TODO: add a new VerifierError for MissingParentEnvelope once syncv3 is
-        # landed.
-        debug "Parent envelope missing",
-          head = shortLog(dag.head),
-          blckSlot = signedBlock.message.slot,
-          blckRoot = signedBlock.root
-        return err(VerifierError.MissingParent)
-
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
     # discard it immediately

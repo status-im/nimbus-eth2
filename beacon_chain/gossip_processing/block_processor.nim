@@ -881,23 +881,6 @@ proc addBlock*(
           blck = shortLog(blck), signature = shortLog(blck.signature), err = error
         return err(error.toVerifierError())
 
-      # Since Gloas, MissingParent can be for either block or envelope. We check
-      # again here to see if we need to request envelope.
-      #
-      # TODO: handle this in a new VerifierError.
-      when consensusFork >= ConsensusFork.Gloas:
-        template parentRoot(): auto = blck.message.parent_root
-        let parent = dag.getBlockRef(parentRoot)
-
-        # If the parent doesn't exist in DAG, it should have finalized and no
-        # actions is needed.
-        if parent.isSome():
-          template parentFork(): auto =
-            dag.cfg.consensusForkAtEpoch(parent.get().slot().epoch())
-          if parentFork >= ConsensusFork.Gloas:
-            if not dag.db.containsExecutionPayloadEnvelope(parentRoot):
-              self.envelopeQuarantine[].addMissing(parentRoot)
-
       # This indicates that no `BlockRef` is available for the `parent_root`.
       # However, the block may still be available in local storage. On startup,
       # only the canonical branch is imported into `blockchain_dag`, while
