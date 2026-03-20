@@ -2988,7 +2988,7 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
     entry = overseer.sdag.roots.getOrDefault(head.root)
 
   func getLocation(root: Eth2Digest): string =
-    var res = ""
+    var res: seq[string]
     if root in overseer.rblockBuffer:
       res.add("\"buffer\"")
     if overseer.blockQuarantine[].checkOrphan(root):
@@ -3028,7 +3028,7 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
       "\"flags\":" & getFlags(entry.flags) & "," &
       "\"missing_map\":" & getMissingMap(entry.blockId.root) & "," &
       "\"locations\":" & getLocation(entry.blockId.root) & "," &
-      "\"parent_root\":" & getParent(entry) &
+      "\"parent_root\": \"" & getParent(entry) & "\"" &
     "}"
 
   var items: seq[string]
