@@ -506,7 +506,7 @@ proc will_select_head*(
     if fcr.should_restart_confirmation_chain(confirmed, current_slot):
       confirmed = fcr.to_block_id(current_epoch_justified)
     # Attempt to further advance the latest confirmed block.
-    if fcr.confirmed.slot.epoch + 1 >= current_slot.epoch:
+    if confirmed.slot.epoch + 1 >= current_slot.epoch:
       template justified: Checkpoint = self.checkpoints.justified.checkpoint
       let unrealized = fcr.proto_array.unrealized_justified(justified)
       confirmed = fcr.find_latest_confirmed_descendant(
