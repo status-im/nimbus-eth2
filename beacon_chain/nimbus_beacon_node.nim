@@ -2690,9 +2690,17 @@ when not defined(windows):
     except Exception as exc: # TODO Exception
       error "Couldn't enable colors", err = exc.msg
 
+    template safe: lent BlockId =
+      node.attestationPool[].forkChoice.get_safe_beacon_block_id()
+
+    var stored_justified: Opt[BlockSlot]
+    template justified: lent BlockSlot =
+      if stored_justified.isNone:
+        stored_justified.ok node.dag.head.atEpochStart(
+          node.dag.headState.current_justified_checkpoint.epoch)
+      stored_justified.unsafeGet
+
     proc dataResolver(expr: string): string {.raises: [].} =
-      template justified: untyped = node.dag.head.atEpochStart(
-        node.dag.headState.current_justified_checkpoint.epoch)
       # TODO:
       # We should introduce a general API for resolving dot expressions
       # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -2718,6 +2726,15 @@ when not defined(windows):
         $(node.dag.head.slot.since_epoch_start)
       of "head_slot":
         $(node.dag.head.slot)
+
+      of "safe_root":
+        shortLog(safe.root)
+      of "safe_epoch":
+        $(safe.slot.epoch)
+      of "safe_epoch_slot":
+        $(safe.slot.since_epoch_start)
+      of "safe_slot":
+        $(safe.slot)
 
       of "justifed_root":
         shortLog(justified.blck.root)
