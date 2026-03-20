@@ -219,31 +219,39 @@ func applyScoreChanges*(
     if node.bid.root.isZero:
       continue
 
-    var nodeDelta = deltas[nodePhysicalIdx]
+    var nodeDelta =
+      if node.invalid:
+        # If the node is invalid, remove its weight from ancestors.
+        # Note this makes future deltas for this node inconsistent,
+        # but that is not relevant as node.invalid can never be reset.
+        -node.weight
+      else:
+        deltas[nodePhysicalIdx]
 
-    # If we find the node for which the proposer boost was previously applied,
-    # decrease the delta by the previous score amount.
-    if  (not self.previousProposerBoostRoot.isZero) and
-        self.previousProposerBoostRoot == node.bid.root:
-          if  nodeDelta < 0 and
-              nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
-            return err ForkChoiceError(
+    if not node.invalid:
+      # If we find the node for which the proposer boost was previously applied,
+      # decrease the delta by the previous score amount.
+      if  (not self.previousProposerBoostRoot.isZero) and
+          self.previousProposerBoostRoot == node.bid.root:
+            if  nodeDelta < 0 and
+                nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
+              return err ForkChoiceError(
                 kind: fcDeltaUnderflow,
                 index: nodePhysicalIdx)
-          nodeDelta -= self.previousProposerBoostScore.int64
+            nodeDelta -= self.previousProposerBoostScore.int64
 
-    # If we find the node matching the current proposer boost root, increase
-    # the delta by the new score amount.
-    #
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
-      if  nodeDelta >= 0 and
-          high(Delta) - nodeDelta < proposerBoostScore.int64:
-        return err ForkChoiceError(
+      # If we find the node matching the current proposer boost root, increase
+      # the delta by the new score amount.
+      #
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
+      if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
+        proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
+        if  nodeDelta >= 0 and
+            high(Delta) - nodeDelta < proposerBoostScore.int64:
+          return err ForkChoiceError(
             kind: fcDeltaOverflow,
             index: nodePhysicalIdx)
-      nodeDelta += proposerBoostScore.int64
+        nodeDelta += proposerBoostScore.int64
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
@@ -299,8 +307,9 @@ func applyScoreChanges*(
       continue
 
     if node.parent.isSome():
-      let parentLogicalIdx = node.parent.unsafeGet()
-      let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+      let
+        parentLogicalIdx = node.parent.unsafeGet()
+        parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
       if parentPhysicalIdx < 0:
         # Orphan
         continue
