@@ -213,7 +213,7 @@ proc setupDatabase(
         if tmp[].slot > checkpointState[].slot:
           checkpointState = tmp
       else:
-        discard  # State from era is newer than the sync target
+        discard  # Remain on state from era (if any)
     else:
       warn "Ignoring `--external-beacon-api-url`, neither " &
         "`--trusted-block-root` nor `--trusted-state-root` provided",
