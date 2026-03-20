@@ -403,8 +403,9 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
 
-  asyncTest "Process Gloas block (without envelope)" & preset():
-    # Advance to Gloas fork
+  asyncTest "Gloas block without envelope marks missing" & preset():
+    # Block arrives but envelope hasn't arrived yet.
+    # Block should be stored optimistically; envelope marked as missing.
     process_slots(
       cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
       cache, info, {}
@@ -421,20 +422,126 @@ suite "Block processor" & preset():
         let engineBlock = addTestEngineBlock(
           cfg, ConsensusFork.Gloas, forkyState, cache)
 
-        # addBlock processes the block without an envelope.
-        # The block is stored optimistically; envelope is processed separately.
         let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          noSidecars
-        )
+          MsgSource.gossip, engineBlock.blck, noSidecars)
 
         check:
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
+          # Block stored but envelope not available, should be in missing list
+          engineBlock.blck.root in envelopeQuarantine[].getMissing()
+
+  asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
+    # Envelope arrives before its block (orphan envelope).
+    # When the block arrives, it should pop the envelope from quarantine.
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
+    )
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Gloas:
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Gloas, forkyState, cache)
+
+        # Envelope arrives first and gets quarantined as orphan.
+        var envelope = gloas.SignedExecutionPayloadEnvelope(
+          message: gloas.ExecutionPayloadEnvelope(
+            beacon_block_root: engineBlock.blck.root,
+            slot: engineBlock.blck.message.slot,
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+          )
+        )
+        envelopeQuarantine[].addOrphan(envelope)
+
+        let res = await processor.addBlock(
+          MsgSource.gossip, engineBlock.blck, noSidecars)
 
         check:
-          engineBlock.blck.root in envelopeQuarantine[].getMissing()
+          res.isOk
+          dag.containsForkBlock(engineBlock.blck.root)
+          # Envelope was popped, not marked as missing
+          engineBlock.blck.root notin envelopeQuarantine[].getMissing()
+
+  asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
+    # Multiple blocks stored optimistically, each marks its envelope as missing.
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
+    )
+
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b2 = addTestBlock(state[], cache, cfg = cfg).gloasData
+
+    # Process blocks in order, both without envelopes
+    let res1 = await processor.addBlock(
+      MsgSource.gossip, b1, noSidecars)
+    check res1.isOk
+
+    dag.updateHead(dag.getBlockRef(b1.root).get(), quarantine[], [])
+
+    let res2 = await processor.addBlock(
+      MsgSource.gossip, b2, noSidecars)
+    check res2.isOk
+
+    # Both envelopes should be missing
+    let missing = envelopeQuarantine[].getMissing()
+    check:
+      b1.root in missing
+      b2.root in missing
+
+  asyncTest "Gloas reverse order blocks with missing parent" & preset():
+    # Block N+1 arrives before block N. Block N+1 goes to
+    # quarantine with MissingParent. When block N arrives and is processed,
+    # block N+1 should be dequeued from quarantine.
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
+    )
+
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b2 = addTestBlock(state[], cache, cfg = cfg).gloasData
+
+    # Block N+1 arrives first, missing parent
+    let res2 = await processor.addBlock(
+      MsgSource.gossip, b2, noSidecars)
+    check:
+      res2.error == VerifierError.MissingParent
+      not dag.containsForkBlock(b2.root)
+
+    # Block N arrives, should succeed and trigger quarantine processing
+    let res1 = await processor.addBlock(
+      MsgSource.gossip, b1, noSidecars)
+    check:
+      res1.isOk
+      dag.containsForkBlock(b1.root)
+
+    # Let async quarantine processing run
+    while processor[].hasBlocks():
+      poll()
+
+    # Block N+1 should now be in the DAG (dequeued from quarantine)
+    check dag.containsForkBlock(b2.root)
 
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk
