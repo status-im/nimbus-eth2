@@ -508,9 +508,9 @@ proc addHeadExecutionPayload*(
   template envelopeSlot(): auto = signedEnvelope.message.slot
 
   logScope:
-    blockRoot = shortLog(envelopeBlockRoot())
+    blockRoot = shortLog(envelopeBlockRoot)
     builderIdx = signedEnvelope.message.builder_index
-    slot = envelopeSlot()
+    slot = envelopeSlot
     signature = shortLog(signedEnvelope.signature)
 
   const consensusFork = typeof(signedBlock).kind
@@ -519,8 +519,8 @@ proc addHeadExecutionPayload*(
   template bid(): auto =
     signedBlock.message.body.signed_execution_payload_bid.message
   if not (
-    signedBlock.message.slot == envelopeSlot() and
-    signedBlock.root == envelopeBlockRoot() and
+    signedBlock.message.slot == envelopeSlot and
+    signedBlock.root == envelopeBlockRoot and
     bid.builder_index == signedEnvelope.message.builder_index and
     bid.block_hash == signedEnvelope.message.payload.block_hash
   ):
@@ -540,7 +540,7 @@ proc addHeadExecutionPayload*(
 
   # We need to move state back to the exact block time in order to validate the
   # envelope with state, as the block could be older than the head.
-  let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot())
+  let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot)
   if not updateState(
       dag, dag.clearanceState, blckBsi, false, cache,
       dag.updateFlags + {skipLastEnvelope}):
@@ -553,8 +553,8 @@ proc addHeadExecutionPayload*(
   # Validate the envelope with state. Slot and latest block root in state should
   # match with the envelope.
   if not (
-      dag.clearanceState.slot() == envelopeSlot() and
-      dag.clearanceState.latest_block_root() == envelopeBlockRoot()
+      dag.clearanceState.slot() == envelopeSlot and
+      dag.clearanceState.latest_block_root() == envelopeBlockRoot
   ):
     debug "Envelope is not for the current head"
     return err(VerifierError.Invalid)
@@ -617,23 +617,29 @@ proc addBackfillExecutionPayload*(
     return err(VerifierError.Duplicate)
 
   # Check builder index is matched with the block
-  block:
-    let blck = dag.getForkedBlock(bsi.bid).valueOr:
+  let blck = block:
+    let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
       debug "Backfill envelope cannot find forked block, database corrupt?"
       return err(VerifierError.Invalid)
-    withBlck(blck):
+    withBlck(forkedBlck):
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
         if bid.message.builder_index != envelope.builder_index:
           return err(VerifierError.Invalid)
+        forkyBlck.asSigned()
       else:
         return err(VerifierError.UnviableFork)
 
   # Verify signature
-  let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
+  template vIdx(): auto =
+    if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
+      blck.message.proposer_index
+    else:
+      envelope.builder_index
+  let builderKey = dag.validatorKey(vIdx).valueOr:
     fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
       head = shortLog(dag.head), tail = shortLog(dag.tail)
     quit 1

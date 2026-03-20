@@ -1014,7 +1014,9 @@ proc storePayload(
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
-  await self.consensusManager.updateExecutionHead(
+
+  if optimisticStatusRes.isSome():
+    await self.consensusManager.updateExecutionHead(
       deadline, retry = previousExecutionValid, self.getBeaconTime)
 
   debug "Envelope processed",
@@ -1044,11 +1046,20 @@ proc addPayload*(
   else:
     case res.error()
     of VerifierError.MissingParent:
+      # Preserve envelope for retry. The request manager or a future block
+      # processing attempt can retry with it.
       template parentRoot(): auto = signedBlock.message.parent_root
       discard self.consensusManager.quarantine[].addMissing(parentRoot)
       self.envelopeQuarantine[].addOrphan(signedEnvelope)
-    of VerifierError.Invalid, VerifierError.UnviableFork, VerifierError.Duplicate:
+    of VerifierError.Invalid:
+      # When it is invalid, it could be caused by incorrect envelope from
+      # dishonest node. Since the block is valid, we should discard this
+      # envelope and request again.
+      #
+      # Discard so that request_manager will request a new one.
       discard
+    of VerifierError.UnviableFork, VerifierError.Duplicate:
+      self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
   res.mapConvert(void)
 
