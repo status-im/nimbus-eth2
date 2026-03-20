@@ -494,8 +494,11 @@ proc will_select_head*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  self.backend.confirmed.root
+func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+  self.backend.confirmed
+
+func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
+  self.get_safe_beacon_block_id.root
 
 func prune(
     self: var ForkChoiceBackend,

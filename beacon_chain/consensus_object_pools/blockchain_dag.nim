@@ -26,6 +26,8 @@ logScope: topics = "chaindag"
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
+declareGauge beacon_safe_root, "Root of the safe block of the beacon chain"
+declareGauge beacon_safe_slot, "Slot of the safe block of the beacon chain"
 
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
@@ -1306,6 +1308,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
+  beacon_safe_root.set(dag.finalizedHead.blck.bid.root.toGaugeValue)
+  beacon_safe_slot.set(dag.finalizedHead.blck.bid.slot.toGaugeValue)
 
   let finalizedTick = Moment.now()
 

@@ -203,6 +203,11 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
   self.dag.updateHead(
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
+
+  let safeBlockId = self.attestationPool[].forkChoice.get_safe_beacon_block_id
+  beacon_safe_root.set(safeBlockId.root.toGaugeValue)
+  beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
+
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
