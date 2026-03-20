@@ -21,6 +21,7 @@ AllTests-mainnet
 + Everyone voting for something different [Preset: mainnet]                                  OK
 + Fork choice returns block with attestation                                                 OK
 + Fork choice returns latest block with no attestations                                      OK
++ Invalid block weight does not propagate to ancestors                                       OK
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
