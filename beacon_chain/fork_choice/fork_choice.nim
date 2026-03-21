@@ -182,8 +182,12 @@ proc update_confirmed(
   template prev: BlockId = self.confirmed
   template curr: BlockId = confirmed
   if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
-    notice "Previous 'safe' block no longer safe",
-      previousSafe = prev, currentSafe = curr, reason, diag
+    if diag.chain_len > 0:
+      notice "Previous 'safe' block no longer safe",
+        previousSafe = prev, currentSafe = curr, reason, diag
+    else:
+      notice "Previous 'safe' block no longer safe",
+        previousSafe = prev, currentSafe = curr, reason
   elif confirmed != prev:
     trace "Updating 'safe' block",
       previousSafe = prev, currentSafe = curr
