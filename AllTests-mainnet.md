@@ -139,6 +139,11 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
++ Gloas block without envelope marks missing [Preset: mainnet]                               OK
++ Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
++ Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
++ Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
