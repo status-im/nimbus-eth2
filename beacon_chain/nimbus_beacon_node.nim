@@ -2662,24 +2662,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-func formatGwei(amount: Gwei): string =
-  # TODO This is implemented in a quite a silly way.
-  # Better routines for formatting decimal numbers
-  # should exists somewhere else.
-  let
-    eth = distinctBase(amount) div 1000000000
-    remainder = distinctBase(amount) mod 1000000000
-
-  result = $eth
-  if remainder != 0:
-    result.add '.'
-    let remainderStr = $remainder
-    for i in remainderStr.len ..< 9:
-      result.add '0'
-    result.add remainderStr
-    while result[^1] == '0':
-      result.setLen(result.len - 1)
-
 when not defined(windows):
   proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
     if not isatty(stdout): return

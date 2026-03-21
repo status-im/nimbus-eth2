@@ -29,11 +29,28 @@ export
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/weak-subjectivity.md#constants
 const ETH_TO_GWEI = 1_000_000_000.Gwei
 
+func toGwei*(eth: Ether): Gwei =
+  distinctBase(eth) * ETH_TO_GWEI
+
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
-func toGwei*(eth: Ether): Gwei =
-  distinctBase(eth) * ETH_TO_GWEI
+func toEtherWithRemainder*(gwei: Gwei): (Ether, Gwei) =
+  (gwei.toEther, gwei mod ETH_TO_GWEI)
+
+func formatGwei*(amount: Gwei): string =
+  ## Display Gwei as ETH with up through 9 decimal digits,
+  ## without trailing zeros.
+  let (eth, remainder) = amount.toEtherWithRemainder
+  result = $eth
+  if remainder != 0.Gwei:
+    result.add '.'
+    let remainderStr = $remainder
+    for i in remainderStr.len ..< 9:
+      result.add '0'
+    result.add remainderStr
+    while result[^1] == '0':
+      result.setLen(result.len - 1)
 
 type
   FinalityCheckpoints* = object

@@ -515,22 +515,21 @@ type FcrDiagnostics* = object
   total_active_balance*: Gwei
   byzantine_threshold*: uint64
 
-func shortLog*(diag: FcrDiagnostics): auto =
-  (
-    chain_len: diag.chain_len,
-    failed_block: shortLog(diag.failed_block),
-    support: diag.support,
-    safety_threshold: diag.safety_threshold,
-    total_active_balance: diag.total_active_balance,
-    byzantine_threshold: diag.byzantine_threshold,
-  )
+func `$`*(diag: FcrDiagnostics): string =
+  let slot = diag.failed_block.slot
+  shortLog(diag.failed_block.root) & ":" &
+  $slot.epoch & ":" & $slot.since_epoch_start & ": " &
+  formatGwei(diag.support) & " <= " &
+  formatGwei(diag.safety_threshold) & " (" &
+  formatGwei(diag.total_active_balance) & " total, " &
+  $diag.byzantine_threshold & "% byz, " &
+  $diag.chain_len & " blks)"
 
-chronicles.formatIt FcrDiagnostics: it.shortLog
+chronicles.formatIt FcrDiagnostics: $it
 
 func is_confirmed_chain_safe(
-    self: ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot,
-    diag: var FcrDiagnostics): FcResult[bool] =
+    self: ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
+    current_slot: Slot, diag: var FcrDiagnostics): FcResult[bool] =
   ## Return ``true`` if and only if all blocks of the confirmed chain starting
   ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
 
@@ -586,9 +585,8 @@ func is_confirmed_chain_safe(
   ok true
 
 proc should_revert_confirmed_on_new_epoch*(
-    self: var ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot,
-    diag: var FcrDiagnostics): FcResult[bool] =
+    self: var ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
+    current_slot: Slot, diag: var FcrDiagnostics): FcResult[bool] =
   # Revert to finalized block if either of the following is true:
   # 1) the latest confirmed block's epoch is older than the previous epoch,
   # 2) [...],
