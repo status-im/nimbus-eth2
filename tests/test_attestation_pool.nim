@@ -847,7 +847,7 @@ suite "Attestation pool electra processing" & preset():
 
     let
       root = dag.head.root
-      unrealized = proto_array.checkpoints(root).get().unrealized
+      unrealized = proto_array.checkpoints(root).get().unrealized_justified
     check unrealized.epoch >
       proto_array.checkpoints(root).get().voting_source.epoch
 
@@ -861,7 +861,7 @@ suite "Attestation pool electra processing" & preset():
       dag, pool, verifier, quarantine, cache,
       validator_changes = validator_changes)
 
-    check proto_array.checkpoints(root).get().unrealized == unrealized
+    check proto_array.checkpoints(root).get().unrealized_justified == unrealized
 
   test "Working with electra aggregates" & preset():
     let

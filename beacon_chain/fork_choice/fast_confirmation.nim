@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[sets, tables], stew/bitops2,
+  std/[sets, tables], stew/bitops2, chronicles,
   ../consensus_object_pools/spec_cache,
   "."/[fork_choice_types, proto_array]
 
@@ -507,9 +507,30 @@ func is_one_confirmed(
 
   support > safety_threshold
 
+type FcrDiagnostics* = object
+  chain_len*: int
+  failed_block*: BlockId
+  support*: Gwei
+  safety_threshold*: Gwei
+  total_active_balance*: Gwei
+  byzantine_threshold*: uint64
+
+func shortLog*(diag: FcrDiagnostics): auto =
+  (
+    chain_len: diag.chain_len,
+    failed_block: shortLog(diag.failed_block),
+    support: diag.support,
+    safety_threshold: diag.safety_threshold,
+    total_active_balance: diag.total_active_balance,
+    byzantine_threshold: diag.byzantine_threshold,
+  )
+
+chronicles.formatIt FcrDiagnostics: it.shortLog
+
 func is_confirmed_chain_safe(
     self: ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
+    confirmed: BlockId, current_slot: Slot,
+    diag: var FcrDiagnostics): FcResult[bool] =
   ## Return ``true`` if and only if all blocks of the confirmed chain starting
   ## from current_epoch_observed_justified.checkpoint are LMD-GHOST safe.
 
@@ -553,12 +574,21 @@ func is_confirmed_chain_safe(
       continue
     if not chain.is_one_confirmed(
         i, current_slot, total_active_balance, byzantine_threshold):
+      diag = FcrDiagnostics(
+        chain_len: chain.len,
+        failed_block: chain[i].blck.bid,
+        support: chain[i].total_support,
+        safety_threshold: chain.compute_safety_threshold(
+          i, current_slot, total_active_balance, byzantine_threshold),
+        total_active_balance: total_active_balance,
+        byzantine_threshold: byzantine_threshold)
       return ok false
   ok true
 
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
-    confirmed: BlockId, current_slot: Slot): FcResult[bool] =
+    confirmed: BlockId, current_slot: Slot,
+    diag: var FcrDiagnostics): FcResult[bool] =
   # Revert to finalized block if either of the following is true:
   # 1) the latest confirmed block's epoch is older than the previous epoch,
   # 2) [...],
@@ -570,7 +600,7 @@ proc should_revert_confirmed_on_new_epoch*(
   template balance_source: BalanceSource = self.current_epoch_observed_justified
   ? balance_source.update_latest_shufflings(dag, current_slot)
 
-  ok not ? self.is_confirmed_chain_safe(dag, confirmed, current_slot)
+  ok not ? self.is_confirmed_chain_safe(dag, confirmed, current_slot, diag)
 
 func should_revert_confirmed_on_new_head*(
     self: ForkChoiceBackend, blck: BlockRef,

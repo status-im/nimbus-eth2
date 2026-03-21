@@ -176,13 +176,15 @@ proc update_checkpoints(
 
   ok()
 
-proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
+proc update_confirmed(
+    self: var ForkChoiceBackend, confirmed: BlockId,
+    reason = "ok", diag = default(FcrDiagnostics)) =
   if confirmed.slot < self.confirmed.slot:
-    notice "'Safe' block was unconfirmed",
-      old_confirmed = self.confirmed, new_confirmed = confirmed
-  if confirmed != self.confirmed:
+    notice "Rewinding 'safe' block",
+      old_confirmed = self.confirmed, new_confirmed = confirmed, reason, diag
+  elif confirmed != self.confirmed:
     trace "Updating 'safe' block",
-      old_confirmed = self.confirmed, new_confirmed = confirmed
+      old_confirmed = self.confirmed, new_confirmed = confirmed, reason
   self.confirmed = confirmed
 
 proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
@@ -212,13 +214,16 @@ proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
 
 proc reconfirm_fcr(
     self: var ForkChoice, dag: ChainDAGRef,
-    confirmed: var BlockId, current_slot: Slot): FcResult[void] =
+    confirmed: var BlockId, current_slot: Slot,
+    reason: var string, diag: var FcrDiagnostics): FcResult[void] =
   template fcr: ForkChoiceBackend = self.backend
 
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
   self.process_attestation_queue(current_slot)
-  if ? fcr.should_revert_confirmed_on_new_epoch(dag, confirmed, current_slot):
+  if ? fcr.should_revert_confirmed_on_new_epoch(
+      dag, confirmed, current_slot, diag):
+    reason = "epoch"
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
 
   # Update observed justified checkpoints at the start of an epoch
@@ -229,6 +234,7 @@ proc reconfirm_fcr(
   # Restart confirmation chain if necessary
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    reason = "restart/e"
     confirmed = fcr.to_block_id(current_epoch_justified)
   ok()
 
@@ -270,12 +276,16 @@ proc on_tick(
           finalized: self.checkpoints.finalized))
       ? self.update_checkpoints(dag, realized, current_slot)
 
-      var confirmed = self.backend.confirmed
-      self.reconfirm_fcr(dag, confirmed, current_slot).isOkOr:
+      var
+        confirmed = self.backend.confirmed
+        reason: string
+        diag: FcrDiagnostics
+      self.reconfirm_fcr(dag, confirmed, current_slot, reason, diag).isOkOr:
         warn "Failed to reconfirm 'safe' block - report bug",
           current_slot, reason = error
+        reason = "reconfirm"
         confirmed = self.backend.to_block_id(self.checkpoints.finalized)
-      self.backend.update_confirmed(confirmed)
+      self.backend.update_confirmed(confirmed, reason, diag)
 
     else:
       discard
@@ -483,16 +493,19 @@ proc get_head*(
 
 proc advance_fcr(
     self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
-    confirmed: var BlockId, current_slot: Slot): FcResult[void] =
+    confirmed: var BlockId, current_slot: Slot,
+    reason: var string): FcResult[void] =
   template fcr: ForkChoiceBackend = self.backend
   template current_epoch_justified: Checkpoint =
     fcr.current_epoch_observed_justified.checkpoint
 
   if ? fcr.should_revert_confirmed_on_new_head(
       blckRef, confirmed, current_slot):
+    reason = "head"
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
 
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    reason = "restart/h"
     confirmed = fcr.to_block_id(current_epoch_justified)
 
   # Attempt to further advance the latest confirmed block.
@@ -514,12 +527,15 @@ proc will_select_head*(
   if self.checkpoints.time < threshold:
     self.backend.current_slot_head = blckRef.root
 
-  var confirmed = self.backend.confirmed
-  self.advance_fcr(dag, blckRef, confirmed, current_slot).isOkOr:
+  var
+    confirmed = self.backend.confirmed
+    reason: string
+  self.advance_fcr(dag, blckRef, confirmed, current_slot, reason).isOkOr:
     warn "Failed to advance 'safe' block - report bug",
       blckRef, current_slot, reason = error
+    reason = "advance"
     confirmed = self.backend.to_block_id(self.checkpoints.finalized)
-  self.backend.update_confirmed(confirmed)
+  self.backend.update_confirmed(confirmed, reason)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
@@ -539,7 +555,7 @@ proc prune(
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
-    self.update_confirmed(self.to_block_id(checkpoints.finalized))
+    self.update_confirmed(self.to_block_id(checkpoints.finalized), "prune")
   ok()
 
 proc prune*(self: var ForkChoice): FcResult[void] =
