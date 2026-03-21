@@ -516,9 +516,7 @@ type FcrDiagnostics* = object
   byzantine_threshold*: uint64
 
 func `$`*(diag: FcrDiagnostics): string =
-  let slot = diag.failed_block.slot
-  shortLog(diag.failed_block.root) & ":" &
-  $slot.epoch & ":" & $slot.since_epoch_start & ": " &
+  shortLog(diag.failed_block) & ": " &
   formatGwei(diag.support) & " <= " &
   formatGwei(diag.safety_threshold) & " (" &
   formatGwei(diag.total_active_balance) & " total, " &
