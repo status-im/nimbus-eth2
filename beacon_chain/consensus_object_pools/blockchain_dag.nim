@@ -438,6 +438,19 @@ func isFinalized*(dag: ChainDAGRef, bid: BlockId): bool =
   ## selected by `dag.finalizedHead`.
   dag.isCanonical(bid) and (bid.slot <= dag.finalizedHead.slot)
 
+func isAncestorOf*(dag: ChainDAGRef, a, b: BlockId): bool =
+  ## Returns `true` if the given `a` is part of the history selected by `b`.
+  ## Does not depend on `dag.head`.
+  if a == b: return true
+  if a.slot >= b.slot: return false
+  let
+    a_blck = dag.getBlockRef(a.root).valueOr:
+      return dag.isCanonical(a) and
+        (dag.getBlockRef(b.root).isOk or dag.isCanonical(b))
+    b_blck = dag.getBlockRef(b.root).valueOr:
+      return false
+  a_blck.isAncestorOf(b_blck)
+
 func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:
     return err()

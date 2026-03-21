@@ -135,6 +135,7 @@ AllTests-mainnet
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
++ isAncestorOf                                                                               OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```

@@ -177,15 +177,17 @@ proc update_checkpoints(
   ok()
 
 proc update_confirmed(
-    self: var ForkChoiceBackend, confirmed: BlockId,
-    reason = "ok", diag = default(FcrDiagnostics)) =
-  if confirmed.slot < self.confirmed.slot:
-    notice "Rewinding 'safe' block",
-      old_confirmed = self.confirmed, new_confirmed = confirmed, reason, diag
-  elif confirmed != self.confirmed:
+    self: var ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
+    reason = "", diag = default(FcrDiagnostics)) =
+  template prev: BlockId = self.confirmed
+  template curr: BlockId = confirmed
+  if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
+    notice "Previous 'safe' block no longer safe",
+      previousSafe = prev, currentSafe = curr, reason, diag
+  elif confirmed != prev:
     trace "Updating 'safe' block",
-      old_confirmed = self.confirmed, new_confirmed = confirmed, reason
-  self.confirmed = confirmed
+      previousSafe = prev, currentSafe = curr
+  prev = curr
 
 proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
   result.slot = self.proto_array.slot(checkpoint.root).valueOr:
@@ -285,7 +287,7 @@ proc on_tick(
           current_slot, reason = error
         reason = "reconfirm"
         confirmed = self.backend.to_block_id(self.checkpoints.finalized)
-      self.backend.update_confirmed(confirmed, reason, diag)
+      self.backend.update_confirmed(dag, confirmed, reason, diag)
 
     else:
       discard
@@ -535,7 +537,7 @@ proc will_select_head*(
       blckRef, current_slot, reason = error
     reason = "advance"
     confirmed = self.backend.to_block_id(self.checkpoints.finalized)
-  self.backend.update_confirmed(confirmed, reason)
+  self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
@@ -546,7 +548,7 @@ func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
   self.get_safe_beacon_block_id.root
 
 proc prune(
-    self: var ForkChoiceBackend,
+    self: var ForkChoiceBackend, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   ? self.proto_array.prune(checkpoints)
@@ -555,14 +557,14 @@ proc prune(
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
-    self.update_confirmed(self.to_block_id(checkpoints.finalized), "prune")
+    self.update_confirmed(
+      dag, self.to_block_id(checkpoints.finalized), "prune")
   ok()
 
-proc prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.prune(
-    FinalityCheckpoints(
-      justified: self.checkpoints.justified.checkpoint,
-      finalized: self.checkpoints.finalized))
+proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
+  self.backend.prune(dag, FinalityCheckpoints(
+    justified: self.checkpoints.justified.checkpoint,
+    finalized: self.checkpoints.finalized))
 
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:

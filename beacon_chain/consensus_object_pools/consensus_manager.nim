@@ -548,4 +548,4 @@ proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   # Cleanup DAG & fork choice if we have a finalized head
   if self.dag.needStateCachesAndForkChoicePruning():
     self.dag.pruneStateCachesDAG()
-    self.attestationPool[].prune()
+    self.attestationPool[].prune(self.dag)

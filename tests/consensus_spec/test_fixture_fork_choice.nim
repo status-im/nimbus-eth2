@@ -220,7 +220,7 @@ proc updateHead(
   dag.updateHead(newHead, quarantine, [])
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
-    let pruneRes = fkChoice[].prune()
+    let pruneRes = fkChoice[].prune(dag)
     doAssert pruneRes.isOk()
 
 proc stepOnBlock(
