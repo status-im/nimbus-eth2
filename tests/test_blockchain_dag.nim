@@ -88,7 +88,7 @@ suite "Block pool processing" & preset():
       b1Fork = addTestBlock(tmpState[], cache).phase0Data
       b1ForkAdd = dag.addHeadBlock(verifier, b1Fork, nilPhase0Callback)
       unknown = BlockId(slot: 1.Slot, root: Eth2Digest.fromHex("0x01"))
-    template do_checks: untyped =
+    template do_checks(didPruneFork: bool): untyped =
       check:
         # Same block
         dag.isAncestorOf(genesisBid, genesisBid)
@@ -104,7 +104,7 @@ suite "Block pool processing" & preset():
         not dag.isAncestorOf(b1Add[].bid, genesisBid)
 
         # Fork
-        dag.isAncestorOf(genesisBid, b1ForkAdd[].bid)
+        dag.isAncestorOf(genesisBid, b1ForkAdd[].bid) == not didPruneFork
         not dag.isAncestorOf(b1Add[].bid, b1ForkAdd[].bid)
         not dag.isAncestorOf(b1ForkAdd[].bid, b1Add[].bid)
         not dag.isAncestorOf(b1ForkAdd[].bid, b2Add[].bid)
@@ -114,7 +114,7 @@ suite "Block pool processing" & preset():
         not dag.isAncestorOf(unknown, b2Add[].bid)
         not dag.isAncestorOf(b2Add[].bid, unknown)
         dag.isAncestorOf(unknown, unknown)
-    do_checks()
+    do_checks(didPruneFork = false)
 
     # Build enough blocks to finalize, then test with pruned blocks
     let
@@ -142,7 +142,7 @@ suite "Block pool processing" & preset():
 
       # Pruned orphaned fork is not ancestor of head
       not dag.isAncestorOf(b1ForkBid, dag.head.bid)
-    do_checks()
+    do_checks(didPruneFork = true)
 
   test "Simple block add&get" & preset():
     let
