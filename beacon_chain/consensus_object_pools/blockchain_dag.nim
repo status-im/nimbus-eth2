@@ -26,10 +26,6 @@ logScope: topics = "chaindag"
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
-declareGauge beacon_safe_root, "Root of the safe block of the beacon chain"
-declareGauge beacon_safe_slot, "Slot of the safe block of the beacon chain"
-
-# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
 declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
@@ -39,6 +35,11 @@ declareGauge beacon_previous_justified_root, "Current previously justified root"
 
 declareGauge beacon_reorgs_total_total, "Total occurrences of reorganizations of the chain" # On fork choice; backwards-compat name (used to be a counter)
 declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # Interop copy
+
+declareGauge beacon_safe_root, "Root of the safe block"
+declareGauge beacon_safe_slot, "Slot of the safe block"
+declareGauge beacon_safe_reorgs_total, "Total occurrences of reorganizations of the safe block"
+
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
@@ -963,6 +964,9 @@ proc updateBeaconMetrics(
 proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
   beacon_safe_root.set(safeBlockId.root.toGaugeValue)
   beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
+
+proc incSafeReorgs*() =
+  beacon_safe_reorgs_total.inc()
 
 import blockchain_dag_light_client
 
