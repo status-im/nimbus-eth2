@@ -543,5 +543,81 @@ suite "Block processor" & preset():
     # Block N+1 should now be in the DAG (dequeued from quarantine)
     check dag.containsForkBlock(b2.root)
 
+  asyncTest "Gloas chain with no envelopes delivered" & preset():
+    # Build a chain of blocks where no envelopes are ever delivered.
+    # addTestBlock creates blocks against a state without envelopes,
+    # so all blocks are consistent with each other. This mirrors devnet
+    # sync where envelopes arrive late or not at all.
+    # Per spec, absent envelopes are valid (latest_block_hash unchanged,
+    # is_parent_block_full returns false).
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn
+    )
+
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b2 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b3 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b4 = addTestBlock(state[], cache, cfg = cfg).gloasData
+
+    # Process b1-b3, none with envelopes.
+    # Only update head to b1 so the DAG persists state at b1.
+    # b2 and b3 are stored but head stays at b1.
+    for blck in [b1, b2, b3]:
+      let res = await processor.addBlock(
+        MsgSource.gossip, blck, noSidecars)
+      check res.isOk
+
+    # Only advance head to b1
+    dag.updateHead(dag.getBlockRef(b1.root).get(), quarantine[], [])
+
+    # All envelopes missing
+    check:
+      dag.db.getExecutionPayloadEnvelope(b1.root).isNone
+      dag.db.getExecutionPayloadEnvelope(b2.root).isNone
+      dag.db.getExecutionPayloadEnvelope(b3.root).isNone
+
+    # Simulate node restart: reinitialize DAG from the same DB.
+    # All in-memory state caches are dropped, forcing updateState to
+    # replay through b1-b3 slots from disk.
+    var
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      quarantine2 = newClone(Quarantine.init(cfg))
+      attestationPool2 = newClone(AttestationPool.init(dag2, quarantine2))
+      consensusManager2 = ConsensusManager.new(
+        dag2, attestationPool2, quarantine2, new ELManager,
+        default(ActionTracker),
+        newClone(DynamicFeeRecipientsStore.init()),
+        "", Opt.some default(Eth1Address), defaultGasLimit)
+
+    let
+      state2 = newClone(dag2.headState)
+      getTimeFn2 = proc(): BeaconTime =
+        state2[].slot.start_beacon_time(cfg.timeParams)
+      processor2 = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
+        newClone(BlobQuarantine()), newClone(ColumnQuarantine()),
+        newClone(GloasColumnQuarantine()), newClone(EnvelopeQuarantine()),
+        getTimeFn2)
+
+    # b4 on the fresh DAG, updateState must replay through b1-b3 from
+    # disk, calling applyExecutionPayloadEnvelope for each. Currently
+    # fails because the envelopes aren't in DB.
+    let res4 = await processor2.addBlock(
+      MsgSource.gossip, b4, noSidecars)
+
+    # TODO: Currently fails because applyExecutionPayloadEnvelope
+    # returns an error for missing envelopes during replay.
+    # Per spec, absent envelopes are valid and state should progress.
+    check res4.isOk
+
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk
