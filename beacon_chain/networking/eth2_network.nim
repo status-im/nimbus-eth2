@@ -2503,7 +2503,7 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc lookupCgcFromPeer*(peer: Peer): uint64 =
+proc lookupCgcFromPeer*(peer: Peer): Result[uint64, cstring] =
   # Fetches the custody column count from a remote peer.
   # If the peer advertises their custody column count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
@@ -2514,7 +2514,7 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
     let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
                 metadata.get.custody_group_count
               else:
-                0
+                return err("Peer metadata custody_group_count exceeds NUMBER_OF_COLUMNS")
 
     # If a peer's metadata hasn't been updated since a Fulu transition, the
     # metadata is present but has no initialized cgc.
@@ -2525,7 +2525,7 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
     # data column discovery. This new field MUST be added once
     # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
     if cgc >= CUSTODY_REQUIREMENT:
-      return cgc
+      return ok(cgc)
 
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
@@ -2538,17 +2538,17 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          return 0
+          return err("ENR custody_group_count exceeds NUMBER_OF_COLUMNS")
 
         if peer.metadata.isOk:
           peer.metadata.get.custody_group_count = cgc
 
-        return cgc.uint64
+        return ok(cgc.uint64)
       except SszError, SerializationError:
-        discard  # Ignore decoding errors and fallback to default
+        return err("Failed to decode ENR cgc field")
 
   # Return default value if no valid custody subnet count is found.
-  CUSTODY_REQUIREMENT
+  ok(CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
