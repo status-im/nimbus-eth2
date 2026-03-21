@@ -56,10 +56,12 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
+    Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate
+    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
+    ExecutionPayloadBid, PayloadAttestationMessage
+
 
   EventTopics* = set[EventTopic]
 
@@ -592,6 +594,7 @@ type
   RestExtraData* = object
     confirmed_root*: Eth2Digest
     current_epoch_observed_justified_checkpoint*: Checkpoint
+    previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
 
   GetForkChoiceResponse* = object

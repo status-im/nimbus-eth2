@@ -5,17 +5,19 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard libraries
   std/[deques, sets],
   # Internal
   ../spec/datatypes/base,
-  ../spec/[helpers, state_transition_block],
+  ../spec/helpers,
   "."/[attestation_pool, blockchain_dag]
 
 from ../spec/beaconstate import check_bls_to_execution_change
+from ../spec/state_transition_block import
+  check_attester_slashing, check_proposer_slashing, check_voluntary_exit
 
 export base, deques, blockchain_dag
 
@@ -34,9 +36,7 @@ type
     proc(data: SignedBLSToExecutionChange) {.gcsafe, raises: [].}
   OnProposerSlashingCallback =
     proc(data: ProposerSlashing) {.gcsafe, raises: [].}
-  OnPhase0AttesterSlashingCallback =
-    proc(data: phase0.AttesterSlashing) {.gcsafe, raises: [].}
-  OnElectraAttesterSlashingCallback =
+  OnAttesterSlashingCallback =
     proc(data: electra.AttesterSlashing) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
@@ -44,10 +44,7 @@ type
     ## voluntary exits, and BLS to execution changes that could be added to a
     ## proposed block.
 
-    phase0_attester_slashings*: Deque[phase0.AttesterSlashing]  ## \
-    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    electra_attester_slashings*: Deque[electra.AttesterSlashing]  ## \
+    attester_slashings*: Deque[electra.AttesterSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
     proposer_slashings*: Deque[ProposerSlashing]  ## \
@@ -80,26 +77,20 @@ type
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
     onBLSToExecutionChangeReceived*: OnBLSToExecutionChangeCallback
     onProposerSlashingReceived*: OnProposerSlashingCallback
-    onPhase0AttesterSlashingReceived*: OnPhase0AttesterSlashingCallback
-    onElectraAttesterSlashingReceived*: OnElectraAttesterSlashingCallback
+    onAttesterSlashingReceived*: OnAttesterSlashingCallback
 
 func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
            attestationPool: ref AttestationPool = nil,
            onVoluntaryExit: OnVoluntaryExitCallback = nil,
            onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil,
            onProposerSlashing: OnProposerSlashingCallback = nil,
-           onPhase0AttesterSlashing: OnPhase0AttesterSlashingCallback = nil,
-           onElectraAttesterSlashing: OnElectraAttesterSlashingCallback = nil):
+           onAttesterSlashing: OnAttesterSlashingCallback = nil):
            T =
   ## Initialize an ValidatorChangePool from the dag `headState`
   T(
     # Allow filtering some validator change messages during block production
-    phase0_attester_slashings:
-      initDeque[phase0.AttesterSlashing](
-        initialSize = ATTESTER_SLASHINGS_BOUND.int),
-    electra_attester_slashings:
-      initDeque[electra.AttesterSlashing](
-        initialSize = ATTESTER_SLASHINGS_BOUND.int),
+    attester_slashings: initDeque[electra.AttesterSlashing](
+      initialSize = ATTESTER_SLASHINGS_BOUND.int),
     proposer_slashings:
       initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
@@ -119,8 +110,7 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
     onVoluntaryExitReceived: onVoluntaryExit,
     onBLSToExecutionChangeReceived: onBLSToExecutionChange,
     onProposerSlashingReceived: onProposerSlashing,
-    onPhase0AttesterSlashingReceived: onPhase0AttesterSlashing,
-    onElectraAttesterSlashingReceived: onElectraAttesterSlashing)
+    onAttesterSlashingReceived: onAttesterSlashing)
 
 func addValidatorChangeMessage(
     subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,
@@ -166,17 +156,6 @@ func isSeen*(pool: ValidatorChangePool, msg: SignedBLSToExecutionChange): bool =
   msg.message.validator_index in
     pool.prior_seen_bls_to_execution_change_indices
 
-func addMessage*(pool: var ValidatorChangePool, msg: phase0.AttesterSlashing) =
-  for idx in getValidatorIndices(msg):
-    pool.prior_seen_attester_slashed_indices.incl idx
-    if not pool.attestationPool.isNil:
-      let i = ValidatorIndex.init(idx).valueOr:
-        continue
-      pool.attestationPool.forkChoice.process_equivocation(i)
-
-  pool.phase0_attester_slashings.addValidatorChangeMessage(
-    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND)
-
 func addMessage*(pool: var ValidatorChangePool, msg: electra.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
     pool.prior_seen_attester_slashed_indices.incl idx
@@ -185,7 +164,7 @@ func addMessage*(pool: var ValidatorChangePool, msg: electra.AttesterSlashing) =
         continue
       pool.attestationPool.forkChoice.process_equivocation(i)
 
-  pool.electra_attester_slashings.addValidatorChangeMessage(
+  pool.attester_slashings.addValidatorChangeMessage(
     pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND)
 
 func addMessage*(pool: var ValidatorChangePool, msg: ProposerSlashing) =
@@ -271,21 +250,17 @@ proc getValidatorChangeMessagesForBlock(
       break
 
 proc getBeaconBlockValidatorChanges*(
-    pool: var ValidatorChangePool, cfg: RuntimeConfig, state: ForkyBeaconState):
+    pool: var ValidatorChangePool, cfg: RuntimeConfig,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
     BeaconBlockValidatorChanges =
   var res: BeaconBlockValidatorChanges
 
   # Exits (with priority on slashings)
   block:
     var indices: HashSet[uint64]
-    when typeof(state).kind >= ConsensusFork.Electra:
-      getValidatorChangeMessagesForBlock(
-        pool.electra_attester_slashings, cfg, state, indices,
-        res.electra_attester_slashings)
-    else:
-      getValidatorChangeMessagesForBlock(
-        pool.phase0_attester_slashings, cfg, state, indices,
-        res.phase0_attester_slashings)
+    getValidatorChangeMessagesForBlock(
+      pool.attester_slashings, cfg, state, indices,
+      res.electra_attester_slashings)
     getValidatorChangeMessagesForBlock(
       pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
     getValidatorChangeMessagesForBlock(

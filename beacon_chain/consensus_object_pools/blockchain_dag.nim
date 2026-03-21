@@ -26,6 +26,8 @@ logScope: topics = "chaindag"
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
+declareGauge beacon_safe_root, "Root of the safe block of the beacon chain"
+declareGauge beacon_safe_slot, "Slot of the safe block of the beacon chain"
 
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
@@ -90,12 +92,12 @@ template withUpdatedState*(
 template toSszType*(v: ForkChoiceBalance): auto = uint64(v)
 
 const
-  NumInfoBits = 1
+  NumInfoBits = (3 * SLOTS_PER_EPOCH.bitWidth) + 1  # See fast_confirmation.nim
   ForkChoiceInfoOffset* = bitsof(distinctBase(Gwei)) - NumInfoBits
   ForkChoiceInfoMask =
     ((distinctBase(1.Gwei) shl NumInfoBits) - 1) shl ForkChoiceInfoOffset
   EffectiveBalanceMask = not ForkChoiceInfoMask
-  SlashedBit = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
+  SlashedBit* = distinctBase(1.Gwei) shl ForkChoiceInfoOffset
 static: doAssert(
   max(MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA) < SlashedBit)
 
@@ -119,7 +121,7 @@ func get_fork_choice_balances*(
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
-    if validator[].is_active_validator(epoch) and not validator[].slashed:
+    if validator[].is_active_validator(epoch):
       result[i] = ForkChoiceBalance(
         if validator[].slashed:
           distinctBase(validator[].effective_balance) or SlashedBit
@@ -689,7 +691,7 @@ func init*(
       raiseAssert err.msg
 
   epochRef.fork_choice_balances_bytes = snappyEncode(
-    SSZ.encode(get_fork_choice_balances(state.validators.asSeq, epoch)))
+    SSZ.encode(get_fork_choice_balances(state.validators, epoch)))
 
   epochRef
 
@@ -944,6 +946,10 @@ proc updateBeaconMetrics(
       else:
         0'u64.toGaugeValue
     )
+
+proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
+  beacon_safe_root.set(safeBlockId.root.toGaugeValue)
+  beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
 
 import blockchain_dag_light_client
 
@@ -1306,6 +1312,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
+  beacon_safe_root.set(dag.finalizedHead.blck.bid.root.toGaugeValue)
+  beacon_safe_slot.set(dag.finalizedHead.blck.bid.slot.toGaugeValue)
 
   let finalizedTick = Moment.now()
 
@@ -1367,7 +1375,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
-  dag.updateValidatorKeys(dag.headState.validators.asSeq())
+  dag.updateValidatorKeys(dag.headState.validators)
 
   # Initialize pruning such that when starting with a database that hasn't been
   # pruned, we work our way from the tail to the horizon in incremental steps

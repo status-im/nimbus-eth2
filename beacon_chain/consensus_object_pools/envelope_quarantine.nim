@@ -9,29 +9,43 @@
 
 import std/tables
 import ../spec/[digest, forks]
+from std/sequtils import addUnique, keepItIf
 
 type
+  OnExecutionPayloadCallback* = proc(
+    data: ExecutionPayloadInfoObject) {.gcsafe, raises: [].}
+
   EnvelopeQuarantine* = object
     orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
       ## Envelopes that we have received but did not have a block yet. In the
       ## ideal scenario, block should arrive before envelope but that is not
       ## guaranteed.
 
-    missing*: HashSet[Eth2Digest]
+    missing*: seq[Eth2Digest]
       ## List of block roots that we would like to have the envelopes but we
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
 
-func init*(T: typedesc[EnvelopeQuarantine]): T =
-  T()
+    onEnvelopeCallback*: OnExecutionPayloadCallback
+
+func init*(T: typedesc[EnvelopeQuarantine],
+    onEnvelopeCallback: OnExecutionPayloadCallback = nil): T =
+  T(onEnvelopeCallback: onEnvelopeCallback)
 
 template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
   v.message.beacon_block_root
 
+template onExecutionPayloadCallback*(
+    quarantine: EnvelopeQuarantine): OnExecutionPayloadCallback =
+  quarantine.onEnvelopeCallback
+
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
-  self.missing.incl(root)
+  self.missing.addUnique(root)
+
+func getMissing*(self: EnvelopeQuarantine): seq[Eth2Digest] =
+  self.missing
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
@@ -60,6 +74,10 @@ func popOrphan*(
 
 func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
   self.orphans.del(blck.root)
+
+func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+  self.orphans.del(root)
+  self.missing.keepItIf(it != root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]

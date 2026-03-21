@@ -594,11 +594,12 @@ func init(
       state.data, epoch, cache)
     for committee_index in get_committee_indices(committees_per_slot):
       for slot in epoch.slots():
-        let committee = get_beacon_committee(
-            state.data, slot, committee_index, cache)
-        var
-          validator_bits = ElectraCommitteeValidatorsBits.init(committee.len)
-        for index_in_committee, validator_index in committee:
+        let committee_len =
+          get_beacon_committee_len(state.data, slot, committee_index, cache)
+        var validator_bits = ElectraCommitteeValidatorsBits.init(committee_len.int)
+        for index_in_committee, validator_index in get_beacon_committee(
+          state.data, slot, committee_index, cache
+        ):
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.
             validator_bits[index_in_committee] = true
@@ -697,7 +698,7 @@ proc getAttestationsForBlock*(
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
         if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache, false).isOk():
+              state.data, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(

@@ -1,5 +1,12 @@
+# beacon_chain
+# Copyright (c) 2021-2026 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # The build is reproducible only if this base image stays the same.
-FROM statusteam/nimbus_beacon_node:dist_base_20210310012752_arm_v2@sha256:65919842dc7e17386399ae12b175e9996f5ef038ad6e228000392a1ff6465082
+FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260308134335_arm_v4@sha256:f5b834982e74b66bdd3238fd068a4c1c1021442994868e11462cd896718eaf3a
 
 SHELL ["/bin/bash", "-c"]
 

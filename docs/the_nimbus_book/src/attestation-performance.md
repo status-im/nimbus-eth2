@@ -35,7 +35,7 @@ The following options are available:
 
 Where:
 
-- The `network` can be `mainnet`, `hoodi`, `holesky`, or `sepolia`.
+- The `network` can be `mainnet`, `hoodi`, or `sepolia`.
 
 - The default location of the `db`  is `build/data/shared_mainnet_0/db` for `mainnet`, `build/data/shared_hoodi_0/db` for `hoodi`, etc.
 

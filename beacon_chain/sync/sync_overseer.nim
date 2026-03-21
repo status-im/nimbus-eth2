@@ -18,8 +18,6 @@ import
   ../[beacon_clock, beacon_node],
   ./[sync_types, sync_manager, sync_queue]
 
-from ../consensus_object_pools/spec_cache import get_attesting_indices
-
 export sync_types
 
 logScope:
@@ -584,7 +582,7 @@ proc syncStatusMessage*(
           ""
       of SyncKind.TrustedNodeSync:
         if overseer.backwardSync.inProgress:
-          "backfill: " & overseer.backwardSync.syncStatus
+          "backfill: " & overseer.backwardSync.syncStatus & optSuffix
         else:
           if overseer.forwardSync.inProgress:
             overseer.forwardSync.syncStatus & optSuffix & lcSuffix

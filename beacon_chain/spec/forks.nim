@@ -383,7 +383,6 @@ type
     capella:   ForkDigest
     deneb:     ForkDigest
     electra:   ForkDigest
-    fuluInt:   ForkDigest
     bpos:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
   NoEnvelope* = typeof(())
@@ -1132,11 +1131,11 @@ func eth1_data*(state: ForkedHashedBeaconState): lent Eth1Data =
 func eth1_deposit_index*(state: ForkedHashedBeaconState): uint64 =
   withState(state): forkyState.data.eth1_deposit_index
 
-func validators*(state: ForkedHashedBeaconState): lent HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] =
-  (block: withState(state): addr forkyState.data.validators)[]
+func validators*(state: ForkedHashedBeaconState): lent seq[Validator] =
+  (block: withState(state): addr forkyState.data.validators.asSeq)[]
 
-func balances*(state: ForkedHashedBeaconState): lent HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT] =
-  (block: withState(state): addr forkyState.data.balances)[]
+func balances*(state: ForkedHashedBeaconState): lent seq[Gwei] =
+  (block: withState(state): addr forkyState.data.balances.asSeq)[]
 
 func previous_justified_checkpoint*(state: ForkedHashedBeaconState): lent Checkpoint =
   (block: withState(state): addr forkyState.data.previous_justified_checkpoint)[]
@@ -1201,10 +1200,8 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 
 func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
-  # For Gloas and later forks, put all information in bpos
-  if   forkDigest == forkDigests.fuluInt:
-    ok ConsensusFork.Fulu
-  elif forkDigest == forkDigests.electra:
+  # For Fulu and later forks, all information is in bpos
+  if   forkDigest == forkDigests.electra:
     ok ConsensusFork.Electra
   elif forkDigest == forkDigests.deneb:
     ok ConsensusFork.Deneb
@@ -1225,8 +1222,6 @@ func consensusForkForDigest*(
 func atConsensusFork*(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   case consensusFork
-  of ConsensusFork.Fulu:
-    forkDigests.fuluInt
   of ConsensusFork.Electra:
     forkDigests.electra
   of ConsensusFork.Deneb:
@@ -1240,14 +1235,14 @@ func atConsensusFork*(
   of ConsensusFork.Phase0:
     forkDigests.phase0
   else:
-    # Gloas and later live in the bpos list, so scan in reverse order, to find
-    # the chronologically earliest fork or bpo corresponding to Gloas or later
+    # Fulu and later live in the bpos list, so scan in reverse order, to find
+    # the chronologically earliest fork or bpo corresponding to the fork
     for i in countdown(forkDigests.bpos.len - 1, 0):
       let (_, bpoConsensusFork, bpoForkDigest) = forkDigests.bpos[i]
       if consensusFork == bpoConsensusFork:
         return bpoForkDigest
 
-    raiseAssert "post-Fulu forks should always be part of BPO list"
+    raiseAssert "post-Electra forks should always be part of BPO list"
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
@@ -1263,15 +1258,15 @@ template atEpoch*(
   else:
     forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
-iterator forkDigests*(consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
-  # In Gloas and newer, all forkdigests live in bpos; don't refer to legacy
-  # fields at all.
-  if consensusFork < ConsensusFork.Gloas:
+iterator forkDigests*(
+    consensusFork: ConsensusFork, forkDigests: ForkDigests): ForkDigest =
+  # In Fulu and newer, all forkdigests live in bpos;
+  # don't refer to legacy fields at all
+  if consensusFork < ConsensusFork.Fulu:
     yield forkDigests.atConsensusFork(consensusFork)
-
-  if consensusFork >= ConsensusFork.Fulu:
-    for (_, bpoConsensusFork, forkDigest) in forkDigests.bpos:
-      if bpoConsensusFork == consensusFork:
+  else:
+    for (_, bpoAndConsensusFork, forkDigest) in forkDigests.bpos:
+      if bpoAndConsensusFork == consensusFork:
         yield forkDigest
 
 template asSigned*(
@@ -1662,21 +1657,15 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
 
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   ## Used to construct the eth2 field of ENRs
-  debugGloasComment "probably wrong, definitely look at again, and if right, refactor"
   case cfg.consensusForkAtEpoch(epoch)
-  of ConsensusFork.Gloas:
+  of ConsensusFork.Fulu, ConsensusFork.Gloas:
     var res = FAR_FUTURE_EPOCH
     for entry in cfg.BLOB_SCHEDULE:
       if epoch >= entry.EPOCH:
         break
       res = entry.EPOCH
-    res
-  of ConsensusFork.Fulu:
-    var res = FAR_FUTURE_EPOCH
-    for entry in cfg.BLOB_SCHEDULE:
-      if epoch >= entry.EPOCH:
-        break
-      res = entry.EPOCH
+    if epoch < cfg.GLOAS_FORK_EPOCH:
+      res = min(res, cfg.GLOAS_FORK_EPOCH)
     res
   of ConsensusFork.Electra:   cfg.FULU_FORK_EPOCH
   of ConsensusFork.Deneb:     cfg.ELECTRA_FORK_EPOCH
@@ -1710,16 +1699,15 @@ func lcDataForkAtConsensusFork*(
   else:
     LightClientDataFork.None
 
-func getForkSchedule*(cfg: RuntimeConfig): array[7, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
   static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-  debugGloasComment "deliberately don't expose this to REST yet"
   [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
-   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork()]
+   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork(), cfg.gloasFork()]
 
 type
   # The first few fields of a state, shared across all forks
@@ -1843,13 +1831,12 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root),
     electra:
       compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root),
-    fuluInt:
-      compute_fork_digest_fulu(
-        cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH),
     bpos:
       block:
         var bpos =
-          @[(cfg.GLOAS_FORK_EPOCH, ConsensusFork.Gloas, compute_fork_digest_fulu(
+          @[(cfg.FULU_FORK_EPOCH, ConsensusFork.Fulu, compute_fork_digest_fulu(
+            cfg, genesis_validators_root, cfg.FULU_FORK_EPOCH)),
+           (cfg.GLOAS_FORK_EPOCH, ConsensusFork.Gloas, compute_fork_digest_fulu(
             cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH))] &
           mapIt(cfg.BLOB_SCHEDULE, (
             it.EPOCH,
@@ -1967,20 +1954,6 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
       blindedData: blck),
     consensusValue: cvalue,
     executionValue: evalue)
-
-func committee_index*(
-    v: phase0.Attestation, on_chain: static bool = false): uint64 =
-  v.data.index
-
-func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
-  when on_chain:
-    {.error: "cannot get single committee_index for on_chain attestation".}
-  else:
-    uint64 v.committee_bits.get_committee_index_one().expect("network attestation")
-
-func committee_index*(
-    v: SingleAttestation, on_chain: static bool = false): uint64 =
-  v.committee_index
 
 template init*(T: type ForkedAttestation,
                attestation: phase0.Attestation,

@@ -12,9 +12,9 @@ import
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
-  "."/[eth2_processor, gossip_validation]
+  "."/gossip_validation
 
-export sszdump, eth2_processor, gossip_validation
+export sszdump, gossip_validation, light_client_sync, block_pools_types
 
 logScope: topics = "gossip_lc"
 

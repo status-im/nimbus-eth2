@@ -40,15 +40,18 @@ NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
   export PATH="/opt/mxe/usr/bin:${PATH}"
-  CC=x86_64-w64-mingw32.static-gcc
-  CXX=x86_64-w64-mingw32.static-g++
+  CC="x86_64-w64-mingw32.static-gcc"
+  CXX="x86_64-w64-mingw32.static-g++"
   ${CC} --version
+  ${CXX} --version
   echo
 
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
+    CC="${CC}" \
+    CXX="${CXX}" \
     deps-common build/generate_makefile
   make \
     -j$(nproc) \
@@ -68,88 +71,115 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   make \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CC} --passL:-static -d:BLSTuseSSSE3=1" \
+    CXX="${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
+  CXX="arm-linux-gnueabihf-g++"
   ${CC} --version
+  ${CXX} --version
   echo
 
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
+    CC="${CC}" \
+    CXX="${CXX}" \
     deps-common build/generate_makefile
   make \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    CXX="${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
   CC="aarch64-linux-gnu-gcc"
+  CXX="aarch64-linux-gnu-g++"
   ${CC} --version
+  ${CXX} --version
   echo
 
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
+    CC="${CC}" \
+    CXX="${CXX}" \
     deps-common build/generate_makefile
   make \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    CXX="${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
-  export PATH="/opt/osxcross/bin:${PATH}"
+  export PATH="${PATH}:/opt/osxcross/bin"
   export OSXCROSS_MP_INC=1 # sets up include and library paths
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
   CC="oa64-clang"
+  CXX="oa64-clang++"
   ${CC} --version
+  ${CXX} --version
   echo
 
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
+    CC="${CC}" \
+    CXX="${CXX}" \
     deps-common build/generate_makefile
   make \
     -j$(nproc) \
     CC="${CC}" \
+    CXX="${CXX}" \
     LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-m1' --clang.exe=${CC}" \
     nat-libs
   make \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
+    CXX="${CXX}" \
     AR="arm64-apple-darwin${DARWIN_VER}-ar" \
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
-    DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
+    DSYMUTIL="dsymutil" \
     FORCE_DSYMUTIL=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-m1' --passL:'-mcpu=apple-m1' --clang.exe=${CC} --clang.linkerexe=${CXX} --clang.cpp.exe=${CXX} --clang.cpp.linkerexe=${CXX}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
+  CC="gcc"
+  CXX="g++"
   gcc --version
+  ${CXX} --version
   echo
 
   make \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized" \
+    CC="${CC}" \
+    CXX="${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
 else
   # Linux AMD64
+  CC="gcc"
+  CXX="g++"
   gcc --version
+  ${CXX} --version
   echo
 
   make \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="${NIMFLAGS_COMMON}" \
+    CC="${CC}" \
+    CXX="${CXX}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --gcc.exe=${CC} --gcc.linkerexe=${CXX} --gcc.cpp.exe=${CXX} --gcc.cpp.linkerexe=${CXX}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}

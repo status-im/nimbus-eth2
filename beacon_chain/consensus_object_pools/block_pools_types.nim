@@ -11,8 +11,7 @@ import
   # Standard library
   std/[tables, hashes],
   # Status libraries
-  chronicles,
-  results,
+  chronicles, libp2p/peerid, results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
@@ -336,6 +335,10 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
+  EventBeaconBlockGossipPeerObject* = object
+    blck*: ForkedSignedBeaconBlock
+    src*: PeerId
+
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 
@@ -344,8 +347,6 @@ func proposer_dependent_slot*(epochRef: EpochRef): Slot =
 
 func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
   shufflingRef.epoch.attester_dependent_slot()
-
-template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   ## When there's a gap in the block database, this is the most recent block
@@ -470,3 +471,13 @@ func init*(t: typedesc[EventBeaconBlockGossipObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root
     )
+
+func init*(
+    t: typedesc[EventBeaconBlockGossipPeerObject],
+    v: ForkySignedBeaconBlock,
+    s: PeerId
+): EventBeaconBlockGossipPeerObject =
+  EventBeaconBlockGossipPeerObject(
+    blck: ForkedSignedBeaconBlock.init(v),
+    src: s
+  )

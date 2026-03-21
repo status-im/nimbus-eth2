@@ -598,7 +598,7 @@ func attestation_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     attestation_deadline_gloas(s, timeParams)
   else:
-    attestation_deadline(s, timeParams)
+    attestation_deadline_legacy(s, timeParams)
 
 func aggregate_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -606,7 +606,7 @@ func aggregate_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     aggregate_deadline_gloas(s, timeParams)
   else:
-    aggregate_deadline(s, timeParams)
+    aggregate_deadline_legacy(s, timeParams)
 
 func sync_committee_message_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -614,7 +614,7 @@ func sync_committee_message_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     sync_committee_message_deadline_gloas(s, timeParams)
   else:
-    sync_committee_message_deadline(s, timeParams)
+    sync_committee_message_deadline_legacy(s, timeParams)
 
 func sync_contribution_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -622,4 +622,4 @@ func sync_contribution_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     sync_contribution_deadline_gloas(s, timeParams)
   else:
-    sync_contribution_deadline(s, timeParams)
+    sync_contribution_deadline_legacy(s, timeParams)
