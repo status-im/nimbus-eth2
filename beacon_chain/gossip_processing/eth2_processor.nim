@@ -410,20 +410,20 @@ proc processBlobSidecar*(
 
   v
 
-proc processPartialDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    p_data_column_sidecar: fulu.PartialDataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+# proc processPartialDataColumnSidecar*(
+#     self: var Eth2Processor, src: MsgSource,
+#     p_data_column_sidecar: fulu.PartialDataColumnSidecar,
+#     subnet_id: uint64): ValidationRes =
 
-  let header = p_data_column_sidecar.header[0]
-  template block_header: untyped = header.signed_block_header.message
+#   let header = p_data_column_sidecar.header[0]
+#   template block_header: untyped = header.signed_block_header.message
 
-  let
-    wallTime = self.getCuurentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+#   let
+#     wallTime = self.getCuurentBeaconTime()
+#     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
-  logScope:
-    pdcs = shortLog
+#   logScope:
+#     pdcs = shortLog
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
