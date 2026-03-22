@@ -54,7 +54,7 @@ The following options are available:
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --peerdas-supernode       Subscribe to all column subnets, thereby becoming a PeerDAS supernode [=false].
      --light-supernode         Subscribe to the first half of column subnets [=false].
-     --partial-columns         Backward compatible partial data column sidecar support. [=false]
+     --partial-columns         Backward compatible partial data column sidecar support [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
      --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for
