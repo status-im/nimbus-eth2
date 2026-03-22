@@ -18,7 +18,8 @@ import
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
     blob_quarantine, blockchain_list, envelope_quarantine,
-    execution_payload_pool, payload_attestation_pool],
+    execution_payload_pool, partial_column_quarantine,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -597,6 +598,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -697,7 +699,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine, blobQuarantine, dataColumnQuarantine,
+      partialColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -1323,7 +1326,9 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
-    node.network.subscribe(topic, basicParams())
+    node.network.subscribe(
+      topic, basicParams(),
+      requestsPartial = node.config.partialColumns)
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -2465,17 +2470,40 @@ proc installMessageValidators(node: BeaconNode) =
                     node.processor[].processDataColumnSidecar(
                       MsgSource.gossip, dataColumnSidecar, subnet_id)))
         elif consensusFork == ConsensusFork.Fulu:
-          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            closureScope:
-              let subnet_id = it
-              node.network.addValidator(
-                getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: fulu.DataColumnSidecar,
-                  src: PeerId
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processDataColumnSidecar(
-                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
+          if node.config.partialColumns:
+            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+              closureScope:
+                let subnet_id = it
+                addDualValidator[
+                    fulu.PartialDataColumnSidecar, fulu.DataColumnSidecar](
+                  node.network,
+                  getDataColumnSidecarTopic(digest, subnet_id),
+                  proc (
+                    partialDataColumnSidecar: fulu.PartialDataColumnSidecar,
+                    src: PeerId
+                  ): ValidationResult =
+                    toValidationResult(
+                      node.processor[].processPartialDataColumnSidecar(
+                        MsgSource.gossip, partialDataColumnSidecar, subnet_id)),
+                  proc (
+                    dataColumnSidecar: fulu.DataColumnSidecar,
+                    src: PeerId
+                  ): ValidationResult =
+                    toValidationResult(
+                      node.processor[].processDataColumnSidecar(
+                        MsgSource.gossip, dataColumnSidecar, subnet_id)))
+          else:
+            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+              closureScope:
+                let subnet_id = it
+                node.network.addValidator(
+                  getDataColumnSidecarTopic(digest, subnet_id), proc (
+                    dataColumnSidecar: fulu.DataColumnSidecar,
+                    src: PeerId
+                  ): ValidationResult =
+                    toValidationResult(
+                      node.processor[].processDataColumnSidecar(
+                        MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           # blob_sidecar_{subnet_id}

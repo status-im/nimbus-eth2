@@ -246,6 +246,32 @@ proc publishSidecars(
 
   Opt.some(finalBlobs)
 
+proc publishPartialSidecars(
+    router: ref MessageRouter,
+    blck: fulu.SignedBeaconBlock,
+    partials: seq[fulu.PartialDataColumnSidecar]
+): Future[void] {.async: (raises: [CancelledError]).} =
+  ## Broadcast partial data column sidecars over gossip. These are sent
+  ## alongside the full data column sidecars for backward compatibility
+  ## when partial-columns mode is enabled.
+  var workers = newSeq[Future[SendResult]](len(partials))
+
+  for i, pdc in partials:
+    let subnet = compute_subnet_for_data_column_sidecar(ColumnIndex(i))
+    workers[i] = router[].network.broadcastPartialDataColumnSidecar(subnet, pdc)
+
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Partial data column not sent",
+        column_index = i, error = r.error[]
+    else:
+      notice "Partial data column sent",
+        column_index = i
+
 proc addRoutedBlock(
     router: ref MessageRouter,
     blck: ForkySignedBeaconBlock,
@@ -302,6 +328,33 @@ proc routeSignedBeaconBlock*(
   let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 
   # 4. Add block to DAG
+  return await router.addRoutedBlock(blck, finalSidecars)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
+    blck: fulu.SignedBeaconBlock,
+    someSidecarsOpt: seq[fulu.DataColumnSidecar],
+    partialSidecars: seq[fulu.PartialDataColumnSidecar],
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+  ## Overload that broadcasts both full and partial data column sidecars.
+  ## Full sidecars are sent to peers that expect them; partial sidecars
+  ## are broadcast for peers that have opted into partial messages.
+  ## Only the full DataColumnSidecars are added to the block processor.
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Publish full data column sidecars
+  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+
+  # 4. Publish partial data column sidecars
+  await publishPartialSidecars(router, blck, partialSidecars)
+
+  # 5. Add block to DAG (using full sidecars only)
   return await router.addRoutedBlock(blck, finalSidecars)
 
 proc routeAttestation*(
