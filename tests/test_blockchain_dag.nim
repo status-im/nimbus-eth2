@@ -28,8 +28,6 @@ from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
 from ./testbcutil import addHeadBlock
 
-func `$`(x: BlockRef): string = shortLog(x)
-
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
   nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
