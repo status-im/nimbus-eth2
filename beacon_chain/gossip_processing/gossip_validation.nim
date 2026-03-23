@@ -304,10 +304,6 @@ template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
 
-template checkedReject(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedReject(error)
-
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   let epoch = slot.epoch
   if epoch >= cfg.FULU_FORK_EPOCH:
@@ -1119,7 +1115,7 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
-  
+
   let onExecutionPayloadCallback =
     envelopeQuarantine[].onExecutionPayloadCallback()
   if not isNil(onExecutionPayloadCallback):

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -14,8 +14,6 @@ import
   ../beacon_chain/consensus_object_pools/[
     block_dag, blockchain_dag, spec_cache],
   ../beacon_chain/fork_choice/fast_confirmation
-
-func `$`(x: BlockRef): string = shortLog(x)
 
 suite "BlockRef and helpers":
   test "isAncestorOf sanity":

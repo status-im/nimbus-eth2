@@ -24,7 +24,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair, bellatrix, capella]
+  ./[base, phase0, altair, bellatrix, capella]
 
 from kzg4844 import KzgCommitment, KzgProof
 
@@ -507,10 +507,6 @@ type
     `block`*: BeaconBlock
     kzg_proofs*: KzgProofs
     blobs*: Blobs
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: KzgCommitment | KzgProof): auto =
   to0xHex(v.bytes)

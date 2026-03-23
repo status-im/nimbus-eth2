@@ -57,10 +57,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-template maybeDeref*[T](o: Opt[T]): T = o.get
-template maybeDeref*[V](v: V): V = v
-
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -82,7 +79,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusType*(
     rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):

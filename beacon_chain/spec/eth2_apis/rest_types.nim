@@ -305,8 +305,6 @@ type
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
 
-  RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
-
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
     kzg_proofs*: deneb.KzgProofs
@@ -1196,18 +1194,6 @@ template init*(
     ForkedHistoricalSummariesWithProof(
       kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
-
-template withForkyHistoricalSummariesWithProof*(
-    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
-  case x.kind
-  of HistoricalSummariesFork.Electra:
-    const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
-    template forkySummaries: untyped {.inject, used.} = x.electraData
-    body
-  of HistoricalSummariesFork.Capella:
-    const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
-    template forkySummaries: untyped {.inject, used.} = x.capellaData
-    body
 
 func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
   static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra

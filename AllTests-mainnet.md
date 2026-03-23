@@ -21,6 +21,7 @@ AllTests-mainnet
 + Everyone voting for something different [Preset: mainnet]                                  OK
 + Fork choice returns block with attestation                                                 OK
 + Fork choice returns latest block with no attestations                                      OK
++ Invalid block weight does not propagate to ancestors                                       OK
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
@@ -134,11 +135,17 @@ AllTests-mainnet
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
++ isAncestorOf                                                                               OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
++ Gloas block without envelope marks missing [Preset: mainnet]                               OK
++ Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
++ Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
++ Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
