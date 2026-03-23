@@ -21,13 +21,13 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base,  ./[digest, signatures]
 
 from std/algorithm import binarySearch
 from std/math import `^`
 from std/parseutils import parseBiggestUInt
 
-export base, uri, io2, options
+export base, digest, uri, io2, options
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
