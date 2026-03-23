@@ -517,7 +517,10 @@ proc initFullNode(
       eventBus.finalQueue.emit(eventData)
 
   func getLocalHeadSlot(): Slot =
-    dag.head.slot
+    if isNil(dag.headPayload) or dag.headPayload == dag.head:
+      dag.head.slot
+    else:
+      dag.headPayload.slot - 1
 
   proc getLocalWallSlot(): Slot =
     node.currentSlot
@@ -635,9 +638,19 @@ proc initFullNode(
         when consensusFork >= ConsensusFork.Gloas:
           template bid(): auto =
             forkyBlck.message.body.signed_execution_payload_bid
+          template parentRoot(): auto = forkyBlck.message.parent_root
           if bres.isErr():
             case bres.error()
-            of VerifierError.MissingParent, VerifierError.MissingParentPayload:
+            of VerifierError.MissingParentPayload:
+              if signedEnvelope.isSome():
+                envelopeQuarantine[].addOrphan(signedEnvelope.get()[])
+
+              let parent = dag.getBlockRef(parentRoot).valueOr:
+                return bres
+              dag.headPayload = parent
+
+              return bres
+            of VerifierError.MissingParent:
               if signedEnvelope.isSome():
                 envelopeQuarantine[].addOrphan(signedEnvelope.get()[])
               return bres
@@ -646,8 +659,11 @@ proc initFullNode(
             else:
               return bres
 
+          if dag.head.root() == forkyBlck.root:
+            dag.headPayload = dag.head
+
           if signedEnvelope.isNone():
-            err(VerifierError.Invalid)
+            return ok()
           else:
             let columnsOpt =
               if len(bid.message.blob_kzg_commitments) > 0:

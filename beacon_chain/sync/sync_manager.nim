@@ -555,16 +555,6 @@ proc getSyncBlockData[A, B](
           sync_ident = man.ident,
           topics = "syncman"
 
-        if blocks.len() != envelopes.len():
-          peer.updateScore(PeerScoreBadResponse)
-          debug "Mismatch between blocks and envelopes",
-            request = sr,
-            blckLen = blockSlots.len(),
-            blckSlots = blockSlots,
-            envlLen = envelopes.len(),
-            envlSlots = envelopes.mapIt(it.message.slot)
-          return err("Blocks and envelopes mismatch")
-
         debugGloasComment("verify response")
         Opt.some(envelopes)
       else:

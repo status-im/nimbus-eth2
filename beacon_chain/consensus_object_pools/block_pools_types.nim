@@ -164,6 +164,20 @@ type
       ## The most recently known head, as chosen by fork choice; might be
       ## optimistic
 
+    headPayload*: BlockRef
+      ## Uses since Gloas.
+      ##
+      ## When syncing, the envelope/payload of the head block may be missed due
+      ## to a restart, missing from byrange response or dishonest node. If the
+      ## next block is built on the execution payload of the head, we will need
+      ## to ensure that the payload exists on our end in order for transitioning
+      ## the state correctly, using byrange request.
+      ##
+      ## This issue doesn't affect non-finalized blocks as the updateState()
+      ## applies the payloads strictly as requested. And if there is any missing
+      ## payloads, they will be requested byroot, which is handled by
+      ## request_manager.
+
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
