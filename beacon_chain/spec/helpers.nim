@@ -32,8 +32,22 @@ const ETH_TO_GWEI = 1_000_000_000.Gwei
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
-func toGwei*(eth: Ether): Gwei =
-  distinctBase(eth) * ETH_TO_GWEI
+func toEtherWithRemainder*(gwei: Gwei): (Ether, Gwei) =
+  (gwei.toEther, gwei mod ETH_TO_GWEI)
+
+func formatGwei*(amount: Gwei): string =
+  ## Display Gwei as ETH with up through 9 decimal digits,
+  ## without trailing zeros.
+  let (eth, remainder) = amount.toEtherWithRemainder
+  result = $eth
+  if remainder != 0.Gwei:
+    result.add '.'
+    let remainderStr = $remainder
+    for i in remainderStr.len ..< 9:
+      result.add '0'
+    result.add remainderStr
+    while result[^1] == '0':
+      result.setLen(result.len - 1)
 
 type
   FinalityCheckpoints* = object
@@ -122,12 +136,6 @@ func get_previous_epoch*(
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
-
-func bytes_to_uint32*(data: openArray[byte]): uint32 =
-  doAssert data.len == 4
-
-  # Little-endian data representation
-  uint32.fromBytesLE(data)
 
 func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
@@ -577,17 +585,6 @@ func compute_execution_block_hash*(
     Opt.some envelope.execution_requests.computeRequestsHash(),
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
-func is_builder_payment_withdrawable*(
-    state: gloas.BeaconState,
-    withdrawal: BuilderPendingWithdrawal): bool =
-  ## Check if the builder is slashed and not yet withdrawable.
-  let
-    builder = state.validators[withdrawal.builder_index]
-    current_epoch = state.slot.epoch
-
-  builder.withdrawable_epoch >= current_epoch or not builder.slashed
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
   state.latest_execution_payload_bid.block_hash == state.latest_block_hash
@@ -598,7 +595,7 @@ func attestation_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     attestation_deadline_gloas(s, timeParams)
   else:
-    attestation_deadline(s, timeParams)
+    attestation_deadline_legacy(s, timeParams)
 
 func aggregate_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -606,7 +603,7 @@ func aggregate_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     aggregate_deadline_gloas(s, timeParams)
   else:
-    aggregate_deadline(s, timeParams)
+    aggregate_deadline_legacy(s, timeParams)
 
 func sync_committee_message_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -614,7 +611,7 @@ func sync_committee_message_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     sync_committee_message_deadline_gloas(s, timeParams)
   else:
-    sync_committee_message_deadline(s, timeParams)
+    sync_committee_message_deadline_legacy(s, timeParams)
 
 func sync_contribution_deadline*(
     s: Slot, timeParams: TimeParams,
@@ -622,4 +619,4 @@ func sync_contribution_deadline*(
   if consensusFork >= ConsensusFork.Gloas:
     sync_contribution_deadline_gloas(s, timeParams)
   else:
-    sync_contribution_deadline(s, timeParams)
+    sync_contribution_deadline_legacy(s, timeParams)

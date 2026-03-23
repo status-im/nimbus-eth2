@@ -179,16 +179,16 @@ proc setupDatabase(
   if config.externalBeaconApiUrl.isSome():
     # When using an external beacon api, require that the checkpoint state is
     # verified with the light client by always using a verified sync target
+    template isGenesisPostAltair: bool =
+      metadata.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH
     let syncTarget =
       if config.trustedBlockRoot.isSome:
         Opt.some TrustedNodeSyncTarget.fromTrustedBlockRoot(
-          config.trustedBlockRoot.get()
-        )
+          config.trustedBlockRoot.get())
       elif config.trustedStateRoot.isSome:
         Opt.some TrustedNodeSyncTarget.fromStateId(
-          config.trustedStateRoot.get().data.to0xHex()
-        )
-      elif metadata.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH and not genesisState.isNil:
+          config.trustedStateRoot.get().data.to0xHex())
+      elif isGenesisPostAltair and not genesisState.isNil:
         # Sync can be bootstrapped from the genesis block root
         let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
         notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
@@ -203,15 +203,17 @@ proc setupDatabase(
         Opt.none TrustedNodeSyncTarget
 
     if syncTarget.isSome():
-      let tmp = await fetchCheckpointState(
-        metadata.cfg, config.externalBeaconApiUrl.get(), syncTarget[], genesisState
-      )
-
-      if checkpointState != nil and tmp != nil:
+      let tmp = await metadata.cfg.fetchCheckpointState(
+        config.externalBeaconApiUrl.get(), syncTarget[], genesisState)
+      if checkpointState == nil:
+        checkpointState = tmp
+      elif tmp != nil:
         # Special case: we loaded a checkpoint state (for example from era
         # files) and then the remote beacon api gave us a newer one!
         if tmp[].slot > checkpointState[].slot:
           checkpointState = tmp
+      else:
+        discard  # Remain on state from era (if any)
     else:
       warn "Ignoring `--external-beacon-api-url`, neither " &
         "`--trusted-block-root` nor `--trusted-state-root` provided",
@@ -220,8 +222,8 @@ proc setupDatabase(
         trustedStateRoot = config.trustedStateRoot
 
   if genesisState.isNil and checkpointState.isNil:
-    fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
-      "with the network configuration"
+    fatal "No database and no genesis snapshot found. " &
+      "Please supply a genesis.ssz with the network configuration"
     return Opt.none(BeaconChainDB)
 
   if not genesisState.isNil and config.longRangeSync == LongRangeSyncMode.Light:
@@ -677,6 +679,60 @@ proc initFullNode(
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
+    rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+      ## Envelope verifier contains the same logic as block_processor
+      ## enqueuePayload() except when the valid block or any sidecars is
+      ## missing, we will return ok() as it is not any types of VerifierError.
+      ## Therefore, the call is discarded silently.
+      template blockRoot(): auto = signedEnvelope.message.beacon_block_root
+
+      let
+        blockRef = dag.getBlockRef(blockRoot).valueOr:
+          # Return ok() as we may not have the block yet.
+          return ok()
+        blck =
+          block:
+            let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
+              # We have checked that the block exists in the chain. There might be
+              # issues in reading the database or data in the memory is broken.
+              # Since no result is returned, we log for investigation.
+              debug "Enqueue payload from envelope. Block is missing in DB",
+                bid = shortLog(blockRef.bid)
+              return err(VerifierError.Invalid)
+            withBlck(forkedBlock):
+              when consensusFork >= ConsensusFork.Gloas:
+                forkyBlck.asSigned()
+              else:
+                # Incorrect fork which shouldn't be happening.
+                debug "Enqueue payload from envelope. Block is in incorrect fork",
+                  bid = shortLog(blockRef.bid)
+                return err(VerifierError.UnviableFork)
+        envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
+          # At this point, the signedEnvelope is from a different builder since
+          # the block should be the source of truth. We should notify receiving
+          # bad value from the peer.
+          return err(VerifierError.Invalid)
+        sidecarsOpt =
+          block:
+            template bid(): auto =
+              blck.message.body.signed_execution_payload_bid
+            let sidecarsOpt =
+              if bid.message.blob_kzg_commitments.len() == 0:
+                Opt.some(default(gloas.DataColumnSidecars))
+              else:
+                gloasColumnQuarantine[].popSidecars(blockRoot)
+            if sidecarsOpt.isNone():
+              # As sidecars are missing, put envelope back to quarantine.
+              consensusManager.quarantine[].addSidecarless(blck)
+              envelopeQuarantine[].addOrphan(envelope)
+              # Return ok() as columns may arrive late.
+              return ok()
+            sidecarsOpt
+      await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
+    rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
+        Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
+      dag.db.getExecutionPayloadEnvelope(blockRoot)
     rmanBlobLoader = proc(
         blobId: BlobIdentifier): Opt[ref BlobSidecar] =
       var blob_sidecar = BlobSidecar.new()
@@ -752,8 +808,10 @@ proc initFullNode(
     requestManager = RequestManager.init(
       node.network, supernode, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+      quarantine, envelopeQuarantine, blobQuarantine,
+      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
+      rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanBlobLoader, rmanDataColumnLoader)
     validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
       dataColumnQuarantine)
 
@@ -2155,7 +2213,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-  node.requestManager.switchToColumnLoop()
+  node.requestManager.upgradeLoops()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -2611,24 +2669,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-func formatGwei(amount: Gwei): string =
-  # TODO This is implemented in a quite a silly way.
-  # Better routines for formatting decimal numbers
-  # should exists somewhere else.
-  let
-    eth = distinctBase(amount) div 1000000000
-    remainder = distinctBase(amount) mod 1000000000
-
-  result = $eth
-  if remainder != 0:
-    result.add '.'
-    let remainderStr = $remainder
-    for i in remainderStr.len ..< 9:
-      result.add '0'
-    result.add remainderStr
-    while result[^1] == '0':
-      result.setLen(result.len - 1)
-
 when not defined(windows):
   proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
     if not isatty(stdout): return
@@ -2639,9 +2679,17 @@ when not defined(windows):
     except Exception as exc: # TODO Exception
       error "Couldn't enable colors", err = exc.msg
 
+    template safe: lent BlockId =
+      node.attestationPool[].forkChoice.get_safe_beacon_block_id()
+
+    var stored_justified: Opt[BlockSlot]
+    template justified: lent BlockSlot =
+      if stored_justified.isNone:
+        stored_justified.ok node.dag.head.atEpochStart(
+          node.dag.headState.current_justified_checkpoint.epoch)
+      stored_justified.unsafeGet
+
     proc dataResolver(expr: string): string {.raises: [].} =
-      template justified: untyped = node.dag.head.atEpochStart(
-        node.dag.headState.current_justified_checkpoint.epoch)
       # TODO:
       # We should introduce a general API for resolving dot expressions
       # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -2667,6 +2715,15 @@ when not defined(windows):
         $(node.dag.head.slot.since_epoch_start)
       of "head_slot":
         $(node.dag.head.slot)
+
+      of "safe_root":
+        shortLog(safe.root)
+      of "safe_epoch":
+        $(safe.slot.epoch)
+      of "safe_epoch_slot":
+        $(safe.slot.since_epoch_start)
+      of "safe_slot":
+        $(safe.slot)
 
       of "justifed_root":
         shortLog(justified.blck.root)

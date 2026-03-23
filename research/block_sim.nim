@@ -403,7 +403,7 @@ cli do(
     dag.updateHead(added[], quarantine[], [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
-      attPool.prune()
+      attPool.prune(dag)
 
   for i in 0 ..< slots:
     let

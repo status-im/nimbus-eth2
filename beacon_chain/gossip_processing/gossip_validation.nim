@@ -304,10 +304,6 @@ template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
 
-template checkedReject(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedReject(error)
-
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   let epoch = slot.epoch
   if epoch >= cfg.FULU_FORK_EPOCH:
@@ -1119,7 +1115,7 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
-  
+
   let onExecutionPayloadCallback =
     envelopeQuarantine[].onExecutionPayloadCallback()
   if not isNil(onExecutionPayloadCallback):
@@ -2083,7 +2079,7 @@ proc validateExecutionPayloadBid*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#payload_attestation_message
 proc validatePayloadAttestationMessage*(
     dag: ChainDAGRef,
     payloadAttestationPool: ref PayloadAttestationPool,
@@ -2106,7 +2102,8 @@ proc validatePayloadAttestationMessage*(
   # received from the validator with index `paylod_attestation_message.validator_index`.
   let entry = payloadAttestationPool[].attestations
                 .getOrDefault(data.slot)
-                .getOrDefault(data.beacon_block_root)
+                .getOrDefault((data.beacon_block_root,
+                  data.payload_present, data.blob_data_available))
 
   if ValidatorIndex(payload_attestation_message.validator_index) in
       entry.messages:

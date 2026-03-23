@@ -427,32 +427,6 @@ func init*(
   )
 
 func init*(
-    T: type PayloadAttributesV1,
-    timestamp: uint64,
-    prevRandao: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-): T =
-  T(
-    timestamp: Quantity timestamp,
-    prevRandao: Bytes32 prevRandao.to(Hash32),
-    suggestedFeeRecipient: suggestedFeeRecipient,
-  )
-
-func init*(
-    T: type PayloadAttributesV2,
-    timestamp: uint64,
-    prevRandao: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[capella.Withdrawal],
-): T =
-  T(
-    timestamp: Quantity timestamp,
-    prevRandao: Bytes32 prevRandao.to(Hash32),
-    suggestedFeeRecipient: suggestedFeeRecipient,
-    withdrawals: withdrawals.toEngineWithdrawals(),
-  )
-
-func init*(
     T: type PayloadAttributesV3,
     timestamp: uint64,
     prevRandao: Eth2Digest,

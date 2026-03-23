@@ -12,6 +12,7 @@ import
   ./block_dag,
   ../beacon_chain_db,
   ../spec/[digest, forks]
+from std/sequtils import addUnique, keepItIf
 
 type
   OnExecutionPayloadCallback* = proc(
@@ -23,7 +24,7 @@ type
       ## ideal scenario, block should arrive before envelope but that is not
       ## guaranteed.
 
-    missing*: HashSet[Eth2Digest]
+    missing*: seq[Eth2Digest]
       ## List of block roots that we would like to have the envelopes but we
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
@@ -44,7 +45,10 @@ template onExecutionPayloadCallback*(
 func addMissing*(
     self: var EnvelopeQuarantine,
     root: Eth2Digest) =
-  self.missing.incl(root)
+  self.missing.addUnique(root)
+
+func getMissing*(self: EnvelopeQuarantine): seq[Eth2Digest] =
+  self.missing
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
@@ -76,7 +80,7 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
 
 func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.orphans.del(root)
-  self.missing.excl(root)
+  self.missing.keepItIf(it != root)
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]

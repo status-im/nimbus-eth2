@@ -21,7 +21,7 @@ import
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair]
+  ./[base, phase0, altair]
 
 export json_serialization, base
 
@@ -348,10 +348,6 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [ValueError].} =

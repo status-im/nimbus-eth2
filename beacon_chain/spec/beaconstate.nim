@@ -11,7 +11,7 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  "."/[eth2_merkleization, forks, signatures, validator],
+  ./[eth2_merkleization, forks, signatures, validator],
   ../validator_bucket_sort
 
 from std/algorithm import fill, isSorted, sort
@@ -1479,11 +1479,6 @@ func has_execution_withdrawal_credential*(
   ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
   has_compounding_withdrawal_credential(consensusFork, validator) or
     has_eth1_withdrawal_credential(validator)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-has_builder_withdrawal_credential
-func has_builder_withdrawal_credential*(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x03 prefixed "builder" withdrawal credential.
-  validator.withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator
@@ -3053,7 +3048,7 @@ func get_indexed_payload_attestation*(
     signature: payload_attestation.signature
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
     state: gloas.BeaconState,
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
@@ -3074,7 +3069,8 @@ proc is_valid_indexed_payload_attestation*(
       state.validators[it].pubkey)
     domain = get_domain(
       state.fork, DOMAIN_PTC_ATTESTER,
-      GENESIS_EPOCH, state.genesis_validators_root)
+      indexed_payload_attestation.data.slot.epoch,
+      state.genesis_validators_root)
     signing_root = compute_signing_root(
       indexed_payload_attestation.data, domain)
 
