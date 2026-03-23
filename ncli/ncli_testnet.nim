@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[json, options, times],
@@ -23,9 +23,6 @@ import
 from std/os import changeFileExt, fileExists
 from ../beacon_chain/el/engine_api_conversions import asEth2Digest
 from ../tests/teststateutil import initGenesisState, mockEth1BlockHash
-
-# For nim-confutils, which uses this kind of init(Type, value) pattern
-func init(T: type IpAddress, ip: IpAddress): T = ip
 
 type
   StartUpCommand {.pure.} = enum

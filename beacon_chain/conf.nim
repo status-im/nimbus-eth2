@@ -1529,9 +1529,3 @@ proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
     config.elUrls
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecretOpt)
-
-proc formatIt*(v: Option[IpAddress]): string =
-  if v.isSome():
-    $v.get()
-  else:
-    "*"

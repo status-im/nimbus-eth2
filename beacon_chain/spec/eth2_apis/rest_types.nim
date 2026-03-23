@@ -305,8 +305,6 @@ type
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
 
-  RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
-
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
     kzg_proofs*: deneb.KzgProofs
