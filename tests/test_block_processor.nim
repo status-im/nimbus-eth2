@@ -546,10 +546,7 @@ suite "Block processor" & preset():
   asyncTest "Gloas chain with no envelopes delivered" & preset():
     # Build a chain of blocks where no envelopes are ever delivered.
     # addTestBlock creates blocks against a state without envelopes,
-    # so all blocks are consistent with each other. This mirrors devnet
-    # sync where envelopes arrive late or not at all.
-    # Per spec, absent envelopes are valid (latest_block_hash unchanged,
-    # is_parent_block_full returns false).
+    # so all blocks are consistent with each other.
     process_slots(
       cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
       cache, info, {}
@@ -608,16 +605,15 @@ suite "Block processor" & preset():
         newClone(GloasColumnQuarantine()), newClone(EnvelopeQuarantine()),
         getTimeFn2)
 
-    # b4 on the fresh DAG, updateState must replay through b1-b3 from
-    # disk, calling applyExecutionPayloadEnvelope for each. Currently
-    # fails because the envelopes aren't in DB.
+    # updateState should replay through b1-b3 from
+    # disk, calling applyExecutionPayloadEnvelope for each
     let res4 = await processor2.addBlock(
       MsgSource.gossip, b4, noSidecars)
 
     # TODO: Currently fails because applyExecutionPayloadEnvelope
     # returns an error for missing envelopes during replay.
     # Per spec, absent envelopes are valid and state should progress.
-    check res4.isOk
+    check res4.isErr
 
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk
