@@ -871,6 +871,11 @@ proc process_operations(
       # [New in Electra:EIP7251]
       process_consolidation_request(cfg, state, bsv[], op, cache)
 
+  when consensusFork >= ConsensusFork.Gloas:
+    for op in body.payload_attestations:
+      # [New in Gloas:EIP7732]
+      ? process_payload_attestation(state, op, cache)
+
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-aggregate-processing
