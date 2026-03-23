@@ -105,11 +105,7 @@ func init*(
     root,
     Opt.some bid.message.block_hash,
     Opt.some bid.message.parent_block_hash,
-    if optimisticStatus == OptimisticStatus.valid or
-        bid.message.block_hash.isZero:
-      OptimisticStatus.valid
-    else:
-      optimisticStatus,
+    optimisticStatus,
     blck.slot,
   )
 
