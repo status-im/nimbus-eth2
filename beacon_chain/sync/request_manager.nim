@@ -320,6 +320,8 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():
+            of VerifierError.MissingSidecars:
+              discard
             of VerifierError.MissingParent:
               # Ignoring due to it should have checked in processing the valid
               # block.
