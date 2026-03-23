@@ -194,10 +194,9 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(
-    state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
-    mix: Eth2Digest): Eth2Digest =
+    epoch: Epoch, domain_type: DomainType, mix: Eth2Digest): Eth2Digest =
   ## Return the seed at ``epoch``.
-  var seed_input : array[4+8+32, byte]
+  var seed_input {.noinit.}: array[4+8+32, byte]
   seed_input[0..3] = domain_type.data
   seed_input[4..11] = uint_to_bytes(epoch.uint64)
   seed_input[12..43] = mix.data
@@ -209,7 +208,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
   let mix = get_randao_mix(state, # Avoid underflow
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
-  state.get_seed(epoch, domain_type, mix)
+  get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
