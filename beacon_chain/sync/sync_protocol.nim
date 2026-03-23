@@ -426,7 +426,7 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("execution_payload_envelopes_by_root", 1).} =
 
     if blockRoots.len == 0:
-      raise newException(InvalidInputsError, "No blocks requested")
+      raise newException(InvalidInputsError, "No envelopes requested")
 
     let
       dag = peer.networkState.dag

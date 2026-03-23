@@ -38,6 +38,13 @@ type
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
+    MissingParentPayload
+      ## When processing a Gloas block, the envelope of its execution parent
+      ## (defined by bid.parent_block_hash) is required for transitioning
+      ## correctly. This error helps to distinguish between missing parent block
+      ## and envelope easier so that the call site can request missing for the
+      ## exact component without extra checks.
+
     UnviableFork
       ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint

@@ -523,6 +523,7 @@ proc doTrustedNodeSync*(
             case res.error()
             of VerifierError.Invalid,
                 VerifierError.MissingParent,
+                VerifierError.MissingParentPayload,
                 VerifierError.UnviableFork:
               error "Got invalid block from trusted node - is it on the right network?",
                 blck = shortLog(forkyBlck), err = res.error()

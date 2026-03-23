@@ -251,7 +251,7 @@ func init(t: typedesc[SyncProcessError],
   case kind
   of VerifierError.Invalid:
     SyncProcessError.Invalid
-  of VerifierError.MissingParent:
+  of VerifierError.MissingParent, VerifierError.MissingParentPayload:
     SyncProcessError.MissingParent
   of VerifierError.UnviableFork:
     SyncProcessError.UnviableFork
@@ -832,7 +832,7 @@ proc process[T](
       slot = Opt.some(SyncBlock.init(blk[].slot, blk[].root))
     else:
       case res.error()
-      of VerifierError.MissingParent:
+      of VerifierError.MissingParent, VerifierError.MissingParentPayload:
         if slot.isSome() or dupBlock.isSome():
           return SyncProcessingResult.init(
             SyncProcessError.GoodAndMissingParent, blk[].slot, blk[].root)

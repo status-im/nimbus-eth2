@@ -181,7 +181,7 @@ proc dumpBlock(
     case res.error
     of VerifierError.Invalid:
       self.dumpInvalidBlock(signedBlock)
-    of VerifierError.MissingParent:
+    of VerifierError.MissingParent, VerifierError.MissingParentPayload:
       dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
@@ -276,6 +276,7 @@ proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest)
 
 proc storeBackfillBlock(
     self: ref BlockProcessor,
@@ -304,6 +305,9 @@ proc storeBackfillBlock(
       # TODO Is the block always from an unviable fork? It didn't match the
       #      expected backfill block, so we could potentially mark it as
       #      UnviableFork here
+      res
+    of VerifierError.MissingParentPayload:
+      debugGloasComment("handling")
       res
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
@@ -907,6 +911,12 @@ proc addBlock*(
         blck = shortLog(blck), signature = shortLog(blck.signature)
 
       err(res.error())
+    of VerifierError.MissingParentPayload:
+      # The envelope may be already in the quarantine but it arrived earlier
+      # than the block. Try processing it once and enqueuePayload() will mark
+      # the required but missing components for this block.
+      self.enqueuePayload(blck.message.parent_root)
+      err(res.error())
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
       err(
@@ -1043,6 +1053,9 @@ proc addPayload*(
       self.envelopeQuarantine[].addMissing(signedBlock.root)
     of VerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
+    of VerifierError.MissingParentPayload:
+      # This is not used for envelope.
+      discard
 
   res.mapConvert(void)
 

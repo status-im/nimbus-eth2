@@ -235,7 +235,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
           let ver = await rman.blockVerifier(b[], false)
           if ver.isErr():
             case ver.error()
-            of VerifierError.MissingParent:
+            of VerifierError.MissingParent, VerifierError.MissingParentPayload:
               # Ignoring because the order of the blocks that
               # we requested may be different from the order in which we need
               # these blocks to apply.
@@ -308,7 +308,7 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():
-            of VerifierError.MissingParent:
+            of VerifierError.MissingParent, VerifierError.MissingParentPayload:
               # Ignoring due to it should have checked in processing the valid
               # block.
               discard

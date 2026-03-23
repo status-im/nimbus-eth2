@@ -636,8 +636,17 @@ proc initFullNode(
           template bid(): auto =
             forkyBlck.message.body.signed_execution_payload_bid
           if bres.isErr():
-            bres
-          elif signedEnvelope.isNone():
+            case bres.error()
+            of VerifierError.MissingParent, VerifierError.MissingParentPayload:
+              if signedEnvelope.isSome():
+                envelopeQuarantine[].addOrphan(signedEnvelope.get()[])
+              return bres
+            of VerifierError.Duplicate:
+              discard
+            else:
+              return bres
+
+          if signedEnvelope.isNone():
             err(VerifierError.Invalid)
           else:
             let columnsOpt =
