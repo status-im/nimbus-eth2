@@ -1707,24 +1707,42 @@ suite "SyncManager test suite":
       let
         r11 = sq.pop(Slot(127), peer11)
         r12 = sq.pop(Slot(127), peer12)
-        r13 = sq.pop(Slot(127), peer8)
-        r14 = sq.pop(Slot(127), peer9)
-        r15 = sq.pop(Slot(127), peer10)
         (d11, c11) = createFuluChain(r11, r11.item.map)
         (d12, c12) = createFuluChain(r12, r12.item.map)
 
       check:
         r11.isEmpty() == false
         r12.isEmpty() == false
-        r13.isEmpty() == true
-        r14.isEmpty() == true
-        r15.isEmpty() == true
 
       let p11 = await sq.push(r11, d11, c11)
       check p11.code == SyncProcessError.NoError
 
       let p12 = await sq.push(r12, d12, c12)
-      check p12.code == SyncProcessError.NoError
+      check p12.code == SyncProcessError.NoRelevant
+
+      let
+        r13 = sq.pop(Slot(127), peer11)
+        r14 = sq.pop(Slot(127), peer12)
+        (d13, c13) = createFuluChain(r13, r13.item.map)
+        (d14, c14) = createFuluChain(r14, r14.item.map)
+
+      check:
+        r13.isEmpty() == false
+        r14.isEmpty() == false
+
+      let p14 = await sq.push(r14, d14, c14)
+      check p14.code == SyncProcessError.NoError
+
+      let p13 = await sq.push(r13, d13, c13)
+      check p13.code == SyncProcessError.NoRelevant
+
+      let
+        r15 = sq.pop(Slot(127), peer11)
+        r16 = sq.pop(Slot(127), peer12)
+
+      check:
+        r15.isEmpty() == true
+        r16.isEmpty() == true
 
       await noCancel wait(verifier.verifier, 2.seconds)
 

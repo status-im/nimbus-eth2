@@ -55,10 +55,15 @@ type
     count: int
     done: bool
 
+  ColumnItem* = object
+    map*: ColumnMap
+    count*: int
+
   ColumnCompleteness* = object
-    map: ColumnMap
-    keys: Table[string, ColumnMap]
+    count: int
     done: bool
+    missingMap: ColumnMap
+    keys: Table[string, ColumnItem]
 
   SomeCompleteness* = BlockCompleteness | SomeCompleteness
 
@@ -172,7 +177,7 @@ func shortLog(data: ColumnCompleteness): string =
   if data.done:
     "complete"
   else:
-    $len(data.map)
+    $len(data.missingMap)
 
 func getId[M, N](sq: SyncQueue[M, N]): UniqueId =
   inc(sq.uniqId)
@@ -367,6 +372,9 @@ func getShortMap*[T](
     slider = slider + 1
   res
 
+func init(t: typedesc[ColumnItem], map: ColumnMap, count: int): ColumnItem =
+  ColumnItem(map: map, count: count)
+
 func isComplete[M, N](
     sq: SyncQueue[M, N],
     srange: SyncRange,
@@ -379,18 +387,25 @@ func isComplete[M, N](
   when N is BlockCompleteness:
     criteria.count >= sq.requestsCount
   elif N is ColumnCompleteness:
-    if criteria.map.empty():
-      # If criteria's map is empty, it means that we do not need columns for
-      # the range.
-      return true
-    if $(peer.getKey()) in criteria.keys:
-      # Columns was already downloaded from this peer for the range, there is no
-      # reason to request it one more time.
-      return true
     # If the peer has columns that we are still missing, we should return
     # `false`, so that peer will get request for that range, but if the peer
     # does not have the columns we need, we should return `true`.
-    (criteria.map and sq.cbGetColumnMap(peer)).empty()
+    let res = criteria.missingMap and sq.cbGetColumnMap(peer)
+    if res.empty():
+      return true
+
+    let
+      key = peer.getKey()
+      item = criteria.keys.getOrDefault($key)
+
+    # If peer is still useful (may provide some columns we are missing), but we
+    # have already performed `sq.requestsCount` requests to it, we can assume
+    # that the peer is lying and does not actually have the declared columns.
+    # So we return `true` and SyncQueue will select another range for this peer.
+    if item.count > sq.requestsCount:
+      return true
+
+    false
 
 proc drainCompleteness[M, N](
     sq: SyncQueue[M, N],
@@ -398,11 +413,7 @@ proc drainCompleteness[M, N](
     peer: M,
     criteria: var N
 ) =
-  when N is BlockCompleteness:
-    inc(criteria.count)
-  elif N is ColumnCompleteness:
-    criteria.map = criteria.map and
-      not(sq.cbGetLocalColumnMap() and sq.cbGetColumnMap(peer))
+  inc(criteria.count)
 
 func fillCompleteness[M](
     sq: SyncQueue[M, BlockCompleteness],
@@ -414,6 +425,9 @@ func fillCompleteness[M](
   if done:
     criteria.done = true
   dec(criteria.count)
+
+func countIt(item: var ColumnItem, value: int) =
+  item.count = item.count + value
 
 func fillCompleteness[M](
     sq: SyncQueue[M, ColumnCompleteness],
@@ -428,17 +442,16 @@ func fillCompleteness[M](
 
   if done:
     criteria.done = true
-    criteria.map = ColumnMap()
     return
 
   if storePeer:
     let
       key = peer.getKey()
       map = sq.cbGetColumnMap(peer)
-    criteria.keys[$key] = map
+    criteria.keys.mgetOrPut($key, ColumnItem.init(map, 0)).countIt(1)
 
   if missingMap.isSome():
-    criteria.map = missingMap.get()
+    criteria.missingMap = missingMap.get()
 
 func init*(t: typedesc[SyncRange], slot: Slot, count: uint64): SyncRange =
   SyncRange(slot: slot, count: count)
@@ -531,7 +544,7 @@ func init[M, ColumnCompleteness](
   SyncQueueItem[M, ColumnCompleteness](
     data: req.data,
     requests: @[req],
-    completeness: ColumnCompleteness(map: localMap)
+    completeness: ColumnCompleteness(missingMap: localMap)
   )
 
 func init[T](
@@ -1127,13 +1140,8 @@ proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
         sq.requests[pos.qindex].data, request.item,
         done = false, sq.requests[pos.qindex].completeness)
     elif N is ColumnCompleteness:
-      let
-        localMap = sq.cbGetLocalColumnMap()
-        peerMap = sq.cbGetColumnMap(request.item)
-        map =
-          sq.requests[pos.qindex].completeness.map or (peerMap and localMap)
       sq.fillCompleteness(
-        sq.requests[pos.qindex].data, request.item, Opt.some(map),
+        sq.requests[pos.qindex].data, request.item, Opt.none(ColumnMap),
         done = false, storePeer = false, sq.requests[pos.qindex].completeness)
     sq.del(pos)
 
@@ -1347,7 +1355,7 @@ proc push*[M, N](
           let localMap = sq.cbGetLocalColumnMap()
           # If completeness map was changed it proves that specific range is
           # not actually empty and we should not move forward.
-          if sq.requests[position.qindex].completeness.map != localMap:
+          if sq.requests[position.qindex].completeness.missingMap != localMap:
             fillCompleteness(false, Opt.none(BlockId), false)
           else:
             fillCompleteness(true, Opt.none(BlockId), false)
@@ -1603,7 +1611,7 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
         elif N is ColumnCompleteness:
           let
             localMap = sq.cbGetLocalColumnMap()
-            missingMap = item.completeness.map
+            missingMap = item.completeness.missingMap
             presentMap = localMap and not(localMap and missingMap)
             (keys, summaryMap) =
               block:
@@ -1611,11 +1619,12 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
                   res: seq[string]
                   map: ColumnMap
                 for k, v in item.completeness.keys.pairs():
-                  res.add("\"" & peerLog(k) & "\": \"" & $v & "\"")
-                  map = map or v
+                  res.add("\"" & peerLog(k) & "\": {" &
+                    "\"map\": \"" & $v.map & "\", \"count\": " & $v.count & "}")
+                  map = map or v.map
                 (res.join(","), map)
           "{" &
-            "\"missing_map\": \"" & $item.completeness.map & "\"," &
+            "\"missing_map\": \"" & $item.completeness.missingMap & "\"," &
             "\"present_map\": \"" & $presentMap & "\"," &
             "\"done\": " & $item.completeness.done & "," &
             "\"summary_map\": \"" & $summaryMap & "\"," &
