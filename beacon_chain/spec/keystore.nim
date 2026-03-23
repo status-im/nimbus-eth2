@@ -506,11 +506,6 @@ func deriveChildKey*(masterKey: ValidatorPrivKey,
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
 
-func keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
-  deriveChildKey(deriveMasterKey(mnemonic, password), path)
-
 func shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
   ctx.init()

@@ -5,20 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # NOTE: This module has been used in both `beacon_node` and `validator_client`,
 # please keep imports clear of `rest_utils` or any other module which imports
 # beacon node's specific networking code.
 
-import std/[tables, strutils, uri,]
+import std/[strutils, tables]
 import chronos, chronicles, confutils,
        results, stew/[base10, io2], blscurve, presto
-import ".."/spec/[keystore, crypto]
-import ".."/spec/eth2_apis/rest_keymanager_types
-import ".."/validators/[slashing_protection, keystore_management,
+import ../spec/[keystore, crypto]
+import ../spec/eth2_apis/rest_keymanager_types
+import ../validators/[slashing_protection, keystore_management,
                         validator_pool]
-import ".."/rpc/rest_constants
+import ../rpc/rest_constants
 
 export rest_constants, results
 
@@ -26,7 +26,7 @@ func validateKeymanagerApiQueries*(key: string, value: string): int =
   # There are no queries to validate
   return 0
 
-proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
+func listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
      raises: [].} =
   var validators: seq[KeystoreInfo]
   for item in validatorPool:
@@ -38,7 +38,7 @@ proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
       )
   validators
 
-proc listRemoteValidators*(
+func listRemoteValidators*(
        validatorPool: ValidatorPool): seq[RemoteKeystoreInfo] {.
      raises: [].} =
   var validators: seq[RemoteKeystoreInfo]
@@ -50,7 +50,7 @@ proc listRemoteValidators*(
       )
   validators
 
-proc listRemoteDistributedValidators*(
+func listRemoteDistributedValidators*(
        validatorPool: ValidatorPool): seq[DistributedKeystoreInfo] {.
      raises: [].} =
   var validators: seq[DistributedKeystoreInfo]
@@ -79,7 +79,7 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
         default
   RestApiResponse.error(status, data, "application/json")
 
-proc checkAuthorization*(
+func checkAuthorization*(
        request: HttpRequestRef,
        host: KeymanagerHost): Result[void, AuthorizationError] =
   let authorizations = request.headers.getList("authorization")
@@ -103,14 +103,6 @@ proc authErrorResponse(error: AuthorizationError): RestApiResponse =
       Http403
 
   keymanagerApiError(status, InvalidAuthorizationError)
-
-proc validateUri*(url: string): Result[Uri, cstring] =
-  let surl = parseUri(url)
-  if surl.scheme notin ["http", "https"]:
-    return err("Incorrect URL scheme")
-  if len(surl.hostname) == 0:
-    return err("Empty URL hostname")
-  ok(surl)
 
 proc handleRemoveValidatorReq(host: KeymanagerHost,
                               key: ValidatorPubKey): RemoteKeystoreStatus =

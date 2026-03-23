@@ -1533,7 +1533,7 @@ type SomePhase0Block =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[BlockRewards, cstring]=
+    cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -1552,7 +1552,7 @@ type SomeAltairBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[BlockRewards, cstring]=
+    cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -1580,7 +1580,7 @@ type SomeBellatrixBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
-    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring]=
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)

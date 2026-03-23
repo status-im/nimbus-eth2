@@ -1279,9 +1279,6 @@ func parseCmdArg*(T: type ValidatorPubKey, input: string): T
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
 
-func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
-  return @[]
-
 func parseCmdArg*(T: type Checkpoint, input: string): T
                  {.raises: [ValueError].} =
   let sepIdx = find(input, ':')
