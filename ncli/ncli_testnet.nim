@@ -296,25 +296,9 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
-proc writeValue*(writer: var JsonWriter, value: DateTime) {.
-     raises: [IOError].} =
-  writer.writeValue($value)
-
-proc readValue*(reader: var JsonReader, value: var DateTime) {.
-     raises: [IOError, SerializationError].} =
-  let s = reader.readValue(string)
-  try:
-    value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
-  except CatchableError:
-    raiseUnexpectedValue(reader, "Invalid date time")
-
 proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
      raises: [IOError].} =
   writer.writeValue(distinctBase value)
-
-proc readValue*(reader: var JsonReader, value: var IoErrorCode) {.
-     raises: [IOError, SerializationError].} =
-  IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc createEnr(rng: var HmacDrbgContext,
                dataDir: string,
