@@ -196,22 +196,6 @@ func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.start_slot())
 
-func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
-  ## Return the last block that was included in the chain leading
-  ## up to the given epoch - this amounts to the state at the time
-  ## when epoch processing for `epoch` has been done, but no block
-  ## has yet been applied
-  if epoch == GENESIS_EPOCH:
-    blck.atEpochStart(epoch)
-  else:
-    let
-      start = epoch.start_slot()
-      tmp = blck.atSlot(start - 1)
-    if isNil(tmp.blck):
-      BlockSlot()
-    else:
-      tmp.blck.atSlot(start)
-
 func atCheckpoint*(blck: BlockRef, checkpoint: Checkpoint): Opt[BlockSlot] =
   ## Rewind from `blck` to the given `checkpoint` iff it is an ancestor
   let target = blck.atSlot(checkpoint.epoch.start_slot)

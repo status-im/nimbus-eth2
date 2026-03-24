@@ -176,16 +176,29 @@ proc update_checkpoints(
 
   ok()
 
-proc update_confirmed(self: var ForkChoiceBackend, confirmed: BlockId) =
-  if confirmed.slot < self.confirmed.slot:
-    warn "Confirmed block was unconfirmed",
-      old_confirmed = shortLog(self.confirmed), new_confirmed = confirmed
-  self.confirmed = confirmed
+proc update_confirmed(
+    self: var ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
+    reason = "", diag = default(FcrDiagnostics)) =
+  template prev: BlockId = self.confirmed
+  template curr: BlockId = confirmed
+  if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
+    incSafeReorgs()
+    if diag.chain_len > 0:
+      notice "Previous 'safe' block no longer safe",
+        previousSafe = prev, currentSafe = curr, reason, diag
+    else:
+      notice "Previous 'safe' block no longer safe",
+        previousSafe = prev, currentSafe = curr, reason
+  elif confirmed != prev:
+    trace "Updating 'safe' block",
+      previousSafe = prev, currentSafe = curr
+  prev = curr
 
-proc update_confirmed(self: var ForkChoiceBackend, confirmed: Checkpoint) =
-  self.update_confirmed BlockId(
-    slot: self.proto_array.slot(confirmed.root).get(confirmed.epoch.start_slot),
-    root: confirmed.root)
+proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
+  result.slot = self.proto_array.slot(checkpoint.root).valueOr:
+    warn "Checkpoint not in proto array", checkpoint
+    checkpoint.epoch.start_slot
+  result.root = checkpoint.root
 
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
@@ -201,10 +214,36 @@ proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
       warn "Skipping unrealized justified checkpoint update - no EpochRef",
         unrealized, blck, error
       return
-  let old_source = move(self.backend.current_epoch_observed_justified)
+    old_source = move(self.backend.current_epoch_observed_justified)
   self.backend.current_epoch_observed_justified.info =
     epochRef.to_balance_checkpoint(blck)
   self.backend.current_epoch_observed_justified.assign_shufflings(old_source)
+
+proc reconfirm_fcr(
+    self: var ForkChoice, dag: ChainDAGRef,
+    confirmed: var BlockId, current_slot: Slot,
+    reason: var string, diag: var FcrDiagnostics): FcResult[void] =
+  template fcr: ForkChoiceBackend = self.backend
+
+  # Reconfirm with previous balance source after attestations
+  # from past slots have been applied
+  self.process_attestation_queue(current_slot)
+  if ? fcr.should_revert_confirmed_on_new_epoch(
+      dag, confirmed, current_slot, diag):
+    reason = "epoch"
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
+
+  # Update observed justified checkpoints at the start of an epoch
+  self.update_unrealized_justified(dag)
+  template current_epoch_justified: Checkpoint =
+    fcr.current_epoch_observed_justified.checkpoint
+
+  # Restart confirmation chain if necessary
+  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
+  if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    reason = "restart/e"
+    confirmed = fcr.to_block_id(current_epoch_justified)
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
@@ -244,24 +283,16 @@ proc on_tick(
           finalized: self.checkpoints.finalized))
       ? self.update_checkpoints(dag, realized, current_slot)
 
-      # Reconfirm with previous balance source after attestations
-      # from past slots have been applied
-      self.process_attestation_queue(current_slot)
-      if self.backend.should_revert_confirmed_on_new_epoch(dag, current_slot):
-        self.backend.update_confirmed(self.checkpoints.finalized)
-
-      # Update observed justified checkpoints at the start of an epoch
-      self.update_unrealized_justified(dag)
-
-      # Restart confirmation chain if necessary
-      self.backend.current_slot_head =
-        ? self.backend.find_head(current_slot, self.checkpoints)
-      if not self.backend.is_proto_array_consistent:
-        self.backend.update_confirmed(self.checkpoints.finalized)
-      else:
-        if self.backend.should_restart_confirmation_chain(current_slot):
-          self.backend.update_confirmed(
-            self.backend.current_epoch_observed_justified.checkpoint)
+      var
+        confirmed = self.backend.confirmed
+        reason: string
+        diag: FcrDiagnostics
+      self.reconfirm_fcr(dag, confirmed, current_slot, reason, diag).isOkOr:
+        warn "Failed to reconfirm 'safe' block - report bug",
+          current_slot, reason = error
+        reason = "reconfirm"
+        confirmed = self.backend.to_block_id(self.checkpoints.finalized)
+      self.backend.update_confirmed(dag, confirmed, reason, diag)
 
     else:
       discard
@@ -467,38 +498,62 @@ proc get_head*(
     self.checkpoints.time.slotOrZero(dag.timeParams),
     self.checkpoints)
 
+proc advance_fcr(
+    self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
+    confirmed: var BlockId, current_slot: Slot,
+    reason: var string): FcResult[void] =
+  template fcr: ForkChoiceBackend = self.backend
+  template current_epoch_justified: Checkpoint =
+    fcr.current_epoch_observed_justified.checkpoint
+
+  if ? fcr.should_revert_confirmed_on_new_head(
+      blckRef, confirmed, current_slot):
+    reason = "head"
+    confirmed = fcr.to_block_id(self.checkpoints.finalized)
+
+  if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
+    reason = "restart/h"
+    confirmed = fcr.to_block_id(current_epoch_justified)
+
+  # Attempt to further advance the latest confirmed block.
+  if confirmed.slot.epoch + 1 >= current_slot.epoch:
+    template justified: Checkpoint = self.checkpoints.justified.checkpoint
+    let unrealized = fcr.proto_array.unrealized_justified(justified)
+    confirmed = ? fcr.find_latest_confirmed_descendant(
+      dag, blckRef, unrealized, confirmed, current_slot)
+  ok()
+
 proc will_select_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag, wallTime)
-
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     consensusFork = dag.cfg.consensusForkAtEpoch(current_slot.epoch)
     threshold = current_slot.attestation_deadline(dag.timeParams, consensusFork)
   if self.checkpoints.time < threshold:
     self.backend.current_slot_head = blckRef.root
-  if self.backend.should_revert_confirmed_on_new_head(blckRef, current_slot):
-    self.backend.update_confirmed(self.checkpoints.finalized)
-  if not self.backend.is_proto_array_consistent:
-    self.backend.update_confirmed(self.checkpoints.finalized)
-  else:
-    if self.backend.should_restart_confirmation_chain(current_slot):
-      self.backend.update_confirmed(
-        self.backend.current_epoch_observed_justified.checkpoint)
 
-  # TODO: Replace placeholder
-  self.backend.update_confirmed BlockId(
-    slot: self.checkpoints.justified.checkpoint.epoch.start_slot,
-    root: self.checkpoints.justified.checkpoint.root)
+  var
+    confirmed = self.backend.confirmed
+    reason: string
+  self.advance_fcr(dag, blckRef, confirmed, current_slot, reason).isOkOr:
+    warn "Failed to advance 'safe' block - report bug",
+      blckRef, current_slot, reason = error
+    reason = "advance"
+    confirmed = self.backend.to_block_id(self.checkpoints.finalized)
+  self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
-  self.backend.confirmed.root
+func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+  self.backend.confirmed
 
-func prune(
-    self: var ForkChoiceBackend,
+func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
+  self.get_safe_beacon_block_id.root
+
+proc prune(
+    self: var ForkChoiceBackend, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   ? self.proto_array.prune(checkpoints)
@@ -506,13 +561,15 @@ func prune(
     self.previous_slot_head = checkpoints.finalized.root
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
+  if self.confirmed.root notin self.proto_array:
+    self.update_confirmed(
+      dag, self.to_block_id(checkpoints.finalized), "prune")
   ok()
 
-func prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.prune(
-    FinalityCheckpoints(
-      justified: self.checkpoints.justified.checkpoint,
-      finalized: self.checkpoints.finalized))
+proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
+  self.backend.prune(dag, FinalityCheckpoints(
+    justified: self.checkpoints.justified.checkpoint,
+    finalized: self.checkpoints.finalized))
 
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:

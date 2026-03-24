@@ -32,8 +32,22 @@ const ETH_TO_GWEI = 1_000_000_000.Gwei
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
-func toGwei*(eth: Ether): Gwei =
-  distinctBase(eth) * ETH_TO_GWEI
+func toEtherWithRemainder*(gwei: Gwei): (Ether, Gwei) =
+  (gwei.toEther, gwei mod ETH_TO_GWEI)
+
+func formatGwei*(amount: Gwei): string =
+  ## Display Gwei as ETH with up through 9 decimal digits,
+  ## without trailing zeros.
+  let (eth, remainder) = amount.toEtherWithRemainder
+  result = $eth
+  if remainder != 0.Gwei:
+    result.add '.'
+    let remainderStr = $remainder
+    for i in remainderStr.len ..< 9:
+      result.add '0'
+    result.add remainderStr
+    while result[^1] == '0':
+      result.setLen(result.len - 1)
 
 type
   FinalityCheckpoints* = object
@@ -97,11 +111,6 @@ func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
-func get_active_validator_indices_len*(
-    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  withState(state):
-    get_active_validator_indices_len(forkyState.data, epoch)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
@@ -123,12 +132,6 @@ func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
-func bytes_to_uint32*(data: openArray[byte]): uint32 =
-  doAssert data.len == 4
-
-  # Little-endian data representation
-  uint32.fromBytesLE(data)
-
 func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
 
@@ -137,8 +140,6 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
 
 func uint_to_bytes*(x: uint64): array[8, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
@@ -169,12 +170,6 @@ func get_domain*(
       fork.current_version
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
-func get_domain*(
-    state: ForkyBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
-  ## Return the signature domain (fork version concatenated with domain type)
-  ## of a message.
-  get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root for the corresponding signing data.
@@ -186,10 +181,9 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(
-    state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
-    mix: Eth2Digest): Eth2Digest =
+    epoch: Epoch, domain_type: DomainType, mix: Eth2Digest): Eth2Digest =
   ## Return the seed at ``epoch``.
-  var seed_input : array[4+8+32, byte]
+  var seed_input {.noinit.}: array[4+8+32, byte]
   seed_input[0..3] = domain_type.data
   seed_input[4..11] = uint_to_bytes(epoch.uint64)
   seed_input[12..43] = mix.data
@@ -201,7 +195,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
   let mix = get_randao_mix(state, # Avoid underflow
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
-  state.get_seed(epoch, domain_type, mix)
+  get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
@@ -576,17 +570,6 @@ func compute_execution_block_hash*(
     blck.parent_root,
     Opt.some envelope.execution_requests.computeRequestsHash(),
   )
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
-func is_builder_payment_withdrawable*(
-    state: gloas.BeaconState,
-    withdrawal: BuilderPendingWithdrawal): bool =
-  ## Check if the builder is slashed and not yet withdrawable.
-  let
-    builder = state.validators[withdrawal.builder_index]
-    current_epoch = state.slot.epoch
-
-  builder.withdrawable_epoch >= current_epoch or not builder.slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =

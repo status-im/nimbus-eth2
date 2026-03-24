@@ -26,8 +26,6 @@ logScope: topics = "chaindag"
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
-
-# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
 declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
@@ -37,6 +35,11 @@ declareGauge beacon_previous_justified_root, "Current previously justified root"
 
 declareGauge beacon_reorgs_total_total, "Total occurrences of reorganizations of the chain" # On fork choice; backwards-compat name (used to be a counter)
 declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # Interop copy
+
+declareGauge beacon_safe_root, "Root of the safe block"
+declareGauge beacon_safe_slot, "Slot of the safe block"
+declareGauge beacon_safe_reorgs_total, "Total occurrences of reorganizations of the safe block"
+
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
@@ -435,6 +438,19 @@ func isFinalized*(dag: ChainDAGRef, bid: BlockId): bool =
   ## Returns `true` if the given `bid` is part of the finalized history
   ## selected by `dag.finalizedHead`.
   dag.isCanonical(bid) and (bid.slot <= dag.finalizedHead.slot)
+
+func isAncestorOf*(dag: ChainDAGRef, a, b: BlockId): bool =
+  ## Returns `true` if the given `a` is part of the history selected by `b`.
+  ## Does not depend on `dag.head`.
+  if a == b: return true
+  if a.slot >= b.slot: return false
+  let
+    a_blck = dag.getBlockRef(a.root).valueOr:
+      return dag.isCanonical(a) and
+        (dag.getBlockRef(b.root).isOk or dag.isCanonical(b))
+    b_blck = dag.getBlockRef(b.root).valueOr:
+      return false
+  a_blck.isAncestorOf(b_blck)
 
 func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:
@@ -945,6 +961,13 @@ proc updateBeaconMetrics(
         0'u64.toGaugeValue
     )
 
+proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
+  beacon_safe_root.set(safeBlockId.root.toGaugeValue)
+  beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
+
+proc incSafeReorgs*() =
+  beacon_safe_reorgs_total.inc()
+
 import blockchain_dag_light_client
 
 export
@@ -1306,6 +1329,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
+  beacon_safe_root.set(dag.finalizedHead.blck.bid.root.toGaugeValue)
+  beacon_safe_slot.set(dag.finalizedHead.blck.bid.slot.toGaugeValue)
 
   let finalizedTick = Moment.now()
 
@@ -2070,17 +2095,6 @@ iterator syncSubcommittee*(
 
   while i < onePastEndIdx:
     yield syncCommittee[i]
-    inc i
-
-iterator syncSubcommitteePairs*(
-    syncCommittee: openArray[ValidatorIndex],
-    subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
-                                             subcommitteeIdx: int] =
-  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
-
-  while i < onePastEndIdx:
-    yield (syncCommittee[i], i)
     inc i
 
 func syncCommitteeParticipants*(dag: ChainDAGRef,

@@ -11,7 +11,7 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  "."/[eth2_merkleization, forks, signatures, validator],
+  ./[eth2_merkleization, forks, signatures, validator],
   ../validator_bucket_sort
 
 from std/algorithm import fill, isSorted, sort
@@ -590,11 +590,6 @@ func get_block_root_at_slot*(
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
-
-func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
-  ## Return the block root at the start of a recent ``epoch``.
-  withState(state):
-    get_block_root(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
@@ -1479,11 +1474,6 @@ func has_execution_withdrawal_credential*(
   ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
   has_compounding_withdrawal_credential(consensusFork, validator) or
     has_eth1_withdrawal_credential(validator)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-has_builder_withdrawal_credential
-func has_builder_withdrawal_credential*(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x03 prefixed "builder" withdrawal credential.
-  validator.withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator

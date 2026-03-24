@@ -13,7 +13,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, presto, bearssl/rand,
+  chronos, presto,
   metrics, metrics/chronos_httpserver,
 
   # Local modules
@@ -135,9 +135,6 @@ template findIt*(s: openArray, predicate: untyped): int =
       res = i
       break
   res
-
-template rng*(node: BeaconNode): ref HmacDrbgContext =
-  node.network.rng
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.currentSlot

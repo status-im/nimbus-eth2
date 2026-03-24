@@ -28,8 +28,6 @@ from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
 from ./testbcutil import addHeadBlock
 
-func `$`(x: BlockRef): string = shortLog(x)
-
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
   nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
@@ -78,6 +76,71 @@ suite "Block pool processing" & preset():
       dag.getBlockRef(dag.finalizedHead.blck.root).get() ==
         dag.finalizedHead.blck
       dag.getBlockRef(dag.head.root).get() == dag.head
+
+  test "isAncestorOf":
+    var tmpState = newClone(dag.headState)
+    let
+      genesisBid = dag.head.bid
+      b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
+      b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
+      b1Fork = addTestBlock(tmpState[], cache).phase0Data
+      b1ForkAdd = dag.addHeadBlock(verifier, b1Fork, nilPhase0Callback)
+      unknown = BlockId(slot: 1.Slot, root: Eth2Digest.fromHex("0x01"))
+    template do_checks(didPruneFork: bool): untyped =
+      check:
+        # Same block
+        dag.isAncestorOf(genesisBid, genesisBid)
+        dag.isAncestorOf(b1Add[].bid, b1Add[].bid)
+        dag.isAncestorOf(b2Add[].bid, b2Add[].bid)
+
+        # Linear chain
+        dag.isAncestorOf(genesisBid, b1Add[].bid)
+        dag.isAncestorOf(genesisBid, b2Add[].bid)
+        dag.isAncestorOf(b1Add[].bid, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, genesisBid)
+        not dag.isAncestorOf(b2Add[].bid, b1Add[].bid)
+        not dag.isAncestorOf(b1Add[].bid, genesisBid)
+
+        # Fork
+        dag.isAncestorOf(genesisBid, b1ForkAdd[].bid) == not didPruneFork
+        not dag.isAncestorOf(b1Add[].bid, b1ForkAdd[].bid)
+        not dag.isAncestorOf(b1ForkAdd[].bid, b1Add[].bid)
+        not dag.isAncestorOf(b1ForkAdd[].bid, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, b1ForkAdd[].bid)
+
+        # Unknown root
+        not dag.isAncestorOf(unknown, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, unknown)
+        dag.isAncestorOf(unknown, unknown)
+    do_checks(didPruneFork = false)
+
+    # Build enough blocks to finalize, then test with pruned blocks
+    let
+      b1Bid = b1Add[].bid
+      b1ForkBid = b1ForkAdd[].bid
+    dag.updateHead(b2Add[], quarantine, [])
+    tmpState = assignClone(dag.headState)
+    for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+      let
+        blck = addTestBlock(
+          tmpState[], cache,
+          attestations = makeFullAttestations(
+            tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
+        added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+    check:
+      dag.finalizedHead.slot > b1Bid.slot
+      dag.getBlockRef(b1Bid.root).isErr  # pruned
+
+      # Pruned canonical block is ancestor of head
+      dag.isAncestorOf(b1Bid, dag.head.bid)
+      not dag.isAncestorOf(dag.head.bid, b1Bid)
+
+      # Pruned orphaned fork is not ancestor of head
+      not dag.isAncestorOf(b1ForkBid, dag.head.bid)
+    do_checks(didPruneFork = true)
 
   test "Simple block add&get" & preset():
     let
