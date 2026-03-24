@@ -111,11 +111,6 @@ func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
-func get_active_validator_indices_len*(
-    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  withState(state):
-    get_active_validator_indices_len(forkyState.data, epoch)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
@@ -145,8 +140,6 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
 
 func uint_to_bytes*(x: uint64): array[8, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
@@ -176,12 +169,6 @@ func get_domain*(
     else:
       fork.current_version
   compute_domain(domain_type, fork_version, genesis_validators_root)
-
-func get_domain*(
-    state: ForkyBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
-  ## Return the signature domain (fork version concatenated with domain type)
-  ## of a message.
-  get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =

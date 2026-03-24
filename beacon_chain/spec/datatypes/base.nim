@@ -980,7 +980,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
-func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
+func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)
   else:

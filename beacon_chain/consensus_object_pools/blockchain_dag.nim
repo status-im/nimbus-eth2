@@ -2097,17 +2097,6 @@ iterator syncSubcommittee*(
     yield syncCommittee[i]
     inc i
 
-iterator syncSubcommitteePairs*(
-    syncCommittee: openArray[ValidatorIndex],
-    subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
-                                             subcommitteeIdx: int] =
-  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
-
-  while i < onePastEndIdx:
-    yield (syncCommittee[i], i)
-    inc i
-
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
