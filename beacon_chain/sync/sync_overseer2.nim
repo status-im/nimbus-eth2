@@ -179,20 +179,29 @@ func decreaseBlocksCount(blocksCount: var int) =
 
 proc getColumnsDistribution(
     overseer: SyncOverseerRef2
-): (string, string, string, string) =
+): (string, string, int, int, int) =
   var
     res: seq[string]
     indices: array[NUMBER_OF_COLUMNS, int]
     useful = 0
     useless = 0
+    supernodes = 0
+
   let custodyMap = overseer.columnQuarantine[].custodyMap
 
   for entry in overseer.sdag.peers.values():
-    let intersection = (custodyMap and entry.peer.getColumnMapOrDefault())
+    let
+      peerMap = entry.peer.getColumnMapOrDefault()
+      intersection = (custodyMap and peerMap)
+
     if len(intersection) == 0:
       inc(useless)
     else:
       inc(useful)
+
+    if len(peerMap) == NUMBER_OF_COLUMNS:
+      inc(supernodes)
+
     for index in intersection.items():
       indices[int(index)] += 1
 
@@ -205,7 +214,8 @@ proc getColumnsDistribution(
   let fillRate = (float(columns) * 100.0) / float(len(custodyMap))
 
   ("[" & res.join(",") & "]",
-    fillRate.formatBiggestFloat(ffDecimal, 2) & "%", $useful, $useless)
+    fillRate.formatBiggestFloat(ffDecimal, 2) & "%",
+    useful, useless, supernodes)
 
 func getMissingColumnsLog(
     overseer: SyncOverseerRef2,
@@ -2505,6 +2515,7 @@ proc timeMonitoringLoop(
         column_quarantine = shortLog(overseer.columnQuarantine[]),
         useful_peers = distribution[2],
         useless_peers = distribution[3],
+        supernodes_peers = distribution[4],
         columns_count = len(overseer.columnQuarantine[].custodyMap),
         columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
