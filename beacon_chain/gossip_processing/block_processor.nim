@@ -29,7 +29,8 @@ from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
+  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put,
+  slot
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
@@ -1027,22 +1028,25 @@ proc addPayload*(
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res.get())
   else:
+    if sidecarsOpt.isSome():
+      self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
+
     case res.error()
     of VerifierError.MissingParent:
-      # Preserve envelope for retry. The request manager or a future block
-      # processing attempt can retry with it.
-      template parentRoot(): auto = signedBlock.message.parent_root
-      discard self.consensusManager.quarantine[].addMissing(parentRoot)
+      # MissingParent is returned when block or parents cannot be found in the
+      # DAG. This could happen if we process envelope before block, or there is
+      # any missing parents. In either case, they should be caught when
+      # processing block. So we only put the envelope into the quarantine for
+      # the next try.
       self.envelopeQuarantine[].addOrphan(signedEnvelope)
-    of VerifierError.Invalid:
-      # When it is invalid, it could be caused by incorrect envelope from
-      # dishonest node. Since the block is valid, we should discard this
-      # envelope and request again.
-      #
-      # Discard so that request_manager will request a new one.
-      discard
-    of VerifierError.UnviableFork, VerifierError.Duplicate:
-      self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+    of VerifierError.Invalid, VerifierError.UnviableFork:
+      # The block is verified and has added to the DAG. This could mean that the
+      # envelope may be broken or from dishonest node. We should request it from
+      # peers and discard the entries in the quarantine.
+      self.envelopeQuarantine[].remove(signedBlock.root)
+      self.envelopeQuarantine[].addMissing(signedBlock.root)
+    of VerifierError.Duplicate:
+      self.envelopeQuarantine[].remove(signedBlock.root)
 
   res.mapConvert(void)
 
