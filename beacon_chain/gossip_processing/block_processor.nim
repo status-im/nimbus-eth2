@@ -867,12 +867,7 @@ proc addBlock*(
   const consensusFork = typeof(blck).kind
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
-    #
-    # Since Gloas, the envelope may not be ready yet which would cause
-    # descendants failing with MissingParent by a high chance. So only enqueue
-    # them pre-Gloas.
-    when consensusFork <= ConsensusFork.Fulu:
-      self.enqueueQuarantine(res[])
+    self.enqueueQuarantine(res[])
     res.mapConvert(void)
   else:
     case res.error()
