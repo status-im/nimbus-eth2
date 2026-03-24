@@ -864,7 +864,6 @@ proc addBlock*(
 
   self[].dumpBlock(blck, res)
 
-  const consensusFork = typeof(blck).kind
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
@@ -906,6 +905,7 @@ proc addBlock*(
 
       debug "Block quarantined",
         blck = shortLog(blck), signature = shortLog(blck.signature)
+
       err(res.error())
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
