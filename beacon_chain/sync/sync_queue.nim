@@ -1602,18 +1602,18 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
       requests =
         item.requests.mapIt(
           "{" &
-            "\"id\": " & $uint64(it.id) & "," &
-            "\"flags\": \"" & shortLog(it.flags) & "\"," &
-            "\"created\": \"" & $(moment - it.createMoment) & "\"," &
-            "\"peer\": \"" & shortLog(getKey(it.item)) & "\"," &
-            "\"peer_map\": \"" & $(sq.cbGetColumnMap(it.item)) & "\"" &
+            "\"id\":" & $uint64(it.id) &
+            ",\"flags\":\"" & shortLog(it.flags) & "\"" &
+            ",\"created\":\"" & $(moment - it.createMoment) & "\"" &
+            ",\"peer\":\"" & shortLog(getKey(it.item)) & "\"" &
+            ",\"peer_map\":\"" & $(sq.cbGetColumnMap(it.item)) & "\"" &
           "}"
         ).join(",")
       completeness =
         when N is BlockCompleteness:
           "{" &
-            "\"count\": " & $item.completeness.count & "," &
-            "\"done\": " & $item.completeness.done &
+            "\"count\":" & $item.completeness.count & "," &
+            "\"done\":" & $item.completeness.done &
           "}"
         elif N is ColumnCompleteness:
           let
@@ -1627,36 +1627,36 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
                   map: ColumnMap
                 for k, v in item.completeness.keys.pairs():
                   res.add("\"" & peerLog(k) & "\":{" &
-                    "\"map\":\"" & $v.map & "\", \"count\":" & $v.count &
-                    "\"agent\":\"" & v.agent & "\"}")
+                    "\"map\":\"" & $v.map & "\",\"count\":" & $v.count &
+                    ",\"agent\":\"" & v.agent & "\"}")
                   map = map or v.map
                 (res.join(","), map)
           "{" &
-            "\"missing_map\": \"" & $item.completeness.missingMap & "\"," &
-            "\"present_map\": \"" & $presentMap & "\"," &
-            "\"done\": " & $item.completeness.done & "," &
-            "\"summary_map\": \"" & $summaryMap & "\"," &
-            "\"keys\": {" & keys & "}" &
+            "\"missing_map\":\"" & $item.completeness.missingMap & "\"" &
+            ",\"present_map\":\"" & $presentMap & "\"" &
+            ",\"done\": " & $item.completeness.done &
+            ",\"summary_map\":\"" & $summaryMap & "\"" &
+            ",\"keys\":{" & keys & "}" &
           "}"
 
     res.add(
       srange & ": {" &
-        "\"requests\": [" & requests & "]," &
-        "\"completeness\": " & completeness & "," &
-        "\"failures\": " & $item.failuresCount & "," &
-        "\"voids\": " & $item.voidsCount & "}"
+        "\"requests\":[" & requests & "]" &
+        ",\"completeness\":" & completeness &
+        ",\"failures\":" & $item.failuresCount &
+        ",\"voids\":" & $item.voidsCount & "}"
     )
 
   "{" &
-    "\"kind\": \"" & $sq.kind & "\"," &
-    "\"startSlot\": \"" & $sq.startSlot & "\"," &
-    "\"finalSlot\": \"" & $sq.finalSlot & "\"," &
-    "\"inpSlot\": \"" & $sq.inpSlot & "\"," &
-    "\"outSlot\": \"" & $sq.outSlot & "\"," &
-    "\"waiters_count\": " & $len(sq.waiters) & "," &
-    "\"uniq_id\": \"" & $sq.uniqId & "\"," &
-    "\"skip_id\": \"" & $sq.skipId & "\"," &
-    "\"queue\": {" & res.join(",") & "}" &
+    "\"kind\":\"" & $sq.kind & "\"" &
+    ",\"startSlot\":\"" & $sq.startSlot & "\"" &
+    ",\"finalSlot\":\"" & $sq.finalSlot & "\"" &
+    ",\"inpSlot\":\"" & $sq.inpSlot & "\"" &
+    ",\"outSlot\":\"" & $sq.outSlot & "\"" &
+    ",\"waiters_count\":" & $len(sq.waiters) &
+    ",\"uniq_id\":\"" & $sq.uniqId & "\"" &
+    ",\"skip_id\":\"" & $sq.skipId & "\"" &
+    ",\"queue\":{" & res.join(",") & "}" &
   "}"
 
 func init*[M](
