@@ -237,39 +237,35 @@ cli do(
           doAssert res.error()[0] == ValidationResult.Ignore
 
   proc handlePayloadAttestations(slot: Slot) =
-    if slot == GENESIS_SLOT:
-      return
 
     dag.withUpdatedState(tmpState[],
         dag.head.atSlot(slot).toBlockSlotId.expect("not nil")):
-      let
-        fork = updatedState.fork
-        genesis_validators_root = dag.genesis_validators_root
-
-      # We make the assumption that payload was present and blobs available
-      let data = gloas.PayloadAttestationData(
-        beacon_block_root: dag.head.root,
-        slot: slot,
-        payload_present: true,
-        blob_data_available: true
-      )
-
       withState(updatedState):
         when consensusFork >= ConsensusFork.Gloas:
+          let
+            fork = updatedState.fork
+            genesis_validators_root = dag.genesis_validators_root
+            wallTime = slot.start_beacon_time(dag.timeParams)
+            # We make the assumption that payload was present and blobs available
+            data = gloas.PayloadAttestationData(
+              beacon_block_root: dag.head.root,
+              slot: slot,
+              payload_present: true,
+              blob_data_available: true
+            )
+
           for validator_index in get_ptc(forkyState.data, slot, cache):
             if rand(r, 1.0) <= payloadAttestationRatio:
-              let
-                privKey = MockPrivKeys[validator_index]
+              let 
                 sig = get_payload_attestation_message_signature(
                   fork, genesis_validators_root,
-                  data, privKey
-                )
+                  data, MockPrivKeys[validator_index])
                 message = gloas.PayloadAttestationMessage(
                   validator_index: validator_index.uint64,
                   data: data,
                   signature: sig.toValidatorSig())
-              let wallTime = slot.start_beacon_time(dag.timeParams)
-              discard payloadAttestationPool.addPayloadAttestation(message, wallTime)
+              discard payloadAttestationPool.addPayloadAttestation(
+                message, wallTime)
     do:
       raiseAssert "withUpdatedState failed for payload attestations"
 
