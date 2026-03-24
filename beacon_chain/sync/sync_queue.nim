@@ -58,6 +58,7 @@ type
   ColumnItem* = object
     map*: ColumnMap
     count*: int
+    agent*: string
 
   ColumnCompleteness* = object
     count: int
@@ -372,8 +373,13 @@ func getShortMap*[T](
     slider = slider + 1
   res
 
-func init(t: typedesc[ColumnItem], map: ColumnMap, count: int): ColumnItem =
-  ColumnItem(map: map, count: count)
+func init(
+    t: typedesc[ColumnItem],
+    map: ColumnMap,
+    count: int,
+    agent: string
+): ColumnItem =
+  ColumnItem(map: map, count: count, agent: agent)
 
 func isComplete[M, N](
     sq: SyncQueue[M, N],
@@ -438,7 +444,7 @@ func fillCompleteness[M](
     storePeer: bool,
     criteria: var ColumnCompleteness
 ) =
-  mixin getKey
+  mixin getKey, getRemoteAgent
 
   if done:
     criteria.done = true
@@ -448,7 +454,8 @@ func fillCompleteness[M](
     let
       key = peer.getKey()
       map = sq.cbGetColumnMap(peer)
-    criteria.keys.mgetOrPut($key, ColumnItem.init(map, 0)).countIt(1)
+      agent = $peer.getRemoteAgent()
+    criteria.keys.mgetOrPut($key, ColumnItem.init(map, 0, agent)).countIt(1)
 
   if missingMap.isSome():
     criteria.missingMap = missingMap.get()
@@ -1619,8 +1626,9 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
                   res: seq[string]
                   map: ColumnMap
                 for k, v in item.completeness.keys.pairs():
-                  res.add("\"" & peerLog(k) & "\": {" &
-                    "\"map\": \"" & $v.map & "\", \"count\": " & $v.count & "}")
+                  res.add("\"" & peerLog(k) & "\":{" &
+                    "\"map\":\"" & $v.map & "\", \"count\":" & $v.count &
+                    "\"agent\":\"" & v.agent & "\"}")
                   map = map or v.map
                 (res.join(","), map)
           "{" &

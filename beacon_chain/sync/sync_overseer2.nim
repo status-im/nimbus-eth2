@@ -2999,8 +2999,17 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
       return "{\"roots\":{}}"
     entry = overseer.sdag.roots.getOrDefault(head.root)
 
-  func getLocation(root: Eth2Digest): string =
+  func currentHead(entry: SyncDagEntryRef): bool =
+    (entry.blockId.slot == localHead.slot) and
+      (entry.blockId.root == localHead.root)
+
+  func getLocation(entry: SyncDagEntryRef): string =
     var res: seq[string]
+    if currentHead(entry):
+      return "[\"dag\"]"
+
+    let root = entry.blockId.root
+
     if root in overseer.rblockBuffer:
       res.add("\"buffer\"")
     if overseer.blockQuarantine[].checkOrphan(root):
@@ -3009,8 +3018,11 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
       res.add("\"sidecarless\"")
     "[" & res.join(",") & "]"
 
-  func getMissingMap(root: Eth2Digest): string =
-    $(overseer.columnQuarantine[].getMissingColumnsMap(root))
+  func getMissingMap(entry: SyncDagEntryRef): string =
+    if currentHead(entry):
+      "[]"
+    else:
+      $(overseer.columnQuarantine[].getMissingColumnsMap(entry.blockId.root))
 
   func getFlags(entry: SyncDagEntryRef): string =
     var res: seq[string]
@@ -3024,8 +3036,7 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
       res.add("\"pending\"")
     if DagEntryFlag.MissingSidecars in entry.flags:
       res.add("\"missing_sidecars\"")
-    if (entry.blockId.slot == localHead.slot) and
-      (entry.blockId.root == localHead.root):
+    if currentHead(entry):
       res.add("\"current_head\"")
     "[" & res.join(",") & "]"
 
@@ -3041,8 +3052,8 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
   func getItem(entry: SyncDagEntryRef): string =
     "\"" & getBid(entry) & "\":{" &
       "\"flags\":" & getFlags(entry) & "," &
-      "\"missing_map\":" & getMissingMap(entry.blockId.root) & "," &
-      "\"locations\":" & getLocation(entry.blockId.root) & "," &
+      "\"missing_map\":" & getMissingMap(entry) & "," &
+      "\"locations\":" & getLocation(entry) & "," &
       "\"parent_root\":\"" & getParent(entry) & "\"" &
     "}"
 
