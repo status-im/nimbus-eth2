@@ -29,7 +29,7 @@ pipeline {
     disableRestartFromStage()
     timestamps()
     ansiColor('xterm')
-    /* This also includes wait time in the queue. */
+    /* This also includes wait time in the queue.*/
     timeout(time: 24, unit: 'HOURS')
     /* Limit builds retained. */
     buildDiscarder(logRotator(
