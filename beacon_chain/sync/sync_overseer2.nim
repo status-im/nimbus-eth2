@@ -1039,14 +1039,14 @@ proc getStatusPeriod*(
 
   if peerHead.slot < overseer.lastSeenHead.get.slot:
     # Peer's head is behind network's peer head.
-    return chronos.seconds(1 * secondsPerSlot)
+    return chronos.seconds(secondsPerSlot div 2)
 
   if localHead.slot == overseer.lastSeenHead.get.slot:
     # Node is optimistically synced
     return chronos.seconds(5 * secondsPerSlot)
 
   # Node is almost synced, but still behind peer's head.
-  chronos.seconds(1 * secondsPerSlot)
+  chronos.seconds(secondsPerSlot div 2)
 
 func getMissingSidecarsRoots(entry: SyncDagEntryRef): seq[BlockId] =
   var res: seq[BlockId]
@@ -2983,6 +2983,7 @@ proc syncStatusMessage*(
 
 proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
   let
+    localHead = overseer.consensusManager.dag.head.bid
     head = overseer.lastSeenHead.valueOr:
       return "{\"roots\":{}}"
     entry = overseer.sdag.roots.getOrDefault(head.root)
@@ -3000,18 +3001,21 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
   func getMissingMap(root: Eth2Digest): string =
     $(overseer.columnQuarantine[].getMissingColumnsMap(root))
 
-  func getFlags(flags: set[DagEntryFlag]): string =
+  func getFlags(entry: SyncDagEntryRef): string =
     var res: seq[string]
-    if DagEntryFlag.Local in flags:
+    if DagEntryFlag.Local in entry.flags:
       res.add("\"local\"")
-    if DagEntryFlag.Unviable in flags:
+    if DagEntryFlag.Unviable in entry.flags:
       res.add("\"unviable\"")
-    if DagEntryFlag.Finalized in flags:
+    if DagEntryFlag.Finalized in entry.flags:
       res.add("\"finalized\"")
-    if DagEntryFlag.Pending in flags:
+    if DagEntryFlag.Pending in entry.flags:
       res.add("\"pending\"")
-    if DagEntryFlag.MissingSidecars in flags:
+    if DagEntryFlag.MissingSidecars in entry.flags:
       res.add("\"missing_sidecars\"")
+    if (entry.blockId.slot == localHead.slot) and
+      (entry.blockId.root == localHead.root):
+      res.add("\"current_head\"")
     "[" & res.join(",") & "]"
 
   func getBid(entry: SyncDagEntryRef): string =
@@ -3025,10 +3029,10 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
 
   func getItem(entry: SyncDagEntryRef): string =
     "\"" & getBid(entry) & "\":{" &
-      "\"flags\":" & getFlags(entry.flags) & "," &
+      "\"flags\":" & getFlags(entry) & "," &
       "\"missing_map\":" & getMissingMap(entry.blockId.root) & "," &
       "\"locations\":" & getLocation(entry.blockId.root) & "," &
-      "\"parent_root\": \"" & getParent(entry) & "\"" &
+      "\"parent_root\":\"" & getParent(entry) & "\"" &
     "}"
 
   var items: seq[string]
@@ -3040,6 +3044,9 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
   for centry in entry.parents():
     if isNil(centry):
       break
+    if centry.blockId.slot < localHead.slot:
+      # No need to move further than the current head.
+      break
     items.add(getItem(centry))
 
-  "{\"roots\": {" & items.join(",") & "}"
+  "{\"roots\":{" & items.join(",") & "}}"
