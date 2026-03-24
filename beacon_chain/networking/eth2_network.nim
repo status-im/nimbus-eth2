@@ -48,6 +48,18 @@ type
   ErrorMsg = List[byte, 256]
   SendResult* = Result[void, cstring]
 
+  PeerCgcStatus* {.pure.} = enum
+    Found,
+    Unavailable,
+    OutOfRange
+
+  PeerCgcResult* = object
+    case status*: PeerCgcStatus
+    of PeerCgcStatus.Found:
+      value*: uint64
+    of PeerCgcStatus.Unavailable, PeerCgcStatus.OutOfRange:
+      discard
+
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
   # TODO: This is here only to eradicate a compiler
@@ -2503,7 +2515,7 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc lookupCgcFromPeer*(peer: Peer): Result[uint64, cstring] =
+proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
   # Fetches the custody column count from a remote peer.
   # If the peer advertises their custody column count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
@@ -2514,7 +2526,7 @@ proc lookupCgcFromPeer*(peer: Peer): Result[uint64, cstring] =
     let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
                 metadata.get.custody_group_count
               else:
-                return err("Peer metadata custody_group_count exceeds NUMBER_OF_COLUMNS")
+                return PeerCgcResult(status: PeerCgcStatus.OutOfRange)
 
     # If a peer's metadata hasn't been updated since a Fulu transition, the
     # metadata is present but has no initialized cgc.
@@ -2525,7 +2537,7 @@ proc lookupCgcFromPeer*(peer: Peer): Result[uint64, cstring] =
     # data column discovery. This new field MUST be added once
     # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
     if cgc >= CUSTODY_REQUIREMENT:
-      return ok(cgc)
+      return PeerCgcResult(status: PeerCgcStatus.Found, value: cgc)
 
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
@@ -2538,17 +2550,17 @@ proc lookupCgcFromPeer*(peer: Peer): Result[uint64, cstring] =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          return err("ENR custody_group_count exceeds NUMBER_OF_COLUMNS")
+          return PeerCgcResult(status: PeerCgcStatus.OutOfRange)
 
         if peer.metadata.isOk:
           peer.metadata.get.custody_group_count = cgc
 
-        return ok(cgc.uint64)
+        return PeerCgcResult(status: PeerCgcStatus.Found, value: cgc.uint64)
       except SszError, SerializationError:
-        return err("Failed to decode ENR cgc field")
+        return PeerCgcResult(status: PeerCgcStatus.Unavailable)
 
   # Return default value if no valid custody subnet count is found.
-  ok(CUSTODY_REQUIREMENT)
+  PeerCgcResult(status: PeerCgcStatus.Found, value: CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
