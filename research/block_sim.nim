@@ -256,7 +256,7 @@ cli do(
 
       withState(updatedState):
         when consensusFork >= ConsensusFork.Gloas:
-          for validator_index in get_ptc(forkyState.data, data.slot, cache):
+          for validator_index in get_ptc(forkyState.data, slot, cache):
             if rand(r, 1.0) <= payloadAttestationRatio:
               let
                 privKey = MockPrivKeys[validator_index]
