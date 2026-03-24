@@ -666,10 +666,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.syncOverseer.bqueue.debugJsonDump() & "," &
       "\"backward_sidecars_queue\":" &
         node.syncOverseer.bsqueue.debugJsonDump() &
-    "}}"
+    "}}\n"
     RestApiResponse.response(res, Http200, "application/json")
 
   router.api2(MethodGet, "/nimbus/v1/debug/sync/roots") do (
     ) -> RestApiResponse:
-    let res = "{\"data\":" & node.syncOverseer.debugRootSyncJsonDump() & "}"
+    let res = "{\"data\":" & node.syncOverseer.debugRootSyncJsonDump() & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
