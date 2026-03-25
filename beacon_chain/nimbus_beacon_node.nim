@@ -897,11 +897,6 @@ proc initFullNode(
                                                 node.dataColumnQuarantine)
   node.router = router
 
-  # DAG doesn't have access to quarantine. So checking for missing head
-  # envelope in beacon node start up process.
-  if dag.cfg.consensusForkAtEpoch(dag.head.slot().epoch()) >= ConsensusFork.Gloas:
-    envelopeQuarantine[].checkIfMissingHeadEnvelope(dag.db, dag.head)
-
   await node.addValidators()
 
   block:

@@ -1208,16 +1208,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     var info: ForkedEpochInfo
 
     while headBlocks.len > 0:
-      let blck = headBlocks.pop()
       dag.applyBlock(
-        dag.headState, blck.bid, cache,
+        dag.headState, headBlocks.pop().bid, cache,
         info, dag.updateFlags).expect("head blocks should apply")
-
-      dag.applyExecutionPayloadEnvelope(dag.headState, blck.bid, cache).isOkOr:
-        # Since Gloas, envelopes can only be missing at the head block.
-        if blck != headRef:
-          error "Envelope is missing for non-head block. Database may be corrupted"
-          quit 1
 
     dag.head = headRef
     dag.heads = @[headRef]
