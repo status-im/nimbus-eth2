@@ -312,6 +312,22 @@ proc process_attester_slashing*(
 from ".."/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_pending_validator
+func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
+    HashSet[ValidatorPubkey] =
+  ## Check if a pending deposit with a valid signature is in the queue for the given pubkey.
+  var res: HashSet[ValidatorPubKey]
+  for pending_deposit in state.pending_deposits:
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: pending_deposit.pubkey,
+          withdrawal_credentials: pending_deposit.withdrawal_credentials,
+          amount: pending_deposit.amount,
+          signature: pending_deposit.signature)):
+      res.incl(pending_deposit.pubkey)
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-apply_deposit
 proc apply_deposit(
@@ -414,6 +430,7 @@ func process_deposit_request*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_validators: BucketSortedValidators,
     bucket_sorted_builders: var BucketSortedValidators,
+    pending_validators: var HashSet[ValidatorPubKey],
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
   # [New in Gloas:EIP7732]
@@ -428,7 +445,8 @@ func process_deposit_request*(
       deposit_request.pubkey).isOk()
     is_builder_prefix =
       is_builder_withdrawal_credential(deposit_request.withdrawal_credentials)
-  if is_builder or (is_builder_prefix and not is_validator):
+  if is_builder or (is_builder_prefix and not is_validator and 
+      deposit_request.pubkey notin pending_validators):
     # Apply builder deposits immediately
     apply_deposit_for_builder(
       cfg, state, bucket_sorted_builders, deposit_request.pubkey,
@@ -443,7 +461,15 @@ func process_deposit_request*(
       amount: deposit_request.amount,
       signature: deposit_request.signature,
       slot: state.slot)):
-    ok()
+      if verify_deposit_signature(
+          cfg.GENESIS_FORK_VERSION,
+          DepositData(
+            pubkey: deposit_request.pubkey,
+            withdrawal_credentials: deposit_request.withdrawal_credentials,
+            amount: deposit_request.amount,
+            signature: deposit_request.signature)):
+        pending_validators.incl(deposit_request.pubkey)
+      ok()
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
@@ -1235,8 +1261,9 @@ proc process_execution_payload*(
         sortValidatorBuckets(state.data.builders.asSeq)
       else:
         nil
+  var pending_validators = get_pending_validators(cfg, state.data)
   for op in envelope.execution_requests.deposits:
-    ? process_deposit_request(cfg, state.data, bsv[], bsb[], op, {})
+    ? process_deposit_request(cfg, state.data, bsv[], bsb[], pending_validators, op, {})
   for op in envelope.execution_requests.withdrawals:
     process_withdrawal_request(cfg, state.data, bsv[], op, cache)
   for op in envelope.execution_requests.consolidations:

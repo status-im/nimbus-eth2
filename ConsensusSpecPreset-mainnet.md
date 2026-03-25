@@ -2357,17 +2357,20 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_eth1_crede OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_pending_de OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_undefined_ OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -3106,17 +3109,20 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_eth1_credenti OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_pending_depos OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_undefined_cre OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -3888,26 +3894,44 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_fu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_no OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__nonstandard OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_firs OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_slot OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_eth1_credent OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_pending_depo OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_undefined_cr OK
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -4056,6 +4080,11 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__bad_ OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
@@ -4069,6 +4098,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
+  [Skip]    EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__success       Skip
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_balance_multi OK
@@ -5294,6 +5324,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Finality - finality_rule_2 [Preset: mainnet]                        OK
 + [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: mainnet]                        OK
 + [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: mainnet]                        OK
+```
+## EF - gloas - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - gloas - Random - randomized_0 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_1 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_10 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_11 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_12 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_13 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_14 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_15 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_2 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_3 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_4 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_5 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_6 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_7 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_8 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_9 [Preset: mainnet]                             OK
 ```
 ## EF - gloas - Sanity - Blocks  [Preset: mainnet]
 ```diff
