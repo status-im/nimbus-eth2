@@ -420,22 +420,17 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  let
-    parentRef = dag.getBlockRef(bid.parent_block_root)
-    parentBlock =
-      if parentRef.isSome():
-        dag.getForkedBlock(parentRef.get().bid)
-      else:
-        Opt.none(ForkedTrustedSignedBeaconBlock)
-  if parentBlock.isSome():
-    withBlck(parentBlock.get()):
-      if forkyBlck.message.is_execution_block:
-        let parentHash = dag.loadExecutionBlockHash(parentRef.get()).valueOr:
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
-        if not (bid.parent_block_hash == parentHash):
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
+  template isParentExecutionValid(parent: BlockRef): bool =
+    not isNil(parent) and
+      isParentBlockFull(signed_beacon_block, parent) and
+      dag.db.containsExecutionPayloadEnvelope(parent.root())
+
+  let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+  if not (
+      isParentExecutionValid(parent) or isParentExecutionValid(parent.parent)
+  ):
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
