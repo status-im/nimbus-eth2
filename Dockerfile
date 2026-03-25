@@ -12,7 +12,7 @@ FROM debian:testing-slim AS build
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get clean && apt update \
- && apt -y install build-essential git-lfs
+ && apt -y install build-essential git-lfs ca-certificates
 
 RUN ldd --version ldd
 
