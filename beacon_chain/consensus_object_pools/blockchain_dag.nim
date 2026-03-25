@@ -1039,7 +1039,7 @@ proc advanceSlots*(
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
 
-func loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
@@ -1062,7 +1062,7 @@ func loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
     else:
       (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
 
-func loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
     let (blockHash, parentHash) = dag.loadExecutionAndParentBlockHash(blck.bid)
@@ -1081,14 +1081,17 @@ func loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
 
   (blck.executionBlockHash, blck.executionParentHash)
 
-proc isParentBlockFull(blck: BlockRef): bool =
+func isParentBlockFull(blck: BlockRef): bool =
   ## Since Gloas, we want to skip applying envelope if the envelope of its
   ## parent is orphaned. This is particularly useful for updateState() as
   ## orphaned envelopes, even if they are valid, should not be applied to state
   ## in order to transition to the correct position.
   ##
   ## There is a helper but it uses state which is not helpful for updateState().
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-is_parent_block_full
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_parent_block_full
+  ##
+  ## It is more likely a port to the fork choice helper
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
   ##
   ## It does not need DAG because it is only useful since Gloas and in Gloas,
   ## blck should have the execution hashes all the time for updateState() and
@@ -1101,7 +1104,7 @@ proc isParentBlockFull(blck: BlockRef): bool =
   else:
     blck.executionParentHash.get() == blck.parent.executionBlockHash.get()
 
-proc isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
+func isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
   ## A helper to check the parent payload status of a not validated Gloas block
   ## when receiving block from gossip or api.
 
