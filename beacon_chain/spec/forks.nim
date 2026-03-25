@@ -1583,8 +1583,9 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
     var res = FAR_FUTURE_EPOCH
     for fork in ConsensusFork.Fulu .. high(ConsensusFork):
       let forkEpoch = cfg.consensusForkEpoch(fork)
-      if forkEpoch > epoch and forkEpoch < res:
+      if forkEpoch > epoch:
         res = forkEpoch
+        break
     for entry in cfg.BLOB_SCHEDULE:
       if entry.EPOCH > epoch and entry.EPOCH < res:
         res = entry.EPOCH

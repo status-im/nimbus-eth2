@@ -21,7 +21,7 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base, ./signatures
 
 from std/algorithm import binarySearch
 from std/math import `^`
@@ -284,9 +284,6 @@ template `<`*(lhs, rhs: HttpHostUri): bool =
 
 template `$`*(m: Mnemonic): string =
   string(m)
-
-template `==`*(lhs, rhs: WalletName): bool =
-  string(lhs) == string(rhs)
 
 template `$`*(x: WalletName): string =
   string(x)

@@ -591,11 +591,6 @@ func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
 
-func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
-  ## Return the block root at the start of a recent ``epoch``.
-  withState(state):
-    get_block_root(forkyState.data, epoch)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =

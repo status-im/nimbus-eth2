@@ -111,11 +111,6 @@ func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
-func get_active_validator_indices_len*(
-    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  withState(state):
-    get_active_validator_indices_len(forkyState.data, epoch)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
@@ -145,8 +140,6 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
 
 func uint_to_bytes*(x: uint64): array[8, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
@@ -177,12 +170,6 @@ func get_domain*(
       fork.current_version
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
-func get_domain*(
-    state: ForkyBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
-  ## Return the signature domain (fork version concatenated with domain type)
-  ## of a message.
-  get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root for the corresponding signing data.
@@ -194,10 +181,9 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(
-    state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
-    mix: Eth2Digest): Eth2Digest =
+    epoch: Epoch, domain_type: DomainType, mix: Eth2Digest): Eth2Digest =
   ## Return the seed at ``epoch``.
-  var seed_input : array[4+8+32, byte]
+  var seed_input {.noinit.}: array[4+8+32, byte]
   seed_input[0..3] = domain_type.data
   seed_input[4..11] = uint_to_bytes(epoch.uint64)
   seed_input[12..43] = mix.data
@@ -209,7 +195,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
   let mix = get_randao_mix(state, # Avoid underflow
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
-  state.get_seed(epoch, domain_type, mix)
+  get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
