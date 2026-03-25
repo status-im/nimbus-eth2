@@ -1887,7 +1887,7 @@ proc updateState*(
     # Since Gloas, state would be updated at most twice (envelope may be
     # missing) in every slot on applying block and envelope. So skipLastEnvelope
     # flag is used to strictly control the final state at the target slot that
-    # is with or without the envelop.
+    # is with or without the envelope.
     if state.kind == dag.cfg.consensusForkAtEpoch(targetSlot.epoch()):
       withState(state):
         when consensusFork >= ConsensusFork.Gloas:
