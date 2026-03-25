@@ -780,7 +780,7 @@ type
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody,
@@ -870,6 +870,11 @@ proc process_operations(
     for op in body.execution_requests.consolidations:
       # [New in Electra:EIP7251]
       process_consolidation_request(cfg, state, bsv[], op, cache)
+
+  when consensusFork >= ConsensusFork.Gloas:
+    for op in body.payload_attestations:
+      # [New in Gloas:EIP7732]
+      ? process_payload_attestation(state, op, cache)
 
   ok(operations_rewards)
 
