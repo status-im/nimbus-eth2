@@ -408,7 +408,7 @@ template validateBeaconBlockGloas(
       fulu.SignedBeaconBlock): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     signed_beacon_block: gloas.SignedBeaconBlock): untyped =
